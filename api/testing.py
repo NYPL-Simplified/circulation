@@ -38,7 +38,7 @@ class VendorIDTest(DatabaseTest):
     """
 
     TEST_VENDOR_ID = u"vendor id"
-    
+
     def initialize_adobe(self, vendor_id_library, short_token_libraries=[]):
         """Initialize an Adobe Vendor ID integration and a
         Short Client Token integration with a number of libraries.
@@ -76,7 +76,7 @@ class VendorIDTest(DatabaseTest):
         # we build the 'other_libraries' setting we'll apply to the
         # Adobe Vendor ID integration.
         other_libraries = dict()
-            
+
         # Every library in the system can generate Short Client
         # Tokens.
         for library in short_token_libraries:
@@ -104,7 +104,7 @@ class VendorIDTest(DatabaseTest):
         self.adobe_vendor_id.set_setting(
             AuthdataUtility.OTHER_LIBRARIES_KEY, other_libraries
         )
-        
+
 
 class MockRemoteAPI(BaseCirculationAPI):
     def __init__(self, set_delivery_mechanism_at, can_revoke_hold_when_reserved):
@@ -115,7 +115,7 @@ class MockRemoteAPI(BaseCirculationAPI):
         self.availability_updated_for = []
 
     def checkout(
-            self, patron_obj, patron_password, licensepool, 
+            self, patron_obj, patron_password, licensepool,
             delivery_mechanism
     ):
         # Should be a LoanInfo.
@@ -124,8 +124,8 @@ class MockRemoteAPI(BaseCirculationAPI):
     def update_availability(self, licensepool):
         """Simply record the fact that update_availability was called."""
         self.availability_updated_for.append(licensepool)
-                
-    def place_hold(self, patron, pin, licensepool, 
+
+    def place_hold(self, patron, pin, licensepool,
                    hold_notification_email=None):
         # Should be a HoldInfo.
         return self._return_or_raise('hold')

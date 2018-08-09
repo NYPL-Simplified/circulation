@@ -15,7 +15,7 @@ from core.model import (
 from core.classifier import Classifier
 
 class TestONIXExtractor(object):
-    
+
     def sample_data(self, filename):
         return sample_data(filename, "onix")
 

@@ -77,7 +77,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
 
         work = self._work(
             title=u"pi\u00F1ata", authors=u"chlo\u00E9", fiction=True,
-            audience="audience", language="lang", 
+            audience="audience", language="lang",
             with_license_pool=True, genre="Folklore",
             with_open_access_download=True
         )
@@ -124,7 +124,7 @@ class TestGoogleAnalyticsProvider(DatabaseTest):
         identifier = self._identifier()
         source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         pool, is_new = get_one_or_create(
-            self._db, LicensePool, 
+            self._db, LicensePool,
             identifier=identifier, data_source=source,
             collection=self._default_collection
         )

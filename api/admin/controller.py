@@ -1756,7 +1756,7 @@ class DashboardController(AdminCirculationManagerController):
                 available_licenses=available_license_count,
             )
 
-        
+
         for library in self._db.query(Library):
             # Only include libraries this admin has librarian access to.
             if not flask.request.admin or not flask.request.admin.is_librarian(library):

@@ -78,7 +78,7 @@ class AnnotationWriter(object):
         container["total"] = len(annotations)
         container["first"] = cls.annotation_page_for(patron, identifier=identifier, with_context=False)
         return container, latest_timestamp
-        
+
 
     @classmethod
     def annotation_page_for(cls, patron, identifier=None, with_context=True):
@@ -131,7 +131,7 @@ class AnnotationParser(object):
     def parse(cls, _db, data, patron):
         if patron.synchronize_annotations != True:
             return PATRON_NOT_OPTED_IN_TO_ANNOTATION_SYNC
-        
+
         try:
             data = json.loads(data)
             data = jsonld.expand(data)
@@ -154,7 +154,7 @@ class AnnotationParser(object):
         source = source[0].get('@id')
 
         identifier, ignore = Identifier.parse_urn(_db, source)
-        
+
         motivation = data.get("http://www.w3.org/ns/oa#motivatedBy")
         if not motivation or not len(motivation) == 1:
             return INVALID_ANNOTATION_MOTIVATION

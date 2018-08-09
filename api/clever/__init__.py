@@ -84,7 +84,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
     # Begin implementations of OAuthAuthenticationProvider abstract
     # methods.
-    
+
     def oauth_callback(self, _db, code):
         """Verify the incoming parameters with the OAuth provider. Exchange
         the authorization code for an access token. Create or look up
@@ -111,13 +111,13 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         token = self.remote_exchange_code_for_bearer_token(_db, code)
         if isinstance(token, ProblemDetail):
             return token
-        
+
         # Now that we have a bearer token, use it to look up patron
         # information.
         patrondata = self.remote_patron_lookup(token)
         if isinstance(patrondata, ProblemDetail):
             return patrondata
-        
+
         # Convert the PatronData into a Patron object.
         patron, is_new = patrondata.get_or_create_patron(_db, self.library_id)
 
@@ -167,7 +167,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
                 library.short_name
             )
         )
-        
+
     def remote_patron_lookup(self, token):
         """Use a bearer token to look up detailed patron information.
 
@@ -194,7 +194,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
 
         user_link = [l for l in links if l['rel'] == 'canonical'][0]['uri']
         user = self._get(self.CLEVER_API_BASE_URL + user_link, bearer_headers)
-        
+
         user_data = user['data']
         school_id = user_data['school']
         school = self._get(
@@ -230,7 +230,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             complete=True
         )
         return patrondata
-   
+
     def _get_token(self, payload, headers):
         response = HTTP.post_with_timeout(
             self.CLEVER_TOKEN_URL, json.dumps(payload), headers=headers
