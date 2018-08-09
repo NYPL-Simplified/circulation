@@ -47,7 +47,7 @@ class HasSelfTests(CoreHasSelfTests):
                 "Collection is not associated with any libraries.",
                 "Add the collection to a library that has a patron authentication service."
             )
-        
+
         for library in collection.libraries:
             name = library.name
             task = "Acquiring test patron credentials for library %s" % library.name

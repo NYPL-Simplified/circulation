@@ -39,7 +39,7 @@ try:
     secret_setting.value = secret_key
 
     libraries = _db.query(Library).all()
-    
+
     # Copy default email address into each library.
     key = 'default_notification_email_address'
     value = Configuration.get(key)
@@ -71,7 +71,7 @@ try:
             if value:
                 for library in libraries:
                     library.setting(variable).value = json.dumps(value)
-    
+
     # Copy facet configuration
     facet_policy = Configuration.policy("facets", default={})
     enabled = facet_policy.get("enabled", {})
@@ -81,7 +81,7 @@ try:
             library.enabled_facets_setting(k).value = json.dumps(v)
         for k, v in default.items():
             library.default_facet_setting(k).value = v
-            
+
     # Copy external type regular expression into each authentication
     # mechanism for each library.
     key = 'external_type_regular_expression'
@@ -93,7 +93,7 @@ try:
                     continue
                 ConfigurationSetting.for_library_and_externalintegration(
                     _db, key, library, integration).value = value
-                
+
 finally:
     _db.commit()
     _db.close()

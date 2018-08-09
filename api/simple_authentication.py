@@ -52,7 +52,7 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         if additional_identifiers:
             for identifier in additional_identifiers:
                 self.test_identifiers += [identifier, identifier + "_username"]
-        
+
     def remote_authenticate(self, username, password):
         "Fake 'remote' authentication."
         if not username or (self.collects_password and not password):
@@ -81,7 +81,7 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
     # methods.
 
     def valid_patron(self, username, password):
-        """Is this patron associated with the given password in 
+        """Is this patron associated with the given password in
         the given dictionary?
         """
         if self.collects_password:

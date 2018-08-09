@@ -80,10 +80,10 @@ class CannotLoan(CirculationException):
     status_code = 500
 
 class OutstandingFines(CannotLoan):
-    """The patron has outstanding fines above the limit in the library's 
+    """The patron has outstanding fines above the limit in the library's
     policy."""
     status_code = 403
-    
+
 class AuthorizationExpired(CannotLoan):
     """The patron's authorization has expired."""
     status_code = 403
@@ -91,7 +91,7 @@ class AuthorizationExpired(CannotLoan):
     def as_problem_detail_document(self, debug=False):
         """Return a suitable problem detail document."""
         return EXPIRED_CREDENTIALS
-    
+
 class AuthorizationBlocked(CannotLoan):
     """The patron's authorization is blocked for some reason other than
     fines or an expired card.
@@ -104,7 +104,7 @@ class AuthorizationBlocked(CannotLoan):
         """Return a suitable problem detail document."""
         return BLOCKED_CREDENTIALS
 
-    
+
 class PatronLoanLimitReached(CannotLoan):
     status_code = 403
 

@@ -70,7 +70,7 @@ class TestOPDS(DatabaseTest):
     def test_feed_includes_edit_link(self):
         work = self._work(with_open_access_download=True)
         lp = work.license_pools[0]
- 
+
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
         [edit_link] = [x for x in entry['links'] if x['rel'] == "edit"]
@@ -79,7 +79,7 @@ class TestOPDS(DatabaseTest):
     def test_feed_includes_change_cover_link(self):
         work = self._work(with_open_access_download=True)
         lp = work.license_pools[0]
- 
+
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']
 
@@ -251,7 +251,7 @@ class TestOPDS(DatabaseTest):
         [previous] = self.links(parsed, 'previous')
         eq_(annotator.suppressed_url(pagination.next_page), previous['href'])
         eq_(0, len(parsed['entries']))
-        
+
 
 class MockAnnotator(AdminAnnotator):
 

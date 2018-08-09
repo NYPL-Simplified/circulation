@@ -27,7 +27,7 @@ class TestPatronUtility(DatabaseTest):
         yesterday = now - datetime.timedelta(days=1)
 
         patron = self._patron()
-        
+
         # Patron has never been synced.
         patron.last_external_sync = None
         eq_(True, PatronUtility.needs_external_sync(patron))
@@ -93,7 +93,7 @@ class TestPatronUtility(DatabaseTest):
             OutstandingFines,
             PatronUtility.assert_borrowing_privileges, patron
         )
-        
+
         # If your card is blocked for any reason you lose borrowing
         # privileges.
         patron.block_reason = "some reason"

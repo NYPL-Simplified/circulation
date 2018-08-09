@@ -32,7 +32,7 @@ class MARCExtractor(object):
         re.compile(",\s+graf,"),
         re.compile(",\s+author."),
     ]
-    
+
     @classmethod
     def parse(cls, file, data_source_name):
         reader = MARCReader(file)
@@ -46,7 +46,7 @@ class MARCExtractor(object):
             publisher = record.publisher()
             if publisher.endswith(','):
                 publisher = publisher[:-1]
-            
+
             links = []
             summary = record.notes()[0]['a']
 
@@ -90,9 +90,9 @@ class MARCExtractor(object):
                 )
                 for author in author_names
             ]
-                    
-                    
-                
+
+
+
             metadata_records.append(Metadata(
                 data_source=data_source_name,
                 title=title,

@@ -182,4 +182,4 @@ class AdminFeed(AcquisitionFeed):
 
         annotator.annotate_feed(feed)
         return unicode(feed)
-            
+

@@ -2,8 +2,8 @@
 import json
 
 from nose.tools import (
-    eq_, 
-    ok_, 
+    eq_,
+    ok_,
     assert_raises,
     set_trace,
 )
@@ -216,7 +216,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
 
         # An absolute URL is not modified.
         for protocol in ('http', 'https'):
-            already_absolute = "%s://example.com/" % protocol 
+            already_absolute = "%s://example.com/" % protocol
             eq_(already_absolute, self.api._make_absolute_url(already_absolute))
 
 

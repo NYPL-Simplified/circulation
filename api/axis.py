@@ -14,7 +14,7 @@ from core.axis import (
 
 from core.metadata_layer import (
     CirculationData,
-    ReplacementPolicy, 
+    ReplacementPolicy,
 )
 
 from core.monitor import (
@@ -134,10 +134,10 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI, HasSelfTests
 
     def checkout(self, patron, pin, licensepool, internal_format):
 
-        url = self.base_url + "checkout/v2" 
+        url = self.base_url + "checkout/v2"
         title_id = licensepool.identifier.identifier
         patron_id = patron.authorization_identifier
-        args = dict(titleId=title_id, patronId=patron_id, 
+        args = dict(titleId=title_id, patronId=patron_id,
                     format=internal_format)
         response = self.request(url, data=args, method="POST")
         try:
@@ -154,7 +154,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI, HasSelfTests
         identifier = licensepool.identifier
         # This should include only one 'activity'.
         activities = self.patron_activity(patron, pin, licensepool.identifier)
-        
+
         for loan in activities:
             if not isinstance(loan, LoanInfo):
                 continue
@@ -163,7 +163,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI, HasSelfTests
                 continue
             # We've found the remote loan corresponding to this
             # license pool.
-            fulfillment = loan.fulfillment_info            
+            fulfillment = loan.fulfillment_info
             if not fulfillment or not isinstance(fulfillment, FulfillmentInfo):
                 raise CannotFulfill()
             return fulfillment
@@ -180,7 +180,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI, HasSelfTests
                 patron, pin
             )
 
-        url = self.base_url + "addtoHold/v2" 
+        url = self.base_url + "addtoHold/v2"
         identifier = licensepool.identifier
         title_id = identifier.identifier
         patron_id = patron.authorization_identifier
@@ -190,7 +190,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI, HasSelfTests
         hold_info = HoldResponseParser(licensepool.collection).process_all(
             response.content)
         if not hold_info.identifier:
-            # The Axis 360 API doesn't return the identifier of the 
+            # The Axis 360 API doesn't return the identifier of the
             # item that was placed on hold, so we have to fill it in
             # based on our own knowledge.
             hold_info.identifier_type = identifier.type
@@ -219,7 +219,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI, HasSelfTests
         else:
             title_ids = None
         availability = self.availability(
-            patron_id=patron.authorization_identifier, 
+            patron_id=patron.authorization_identifier,
             title_ids=title_ids)
         return list(AvailabilityResponseParser(self.collection).process_all(
             availability.content))
@@ -314,7 +314,7 @@ class Axis360CirculationMonitor(CollectionMonitor):
     SERVICE_NAME = "Axis 360 Circulation Monitor"
     INTERVAL_SECONDS = 60
     DEFAULT_BATCH_SIZE = 50
-    
+
     PROTOCOL = ExternalIntegration.AXIS_360
 
     DEFAULT_START_TIME = datetime(1970, 1, 1)
@@ -365,7 +365,7 @@ class Axis360CirculationMonitor(CollectionMonitor):
             bibliographic.apply(edition, self.collection, replace=policy)
 
         if new_license_pool or new_edition:
-            # At this point we have done work equivalent to that done by 
+            # At this point we have done work equivalent to that done by
             # the Axis360BibliographicCoverageProvider. Register that the
             # work has been done so we don't have to do it again.
             identifier = edition.primary_identifier
@@ -373,7 +373,7 @@ class Axis360CirculationMonitor(CollectionMonitor):
             self.bibliographic_coverage_provider.add_coverage_record_for(
                 identifier
             )
-            
+
         return edition, license_pool
 
 
@@ -388,7 +388,7 @@ class AxisCollectionReaper(IdentifierSweepMonitor):
     SERVICE_NAME = "Axis Collection Reaper"
     INTERVAL_SECONDS = 3600*12
     PROTOCOL = ExternalIntegration.AXIS_360
-    
+
     def __init__(self, _db, collection, api_class=Axis360API):
         super(AxisCollectionReaper, self).__init__(_db, collection)
         if isinstance(api_class, Axis360API):
@@ -439,7 +439,7 @@ class ResponseParser(Axis360Parser):
         3112 : CannotFulfill,
         3113 : CannotLoan,
         (3113, "Title ID is not available for checkout") : NoAvailableCopies,
-        3114 : PatronLoanLimitReached, 
+        3114 : PatronLoanLimitReached,
         3115 : LibraryInvalidInputException, # Missing DRM format
         3117 : LibraryInvalidInputException, # Invalid DRM format
         3118 : LibraryInvalidInputException, # Invalid Patron credentials
@@ -460,7 +460,7 @@ class ResponseParser(Axis360Parser):
 
     def __init__(self, collection):
         self.collection = collection
-            
+
     def raise_exception_on_error(self, e, ns, custom_error_classes={}):
         """Raise an error if the given lxml node represents an Axis 360 error
         condition.
@@ -589,7 +589,7 @@ class HoldReleaseResponseParser(ResponseParser):
         *Info object, so there's no need to do any post-processing.
         """
         return i
-        
+
     def process_one(self, e, namespaces):
         # There's no data to gather here. Either there was an error
         # or we were successful.
@@ -598,7 +598,7 @@ class HoldReleaseResponseParser(ResponseParser):
         return True
 
 class AvailabilityResponseParser(ResponseParser):
-   
+
     def process_all(self, string):
         for info in super(AvailabilityResponseParser, self).process_all(
                 string, "//axis:title", self.NS):
@@ -652,7 +652,7 @@ class AvailabilityResponseParser(ResponseParser):
                 data_source_name=DataSource.AXIS_360,
                 identifier_type=self.id_type,
                 identifier=axis_identifier,
-                start_date=None, 
+                start_date=None,
                 end_date=end_date,
                 hold_position=0
             )

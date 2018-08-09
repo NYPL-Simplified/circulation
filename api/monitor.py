@@ -274,7 +274,7 @@ class LoanlikeReaperMonitor(ReaperMonitor):
         source_of_truth_subquery = self._db.query(self.MODEL_CLASS.id).join(
             self.MODEL_CLASS.license_pool).join(
                 LicensePool.collection).join(
-                    ExternalIntegration, 
+                    ExternalIntegration,
                     Collection.external_integration_id==ExternalIntegration.id
                 ).filter(
                     source_of_truth
