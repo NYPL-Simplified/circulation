@@ -145,7 +145,6 @@ from novelist import (
 )
 from base_controller import BaseCirculationManagerController
 from testing import MockCirculationAPI, MockSharedCollectionAPI
-from services import ServiceStatus
 from core.analytics import Analytics
 from accept_types import parse_header
 
@@ -316,7 +315,6 @@ class CirculationManager(object):
         self.analytics_controller = AnalyticsController(self)
         self.profiles = ProfileController(self)
         self.heartbeat = HeartbeatController()
-        self.service_status = ServiceStatusController(self)
         self.odl_notification_controller = ODLNotificationController(self)
         self.shared_collection_controller = SharedCollectionController(self)
 
@@ -1592,33 +1590,6 @@ class AnalyticsController(CirculationManagerController):
         else:
             return INVALID_ANALYTICS_EVENT_TYPE
 
-
-class ServiceStatusController(CirculationManagerController):
-
-    template = """<!DOCTYPE HTML>
-<html lang="en" class="">
-<head>
-<meta charset="utf8">
-</head>
-<body>
-<ul>
-%(statuses)s
-</ul>
-</body>
-</html>
-"""
-
-    def __call__(self):
-        library = flask.request.library
-        circulation = self.manager.circulation_apis[library.id]
-        service_status = ServiceStatus(circulation)
-        timings = service_status.loans_status(response=True)
-        statuses = []
-        for k, v in sorted(timings.items()):
-            statuses.append(" <li><b>%s</b>: %s</li>" % (k, v))
-
-        doc = self.template % dict(statuses="\n".join(statuses))
-        return Response(doc, 200, {"Content-Type": "text/html"})
 
 class ODLNotificationController(CirculationManagerController):
     """Receive notifications from an ODL distributor when the
