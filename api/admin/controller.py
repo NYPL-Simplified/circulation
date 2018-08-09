@@ -2254,6 +2254,10 @@ class SettingsController(AdminCirculationManagerController):
         return protocols
 
     def _get_prior_test_results(self, collection, newCollection):
+        """This helper function returns previous self test results for a given
+        collection if it has a protocol. The `collection` is the collection found
+        in the database and the `newCollection` is the collection being constructed.
+        """
         provider_apis = [OPDSImportMonitor,
                          OPDSForDistributorsAPI,
                          OverdriveAPI,
@@ -2340,7 +2344,7 @@ class SettingsController(AdminCirculationManagerController):
                 else:
                     return Response("Failed to run self tests", 200)
 
-            return Response("No collection to run self tests on", 200)
+            return Response("No protocol found in the collection", 200)
 
     def collections(self):
         provider_apis = [OPDSImporter,
