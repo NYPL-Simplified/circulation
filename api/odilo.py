@@ -368,7 +368,6 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
     }
 
     def __init__(self, _db, collection):
-        # super(OdiloAPI, self).__init__(_db, collection)
         self.odilo_bibliographic_coverage_provider = (
             OdiloBibliographicCoverageProvider(
                 collection, api_class=self
