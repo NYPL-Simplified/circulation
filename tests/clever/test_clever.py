@@ -45,16 +45,16 @@ class MockAPI(CleverAuthenticationAPI):
 
 class TestCleverAuthenticationAPI(DatabaseTest):
 
-    
+
     def setup(self):
         super(TestCleverAuthenticationAPI, self).setup()
-        
+
         self.api = MockAPI(self._default_library, self.mock_integration)
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         del os.environ['AUTOINITIALIZE']
         self.app = app
-        
+
     @property
     def mock_integration(self):
         """Make a fake ExternalIntegration that can be used to configure
@@ -68,7 +68,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         )
         integration.setting(MockAPI.OAUTH_TOKEN_EXPIRATION_DAYS).value = 20
         return integration
-        
+
     def test_authenticated_patron(self):
         """An end-to-end test of authenticated_patron()."""
         eq_(None, self.api.authenticated_patron(self._db, "not a valid token"))
@@ -108,13 +108,13 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         with self.app.test_request_context("/"):
             payload = self.api._remote_exchange_payload(self._db, "a code")
 
-            expect_uri = url_for("oauth_callback", 
+            expect_uri = url_for("oauth_callback",
                                  library_short_name=self._default_library.name,
                                  _external=True)
             eq_('authorization_code', payload['grant_type'])
             eq_(expect_uri, payload['redirect_uri'])
             eq_('a code', payload['code'])
-        
+
     def test_remote_patron_lookup_unsupported_user_type(self):
         self.api.queue_response(dict(type='district_admin', data=dict(id='1234')))
         token = self.api.remote_patron_lookup("token")
@@ -179,7 +179,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         with self.app.test_request_context("/"):
             response = self.api.oauth_callback(self._db, dict(code="teacher code"))
             credential, patron, patrondata = response
-        
+
         # The bearer token was turned into a Credential.
         expect_credential, ignore = self.api.create_token(
             self._db, patron, "bearer token"
@@ -193,7 +193,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         # The PatronData includes information that can't be stored
         # in the Patron record.
         eq_("Abcd", patrondata.personal_name)
-        
+
     def test_oauth_callback_problem_detail_if_bad_token(self):
         self.api.queue_response(dict(something_else="not a token"))
         with self.app.test_request_context("/"):
@@ -208,7 +208,7 @@ class TestCleverAuthenticationAPI(DatabaseTest):
             response = self.api.oauth_callback(self._db, dict(code="teacher code"))
         assert isinstance(response, ProblemDetail)
         eq_(INVALID_CREDENTIALS.uri, response.uri)
-    
+
     def test_external_authenticate_url(self):
         """Verify that external_authenticate_url is generated properly.
         """

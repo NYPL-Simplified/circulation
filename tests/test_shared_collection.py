@@ -11,7 +11,7 @@ from Crypto.Cipher import PKCS1_OAEP
 
 from api.circulation_exceptions import *
 from api.shared_collection import (
-    SharedCollectionAPI, 
+    SharedCollectionAPI,
     BaseSharedCollectionAPI,
 )
 from core.config import CannotLoadConfiguration
@@ -47,7 +47,7 @@ class MockAPI(BaseSharedCollectionAPI):
     def fulfill_for_external_library(self, client, loan, mechanism):
         self.fulfills.append((client, loan, mechanism))
         return self.fulfillment
-        
+
     def release_hold_from_external_library(self, client, hold):
         self.released_holds.append((client, hold))
 
@@ -154,7 +154,7 @@ class TestSharedCollectionAPI(DatabaseTest):
                                     "links": [{"href": "http://library.org", "rel": "start"}]})
         assert_raises(RemoteInitiatedServerError, self.shared_collection.register,
                       self.collection, "http://library.org/auth", do_get=do_get)
-        
+
 
         # Here's an auth document with a valid key.
         key = RSA.generate(2048)

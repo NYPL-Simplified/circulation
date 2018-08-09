@@ -38,12 +38,12 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     # are valid.
     DEFAULT_IDENTIFIER_REGULAR_EXPRESSION = '^[A-Za-z0-9@]+$'
     DEFAULT_PASSWORD_REGULAR_EXPRESSION = '^[0-9]+$'
-    
+
     SETTINGS = [
         { "key": ExternalIntegration.URL, "label": _("URL") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Key") },
     ] + BasicAuthenticationProvider.SETTINGS
-    
+
     log = logging.getLogger("First Book authentication API")
 
     def __init__(self, library_id, integration, analytics=None, root=None):
@@ -59,7 +59,7 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
                 url += '&'
             else:
                 url += '?'
-            root = url + 'key=' + key 
+            root = url + 'key=' + key
         self.root = root
 
     # Begin implementation of BasicAuthenticationProvider abstract
@@ -80,7 +80,7 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
             permanent_id=username,
             authorization_identifier=username,
         )
-   
+
     # End implementation of BasicAuthenticationProvider abstract methods.
 
     def remote_pin_test(self, barcode, pin):
@@ -102,7 +102,7 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
         if self.SUCCESS_MESSAGE in response.content:
             return True
         return False
-    
+
     def request(self, url):
         """Make an HTTP request.
 
@@ -122,7 +122,7 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
     SUCCESS = '"Valid Code Pin Pair"'
     FAILURE = '{"code":404,"message":"Access Code Pin Pair not found"}'
 
-    def __init__(self, library, integration, valid={}, bad_connection=False, 
+    def __init__(self, library, integration, valid={}, bad_connection=False,
                  failure_status_code=None):
         super(MockFirstBookAuthenticationAPI, self).__init__(
             library, integration, root="http://example.com/"
@@ -132,7 +132,7 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
         self.valid = valid
         self.bad_connection = bad_connection
         self.failure_status_code = failure_status_code
-        
+
     def request(self, url):
         if self.bad_connection:
             # Simulate a bad connection.

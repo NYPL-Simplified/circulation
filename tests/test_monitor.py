@@ -41,7 +41,7 @@ from api.odl import (
 
 
 class InstrumentedMWCollectionUpdateMonitor(MWCollectionUpdateMonitor):
-    
+
     def __init__(self, *args, **kwargs):
         super(InstrumentedMWCollectionUpdateMonitor, self).__init__(*args, **kwargs)
         self.imports = []
@@ -116,7 +116,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
     def test_run_once(self):
         # Setup authentication and Metadata Wrangler details.
         lp = self._licensepool(
-            None, data_source_name=DataSource.BIBLIOTHECA, 
+            None, data_source_name=DataSource.BIBLIOTHECA,
             collection=self.collection
         )
         lp.identifier.type = Identifier.BIBLIOTHECA_ID
@@ -182,7 +182,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
         )
         new_timestamp = self.monitor.run_once(None, None)
 
-        # run_once() returned the original timestamp, and the 
+        # run_once() returned the original timestamp, and the
         # Timestamp object was not updated.
         eq_(before, new_timestamp)
         eq_(before, self.monitor.timestamp().timestamp)

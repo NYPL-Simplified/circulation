@@ -2,7 +2,7 @@ import datetime
 from lxml import etree
 from StringIO import StringIO
 from nose.tools import (
-    eq_, 
+    eq_,
     assert_raises,
     assert_raises_regexp,
     set_trace,
@@ -73,7 +73,7 @@ class Axis360Test(DatabaseTest):
     def sample_data(self, filename):
         return sample_data(filename, 'axis')
 
-        
+
 class TestAxis360API(Axis360Test):
 
     def test_external_integration(self):
@@ -369,8 +369,8 @@ class TestCirculationMonitor(Axis360Test):
     BIBLIOGRAPHIC_DATA = Metadata(
         DataSource.AXIS_360,
         publisher=u'Random House Inc',
-        language='eng', 
-        title=u'Faith of My Fathers : A Family Memoir', 
+        language='eng',
+        title=u'Faith of My Fathers : A Family Memoir',
         imprint=u'Random House Inc2',
         published=datetime.datetime(2000, 3, 7, 0, 0),
         primary_identifier=IdentifierData(
@@ -381,10 +381,10 @@ class TestCirculationMonitor(Axis360Test):
             IdentifierData(type=Identifier.ISBN, identifier=u'9780375504587')
         ],
         contributors = [
-            ContributorData(sort_name=u"McCain, John", 
+            ContributorData(sort_name=u"McCain, John",
                             roles=[Contributor.PRIMARY_AUTHOR_ROLE]
                         ),
-            ContributorData(sort_name=u"Salter, Mark", 
+            ContributorData(sort_name=u"Salter, Mark",
                             roles=[Contributor.AUTHOR_ROLE]
                         ),
         ],
@@ -398,7 +398,7 @@ class TestCirculationMonitor(Axis360Test):
 
     AVAILABILITY_DATA = CirculationData(
         data_source=DataSource.AXIS_360,
-        primary_identifier=BIBLIOGRAPHIC_DATA.primary_identifier, 
+        primary_identifier=BIBLIOGRAPHIC_DATA.primary_identifier,
         licenses_owned=9,
         licenses_available=8,
         licenses_reserved=0,
@@ -431,7 +431,7 @@ class TestCirculationMonitor(Axis360Test):
         eq_(Identifier.ISBN, isbn.type)
         eq_(u'9780375504587', isbn.identifier)
 
-        eq_(["McCain, John", "Salter, Mark"], 
+        eq_(["McCain, John", "Salter, Mark"],
             sorted([x.sort_name for x in edition.contributors]),
         )
 
@@ -439,7 +439,7 @@ class TestCirculationMonitor(Axis360Test):
             (x.subject.type, x.subject.identifier)
             for x in edition.primary_identifier.classifications
         )
-        eq_([(Subject.BISAC, u'BIOGRAPHY & AUTOBIOGRAPHY / Political'), 
+        eq_([(Subject.BISAC, u'BIOGRAPHY & AUTOBIOGRAPHY / Political'),
              (Subject.FREEFORM_AUDIENCE, u'Adult')], subs)
 
         eq_(9, license_pool.licenses_owned)
@@ -450,7 +450,7 @@ class TestCirculationMonitor(Axis360Test):
         # Three circulation events were created, backdated to the
         # last_checked date of the license pool.
         events = license_pool.circulation_events
-        eq_([u'distributor_title_add', u'distributor_check_in', u'distributor_license_add'], 
+        eq_([u'distributor_title_add', u'distributor_check_in', u'distributor_license_add'],
             [x.type for x in events])
         for e in events:
             eq_(e.start, license_pool.last_checked)
@@ -516,20 +516,20 @@ class TestResponseParser(object):
     def setup(self):
         # We don't need an actual Collection object to test this
         # class, but we do need to test that whatever object we
-        # _claim_ is a Collection will have its id put into the 
+        # _claim_ is a Collection will have its id put into the
         # right spot of HoldInfo and LoanInfo objects.
         class MockCollection(object):
             pass
         self._default_collection = MockCollection()
         self._default_collection.id = object()
-    
+
 class TestRaiseExceptionOnError(TestResponseParser):
 
     def test_internal_server_error(self):
         data = self.sample_data("internal_server_error.xml")
         parser = HoldReleaseResponseParser(None)
         assert_raises_regexp(
-            RemoteInitiatedServerError, "Internal Server Error", 
+            RemoteInitiatedServerError, "Internal Server Error",
             parser.process_all, data
         )
 
@@ -537,7 +537,7 @@ class TestRaiseExceptionOnError(TestResponseParser):
         data = self.sample_data("invalid_error_code.xml")
         parser = HoldReleaseResponseParser(None)
         assert_raises_regexp(
-            RemoteInitiatedServerError, "Invalid response code from Axis 360: abcd", 
+            RemoteInitiatedServerError, "Invalid response code from Axis 360: abcd",
             parser.process_all, data
         )
 
@@ -545,7 +545,7 @@ class TestRaiseExceptionOnError(TestResponseParser):
         data = self.sample_data("missing_error_code.xml")
         parser = HoldReleaseResponseParser(None)
         assert_raises_regexp(
-            RemoteInitiatedServerError, "No status code!", 
+            RemoteInitiatedServerError, "No status code!",
             parser.process_all, data
         )
 
@@ -560,11 +560,11 @@ class TestCheckoutResponseParser(TestResponseParser):
         eq_(self._default_collection.id, parsed.collection_id)
         eq_(DataSource.AXIS_360, parsed.data_source_name)
         eq_(Identifier.AXIS_360_ID, parsed.identifier_type)
-        eq_(datetime.datetime(2015, 8, 11, 18, 57, 42), 
+        eq_(datetime.datetime(2015, 8, 11, 18, 57, 42),
             parsed.end_date)
 
         assert isinstance(parsed.fulfillment_info, FulfillmentInfo)
-        eq_("http://axis360api.baker-taylor.com/Services/VendorAPI/GetAxisDownload/v2?blahblah", 
+        eq_("http://axis360api.baker-taylor.com/Services/VendorAPI/GetAxisDownload/v2?blahblah",
             parsed.fulfillment_info.content_link)
 
 
@@ -590,7 +590,7 @@ class TestHoldResponseParser(TestResponseParser):
         # The HoldInfo is given the Collection object we passed into
         # the HoldResponseParser.
         eq_(self._default_collection.id, parsed.collection_id)
-        
+
     def test_parse_already_on_hold(self):
         data = self.sample_data("already_on_hold.xml")
         parser = HoldResponseParser(None)

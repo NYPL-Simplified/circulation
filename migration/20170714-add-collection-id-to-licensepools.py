@@ -36,7 +36,7 @@ try:
         log_change(fast_query_count(qu), collection)
         _db.commit()
 
-    # Some LicensePools may be associated with the a duplicate or 
+    # Some LicensePools may be associated with the a duplicate or
     # outdated Bibliotheca DataSource. Find them.
     bibliotheca = DataSource.lookup(_db, DataSource.BIBLIOTHECA)
     old_sources = _db.query(DataSource.id).filter(

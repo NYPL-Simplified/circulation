@@ -14,7 +14,7 @@ class TestHold(CirculationIntegrationTest):
     def test_hold(self):
         if 'TEST_IDENTIFIER' in os.environ:
             overdrive_id = os.environ['TEST_IDENTIFIER']
-        else:        
+        else:
             # Yes Please has a large hold queue
             overdrive_id = "0abe1ed3-f117-4b7c-a6b0-857a2e7d227b"
 
@@ -33,7 +33,7 @@ class TestHold(CirculationIntegrationTest):
         links = entry['links']
         fulfill_links = [link for link in links if link.rel == "http://opds-spec.org/acquisition"]
         eq_(0, len(fulfill_links))
-        
+
         revoke_links = [link for link in links if link.rel == "http://librarysimplified.org/terms/rel/revoke"]
         eq_(1, len(revoke_links))
         revoke_url = revoke_links[0].href
