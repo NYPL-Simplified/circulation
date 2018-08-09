@@ -65,13 +65,13 @@ class NYTBestSellerAPITest(DatabaseTest):
         self.metadata_client = DummyMetadataClient()
 
 class TestNYTBestSellerAPI(NYTBestSellerAPITest):
-    
+
     """Test the API calls."""
 
     def test_from_config(self):
         # You have to have an ExternalIntegration for the NYT.
         assert_raises_regexp(
-            CannotLoadConfiguration, 
+            CannotLoadConfiguration,
             "No ExternalIntegration found for the NYT.",
             NYTBestSellerAPI.from_config, self._db
         )
@@ -82,7 +82,7 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
 
         # It has to have the api key in its 'password' setting.
         assert_raises_regexp(
-            CannotLoadConfiguration, 
+            CannotLoadConfiguration,
             "No NYT API key is specified",
             NYTBestSellerAPI.from_config, self._db
         )
@@ -99,7 +99,7 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
         mw = self._external_integration(
             protocol=ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL
-        )        
+        )
         mw.url = self._url
 
         api = NYTBestSellerAPI.from_config(self._db)
@@ -190,7 +190,7 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         [contributor] = title.metadata.contributors
         eq_("Paula Hawkins", contributor.display_name)
         eq_("Riverhead", title.metadata.publisher)
-        eq_("A psychological thriller set in London is full of complications and betrayals.", 
+        eq_("A psychological thriller set in London is full of complications and betrayals.",
             title.annotation)
         eq_(datetime.datetime(2015, 1, 17), title.first_appearance)
         eq_(datetime.datetime(2015, 2, 1), title.most_recent_appearance)
@@ -216,7 +216,7 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         eq_(custom.updated, l.updated)
         eq_(custom.name, l.name)
         eq_(len(l), len(custom.entries))
-        eq_(True, all([isinstance(x, CustomListEntry) 
+        eq_(True, all([isinstance(x, CustomListEntry)
                        for x in custom.entries]))
 
         eq_(20, len(custom.entries))
@@ -242,7 +242,7 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         list_name = "espionage"
         l = self.api.best_seller_list(list_name)
         self.api.fill_in_history(l)
-        
+
         # Each 'espionage' best-seller list contains 15 items. Since
         # we picked two, from consecutive months, there's quite a bit
         # of overlap, and we end up with 20.
@@ -288,7 +288,7 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
         assert edition.permanent_work_id is not None
 
     def test_to_edition_sets_sort_author_name_if_metadata_client_provides_it(self):
-        
+
         # Set the metadata client up for success.
         self.metadata_client.lookups["Paula Hawkins"] = "Hawkins, Paula Z."
 

@@ -1,6 +1,6 @@
 # encoding: utf-8
 from nose.tools import (
-    set_trace, 
+    set_trace,
     eq_,
     assert_raises,
 )
@@ -71,7 +71,7 @@ class BibliothecaAPITest(DatabaseTest):
     def sample_data(self, filename):
         return sample_data(filename, 'bibliotheca')
 
-class TestBibliothecaAPI(BibliothecaAPITest):      
+class TestBibliothecaAPI(BibliothecaAPITest):
 
     def test_external_integration(self):
         eq_(
@@ -285,7 +285,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         eq_(0, h2.position)
 
     def test_place_hold(self):
-        patron = self._patron()        
+        patron = self._patron()
         edition, pool = self._edition(with_license_pool=True)
         self.api.queue_response(200, content=self.sample_data("successful_hold.xml"))
         response = self.api.place_hold(patron, 'pin', pool)
@@ -293,7 +293,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         eq_(pool.identifier.identifier, response.identifier)
 
     def test_place_hold_fails_if_exceeded_hold_limit(self):
-        patron = self._patron()        
+        patron = self._patron()
         edition, pool = self._edition(with_license_pool=True)
         self.api.queue_response(400, content=self.sample_data("error_exceeded_hold_limit.xml"))
         assert_raises(PatronHoldLimitReached, self.api.place_hold,
@@ -425,7 +425,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         eq_(u'1234567890987654321ababa', encrypted[u'findaway:licenseId'])
         eq_(u'3M', encrypted[u'findaway:accountId'])
         eq_(u'123456', encrypted[u'findaway:fulfillmentId'])
-        eq_(u'aaaaaaaa-4444-cccc-dddd-666666666666', 
+        eq_(u'aaaaaaaa-4444-cccc-dddd-666666666666',
             encrypted[u'findaway:sessionKey'])
 
         # Every entry in the license document's 'items' list has
@@ -486,13 +486,13 @@ class TestBibliothecaCirculationSweep(BibliothecaAPITest):
             self._db, self.collection, api_class=self.api
         )
         monitor.process_items([identifier])
-        
+
         # A LicensePool has been created for the previously mysterious
         # identifier.
         [pool] = identifier.licensed_through
         eq_(self.collection, pool.collection)
         eq_(False, pool.open_access)
-        
+
         # Three circulation events were created for this license pool,
         # marking the creation of the license pool, the addition of
         # licenses owned, and the making of those licenses available.
@@ -608,7 +608,7 @@ class TestErrorParser(BibliothecaAPITest):
             u'the patron document status was CAN_WISH and not one of CAN_LOAN,RESERVATION',
             error.message
         )
-        
+
         problem = error.as_problem_detail_document()
         eq_("The library currently has no licenses for this book.",
             problem.detail)
@@ -905,7 +905,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         monitor = BibliothecaEventMonitor(
             self._db, self.collection, api_class=api
         )
-        now = datetime.datetime.utcnow() 
+        now = datetime.datetime.utcnow()
         yesterday = now - datetime.timedelta(days=1)
 
         new_timestamp = monitor.run_once(yesterday, now)

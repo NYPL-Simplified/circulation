@@ -85,7 +85,7 @@ class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, "domains", self._default_library, auth_integration
         ).value = json.dumps(["nypl.org"])
-        
+
         google = GoogleOAuthAdminAuthenticationProvider(auth_integration, "", test_mode=True)
 
         eq_(["nypl.org"], google.domains.keys())

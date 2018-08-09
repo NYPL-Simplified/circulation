@@ -45,14 +45,14 @@ from api.config import (
     temp_config,
 )
 
-from api.simple_authentication import SimpleAuthenticationProvider       
+from api.simple_authentication import SimpleAuthenticationProvider
 
 TEST_NODE_VALUE = 114740953091845
 
 class TestVendorIDModel(VendorIDTest):
-   
+
     credentials = dict(username="validpatron", password="password")
-    
+
     def setup(self):
         super(TestVendorIDModel, self).setup()
 
@@ -69,7 +69,7 @@ class TestVendorIDModel(VendorIDTest):
         self.initialize_adobe(
             self.vendor_id_library, [self.short_client_token_library]
         )
-        
+
         # Set up a simple authentication provider that validates
         # one specific patron.
         integration = self._external_integration(self._str)
@@ -79,16 +79,16 @@ class TestVendorIDModel(VendorIDTest):
         self.authenticator = SimpleAuthenticationProvider(
             self._default_library, integration
         )
-        
+
         self.model = AdobeVendorIDModel(
-            self._db, self._default_library, self.authenticator, 
+            self._db, self._default_library, self.authenticator,
             TEST_NODE_VALUE
         )
         self.data_source = DataSource.lookup(self._db, DataSource.ADOBE)
 
         self.bob_patron = self.authenticator.authenticated_patron(
             self._db, dict(username="validpatron", password="password"))
-        
+
     def test_uuid(self):
         u = self.model.uuid()
         # All UUIDs need to start with a 0 and end with the same node
@@ -103,7 +103,7 @@ class TestVendorIDModel(VendorIDTest):
         eq_(label, label2)
 
     def test_uuid_and_label_creates_delegatedpatronid_from_credential(self):
-       
+
         # This patron once used the old system to create an Adobe
         # account ID which was stored in a Credential. For whatever
         # reason, the migration script did not give them a
@@ -146,7 +146,7 @@ class TestVendorIDModel(VendorIDTest):
         old_style_credential.credential = "A different value."
         uuid, label = self.model.uuid_and_label(self.bob_patron)
         eq_("A dummy value", uuid)
-        
+
         # We can even delete the old-style Credential, and
         # uuid_and_label will still give the value that was stored in
         # it.
@@ -155,7 +155,7 @@ class TestVendorIDModel(VendorIDTest):
         uuid, label = self.model.uuid_and_label(self.bob_patron)
         eq_("A dummy value", uuid)
 
-        
+
     def test_create_authdata(self):
         credential = self.model.create_authdata(self.bob_patron)
 
@@ -164,10 +164,10 @@ class TestVendorIDModel(VendorIDTest):
         bob_authdata = Credential.lookup(
             self._db, self.data_source, self.model.AUTHDATA_TOKEN_TYPE,
             self.bob_patron, None)
-        eq_(credential.credential, bob_authdata.credential)      
-        
+        eq_(credential.credential, bob_authdata.credential)
+
     def test_to_delegated_patron_identifier_uuid(self):
-        
+
         foreign_uri = "http://your-library/"
         foreign_identifier = "foreign ID"
 
@@ -229,7 +229,7 @@ class TestVendorIDModel(VendorIDTest):
         uuid2, label2 = self.model.standard_lookup(dict(username=jwt))
         eq_(uuid2, uuid)
         eq_(label2, label)
-            
+
         # The UUID corresponds to a DelegatedPatronIdentifier,
         # associated with the foreign library and the patron
         # identifier that library encoded in its JWT.
@@ -262,7 +262,7 @@ class TestVendorIDModel(VendorIDTest):
         eq_("%s token secret" % sct_library.short_name,
             vendor_id_utility.secrets_by_library_uri[sct_library_url]
         )
-        
+
         # Because the Vendor ID library shares the Short Client Token
         # library's secret, it can decode a short client token issued
         # by that library, and issue an Adobe ID (UUID).
@@ -270,7 +270,7 @@ class TestVendorIDModel(VendorIDTest):
         uuid, label = self.model.short_client_token_lookup(
             token, signature
         )
-        
+
         # The UUID corresponds to a DelegatedPatronIdentifier,
         # associated with the foreign library and the patron
         # identifier that library encoded in its JWT.
@@ -289,14 +289,14 @@ class TestVendorIDModel(VendorIDTest):
         new_uuid, new_label = self.model.standard_lookup(credentials)
         eq_(new_uuid, uuid)
         eq_(new_label, label)
-        
+
     def test_short_client_token_lookup_delegated_patron_identifier_failure(self):
         uuid, label = self.model.short_client_token_lookup(
             "bad token", "bad signature"
         )
         eq_(None, uuid)
         eq_(None, label)
-        
+
     def test_username_password_lookup_success(self):
         urn, label = self.model.standard_lookup(self.credentials)
 
@@ -324,7 +324,7 @@ class TestVendorIDModel(VendorIDTest):
         assert urn.endswith('685b35c00f05')
 
     def test_authdata_token_credential_lookup_success(self):
-        
+
         # Create an authdata token Credential for Bob.
         now = datetime.datetime.utcnow()
         token, ignore = Credential.persistent_token_create(
@@ -457,7 +457,7 @@ class TestVendorIDRequestParsers(object):
     def test_accountinfo_request(self):
         parser = AdobeAccountInfoRequestParser()
         data = parser.process(self.accountinfo_request)
-        eq_({'method': 'standard', 
+        eq_({'method': 'standard',
              'user': 'urn:uuid:0xxxxxxx-xxxx-1xxx-xxxx-yyyyyyyyyyyy'},
             data)
 
@@ -597,7 +597,7 @@ class TestAuthdataUtility(VendorIDTest):
         self.initialize_adobe(library, [library2])
         library_url = library.setting(Configuration.WEBSITE_URL).value
         library2_url = library2.setting(Configuration.WEBSITE_URL).value
-        
+
         utility = AuthdataUtility.from_config(library)
 
         registry = ExternalIntegration.lookup(
@@ -628,15 +628,15 @@ class TestAuthdataUtility(VendorIDTest):
         # If the Library object is disconnected from its database
         # session, as may happen in production...
         self._db.expunge(library)
-        
+
         # Then an attempt to use it to get an AuthdataUtility
         # will fail...
         assert_raises_regexp(
-            ValueError, 
-            "No database connection provided and could not derive one from Library object!", 
+            ValueError,
+            "No database connection provided and could not derive one from Library object!",
             AuthdataUtility.from_config, library
         )
-        
+
         # ...unless a database session is provided in the constructor.
         authdata = AuthdataUtility.from_config(library, self._db)
         eq_(
@@ -704,17 +704,17 @@ class TestAuthdataUtility(VendorIDTest):
         self._db.delete(registry)
         eq_(None, AuthdataUtility.from_config(library))
 
-            
-    def test_decode_round_trip(self):        
+
+    def test_decode_round_trip(self):
         patron_identifier = "Patron identifier"
         vendor_id, authdata = self.authdata.encode(patron_identifier)
         eq_("The Vendor ID", vendor_id)
-        
+
         # We can decode the authdata with our secret.
         decoded = self.authdata.decode(authdata)
         eq_(("http://my-library.org/", "Patron identifier"), decoded)
 
-    def test_decode_round_trip_with_intermediate_mischief(self):        
+    def test_decode_round_trip_with_intermediate_mischief(self):
         patron_identifier = "Patron identifier"
         vendor_id, authdata = self.authdata.encode(patron_identifier)
         eq_("The Vendor ID", vendor_id)
@@ -722,11 +722,11 @@ class TestAuthdataUtility(VendorIDTest):
         # A mischievious party in the middle decodes our authdata
         # without telling us.
         authdata = base64.decodestring(authdata)
-        
+
         # But it still works.
         decoded = self.authdata.decode(authdata)
         eq_(("http://my-library.org/", "Patron identifier"), decoded)
-        
+
     def test_encode(self):
         """Test that _encode gives a known value with known input."""
         patron_identifier = "Patron identifier"
@@ -740,7 +740,7 @@ class TestAuthdataUtility(VendorIDTest):
             authdata
         )
 
-    def test_decode_from_another_library(self):        
+    def test_decode_from_another_library(self):
 
         # Here's the AuthdataUtility used by another library.
         foreign_authdata = AuthdataUtility(
@@ -749,7 +749,7 @@ class TestAuthdataUtility(VendorIDTest):
             library_short_name = "you",
             secret = "Your library secret",
         )
-        
+
         patron_identifier = "Patron identifier"
         vendor_id, authdata = foreign_authdata.encode(patron_identifier)
 
@@ -766,7 +766,7 @@ class TestAuthdataUtility(VendorIDTest):
             DecodeError, "Signature verification failed",
             self.authdata.decode, authdata
         )
-        
+
     def test_decode_from_unknown_library_fails(self):
 
         # Here's the AuthdataUtility used by a library we don't know
@@ -788,11 +788,11 @@ class TestAuthdataUtility(VendorIDTest):
         future = datetime.datetime.utcnow() + datetime.timedelta(days=365)
         authdata = self.authdata._encode(
             "Patron identifier", iat=future
-        )        
+        )
         assert_raises(
             InvalidIssuedAtError, self.authdata.decode, authdata
         )
-        
+
     def test_cannot_decode_expired_token(self):
         expires = datetime.datetime(2016, 1, 1, 12, 0, 0)
         authdata = self.authdata._encode(
@@ -801,17 +801,17 @@ class TestAuthdataUtility(VendorIDTest):
         assert_raises(
             ExpiredSignatureError, self.authdata.decode, authdata
         )
-        
+
     def test_cannot_encode_null_patron_identifier(self):
         assert_raises_regexp(
             ValueError, "No patron identifier specified",
             self.authdata.encode, None
         )
-        
+
     def test_cannot_decode_null_patron_identifier(self):
 
         authdata = self.authdata._encode(
-            self.authdata.library_uri, None, 
+            self.authdata.library_uri, None,
         )
         assert_raises_regexp(
             DecodeError, "No subject specified",
@@ -871,12 +871,12 @@ class TestAuthdataUtility(VendorIDTest):
             library_short_name = "you",
             secret = "Your library secret",
         )
-        
+
         patron_identifier = "Patron identifier"
         vendor_id, token = foreign_authdata.encode_short_client_token(
             patron_identifier
         )
-        
+
         # Because we know the other library's secret, we're able to
         # decode the authdata.
         decoded = self.authdata.decode_short_client_token(token)
@@ -903,7 +903,7 @@ class TestAuthdataUtility(VendorIDTest):
             ValueError, "Invalid client token",
             m, "foo|", "signature"
         )
-        
+
         # The expiration time must be numeric.
         assert_raises_regexp(
             ValueError, 'Expiration time "a time" is not numeric',
@@ -915,7 +915,7 @@ class TestAuthdataUtility(VendorIDTest):
             ValueError, 'Token library|1234| has empty patron identifier',
             m, "library|1234|", "signature"
         )
-        
+
         # The library must be a known one.
         assert_raises_regexp(
             ValueError,
@@ -949,7 +949,7 @@ class TestAuthdataUtility(VendorIDTest):
         triggering an Adobe bug.
         """
         value = "!\tFN6~'Es52?X!#)Z*_S"
-        
+
         encoded = AuthdataUtility.adobe_base64_encode(value)
         eq_('IQlGTjZ:J0VzNTI;WCEjKVoqX1M@', encoded)
 
@@ -968,7 +968,7 @@ class TestAuthdataUtility(VendorIDTest):
     def test__encode_short_client_token_uses_adobe_base64_encoding(self):
         class MockSigner(object):
             def sign(self, value, key):
-                """Always return the same signature, crafted to contain a 
+                """Always return the same signature, crafted to contain a
                 plus sign, a slash and an equal sign when base64-encoded.
                 """
                 return "!\tFN6~'Es52?X!#)Z*_S"
@@ -978,7 +978,7 @@ class TestAuthdataUtility(VendorIDTest):
         # The signature part of the token has been encoded with our
         # custom encoding, not vanilla base64.
         eq_('lib|0|1234|IQlGTjZ:J0VzNTI;WCEjKVoqX1M@', token)
-        
+
     def test_decode_two_part_short_client_token_uses_adobe_base64_encoding(self):
 
         # The base64 encoding of this signature has a plus sign in it.
@@ -988,7 +988,7 @@ class TestAuthdataUtility(VendorIDTest):
         # We replace the plus sign with a colon.
         assert ':' in encoded_signature
         assert '+' not in encoded_signature
-        
+
         # Make sure that decode_two_part_short_client_token properly
         # reverses that change when decoding the 'password'.
         class MockAuthdataUtility(AuthdataUtility):
@@ -1011,7 +1011,7 @@ class TestAuthdataUtility(VendorIDTest):
         # test failure, it ran successfully.
         eq_(True, utility.test_code_ran)
 
-        
+
     # Tests of code that is used only in a migration script.  This can
     # be deleted once
     # 20161102-adobe-id-is-delegated-patron-identifier.py is run on
@@ -1038,7 +1038,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # Run the migration.
         new_credential, delegated_identifier = self.authdata.migrate_adobe_id(patron)
-        
+
         # The patron now has _two_ Credentials -- the old one
         # containing the Adobe ID, and a new one.
         eq_(set([new_credential, adobe_id]), set(patron.credentials))
@@ -1049,7 +1049,7 @@ class TestAuthdataUtility(VendorIDTest):
             new_credential.type)
 
         # We can use that identifier to look up a DelegatedPatronIdentifier
-        # 
+        #
         def explode():
             # This method won't be called because the
             # DelegatedPatronIdentifier already exists.
@@ -1071,7 +1071,7 @@ class TestAuthdataUtility(VendorIDTest):
         )
         eq_("My Adobe ID", uuid)
         eq_('Delegated account ID My Adobe ID', label)
-        
+
         # If we run the migration again, nothing new happens.
         new_credential_2, delegated_identifier_2 = self.authdata.migrate_adobe_id(patron)
         eq_(new_credential, new_credential_2)
@@ -1082,10 +1082,10 @@ class TestAuthdataUtility(VendorIDTest):
         )
         eq_("My Adobe ID", uuid)
         eq_('Delegated account ID My Adobe ID', label)
-       
+
 
 class TestDeviceManagementRequestHandler(VendorIDTest):
-    
+
     def test_register_drm_device_identifier(self):
         credential = self._credential()
         handler = DeviceManagementRequestHandler(credential)
@@ -1100,7 +1100,7 @@ class TestDeviceManagementRequestHandler(VendorIDTest):
         handler = DeviceManagementRequestHandler(credential)
         handler.register_device("")
         eq_([], credential.drm_device_identifiers)
-        
+
     def test_register_drm_device_identifier_failure(self):
         """You can only register one device in a single call."""
         credential = self._credential()
@@ -1131,7 +1131,7 @@ class TestDeviceManagementRequestHandler(VendorIDTest):
         handler = DeviceManagementRequestHandler(credential)
         # Device IDs are sorted alphabetically.
         eq_("bar\nfoo", handler.device_list())
-        
+
 
 class TestAdobeVendorIDController(VendorIDTest):
 
@@ -1151,5 +1151,5 @@ class TestAdobeVendorIDController(VendorIDTest):
         # for the Patron.
         [credential] = patron.credentials
         eq_(credential.credential, response.data)
-        
-        
+
+

@@ -274,7 +274,7 @@ def urls_from_query(query, pages, size):
             base_url, query['language'], query['category'], urlencode(query['params'])), safe=':/?=&')
         urls.append(url)
     return urls
-        
+
 threads = [QueryTimingThread(urls=urls_from_query(random.choice(queries), pages, size)) for i in range(thread_count)]
 
 for t in threads:

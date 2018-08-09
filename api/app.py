@@ -5,7 +5,7 @@ import urlparse
 
 import flask
 from flask import (
-    Flask, 
+    Flask,
     Response,
     redirect,
 )

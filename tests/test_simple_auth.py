@@ -18,7 +18,7 @@ from api.config import (
 from . import DatabaseTest
 
 class TestSimpleAuth(DatabaseTest):
-    
+
     def test_simple(self):
         p = SimpleAuthenticationProvider
         integration = self._external_integration(self._str)
@@ -84,7 +84,7 @@ class TestSimpleAuth(DatabaseTest):
 
         eq_(None, provider.remote_authenticate("a", None))
         eq_(None, provider.remote_authenticate(None, "pass"))
-        
+
         user = provider.remote_authenticate("a", "pass")
         assert isinstance(user, PatronData)
         eq_("a", user.authorization_identifier)

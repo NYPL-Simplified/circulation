@@ -21,7 +21,7 @@ from api.annotations import (
 from api.problem_details import *
 
 class AnnotationTest(DatabaseTest):
-    
+
     def _patron(self):
         """Create a test patron who has opted in to annotation sync."""
         patron = super(AnnotationTest, self)._patron()
@@ -30,7 +30,7 @@ class AnnotationTest(DatabaseTest):
 
 
 class TestAnnotationWriter(AnnotationTest, ControllerTest):
-   
+
     def test_annotations_for(self):
         patron = self._patron()
 
@@ -125,7 +125,7 @@ class TestAnnotationWriter(AnnotationTest, ControllerTest):
             container, timestamp = AnnotationWriter.annotation_container_for(patron)
             eq_(0, container['total'])
             eq_(None, timestamp)
-        
+
     def test_annotation_container_for_with_identifier(self):
         patron = self._patron()
         identifier = self._identifier()
@@ -197,7 +197,7 @@ class TestAnnotationWriter(AnnotationTest, ControllerTest):
             container, timestamp = AnnotationWriter.annotation_container_for(patron, identifier)
             eq_(0, container['total'])
             eq_(None, timestamp)
-        
+
     def test_annotation_page_for(self):
         patron = self._patron()
 
@@ -347,10 +347,10 @@ class TestAnnotationParser(AnnotationTest):
         self.pool = self._licensepool(None)
         self.identifier = self.pool.identifier
         self.patron = self._patron()
-        
+
     def _sample_jsonld(self, motivation=Annotation.IDLING):
         data = dict()
-        data["@context"] = [AnnotationWriter.JSONLD_CONTEXT, 
+        data["@context"] = [AnnotationWriter.JSONLD_CONTEXT,
                             {'ls': Annotation.LS_NAMESPACE}]
         data["type"] = "Annotation"
         motivation = motivation.replace(Annotation.LS_NAMESPACE, 'ls:')
@@ -487,7 +487,7 @@ class TestAnnotationParser(AnnotationTest):
         annotation3 = AnnotationParser.parse(self._db, data_json, self.patron)
         assert annotation3 != annotation
         eq_(2, len(self.patron.annotations))
-        
+
     def test_parse_jsonld_with_invalid_motivation(self):
         self.pool.loan_to(self.patron)
 
@@ -498,7 +498,7 @@ class TestAnnotationParser(AnnotationTest):
         annotation = AnnotationParser.parse(self._db, data_json, self.patron)
 
         eq_(INVALID_ANNOTATION_MOTIVATION, annotation)
-        
+
     def test_parse_jsonld_with_no_loan(self):
         data = self._sample_jsonld()
         data_json = json.dumps(data)

@@ -33,8 +33,8 @@ class TestBorrow(CirculationIntegrationTest):
         fulfill_url = fulfill_links[0].href
         fulfill_response = requests.get(fulfill_url, auth=HTTPBasicAuth(self.test_username, self.test_password))
         eq_(200, fulfill_response.status_code)
-        
-        
+
+
         revoke_links = [link for link in links if link.rel == "http://librarysimplified.org/terms/rel/revoke"]
         eq_(1, len(revoke_links))
         revoke_url = revoke_links[0].href
