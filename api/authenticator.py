@@ -29,6 +29,7 @@ from core.util.authentication_for_opds import (
     OPDSAuthenticationFlow,
 )
 from core.util.http import RemoteIntegrationException
+from core.user_profile import ProfileController
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import or_
@@ -36,6 +37,7 @@ from problem_details import *
 from util.patron import PatronUtility
 from api.opds import LibraryAnnotator
 from api.custom_patron_catalog import CustomPatronCatalog
+
 
 import datetime
 import logging
@@ -788,9 +790,22 @@ class LibraryAuthenticator(object):
         # Add a rel="start" link pointing to the root OPDS feed.
         index_url = url_for("index", _external=True,
                             library_short_name=library.short_name)
+        loans_url = url_for("active_loans", _external=True,
+                            library_short_name=library.short_name)
+        profile_url = url_for("patron_profile", _external=True,
+                            library_short_name=library.short_name)
+
         links.append(
             dict(rel="start", href=index_url,
                  type=OPDSFeed.ACQUISITION_FEED_TYPE)
+        )
+        links.append(
+            dict(rel="http://opds-spec.org/shelf", href=loans_url,
+                 type=OPDSFeed.ACQUISITION_FEED_TYPE)
+        )
+        links.append(
+            dict(rel=ProfileController.LINK_RELATION, href=profile_url,
+                 type=ProfileController.MEDIA_TYPE)
         )
 
         # If there is a Designated Agent email address, add it as a

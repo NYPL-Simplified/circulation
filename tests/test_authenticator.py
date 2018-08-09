@@ -20,6 +20,7 @@ import flask
 from flask import url_for
 
 from core.opds import OPDSFeed
+from core.user_profile import ProfileController
 from core.model import (
     CirculationEvent,
     ConfigurationSetting,
@@ -1159,7 +1160,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # We also need to test that the links got pulled in
             # from the configuration.
             (about, alternate, copyright, help_uri, help_web, help_email,
-             copyright_agent, license, logo, privacy_policy, register, start,
+             copyright_agent, profile, loans, license, logo, privacy_policy, register, start,
              terms_of_service) = sorted(
                  doc['links'], key=lambda x: (x['rel'], x['href'])
              )
@@ -1169,6 +1170,15 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("http://about", about['href'])
             eq_("http://license/", license['href'])
             eq_("image data", logo['href'])
+
+            assert ("/loans" in loans['href'])
+            eq_("http://opds-spec.org/shelf", loans['rel'])
+            eq_(OPDSFeed.ACQUISITION_FEED_TYPE, loans['type'])
+
+            assert ("/patrons/me" in profile['href'])
+            eq_(ProfileController.LINK_RELATION, profile['rel'])
+            eq_(ProfileController.MEDIA_TYPE, profile['type'])
+
             expect_start = url_for(
                 "index", library_short_name=self._default_library.short_name,
                 _external=True
