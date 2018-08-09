@@ -19,7 +19,6 @@ import urlparse
 import flask
 from flask import url_for
 
-from core.app_server import cdn_url_for
 from core.opds import OPDSFeed
 from core.model import (
     CirculationEvent,
@@ -1239,7 +1238,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # The annotator's annotate_authentication_document method
             # was called and successfully modified the authentication
             # document.
-            eq_((library, doc, cdn_url_for), annotator.called_with)
+            eq_((library, doc, url_for), annotator.called_with)
             eq_('Kilroy was here', doc['modified'])
             
             # While we're in this context, let's also test

@@ -28,7 +28,6 @@ from core.util.authentication_for_opds import (
     AuthenticationForOPDSDocument,
     OPDSAuthenticationFlow,
 )
-from core.app_server import cdn_url_for
 from core.util.http import RemoteIntegrationException
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm.exc import NoResultFound
@@ -873,7 +872,7 @@ class LibraryAuthenticator(object):
 
         if self.authentication_document_annotator:
             doc = self.authentication_document_annotator.annotate_authentication_document(
-                library, doc, cdn_url_for
+                library, doc, url_for
             )
 
         return json.dumps(doc)
