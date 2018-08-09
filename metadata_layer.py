@@ -271,8 +271,8 @@ class ContributorData(object):
             destination.biography = self.biography
             made_changes = True
 
-        # TODO:  Contributor.merge_into also looks at 
-        # contributions.  Could maybe extract contributions from roles, 
+        # TODO:  Contributor.merge_into also looks at
+        # contributions.  Could maybe extract contributions from roles,
         # but not sure it'd be useful.
 
         return destination, made_changes
@@ -550,7 +550,7 @@ class MetaToModelUtility(object):
                 pools = [model_object]
                 identifier = model_object.identifier
 
-                if (identifier and identifier.primarily_identifies and identifier.primarily_identifies[0]): 
+                if (identifier and identifier.primarily_identifies and identifier.primarily_identifies[0]):
                     edition = identifier.primarily_identifies[0]
             elif isinstance(model_object, Edition):
                 pools = model_object.license_pools
@@ -573,7 +573,7 @@ class MetaToModelUtility(object):
             # hasn't changed, we'll keep using the one we have.
             max_age = 0
 
-        # This will fetch a representation of the original and 
+        # This will fetch a representation of the original and
         # store it in the database.
         representation, is_new = Representation.get(
             _db, link.href, do_get=http_get,
@@ -586,9 +586,9 @@ class MetaToModelUtility(object):
         link_obj.resource.representation = representation
 
         # If we couldn't fetch this representation, don't mirror it,
-        # and if this was an open access link, then suppress the associated 
+        # and if this was an open access link, then suppress the associated
         # license pool until someone fixes it manually.
-        # The license pool to suppress will be either the passed-in model_object (if it's of type pool), 
+        # The license pool to suppress will be either the passed-in model_object (if it's of type pool),
         # or the license pool associated with the passed-in model object (if it's of type edition).
         if representation.fetch_exception:
             if pools and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
@@ -658,7 +658,7 @@ class MetaToModelUtility(object):
 
         # If we couldn't mirror an open access link representation, suppress
         # the license pool until someone fixes it manually.
-        if representation.mirror_exception: 
+        if representation.mirror_exception:
             if pools and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
                 for pool in pools:
                     pool.suppressed = True
@@ -705,13 +705,13 @@ class CirculationData(MetaToModelUtility):
     Basically,
         Metadata : Edition :: CirculationData : Licensepool
     """
-    
+
     log = logging.getLogger(
         "Abstract metadata layer - Circulation data"
     )
 
     def __init__(
-            self, 
+            self,
             data_source,
             primary_identifier,
             licenses_owned=None,
@@ -727,11 +727,11 @@ class CirculationData(MetaToModelUtility):
 
         :param data_source: The authority providing the lending licenses.
             This may be a DataSource object or the name of the data source.
-        :param primary_identifier: An Identifier or IdentifierData representing 
+        :param primary_identifier: An Identifier or IdentifierData representing
             how the lending authority distinguishes this book from others.
         """
         self._data_source = data_source
-        
+
         if isinstance(self._data_source, DataSource):
             self.data_source_obj = self._data_source
             self.data_source_name = self.data_source_obj.name
@@ -771,7 +771,7 @@ class CirculationData(MetaToModelUtility):
 
     @links.setter
     def links(self, arg_links):
-        """ If got passed all links, undiscriminately, filter out to only those relevant to  
+        """ If got passed all links, undiscriminately, filter out to only those relevant to
             pools (the rights-related links).
         """
         # start by deleting any old links
@@ -791,11 +791,11 @@ class CirculationData(MetaToModelUtility):
                 # try to deduce if the link is open-access, even if it doesn't explicitly say it is
                 rights_uri =  link.rights_uri or self.default_rights_uri
                 open_access_rights_link = (
-                    link.media_type in Representation.BOOK_MEDIA_TYPES 
+                    link.media_type in Representation.BOOK_MEDIA_TYPES
                     and link.href
                     and rights_uri in RightsStatus.OPEN_ACCESS
                 )
-                
+
                 if open_access_link or open_access_rights_link:
                     if (open_access_link
                         and rights_uri != RightsStatus.IN_COPYRIGHT
@@ -825,10 +825,10 @@ class CirculationData(MetaToModelUtility):
 
     def __repr__(self):
         description_string = '<CirculationData primary_identifier=%(primary_identifier)r| licenses_owned=%(licenses_owned)s|'
-        description_string += ' licenses_available=%(licenses_available)s| default_rights_uri=%(default_rights_uri)s|' 
+        description_string += ' licenses_available=%(licenses_available)s| default_rights_uri=%(default_rights_uri)s|'
         description_string += ' links=%(links)r| formats=%(formats)r| data_source=%(data_source)s|>'
 
-        
+
         description_data = {'licenses_owned':self.licenses_owned}
         if self._primary_identifier:
             description_data['primary_identifier'] = self._primary_identifier
@@ -839,9 +839,9 @@ class CirculationData(MetaToModelUtility):
         description_data['links'] = self.links
         description_data['formats'] = self.formats
         description_data['data_source'] = self.data_source_name
-            
+
         return description_string % description_data
-    
+
     def data_source(self, _db):
         """Find the DataSource associated with this circulation information."""
         if not self.data_source_obj:
@@ -863,7 +863,7 @@ class CirculationData(MetaToModelUtility):
                 obj = None
             self.primary_identifier_obj = obj
         return self.primary_identifier_obj
-    
+
     def license_pool(self, _db, collection, analytics=None):
         """Find or create a LicensePool object for this CirculationData.
 
@@ -886,7 +886,7 @@ class CirculationData(MetaToModelUtility):
         data_source_obj = self.data_source(_db)
         license_pool, is_new = LicensePool.for_foreign_id(
             _db, data_source=data_source_obj,
-            foreign_id_type=identifier.type, 
+            foreign_id_type=identifier.type,
             foreign_id=identifier.identifier,
             collection=collection
         )
@@ -913,7 +913,7 @@ class CirculationData(MetaToModelUtility):
     def has_open_access_link(self):
         """Does this Circulation object have an associated open-access link?"""
         return any(
-            [x for x in self.links 
+            [x for x in self.links
              if x.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD
              and x.href
              and x.rights_uri != RightsStatus.IN_COPYRIGHT
@@ -937,7 +937,7 @@ class CirculationData(MetaToModelUtility):
 
     def apply(self, _db, collection, replace=None):
         """Update the title with this CirculationData's information.
-        
+
         :param collection: A Collection representing actual copies of
         this title. Availability information (e.g. number of copies)
         will be associated with a LicensePool in this Collection. If
@@ -956,7 +956,7 @@ class CirculationData(MetaToModelUtility):
                 "Cannot store circulation information because no "
                 "Collection was provided."
             )
-        
+
         made_changes = False
         if replace is None:
             replace = ReplacementPolicy()
@@ -964,19 +964,19 @@ class CirculationData(MetaToModelUtility):
         pool = None
         if collection:
             pool, ignore = self.license_pool(_db, collection, replace.analytics)
-            
+
         data_source = self.data_source(_db)
         identifier = self.primary_identifier(_db)
         # First, make sure all links in self.links are mirrored (if necessary)
         # and associated with the book's identifier.
-        
+
         # TODO: be able to handle the case where the URL to a link changes or
         # a link disappears.
         link_objects = {}
         for link in self.links:
             if link.rel in Hyperlink.CIRCULATION_ALLOWED:
                 link_obj, ignore = identifier.add_link(
-                    rel=link.rel, href=link.href, data_source=data_source, 
+                    rel=link.rel, href=link.href, data_source=data_source,
                     media_type=link.media_type, content=link.content
                 )
                 link_objects[link] = link_obj
@@ -1034,7 +1034,7 @@ class CirculationData(MetaToModelUtility):
 
         new_open_access = any(pool.open_access for pool in pools)
         open_access_status_changed = (old_open_access != new_open_access)
-                    
+
         # Finally, if we have data for a specific Collection's license
         # for this book, find its LicensePool and update it.
         changed_availability = False
@@ -1050,14 +1050,14 @@ class CirculationData(MetaToModelUtility):
                 analytics=replace.analytics,
                 as_of=self.last_checked
             )
-                    
+
         made_changes = (made_changes or changed_availability
                         or open_access_status_changed)
 
         return pool, made_changes
 
     def _availability_needs_update(self, pool):
-        """Does this CirculationData represent information more recent than 
+        """Does this CirculationData represent information more recent than
         what we have for the given LicensePool?
         """
         if not self.last_checked:
@@ -1068,8 +1068,8 @@ class CirculationData(MetaToModelUtility):
             # It looks like the LicensePool has never been checked.
             return True
         return self.last_checked >= pool.last_checked
-        
-        
+
+
 class Metadata(MetaToModelUtility):
 
     """A (potentially partial) set of metadata for a published work."""
@@ -1105,9 +1105,9 @@ class Metadata(MetaToModelUtility):
             links=None,
             data_source_last_updated=None,
             # Note: brought back to keep callers of bibliographic extraction process_one() methods simple.
-            circulation=None,  
+            circulation=None,
     ):
-        # data_source is where the data comes from (e.g. overdrive, metadata wrangler, admin interface), 
+        # data_source is where the data comes from (e.g. overdrive, metadata wrangler, admin interface),
         # and not necessarily where the associated Identifier's LicencePool's lending licenses are coming from.
         self._data_source = data_source
         if isinstance(self._data_source, DataSource):
@@ -1148,14 +1148,14 @@ class Metadata(MetaToModelUtility):
 
         self.__links = None
         self.links = links
-        
+
     @property
     def links(self):
         return self.__links
 
     @links.setter
     def links(self, arg_links):
-        """ If got passed all links, undiscriminately, filter out to only those relevant to  
+        """ If got passed all links, undiscriminately, filter out to only those relevant to
             editions (the image/cover/etc links).
         """
         # start by deleting any old links
@@ -1168,7 +1168,7 @@ class Metadata(MetaToModelUtility):
             if link.rel in Hyperlink.METADATA_ALLOWED:
                 # only accept the types of links relevant to editions
                 self.__links.append(link)
-                
+
 
     @classmethod
     def from_edition(cls, edition):
@@ -1239,7 +1239,7 @@ class Metadata(MetaToModelUtility):
     def update(self, metadata):
         """Update this Metadata object with values from the given Metadata
         object.
-        
+
         TODO: We might want to take a policy object as an argument.
         """
 
@@ -1250,7 +1250,7 @@ class Metadata(MetaToModelUtility):
                 setattr(self, field, new_value)
 
         new_value = getattr(metadata, 'contributors')
-        if new_value and isinstance(new_value, list): 
+        if new_value and isinstance(new_value, list):
             old_value = getattr(self, 'contributors')
             # if we already have a better value, don't override it with a "missing info" placeholder value
             if not (old_value and new_value[0].sort_name == Edition.UNKNOWN_AUTHOR):
@@ -1423,11 +1423,11 @@ class Metadata(MetaToModelUtility):
 
         :param mirror: Open-access books and cover images will be mirrored
         to this MirrorUploader.
-        :return: (edition, made_core_changes), where edition is the newly-updated object, and made_core_changes 
-        answers the question: were any edition core fields harmed in the making of this update?  
-        So, if title changed, return True.  
-        New: If contributors changed, this is now considered a core change, 
-        so work.simple_opds_feed refresh can be triggered. 
+        :return: (edition, made_core_changes), where edition is the newly-updated object, and made_core_changes
+        answers the question: were any edition core fields harmed in the making of this update?
+        So, if title changed, return True.
+        New: If contributors changed, this is now considered a core change,
+        so work.simple_opds_feed refresh can be triggered.
         """
         _db = Session.object_session(edition)
         made_core_changes = False
@@ -1472,7 +1472,7 @@ class Metadata(MetaToModelUtility):
             self.calculate_permanent_work_id(_db, metadata_client)
 
         identifier = edition.primary_identifier
-        
+
         self.log.info(
             "APPLYING METADATA TO EDITION: %s",  self.title
         )
@@ -1489,7 +1489,7 @@ class Metadata(MetaToModelUtility):
 
         # Create equivalencies between all given identifiers and
         # the edition's primary identifier.
-        contributors_changed = self.update_contributions(_db, edition, 
+        contributors_changed = self.update_contributions(_db, edition,
                                   metadata_client, replace.contributions)
         if contributors_changed:
             made_core_changes = True
@@ -1560,7 +1560,7 @@ class Metadata(MetaToModelUtility):
                     surviving_hyperlinks.append(hyperlink)
             if dirty:
                 identifier.links = surviving_hyperlinks
-        
+
         link_objects = {}
 
         for link in self.links:
@@ -1581,7 +1581,7 @@ class Metadata(MetaToModelUtility):
                             link.original.content, None)
 
                 link_obj, ignore = identifier.add_link(
-                    rel=link.rel, href=link.href, data_source=data_source, 
+                    rel=link.rel, href=link.href, data_source=data_source,
                     media_type=link.guessed_media_type,
                     content=link.content, rights_status_uri=link.rights_uri,
                     rights_explanation=link.rights_explanation,
@@ -1593,8 +1593,8 @@ class Metadata(MetaToModelUtility):
                 if link.thumbnail.rel == Hyperlink.THUMBNAIL_IMAGE:
                     thumbnail = link.thumbnail
                     thumbnail_obj, ignore = identifier.add_link(
-                        rel=thumbnail.rel, href=thumbnail.href, 
-                        data_source=data_source, 
+                        rel=thumbnail.rel, href=thumbnail.href,
+                        data_source=data_source,
                         media_type=thumbnail.guessed_media_type,
                         content=thumbnail.content
                     )
@@ -1713,7 +1713,7 @@ class Metadata(MetaToModelUtility):
         )
         return edition, made_core_changes
 
-        
+
     def make_thumbnail(self, data_source, link, link_obj):
         """Make sure a Hyperlink representing an image is connected
         to its thumbnail.
@@ -1732,8 +1732,8 @@ class Metadata(MetaToModelUtility):
         # The thumbnail and image are different. Make sure there's a
         # separate link to the thumbnail.
         thumbnail_obj, ignore = link_obj.identifier.add_link(
-            rel=thumbnail.rel, href=thumbnail.href, 
-            data_source=data_source, 
+            rel=thumbnail.rel, href=thumbnail.href,
+            data_source=data_source,
             media_type=thumbnail.media_type,
             content=thumbnail.content
         )

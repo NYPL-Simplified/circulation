@@ -3,7 +3,7 @@ import json
 
 from nose.tools import (
     assert_raises,
-    eq_, 
+    eq_,
     set_trace,
 )
 
@@ -12,7 +12,7 @@ from util.problem_detail import (
 )
 
 class TestProblemDetail(object):
-    
+
     def test_with_debug(self):
         detail = ProblemDetail("http://uri/", title="Title", detail="Detail")
         with_debug = detail.with_debug("Debug Message")

@@ -20,7 +20,7 @@ class RecalculateFictionStatusMonitor(SubjectSweepMonitor):
 
     def __init__(self, _db, interval_seconds=None):
         super(RecalculateFictionStatusMonitor, self).__init__(
-            _db, "20150825 migration - Recalculate age range for children's books", 
+            _db, "20150825 migration - Recalculate age range for children's books",
             interval_seconds, batch_size=1000)
 
     def subject_query(self):

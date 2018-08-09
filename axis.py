@@ -9,7 +9,7 @@ import re
 from sqlalchemy.orm.session import Session
 
 from config import (
-    Configuration, 
+    Configuration,
     temp_config,
 )
 
@@ -66,7 +66,7 @@ class Axis360API(object):
         "production" : PRODUCTION_BASE_URL,
         "qa" : QA_BASE_URL,
     }
-    
+
     DATE_FORMAT = "%m-%d-%Y %H:%M:%S"
 
     access_token_endpoint = 'accesstoken'
@@ -146,7 +146,7 @@ class Axis360API(object):
             disallowed_response_codes = None
         response = self._make_request(
             url=url, method=method, headers=headers,
-            data=data, params=params, 
+            data=data, params=params,
             disallowed_response_codes=disallowed_response_codes
         )
         if response.status_code == 401:
@@ -192,7 +192,7 @@ class Axis360API(object):
         data = json.loads(token)
         return data['access_token']
 
-    def _make_request(self, url, method, headers, data=None, params=None, 
+    def _make_request(self, url, method, headers, data=None, params=None,
                       **kwargs):
         """Actually make an HTTP request."""
         return HTTP.request_with_timeout(
@@ -238,7 +238,7 @@ class MockAxis360API(Axis360API):
             self.token = "mock token"
         self.responses = []
         self.requests = []
-        
+
     def queue_response(self, status_code, headers={}, content=None):
         from testing import MockRequestsResponse
         self.responses.insert(
@@ -259,7 +259,7 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
 
     Currently this is only used by BibliographicRefreshScript. It's
     not normally necessary because the Axis 360 API combines
-    bibliographic and availability data. We rely on Monitors to fetch 
+    bibliographic and availability data. We rely on Monitors to fetch
     availability data and fill in the bibliographic data as necessary.
     """
 
@@ -268,7 +268,7 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
     PROTOCOL = ExternalIntegration.AXIS_360
     INPUT_IDENTIFIER_TYPES = Identifier.AXIS_360_ID
     DEFAULT_BATCH_SIZE = 25
-    
+
     def __init__(self, collection, api_class=Axis360API, **kwargs):
         """Constructor.
 
@@ -393,10 +393,10 @@ class BibliographicParser(Axis360Parser):
         identifier = self.text_of_subtag(element, 'axis:titleId', ns)
         primary_identifier = IdentifierData(Identifier.AXIS_360_ID, identifier)
 
-        if not circulation_data: 
+        if not circulation_data:
             circulation_data = CirculationData(
-                data_source=DataSource.AXIS_360, 
-                primary_identifier=primary_identifier, 
+                data_source=DataSource.AXIS_360,
+                primary_identifier=primary_identifier,
             )
 
         availability = self._xpath1(element, 'axis:availability', ns)
@@ -483,7 +483,7 @@ class BibliographicParser(Axis360Parser):
         )
 
     def extract_bibliographic(self, element, ns):
-        """Turn bibliographic metadata into a Metadata and a CirculationData objects, 
+        """Turn bibliographic metadata into a Metadata and a CirculationData objects,
         and return them as a tuple."""
 
         # TODO: These are consistently empty (some are clearly for
@@ -576,7 +576,7 @@ class BibliographicParser(Axis360Parser):
         acceptable = False
         seen_formats = []
         for format_tag in self._xpath(
-                element, 'axis:availability/axis:availableFormats/axis:formatName', 
+                element, 'axis:availability/axis:availableFormats/axis:formatName',
                 ns
         ):
             informal_name = format_tag.text
@@ -592,7 +592,7 @@ class BibliographicParser(Axis360Parser):
                 formats.append(
                     FormatData(content_type=content_type, drm_scheme=drm_scheme)
                 )
-        
+
         if not formats:
             self.log.error(
                 "No supported format for %s (%s)! Saw: %s", identifier,

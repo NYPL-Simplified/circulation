@@ -1,7 +1,7 @@
 import requests
 import json
 from util.http import (
-    HTTP, 
+    HTTP,
     BadResponseException,
     RemoteIntegrationException,
     RequestNetworkException,
@@ -10,7 +10,7 @@ from util.http import (
 )
 from nose.tools import (
     assert_raises_regexp,
-    eq_, 
+    eq_,
     set_trace
 )
 from testing import MockRequestsResponse
@@ -95,8 +95,8 @@ class TestHTTP(object):
         # all others are forbidden.
         assert_raises_regexp(
             BadResponseException,
-            "Bad response.*Got status code 401 from external server, but can only continue on: 200, 201.", 
-            m, url, fake_401_response, 
+            "Bad response.*Got status code 401 from external server, but can only continue on: 200, 201.",
+            m, url, fake_401_response,
             allowed_response_codes=[201, 200]
         )
 
@@ -106,8 +106,8 @@ class TestHTTP(object):
         # In this way you can even raise an exception on a 200 response code.
         assert_raises_regexp(
             BadResponseException,
-            "Bad response.*Got status code 200 from external server, but can only continue on: 401.", 
-            m, url, fake_200_response, 
+            "Bad response.*Got status code 200 from external server, but can only continue on: 401.",
+            m, url, fake_200_response,
             allowed_response_codes=[401]
         )
 
@@ -115,26 +115,26 @@ class TestHTTP(object):
         # all others are allowed.
         assert_raises_regexp(
             BadResponseException,
-            "Bad response.*Got status code 401 from external server, cannot continue.", 
-            m, url, fake_401_response, 
+            "Bad response.*Got status code 401 from external server, cannot continue.",
+            m, url, fake_401_response,
             disallowed_response_codes=[401]
         )
 
         assert_raises_regexp(
             BadResponseException,
-            "Bad response.*Got status code 200 from external server, cannot continue.", 
-            m, url, fake_200_response, 
+            "Bad response.*Got status code 200 from external server, cannot continue.",
+            m, url, fake_200_response,
             disallowed_response_codes=["2xx", 301]
         )
 
-        response = m(url, fake_401_response, 
+        response = m(url, fake_401_response,
                      disallowed_response_codes=["2xx"])
         eq_(401, response.status_code)
 
         # The exception can be turned into a useful problem detail document.
         exc = None
         try:
-            m(url, fake_200_response, 
+            m(url, fake_200_response,
               disallowed_response_codes=["2xx"])
         except Exception, exc:
             pass
@@ -188,7 +188,7 @@ class TestHTTP(object):
         assert isinstance(data, bytes)
 
     def test_process_debuggable_response(self):
-        """Test a method that gives more detailed information when a 
+        """Test a method that gives more detailed information when a
         problem happens.
         """
         m = HTTP.process_debuggable_response
@@ -227,7 +227,7 @@ class TestRemoteIntegrationException(object):
         name.
         """
         exc = RemoteIntegrationException(
-            u"Unreliable Service", 
+            u"Unreliable Service",
             u"I just can't handle your request right now."
         )
 
@@ -278,13 +278,13 @@ class TestBadResponseException(object):
 
     def test_as_problem_detail_document(self):
         exception = BadResponseException(
-            "http://url/", "What even is this", 
+            "http://url/", "What even is this",
             debug_message="some debug info"
         )
         document = exception.as_problem_detail_document(debug=True)
         eq_(502, document.status_code)
         eq_("Bad response", document.title)
-        eq_("The server made a request to http://url/, and got an unexpected or invalid response.", 
+        eq_("The server made a request to http://url/, and got an unexpected or invalid response.",
             document.detail
         )
         eq_("What even is this\n\nsome debug info", document.debug_message)

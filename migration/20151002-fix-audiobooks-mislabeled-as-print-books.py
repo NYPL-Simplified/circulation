@@ -22,15 +22,15 @@ class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
 
     def __init__(self, _db, interval_seconds=None):
         super(SetDeliveryMechanismMonitor, self).__init__(
-            _db, "20151002 migration - Correct medium of mislabeled audiobooks", 
+            _db, "20151002 migration - Correct medium of mislabeled audiobooks",
             interval_seconds, batch_size=100)
         self.overdrive = OverdriveAPI(_db)
         self.threem = ThreeMAPI(_db)
 
-    types = [Identifier.THREEM_ID, Identifier.OVERDRIVE_ID, 
+    types = [Identifier.THREEM_ID, Identifier.OVERDRIVE_ID,
              Identifier.AXIS_360_ID]
 
-    content_types = ["application/epub+zip", "application/pdf", 
+    content_types = ["application/epub+zip", "application/pdf",
                      "Kindle via Amazon", "Streaming Text"]
 
     def identifier_query(self):
@@ -66,5 +66,5 @@ class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
         if lp.edition.medium != correct_medium:
             print "%s is actually %s, not %s" % (lp.edition.title, correct_medium, lp.edition.medium)
             lp.edition.medium = correct_medium or Edition.BOOK_MEDIUM
-    
+
 RunMonitorScript(SetDeliveryMechanismMonitor).run()

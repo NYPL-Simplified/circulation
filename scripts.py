@@ -11,7 +11,7 @@ import subprocess
 import time
 import uuid
 from requests.exceptions import (
-    ConnectionError, 
+    ConnectionError,
     HTTPError,
 )
 import sys
@@ -60,8 +60,8 @@ from model import (
     Collection,
     Complaint,
     ConfigurationSetting,
-    Contributor, 
-    CoverageRecord, 
+    Contributor,
+    CoverageRecord,
     CustomList,
     DataSource,
     Edition,
@@ -97,8 +97,8 @@ from overdrive import OverdriveBibliographicCoverageProvider
 from util import fast_query_count
 from util.opds_writer import OPDSFeed
 from util.personal_names import (
-    contributor_name_match_ratio, 
-    display_name_to_sort_name, 
+    contributor_name_match_ratio,
+    display_name_to_sort_name,
     is_corporate_name
 )
 from util.worker_pools import (
@@ -124,7 +124,7 @@ class Script(object):
         if not hasattr(self, '_log'):
             logger_name = getattr(self, 'name', None)
             self._log = logging.getLogger(logger_name)
-        return self._log        
+        return self._log
 
     @property
     def data_directory(self):
@@ -196,7 +196,7 @@ class RunMonitorScript(Script):
                 monitor = monitor(self._db, **kwargs)
             self.monitor = monitor
             self.name = self.monitor.service_name
-            
+
     def do_run(self):
         if self.monitor:
             self.monitor.run()
@@ -222,7 +222,7 @@ class RunMultipleMonitorsScript(Script):
 
     def __init__(self, _db=None, **kwargs):
         """Constructor.
-        
+
         :param kwargs: Keyword arguments to pass into the `monitors` method
             when building the Monitor objects.
         """
@@ -289,7 +289,7 @@ class UpdateSearchIndexScript(RunMonitorScript):
     def __init__(self):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--works-index', 
+            '--works-index',
             help='The ElasticSearch index to update, if other than the default.'
         )
         parsed = parser.parse_args()
@@ -330,7 +330,7 @@ class RunCoverageProvidersScript(Script):
 
                 self.log.debug("Completed %s", provider.service_name)
                 providers.remove(provider)
-    
+
 
 class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
     """Run the same CoverageProvider code for all Collections that
@@ -433,15 +433,15 @@ class InputScript(Script):
         else:
             lines = []
         return lines
-    
-                    
+
+
 class IdentifierInputScript(InputScript):
     """A script that takes identifiers as command line inputs."""
 
     DATABASE_ID = "Database ID"
 
     @classmethod
-    def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin, 
+    def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin,
                            *args, **kwargs):
         parser = cls.arg_parser()
         parsed = parser.parse_args(cmd_args)
@@ -477,7 +477,7 @@ class IdentifierInputScript(InputScript):
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--identifier-type', 
+            '--identifier-type',
             help='Process identifiers of this type. If IDENTIFIER is not specified, all identifiers of this type will be processed. To name identifiers by their database ID, use --identifier-type="Database ID"'
         )
         parser.add_argument(
@@ -505,7 +505,7 @@ class IdentifierInputScript(InputScript):
         command line. Examples:
 
         1 2
-        
+
         a b c
         """
         identifiers = []
@@ -752,16 +752,16 @@ class SubjectInputScript(Script):
     :return: a 2-tuple (subject type, subject filter) that can be
     passed into the SubjectSweepMonitor constructor.
     """
-    
+
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--subject-type', 
+            '--subject-type',
             help='Process subjects of this type'
         )
         parser.add_argument(
-            '--subject-filter', 
+            '--subject-filter',
             help='Process subjects whose names or identifiers match this substring'
         )
         return parser
@@ -774,13 +774,13 @@ class RunCoverageProviderScript(IdentifierInputScript):
     def arg_parser(cls):
         parser = IdentifierInputScript.arg_parser()
         parser.add_argument(
-            '--cutoff-time', 
+            '--cutoff-time',
             help='Update existing coverage records if they were originally created after this time.'
         )
         return parser
 
     @classmethod
-    def parse_command_line(cls, _db, cmd_args=None, stdin=sys.stdin, 
+    def parse_command_line(cls, _db, cmd_args=None, stdin=sys.stdin,
                            *args, **kwargs):
         parser = cls.arg_parser()
         parsed = parser.parse_args(cmd_args)
@@ -821,7 +821,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
 
     def extract_additional_command_line_arguments(self):
         """A hook method for subclasses.
-        
+
         Turns command-line arguments into additional keyword arguments
         to the CoverageProvider constructor.
 
@@ -829,7 +829,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
         (as opposed to WorkCoverageProvider).
         """
         return {
-            "input_identifiers" : self.identifiers, 
+            "input_identifiers" : self.identifiers,
         }
 
 
@@ -922,7 +922,7 @@ class BibliographicRefreshScript(RunCollectionCoverageProviderScript, Identifier
 
 class ShowLibrariesScript(Script):
     """Show information about the libraries on a server."""
-    
+
     name = "List the libraries on this server."
     @classmethod
     def arg_parser(cls):
@@ -937,7 +937,7 @@ class ShowLibrariesScript(Script):
             action='store_true'
         )
         return parser
-    
+
     def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
@@ -958,8 +958,8 @@ class ShowLibrariesScript(Script):
                     )
                 )
             )
-            output.write("\n")            
-                    
+            output.write("\n")
+
 
 class ConfigurationSettingScript(Script):
 
@@ -975,11 +975,11 @@ class ConfigurationSettingScript(Script):
 
     @classmethod
     def add_setting_argument(self, parser, help):
-        """Modify an ArgumentParser to indicate that the script takes 
+        """Modify an ArgumentParser to indicate that the script takes
         command-line settings.
         """
         parser.add_argument('--setting', help=help, action="append")
-    
+
     def apply_settings(self, settings, obj):
         """Treat `settings` as a list of command-line argument settings,
         and apply each one to `obj`.
@@ -989,8 +989,8 @@ class ConfigurationSettingScript(Script):
         for setting in settings:
             key, value = self._parse_setting(setting)
             obj.setting(key).value = value
-            
-            
+
+
 class ConfigureSiteScript(ConfigurationSettingScript):
     """View or update site-wide configuration."""
 
@@ -1002,21 +1002,21 @@ class ConfigureSiteScript(ConfigurationSettingScript):
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
-    
+
         parser.add_argument(
             '--show-secrets',
             help="Include secrets when displaying site settings.",
             action="store_true",
             default=False
         )
-    
+
         cls.add_setting_argument(
             parser,
             'Set a site-wide setting, such as default_nongrouped_feed_max_age. Format: --setting="default_nongrouped_feed_max_age=1200"'
         )
 
         parser.add_argument(
-            '--force', 
+            '--force',
             help="Set a site-wide setting even if the key isn't a known setting.",
             dest='force', action='store_true'
         )
@@ -1043,7 +1043,7 @@ class ConfigureSiteScript(ConfigurationSettingScript):
         )
         site_configuration_has_changed(_db)
         _db.commit()
-        
+
 class ConfigureLibraryScript(ConfigurationSettingScript):
     """Create a library or change its settings."""
     name = "Change a library's settings"
@@ -1104,7 +1104,7 @@ class ConfigureLibraryScript(ConfigurationSettingScript):
 
 class ShowCollectionsScript(Script):
     """Show information about the collections on a server."""
-    
+
     name = "List the collections on this server."
     @classmethod
     def arg_parser(cls):
@@ -1119,7 +1119,7 @@ class ShowCollectionsScript(Script):
             action='store_true'
         )
         return parser
-    
+
     def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
@@ -1148,7 +1148,7 @@ class ShowCollectionsScript(Script):
 
 class ShowIntegrationsScript(Script):
     """Show information about the external integrations on a server."""
-    
+
     name = "List the external integrations on this server."
     @classmethod
     def arg_parser(cls):
@@ -1163,7 +1163,7 @@ class ShowIntegrationsScript(Script):
             action='store_true'
         )
         return parser
-    
+
     def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
@@ -1201,7 +1201,7 @@ class ConfigureCollectionScript(ConfigurationSettingScript):
     def parse_command_line(cls, _db=None, cmd_args=None):
         parser = cls.arg_parser(_db)
         return parser.parse_known_args(cmd_args)[0]
-    
+
     @classmethod
     def arg_parser(cls, _db):
         parser = argparse.ArgumentParser()
@@ -1243,7 +1243,7 @@ class ConfigureCollectionScript(ConfigurationSettingScript):
                 help='Associate this collection with the given library. Possible libraries: %s' % library_names,
                 action="append",
             )
-        
+
         return parser
 
     @classmethod
@@ -1255,7 +1255,7 @@ class ConfigureCollectionScript(ConfigurationSettingScript):
         if library_names:
             return '"' + '", "'.join(library_names) + '"'
         return ""
-    
+
     def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
@@ -1316,7 +1316,7 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
     def parse_command_line(cls, _db=None, cmd_args=None):
         parser = cls.arg_parser(_db)
         return parser.parse_known_args(cmd_args)[0]
-    
+
     @classmethod
     def arg_parser(cls, _db):
         parser = argparse.ArgumentParser()
@@ -1337,7 +1337,7 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
         cls.add_setting_argument(
             parser,
             'Set a configuration value on the integration. Format: --setting="key=value"'
-        )        
+        )
         return parser
 
     @classmethod
@@ -1367,7 +1367,7 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
         if name:
             integration.name = name
         return integration
-        
+
     def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
@@ -1386,10 +1386,10 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
         output.write("\n".join(integration.explain()))
         output.write("\n")
 
-        
+
 class ShowLanesScript(Script):
     """Show information about the lanes on a server."""
-    
+
     name = "List the lanes on this server."
     @classmethod
     def arg_parser(cls):
@@ -1399,7 +1399,7 @@ class ShowLanesScript(Script):
             help='Only display information for the lane with the given ID',
         )
         return parser
-    
+
     def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
@@ -1433,7 +1433,7 @@ class ConfigureLaneScript(ConfigurationSettingScript):
     def parse_command_line(cls, _db=None, cmd_args=None):
         parser = cls.arg_parser(_db)
         return parser.parse_known_args(cmd_args)[0]
-    
+
     @classmethod
     def arg_parser(cls, _db):
         parser = argparse.ArgumentParser()
@@ -1468,7 +1468,7 @@ class ConfigureLaneScript(ConfigurationSettingScript):
         if library_names:
             return '"' + '", "'.join(library_names) + '"'
         return ""
-    
+
     def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
@@ -1504,37 +1504,37 @@ class AddClassificationScript(IdentifierInputScript):
     def arg_parser(cls):
         parser = IdentifierInputScript.arg_parser()
         parser.add_argument(
-            '--subject-type', 
+            '--subject-type',
             help='The type of the subject to add to each identifier.',
             required=True
         )
         parser.add_argument(
-            '--subject-identifier', 
+            '--subject-identifier',
             help='The identifier of the subject to add to each identifier.'
-        )        
+        )
         parser.add_argument(
-            '--subject-name', 
+            '--subject-name',
             help='The name of the subject to add to each identifier.'
-        )        
+        )
         parser.add_argument(
-            '--data-source', 
+            '--data-source',
             help='The data source to use when classifying.',
             default=DataSource.MANUAL
-        )     
+        )
         parser.add_argument(
-            '--weight', 
+            '--weight',
             help='The weight to use when classifying.',
             type=int,
             default=1000
-        )     
+        )
         parser.add_argument(
-            '--create-subject', 
+            '--create-subject',
             help="Add the subject to the database if it doesn't already exist",
             action='store_const',
             const=True
-        )     
+        )
         return parser
-    
+
     def __init__(self, _db=None, cmd_args=None, stdin=sys.stdin):
         super(AddClassificationScript, self).__init__(_db=_db)
         args = self.parse_command_line(
@@ -1555,13 +1555,13 @@ class AddClassificationScript(IdentifierInputScript):
             self._db, subject_type, subject_identifier, subject_name,
             autocreate=args.create_subject
         )
-        
+
     def do_run(self):
         policy = PresentationCalculationPolicy(
-            choose_edition=False, 
+            choose_edition=False,
             set_edition_metadata=False,
             classify=True,
-            choose_summary=False, 
+            choose_summary=False,
             calculate_quality=False,
             choose_cover=False,
             regenerate_opds_entries=True,
@@ -1658,7 +1658,7 @@ class WorkProcessingScript(IdentifierInputScript):
         self._db.commit()
 
     def process_work(self, work):
-        raise NotImplementedError()      
+        raise NotImplementedError()
 
 
 class WorkConsolidationScript(WorkProcessingScript):
@@ -1723,13 +1723,13 @@ class WorkClassificationScript(WorkPresentationScript):
         choose_summary=False,
         calculate_quality=False,
         choose_cover=False,
-        regenerate_opds_entries=False, 
+        regenerate_opds_entries=False,
         update_search_index=False,
     )
 
 
 class ReclassifyWorksForUncheckedSubjectsScript(WorkClassificationScript):
-    """Reclassify all Works whose current classifications appear to 
+    """Reclassify all Works whose current classifications appear to
     depend on Subjects in the 'unchecked' state.
 
     This generally means that some migration script reset those
@@ -1759,7 +1759,7 @@ class WorkOPDSScript(WorkPresentationScript):
         choose_summary=False,
         calculate_quality=False,
         choose_cover=False,
-        regenerate_opds_entries=True, 
+        regenerate_opds_entries=True,
         update_search_index=True,
     )
 
@@ -1811,20 +1811,20 @@ class CollectionInputScript(Script):
             if not collection:
                 raise ValueError("Unknown collection: %s" % name)
             parsed.collections.append(collection)
-        return parsed    
-    
+        return parsed
+
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--collection', 
+            '--collection',
             help='Collection to use',
-            dest='collection_names',            
+            dest='collection_names',
             metavar='NAME', action='append', default=[]
         )
         return parser
-    
-    
+
+
 class OPDSImportScript(CollectionInputScript):
     """Import all books from the OPDS feed associated with a collection."""
 
@@ -1832,7 +1832,7 @@ class OPDSImportScript(CollectionInputScript):
     MONITOR_CLASS = OPDSImportMonitor
     PROTOCOL = ExternalIntegration.OPDS_IMPORT
 
-    def __init__(self, _db=None, importer_class=None, monitor_class=None, 
+    def __init__(self, _db=None, importer_class=None, monitor_class=None,
                  protocol=None, *args, **kwargs):
         super(OPDSImportScript, self).__init__(_db, *args, **kwargs)
         self.importer_class = importer_class or self.IMPORTER_CLASS
@@ -1843,12 +1843,12 @@ class OPDSImportScript(CollectionInputScript):
     def arg_parser(cls):
         parser = CollectionInputScript.arg_parser()
         parser.add_argument(
-            '--force', 
+            '--force',
             help='Import the feed from scratch, even if it seems like it was already imported.',
             dest='force', action='store_true'
         )
         return parser
-    
+
     def do_run(self, cmd_args=None):
         parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
         collections = parsed.collections or Collection.by_protocol(self._db, self.protocol)
@@ -2006,7 +2006,7 @@ class RefreshMaterializedViewsScript(Script):
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--blocking-refresh', 
+            '--blocking-refresh',
             help="Provide this argument if you're on an older version of Postgres and can't refresh materialized views concurrently.",
             action='store_true',
         )
@@ -2592,15 +2592,15 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
 
 
 class CheckContributorNamesInDB(IdentifierInputScript):
-    """ Checks that contributor sort_names are display_names in 
-    "last name, comma, other names" format.  
+    """ Checks that contributor sort_names are display_names in
+    "last name, comma, other names" format.
 
-    Read contributors edition by edition, so that can, if necessary, 
-    restrict db query by passed-in identifiers, and so can find associated 
+    Read contributors edition by edition, so that can, if necessary,
+    restrict db query by passed-in identifiers, and so can find associated
     license pools to register author complaints to.
 
-    NOTE:  There's also CheckContributorNamesOnWeb in metadata, 
-    it's a child of this script.  Use it to check our knowledge against 
+    NOTE:  There's also CheckContributorNamesOnWeb in metadata,
+    it's a child of this script.  Use it to check our knowledge against
     viaf, with the newer better sort_name selection and formatting.
 
     TODO: make sure don't start at beginning again when interrupt while batch job is running.
@@ -2651,7 +2651,7 @@ class CheckContributorNamesInDB(IdentifierInputScript):
 
 
     def do_run(self, batch_size=10):
-        
+
         self.query = self.make_query(
             self._db, self.parsed_args.identifier_type, self.parsed_args.identifiers, self.log
         )
@@ -2689,27 +2689,27 @@ class CheckContributorNamesInDB(IdentifierInputScript):
             if (contributor.sort_name.strip().lower() != computed_sort_name_local_new.strip().lower()):
                 error_message_detail = "Contributor[id=%s].sort_name is oddly different from computed_sort_name, human intervention required." % contributor.id
 
-                # computed names don't match.  by how much?  if it's a matter of a comma or a misplaced 
-                # suffix, we can fix without asking for human intervention.  if the names are very different, 
-                # there's a chance the sort and display names are different on purpose, s.a. when foreign names 
-                # are passed as translated into only one of the fields, or when the author has a popular pseudonym. 
+                # computed names don't match.  by how much?  if it's a matter of a comma or a misplaced
+                # suffix, we can fix without asking for human intervention.  if the names are very different,
+                # there's a chance the sort and display names are different on purpose, s.a. when foreign names
+                # are passed as translated into only one of the fields, or when the author has a popular pseudonym.
                 # best ask a human.
 
                 # if the relative lengths are off by more than a stray space or comma, ask a human
-                # it probably means that a human metadata professional had added an explanation/expansion to the 
-                # sort_name, s.a. "Bob A. Jones" --> "Bob A. (Allan) Jones", and we'd rather not replace this data 
+                # it probably means that a human metadata professional had added an explanation/expansion to the
+                # sort_name, s.a. "Bob A. Jones" --> "Bob A. (Allan) Jones", and we'd rather not replace this data
                 # with the "Jones, Bob A." that the auto-algorigthm would generate.
                 length_difference = len(contributor.sort_name.strip()) - len(computed_sort_name_local_new.strip())
                 if abs(length_difference) > 3:
-                    return self.process_local_mismatch(_db=_db, contribution=contribution,  
+                    return self.process_local_mismatch(_db=_db, contribution=contribution,
                         computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
 
                 match_ratio = contributor_name_match_ratio(contributor.sort_name, computed_sort_name_local_new, normalize_names=False)
 
                 if (match_ratio < 40):
-                    # ask a human.  this kind of score can happen when the sort_name is a transliteration of the display_name, 
-                    # and is non-trivial to fix.  
-                    self.process_local_mismatch(_db=_db, contribution=contribution, 
+                    # ask a human.  this kind of score can happen when the sort_name is a transliteration of the display_name,
+                    # and is non-trivial to fix.
+                    self.process_local_mismatch(_db=_db, contribution=contribution,
                         computed_sort_name=computed_sort_name_local_new, error_message_detail=error_message_detail, log=log)
                 else:
                     # we can fix it!
@@ -2724,24 +2724,24 @@ class CheckContributorNamesInDB(IdentifierInputScript):
         contribution.contributor.sort_name = sort_name
 
         # also change edition.sort_author, if the author was primary
-        # Note: I considered using contribution.edition.author_contributors, but 
-        # found that it's not impossible to have a messy dataset that doesn't work on.  
+        # Note: I considered using contribution.edition.author_contributors, but
+        # found that it's not impossible to have a messy dataset that doesn't work on.
         # For our purpose here, the following logic is cleaner-acting:
         # If this author appears as Primary Author anywhere on the edition, then change edition.sort_author.
         edition_contributions = contribution.edition.contributions
         for edition_contribution in edition_contributions:
-            if ((edition_contribution.role == Contributor.PRIMARY_AUTHOR_ROLE) and 
+            if ((edition_contribution.role == Contributor.PRIMARY_AUTHOR_ROLE) and
                 (edition_contribution.contributor.display_name == contribution.contributor.display_name)):
                 contribution.edition.sort_author = sort_name
 
 
     def process_local_mismatch(self, _db, contribution, computed_sort_name, error_message_detail, log=None):
         """
-        Determines if a problem is to be investigated further or recorded as a Complaint, 
-        to be solved by a human.  In this class, it's always a complaint.  In the overridden 
+        Determines if a problem is to be investigated further or recorded as a Complaint,
+        to be solved by a human.  In this class, it's always a complaint.  In the overridden
         method in the child class in metadata_wrangler code, we sometimes go do a web query.
-        """ 
-        self.register_problem(source=self.COMPLAINT_SOURCE, contribution=contribution, 
+        """
+        self.register_problem(source=self.COMPLAINT_SOURCE, contribution=contribution,
             computed_sort_name=computed_sort_name, error_message_detail=error_message_detail, log=log)
 
 
@@ -2984,7 +2984,7 @@ class FixInvisibleWorksScript(CollectionInputScript):
         super(FixInvisibleWorksScript, self).__init__(_db)
         self.output = output or sys.stdout
         self.search = search or ExternalSearchIndex(_db)
-    
+
     def run(self, cmd_args=None):
         parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
         self.do_run(parsed.collections)
@@ -3019,7 +3019,7 @@ class FixInvisibleWorksScript(CollectionInputScript):
             self.output.write(
                 "%d works are now presentation-ready.\n" % ready_count
             )
-        
+
         if ready_count == 0:
             self.output.write(
                 "Here's your problem: there are no presentation-ready works.\n"
@@ -3037,7 +3037,7 @@ class FixInvisibleWorksScript(CollectionInputScript):
         self.output.write(
             "%d works in materialized view.\n" % mv_works_count
         )
-        
+
         # Rebuild the materialized views.
         self.output.write("Refreshing the materialized views.\n")
         SessionManager.refresh_materialized_views(self._db)
@@ -3086,7 +3086,7 @@ class FixInvisibleWorksScript(CollectionInputScript):
                 "Here's your problem: your works aren't open access and have no licenses owned.\n"
             )
             return
-            
+
         page_feeds = self._db.query(CachedFeed).filter(
             CachedFeed.type != CachedFeed.GROUPS_TYPE)
         page_feeds_count = page_feeds.count()

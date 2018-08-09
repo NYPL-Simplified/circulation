@@ -1,6 +1,6 @@
 from nose.tools import (
     assert_raises_regexp,
-    eq_, 
+    eq_,
     set_trace,
 )
 
@@ -42,7 +42,7 @@ class AxisTest(DatabaseTest):
     def setup(self):
         super(AxisTest, self).setup()
         self.collection = MockAxis360API.mock_collection(self._db)
-    
+
     def get_data(self, filename):
         path = os.path.join(
             os.path.split(__file__)[0], "files/axis/", filename)
@@ -67,7 +67,7 @@ class TestAxis360API(AxisTestWithAPI):
 
         self.api.queue_response(500)
         assert_raises_regexp(
-            RemoteIntegrationException, "Bad response from http://axis.test/availability/v2: Got status code 500 from external server, cannot continue.", 
+            RemoteIntegrationException, "Bad response from http://axis.test/availability/v2: Got status code 500 from external server, cannot continue.",
             self.api.availability
         )
 
@@ -90,7 +90,7 @@ class TestAxis360API(AxisTestWithAPI):
         api = MockAxis360API(self._db, self.collection, with_token=False)
         api.queue_response(412)
         assert_raises_regexp(
-            RemoteIntegrationException, "Bad response from http://axis.test/accesstoken: Got status code 412 from external server, but can only continue on: 200.", 
+            RemoteIntegrationException, "Bad response from http://axis.test/accesstoken: Got status code 412 from external server, but can only continue on: 200.",
             api.refresh_bearer_token
         )
 
@@ -177,7 +177,7 @@ class TestParsers(AxisTest):
         # Check the subjects for #2 because it includes an audience,
         # unlike #1.
         subjects = sorted(bib2.subjects, key = lambda x: x.identifier)
-        eq_([Subject.BISAC, Subject.BISAC, Subject.BISAC, 
+        eq_([Subject.BISAC, Subject.BISAC, Subject.BISAC,
              Subject.AXIS_360_AUDIENCE], [x.type for x in subjects])
         general_fiction, women_sleuths, romantic_suspense = sorted([
             x.name for x in subjects if x.type==Subject.BISAC])
@@ -227,7 +227,7 @@ class TestParsers(AxisTest):
         # force_role overwrites whatever other role might be
         # assigned.
         author = "Bob, Inc. (COR)"
-        c = parse(author, primary_author_found=False, 
+        c = parse(author, primary_author_found=False,
                   force_role=Contributor.NARRATOR_ROLE)
         eq_([Contributor.NARRATOR_ROLE], c.roles)
 
@@ -261,7 +261,7 @@ class TestAxis360BibliographicCoverageProvider(AxisTest):
             self.collection, api_class=MockAxis360API
         )
         self.api = self.provider.api
-        
+
     def test_script_instantiation(self):
         """Test that RunCoverageProviderScript can instantiate
         the coverage provider.
@@ -280,7 +280,7 @@ class TestAxis360BibliographicCoverageProvider(AxisTest):
         """
         data = self.get_data("single_item.xml")
         self.api.queue_response(200, content=data)
-        
+
         # Here's the book mentioned in single_item.xml.
         identifier = self._identifier(identifier_type=Identifier.AXIS_360_ID)
         identifier.identifier = '0003642860'
@@ -297,13 +297,13 @@ class TestAxis360BibliographicCoverageProvider(AxisTest):
         [pool] = identifier.licensed_through
         eq_(9, pool.licenses_owned)
         [lpdm] = pool.delivery_mechanisms
-        eq_('application/epub+zip (application/vnd.adobe.adept+xml)', 
+        eq_('application/epub+zip (application/vnd.adobe.adept+xml)',
             lpdm.delivery_mechanism.name)
 
         # A Work was created and made presentation ready.
         eq_('Faith of My Fathers : A Family Memoir', pool.work.title)
         eq_(True, pool.work.presentation_ready)
-       
+
     def test_transient_failure_if_requested_book_not_mentioned(self):
         """Test an unrealistic case where we ask Axis 360 about one book and
         it tells us about a totally different book.
@@ -315,14 +315,14 @@ class TestAxis360BibliographicCoverageProvider(AxisTest):
         # But we're going to get told about 0003642860.
         data = self.get_data("single_item.xml")
         self.api.queue_response(200, content=data)
-        
+
         [result] = self.provider.process_batch([identifier])
 
         # Coverage failed for the book we asked about.
         assert isinstance(result, CoverageFailure)
         eq_(identifier, result.obj)
         eq_("Book not in collection", result.exception)
-        
+
         # And nothing major was done about the book we were told
         # about. We created an Identifier record for its identifier,
         # but no LicensePool or Edition.

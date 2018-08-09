@@ -45,7 +45,7 @@ class TestOpenSearchDocument(DatabaseTest):
         d = dict(k1="a", k2="b & c")
         expect = dict(k1="a", k2="b &amp; c")
         eq_(expect, OpenSearchDocument.escape_entities(d))
-    
+
     def test_url_template(self):
         """Verify that url_template generates sensible URL templates."""
         m = OpenSearchDocument.url_template

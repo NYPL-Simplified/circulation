@@ -23,7 +23,7 @@ class RecalculateAgeRangeMonitor(WorkSweepMonitor):
 
     def __init__(self, _db, interval_seconds=None):
         super(RecalculateAgeRangeMonitor, self).__init__(
-            _db, "20150825 migration - Recalculate age range for children's books (Works)", 
+            _db, "20150825 migration - Recalculate age range for children's books (Works)",
             interval_seconds, batch_size=10)
 
     def work_query(self):
@@ -42,5 +42,5 @@ class RecalculateAgeRangeMonitor(WorkSweepMonitor):
         work.target_age = NumericRange(*target_age)
         if work.target_age != old_target_age and work.target_age.lower != None:
             print "%r: %r->%r" % (work.title, old_target_age, work.target_age)
-    
+
 RunMonitorScript(RecalculateAgeRangeMonitor).run()

@@ -4,7 +4,7 @@ from config import CannotLoadConfiguration
 
 class MirrorUploader(object):
 
-    """Handles the job of uploading a representation's content to 
+    """Handles the job of uploading a representation's content to
     a mirror that we control.
     """
 
@@ -107,7 +107,7 @@ class MirrorUploader(object):
         # based on the credentials in the ExternalIntegration.
 
     def do_upload(self, representation):
-        raise NotImplementedError()        
+        raise NotImplementedError()
 
     def mirror_one(self, representation):
         """Mirror a single Representation."""

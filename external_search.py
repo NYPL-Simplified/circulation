@@ -12,7 +12,7 @@ from classifier import (
     AgeClassifier,
 )
 from model import (
-    ExternalIntegration, 
+    ExternalIntegration,
     Work,
     WorkCoverageRecord,
 )
@@ -33,7 +33,7 @@ class ExternalSearchIndex(object):
     WORKS_INDEX_PREFIX_KEY = u'works_index_prefix'
 
     DEFAULT_WORKS_INDEX_PREFIX = u'circulation-works'
-    
+
     work_document_type = 'work-type'
     __client = None
 
@@ -42,7 +42,7 @@ class ExternalSearchIndex(object):
 
     SETTINGS = [
         { "key": ExternalIntegration.URL, "label": _("URL") },
-        { "key": WORKS_INDEX_PREFIX_KEY, "label": _("Index prefix"), 
+        { "key": WORKS_INDEX_PREFIX_KEY, "label": _("Index prefix"),
           "default": DEFAULT_WORKS_INDEX_PREFIX,
           "description": _("Any Elasticsearch indexes needed for this application will be created with this unique prefix. In most cases, the default will work fine. You may need to change this if you have multiple application servers using a single Elasticsearch server.")
         },
@@ -99,7 +99,7 @@ class ExternalSearchIndex(object):
         return cls.works_prefixed(_db, cls.CURRENT_ALIAS_SUFFIX)
 
     def __init__(self, _db, url=None, works_index=None):
-    
+
         self.log = logging.getLogger("External search index")
         self.works_index = None
         self.works_alias = None
@@ -126,7 +126,7 @@ class ExternalSearchIndex(object):
         if not ExternalSearchIndex.__client:
             use_ssl = url.startswith('https://')
             self.log.info(
-                "Connecting to index %s in Elasticsearch cluster at %s", 
+                "Connecting to index %s in Elasticsearch cluster at %s",
                 works_index, url
             )
             ExternalSearchIndex.__client = Elasticsearch(
@@ -279,7 +279,7 @@ class ExternalSearchIndex(object):
             collection_ids = [x.id for x in library.collections]
 
         filter = self.make_filter(
-            collection_ids, media, languages, fiction, 
+            collection_ids, media, languages, fiction,
             audiences, target_age, in_any_of_these_genres,
             on_any_of_these_lists
         )
@@ -348,19 +348,19 @@ class ExternalSearchIndex(object):
 
         def make_target_age_query(target_age):
             (lower, upper) = target_age[0], target_age[1]
-            return { 
+            return {
                 "bool" : {
                     # There must be some overlap with the range in the query
                     "must": [
                        {"range": {"target_age.upper": {"gte": lower}}},
                        {"range": {"target_age.lower": {"lte": upper}}},
-                     ], 
+                     ],
                     # Results with ranges closer to the query are better
                     # e.g. for query 4-6, a result with 5-6 beats 6-7
                     "should": [
                        {"range": {"target_age.upper": {"lte": upper}}},
                        {"range": {"target_age.lower": {"gte": lower}}},
-                     ], 
+                     ],
                     "boost": 40
                 }
             }
@@ -369,7 +369,7 @@ class ExternalSearchIndex(object):
         stemmed_query_string_fields = [
             # These fields have been stemmed.
             'title^4',
-            "series^4", 
+            "series^4",
             'subtitle^3',
             'summary^2',
             "classifications.term^2",
@@ -439,7 +439,7 @@ class ExternalSearchIndex(object):
             fuzzy_query = make_fuzzy_query(query_string, fuzzy_fields)
             must_match_options.append(fuzzy_query)
 
-        # If fiction or genre is in the query, results can match the fiction or 
+        # If fiction or genre is in the query, results can match the fiction or
         # genre value and the remaining words in the query string, instead of the
         # full query.
 
@@ -448,7 +448,7 @@ class ExternalSearchIndex(object):
             fiction = "Nonfiction"
         elif re.compile(r"\bfiction\b", re.IGNORECASE).search(query_string):
             fiction = "Fiction"
-        
+
         # Get the genre and the words in the query that matched it, if any
         genre, genre_match = KeywordBasedClassifier.genre_match(query_string)
 
@@ -511,9 +511,9 @@ class ExternalSearchIndex(object):
                 # is a possible match, but is less important than author, subtitle, and summary.
                 match_rest_of_query = make_query_string_query(remaining_string, ["author^4", "subtitle^3", "summary^5", "title^1", "series^1"])
                 classification_queries.append(match_rest_of_query)
-            
+
             # If classification queries and the remaining string all match, the result will
-            # have a higher score than results that match the full query in one of the 
+            # have a higher score than results that match the full query in one of the
             # main fields.
             match_classification_and_rest_of_query = {
                 'bool': {
@@ -532,7 +532,7 @@ class ExternalSearchIndex(object):
                 'queries': must_match_options,
             }
         }
-        
+
     def make_filter(self, collection_ids, media, languages, fiction, audiences, target_age, genres, customlist_ids):
         def _f(s):
             if not s:
@@ -585,7 +585,7 @@ class ExternalSearchIndex(object):
 
             age_clause = {
                 "and": [
-                    { 
+                    {
                         "or" : [
                             {"range": {"target_age.upper": {"gte": lower}}},
                             {
@@ -661,23 +661,23 @@ class ExternalSearchIndex(object):
         time3 = time.time()
         self.log.info("Created %i search documents in %.2f seconds" % (len(docs), time2 - time1))
         self.log.info("Uploaded %i search documents in  %.2f seconds" % (len(docs), time3 - time2))
-        
+
         doc_ids = [d['_id'] for d in docs]
-        
+
         # We weren't able to create search documents for these works, maybe
         # because they don't have presentation editions yet.
         def get_error_id(error):
-            return error.get('data', {}).get('_id', None) or error.get('index', {}).get('_id', None)   
+            return error.get('data', {}).get('_id', None) or error.get('index', {}).get('_id', None)
         error_ids = [get_error_id(error) for error in errors]
 
         missing_works = [
-            work for work in works 
+            work for work in works
             if work.id not in doc_ids and work.id not in error_ids
             and work not in successes
         ]
-            
+
         successes.extend(
-            [work for work in works 
+            [work for work in works
              if work.id in doc_ids and work.id not in error_ids]
         )
 
@@ -686,7 +686,7 @@ class ExternalSearchIndex(object):
             failures.append((work, "Work not indexed"))
 
         for error in errors:
-            
+
             error_id = get_error_id(error)
             work = None
             works_with_error = [work for work in works if work.id == error_id]
@@ -707,7 +707,7 @@ class ExternalSearchIndex(object):
     def remove_work(self, work):
         """Remove the search document for `work` from the search index.
         """
-        args = dict(index=self.works_index, doc_type=self.work_document_type, 
+        args = dict(index=self.works_index, doc_type=self.work_document_type,
                     id=work.id)
         if self.exists(**args):
             self.delete(**args)
@@ -911,7 +911,7 @@ class SearchIndexMonitor(WorkSweepMonitor):
     """
     SERVICE_NAME = "Search index update"
     DEFAULT_BATCH_SIZE = 500
-    
+
     def __init__(self, _db, collection, index_name=None, index_client=None,
                  **kwargs):
         super(SearchIndexMonitor, self).__init__(_db, collection, **kwargs)

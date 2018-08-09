@@ -39,7 +39,7 @@ class ProblemDetail(object):
         """Create a Flask-style response."""
         return (
             json(
-                self.uri, self.status_code, self.title, self.detail, 
+                self.uri, self.status_code, self.title, self.detail,
                 self.instance, self.debug_message
             ),
             self.status_code or 400,
@@ -62,11 +62,11 @@ class ProblemDetail(object):
             logging.warn("\"%s\" has not been internationalized" % detail)
 
         return ProblemDetail(
-            self.uri, status_code or self.status_code, title or self.title, 
+            self.uri, status_code or self.status_code, title or self.title,
             detail, instance, debug_message
         )
 
-    def with_debug(self, debug_message, detail=None, status_code=None, 
+    def with_debug(self, debug_message, detail=None, status_code=None,
                    title=None, instance=None):
         """Insert debugging information into a ProblemDetail.
 
@@ -75,6 +75,6 @@ class ProblemDetail(object):
         those who inspect the problem document.
         """
         return ProblemDetail(
-            self.uri, status_code or self.status_code, title or self.title, 
+            self.uri, status_code or self.status_code, title or self.title,
             detail or self.detail, instance or self.instance, debug_message
         )

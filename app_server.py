@@ -19,7 +19,7 @@ from opds import (
     AcquisitionFeed,
     LookupAcquisitionFeed,
 )
-from util.opds_writer import (    
+from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
@@ -58,7 +58,7 @@ def load_lending_policy(policy):
             for audience in p[Patron.AUDIENCE_RESTRICTION_POLICY]:
                 if not audience in Classifier.AUDIENCES:
                     raise ValueError(
-                        "Unrecognized audience in lending policy: %s" % 
+                        "Unrecognized audience in lending policy: %s" %
                         audience)
     return policy
 
@@ -301,7 +301,7 @@ class URNLookupController(object):
             # The default URNLookupController cannot look up an
             # Identifier that has no associated LicensePool.
             return self.add_message(urn, 404, self.UNRECOGNIZED_IDENTIFIER)
-            
+
         # If we get to this point, there is at least one LicensePool
         # for this identifier.
         work = identifier.work
@@ -318,24 +318,24 @@ class URNLookupController(object):
     def add_work(self, identifier, work):
         """An identifier lookup succeeded in finding a Work."""
         self.works.append((identifier, work))
-        
+
     def add_entry(self, entry):
         """An identifier lookup succeeded in creating an OPDS entry."""
         self.precomposed_entries.append(entry)
-    
+
     def add_message(self, urn, status_code, message):
         """An identifier lookup resulted in the creation of a message."""
         self.precomposed_entries.append(
             OPDSMessage(urn, status_code, message)
         )
-        
+
     def post_lookup_hook(self):
         """Run after looking up a number of Identifiers.
 
         By default, does nothing.
         """
         pass
-            
+
 
 class ComplaintController(object):
     """A controller to register complaints against objects."""

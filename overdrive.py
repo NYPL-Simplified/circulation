@@ -15,7 +15,7 @@ from sqlalchemy.orm.exc import (
 from sqlalchemy.orm.session import Session
 
 from config import (
-    temp_config, 
+    temp_config,
     Configuration,
 )
 
@@ -123,7 +123,7 @@ class OverdriveAPI(object):
     # the metadata wrangler) don't need to set this value.
     ILS_NAME_KEY = u"ils_name"
     ILS_NAME_DEFAULT = u"default"
-    
+
     def __init__(self, _db, collection):
         if collection.protocol != ExternalIntegration.OVERDRIVE:
             raise ValueError(
@@ -136,7 +136,7 @@ class OverdriveAPI(object):
         if collection.parent:
             # This is an Overdrive Advantage account.
             self.parent_library_id = collection.parent.external_account_id
-            
+
             # We're going to inherit all of the Overdrive credentials
             # from the parent (the main Overdrive account), except for the
             # library ID, which we already set.
@@ -174,7 +174,7 @@ class OverdriveAPI(object):
     @property
     def collection(self):
         return Collection.by_id(self._db, id=self.collection_id)
-        
+
     @property
     def source(self):
         return DataSource.lookup(self._db, DataSource.OVERDRIVE)
@@ -279,7 +279,7 @@ class OverdriveAPI(object):
         else:
             endpoint = self.LIBRARY_ENDPOINT
         return endpoint % args
-        
+
     def get_library(self):
         """Get basic information about the collection, including
         a link to the titles in the collection.
@@ -315,7 +315,7 @@ class OverdriveAPI(object):
             return OverdriveAdvantageAccount.from_representation(
                 representation.content
             )
-    
+
     def all_ids(self):
         """Get IDs for every book in the system, with the most recently added
         ones at the front.
@@ -459,12 +459,12 @@ class MockOverdriveAPI(OverdriveAPI):
         library.collections.append(collection)
         OverdriveAPI.ils_name_setting(_db, collection, library).value = 'e'
         return collection
-    
+
     def __init__(self, _db, collection, *args, **kwargs):
         self.access_token_requests = []
         self.requests = []
         self.responses = []
-        
+
         # The constructor will always make a request for the collection token.
         self.queue_response(
             200, content=self.mock_collection_token("collection token")
@@ -473,7 +473,7 @@ class MockOverdriveAPI(OverdriveAPI):
             "bearer token"
         )
         super(MockOverdriveAPI, self).__init__(_db, collection, *args, **kwargs)
-        
+
     def token_post(self, url, payload, headers={}, **kwargs):
         """Mock the request for an OAuth token.
 
@@ -541,7 +541,7 @@ class OverdriveRepresentationExtractor(object):
             data = dict(id=book_id,
                         title=product.get('title'),
                         author_name=None)
-            
+
             if 'primaryCreator' in product:
                 creator = product['primaryCreator']
                 if creator.get('role') == 'Author':
@@ -601,7 +601,7 @@ class OverdriveRepresentationExtractor(object):
             DeliveryMechanism.OVERDRIVE_DRM
         ),
         "ebook-kindle" : (
-            DeliveryMechanism.KINDLE_CONTENT_TYPE, 
+            DeliveryMechanism.KINDLE_CONTENT_TYPE,
             DeliveryMechanism.KINDLE_DRM
         ),
         "periodicals-nook" : (
@@ -678,7 +678,7 @@ class OverdriveRepresentationExtractor(object):
 
     @classmethod
     def book_info_to_circulation(cls, book):
-        """ Note:  The json data passed into this method is from a different file/stream 
+        """ Note:  The json data passed into this method is from a different file/stream
         from the json data that goes into the book_info_to_metadata() method.
         """
         # In Overdrive, 'reserved' books show up as books on
@@ -733,7 +733,7 @@ class OverdriveRepresentationExtractor(object):
         """Turn Overdrive's JSON representation of a book into a Metadata
         object.
 
-        Note:  The json data passed into this method is from a different file/stream 
+        Note:  The json data passed into this method is from a different file/stream
         from the json data that goes into the book_info_to_circulation() method.
         """
         if not 'id' in book:
@@ -808,7 +808,7 @@ class OverdriveRepresentationExtractor(object):
             if overdrive_medium and overdrive_medium not in cls.overdrive_medium_to_simplified_medium:
                 cls.log.error(
                     "Could not process medium %s for %s", overdrive_medium, overdrive_id)
-                
+
             medium = cls.overdrive_medium_to_simplified_medium.get(
                 overdrive_medium, Edition.BOOK_MEDIUM
             )
@@ -886,7 +886,7 @@ class OverdriveRepresentationExtractor(object):
                             href = sample_info['url']
                             links.append(
                                 LinkData(
-                                    rel=Hyperlink.SAMPLE, 
+                                    rel=Hyperlink.SAMPLE,
                                     href=href,
                                     media_type=content_type
                                 )
@@ -936,7 +936,7 @@ class OverdriveRepresentationExtractor(object):
                         content=short,
                         media_type="text/html",
                     )
-                ) 
+                )
 
             # Add measurements: rating and popularity
             if book.get('starRating') is not None and book['starRating'] > 0:
@@ -965,7 +965,7 @@ class OverdriveRepresentationExtractor(object):
                 series=series,
                 publisher=publisher,
                 imprint=imprint,
-                published=published,            
+                published=published,
                 primary_identifier=primary_identifier,
                 identifiers=identifiers,
                 subjects=subjects,
@@ -988,12 +988,12 @@ class OverdriveRepresentationExtractor(object):
                     formats.append(FormatData(content_type, drm_scheme))
                 elif format_id not in cls.ignorable_overdrive_formats:
                     cls.log.error(
-                        "Could not process Overdrive format %s for %s", 
+                        "Could not process Overdrive format %s for %s",
                         format_id, overdrive_id
                     )
 
 
-            # Also make a CirculationData so we can write the formats, 
+            # Also make a CirculationData so we can write the formats,
             circulationdata = CirculationData(
                 data_source=DataSource.OVERDRIVE,
                 primary_identifier=primary_identifier,
@@ -1003,16 +1003,16 @@ class OverdriveRepresentationExtractor(object):
             metadata.circulation = circulationdata
 
         return metadata
-   
+
 
 class OverdriveAdvantageAccount(object):
     """Holder and parser for data associated with Overdrive Advantage.
     """
-    
+
     def __init__(self, parent_library_id, library_id, name):
         """Constructor.
-        
-        :param parent_library_id: The library ID of the parent Overdrive 
+
+        :param parent_library_id: The library ID of the parent Overdrive
             account.
         :param library_id: The library ID of the Overdrive Advantage account.
         :param name: The name of the library whose Advantage account this is.
@@ -1088,7 +1088,7 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
     DATA_SOURCE_NAME = DataSource.OVERDRIVE
     PROTOCOL = ExternalIntegration.OVERDRIVE
     INPUT_IDENTIFIER_TYPES = Identifier.OVERDRIVE_ID
-    
+
     def __init__(self, collection, api_class=OverdriveAPI, **kwargs):
         """Constructor.
 

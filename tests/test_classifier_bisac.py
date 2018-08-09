@@ -14,7 +14,7 @@ from classifier.bisac import (
     anything,
     fiction,
     juvenile,
-    m,    
+    m,
     nonfiction,
     something,
     ya,
@@ -34,7 +34,7 @@ class TestMatchingRule(object):
             ValueError, MatchingRule, None, "Fiction"
         )
 
-    def test_string_match(self):        
+    def test_string_match(self):
         rule = MatchingRule(True, 'Fiction')
         eq_(True, rule.match("fiction", "westerns"))
         eq_(None, rule.match("nonfiction", "westerns"))
@@ -127,7 +127,7 @@ class MockSubject(object):
         self.name = name
 
 
-class TestBISACClassifier(object):        
+class TestBISACClassifier(object):
 
     def _subject(self, identifier, name):
         subject = MockSubject(identifier, name)
@@ -155,7 +155,7 @@ class TestBISACClassifier(object):
                 raise Exception(
                     "Fiction rule %s didn't catch anything!" % i.ruleset
                 )
-    
+
         for i in BISACClassifier.GENRE:
             if i.caught == []:
                 raise Exception(
@@ -239,7 +239,7 @@ class TestBISACClassifier(object):
         self.genre_is("Mind & Spirit / Crystals, Man", "Body, Mind & Spirit")
         self.genre_is("Technology / Fire", "Technology")
         self.genre_is(
-            "Young Adult Nonfiction / Social Situations / Junior Prom", 
+            "Young Adult Nonfiction / Social Situations / Junior Prom",
             "Life Strategies"
         )
 
@@ -316,11 +316,11 @@ class TestBISACClassifier(object):
         # These are the only BISAC classifications with implied target
         # ages.
         for check in ('Fiction', 'Nonfiction'):
-            target_age_is("Juvenile %s / Readers / Beginner" % check, 
+            target_age_is("Juvenile %s / Readers / Beginner" % check,
                           (0,4))
-            target_age_is("Juvenile %s / Readers / Intermediate" % check, 
+            target_age_is("Juvenile %s / Readers / Intermediate" % check,
                           (5,7))
-            target_age_is("Juvenile %s / Readers / Chapter Books" % check, 
+            target_age_is("Juvenile %s / Readers / Chapter Books" % check,
                           (8,13))
             target_age_is(
                 "Juvenile %s / Religious / Christian / Early Readers" % check,
@@ -332,7 +332,7 @@ class TestBISACClassifier(object):
         target_age_is("Fiction / Science Fiction / Erotica", (18, None))
         target_age_is("Fiction / Science Fiction", (18, None))
         target_age_is("Juvenile Fiction / Science Fiction", (None, None))
-        target_age_is("Young Adult Fiction / Science Fiction / General", 
+        target_age_is("Young Adult Fiction / Science Fiction / General",
                       (14, 17))
 
     def test_feedbooks_bisac(self):
@@ -359,7 +359,7 @@ class TestBISACClassifier(object):
         # the canonical name is also returned. This will override
         # any other name associated with the subject for classification
         # purposes.
-        eq_(("FIC015000", "Fiction / Horror"), 
+        eq_(("FIC015000", "Fiction / Horror"),
             BISACClassifier.scrub_identifier("FBFIC015000"))
 
     def test_scrub_name(self):
@@ -370,9 +370,9 @@ class TestBISACClassifier(object):
         def scrubbed(before, after):
             eq_(after, BISACClassifier.scrub_name(before))
 
-        scrubbed("ART/Collections  Catalogs  Exhibitions/", 
+        scrubbed("ART/Collections  Catalogs  Exhibitions/",
                  ["art", "collections, catalogs, exhibitions"])
-        scrubbed("ARCHITECTURE|History|Contemporary|", 
+        scrubbed("ARCHITECTURE|History|Contemporary|",
                  ["architecture", "history", "contemporary"])
         scrubbed("BIOGRAPHY & AUTOBIOGRAPHY / Editors, Journalists, Publishers",
                  ["biography & autobiography", "editors, journalists, publishers"])

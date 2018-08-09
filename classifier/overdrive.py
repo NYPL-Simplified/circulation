@@ -105,7 +105,7 @@ class OverdriveClassifier(Classifier):
         History : "History",
         Horror : "Horror",
         House_Home : u"Home Design & Décor",
-        Humorous_Fiction : "Humor (Fiction)", 
+        Humorous_Fiction : "Humor (Fiction)",
         Humorous_Nonfiction : "Humor (Nonfiction)",
         Entertainment : "Entertainment",
         Judaism : "Judaica",
@@ -140,7 +140,7 @@ class OverdriveClassifier(Classifier):
         Self_Help : ["Self-Improvement", "Self-Help", "Self Help", "Recovery"],
         Short_Stories : ["Literary Anthologies", "Short Stories"],
         Social_Sciences : [
-            "Sociology", "Gender Studies", 
+            "Sociology", "Gender Studies",
             "Genealogy", "Media Studies", "Social Studies",
         ],
         Sports : "Sports & Recreations",

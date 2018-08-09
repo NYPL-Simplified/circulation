@@ -1,7 +1,7 @@
 # encoding: utf-8
 from nose.tools import (
-    assert_raises_regexp, 
-    eq_, 
+    assert_raises_regexp,
+    eq_,
     ok_,
     set_trace,
 )

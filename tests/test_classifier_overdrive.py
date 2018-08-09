@@ -13,9 +13,9 @@ class TestOverdriveClassifier(object):
 
     def test_scrub_identifier(self):
         scrub = Overdrive.scrub_identifier
-        eq_("Foreign Language Study", 
+        eq_("Foreign Language Study",
             scrub("Foreign Language Study - Italian"))
-        eq_("Foreign Language Study", 
+        eq_("Foreign Language Study",
             scrub("Foreign Language Study - Klingon"))
         eq_("Foreign Affairs", scrub("Foreign Affairs"))
 

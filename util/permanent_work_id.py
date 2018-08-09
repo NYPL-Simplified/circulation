@@ -7,7 +7,7 @@ import unicodedata
 class WorkIDCalculator(object):
 
     @classmethod
-    def permanent_id(self, normalized_title, normalized_author, 
+    def permanent_id(self, normalized_title, normalized_author,
                      grouping_category):
         digest = md5.new()
         for i in (normalized_title, normalized_author, grouping_category):
@@ -24,7 +24,7 @@ class WorkIDCalculator(object):
     authorExtract1 = re.compile("^(.+?)\\spresents.*$")
     authorExtract2 = re.compile("^(?:(?:a|an)\\s)?(.+?)\\spresentation.*$")
     distributedByRemoval = re.compile("^distributed (?:in.*\\s)?by\\s(.+)$")
-    initialsFix = re.compile("(?<=[A-Z])\\.(?=(\\s|[A-Z]|$))")  
+    initialsFix = re.compile("(?<=[A-Z])\\.(?=(\\s|[A-Z]|$))")
     apostropheStrip = re.compile("'s")
     specialCharacterStrip = re.compile("[^\\w\\d\\s]", re.U)
     consecutiveCharacterStrip = re.compile("\\s{2,}")
@@ -149,7 +149,7 @@ class WorkIDCalculator(object):
         # extract common additional info (especially for movie studios)
         # Remove home entertainment
         for regexp in [
-                cls.authorExtract1, cls.authorExtract2, 
+                cls.authorExtract1, cls.authorExtract2,
                 cls.commonAuthorSuffixPattern,
                 cls.commonAuthorPrefixPattern, cls.distributedByRemoval
                 ]:
