@@ -871,7 +871,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
     def _do_get(url, headers, **kwargs):
         # More time please
         if 'timeout' not in kwargs:
-            kwargs['timeout'] = 600
+            kwargs['timeout'] = 60
 
         if 'allow_redirects' not in kwargs:
             kwargs['allow_redirects'] = True
@@ -883,7 +883,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
     def _do_post(url, payload, headers, **kwargs):
         # More time please
         if 'timeout' not in kwargs:
-            kwargs['timeout'] = 600
+            kwargs['timeout'] = 60
 
         return HTTP.post_with_timeout(url, payload, headers=headers, **kwargs)
 
@@ -980,7 +980,7 @@ class MockOdiloAPI(OdiloAPI):
         # The last item in the record of the request is keyword arguments.
         # Stick this information in there to minimize confusion.
         original_data[-1]['_patron'] = patron
-        original_data[-1]['_pin'] = patron
+        original_data[-1]['_pin'] = pin
         return response
     @classmethod
     def mock_collection(cls, _db):
