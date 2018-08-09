@@ -19,7 +19,7 @@ class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
 
     def __init__(self, _db, interval_seconds=None):
         super(SetDeliveryMechanismMonitor, self).__init__(
-            _db, "20150929 migration - Set delivery mechanism for Gutenberg books", 
+            _db, "20150929 migration - Set delivery mechanism for Gutenberg books",
             interval_seconds, batch_size=10)
 
     def identifier_query(self):

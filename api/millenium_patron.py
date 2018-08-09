@@ -43,7 +43,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     PERSONAL_NAME_FIELD = 'PATRN NAME[pn]'
     EMAIL_ADDRESS_FIELD = 'EMAIL ADDR[pz]'
     EXPIRATION_DATE_FORMAT = '%m-%d-%y'
-    
+
     MULTIVALUE_FIELDS = set(['NOTE[px]', BARCODE_FIELD])
 
     DEFAULT_CURRENCY = "USD"
@@ -52,7 +52,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     # finding the "correct" identifier in a patron's record, even if
     # it means they end up with no identifier at all.
     IDENTIFIER_BLACKLIST = 'identifier_blacklist'
-    
+
     # A configuration value for whether or not to validate the SSL certificate
     # of the Millenium Patron API server.
     VERIFY_CERTIFICATE = "verify_certificate"
@@ -65,7 +65,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     # The field to use when seeing which values of MBLOCK[p56] mean a patron
     # is blocked. By default, any value other than '-' indicates a block.
     BLOCK_TYPES = 'block_types'
-    
+
     AUTHENTICATION_MODES = [
         PIN_AUTHENTICATION_MODE, FAMILY_NAME_AUTHENTICATION_MODE
     ]
@@ -87,7 +87,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
           "description": _("Identifiers containing any of these strings are ignored when finding the 'correct' " +
                            "identifier for a patron's record, even if it means they end up with no identifier at all. " +
                            "If librarians invalidate library cards by adding strings like \"EXPIRED\" or \"INVALID\" " +
-                           "on to the beginning of the card number, put those strings here so the Circulation Manager " + 
+                           "on to the beginning of the card number, put those strings here so the Circulation Manager " +
                            "knows they do not represent real card numbers."),
           "optional": True },
         { "key": AUTHENTICATION_MODE, "label": _("Authentication Mode"),
@@ -145,7 +145,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
 
         auth_mode = integration.setting(
             self.AUTHENTICATION_MODE).value or self.PIN_AUTHENTICATION_MODE
-        
+
         if auth_mode not in self.AUTHENTICATION_MODES:
             raise CannotLoadConfiguration(
                 "Unrecognized Millenium Patron API authentication mode: %s." % auth_mode
@@ -153,13 +153,13 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         self.auth_mode = auth_mode
 
         self.block_types = integration.setting(self.BLOCK_TYPES).value or None
-        
+
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.
 
     def _request(self, path):
         """Make an HTTP request and parse the response."""
-    
+
     def remote_authenticate(self, username, password):
         """Does the Millenium Patron API approve of these credentials?
 
@@ -227,11 +227,11 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         url = self.root + path
         response = self.request(url)
         return self.patron_dump_to_patrondata(identifier, response.content)
-        
-    
+
+
     # End implementation of BasicAuthenticationProvider abstract
     # methods.
-    
+
     def request(self, url, *args, **kwargs):
         """Actually make an HTTP request. This method exists only so the mock
         can override it.
@@ -253,7 +253,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             # We are looking for a specific value, and we found it
             return PatronData.UNKNOWN_BLOCK
 
-        if not block_types:        
+        if not block_types:
             # Apply the default rules.
             if not mblock_value or mblock_value.strip() in ('', '-'):
                 # This patron is not blocked at all.
@@ -269,10 +269,10 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
 
         # The patron does not have one of those types, so is not blocked.
         return PatronData.NO_VALUE
-        
+
     def patron_dump_to_patrondata(self, current_identifier, content):
         """Convert an HTML patron dump to a PatronData object.
-        
+
         :param current_identifier: Either the authorization identifier
         the patron just logged in with, or the one currently
         associated with their Patron record. Keeping track of this
@@ -280,7 +280,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         identifier out from under them.
 
         :param content: The HTML document containing the patron dump.
-        """       
+        """
         # If we don't see these fields, erase any previous value
         # rather than leaving the old value in place. This shouldn't
         # happen (unless the expiration date changes to an invalid
@@ -289,7 +289,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         username = authorization_expires = personal_name = PatronData.NO_VALUE
         email_address = fines = external_type = PatronData.NO_VALUE
         block_reason = PatronData.NO_VALUE
-        
+
         potential_identifiers = []
         for k, v in self._extract_text_nodes(content):
             if k == self.BARCODE_FIELD:
@@ -301,6 +301,11 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                 # We'll figure out which barcode is the 'right' one
                 # later.
                 potential_identifiers.append(v)
+                # The millenium API doesn't care about spaces, so we add
+                # a version of the barcode without spaces to our identifers
+                # list as well.
+                if " " in v:
+                    potential_identifiers.append(v.replace(" ", ""))
             elif k == self.RECORD_NUMBER_FIELD:
                 permanent_id = v
             elif k == self.USERNAME_FIELD:
@@ -350,7 +355,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         # added one. In the absence of any other information, it's the
         # one we should choose.
         potential_identifiers.reverse()
-        
+
         authorization_identifiers = potential_identifiers
         if not authorization_identifiers:
             authorization_identifiers = PatronData.NO_VALUE
@@ -375,7 +380,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             complete=True
         )
         return data
-   
+
     def _extract_text_nodes(self, content):
         """Parse the HTML representations sent by the Millenium Patron API."""
         for line in content.split("\n"):
@@ -406,7 +411,7 @@ class MockMilleniumPatronAPI(MilleniumPatronAPI):
         username="alice",
         authorization_expires = datetime.datetime(2015, 4, 1)
     )
-    
+
     # This user's card still has ten days on it.
     the_future = datetime.datetime.utcnow() + datetime.timedelta(days=10)
     user2 = PatronData(
@@ -444,5 +449,5 @@ class MockMilleniumPatronAPI(MilleniumPatronAPI):
             if u.authorization_identifier == look_for:
                 return u
         return None
-            
+
 AuthenticationProvider = MilleniumPatronAPI

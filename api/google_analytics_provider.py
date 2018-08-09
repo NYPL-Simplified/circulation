@@ -45,7 +45,7 @@ class GoogleAnalyticsProvider(object):
     LIBRARY_SETTINGS = [
         { "key": TRACKING_ID, "label": _("Tracking ID") },
     ]
-    
+
     def __init__(self, integration, library=None):
         _db = Session.object_session(integration)
         if not library:
@@ -95,12 +95,12 @@ class GoogleAnalyticsProvider(object):
                 })
         # urlencode doesn't like unicode strings so we convert them to utf8
         fields = {k: unicodedata.normalize("NFKD", unicode(v)).encode("utf8") for k, v in fields.iteritems()}
-        
+
         params = re.sub(r"=None(&?)", r"=\1", urllib.urlencode(fields))
         self.post(self.url, params)
 
     def post(self, url, params):
         response = HTTP.post_with_timeout(url, params)
 
-        
+
 Provider = GoogleAnalyticsProvider

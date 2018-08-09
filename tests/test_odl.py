@@ -592,7 +592,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
 
         # When there's a holds queue, the end date is the maximum time it could take for
         # a license to become available.
-        
+
         # One copy, one loan, hold position 1.
         # The hold will be available as soon as the loan expires.
         self.pool.licenses_available = 0
@@ -608,7 +608,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         self.api._update_hold_end_date(hold)
         eq_(tomorrow + datetime.timedelta(days=9), hold.end)
 
-        # Two copies, one loan, one reserved hold, hold position 2. 
+        # Two copies, one loan, one reserved hold, hold position 2.
         # The hold will be available after the loan expires.
         self.pool.licenses_reserved = 1
         self.pool.licenses_owned = 2
@@ -1225,7 +1225,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(1, self.pool.patrons_in_hold_queue)
         eq_(1, self._db.query(Hold).count())
         eq_(0, other_hold.position)
-        
+
 
 class TestODLBibliographicImporter(DatabaseTest, BaseODLTest):
 
@@ -1839,4 +1839,4 @@ class TestSharedODLImporter(DatabaseTest, BaseODLTest):
         [borrow_link] = [l for l in essex_pool.identifier.links if l.rel == Hyperlink.BORROW]
         eq_('http://localhost:6500/AL/works/URI/http://www.feedbooks.com/item/1946289/borrow', borrow_link.resource.url)
 
-        
+
