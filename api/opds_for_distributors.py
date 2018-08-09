@@ -279,7 +279,7 @@ class OPDSForDistributorsImporter(OPDSImporter):
                         rights_uri=RightsStatus.IN_COPYRIGHT,
                     )
                 )
-        
+
 
 class OPDSForDistributorsImportMonitor(OPDSImportMonitor):
     """Monitor an OPDS feed that requires or allows authentication,

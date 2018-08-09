@@ -111,7 +111,7 @@ def convert_one_click(_db, library):
     url = config.get('url')
     ebook_loan_length = config.get('ebook_loan_length')
     eaudio_loan_length = config.get('eaudio_loan_length')
-    
+
     collection, ignore = get_one_or_create(
         _db, Collection,
         protocol=Collection.ONE_CLICK,
@@ -123,7 +123,7 @@ def convert_one_click(_db, library):
     collection.external_integration.url = url
     collection.external_integration.set_setting("ebook_loan_length", ebook_loan_length)
     collection.external_integration.set_setting("eaudio_loan_length", eaudio_loan_length)
-    
+
 def convert_content_server(_db, library):
     config = Configuration.integration("Content Server")
     if not config:

@@ -18,7 +18,7 @@ class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
 
     def __init__(self, _db, interval_seconds=None):
         super(SetDeliveryMechanismMonitor, self).__init__(
-            _db, "20150929 migration - Set delivery mechanism for Axis books", 
+            _db, "20150929 migration - Set delivery mechanism for Axis books",
             interval_seconds, batch_size=10)
         self.api = Axis360API(_db)
 
@@ -45,5 +45,5 @@ class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
                 )
         else:
             print "Book not in collection: %s" % identifier.identifier
-    
+
 RunMonitorScript(SetDeliveryMechanismMonitor).run()

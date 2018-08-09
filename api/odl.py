@@ -713,7 +713,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         # but we don't need it - we compute that based on the circulation
         # manager's internal state instead.
         available = copy_info.get("available")
-            
+
         identifier_data = IdentifierData(Identifier.URI, identifier)
         circulation_data = CirculationData(
             data_source=self.data_source_name,
@@ -1262,7 +1262,7 @@ class SharedODLAPI(BaseCirculationAPI):
         ).filter(
             Hold.patron==patron
         )
-        
+
         activity = []
         for loan in loans:
             info_url = loan.external_identifier

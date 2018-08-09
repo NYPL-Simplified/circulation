@@ -27,7 +27,7 @@ from core.model import ExternalIntegration
 
 
 class TestFirstBook(DatabaseTest):
-    
+
     def setup(self):
         super(TestFirstBook, self).setup()
         self.integration = self._external_integration(
@@ -40,7 +40,7 @@ class TestFirstBook(DatabaseTest):
             self._default_library, self.integration,
             *args, **kwargs
         )
-        
+
     def test_from_config(self):
         api = None
         integration = self._external_integration(self._str)
@@ -61,7 +61,7 @@ class TestFirstBook(DatabaseTest):
         integration.url = "http://example.com/?foo=bar"
         api = FirstBookAuthenticationAPI(self._default_library, integration)
         eq_('http://example.com/?foo=bar&key=the_key', api.root)
-        
+
     def test_authentication_success(self):
         eq_(True, self.api.remote_pin_test("ABCD", "1234"))
 
@@ -72,7 +72,7 @@ class TestFirstBook(DatabaseTest):
         # credentials are uppercased in remote_authenticate;
         # remote_pin_test just passes on whatever it's sent.
         eq_(False, self.api.remote_pin_test("abcd", "9999"))
-        
+
     def test_remote_authenticate(self):
         patrondata = self.api.remote_authenticate("abcd", "1234")
         eq_("ABCD", patrondata.permanent_id)
@@ -88,19 +88,19 @@ class TestFirstBook(DatabaseTest):
     def test_broken_service_remote_pin_test(self):
         api = self.mock_api(failure_status_code=502)
         assert_raises_regexp(
-            RemoteInitiatedServerError, 
+            RemoteInitiatedServerError,
             "Got unexpected response code 502. Content: Error 502",
             api.remote_pin_test, "key", "pin"
         )
-    
+
     def test_bad_connection_remote_pin_test(self):
         api = self.mock_api(bad_connection=True)
         assert_raises_regexp(
-            RemoteInitiatedServerError, 
+            RemoteInitiatedServerError,
             "Could not connect!",
             api.remote_pin_test, "key", "pin"
         )
-    
+
     def test_authentication_flow_document(self):
         doc = self.api.authentication_flow_document(self._db)
         eq_(self.api.DISPLAY_NAME, doc['description'])

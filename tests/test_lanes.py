@@ -62,7 +62,7 @@ class TestLaneCreation(DatabaseTest):
         # We have five top-level lanes.
         eq_(5, len(lanes))
         eq_(
-            ['Fiction', 'Nonfiction', 'Young Adult Fiction', 
+            ['Fiction', 'Nonfiction', 'Young Adult Fiction',
              'Young Adult Nonfiction', 'Children and Middle Grade'],
             [x.display_name for x in lanes]
         )
@@ -80,7 +80,7 @@ class TestLaneCreation(DatabaseTest):
              'Young Adult Nonfiction', 'Children and Middle Grade'],
             [x.display_name for x in lanes]
         )
-        
+
 
         # The Adult Fiction and Adult Nonfiction lanes reproduce the
         # genre structure found in the genre definitions.
@@ -91,11 +91,11 @@ class TestLaneCreation(DatabaseTest):
         eq_("Science Fiction", sf.display_name)
         assert 'Science Fiction' in [genre.name for genre in sf.genres]
 
-        [nonfiction_humor] = [x for x in nonfiction.sublanes 
+        [nonfiction_humor] = [x for x in nonfiction.sublanes
                               if 'Humor' in x.display_name]
         eq_(False, nonfiction_humor.fiction)
-        
-        [fiction_humor] = [x for x in fiction.sublanes 
+
+        [fiction_humor] = [x for x in fiction.sublanes
                            if 'Humor' in x.display_name]
         eq_(True, fiction_humor.fiction)
 
@@ -125,7 +125,7 @@ class TestLaneCreation(DatabaseTest):
 
         # Now we have six top-level lanes, with best sellers at the beginning.
         eq_(
-            [u'Best Sellers', 'Fiction', 'Nonfiction', 'Young Adult Fiction', 
+            [u'Best Sellers', 'Fiction', 'Nonfiction', 'Young Adult Fiction',
              'Young Adult Nonfiction', 'Children and Middle Grade'],
             [x.display_name for x in lanes]
         )
@@ -202,8 +202,8 @@ class TestLaneCreation(DatabaseTest):
             eq_([Edition.BOOK_MEDIUM], x.media)
 
         eq_(
-            [set(['Adults Only', 'Adult']), 
-             set(['Adults Only', 'Adult']), 
+            [set(['Adults Only', 'Adult']),
+             set(['Adults Only', 'Adult']),
              set(['Young Adult', 'Children'])],
             [set(x.audiences) for x in sublanes]
         )
@@ -441,10 +441,10 @@ class LaneTest(DatabaseTest):
         materialized_expected = []
         if expected:
             materialized_expected = [work.id for work in expected]
-        
+
         query = lane.works(self._db)
         materialized_results = [work.works_id for work in query.all()]
-        
+
         eq_(sorted(materialized_expected), sorted(materialized_results))
 
     def sample_works_for_each_audience(self):
@@ -784,7 +784,7 @@ class TestCrawlableFacets(DatabaseTest):
         eq_([w1.id, w2.id], [mw.works_id for mw in qu])
 
     def test_order_by(self):
-        """Crawlable feeds are always ordered by time updated and then by 
+        """Crawlable feeds are always ordered by time updated and then by
         collection ID and work ID.
         """
         from core.model import MaterializedWorkWithGenre as mw
@@ -845,7 +845,7 @@ class TestCrawlableCustomListBasedLane(DatabaseTest):
         route, kwargs = lane.url_arguments
         eq_(CrawlableCustomListBasedLane.ROUTE, route)
         eq_(list.name, kwargs.get("list_name"))
-        
+
 
 class TestCrawlableCollectionBasedLane(DatabaseTest):
 

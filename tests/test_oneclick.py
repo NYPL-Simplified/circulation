@@ -3,7 +3,7 @@ import json
 import uuid
 from lxml import etree
 from nose.tools import (
-    eq_, 
+    eq_,
     assert_raises,
     assert_raises_regexp,
     set_trace,
@@ -13,7 +13,7 @@ from StringIO import StringIO
 
 from api.authenticator import BasicAuthenticationProvider
 from api.config import (
-    Configuration, 
+    Configuration,
     temp_config,
 )
 
@@ -44,7 +44,7 @@ from core.metadata_layer import (
 from api.oneclick import (
     AudiobookManifest,
     OneClickAPI,
-    OneClickCirculationMonitor, 
+    OneClickCirculationMonitor,
     MockOneClickAPI,
     RBFulfillmentInfo,
 )
@@ -182,7 +182,7 @@ class TestOneClickAPI(OneClickAPITest):
         """All the OneClickAPI methods that take a Patron object call
         self.patron_remote_identifier() immediately, to find the
         patron's RBdigital ID.
-        
+
         Since the default_patron starts out without a Credential
         containing that ID, this means making a request to the
         RBdigital API to look up an existing ID. If that lookup fails,
@@ -304,7 +304,7 @@ class TestOneClickAPI(OneClickAPITest):
 
         patron = self.default_patron
 
-        # Get the identifier we use when announcing this patron to 
+        # Get the identifier we use when announcing this patron to
         # the remote service.
         patron_identifier = patron.identifier_to_remote_service(
             DataSource.RB_DIGITAL
@@ -333,7 +333,7 @@ class TestOneClickAPI(OneClickAPITest):
         )
         self.api.queue_response(status_code=500, content=datastr)
         assert_raises_regexp(
-            InvalidInputException, "patron_id:", 
+            InvalidInputException, "patron_id:",
             self.api.patron_remote_identifier_lookup, patron
         )
 
@@ -349,14 +349,14 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_info_not_found.json")
         self.api.queue_response(status_code=404, content=datastr)
         assert_raises_regexp(
-            NotFoundOnRemote, "patron_info:", 
+            NotFoundOnRemote, "patron_info:",
             self.api.get_patron_information, patron_id='939987'
         )
 
         datastr, datadict = self.api.get_data("response_patron_info_error.json")
         self.api.queue_response(status_code=400, content=datastr)
         assert_raises_regexp(
-            InvalidInputException, "patron_info:", 
+            InvalidInputException, "patron_info:",
             self.api.get_patron_information, patron_id='939981fdsfdsf'
         )
 
@@ -374,7 +374,7 @@ class TestOneClickAPI(OneClickAPITest):
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
             data_source_name=DataSource.RB_DIGITAL,
-            with_license_pool=True, 
+            with_license_pool=True,
             identifier_id = '9781441260468'
         )
         datastr, datadict = self.api.get_data("response_checkout_success.json")
@@ -402,7 +402,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_checkout_unavailable.json")
         self.api.queue_response(status_code=409, content=datastr)
         assert_raises_regexp(
-            NoAvailableCopies, "Title is not available for checkout", 
+            NoAvailableCopies, "Title is not available for checkout",
             self.api.circulate_item, oneclick_id, edition.primary_identifier.identifier
         )
         request_url, request_args, request_kwargs = self.api.requests[-1]
@@ -412,7 +412,7 @@ class TestOneClickAPI(OneClickAPITest):
         # book return functionality checks
         self.api.queue_response(status_code=200, content="")
 
-        response_dictionary = self.api.circulate_item(oneclick_id, edition.primary_identifier.identifier, 
+        response_dictionary = self.api.circulate_item(oneclick_id, edition.primary_identifier.identifier,
             return_item=True)
         eq_({}, response_dictionary)
         request_url, request_args, request_kwargs = self.api.requests[-1]
@@ -422,8 +422,8 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_return_unavailable.json")
         self.api.queue_response(status_code=409, content=datastr)
         assert_raises_regexp(
-            NotCheckedOut, "checkin:", 
-            self.api.circulate_item, oneclick_id, edition.primary_identifier.identifier, 
+            NotCheckedOut, "checkin:",
+            self.api.circulate_item, oneclick_id, edition.primary_identifier.identifier,
             return_item=True
         )
         request_url, request_args, request_kwargs = self.api.requests[-1]
@@ -453,9 +453,9 @@ class TestOneClickAPI(OneClickAPITest):
         eq_("post", request_kwargs.get("method"))
 
     def test_checkin(self):
-        # Returning a book is, for now, more of a "notify OneClick that we've 
+        # Returning a book is, for now, more of a "notify OneClick that we've
         # returned through Adobe" formality than critical functionality.
-        # There's no information returned from the server on success, so we use a 
+        # There's no information returned from the server on success, so we use a
         # boolean success flag.
 
         patron = self.default_patron
@@ -464,7 +464,7 @@ class TestOneClickAPI(OneClickAPITest):
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
             data_source_name=DataSource.RB_DIGITAL,
-            with_license_pool=True, 
+            with_license_pool=True,
             identifier_id = '9781441260468'
         )
         work = self._work(presentation_edition=edition)
@@ -498,7 +498,7 @@ class TestOneClickAPI(OneClickAPITest):
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
             data_source_name=DataSource.RB_DIGITAL,
-            with_license_pool=True, 
+            with_license_pool=True,
             identifier_id = '9781441260468'
         )
         work = self._work(presentation_edition=edition)
@@ -547,7 +547,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_create_fail_already_exists.json")
         self.api.queue_response(status_code=409, content=datastr)
         assert_raises_regexp(
-            RemotePatronCreationFailedException, 'create_patron: http=409, response={"message":"A patron account with the specified username, email address, or card number already exists for this library."}', 
+            RemotePatronCreationFailedException, 'create_patron: http=409, response={"message":"A patron account with the specified username, email address, or card number already exists for this library."}',
             self.api.create_patron, patron
         )
 
@@ -584,13 +584,13 @@ class TestOneClickAPI(OneClickAPITest):
         self.queue_initial_patron_id_lookup()
 
         identifier = self._identifier(
-            identifier_type=Identifier.RB_DIGITAL_ID, 
+            identifier_type=Identifier.RB_DIGITAL_ID,
             foreign_id='9781426893483')
 
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
             data_source_name=DataSource.RB_DIGITAL,
-            with_license_pool=True, 
+            with_license_pool=True,
             identifier_id = '9781426893483'
         )
 
@@ -619,7 +619,7 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(download_url, found_fulfillment.content_link)
         eq_(u'application/epub+zip', found_fulfillment.content_type)
         eq_(None, found_fulfillment.content)
-        
+
         # The fulfillment link expires in about 14 minutes -- rather
         # than testing this exactly we estimate it.
         expires = found_fulfillment.content_expires
@@ -633,7 +633,7 @@ class TestOneClickAPI(OneClickAPITest):
         edition2, pool2  = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
             data_source_name=DataSource.RB_DIGITAL,
-            with_license_pool=True, 
+            with_license_pool=True,
             identifier_id = '123456789'
         )
 
@@ -641,8 +641,8 @@ class TestOneClickAPI(OneClickAPITest):
         # RBdigital ID, there will be no initial request looking up their
         # RBdigital ID.
 
-        # Instead we'll go right to the list of active loans, where we'll 
-        # find out that the patron does not have an active loan for the 
+        # Instead we'll go right to the list of active loans, where we'll
+        # find out that the patron does not have an active loan for the
         # requested book.
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_list.json")
         self.api.queue_response(status_code=200, content=datastr)
@@ -672,13 +672,13 @@ class TestOneClickAPI(OneClickAPITest):
 
         audiobook_id = '9781449871789'
         identifier = self._identifier(
-            identifier_type=Identifier.RB_DIGITAL_ID, 
+            identifier_type=Identifier.RB_DIGITAL_ID,
             foreign_id=audiobook_id)
 
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
             data_source_name=DataSource.RB_DIGITAL,
-            with_license_pool=True, 
+            with_license_pool=True,
             identifier_id = audiobook_id
         )
 
@@ -694,7 +694,7 @@ class TestOneClickAPI(OneClickAPITest):
 
         # Without making any further HTTP requests, we were able to get
         # a Readium Web Publication manifest for the loan.
-        eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, 
+        eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE,
             found_fulfillment.content_type)
 
         manifest = json.loads(found_fulfillment.content)
@@ -703,19 +703,19 @@ class TestOneClickAPI(OneClickAPITest):
 
     def test_patron_activity(self):
         # Get patron's current checkouts and holds.
-        # Make sure LoanInfo objects were created and filled 
-        # with FulfillmentInfo objects.  Make sure HoldInfo objects 
+        # Make sure LoanInfo objects were created and filled
+        # with FulfillmentInfo objects.  Make sure HoldInfo objects
         # were created.
 
         patron = self.default_patron
         self.queue_initial_patron_id_lookup()
 
         identifier = self._identifier(
-            identifier_type=Identifier.RB_DIGITAL_ID, 
+            identifier_type=Identifier.RB_DIGITAL_ID,
             foreign_id='9781456103859')
 
         identifier = self._identifier(
-            identifier_type=Identifier.RB_DIGITAL_ID, 
+            identifier_type=Identifier.RB_DIGITAL_ID,
             foreign_id='9781426893483')
 
         # queue checkouts list
@@ -732,12 +732,12 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(u'9781456103859', patron_activity[0].identifier)
         eq_(None, patron_activity[0].start_date)
         eq_(datetime.date(2016, 11, 19), patron_activity[0].end_date)
-                 
+
         eq_(Identifier.RB_DIGITAL_ID, patron_activity[1].identifier_type)
         eq_(u'9781426893483', patron_activity[1].identifier)
         eq_(None, patron_activity[1].start_date)
         eq_(datetime.date(2016, 11, 19), patron_activity[1].end_date)
-                 
+
         eq_(Identifier.RB_DIGITAL_ID, patron_activity[2].identifier_type)
         eq_('9781426893483', patron_activity[2].identifier)
         eq_(None, patron_activity[2].start_date)
@@ -753,7 +753,7 @@ class TestOneClickAPI(OneClickAPITest):
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
             data_source_name=DataSource.RB_DIGITAL,
-            with_license_pool=True, 
+            with_license_pool=True,
             identifier_id = '9781441260468'
         )
 
@@ -763,7 +763,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_hold_fail_409_already_exists.json")
         self.api.queue_response(status_code=409, content=datastr)
         assert_raises_regexp(
-            CannotHold, ".*Hold or Checkout already exists.", 
+            CannotHold, ".*Hold or Checkout already exists.",
             self.api.place_hold, patron, None, pool, None
         )
 
@@ -772,7 +772,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_hold_fail_409_reached_limit.json")
         self.api.queue_response(status_code=409, content=datastr)
         assert_raises_regexp(
-            CannotHold, ".*You have reached your checkout limit and therefore are unable to place additional holds.", 
+            CannotHold, ".*You have reached your checkout limit and therefore are unable to place additional holds.",
             self.api.place_hold, patron, None, pool, None
         )
 
@@ -797,7 +797,7 @@ class TestOneClickAPI(OneClickAPITest):
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
             data_source_name=DataSource.RB_DIGITAL,
-            with_license_pool=True, 
+            with_license_pool=True,
             identifier_id = '9781441260468'
         )
 
@@ -886,7 +886,7 @@ class TestCirculationMonitor(OneClickAPITest):
 
     def test_process_availability(self):
         monitor = OneClickCirculationMonitor(
-            self._db, self.collection, api_class=MockOneClickAPI, 
+            self._db, self.collection, api_class=MockOneClickAPI,
             api_class_kwargs=dict(base_path=self.base_path)
         )
         eq_(ExternalIntegration.RB_DIGITAL, monitor.protocol)
@@ -974,7 +974,7 @@ class TestAudiobookManifest(OneClickAPITest):
 
         # We know it's an audiobook, and that's it.
         eq_(
-            {'@context': 'http://readium.org/webpub/default.jsonld', 
+            {'@context': 'http://readium.org/webpub/default.jsonld',
              'metadata': {'@type': 'http://bib.schema.org/Audiobook'}},
             manifest.as_dict
         )

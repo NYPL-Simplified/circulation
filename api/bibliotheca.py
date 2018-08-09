@@ -178,7 +178,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI, HasSelfTests):
     TEMPLATE = "<%(request_type)s><ItemId>%(item_id)s</ItemId><PatronId>%(patron_id)s</PatronId></%(request_type)s>"
 
     def checkout(
-            self, patron_obj, patron_password, licensepool, 
+            self, patron_obj, patron_password, licensepool,
             delivery_mechanism
     ):
 
@@ -199,7 +199,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI, HasSelfTests):
         patron_identifier = patron_obj.authorization_identifier
         args = dict(request_type='CheckoutRequest',
                     item_id=bibliotheca_id, patron_id=patron_identifier)
-        body = self.TEMPLATE % args 
+        body = self.TEMPLATE % args
         response = self.request('checkout', body, method="PUT")
         if response.status_code == 201:
             # New loan
@@ -265,24 +265,24 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI, HasSelfTests):
     def get_fulfillment_file(self, patron_id, bibliotheca_id):
         args = dict(request_type='ACSMRequest',
                    item_id=bibliotheca_id, patron_id=patron_id)
-        body = self.TEMPLATE % args 
+        body = self.TEMPLATE % args
         return self.request('GetItemACSM', body, method="PUT")
 
     def get_audio_fulfillment_file(self, patron_id, bibliotheca_id):
-        args = dict(request_type='AudioFulfillmentRequest', 
+        args = dict(request_type='AudioFulfillmentRequest',
                     item_id=bibliotheca_id, patron_id=patron_id)
-        body = self.TEMPLATE % args 
+        body = self.TEMPLATE % args
         return self.request('GetItemAudioFulfillment', body, method="POST")
-    
+
     def checkin(self, patron, pin, licensepool):
         patron_id = patron.authorization_identifier
         item_id = licensepool.identifier.identifier
         args = dict(request_type='CheckinRequest',
                    item_id=item_id, patron_id=patron_id)
-        body = self.TEMPLATE % args 
+        body = self.TEMPLATE % args
         return self.request('checkin', body, method="PUT")
 
-    def place_hold(self, patron, pin, licensepool, 
+    def place_hold(self, patron, pin, licensepool,
                    hold_notification_email=None):
         """Place a hold.
 
@@ -292,7 +292,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI, HasSelfTests):
         item_id = licensepool.identifier.identifier
         args = dict(request_type='PlaceHoldRequest',
                    item_id=item_id, patron_id=patron_id)
-        body = self.TEMPLATE % args 
+        body = self.TEMPLATE % args
         response = self.request('placehold', body, method="PUT")
         if response.status_code in (200, 201):
             start_date = datetime.datetime.utcnow()
@@ -301,7 +301,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI, HasSelfTests):
                 licensepool.collection, DataSource.BIBLIOTHECA,
                 licensepool.identifier.type,
                 licensepool.identifier.identifier,
-                start_date=start_date, 
+                start_date=start_date,
                 end_date=end_date,
                 hold_position=None
             )
@@ -316,10 +316,10 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI, HasSelfTests):
 
     def release_hold(self, patron, pin, licensepool):
         patron_id = patron.authorization_identifier
-        item_id = licensepool.identifier.identifier        
+        item_id = licensepool.identifier.identifier
         args = dict(request_type='CancelHoldRequest',
                    item_id=item_id, patron_id=patron_id)
-        body = self.TEMPLATE % args 
+        body = self.TEMPLATE % args
         response = self.request('cancelhold', body, method="PUT")
         if response.status_code in (200, 404):
             return True
@@ -329,8 +329,8 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI, HasSelfTests):
     def apply_circulation_information_to_licensepool(self, circ, pool, analytics=None):
         """Apply the output of CirculationParser.process_one() to a
         LicensePool.
-        
-        TODO: It should be possible to have CirculationParser yield 
+
+        TODO: It should be possible to have CirculationParser yield
         CirculationData objects instead and to replace this code with
         CirculationData.apply(pool)
         """
@@ -514,7 +514,7 @@ class CirculationParser(BibliothecaParser):
 
         identifiers[Identifier.BIBLIOTHECA_ID] = value("ItemId")
         identifiers[Identifier.ISBN] = value("ISBN13")
-        
+
         item[LicensePool.licenses_owned] = intvalue("TotalCopies")
         try:
             item[LicensePool.licenses_available] = intvalue("AvailableCopies")
@@ -560,7 +560,7 @@ class ErrorParser(BibliothecaParser):
     loan_limit_reached = re.compile(
         "Patron cannot loan more than [0-9]+ document"
     )
-    
+
     hold_limit_reached = re.compile(
         "Patron cannot have more than [0-9]+ hold"
     )
@@ -662,7 +662,7 @@ class PatronCirculationParser(BibliothecaParser):
     def __init__(self, collection, *args, **kwargs):
         super(PatronCirculationParser, self).__init__(*args, **kwargs)
         self.collection = collection
-    
+
     def process_all(self, string):
         parser = etree.XMLParser()
         root = etree.parse(StringIO(string), parser)
@@ -806,7 +806,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
         else:
             self.api = api_class(_db, collection)
         self.analytics = Analytics(_db)
-    
+
     def process_items(self, identifiers):
         identifiers_by_bibliotheca_id = dict()
         bibliotheca_ids = set()
@@ -849,7 +849,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
                 pool.last_checked = now
 
     def _process_circulation_data(
-        self, circ, identifiers_by_bibliotheca_id, 
+        self, circ, identifiers_by_bibliotheca_id,
         identifiers_not_mentioned_by_bibliotheca
     ):
         """Process a single CirculationData object retrieved from
@@ -876,12 +876,12 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
 
             for library in self.collection.libraries:
                 self.analytics.collect_event(
-                    library, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, 
+                    library, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD,
                     datetime.datetime.utcnow()
                 )
         else:
             [pool] = pools
-                
+
         self.api.apply_circulation_information_to_licensepool(
             circ, pool, self.analytics
         )
@@ -897,7 +897,7 @@ class BibliothecaEventMonitor(CollectionMonitor):
     But when a new book comes on the scene, this is where we first
     find out about it. When this happens, we create a LicensePool and
     immediately ensure that we get coverage from the
-    BibliothecaBibliographicCoverageProvider. 
+    BibliothecaBibliographicCoverageProvider.
 
     But getting up-to-date circulation data for that new book requires
     either that we process further events, or that we encounter it in
@@ -908,7 +908,7 @@ class BibliothecaEventMonitor(CollectionMonitor):
     DEFAULT_START_TIME = datetime.timedelta(365*3)
     PROTOCOL = ExternalIntegration.BIBLIOTHECA
 
-    def __init__(self, _db, collection, api_class=BibliothecaAPI, 
+    def __init__(self, _db, collection, api_class=BibliothecaAPI,
                  cli_date=None, analytics=None):
         self.analytics = analytics or Analytics(_db)
         super(BibliothecaEventMonitor, self).__init__(_db, collection)
@@ -1011,7 +1011,7 @@ class BibliothecaEventMonitor(CollectionMonitor):
                      start_time, end_time, internal_event_type):
         # Find or lookup the LicensePool for this event.
         license_pool, is_new = LicensePool.for_foreign_id(
-            self._db, self.api.source, Identifier.BIBLIOTHECA_ID, 
+            self._db, self.api.source, Identifier.BIBLIOTHECA_ID,
             bibliotheca_id, collection=self.collection
         )
 

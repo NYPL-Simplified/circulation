@@ -54,9 +54,9 @@ def make_patron_auth_integration(_db, provider):
         integration.setting(BasicAuthenticationProvider.IDENTIFIER_REGULAR_EXPRESSION).value = identifier_re
     if password_re:
         integration.setting(BasicAuthenticationProvider.PASSWORD_REGULAR_EXPRESSION).value = password_re
-    
+
     return integration
-        
+
 def convert_millenium(_db, integration, provider):
 
     # Cross-check MilleniumPatronAPI.__init__ to see how these values
@@ -70,7 +70,7 @@ def convert_millenium(_db, integration, provider):
     if auth_mode:
         integration.setting(MilleniumPatronAPI.AUTHENTICATION_MODE
         ).value = auth_mode
-    
+
 def convert_sip(_db, integration, provider):
     # Cross-check SIP2AuthenticationProvider.__init__ to see how these values
     # are pulled from the ExternalIntegration.
@@ -90,7 +90,7 @@ def convert_sip(_db, integration, provider):
 
 def convert_firstbook(_db, integration, provider):
     # Cross-check FirstBookAuthenticationAPI.__init__ to see how these values
-    # are pulled from the ExternalIntegration.    
+    # are pulled from the ExternalIntegration.
     integration.url = provider.get('url')
     integration.password = provider.get('key')
 
@@ -122,7 +122,7 @@ try:
     )
     if bearer_token_signing_secret:
         secret_setting.value = bearer_token_signing_secret
-    
+
     for provider in auth_conf.get('providers'):
         integration = make_patron_auth_integration(_db, provider)
         module = provider.get('module')
@@ -137,7 +137,7 @@ try:
         else:
             log.warn("I don't know how to convert a provider of type %s. Conversion is probably incomplete." % module)
         integrations.append(integration)
-        
+
     # Add each integration to each library.
     library = Library.default(_db)
     for library in _db.query(Library):
