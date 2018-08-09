@@ -8,7 +8,6 @@ version="$2"
 
 apt-get update && $minimal_apt_get_install python-dev \
   python2.7 \
-  python-cairo \
   python-nose \
   python-setuptools \
   gcc \
