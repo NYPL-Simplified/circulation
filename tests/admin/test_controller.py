@@ -3393,6 +3393,8 @@ class TestSettingsController(SettingsControllerTest):
             assert ExternalIntegration.OPDS_IMPORT in names
 
     def test_collections_get_protocols(self):
+        old_prior_test_results = HasSelfTests.prior_test_results
+        HasSelfTests.prior_test_results = self.mock_prior_test_results
 
         [c1] = self._default_library.collections
 
@@ -3441,6 +3443,8 @@ class TestSettingsController(SettingsControllerTest):
                 expect = [(integration.id, integration.name)
                           for integration in (storage1, storage2)]
                 eq_(expect, use_mirrors)
+
+        HasSelfTests.prior_test_results = old_prior_test_results
 
     def test_collections_get_collections_with_multiple_collections(self):
 
