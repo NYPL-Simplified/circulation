@@ -2783,6 +2783,12 @@ class TestFeedController(CirculationControllerTest):
     def mock_search(self, *args, **kwargs):
         self.called_with = (args, kwargs)
 
+    def test_search_document(self):
+        with self.request_context_with_library("/"):
+            response = self.manager.opds_feeds.search(None)
+            eq_(response.headers['Content-Type'], u'application/opensearchdescription+xml')
+            assert "OpenSearchDescription" in response.data
+
     def test_search(self):
         # Update the index for two works.
         # english_1 is "Quite British" by John Bull

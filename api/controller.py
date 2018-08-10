@@ -784,7 +784,9 @@ class OPDSFeedController(CirculationManagerController):
         )
         if not query:
             # Send the search form
-            return OpenSearchDocument.for_lane(lane, make_url())
+            open_search_doc = OpenSearchDocument.for_lane(lane, make_url())
+            headers = { "Content-Type" : "application/opensearchdescription+xml" }
+            return Response(open_search_doc, 200, headers)
 
         pagination = load_pagination_from_request(default_size=Pagination.DEFAULT_SEARCH_SIZE)
         if isinstance(pagination, ProblemDetail):
@@ -802,6 +804,7 @@ class OPDSFeedController(CirculationManagerController):
             query=query, annotator=annotator, pagination=pagination,
             languages=languages, facets=facets
         )
+
         return feed_response(opds_feed)
 
 

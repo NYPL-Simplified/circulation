@@ -12,7 +12,7 @@ from api.config import (
 )
 
 from datetime import (
-    datetime, 
+    datetime,
     timedelta,
 )
 
@@ -51,8 +51,8 @@ class TestCirculationAPI(DatabaseTest):
 
     YESTERDAY = datetime.utcnow() - timedelta(days=1)
     TODAY = datetime.utcnow()
-    TOMORROW = datetime.utcnow() + timedelta(days=1) 
-    IN_TWO_WEEKS = datetime.utcnow() + timedelta(days=14) 
+    TOMORROW = datetime.utcnow() + timedelta(days=1)
+    IN_TWO_WEEKS = datetime.utcnow() + timedelta(days=14)
 
     def setup(self):
         super(TestCirculationAPI, self).setup()
@@ -109,7 +109,7 @@ class TestCirculationAPI(DatabaseTest):
         eq_(1, self.analytics.count)
         eq_(CirculationEvent.CM_CHECKOUT,
             self.analytics.event_type)
-            
+
         # Try to 'borrow' the same book again.
         self.remote.queue_checkout(AlreadyCheckedOut())
         loan, hold, is_new = self.borrow()
@@ -119,7 +119,7 @@ class TestCirculationAPI(DatabaseTest):
         # Since the loan already existed, no new analytics event was
         # sent.
         eq_(1, self.analytics.count)
-            
+
         # Now try to renew the book.
         self.remote.queue_checkout(loaninfo)
         loan, hold, is_new = self.borrow()
@@ -135,7 +135,7 @@ class TestCirculationAPI(DatabaseTest):
         self.remote.queue_checkout(loaninfo)
         loan, hold, is_new = self.borrow()
         eq_(3, self.analytics.count)
-            
+
     def test_attempt_borrow_with_existing_remote_loan(self):
         """The patron has a remote loan that the circ manager doesn't know
         about, and they just tried to borrow a book they already have
@@ -194,13 +194,13 @@ class TestCirculationAPI(DatabaseTest):
         assert abs((hold.start-now).seconds) < 2
         eq_(None, hold.end)
         eq_(None, hold.position)
-        
+
     def test_attempt_premature_renew_with_local_loan(self):
         """We have a local loan and a remote loan but the patron tried to
         borrow again -- probably to renew their loan.
         """
         # Local loan.
-        loan, ignore = self.pool.loan_to(self.patron)        
+        loan, ignore = self.pool.loan_to(self.patron)
 
         # Remote loan.
         self.circulation.add_remote_loan(
@@ -219,7 +219,7 @@ class TestCirculationAPI(DatabaseTest):
         borrow again -- probably to renew their loan.
         """
         # Local loan.
-        loan, ignore = self.pool.loan_to(self.patron)        
+        loan, ignore = self.pool.loan_to(self.patron)
 
         # Remote loan.
         self.circulation.add_remote_loan(
@@ -232,11 +232,11 @@ class TestCirculationAPI(DatabaseTest):
         # waiting in line for the book. This case gives a more
         # specific error message.
         #
-        # Contrast with the way NoAvailableCopies is handled in 
+        # Contrast with the way NoAvailableCopies is handled in
         # test_loan_becomes_hold_if_no_available_copies.
         self.remote.queue_checkout(NoAvailableCopies())
         assert_raises_regexp(
-            CannotRenew, 
+            CannotRenew,
             "You cannot renew a loan if other patrons have the work on hold.",
             self.borrow
         )
@@ -299,7 +299,7 @@ class TestCirculationAPI(DatabaseTest):
         eq_(1, self.analytics.count)
         eq_(CirculationEvent.CM_HOLD_PLACE,
             self.analytics.event_type)
-        
+
         # Try to 'borrow' the same book again.
         self.remote.queue_checkout(AlreadyOnHold())
         loan, hold, is_new = self.borrow()
@@ -308,10 +308,10 @@ class TestCirculationAPI(DatabaseTest):
         # Since the hold already existed, no new analytics event was
         # sent.
         eq_(1, self.analytics.count)
-            
+
     def test_loan_becomes_hold_if_no_available_copies_and_preexisting_loan(self):
         # Once upon a time, we had a loan for this book.
-        loan, ignore = self.pool.loan_to(self.patron)        
+        loan, ignore = self.pool.loan_to(self.patron)
         loan.start = self.YESTERDAY
 
         # But no longer! What's more, other patrons have taken all the
@@ -395,7 +395,7 @@ class TestCirculationAPI(DatabaseTest):
         self.patron.block_reason = "some reason"
         assert_raises(AuthorizationBlocked, self.borrow)
         self.patron.block_reason = None
-        
+
     def test_no_licenses_prompts_availability_update(self):
         # Once the library offered licenses for this book, but
         # the licenses just expired.
@@ -510,7 +510,7 @@ class TestCirculationAPI(DatabaseTest):
         self.pool.loan_to(self.patron)
 
         # It has a LicensePoolDeliveryMechanism that is broken (has no
-        # associated Resource).  
+        # associated Resource).
         broken_lpdm = self.delivery_mechanism
         eq_(None, broken_lpdm.resource)
         i_want_an_epub = broken_lpdm.delivery_mechanism
@@ -532,7 +532,7 @@ class TestCirculationAPI(DatabaseTest):
             Hyperlink.OPEN_ACCESS_DOWNLOAD, self._url,
             self.pool.data_source
         )
-        
+
         working_lpdm = self.pool.set_delivery_mechanism(
             i_want_an_epub.content_type,
             i_want_an_epub.drm_scheme,
@@ -545,14 +545,14 @@ class TestCirculationAPI(DatabaseTest):
         eq_(None, link.resource.representation)
         assert_raises(FormatNotAvailable, self.circulation.fulfill_open_access,
                       self.pool, i_want_an_epub)
-        
+
         # Let's add a Representation to the Resource.
         representation, is_new = self._representation(
             link.resource.url, i_want_an_epub.content_type,
             "Dummy content", mirrored=True
         )
         link.resource.representation = representation
-        
+
         # We can finally fulfill a loan.
         result = self.circulation.fulfill_open_access(
             self.pool, broken_lpdm
@@ -570,7 +570,7 @@ class TestCirculationAPI(DatabaseTest):
         assert isinstance(result, FulfillmentInfo)
         eq_(result.content_link, link.resource.representation.public_url)
         eq_(result.content_type, i_want_an_epub.content_type)
-        
+
         # We get the right result even if the code calling
         # fulfill_open_access() is incorrectly written and passes in
         # the broken LicensePoolDeliveryMechanism (as opposed to its
@@ -635,7 +635,7 @@ class TestCirculationAPI(DatabaseTest):
         self.circulation.can_fulfill_without_loan = yes_we_can
         result = try_to_fulfill()
         eq_(fulfillment, result)
-            
+
     def test_revoke_loan_sends_analytics_event(self):
         self.pool.loan_to(self.patron)
         self.remote.queue_checkin(True)
@@ -661,7 +661,7 @@ class TestCirculationAPI(DatabaseTest):
         eq_(1, self.analytics.count)
         eq_(CirculationEvent.CM_HOLD_RELEASE,
             self.analytics.event_type)
-            
+
     def test_sync_bookshelf_ignores_local_loan_with_no_identifier(self):
         loan, ignore = self.pool.loan_to(self.patron)
         loan.start = self.YESTERDAY
@@ -679,7 +679,7 @@ class TestCirculationAPI(DatabaseTest):
 
         # But we can still sync without crashing.
         self.sync_bookshelf()
-        
+
     def test_sync_bookshelf_ignores_local_hold_with_no_identifier(self):
         hold, ignore = self.pool.on_hold_to(self.patron)
         self.pool.identifier = None
@@ -696,7 +696,7 @@ class TestCirculationAPI(DatabaseTest):
 
         # But we can still sync without crashing.
         self.sync_bookshelf()
-        
+
     def test_sync_bookshelf_with_old_local_loan_and_no_remote_loan_deletes_local_loan(self):
         # Local loan that was created yesterday.
         loan, ignore = self.pool.loan_to(self.patron)
@@ -705,13 +705,13 @@ class TestCirculationAPI(DatabaseTest):
         # The loan is in the db.
         loans = self._db.query(Loan).all()
         eq_([loan], loans)
-        
+
         self.sync_bookshelf()
 
         # Now the local loan is gone.
         loans = self._db.query(Loan).all()
         eq_([], loans)
-        
+
     def test_sync_bookshelf_with_new_local_loan_and_no_remote_loan_keeps_local_loan(self):
         # Local loan that was just created.
         loan, ignore = self.pool.loan_to(self.patron)
@@ -720,7 +720,7 @@ class TestCirculationAPI(DatabaseTest):
         # The loan is in the db.
         loans = self._db.query(Loan).all()
         eq_([loan], loans)
-        
+
         self.sync_bookshelf()
 
         # The loan is still in the db, since it was just created.
@@ -762,7 +762,7 @@ class TestCirculationAPI(DatabaseTest):
         # Now the loan is gone.
         loans = self._db.query(Loan).all()
         eq_([], loans)
-        
+
     def test_sync_bookshelf_updates_local_loan_and_hold_with_modified_timestamps(self):
         # We have a local loan that supposedly runs from yesterday
         # until tomorrow.
@@ -788,7 +788,7 @@ class TestCirculationAPI(DatabaseTest):
         hold.start = self.YESTERDAY
         hold.end = self.TOMORROW
         hold.position = 10
-        
+
         self.circulation.add_remote_hold(
             pool2.collection, pool2.data_source, pool2.identifier.type,
             pool2.identifier.identifier, self.TODAY, self.IN_TWO_WEEKS,
@@ -832,7 +832,7 @@ class TestCirculationAPI(DatabaseTest):
         # ... and (once we commit) with the LicensePool.
         self._db.commit()
         assert loan.fulfillment in pool.delivery_mechanisms
-        
+
     def test_patron_activity(self):
         # Get a CirculationAPI that doesn't mock out its API's patron activity.
         circulation = CirculationAPI(
@@ -854,7 +854,7 @@ class TestCirculationAPI(DatabaseTest):
         loans, holds, complete = circulation.patron_activity(self.patron, "1234")
         eq_(0, len(loans))
         eq_(0, len(holds))
-        eq_(False, complete)        
+        eq_(False, complete)
 
     def test_can_fulfill_without_loan(self):
         """Can a title can be fulfilled without an active loan?  It depends on
@@ -912,7 +912,7 @@ class TestDeliveryMechanismInfo(DatabaseTest):
         patron = self._patron()
         loan, ignore = pool.loan_to(patron)
 
-        # When consulting with the source of the loan, we learn that 
+        # When consulting with the source of the loan, we learn that
         # the patron has locked the delivery mechanism to a previously
         # unknown mechanism.
         info = DeliveryMechanismInfo(
@@ -956,7 +956,7 @@ class TestDeliveryMechanismInfo(DatabaseTest):
             if lpdm.delivery_mechanism not in (mechanism, new_mechanism)
         ]
         eq_(oa_lpdm, loan.fulfillment)
-        
+
         # The correct resource and rights status have been associated
         # with the new LicensePoolDeliveryMechanism.
         eq_(RightsStatus.CC0, oa_lpdm.rights_status.uri)

@@ -1206,7 +1206,7 @@ class TestWorkController(AdminControllerTest):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.preview_book_cover,
                           identifier.type, identifier.identifier)
-        
+
 
     def test_change_book_cover(self):
         # Mock image processing which has been tested in other methods.
@@ -1361,7 +1361,7 @@ class TestWorkController(AdminControllerTest):
                           identifier.type, identifier.identifier)
 
         self.manager.admin_work_controller._process_cover_image = old_process
-        
+
     def test_custom_lists_get(self):
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, library=self._default_library, data_source=staff_data_source)

@@ -173,7 +173,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI, HasSelfTests):
 
         :param pin: The patron's alleged password.
 
-        :param licensepool: Identifier of the book to be checked out is 
+        :param licensepool: Identifier of the book to be checked out is
         attached to this licensepool.
 
         :param internal_format: Represents the patron's desired book format.
