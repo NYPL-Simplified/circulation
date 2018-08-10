@@ -857,6 +857,7 @@ class AuthdataUtility(object):
 
     @classmethod
     def _adobe_patron_identifier(self, patron):
+        """Take patron object and return identifier for Adobe ID purposes"""
         _db = Session.object_session(patron)
         internal = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
 
@@ -870,6 +871,9 @@ class AuthdataUtility(object):
 
 
     def short_client_token_for_patron(self, patron_information):
+        """Generate short client token for patron, or for a patron's identifier
+         for Adobe ID purposes"""
+
         if isinstance(patron_information, Patron):
             # Find the patron's identifier for Adobe ID purposes.
             patron_identifier = self._adobe_patron_identifier(

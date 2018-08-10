@@ -923,19 +923,6 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         link_tag.attrib.update(dict(href=fulfill_url))
         return link_tag
 
-    # @classmethod
-    # def _adobe_patron_identifier(self, patron):
-    #     _db = Session.object_session(patron)
-    #     internal = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
-    #
-    #     def refresh(credential):
-    #         credential.credential = str(uuid.uuid1())
-    #     patron_identifier = Credential.lookup(
-    #         _db, internal, AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER, patron,
-    #         refresher_method=refresh, allow_persistent_token=True
-    #     )
-    #     return patron_identifier.credential
-
     def drm_device_registration_tags(self, license_pool, active_loan,
                                      delivery_mechanism):
         """Construct OPDS Extensions for DRM tags that explain how to
