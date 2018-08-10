@@ -70,7 +70,6 @@ from core.model import (
     Loan,
     LicensePoolDeliveryMechanism,
     Patron,
-    PatronProfileStorage,
     Representation,
     Session,
     Work,
@@ -112,6 +111,7 @@ from problem_details import *
 
 from authenticator import (
     Authenticator,
+    CirculationPatronProfileStorage,
     OAuthController,
 )
 from config import (
@@ -1553,7 +1553,6 @@ class WorkController(CirculationManagerController):
         )
         return feed_response(unicode(feed))
 
-
 class ProfileController(CirculationManagerController):
     """Implement the User Profile Management Protocol."""
 
@@ -1562,7 +1561,7 @@ class ProfileController(CirculationManagerController):
         """Instantiate a CoreProfileController that actually does the work.
         """
         patron = self.authenticated_patron_from_request()
-        storage = PatronProfileStorage(patron)
+        storage = CirculationPatronProfileStorage(patron)
         return CoreProfileController(storage)
 
     def protocol(self):

@@ -18,6 +18,7 @@ from core.model import (
     ExternalIntegration,
     Library,
     Patron,
+    PatronProfileStorage,
     Session,
 )
 from core.util.problem_detail import (
@@ -37,7 +38,7 @@ from problem_details import *
 from util.patron import PatronUtility
 from api.opds import LibraryAnnotator
 from api.custom_patron_catalog import CustomPatronCatalog
-
+from api.adobe_vendor_id import AuthdataUtility
 
 import datetime
 import logging
@@ -375,6 +376,17 @@ class PatronData(object):
             authorization_identifiers = [authorization_identifier]
         self.authorization_identifier = authorization_identifier
         self.authorization_identifiers = authorization_identifiers
+
+class CirculationPatronProfileStorage(PatronProfileStorage):
+    @property
+    def profile_document(self):
+        doc = super(CirculationPatronProfileStorage, self).profile_document
+        authdata = AuthdataUtility.from_config(self.patron.library)
+        if authdata:
+            vendor_id, token = authdata.short_client_token_for_patron(self.patron)
+            doc['drm:vendor'] = vendor_id
+            doc['drm:clientToken'] = token
+        return doc
 
 class Authenticator(object):
     """Route requests to the appropriate LibraryAuthenticator.
