@@ -185,17 +185,45 @@ class TestPatronData(AuthenticatorTest):
 
     def setup(self):
         super(TestPatronData, self).setup()
+        self.expiration_time = datetime.datetime.utcnow()
         self.data = PatronData(
             permanent_id="1",
             authorization_identifier="2",
             username="3",
             personal_name="4",
             email_address="5",
-            authorization_expires=datetime.datetime.utcnow(),
+            authorization_expires=self.expiration_time,
             fines=Money(6, "USD"),
             block_reason=PatronData.NO_VALUE,
         )
 
+    def test_to_dict(self):
+        data = self.data.to_dict
+        expect = dict(
+            permanent_id="1",
+            authorization_identifier="2",
+            authorization_identifiers=["2"],
+            external_type=None,
+            username="3",
+            personal_name="4",
+            email_address="5",
+            authorization_expires=self.expiration_time.strftime("%Y-%m-%d"),
+            fines="6",
+            block_reason=None
+        )
+        eq_(data, expect)
+
+        # Test with an empty fines field
+        self.data.fines = PatronData.NO_VALUE
+        data = self.data.to_dict
+        expect['fines'] = None
+        eq_(data, expect)
+
+        # Test with an empty expiration time
+        self.data.authorization_expires = PatronData.NO_VALUE
+        data = self.data.to_dict
+        expect['authorization_expires'] = None
+        eq_(data, expect)
 
     def test_apply(self):
         patron = self._patron()
