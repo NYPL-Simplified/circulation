@@ -14,7 +14,6 @@ python-dateutil
 uwsgi
 loggly-python-handler
 mock
-cairosvg==1.0.22
 py-bcrypt
 Flask-Babel
 money
