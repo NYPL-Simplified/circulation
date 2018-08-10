@@ -3305,11 +3305,14 @@ class TestSettingsController(SettingsControllerTest):
         HasSelfTests.prior_test_results = old_prior_test_results
 
     def test_collection_self_tests_test_failed_post(self):
-        old_run_self_tests = HasSelfTests.run_self_tests
+        old_prior_test_results = HasSelfTests.prior_test_results
+        HasSelfTests.prior_test_results = self.mock_prior_test_results
         # This makes HasSelfTests.run_self_tests return no values
+        old_run_self_tests = HasSelfTests.run_self_tests
         HasSelfTests.run_self_tests = self.mock_failed_run_self_tests
 
         collection = MockAxis360API.mock_collection(self._db)
+
         # Failed to run self tests
         with self.request_context_with_admin("/", method="POST"):
             response = self.manager.admin_settings_controller.collection_self_tests(collection.id)
@@ -3318,6 +3321,7 @@ class TestSettingsController(SettingsControllerTest):
             eq_(response, FAILED_TO_RUN_SELF_TESTS)
             eq_(response.status_code, 400)
 
+        HasSelfTests.prior_test_results = old_prior_test_results
         HasSelfTests.run_self_tests = old_run_self_tests
 
     def test_collection_self_tests_test_post(self):
