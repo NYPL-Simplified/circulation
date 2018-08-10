@@ -382,11 +382,17 @@ class CirculationPatronProfileStorage(PatronProfileStorage):
     @property
     def profile_document(self):
         doc = super(CirculationPatronProfileStorage, self).profile_document
+        drm = []
         authdata = AuthdataUtility.from_config(self.patron.library)
         if authdata:
             vendor_id, token = authdata.short_client_token_for_patron(self.patron)
-            doc['drm:vendor'] = vendor_id
-            doc['drm:clientToken'] = token
+            adobe_drm = {}
+            adobe_drm['drm:vendor'] = vendor_id
+            adobe_drm['drm:clientToken'] = token
+            adobe_drm['drm:scheme'] = "http://librarysimplified.org/terms/drm/scheme/ACS"
+            drm.append(adobe_drm)
+        if drm:
+            doc['drm'] = drm
         return doc
 
 class Authenticator(object):

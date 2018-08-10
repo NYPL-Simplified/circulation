@@ -393,14 +393,17 @@ class TestCirculationPatronProfileStorage(VendorIDTest):
         #Since there's no authdata configured, the DRM fields are not present
         assert 'drm:vendor' not in doc
         assert 'drm:clientToken' not in doc
+        assert 'drm:scheme' not in doc
         #Now there's authdata configured, and the DRM fields are populated with
         #the vendor ID and a short client token
         self.initialize_adobe(patron.library)
         doc = storage.profile_document
-        eq_(doc["drm:vendor"], "vendor id")
-        assert doc["drm:clientToken"].startswith(
+        [adobe] = doc['drm']
+        eq_(adobe["drm:vendor"], "vendor id")
+        assert adobe["drm:clientToken"].startswith(
             patron.library.short_name.upper() + "TOKEN"
         )
+        eq_(adobe["drm:scheme"], "http://librarysimplified.org/terms/drm/scheme/ACS")
 
 class MockAuthenticator(Authenticator):
     """Allows testing Authenticator methods outside of a request context."""
