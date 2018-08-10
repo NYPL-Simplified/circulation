@@ -1353,6 +1353,7 @@ class WorkController(AdminCirculationManagerController):
             return Response(unicode(_("Success")), 200)
 
 class PatronController(AdminCirculationManagerController):
+
     def lookup_patron(self, authenticator):
         library = flask.request.library
         self.require_librarian(library)
@@ -1361,18 +1362,27 @@ class PatronController(AdminCirculationManagerController):
             authenticator = LibraryAuthenticator.from_config(self._db, library)
 
         identifier = flask.request.form.get("identifier")
+        if not identifier:
+            return NO_SUCH_PATRON.detailed(_("No patron identifier provided"))
+
         patron_data = PatronData(authorization_identifier=identifier)
         complete_patron_data = None
+
+        if not authenticator.providers:
+            return NO_SUCH_PATRON.detailed(
+                _("This library has no authentication providers, so it has no patrons.")
+            )
 
         for provider in authenticator.providers:
             complete_patron_data = provider.remote_patron_lookup(patron_data)
             if complete_patron_data:
                 return complete_patron_data.to_dict
 
+        # If we get here, none of the providers succeeded.
         if not complete_patron_data:
             return NO_SUCH_PATRON.detailed(
-                _("Lookup failed for patron with identifier %s"),
-                identifier
+                _("Lookup failed for patron with identifier %(patron_identifier)s",
+                  patron_identifier=identifier),
             )
 
     # def reset_adobe_id(self):
