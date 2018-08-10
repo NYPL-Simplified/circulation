@@ -3315,8 +3315,8 @@ class TestSettingsController(SettingsControllerTest):
             response = self.manager.admin_settings_controller.collection_self_tests(collection.id)
 
             (run_self_tests_args, run_self_tests_kwargs) = self.failed_run_self_tests_called_with
-            eq_(response.response, ["Failed to run self tests"])
-            eq_(response._status, "200 OK")
+            eq_(response, FAILED_TO_RUN_SELF_TESTS)
+            eq_(response.status_code, 400)
 
         HasSelfTests.run_self_tests = old_run_self_tests
 
@@ -3365,8 +3365,8 @@ class TestSettingsController(SettingsControllerTest):
             response = self.manager.admin_settings_controller.collection_self_tests(collection.id)
 
             (run_self_tests_args, run_self_tests_kwargs) = self.run_self_tests_called_with
-            eq_(response.response, ["No protocol found in the collection"])
-            eq_(response._status, "200 OK")
+            eq_(response, UNKNOWN_PROTOCOL)
+            eq_(response.status_code, 400)
 
             # The method returns None but it was not called
             eq_(run_self_tests_args, None)

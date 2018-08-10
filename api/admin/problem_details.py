@@ -407,3 +407,10 @@ COLLECTION_DOES_NOT_SUPPORT_REGISTRATION = pd(
     title=_("The collection does not support registration"),
     detail=_("The collection does not support registration."),
 )
+
+FAILED_TO_RUN_SELF_TESTS = pd(
+    "http://librarysimplified.org/terms/problem/failed-to-run-self-tests",
+    status_code=400,
+    title=_("Failed to run self tests for collection."),
+    detail=_("Failed to run self tests for collection.")
+)

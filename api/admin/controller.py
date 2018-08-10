@@ -2389,25 +2389,24 @@ class SettingsController(AdminCirculationManagerController):
 
         collection = dict()
         collectionFound = None
-        for col in self._db.query(Collection).order_by(Collection.name).all():
-            if col.id == int(identifier):
-                collectionFound = col
-                collection = dict(
-                    id=col.id,
-                    name=col.name,
-                    protocol=col.protocol,
-                    parent_id=col.parent_id,
-                    settings=dict(external_account_id=col.external_account_id),
-                    protocolClass=None,
-                )
+        for col in self._db.query(Collection).order_by(Collection.id==int(identifier)):
+            collectionFound = col
+            collection = dict(
+                id=col.id,
+                name=col.name,
+                protocol=col.protocol,
+                parent_id=col.parent_id,
+                settings=dict(external_account_id=col.external_account_id),
+                protocolClass=None,
+            )
 
-                if col.protocol in [p.get("name") for p in protocols]:
-                    [protocol] = [p for p in protocols if p.get("name") == col.protocol]
+            if col.protocol in [p.get("name") for p in protocols]:
+                [protocol] = [p for p in protocols if p.get("name") == col.protocol]
 
-                    [protocolClass] = [p for p in provider_apis if p.NAME == col.protocol]
-                    collection["protocolClass"] = protocolClass
+                [protocolClass] = [p for p in provider_apis if p.NAME == col.protocol]
+                collection["protocolClass"] = protocolClass
 
-                collection["self_test_results"] = self._get_prior_test_results(col, collection)
+            collection["self_test_results"] = self._get_prior_test_results(col, collection)
 
         if flask.request.method == 'GET':
             if "protocolClass" in collection:
@@ -2424,9 +2423,9 @@ class SettingsController(AdminCirculationManagerController):
                 if (value):
                     return Response("Successfully ran new self tests", 200)
                 else:
-                    return Response("Failed to run self tests", 200)
+                    return FAILED_TO_RUN_SELF_TESTS
 
-            return Response("No protocol found in the collection", 200)
+            return UNKNOWN_PROTOCOL
 
     def collections(self):
         provider_apis = [OPDSImporter,
