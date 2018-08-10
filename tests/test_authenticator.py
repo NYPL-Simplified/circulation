@@ -49,6 +49,7 @@ from api.util.patron import PatronUtility
 
 from api.authenticator import (
     Authenticator,
+    CirculationPatronProfileStorage,
     LibraryAuthenticator,
     AuthenticationProvider,
     BasicAuthenticationProvider,
@@ -67,6 +68,7 @@ from api.config import (
 )
 
 from api.problem_details import *
+from api.testing import VendorIDTest
 
 from . import DatabaseTest
 from test_controller import ControllerTest
@@ -381,6 +383,24 @@ class TestPatronData(AuthenticatorTest):
         params = self.data.to_response_parameters
         eq_(dict(name="4"), params)
 
+class TestCirculationPatronProfileStorage(VendorIDTest):
+
+    def test_profile_document(self):
+        patron = self._patron()
+        storage = CirculationPatronProfileStorage(patron)
+        doc = storage.profile_document
+        assert 'settings' in doc
+        #Since there's no authdata configured, the DRM fields are not present
+        assert 'drm:vendor' not in doc
+        assert 'drm:clientToken' not in doc
+        #Now there's authdata configured, and the DRM fields are populated with
+        #the vendor ID and a short client token
+        self.initialize_adobe(patron.library)
+        doc = storage.profile_document
+        eq_(doc["drm:vendor"], "vendor id")
+        assert doc["drm:clientToken"].startswith(
+            patron.library.short_name.upper() + "TOKEN"
+        )
 
 class MockAuthenticator(Authenticator):
     """Allows testing Authenticator methods outside of a request context."""

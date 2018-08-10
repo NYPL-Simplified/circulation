@@ -378,6 +378,7 @@ class PatronData(object):
         self.authorization_identifiers = authorization_identifiers
 
 class CirculationPatronProfileStorage(PatronProfileStorage):
+    """A patron profile storage that can also provide short client tokens"""
     @property
     def profile_document(self):
         doc = super(CirculationPatronProfileStorage, self).profile_document
