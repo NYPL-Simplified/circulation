@@ -2335,10 +2335,9 @@ class SettingsController(AdminCirculationManagerController):
 
         return protocols
 
-    def _get_prior_test_results(self, collection, newCollection):
+    def _get_prior_test_results(self, collection, protocolClass):
         """This helper function returns previous self test results for a given
-        collection if it has a protocol. The `collection` is the collection found
-        in the database and the `newCollection` is the collection being constructed.
+        collection if it has a protocol.
         """
         provider_apis = [OPDSImportMonitor,
                          OPDSForDistributorsAPI,
@@ -2354,18 +2353,19 @@ class SettingsController(AdminCirculationManagerController):
                         ]
 
         self_test_results = None
+        protocol = protocolClass
 
         if not collection or not collection.protocol:
             return None
 
         if collection.protocol == OPDSImportMonitor.PROTOCOL:
-            newCollection["protocolClass"] = OPDSImportMonitor
+            protocol = OPDSImportMonitor
 
-        if newCollection["protocolClass"] in provider_apis and issubclass(newCollection["protocolClass"], HasSelfTests):
+        if protocol in provider_apis and issubclass(protocol, HasSelfTests):
             if (collection.protocol == OPDSImportMonitor.PROTOCOL):
-                self_test_results = newCollection["protocolClass"].prior_test_results(self._db, newCollection["protocolClass"], self._db, collection, OPDSImporter)
+                self_test_results = protocol.prior_test_results(self._db, protocol, self._db, collection, OPDSImporter)
             else:
-                self_test_results = newCollection["protocolClass"].prior_test_results(self._db, newCollection["protocolClass"], self._db, collection)
+                self_test_results = protocol.prior_test_results(self._db, protocol, self._db, collection)
 
         return self_test_results
 
@@ -2389,7 +2389,8 @@ class SettingsController(AdminCirculationManagerController):
 
         collection = dict()
         collectionFound = None
-        for col in self._db.query(Collection).order_by(Collection.id==int(identifier)):
+        protocolClass = None
+        for col in self._db.query(Collection).filter(Collection.id==int(identifier)):
             collectionFound = col
             collection = dict(
                 id=col.id,
@@ -2397,28 +2398,26 @@ class SettingsController(AdminCirculationManagerController):
                 protocol=col.protocol,
                 parent_id=col.parent_id,
                 settings=dict(external_account_id=col.external_account_id),
-                protocolClass=None,
             )
 
             if col.protocol in [p.get("name") for p in protocols]:
                 [protocol] = [p for p in protocols if p.get("name") == col.protocol]
 
-                [protocolClass] = [p for p in provider_apis if p.NAME == col.protocol]
-                collection["protocolClass"] = protocolClass
+                [protocolClassFound] = [p for p in provider_apis if p.NAME == col.protocol]
+                protocolClass = protocolClassFound
 
-            collection["self_test_results"] = self._get_prior_test_results(col, collection)
+            collection["self_test_results"] = self._get_prior_test_results(col, protocolClass)
 
         if flask.request.method == 'GET':
-            if "protocolClass" in collection:
-                del collection["protocolClass"]
             return dict(collection=collection)
 
         if flask.request.method == "POST":
-            if collection["protocolClass"]:
+            if protocolClass:
                 if (collection["protocol"] == OPDSImportMonitor.PROTOCOL):
-                    value, results = collection["protocolClass"].run_self_tests(self._db, collection["protocolClass"], self._db, collectionFound, OPDSImporter)
+                    protocolClass = OPDSImportMonitor
+                    value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, collectionFound, OPDSImporter)
                 else:
-                    value, results = collection["protocolClass"].run_self_tests(self._db, collection["protocolClass"], self._db, collectionFound)
+                    value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, collectionFound)
 
                 if (value):
                     return Response("Successfully ran new self tests", 200)
@@ -2451,6 +2450,7 @@ class SettingsController(AdminCirculationManagerController):
 
         if flask.request.method == 'GET':
             collections = []
+            protocolClass = None
             for c in self._db.query(Collection).order_by(Collection.name).all():
                 if not flask.request.admin or not flask.request.admin.can_see_collection(c):
                     continue
@@ -2461,7 +2461,6 @@ class SettingsController(AdminCirculationManagerController):
                     protocol=c.protocol,
                     parent_id=c.parent_id,
                     settings=dict(external_account_id=c.external_account_id),
-                    protocolClass=None
                 )
 
                 if c.protocol in [p.get("name") for p in protocols]:
@@ -2485,12 +2484,10 @@ class SettingsController(AdminCirculationManagerController):
                                 value = c.external_integration.setting(key).value
                             collection["settings"][key] = value
 
-                    [protocolClass] = [p for p in provider_apis if p.NAME == c.protocol]
-                    collection["protocolClass"] = protocolClass
+                    [protocolClassFound] = [p for p in provider_apis if p.NAME == c.protocol]
+                    protocolClass = protocolClassFound
 
-                collection["self_test_results"] = self._get_prior_test_results(c, collection)
-
-                del collection["protocolClass"]
+                collection["self_test_results"] = self._get_prior_test_results(c, protocolClass)
                 collections.append(collection)
 
             return dict(

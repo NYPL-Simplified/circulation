@@ -103,7 +103,7 @@ from core.external_search import ExternalSearchIndex
 
 from api.axis import (Axis360API, MockAxis360API)
 from core.selftest import HasSelfTests
-from core.opds_import import OPDSImportMonitor
+from core.opds_import import (OPDSImporter, OPDSImportMonitor)
 
 class AdminControllerTest(CirculationControllerTest):
 
@@ -3260,20 +3260,16 @@ class TestSettingsController(SettingsControllerTest):
         eq_(None, self_test_results)
 
         collection = MockAxis360API.mock_collection(self._db)
-        newCollection = dict(protocolClass=Axis360API)
-
         # Test that a collection's protocol calls HasSelfTests.prior_test_results
-        self_test_results = controller._get_prior_test_results(collection, newCollection)
+        self_test_results = controller._get_prior_test_results(collection, Axis360API)
         args = self.prior_test_results_called_with[0]
         eq_(args[1], Axis360API)
         eq_(args[3], collection)
 
         OPDSCollection = self._collection()
-        newOPDSCollection = dict(protocolClass=OPDSImportMonitor)
-
         # If a collection's protocol is OPDSImporter, make sure that
         # OPDSImportMonitor.prior_test_results is called
-        self_test_results = controller._get_prior_test_results(OPDSCollection, newOPDSCollection)
+        self_test_results = controller._get_prior_test_results(OPDSCollection, OPDSImporter)
         args = self.prior_test_results_called_with[0]
         eq_(args[1], OPDSImportMonitor)
         eq_(args[3], OPDSCollection)
@@ -3360,7 +3356,7 @@ class TestSettingsController(SettingsControllerTest):
             eq_(run_self_tests_args[3], collection)
 
         collection = MockAxis360API.mock_collection(self._db)
-        collection.protocol = ""
+        collection.protocol = "Non existing protocol"
         # clearing out previous call to mocked run_self_tests
         self.run_self_tests_called_with = (None, None)
 
