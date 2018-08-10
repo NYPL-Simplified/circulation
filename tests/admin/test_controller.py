@@ -1796,6 +1796,40 @@ class TestSignInController(AdminControllerTest):
             eq_(None, flask.session.get("admin_email"))
             eq_(None, flask.session.get("auth_type"))
 
+
+class TestPatronController(AdminControllerTest):
+    def setup(self):
+        super(TestPatronController, self).setup()
+        self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
+
+    def test_lookup_patron(self):
+        class MockAuthenticator(object):
+            def __init__(self, providers):
+                self.providers = providers
+        class MockAuthenticationProvider(object):
+            def __init__(self, patron_dict):
+                self.patron_dict = patron_dict
+
+            def remote_patron_lookup(self, patron):
+                return self.patron_dict.get(patron)
+
+        authenticator = MockAuthenticator([])
+        auth_provider = MockAuthenticationProvider({})
+        patron = "Patron"
+
+        form = MultiDict([
+                ("identifier", patron)
+            ])
+
+        with self.request_context_with_library_and_admin("/"):
+            flask.request.form = form
+            response = self.manager.admin_patron_controller.lookup_patron(authenticator)
+
+        _eq(404, response.status_code)
+        _eq(NO_SUCH_PATRON.uri, response.uri)
+
+
+
 class TestFeedController(AdminControllerTest):
 
     def setup(self):

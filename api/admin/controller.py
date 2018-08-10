@@ -23,7 +23,7 @@ import textwrap
 from StringIO import StringIO
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
-
+from api.authenticator import PatronData
 from core.model import (
     create,
     get_one,
@@ -114,7 +114,11 @@ from sqlalchemy.orm import lazyload
 
 from templates import admin as admin_template
 
-from api.authenticator import AuthenticationProvider
+from api.authenticator import (
+    AuthenticationProvider,
+    LibraryAuthenticator
+)
+
 from api.simple_authentication import SimpleAuthenticationProvider
 from api.millenium_patron import MilleniumPatronAPI
 from api.sip import SIP2AuthenticationProvider
@@ -160,6 +164,7 @@ def setup_admin_controllers(manager):
     manager.admin_lanes_controller = LanesController(manager)
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
+    manager.admin_patron_controller = PatronController(manager)
 
 class AdminController(object):
 
@@ -1346,6 +1351,31 @@ class WorkController(AdminCirculationManagerController):
                 lane.update_size(self._db)
 
             return Response(unicode(_("Success")), 200)
+
+class PatronController(AdminCirculationManagerController):
+    def lookup_patron(self, authenticator):
+        library = flask.request.library
+        self.require_librarian(library)
+
+        if not authenticator:
+            authenticator = LibraryAuthenticator.from_config(self._db, library)
+
+        identifier = flask.request.form.get("identifier")
+        patron_data = PatronData(authorization_identifier=identifier)
+        complete_patron_data = None
+
+        for provider in authenticator.providers:
+            complete_patron_data = provider.remote_patron_lookup(patron_data)
+            if complete_patron_data:
+                return complete_patron_data.to_dict
+
+        if not complete_patron_data:
+            return NO_SUCH_PATRON.detailed(
+                _("Lookup failed for patron with identifier %s"),
+                identifier
+            )
+
+    # def reset_adobe_id(self):
 
 
 class FeedController(AdminCirculationManagerController):

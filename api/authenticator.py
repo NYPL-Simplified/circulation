@@ -353,6 +353,20 @@ class PatronData(object):
             return dict(name=self.personal_name)
         return None
 
+    @property
+    def to_dict(self):
+        return dict(
+                        permanent_id=self.permanent_id,
+                        authorization_identifiers=self.authorization_identifiers,
+                        username=self.username,
+                        authorization_expires=self.authorization_expires,
+                        external_type=self.external_type,
+                        fines=self.fines,
+                        block_reason=self.block_reason,
+                        personal_name=self.personal_name,
+                        email_address = self.email_address
+                    )
+
     def set_authorization_identifier(self, authorization_identifier):
         """Helper method to set both .authorization_identifier
         and .authorization_identifiers appropriately.
