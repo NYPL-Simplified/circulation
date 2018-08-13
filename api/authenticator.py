@@ -61,6 +61,14 @@ from flask_babel import lazy_gettext as _
 import importlib
 
 
+class CannotCreateLocalPatron(Exception):
+    """A remote system provided information about a patron, but we could
+    not put it into our database schema.
+
+    Probably because it was too vague.
+    """
+
+
 class PatronData(object):
     """A container for basic information about a patron.
 
@@ -323,7 +331,7 @@ class PatronData(object):
                 authorization_identifier=self.authorization_identifier
             )
         else:
-            raise ValueError(
+            raise CannotCreateLocalPatron(
                 "Cannot create patron without some way of identifying them uniquely."
             )
         search_by['library_id'] = library_id
@@ -355,6 +363,46 @@ class PatronData(object):
         if self.personal_name:
             return dict(name=self.personal_name)
         return None
+
+    @property
+    def to_dict(self):
+        """Convert the information in this PatronData to a dictionary
+        which can be converted to JSON and sent out to a client.
+        """
+        def scrub(value, default=None):
+            if value is self.NO_VALUE:
+                return default
+            return value
+        data = dict(
+            permanent_id=self.permanent_id,
+            authorization_identifier=self.authorization_identifier,
+            username=self.username,
+            external_type=self.external_type,
+            block_reason=self.block_reason,
+            personal_name=self.personal_name,
+            email_address = self.email_address
+        )
+        data = dict((k, scrub(v)) for k, v in data.items())
+
+        # Handle the data items that aren't just strings.
+
+        # A date
+        expires = scrub(self.authorization_expires)
+        if expires:
+            expires = self.authorization_expires.strftime("%Y-%m-%d")
+        data['authorization_expires'] = expires
+
+        # A Money
+        fines = scrub(self.fines)
+        if fines:
+            fines = str(fines)
+        data['fines'] = fines
+
+        # A list
+        data['authorization_identifiers'] = scrub(
+            self.authorization_identifiers, []
+        )
+        return data
 
     def set_authorization_identifier(self, authorization_identifier):
         """Helper method to set both .authorization_identifier

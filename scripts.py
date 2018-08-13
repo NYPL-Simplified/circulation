@@ -646,13 +646,7 @@ You'll get another chance to back out before the database session is committed."
             patron.authorization_identifier or patron.username
             or patron.external_identifier
         )
-        types = (AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE,
-                 AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER)
-        credentials = self._db.query(
-            Credential).filter(Credential.patron==patron).filter(
-                Credential.type.in_(types)
-            )
-        for credential in credentials:
+        for credential in AuthdataUtility.adobe_relevant_credentials(patron):
             self.log.info(
                 ' Deleting "%s" credential "%s"',
                 credential.type, credential.credential
