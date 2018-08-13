@@ -75,6 +75,49 @@ class TestAnalytics(DatabaseTest):
         for provider in analytics.library_providers[l2.id]:
             assert isinstance(provider, MockAnalyticsProvider)
 
+        # Instantiating an Analytics object initializes class
+        # variables with the current state of site analytics.
+
+        # We have global analytics enabled.
+        eq_(True, Analytics.GLOBAL_ENABLED)
+
+        # We also have analytics enabled for two of the three libraries.
+        eq_(set([l1.id, l2.id]), Analytics.LIBRARY_ENABLED)
+
+        # If the analytics situation changes, instantiating an
+        # Analytics object will change the class variables.
+        self._db.delete(mock_integration)
+        self._db.delete(local_integration)
+        self._db.delete(library_integration1)
+
+        # There are no longer any global analytics providers, and only
+        # one of the libraries has a library-specific provider.
+        analytics = Analytics(self._db)
+        eq_(False, Analytics.GLOBAL_ENABLED)
+        eq_(set([l2.id]), Analytics.LIBRARY_ENABLED)
+
+    def test_is_configured(self):
+        # If the Analytics constructor has not been called, then
+        # is_configured() calls it so that the values are populated.
+        Analytics.GLOBAL_ENABLED = None
+        Analytics.LIBRARY_ENABLED = object()
+        library = self._default_library
+        eq_(False, Analytics.is_configured(library))
+        eq_(False, Analytics.GLOBAL_ENABLED)
+        eq_(set(), Analytics.LIBRARY_ENABLED)
+
+        # If analytics are enabled globally, they are enabled for any
+        # library.
+        Analytics.GLOBAL_ENABLED = True
+        eq_(True, Analytics.is_configured(object()))
+
+        # If not, they are enabled only for libraries whose IDs are
+        # in LIBRARY_ENABLED.
+        Analytics.GLOBAL_ENABLED = False
+        eq_(False, Analytics.is_configured(library))
+        Analytics.LIBRARY_ENABLED.add(library.id)
+        eq_(True, Analytics.is_configured(library))
+
     def test_collect_event(self):
         sitewide_integration, ignore = create(
             self._db, ExternalIntegration,

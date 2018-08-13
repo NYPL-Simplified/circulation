@@ -9,7 +9,6 @@ from sqlalchemy.orm.session import Session
 
 class Analytics(object):
 
-    IS_CONFIGURED = None
     GLOBAL_ENABLED = None
     LIBRARY_ENABLED = set()
 
