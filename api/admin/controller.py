@@ -1353,29 +1353,58 @@ class WorkController(AdminCirculationManagerController):
             return Response(unicode(_("Success")), 200)
 
 class PatronController(AdminCirculationManagerController):
-    def lookup_patron(self, authenticator):
-        library = flask.request.library
-        self.require_librarian(library)
 
-        if not authenticator:
-            authenticator = LibraryAuthenticator.from_config(self._db, library)
+    def _load_patrondata(self, authenticator):
+        self.require_librarian(flask.request.library)
 
         identifier = flask.request.form.get("identifier")
+        if not identifier:
+            return NO_SUCH_PATRON.detailed(_("No patron identifier provided"))
+
+        if not authenticator:
+            authenticator = LibraryAuthenticator.from_config(
+                self._db, flask.request.library
+            )
+
         patron_data = PatronData(authorization_identifier=identifier)
         complete_patron_data = None
+
+        if not authenticator.providers:
+            return NO_SUCH_PATRON.detailed(
+                _("This library has no authentication providers, so it has no patrons.")
+            )
 
         for provider in authenticator.providers:
             complete_patron_data = provider.remote_patron_lookup(patron_data)
             if complete_patron_data:
-                return complete_patron_data.to_dict
+                return complete_patron_data
 
+        # If we get here, none of the providers succeeded.
         if not complete_patron_data:
             return NO_SUCH_PATRON.detailed(
-                _("Lookup failed for patron with identifier %s"),
-                identifier
+                _("Lookup failed for patron with identifier %(patron_identifier)s",
+                  patron_identifier=identifier),
             )
 
-    # def reset_adobe_id(self):
+    def lookup_patron(self, authenticator):
+        patrondata = self._load_patrondata(authenticator)
+        if isinstance(patrondata, ProblemDetail):
+            return patrondata
+        return patrondata.to_dict
+
+    def reset_adobe_id(self, authenticator):
+        patrondata = self._load_patrondata(authenticator)
+        if isinstance(patrondata, ProblemDetail):
+            return patrondata
+
+        # Turn the Identifier into a Patron object.
+        patron, is_new = patrondata.get_or_create_patron(
+            self._db, flask.request.library.id
+        )
+
+        # Wipe the Patron's 'identifier for Adobe ID purposes'.
+        for credential in AuthdataUtility.adobe_relevant_credentials(patron):
+            self._db.delete(credential)
 
 
 class FeedController(AdminCirculationManagerController):

@@ -749,6 +749,24 @@ class AuthdataUtility(object):
         return cls(vendor_id, library_uri, library_short_name, secret,
                    other_libraries)
 
+    @classmethod
+    def adobe_relevant_credentials(self, patron):
+        """Find all Adobe-relevant Credential objects for the given
+        patron.
+
+        This includes the patron's identifier for Adobe ID purposes,
+        and (less likely) any Adobe IDs directly associated with the
+        Patron.
+
+        :return: A SQLAlchemy query
+        """
+        types = (AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE,
+                 AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER)
+        return self._db.query(
+            Credential).filter(Credential.patron==patron).filter(
+                Credential.type.in_(types)
+            )
+
     def encode(self, patron_identifier):
         """Generate an authdata JWT suitable for putting in an OPDS feed, where
         it can be picked up by a client and sent to the delegation
