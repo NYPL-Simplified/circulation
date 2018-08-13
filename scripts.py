@@ -1455,9 +1455,8 @@ class NovelistSnapshotScript(LibraryInputScript):
             response = api.put_items_novelist(parsed.libraries[0])
 
             if (response):
-                result = "NoveList Snapshot"
-                result += "\nRecords sent: " + str(response["RecordsReceived"])
-                result += "\nInvalid Records: " + str(response["InvalidRecords"]) + "\n"
+                result = "NoveList API Response\n"
+                result += str(response)
 
                 output.write(result)
 
