@@ -20,6 +20,7 @@ from core.util.opds_writer import (
     OPDSFeed,
 )
 from core.model import (
+    CirculationEvent,
     ConfigurationSetting,
     Credential,
     DataSource,
@@ -49,6 +50,7 @@ from annotations import AnnotationWriter
 from circulation import BaseCirculationAPI
 from config import Configuration
 from novelist import NoveListAPI
+from core.analytics import Analytics
 
 class CirculationManagerAnnotator(Annotator):
 
@@ -601,6 +603,20 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                     'annotations_for_work',
                     identifier_type=identifier.type,
                     identifier=identifier.identifier,
+                    library_short_name=self.library.short_name,
+                    _external=True
+                )
+            )
+
+        if Analytics.is_configured(self.library):
+            feed.add_link_to_entry(
+                entry,
+                rel="http://librarysimplified.org/terms/rel/analytics/open-book",
+                href=self.url_for(
+                    'track_analytics_event',
+                    identifier_type=identifier.type,
+                    identifier=identifier.identifier,
+                    event_type=CirculationEvent.OPEN_BOOK,
                     library_short_name=self.library.short_name,
                     _external=True
                 )
