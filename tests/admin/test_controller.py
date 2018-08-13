@@ -1828,7 +1828,13 @@ class TestPatronController(AdminControllerTest):
         _eq(404, response.status_code)
         _eq(NO_SUCH_PATRON.uri, response.uri)
 
+    def test_reset_adobe_id(self):
+        patron = self._patron()
+        self._credential(patron=patron, type=AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE)
+        self._credential(patron=patron, type=AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER)
 
+        class MockPatronController(PatronController):
+            
 
 class TestFeedController(AdminControllerTest):
 
