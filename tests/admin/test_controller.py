@@ -1812,7 +1812,8 @@ class TestPatronController(AdminControllerTest):
         super(TestPatronController, self).setup()
         self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
 
-    def test_lookup_patron(self):
+    def test__load_patrondata(self):
+        """Test the _load_patrondata helper method."""
         class MockAuthenticator(object):
             def __init__(self, providers):
                 self.providers = providers
@@ -1823,24 +1824,21 @@ class TestPatronController(AdminControllerTest):
 
             def remote_patron_lookup(self, patrondata):
                 return self.patron_dict.get(patrondata.authorization_identifier)
-
+ 
         authenticator = MockAuthenticator([])
         auth_provider = MockAuthenticationProvider({})
         identifier = "Patron"
 
         form = MultiDict([("identifier", identifier)])
+        m = self.manager.admin_patron_controller._load_patrondata
 
         # User doesn't have admin permission
         with self.request_context_with_library("/"):
-            assert_raises(
-                AdminNotAuthorized,
-                self.manager.admin_patron_controller.lookup_patron,
-                authenticator
-            )
+            assert_raises(AdminNotAuthorized, m, authenticator)
 
         # No form data specified
         with self.request_context_with_library_and_admin("/"):
-            response = self.manager.admin_patron_controller.lookup_patron(authenticator)
+            response = m(authenticator)
             eq_(404, response.status_code)
             eq_(NO_SUCH_PATRON.uri, response.uri)
             eq_("No patron identifier provided", response.detail)
@@ -1848,36 +1846,55 @@ class TestPatronController(AdminControllerTest):
         # AuthenticationProvider has no Authenticators.
         with self.request_context_with_library_and_admin("/"):
             flask.request.form = form
-            response = self.manager.admin_patron_controller.lookup_patron(authenticator)
+            response = m(authenticator)
 
             eq_(404, response.status_code)
             eq_(NO_SUCH_PATRON.uri, response.uri)
             eq_("This library has no authentication providers, so it has no patrons.",
                 response.detail
             )
+
         # Authenticator can't find patron with this identifier
         authenticator.providers.append(auth_provider)
         with self.request_context_with_library_and_admin("/"):
             flask.request.form = form
-            response = self.manager.admin_patron_controller.lookup_patron(authenticator)
+            response = m(authenticator)
 
             eq_(404, response.status_code)
             eq_(NO_SUCH_PATRON.uri, response.uri)
             eq_("Lookup failed for patron with identifier %s" % identifier,
             response.detail)
 
-            # Authenticator successfully finds patron.
-            auth_provider.patron_dict[identifier] = PatronData(
-            authorization_identifier=identifier,
-            personal_name="A Patron",
-            )
-            with self.request_context_with_library_and_admin("/"):
-                flask.request.form = form
-                response = self.manager.admin_patron_controller.lookup_patron(authenticator)
-                # We got a dictionary based on the PatronData object,
-                # which will be dumped to JSON on the way out.
-                eq_(identifier, response['authorization_identifier'])
-                eq_("A Patron", response['personal_name'])
+    def test_lookup_patron(self):
+
+        # Here's a patron.
+        patron = self._patron()
+        patron.authorization_identifier = self._str
+
+        # This PatronController will always return information about that
+        # patron, no matter what it's asked for.
+        class MockPatronController(PatronController):
+            def _load_patrondata(self, authenticator):
+                self.called_with = authenticator
+                return PatronData(
+                    authorization_identifier="An Identifier",
+                    personal_name="A Patron",
+                )
+
+        controller = MockPatronController(self.manager)
+
+        authenticator = object()
+        with self.request_context_with_library_and_admin("/"):
+            flask.request.form = MultiDict([("identifier", object())])
+            response = controller.lookup_patron(authenticator)
+            # The authenticator was passed into _load_patrondata()
+            eq_(authenticator, controller.called_with)
+
+            # _load_patrondata() returned a PatronData object. We
+            # converted it to a dictionary, which will be dumped to
+            # JSON on the way out.
+            eq_("An Identifier", response['authorization_identifier'])
+            eq_("A Patron", response['personal_name'])
 
     def test_reset_adobe_id(self):
         # Here's a patron.
