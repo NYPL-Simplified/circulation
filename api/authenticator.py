@@ -366,6 +366,9 @@ class PatronData(object):
 
     @property
     def to_dict(self):
+        """Convert the information in this PatronData to a dictionary
+        which can be converted to JSON and sent out to a client.
+        """
         def scrub(value, default=None):
             if value is self.NO_VALUE:
                 return default

@@ -1357,7 +1357,14 @@ class WorkController(AdminCirculationManagerController):
 
 class PatronController(AdminCirculationManagerController):
 
-    def _load_patrondata(self, authenticator):
+    def _load_patrondata(self, authenticator=None):
+        """Extract a patron identifier from an incoming form submission,
+        and ask the library's LibraryAuthenticator to turn it into a
+        PatronData by doing a remote lookup in the ILS.
+
+        :param authenticator: A LibraryAuthenticator. This is for mocking
+        during tests; it's not necessary to provide it normally.
+        """
         self.require_librarian(flask.request.library)
 
         identifier = flask.request.form.get("identifier")
@@ -1389,13 +1396,24 @@ class PatronController(AdminCirculationManagerController):
                   patron_identifier=identifier),
             )
 
-    def lookup_patron(self, authenticator):
+    def lookup_patron(self, authenticator=None):
+        """Look up personal information about a patron via the ILS.
+
+        :param authenticator: A LibraryAuthenticator. This is for mocking
+        during tests; it's not necessary to provide it normally.
+        """
         patrondata = self._load_patrondata(authenticator)
         if isinstance(patrondata, ProblemDetail):
             return patrondata
         return patrondata.to_dict
 
-    def reset_adobe_id(self, authenticator):
+    def reset_adobe_id(self, authenticator=None):
+        """Delete all Credentials for a patron that are relevant
+        to the patron's Adobe Account ID.
+
+        :param authenticator: A LibraryAuthenticator. This is for mocking
+        during tests; it's not necessary to provide it normal
+        """
         patrondata = self._load_patrondata(authenticator)
         if isinstance(patrondata, ProblemDetail):
             return patrondata
