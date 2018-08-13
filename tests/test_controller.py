@@ -37,6 +37,7 @@ from api.controller import (
 from api.lanes import create_default_lanes
 from api.authenticator import (
     BasicAuthenticationProvider,
+    CirculationPatronProfileStorage,
     OAuthController,
     LibraryAuthenticator,
 )
@@ -3545,6 +3546,13 @@ class TestProfileController(ControllerTest):
         self.other_patron = self._patron()
         self.other_patron.synchronize_annotations = False
         self.auth = dict(Authorization=self.valid_auth)
+
+    def test_controller_uses_circulation_patron_profile_storage(self):
+        """Verify that this controller uses circulation manager-specific extensions."""
+        with self.request_context_with_library(
+                "/", method='GET', headers=self.auth
+        ):
+            assert isinstance(self.manager.profiles._controller.storage, CirculationPatronProfileStorage)
 
     def test_get(self):
         """Verify that a patron can see their own profile."""
