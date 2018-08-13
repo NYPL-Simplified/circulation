@@ -20,6 +20,7 @@ import flask
 from flask import url_for
 
 from core.opds import OPDSFeed
+from core.user_profile import ProfileController
 from core.model import (
     CirculationEvent,
     ConfigurationSetting,
@@ -48,6 +49,7 @@ from api.util.patron import PatronUtility
 
 from api.authenticator import (
     Authenticator,
+    CirculationPatronProfileStorage,
     LibraryAuthenticator,
     AuthenticationProvider,
     BasicAuthenticationProvider,
@@ -66,6 +68,7 @@ from api.config import (
 )
 
 from api.problem_details import *
+from api.testing import VendorIDTest
 
 from . import DatabaseTest
 from test_controller import ControllerTest
@@ -380,6 +383,27 @@ class TestPatronData(AuthenticatorTest):
         params = self.data.to_response_parameters
         eq_(dict(name="4"), params)
 
+class TestCirculationPatronProfileStorage(VendorIDTest):
+
+    def test_profile_document(self):
+        patron = self._patron()
+        storage = CirculationPatronProfileStorage(patron)
+        doc = storage.profile_document
+        assert 'settings' in doc
+        #Since there's no authdata configured, the DRM fields are not present
+        assert 'drm:vendor' not in doc
+        assert 'drm:clientToken' not in doc
+        assert 'drm:scheme' not in doc
+        #Now there's authdata configured, and the DRM fields are populated with
+        #the vendor ID and a short client token
+        self.initialize_adobe(patron.library)
+        doc = storage.profile_document
+        [adobe] = doc['drm']
+        eq_(adobe["drm:vendor"], "vendor id")
+        assert adobe["drm:clientToken"].startswith(
+            patron.library.short_name.upper() + "TOKEN"
+        )
+        eq_(adobe["drm:scheme"], "http://librarysimplified.org/terms/drm/scheme/ACS")
 
 class MockAuthenticator(Authenticator):
     """Allows testing Authenticator methods outside of a request context."""
@@ -1159,7 +1183,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # We also need to test that the links got pulled in
             # from the configuration.
             (about, alternate, copyright, help_uri, help_web, help_email,
-             copyright_agent, license, logo, privacy_policy, register, start,
+             copyright_agent, profile, loans, license, logo, privacy_policy, register, start,
              terms_of_service) = sorted(
                  doc['links'], key=lambda x: (x['rel'], x['href'])
              )
@@ -1169,6 +1193,15 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("http://about", about['href'])
             eq_("http://license/", license['href'])
             eq_("image data", logo['href'])
+
+            assert ("/loans" in loans['href'])
+            eq_("http://opds-spec.org/shelf", loans['rel'])
+            eq_(OPDSFeed.ACQUISITION_FEED_TYPE, loans['type'])
+
+            assert ("/patrons/me" in profile['href'])
+            eq_(ProfileController.LINK_RELATION, profile['rel'])
+            eq_(ProfileController.MEDIA_TYPE, profile['type'])
+
             expect_start = url_for(
                 "index", library_short_name=self._default_library.short_name,
                 _external=True

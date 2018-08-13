@@ -704,6 +704,28 @@ class TestAuthdataUtility(VendorIDTest):
         self._db.delete(registry)
         eq_(None, AuthdataUtility.from_config(library))
 
+    def test_short_client_token_for_patron(self):
+        class MockAuthdataUtility(AuthdataUtility):
+            def __init__(self):
+                pass
+            def encode_short_client_token(self, patron_identifier):
+                self.encode_sct_called_with = patron_identifier
+                return "a", "b"
+            def _adobe_patron_identifier(self, patron_information):
+                self.patron_identifier_called_with = patron_information
+                return "patron identifier"
+        # A patron is passed in; we get their identifier for Adobe ID purposes,
+        # and generate a short client token based on it
+        patron = self._patron()
+        authdata = MockAuthdataUtility()
+        sct = authdata.short_client_token_for_patron(patron)
+        eq_(patron, authdata.patron_identifier_called_with)
+        eq_(authdata.encode_sct_called_with, "patron identifier")
+        eq_(sct, ("a", "b"))
+        # The identifier for Adobe ID purposes is passed in, and we use it directly.
+        authdata.short_client_token_for_patron("identifier for Adobe ID purposes")
+        eq_(sct, ("a", "b"))
+        eq_(authdata.encode_sct_called_with, "identifier for Adobe ID purposes")
 
     def test_decode_round_trip(self):
         patron_identifier = "Patron identifier"
@@ -1151,5 +1173,3 @@ class TestAdobeVendorIDController(VendorIDTest):
         # for the Patron.
         [credential] = patron.credentials
         eq_(credential.credential, response.data)
-
-

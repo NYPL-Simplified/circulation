@@ -18,6 +18,7 @@ from core.model import (
     ExternalIntegration,
     Library,
     Patron,
+    PatronProfileStorage,
     Session,
 )
 from core.util.problem_detail import (
@@ -29,6 +30,7 @@ from core.util.authentication_for_opds import (
     OPDSAuthenticationFlow,
 )
 from core.util.http import RemoteIntegrationException
+from core.user_profile import ProfileController
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import or_
@@ -36,6 +38,7 @@ from problem_details import *
 from util.patron import PatronUtility
 from api.opds import LibraryAnnotator
 from api.custom_patron_catalog import CustomPatronCatalog
+from api.adobe_vendor_id import AuthdataUtility
 
 import datetime
 import logging
@@ -387,6 +390,24 @@ class PatronData(object):
             authorization_identifiers = [authorization_identifier]
         self.authorization_identifier = authorization_identifier
         self.authorization_identifiers = authorization_identifiers
+
+class CirculationPatronProfileStorage(PatronProfileStorage):
+    """A patron profile storage that can also provide short client tokens"""
+    @property
+    def profile_document(self):
+        doc = super(CirculationPatronProfileStorage, self).profile_document
+        drm = []
+        authdata = AuthdataUtility.from_config(self.patron.library)
+        if authdata:
+            vendor_id, token = authdata.short_client_token_for_patron(self.patron)
+            adobe_drm = {}
+            adobe_drm['drm:vendor'] = vendor_id
+            adobe_drm['drm:clientToken'] = token
+            adobe_drm['drm:scheme'] = "http://librarysimplified.org/terms/drm/scheme/ACS"
+            drm.append(adobe_drm)
+        if drm:
+            doc['drm'] = drm
+        return doc
 
 class Authenticator(object):
     """Route requests to the appropriate LibraryAuthenticator.
@@ -802,9 +823,22 @@ class LibraryAuthenticator(object):
         # Add a rel="start" link pointing to the root OPDS feed.
         index_url = url_for("index", _external=True,
                             library_short_name=library.short_name)
+        loans_url = url_for("active_loans", _external=True,
+                            library_short_name=library.short_name)
+        profile_url = url_for("patron_profile", _external=True,
+                            library_short_name=library.short_name)
+
         links.append(
             dict(rel="start", href=index_url,
                  type=OPDSFeed.ACQUISITION_FEED_TYPE)
+        )
+        links.append(
+            dict(rel="http://opds-spec.org/shelf", href=loans_url,
+                 type=OPDSFeed.ACQUISITION_FEED_TYPE)
+        )
+        links.append(
+            dict(rel=ProfileController.LINK_RELATION, href=profile_url,
+                 type=ProfileController.MEDIA_TYPE)
         )
 
         # If there is a Designated Agent email address, add it as a
