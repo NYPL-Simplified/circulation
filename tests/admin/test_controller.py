@@ -1897,18 +1897,10 @@ class TestPatronController(AdminControllerTest):
             eq_("A Patron", response['personal_name'])
 
     def test_reset_adobe_id(self):
-        # Here's a patron.
+        # Here's a patron with two Adobe-relevant credentials.
         patron = self._patron()
         patron.authorization_identifier = self._str
 
-        # This PatronController will always return information about that
-        # patron, no matter what it's asked for.
-        class MockPatronController(PatronController):
-            def _load_patrondata(self, authenticator):
-                return PatronData(authorization_identifier=patron.authorization_identifier)
-        controller = MockPatronController(self.manager)
-
-        # The patron has two Adobe-relevant credentials.
         self._credential(
             patron=patron, type=AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE
         )
@@ -1916,79 +1908,41 @@ class TestPatronController(AdminControllerTest):
             patron=patron, type=AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER
         )
 
+        # This PatronController will always return a specific
+        # PatronData object, no matter what is asked for.
+        class MockPatronController(PatronController):
+            mock_patrondata = None
+            def _load_patrondata(self, authenticator):
+                self.called_with = authenticator
+                return self.mock_patrondata
+
+        controller = MockPatronController(self.manager)
+        controller.mock_patrondata = PatronData(
+            authorization_identifier=patron.authorization_identifier
+        )
+
         # We reset their Adobe ID.
+        authenticator = object()
         with self.request_context_with_library_and_admin("/"):
             form = MultiDict([("identifier", patron.authorization_identifier)])
             flask.request.form = form
 
-            response = controller.reset_adobe_id(object())
+            response = controller.reset_adobe_id(authenticator)
             eq_(200, response.status_code)
 
-        # Both credentials are gone.
+            # _load_patrondata was called and gave us information about
+            # which Patron to modify.
+            controller.called_with = authenticator 
+
+        # Both of the Patron's credentials are gone.
         eq_(patron.credentials, [])
 
-    def test_reset_adobe_id_failures(self):
-        class MockAuthenticator(object):
-            def __init__(self, providers):
-                self.providers = providers
-
-        class MockAuthenticationProvider(object):
-            def __init__(self, patron_dict):
-                self.patron_dict = patron_dict
-
-            def remote_patron_lookup(self, patrondata):
-                return self.patron_dict.get(patrondata.authorization_identifier)
-
-        authenticator = MockAuthenticator([])
-        auth_provider = MockAuthenticationProvider({})
-        identifier = "Patron"
-
-        # User doesn't have admin permission
-        with self.request_context_with_library("/"):
-            assert_raises(
-                AdminNotAuthorized,
-                self.manager.admin_patron_controller.reset_adobe_id,
-                authenticator
-            )
-
-        # No form data specified
-        with self.request_context_with_library_and_admin("/"):
-            response = self.manager.admin_patron_controller.reset_adobe_id(
-                authenticator
-            )
-            eq_(404, response.status_code)
-            eq_(NO_SUCH_PATRON.uri, response.uri)
-            eq_("No patron identifier provided", response.detail)
-
-        form = MultiDict([("identifier", identifier)])
-        # AuthenticationProvider has no Authenticators.
+        # Here, the AuthenticationProvider finds a PatronData, but the
+        # controller can't turn it into a Patron because it's too vague.
+        controller.mock_patrondata = PatronData()
         with self.request_context_with_library_and_admin("/"):
             flask.request.form = form
-            response = self.manager.admin_patron_controller.reset_adobe_id(authenticator)
-
-            eq_(404, response.status_code)
-            eq_(NO_SUCH_PATRON.uri, response.uri)
-            eq_("This library has no authentication providers, so it has no patrons.",
-                response.detail
-            )
-
-        # Authenticator can't find patron with this identifier
-        authenticator.providers.append(auth_provider)
-        with self.request_context_with_library_and_admin("/"):
-            flask.request.form = form
-            response = self.manager.admin_patron_controller.reset_adobe_id(authenticator)
-
-            eq_(404, response.status_code)
-            eq_(NO_SUCH_PATRON.uri, response.uri)
-            eq_("Lookup failed for patron with identifier %s" % identifier,
-            response.detail)
-
-        # The AuthenticationProvider finds a PatronData, but we can't
-        # turn it into a Patron because it's too vague.
-        auth_provider.patron_dict[identifier] = PatronData()
-        with self.request_context_with_library_and_admin("/"):
-            flask.request.form = form
-            response = self.manager.admin_patron_controller.reset_adobe_id(authenticator)
+            response = controller.reset_adobe_id(authenticator)
 
             eq_(404, response.status_code)
             eq_(NO_SUCH_PATRON.uri, response.uri)
