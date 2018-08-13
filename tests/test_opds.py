@@ -847,7 +847,7 @@ class TestLibraryAnnotator(VendorIDTest):
         parser = OPDSXMLParser()
         licensor = parser._xpath1(tree, "//atom:feed/drm:licensor")
 
-        adobe_patron_identifier = cls._adobe_patron_identifier(patron)
+        adobe_patron_identifier = AuthdataUtility._adobe_patron_identifier(patron)
 
         # The DRM licensing information includes the Adobe vendor ID
         # and the patron's patron identifier for Adobe purposes.
