@@ -760,9 +760,10 @@ class AuthdataUtility(object):
 
         :return: A SQLAlchemy query
         """
+        _db = Session.object_session(patron)
         types = (AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE,
                  AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER)
-        return self._db.query(
+        return _db.query(
             Credential).filter(Credential.patron==patron).filter(
                 Credential.type.in_(types)
             )

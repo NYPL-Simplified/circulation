@@ -23,7 +23,10 @@ import textwrap
 from StringIO import StringIO
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
-from api.authenticator import PatronData
+from api.authenticator import (
+    CannotCreateLocalPatron,
+    PatronData,
+)
 from core.model import (
     create,
     get_one,
@@ -1398,14 +1401,21 @@ class PatronController(AdminCirculationManagerController):
             return patrondata
 
         # Turn the Identifier into a Patron object.
-        patron, is_new = patrondata.get_or_create_patron(
-            self._db, flask.request.library.id
-        )
+        try:
+            patron, is_new = patrondata.get_or_create_patron(
+                self._db, flask.request.library.id
+            )
+        except CannotCreateLocalPatron, e:
+            return NO_SUCH_PATRON.detailed(
+                _("Could not create local patron object for %(patron_identifier)s",
+                  patron_identifier=patrondata.authorization_identifier
+                )
+            )
 
         # Wipe the Patron's 'identifier for Adobe ID purposes'.
         for credential in AuthdataUtility.adobe_relevant_credentials(patron):
             self._db.delete(credential)
-
+        return Response(unicode(_("Success")), 200)
 
 class FeedController(AdminCirculationManagerController):
 

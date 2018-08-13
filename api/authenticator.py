@@ -61,6 +61,14 @@ from flask_babel import lazy_gettext as _
 import importlib
 
 
+class CannotCreateLocalPatron(Exception):
+    """A remote system provided information about a patron, but we could
+    not put it into our database schema.
+
+    Probably because it was too vague.
+    """
+
+
 class PatronData(object):
     """A container for basic information about a patron.
 
@@ -323,7 +331,7 @@ class PatronData(object):
                 authorization_identifier=self.authorization_identifier
             )
         else:
-            raise ValueError(
+            raise CannotCreateLocalPatron(
                 "Cannot create patron without some way of identifying them uniquely."
             )
         search_by['library_id'] = library_id
