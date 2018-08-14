@@ -325,6 +325,9 @@ class Registration(object):
         contact = Configuration.configuration_contact_uri(self.library)
         if contact:
             payload['contact'] = contact
+        shared_secret = self.setting(ExternalIntegration.PASSWORD).value
+        if shared_secret:
+            payload['shared_secret'] = shared_secret
         return payload
 
     @classmethod
