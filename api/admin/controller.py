@@ -2425,7 +2425,7 @@ class SettingsController(AdminCirculationManagerController):
         setting.value = value
         return Response(unicode(setting.key), 200)
 
-    def _get_protocols(self, provider_apis):
+    def _get_collection_protocols(self, provider_apis):
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
         protocols.append(dict(name=ExternalIntegration.MANUAL,
                               label=_("Manual import"),
@@ -2460,10 +2460,10 @@ class SettingsController(AdminCirculationManagerController):
         return self_test_results
 
     def collection_self_tests(self, identifier):
-        protocols = self._get_protocols(self.PROVIDER_APIS)
+        protocols = self._get_collection_protocols(self.PROVIDER_APIS)
 
         if not identifier:
-            return Response("No Identifier", 200)
+            return MISSING_COLLECTION_IDENTIFIER
 
         if flask.request.method == 'GET':
             collection = dict()
@@ -2503,14 +2503,14 @@ class SettingsController(AdminCirculationManagerController):
                     value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, collection)
 
                 if (value):
-                    return Response("Successfully ran new self tests", 200)
+                    return Response(_("Successfully ran new self tests"), 200)
                 else:
                     return FAILED_TO_RUN_SELF_TESTS
 
             return UNKNOWN_PROTOCOL
 
     def collections(self):
-        protocols = self._get_protocols(self.PROVIDER_APIS)
+        protocols = self._get_collection_protocols(self.PROVIDER_APIS)
 
         # If there are storage integrations, add a mirror integration
         # setting to every protocol's 'settings' block.

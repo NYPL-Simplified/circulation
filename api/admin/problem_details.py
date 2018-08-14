@@ -184,6 +184,13 @@ COLLECTION_NAME_ALREADY_IN_USE = pd(
     detail=_("The collection name must be unique, and there's already a collection with the specified name."),
 )
 
+MISSING_COLLECTION_IDENTIFIER = pd(
+    "http://librarysimplified.org/terms/problem/missing-collection-identifier",
+    status_code=400,
+    title=_("Missing collection identifier"),
+    detail=_("No collection identifier was used."),
+)
+
 CANNOT_DELETE_COLLECTION_WITH_CHILDREN = pd(
     "http://librarysimplified.org/terms/problem/cannot-delete-collection-with-children",
     status_code=400,

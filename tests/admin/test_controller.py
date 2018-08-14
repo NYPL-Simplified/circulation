@@ -19,6 +19,7 @@ from contextlib import contextmanager
 from PIL import Image
 import math
 import operator
+from flask_babel import lazy_gettext as _
 
 from .. import sample_data
 from ..test_controller import CirculationControllerTest
@@ -3432,7 +3433,8 @@ class TestSettingsController(SettingsControllerTest):
     def test_collection_self_tests_with_no_identifier(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.collection_self_tests(None)
-            eq_(response.response, ["No Identifier"])
+            eq_(response, MISSING_COLLECTION_IDENTIFIER)
+            eq_(response.status_code, 400)
 
     def test_collection_self_tests_test_get(self):
         old_prior_test_results = HasSelfTests.prior_test_results
@@ -3480,7 +3482,7 @@ class TestSettingsController(SettingsControllerTest):
             response = self.manager.admin_settings_controller.collection_self_tests(collection.id)
 
             (run_self_tests_args, run_self_tests_kwargs) = self.run_self_tests_called_with
-            eq_(response.response, ["Successfully ran new self tests"])
+            eq_(response.response, _("Successfully ran new self tests"))
             eq_(response._status, "200 OK")
 
             # The provider API class and the collection should be passed to
@@ -3495,7 +3497,7 @@ class TestSettingsController(SettingsControllerTest):
             response = self.manager.admin_settings_controller.collection_self_tests(collection.id)
 
             (run_self_tests_args, run_self_tests_kwargs) = self.run_self_tests_called_with
-            eq_(response.response, ["Successfully ran new self tests"])
+            eq_(response.response, _("Successfully ran new self tests"))
             eq_(response._status, "200 OK")
 
             # The provider API class and the collection should be passed to
@@ -3535,7 +3537,7 @@ class TestSettingsController(SettingsControllerTest):
             assert ExternalIntegration.OVERDRIVE in names
             assert ExternalIntegration.OPDS_IMPORT in names
 
-    def test_collections_get_protocols(self):
+    def test_collections_get_collection_protocols(self):
         old_prior_test_results = HasSelfTests.prior_test_results
         HasSelfTests.prior_test_results = self.mock_prior_test_results
 
