@@ -646,13 +646,7 @@ You'll get another chance to back out before the database session is committed."
             patron.authorization_identifier or patron.username
             or patron.external_identifier
         )
-        types = (AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE,
-                 AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER)
-        credentials = self._db.query(
-            Credential).filter(Credential.patron==patron).filter(
-                Credential.type.in_(types)
-            )
-        for credential in credentials:
+        for credential in AuthdataUtility.adobe_relevant_credentials(patron):
             self.log.info(
                 ' Deleting "%s" credential "%s"',
                 credential.type, credential.credential
@@ -1461,9 +1455,8 @@ class NovelistSnapshotScript(LibraryInputScript):
             response = api.put_items_novelist(parsed.libraries[0])
 
             if (response):
-                result = "NoveList Snapshot"
-                result += "\nRecords sent: " + str(response["RecordsReceived"])
-                result += "\nInvalid Records: " + str(response["InvalidRecords"]) + "\n"
+                result = "NoveList API Response\n"
+                result += str(response)
 
                 output.write(result)
 

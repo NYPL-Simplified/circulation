@@ -32,6 +32,7 @@ from core.model import (
     DelegatedPatronIdentifier,
     ExternalIntegration,
     Library,
+    Patron,
 )
 from core.scripts import Script
 
@@ -748,6 +749,25 @@ class AuthdataUtility(object):
         return cls(vendor_id, library_uri, library_short_name, secret,
                    other_libraries)
 
+    @classmethod
+    def adobe_relevant_credentials(self, patron):
+        """Find all Adobe-relevant Credential objects for the given
+        patron.
+
+        This includes the patron's identifier for Adobe ID purposes,
+        and (less likely) any Adobe IDs directly associated with the
+        Patron.
+
+        :return: A SQLAlchemy query
+        """
+        _db = Session.object_session(patron)
+        types = (AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE,
+                 AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER)
+        return _db.query(
+            Credential).filter(Credential.patron==patron).filter(
+                Credential.type.in_(types)
+            )
+
     def encode(self, patron_identifier):
         """Generate an authdata JWT suitable for putting in an OPDS feed, where
         it can be picked up by a client and sent to the delegation
@@ -853,6 +873,36 @@ class AuthdataUtility(object):
         if not 'sub' in decoded:
             raise jwt.exceptions.DecodeError("No subject specified.")
         return library_uri, decoded['sub']
+
+    @classmethod
+    def _adobe_patron_identifier(self, patron):
+        """Take patron object and return identifier for Adobe ID purposes"""
+        _db = Session.object_session(patron)
+        internal = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
+
+        def refresh(credential):
+            credential.credential = str(uuid.uuid1())
+        patron_identifier = Credential.lookup(
+            _db, internal, AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER, patron,
+            refresher_method=refresh, allow_persistent_token=True
+        )
+        return patron_identifier.credential
+
+
+    def short_client_token_for_patron(self, patron_information):
+        """Generate short client token for patron, or for a patron's identifier
+         for Adobe ID purposes"""
+
+        if isinstance(patron_information, Patron):
+            # Find the patron's identifier for Adobe ID purposes.
+            patron_identifier = self._adobe_patron_identifier(
+                patron_information
+            )
+        else:
+            patron_identifier = patron_information
+
+        vendor_id, token = self.encode_short_client_token(patron_identifier)
+        return vendor_id, token
 
     def encode_short_client_token(self, patron_identifier):
         """Generate a short client token suitable for putting in an OPDS feed,

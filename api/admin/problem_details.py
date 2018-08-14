@@ -310,6 +310,13 @@ MULTIPLE_BASIC_AUTH_SERVICES = pd(
     detail=_("Each library can only have one patron authentication service using basic auth."),
 )
 
+NO_SUCH_PATRON = pd(
+    "http://librarysimplified.org/terms/problem/no-such-patron",
+    status_code=404,
+    title=_("No such patron"),
+    detail=_("The specified patron doesn't exist, or is associated with a different library."),
+)
+
 MISSING_SITEWIDE_SETTING_KEY = pd(
     "http://librarysimplified.org/terms/problem/missing-sitewide-setting-key",
     status_code=400,

@@ -23,7 +23,10 @@ import textwrap
 from StringIO import StringIO
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
-
+from api.authenticator import (
+    CannotCreateLocalPatron,
+    PatronData,
+)
 from core.model import (
     create,
     get_one,
@@ -114,7 +117,11 @@ from sqlalchemy.orm import lazyload
 
 from templates import admin as admin_template
 
-from api.authenticator import AuthenticationProvider
+from api.authenticator import (
+    AuthenticationProvider,
+    LibraryAuthenticator
+)
+
 from api.simple_authentication import SimpleAuthenticationProvider
 from api.millenium_patron import MilleniumPatronAPI
 from api.sip import SIP2AuthenticationProvider
@@ -162,6 +169,7 @@ def setup_admin_controllers(manager):
     manager.admin_lanes_controller = LanesController(manager)
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
+    manager.admin_patron_controller = PatronController(manager)
 
 class AdminController(object):
 
@@ -1349,6 +1357,85 @@ class WorkController(AdminCirculationManagerController):
 
             return Response(unicode(_("Success")), 200)
 
+class PatronController(AdminCirculationManagerController):
+
+    def _load_patrondata(self, authenticator=None):
+        """Extract a patron identifier from an incoming form submission,
+        and ask the library's LibraryAuthenticator to turn it into a
+        PatronData by doing a remote lookup in the ILS.
+
+        :param authenticator: A LibraryAuthenticator. This is for mocking
+        during tests; it's not necessary to provide it normally.
+        """
+        self.require_librarian(flask.request.library)
+
+        identifier = flask.request.form.get("identifier")
+        if not identifier:
+            return NO_SUCH_PATRON.detailed(_("No patron identifier provided"))
+
+        if not authenticator:
+            authenticator = LibraryAuthenticator.from_config(
+                self._db, flask.request.library
+            )
+
+        patron_data = PatronData(authorization_identifier=identifier)
+        complete_patron_data = None
+
+        if not authenticator.providers:
+            return NO_SUCH_PATRON.detailed(
+                _("This library has no authentication providers, so it has no patrons.")
+            )
+
+        for provider in authenticator.providers:
+            complete_patron_data = provider.remote_patron_lookup(patron_data)
+            if complete_patron_data:
+                return complete_patron_data
+
+        # If we get here, none of the providers succeeded.
+        if not complete_patron_data:
+            return NO_SUCH_PATRON.detailed(
+                _("Lookup failed for patron with identifier %(patron_identifier)s",
+                  patron_identifier=identifier),
+            )
+
+    def lookup_patron(self, authenticator=None):
+        """Look up personal information about a patron via the ILS.
+
+        :param authenticator: A LibraryAuthenticator. This is for mocking
+        during tests; it's not necessary to provide it normally.
+        """
+        patrondata = self._load_patrondata(authenticator)
+        if isinstance(patrondata, ProblemDetail):
+            return patrondata
+        return patrondata.to_dict
+
+    def reset_adobe_id(self, authenticator=None):
+        """Delete all Credentials for a patron that are relevant
+        to the patron's Adobe Account ID.
+
+        :param authenticator: A LibraryAuthenticator. This is for mocking
+        during tests; it's not necessary to provide it normal
+        """
+        patrondata = self._load_patrondata(authenticator)
+        if isinstance(patrondata, ProblemDetail):
+            return patrondata
+
+        # Turn the Identifier into a Patron object.
+        try:
+            patron, is_new = patrondata.get_or_create_patron(
+                self._db, flask.request.library.id
+            )
+        except CannotCreateLocalPatron, e:
+            return NO_SUCH_PATRON.detailed(
+                _("Could not create local patron object for %(patron_identifier)s",
+                  patron_identifier=patrondata.authorization_identifier
+                )
+            )
+
+        # Wipe the Patron's 'identifier for Adobe ID purposes'.
+        for credential in AuthdataUtility.adobe_relevant_credentials(patron):
+            self._db.delete(credential)
+        return Response(unicode(_("Success")), 200)
 
 class FeedController(AdminCirculationManagerController):
 
