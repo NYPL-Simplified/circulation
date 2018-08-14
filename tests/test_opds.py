@@ -12,12 +12,14 @@ from nose.tools import (
 import feedparser
 from . import DatabaseTest
 
+from core.analytics import Analytics
 from core.lane import (
     Lane,
 )
 from core.model import (
     create,
     get_one_or_create,
+    CirculationEvent,
     ConfigurationSetting,
     Contributor,
     DataSource,
@@ -554,6 +556,32 @@ class TestLibraryAnnotator(VendorIDTest):
 
         # But the borrow link is gone.
         assert u'http://opds-spec.org/acquisition/borrow' not in links
+
+        # There are no links to create analytics events for this title,
+        # because the library has no analytics configured.
+        open_book_rel = 'http://librarysimplified.org/terms/rel/analytics/open-book'
+        assert open_book_rel not in links
+
+        # If analytics are configured, a link is added to
+        # create an 'open_book' analytics event for this title.
+        Analytics.GLOBAL_ENABLED = True
+        entry = feed._make_entry_xml(work, edition)
+        annotator.annotate_work_entry(
+            work, None, edition, identifier, feed, entry
+        )
+        parsed = feedparser.parse(etree.tostring(entry))
+        [entry_parsed] = parsed['entries']
+        [analytics_link] = [x['href'] for x in entry_parsed['links']
+                            if x['rel'] == open_book_rel]
+        expect = annotator.url_for(
+            'track_analytics_event',
+            identifier_type=identifier.type,
+            identifier=identifier.identifier,
+            event_type=CirculationEvent.OPEN_BOOK,
+            library_short_name=self._default_library.short_name,
+            _external=True
+        )
+        eq_(expect, analytics_link)
 
     def test_annotate_feed(self):
         lane = self._lane()
