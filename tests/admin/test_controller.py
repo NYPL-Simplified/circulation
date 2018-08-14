@@ -1828,7 +1828,7 @@ class TestPatronController(AdminControllerTest):
 
             def remote_patron_lookup(self, patrondata):
                 return self.patron_dict.get(patrondata.authorization_identifier)
- 
+
         authenticator = MockAuthenticator([])
         auth_provider = MockAuthenticationProvider({})
         identifier = "Patron"
@@ -1936,7 +1936,7 @@ class TestPatronController(AdminControllerTest):
 
             # _load_patrondata was called and gave us information about
             # which Patron to modify.
-            controller.called_with = authenticator 
+            controller.called_with = authenticator
 
         # Both of the Patron's credentials are gone.
         eq_(patron.credentials, [])
@@ -3453,9 +3453,7 @@ class TestSettingsController(SettingsControllerTest):
 
         HasSelfTests.prior_test_results = old_prior_test_results
 
-    def test_collection_self_tests_test_failed_post(self):
-        old_prior_test_results = HasSelfTests.prior_test_results
-        HasSelfTests.prior_test_results = self.mock_prior_test_results
+    def test_collection_self_tests_failed_post(self):
         # This makes HasSelfTests.run_self_tests return no values
         old_run_self_tests = HasSelfTests.run_self_tests
         HasSelfTests.run_self_tests = self.mock_failed_run_self_tests
@@ -3470,12 +3468,9 @@ class TestSettingsController(SettingsControllerTest):
             eq_(response, FAILED_TO_RUN_SELF_TESTS)
             eq_(response.status_code, 400)
 
-        HasSelfTests.prior_test_results = old_prior_test_results
         HasSelfTests.run_self_tests = old_run_self_tests
 
-    def test_collection_self_tests_test_post(self):
-        old_prior_test_results = HasSelfTests.prior_test_results
-        HasSelfTests.prior_test_results = self.mock_prior_test_results
+    def test_collection_self_tests_post(self):
         old_run_self_tests = HasSelfTests.run_self_tests
         HasSelfTests.run_self_tests = self.mock_run_self_tests
 
@@ -3524,7 +3519,6 @@ class TestSettingsController(SettingsControllerTest):
             # The method returns None but it was not called
             eq_(run_self_tests_args, None)
 
-        HasSelfTests.prior_test_results = old_prior_test_results
         HasSelfTests.run_self_tests = old_run_self_tests
 
     def test_collections_get_with_no_collections(self):
