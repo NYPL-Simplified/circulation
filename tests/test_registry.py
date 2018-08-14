@@ -452,6 +452,14 @@ class TestRegistration(DatabaseTest):
         expect_payload['contact'] = contact
         eq_(expect_payload, m(url_for, stage))
 
+        # If a shared secret is configured, it shows up in the payload.
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, ExternalIntegration.PASSWORD, self.registration.library,
+            self.registration.registry.integration
+        ).value="a secret"
+        expect_payload['shared_secret'] = 'a secret'
+        eq_(expect_payload, m(url_for, stage))
+
     def test__send_registration_request(self):
         class Mock(object):
             def __init__(self, response):
