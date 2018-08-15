@@ -894,8 +894,7 @@ class Hold(Base, LoanAndHoldMixin):
         # Start with the default loan period to clear out everyone who
         # currently has the book checked out.
         duration = default_loan_period
-
-        if queue_position < total_licenses:
+        if queue_position <= total_licenses:
             # After that period, the book will be available to this patron.
             # Do nothing.
             pass
@@ -924,14 +923,16 @@ class Hold(Base, LoanAndHoldMixin):
             # not obviously wrong, so use it.
             return self.end
 
-        if default_reservation_period is None:
-            # This hold has no definite end date.
+        if default_loan_period is None or default_reservation_period is None:
+            # This hold has no definite end date, because there's no known
+            # upper bound on how long someone in front of you can keep the
+            # book.
             return None
 
         start = datetime.datetime.utcnow()
         licenses_available = self.license_pool.licenses_owned
         position = self.position
-        if not position:
+        if position is None:
             # We don't know where in line we are. Assume we're at the
             # end.
             position = self.license_pool.patrons_in_hold_queue
