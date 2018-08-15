@@ -214,11 +214,15 @@ class TestRegistration(DatabaseTest):
                 self.payload_ingredients = (url_for, stage)
                 return dict(payload="this is it")
 
+            def _create_registration_headers(self):
+                self._create_registration_headers_called = True
+                return dict(Header="Value")
+
             def _send_registration_request(
-                    self, register_url, payload, do_post
+                    self, register_url, headers, payload, do_post
             ):
                 self._send_registration_request_called_with = (
-                    register_url, payload, do_post
+                    register_url, headers, payload, do_post
                 )
                 return MockRequestsResponse(
                     200, content=json.dumps("you did it!")
@@ -277,10 +281,18 @@ class TestRegistration(DatabaseTest):
         # of the registration request.
         eq_((url_for, stage), registration.payload_ingredients)
 
+        # _create_registration_headers was called to create the headers
+        # sent along with the request.
+        eq_(True, registration._create_registration_headers_called)
+
         # Then _send_registration_request was called, POSTing the
         # payload to "register_url", the registration URL we got earlier.
         results = registration._send_registration_request_called_with
-        eq_(("register_url", dict(payload="this is it"), do_post), results)
+        eq_(
+            ("register_url", {"Header": "Value"}, dict(payload="this is it"),
+             do_post),
+            results
+        )
 
         # Finally, the return value of that method was loaded as JSON
         # and passed into _process_registration_result, along with
@@ -452,13 +464,20 @@ class TestRegistration(DatabaseTest):
         expect_payload['contact'] = contact
         eq_(expect_payload, m(url_for, stage))
 
-        # If a shared secret is configured, it shows up in the payload.
+    def test_create_registration_headers(self):
+        m = self.registration._create_registration_headers
+        # If no shared secret is configured, no custom headers are provided.
+        expect_headers = {}
+        eq_(expect_headers, m())
+
+        # If a shared secret is configured, it shows up as part of
+        # the Authorization header.
         setting = ConfigurationSetting.for_library_and_externalintegration(
             self._db, ExternalIntegration.PASSWORD, self.registration.library,
             self.registration.registry.integration
         ).value="a secret"
-        expect_payload['shared_secret'] = 'a secret'
-        eq_(expect_payload, m(url_for, stage))
+        expect_headers['Authorization'] = 'Bearer a secret'
+        eq_(expect_headers, m())
 
     def test__send_registration_request(self):
         class Mock(object):
@@ -472,15 +491,20 @@ class TestRegistration(DatabaseTest):
         # If everything goes well, the return value of do_post is
         # passed through.
         mock = Mock(MockRequestsResponse(200, content="all good"))
-        url = object()
-        payload = object()
+        url = "url"
+        payload = "payload"
+        headers = "headers"
         m = Registration._send_registration_request
-        result = m(url, payload, mock.do_post)
+        result = m(url, headers, payload, mock.do_post)
         eq_(mock.response, result)
         called_with = mock.called_with
         eq_(called_with,
             (url, payload,
-             dict(timeout=60, allowed_response_codes=["2xx", "3xx", "400", "401"])
+             dict(
+                 headers=headers,
+                 timeout=60,
+                 allowed_response_codes=["2xx", "3xx", "400", "401"]
+             )
             )
         )
 
@@ -495,7 +519,7 @@ class TestRegistration(DatabaseTest):
                 content=json.dumps(dict(detail="this is a problem detail"))
             )
         )
-        result = m(url, payload, mock.do_post)
+        result = m(url, headers, payload, mock.do_post)
         assert isinstance(result, ProblemDetail)
         eq_(REMOTE_INTEGRATION_FAILED.uri, result.uri)
         eq_('Remote service returned: "this is a problem detail"',
@@ -508,7 +532,7 @@ class TestRegistration(DatabaseTest):
                 content="log in why don't you"
             )
         )
-        result = m(url, payload, mock.do_post)
+        result = m(url, headers, payload, mock.do_post)
         assert isinstance(result, ProblemDetail)
         eq_(REMOTE_INTEGRATION_FAILED.uri, result.uri)
         eq_('Remote service returned: "log in why don\'t you"', result.detail)
