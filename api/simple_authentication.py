@@ -11,6 +11,8 @@ from config import (
     CannotLoadConfiguration,
 )
 
+from core.model import Patron
+
 class SimpleAuthenticationProvider(BasicAuthenticationProvider):
     """An authentication provider that authenticates a single patron.
 
@@ -61,9 +63,10 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         if not self.valid_patron(username, password):
             return None
 
-        self.generate_patrondata(username)
+        return self.generate_patrondata(username)
 
-    def generate_patrondata(authorization_identifier):
+    @classmethod
+    def generate_patrondata(cls, authorization_identifier):
 
         if authorization_identifier.endswith("_username"):
             username = authorization_identifier
