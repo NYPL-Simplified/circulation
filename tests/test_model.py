@@ -5067,6 +5067,70 @@ class TestHold(DatabaseTest):
         hold, is_new = pool.on_hold_to(patron)
         eq_(work, hold.work)
 
+    def test_until(self):
+
+        one_day = datetime.timedelta(days=1)
+        two_days = datetime.timedelta(days=2)
+
+        now = datetime.datetime.utcnow()
+        the_past = now - datetime.timedelta(seconds=1)
+        the_future = now + two_days
+
+        patron = self._patron()
+        pool = self._licensepool(None)
+        pool.patrons_in_hold_queue = 100
+        hold, ignore = pool.on_hold_to(patron)
+        hold.position = 10
+
+        m = hold.until
+
+        # If the value in Hold.end is in the future, it's used, no
+        # questions asked.
+        hold.end = the_future
+        eq_(the_future, m(object(), object()))
+
+        # If Hold.end is not specified, or is in the past, it's more
+        # complicated.
+
+        # If no default_loan_period or default_reservation_period is
+        # specified, a Hold has no particular end date.
+        hold.end = the_past
+        eq_(None, m(None, one_day))
+        eq_(None, m(one_day, None))
+
+        hold.end = None
+        eq_(None, m(None, one_day))
+        eq_(None, m(one_day, None))
+
+        # Otherwise, the answer is determined by _calculate_until.
+        def _mock__calculate_until(self, *args):
+            """Track the arguments passed into _calculate_until."""
+            self.called_with = args
+            return "mock until"
+        old__calculate_until = hold._calculate_until
+        Hold._calculate_until = _mock__calculate_until
+
+        eq_("mock until", m(one_day, two_days))
+
+        (calculate_from, position, licenses_available, default_loan_period,
+         default_reservation_period) = hold.called_with
+
+        assert (calculate_from-now).total_seconds() < 5
+        eq_(hold.position, position)
+        eq_(pool.licenses_available, licenses_available)
+        eq_(one_day, default_loan_period)
+        eq_(two_days, default_reservation_period)
+
+        # If we don't know the patron's position in the hold queue, we
+        # assume they're at the end.
+        hold.position = None
+        eq_("mock until", m(one_day, two_days))
+        (calculate_from, position, licenses_available, default_loan_period,
+         default_reservation_period) = hold.called_with
+        eq_(pool.patrons_in_hold_queue, position)
+
+        Hold._calculate_until = old__calculate_until
+
     def test_calculate_until(self):
         start = datetime.datetime(2010, 1, 1)
 
@@ -5076,32 +5140,38 @@ class TestHold(DatabaseTest):
 
         # I'm 20th in line for 4 books.
         #
-        # After 6 days, four copies are released and I am 16th in line.
-        # After 13 days, those copies are released and I am 12th in line.
-        # After 20 days, those copies are released and I am 8th in line.
-        # After 27 days, those copies are released and I am 4th in line.
-        # After 34 days, those copies are released and get my notification.
+        # After 7 days, four copies are released and I am 16th in line.
+        # After 14 days, those copies are released and I am 12th in line.
+        # After 21 days, those copies are released and I am 8th in line.
+        # After 28 days, those copies are released and I am 4th in line.
+        # After 35 days, those copies are released and get my notification.
         a = Hold._calculate_until(
             start, 20, 4, default_loan, default_reservation)
-        eq_(a, start + datetime.timedelta(days=(7*5)-1))
+        eq_(a, start + datetime.timedelta(days=(7*5)))
 
         # If I am 21st in line, I need to wait six weeks.
         b = Hold._calculate_until(
             start, 21, 4, default_loan, default_reservation)
-        eq_(b, start + datetime.timedelta(days=(7*6)-1))
+        eq_(b, start + datetime.timedelta(days=(7*6)))
 
-        # If I am 3rd in line, I only need to wait six days--that's when
+        # If I am 3rd in line, I only need to wait seven days--that's when
         # I'll get the notification message.
         b = Hold._calculate_until(
             start, 3, 4, default_loan, default_reservation)
-        eq_(b, start + datetime.timedelta(days=6))
+        eq_(b, start + datetime.timedelta(days=7))
 
         # A new person gets the book every week. Someone has the book now
         # and there are 3 people ahead of me in the queue. I will get
-        # the book in 6 days + 3 weeks
+        # the book in 7 days + 3 weeks
         c = Hold._calculate_until(
             start, 3, 1, default_loan, default_reservation)
-        eq_(c, start + datetime.timedelta(days=(7*4)-1))
+        eq_(c, start + datetime.timedelta(days=(7*4)))
+
+        # I'm first in line for 1 book. After 7 days, one copy is
+        # released and I'll get my notification.
+        a = Hold._calculate_until(
+            start, 1, 1, default_loan, default_reservation)
+        eq_(a, start + datetime.timedelta(days=7))
 
         # The book is reserved to me. I need to hurry up and check it out.
         d = Hold._calculate_until(
@@ -5112,6 +5182,7 @@ class TestHold(DatabaseTest):
         e = Hold._calculate_until(
             start, 10, 0, default_loan, default_reservation)
         eq_(e, None)
+
 
     def test_vendor_hold_end_value_takes_precedence_over_calculated_value(self):
         """If the vendor has provided an estimated availability time,

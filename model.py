@@ -891,23 +891,28 @@ class Hold(Base, LoanAndHoldMixin):
             # The book will never be available
             return None
 
-        # Start with the default loan period to clear out everyone who
-        # currently has the book checked out.
-        duration = default_loan_period
+        # If you are at the very front of the queue, the worst case
+        # time to get the book is is the time it takes for the person
+        # in front of you to get a reservation notification, borrow
+        # the book at the last minute, and keep the book for the
+        # maximum allowable time.
+        cycle_period = (default_reservation_period + default_loan_period)
 
-        if queue_position < total_licenses:
-            # After that period, the book will be available to this patron.
-            # Do nothing.
+        # This will happen at least once.
+        cycles = 1
+
+        if queue_position <= total_licenses:
+            # But then the book will be available to you.
             pass
         else:
-            # Otherwise, add a number of cycles in which other people are
-            # notified that it's their turn.
-            cycle_period = (default_loan_period + default_reservation_period)
-            cycles = queue_position / total_licenses
+            # This will happen more than once. After the first cycle,
+            # other people will be notified that it's their turn,
+            # they'll wait a while, get a reservation, and then keep
+            # the book for a while, and so on.
+            cycles += queue_position / total_licenses
             if (total_licenses > 1 and queue_position % total_licenses == 0):
                 cycles -= 1
-            duration += (cycle_period * cycles)
-        return start + duration
+        return start + (cycle_period * cycles)
 
 
     def until(self, default_loan_period, default_reservation_period):
@@ -924,14 +929,16 @@ class Hold(Base, LoanAndHoldMixin):
             # not obviously wrong, so use it.
             return self.end
 
-        if default_reservation_period is None:
-            # This hold has no definite end date.
+        if default_loan_period is None or default_reservation_period is None:
+            # This hold has no definite end date, because there's no known
+            # upper bound on how long someone in front of you can keep the
+            # book.
             return None
 
         start = datetime.datetime.utcnow()
         licenses_available = self.license_pool.licenses_owned
         position = self.position
-        if not position:
+        if position is None:
             # We don't know where in line we are. Assume we're at the
             # end.
             position = self.license_pool.patrons_in_hold_queue
