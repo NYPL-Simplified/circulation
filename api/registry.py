@@ -235,9 +235,8 @@ class Registration(object):
             return payload
 
         headers = self._create_registration_headers()
-
-        if isinstance(payload, ProblemDetail):
-            return payload
+        if isinstance(headers, ProblemDetail):
+            return headers
 
         # Send the document.
         response = self._send_registration_request(
