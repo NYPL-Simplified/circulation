@@ -891,22 +891,28 @@ class Hold(Base, LoanAndHoldMixin):
             # The book will never be available
             return None
 
-        # Start with the default loan period to clear out everyone who
-        # currently has the book checked out.
-        duration = default_loan_period
+        # If you are at the very front of the queue, the worst case
+        # time to get the book is is the time it takes for the person
+        # in front of you to get a reservation notification, borrow
+        # the book at the last minute, and keep the book for the
+        # maximum allowable time.
+        cycle_period = (default_reservation_period + default_loan_period)
+
+        # This will happen at least once.
+        cycles = 1
+
         if queue_position <= total_licenses:
-            # After that period, the book will be available to this patron.
-            # Do nothing.
+            # But then the book will be available to you.
             pass
         else:
-            # Otherwise, add a number of cycles in which other people are
-            # notified that it's their turn.
-            cycle_period = (default_loan_period + default_reservation_period)
-            cycles = queue_position / total_licenses
+            # This will happen more than once. After the first cycle,
+            # other people will be notified that it's their turn,
+            # they'll wait a while, get a reservation, and then keep
+            # the book for a while, and so on.
+            cycles += queue_position / total_licenses
             if (total_licenses > 1 and queue_position % total_licenses == 0):
                 cycles -= 1
-            duration += (cycle_period * cycles)
-        return start + duration
+        return start + (cycle_period * cycles)
 
 
     def until(self, default_loan_period, default_reservation_period):

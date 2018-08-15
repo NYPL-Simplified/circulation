@@ -5140,38 +5140,38 @@ class TestHold(DatabaseTest):
 
         # I'm 20th in line for 4 books.
         #
-        # After 6 days, four copies are released and I am 16th in line.
-        # After 13 days, those copies are released and I am 12th in line.
-        # After 20 days, those copies are released and I am 8th in line.
-        # After 27 days, those copies are released and I am 4th in line.
-        # After 34 days, those copies are released and get my notification.
+        # After 7 days, four copies are released and I am 16th in line.
+        # After 14 days, those copies are released and I am 12th in line.
+        # After 21 days, those copies are released and I am 8th in line.
+        # After 28 days, those copies are released and I am 4th in line.
+        # After 35 days, those copies are released and get my notification.
         a = Hold._calculate_until(
             start, 20, 4, default_loan, default_reservation)
-        eq_(a, start + datetime.timedelta(days=(7*5)-1))
+        eq_(a, start + datetime.timedelta(days=(7*5)))
 
         # If I am 21st in line, I need to wait six weeks.
         b = Hold._calculate_until(
             start, 21, 4, default_loan, default_reservation)
-        eq_(b, start + datetime.timedelta(days=(7*6)-1))
+        eq_(b, start + datetime.timedelta(days=(7*6)))
 
-        # If I am 3rd in line, I only need to wait six days--that's when
+        # If I am 3rd in line, I only need to wait seven days--that's when
         # I'll get the notification message.
         b = Hold._calculate_until(
             start, 3, 4, default_loan, default_reservation)
-        eq_(b, start + datetime.timedelta(days=6))
+        eq_(b, start + datetime.timedelta(days=7))
 
         # A new person gets the book every week. Someone has the book now
         # and there are 3 people ahead of me in the queue. I will get
-        # the book in 6 days + 3 weeks
+        # the book in 7 days + 3 weeks
         c = Hold._calculate_until(
             start, 3, 1, default_loan, default_reservation)
-        eq_(c, start + datetime.timedelta(days=(7*4)-1))
+        eq_(c, start + datetime.timedelta(days=(7*4)))
 
-        # I'm first in line for 1 book. After 6 days, one copy is
+        # I'm first in line for 1 book. After 7 days, one copy is
         # released and I'll get my notification.
         a = Hold._calculate_until(
             start, 1, 1, default_loan, default_reservation)
-        eq_(a, start + datetime.timedelta(days=7-1))
+        eq_(a, start + datetime.timedelta(days=7))
 
         # The book is reserved to me. I need to hurry up and check it out.
         d = Hold._calculate_until(
