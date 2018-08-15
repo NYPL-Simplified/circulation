@@ -106,4 +106,11 @@ class TestSimpleAuth(DatabaseTest):
 
         # The main user can still authenticate too.
         user5 = provider.remote_authenticate("barcode", "pass")
-        eq_("barcode", user5.authorization_identifier)
+        eq_("barcode", user5.authorization_identifier
+
+    def test_generate_patrondata(self):
+        auth_id = "1234"
+        result = generate_patrondata(auth_id)
+        set_trace()
+        eq_(result.authorization_identifier, auth_id)
+        eq_(result.personal_name, "PersonalName1234")

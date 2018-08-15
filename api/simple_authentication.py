@@ -61,17 +61,24 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         if not self.valid_patron(username, password):
             return None
 
-        if username.endswith("_username"):
-            username = username
-            identifier = username[:-9]
+        self.generate_patrondata(username)
+
+    def generate_patrondata(authorization_identifier):
+
+        if authorization_identifier.endswith("_username"):
+            username = authorization_identifier
+            identifier = authorization_identifier[:-9]
         else:
-            identifier = username
-            username = identifier + "_username"
+            identifier = authorization_identifier
+            username = authorization_identifier + "_username"
+
+        personal_name = "PersonalName" + identifier
 
         patrondata = PatronData(
             authorization_identifier=identifier,
             permanent_id=identifier + "_id",
             username=username,
+            personal_name=personal_name,
             authorization_expires = None,
             fines = None,
         )
@@ -89,5 +96,13 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         else:
             password_match = (password in (None, ''))
         return password_match and username in self.test_identifiers
+
+    def remote_patron_lookup(self, patron_or_patrondata):
+        if not patron_or_patrondata:
+            return None
+        if ((isinstance(patron_or_patrondata, PatronData)
+            or isinstance(patron_or_patrondata, Patron))
+            and patron_or_patrondata.authorization_identifier in self.test_identifiers):
+                return self.generate_patrondata(patron_or_patrondata.authorization_identifier)
 
 AuthenticationProvider = SimpleAuthenticationProvider
