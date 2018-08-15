@@ -234,10 +234,15 @@ class Registration(object):
         if isinstance(payload, ProblemDetail):
             return payload
 
+        headers = self._create_registration_headers()
+        if isinstance(headers, ProblemDetail):
+            return headers
+
         # Send the document.
         response = self._send_registration_request(
-            register_url, payload, do_post
+            register_url, headers, payload, do_post
         )
+
         if isinstance(response, ProblemDetail):
             return response
         catalog = json.loads(response.content)
@@ -247,6 +252,7 @@ class Registration(object):
 
     OPDS_1_PREFIX = "application/atom+xml;profile=opds-catalog"
     OPDS_2_TYPE = "application/opds+json"
+
 
     @classmethod
     def _extract_catalog_information(cls, response):
@@ -327,8 +333,15 @@ class Registration(object):
             payload['contact'] = contact
         return payload
 
+    def _create_registration_headers(self):
+        shared_secret = self.setting(ExternalIntegration.PASSWORD).value
+        headers = {}
+        if shared_secret:
+            headers['Authorization'] = "Bearer %s" % shared_secret
+        return headers
+
     @classmethod
-    def _send_registration_request(cls, register_url, payload, do_post):
+    def _send_registration_request(cls, register_url, headers, payload, do_post):
         """Send the request that actually kicks off the OPDS Directory
         Registration Protocol.
 
@@ -336,7 +349,7 @@ class Registration(object):
         """
         # Allow 400 and 401 so we can provide a more useful error message.
         response = do_post(
-            register_url, payload, timeout=60,
+            register_url, headers=headers, payload=payload, timeout=60,
             allowed_response_codes=["2xx", "3xx", "400", "401"],
         )
         if response.status_code in [400, 401]:
