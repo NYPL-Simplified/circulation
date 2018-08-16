@@ -128,7 +128,7 @@ from api.sip import SIP2AuthenticationProvider
 from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
 
-from core.opds_import import OPDSImporter
+from core.opds_import import (OPDSImporter, OPDSImportMonitor)
 from api.feedbooks import FeedbooksOPDSImporter
 from api.opds_for_distributors import OPDSForDistributorsAPI
 from api.overdrive import OverdriveAPI
@@ -149,6 +149,8 @@ from core.local_analytics_provider import LocalAnalyticsProvider
 from api.adobe_vendor_id import AuthdataUtility
 
 from core.external_search import ExternalSearchIndex
+
+from core.selftest import HasSelfTests
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
@@ -2070,6 +2072,19 @@ class SettingsController(AdminCirculationManagerController):
 
     NO_MIRROR_INTEGRATION = u"NO_MIRROR"
 
+    PROVIDER_APIS = [OPDSImporter,
+                     OPDSForDistributorsAPI,
+                     OverdriveAPI,
+                     OdiloAPI,
+                     BibliothecaAPI,
+                     Axis360API,
+                     OneClickAPI,
+                     EnkiAPI,
+                     ODLWithConsolidatedCopiesAPI,
+                     SharedODLAPI,
+                     FeedbooksOPDSImporter,
+                    ]
+
     def libraries(self):
         if flask.request.method == 'GET':
             libraries = []
@@ -2410,25 +2425,94 @@ class SettingsController(AdminCirculationManagerController):
         setting.value = value
         return Response(unicode(setting.key), 200)
 
-    def collections(self):
-        provider_apis = [OPDSImporter,
-                         OPDSForDistributorsAPI,
-                         OverdriveAPI,
-                         OdiloAPI,
-                         BibliothecaAPI,
-                         Axis360API,
-                         OneClickAPI,
-                         EnkiAPI,
-                         ODLWithConsolidatedCopiesAPI,
-                         SharedODLAPI,
-                         FeedbooksOPDSImporter,
-                        ]
+    def _get_collection_protocols(self, provider_apis):
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
         protocols.append(dict(name=ExternalIntegration.MANUAL,
                               label=_("Manual import"),
                               description=_("Books will be manually added to the circulation manager, not imported automatically through a protocol."),
                               settings=[],
                               ))
+
+        return protocols
+
+    def _get_prior_test_results(self, collection, protocolClass):
+        """This helper function returns previous self test results for a given
+        collection if it has a protocol.
+        """
+        provider_apis = list(self.PROVIDER_APIS)
+        provider_apis.append(OPDSImportMonitor)
+
+        self_test_results = None
+        protocol = protocolClass
+
+        if not collection or not collection.protocol:
+            return None
+
+        if collection.protocol == OPDSImportMonitor.PROTOCOL:
+            protocol = OPDSImportMonitor
+
+        if protocol in provider_apis and issubclass(protocol, HasSelfTests):
+            if (collection.protocol == OPDSImportMonitor.PROTOCOL):
+                self_test_results = protocol.prior_test_results(self._db, protocol, self._db, collection, OPDSImporter)
+            else:
+                self_test_results = protocol.prior_test_results(self._db, protocol, self._db, collection)
+
+        return self_test_results
+
+    def collection_self_tests(self, identifier):
+        protocols = self._get_collection_protocols(self.PROVIDER_APIS)
+
+        if not identifier:
+            return MISSING_COLLECTION_IDENTIFIER
+
+        if flask.request.method == 'GET':
+            collection = dict()
+            protocolClass = None
+            for col in self._db.query(Collection).filter(Collection.id==int(identifier)):
+                collection = dict(
+                    id=col.id,
+                    name=col.name,
+                    protocol=col.protocol,
+                    parent_id=col.parent_id,
+                    settings=dict(external_account_id=col.external_account_id),
+                )
+
+                if col.protocol in [p.get("name") for p in protocols]:
+                    protocolClassFound = [p for p in self.PROVIDER_APIS if p.NAME == col.protocol]
+                    if len(protocolClassFound) == 1:
+                        [protocolClass] = protocolClassFound
+
+                collection["self_test_results"] = self._get_prior_test_results(col, protocolClass)
+            return dict(collection=collection)
+
+        if flask.request.method == "POST":
+            collection = dict()
+            collectionProtocol = None
+            protocolClass = None
+            for col in self._db.query(Collection).filter(Collection.id==int(identifier)):
+                collection = col
+                collectionProtocol = col.protocol
+
+                if collectionProtocol in [p.get("name") for p in protocols]:
+                    protocolClassFound = [p for p in self.PROVIDER_APIS if p.NAME == col.protocol]
+                    if len(protocolClassFound) == 1:
+                        [protocolClass] = protocolClassFound
+
+            if protocolClass:
+                value = None
+                if (collectionProtocol == OPDSImportMonitor.PROTOCOL):
+                    protocolClass = OPDSImportMonitor
+                    value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, collection, OPDSImporter)
+                elif issubclass(protocolClass, HasSelfTests):
+                    value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, collection)
+
+                if (value):
+                    return Response(_("Successfully ran new self tests"), 200)
+
+            return FAILED_TO_RUN_SELF_TESTS
+
+    def collections(self):
+        protocols = self._get_collection_protocols(self.PROVIDER_APIS)
 
         # If there are storage integrations, add a mirror integration
         # setting to every protocol's 'settings' block.
@@ -2439,6 +2523,7 @@ class SettingsController(AdminCirculationManagerController):
 
         if flask.request.method == 'GET':
             collections = []
+            protocolClass = None
             for c in self._db.query(Collection).order_by(Collection.name).all():
                 if not flask.request.admin or not flask.request.admin.can_see_collection(c):
                     continue
@@ -2450,6 +2535,7 @@ class SettingsController(AdminCirculationManagerController):
                     parent_id=c.parent_id,
                     settings=dict(external_account_id=c.external_account_id),
                 )
+
                 if c.protocol in [p.get("name") for p in protocols]:
                     [protocol] = [p for p in protocols if p.get("name") == c.protocol]
                     libraries = []
@@ -2471,6 +2557,11 @@ class SettingsController(AdminCirculationManagerController):
                                 value = c.external_integration.setting(key).value
                             collection["settings"][key] = value
 
+                    protocolClassFound = [p for p in self.PROVIDER_APIS if p.NAME == c.protocol]
+                    if len(protocolClassFound) == 1:
+                        [protocolClass] = protocolClassFound
+
+                collection["self_test_results"] = self._get_prior_test_results(c, protocolClass)
                 collections.append(collection)
 
             return dict(
