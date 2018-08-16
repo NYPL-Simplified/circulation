@@ -1218,4 +1218,4 @@ class AudiobookManifest(CoreAudiobookManifest):
         ):
             if k in file_data:
                 extra[v] = transform(file_data[k])
-        self.add_spine(href, type, title, **extra)
+        self.add_reading_order(href, type, title, **extra)

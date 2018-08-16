@@ -940,11 +940,11 @@ class TestAudiobookManifest(OneClickAPITest):
         eq_(316314528, manifest.metadata['schema:contentSize'])
         eq_(u'The Ballad of Frankie Silver', manifest.metadata['title'])
 
-        # We know about 21 spine items.
-        eq_(21, len(manifest.spine))
+        # We know about 21 items in the reading order.
+        eq_(21, len(manifest.readingOrder))
 
         # Let's spot check one.
-        first = manifest.spine[0]
+        first = manifest.readingOrder[0]
         eq_("358456", first['rbdigital:id'])
         eq_("https://download-piece/1", first['href'])
         eq_("audio/mpeg", first['type'])
