@@ -524,24 +524,24 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             encrypted[u'findaway:sessionKey'])
 
         # Every entry in the license document's 'items' list has
-        # become a spine item in the manifest.
-        spine = manifest['spine']
-        eq_(79, len(spine))
+        # become a readingOrder item in the manifest.
+        reading_order = manifest['readingOrder']
+        eq_(79, len(reading_order))
 
-        # The duration of each spine item has been converted to
+        # The duration of each readingOrder item has been converted to
         # seconds.
-        first = spine[0]
+        first = reading_order[0]
         eq_(16.201, first['duration'])
         eq_("Track 1", first['title'])
 
-        # There is no 'href' value for the spine items because the
+        # There is no 'href' value for the readingOrder items because the
         # files must be obtained through the Findaway SDK rather than
         # through regular HTTP requests.
         #
         # Since this is a relatively small book, it only has one part,
         # part #0. Within that part, the items have been sorted by
         # their sequence.
-        for i, item in enumerate(spine):
+        for i, item in enumerate(reading_order):
             eq_(None, item['href'])
             eq_(Representation.MP3_MEDIA_TYPE, item['type'])
             eq_(0, item['findaway:part'])
