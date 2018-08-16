@@ -347,6 +347,13 @@ def library(library_uuid):
 def collections():
     return app.manager.admin_settings_controller.collections()
 
+@app.route("/admin/collection_self_tests/<identifier>", methods=["GET", "POST"])
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def collection_self_tests(identifier):
+    return app.manager.admin_settings_controller.collection_self_tests(identifier)
+
 @app.route("/admin/collection/<collection_id>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
