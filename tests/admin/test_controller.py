@@ -19,13 +19,20 @@ from contextlib import contextmanager
 from PIL import Image
 import math
 import operator
+from flask_babel import lazy_gettext as _
 
 from .. import sample_data
 from ..test_controller import CirculationControllerTest
+from api.adobe_vendor_id import (
+    AdobeVendorIDModel,
+    AuthdataUtility
+)
+
 from api.admin.controller import (
     setup_admin_controllers,
     AdminAnnotator,
     SettingsController,
+    PatronController
 )
 from api.admin.problem_details import *
 from api.admin.exceptions import *
@@ -82,7 +89,11 @@ from core.opds import AcquisitionFeed
 from core.facets import FacetConstants
 from datetime import date, datetime, timedelta
 
-from api.authenticator import AuthenticationProvider, BasicAuthenticationProvider
+from api.authenticator import (
+    AuthenticationProvider,
+    BasicAuthenticationProvider,
+    PatronData,
+)
 from api.registry import Registration
 from api.simple_authentication import SimpleAuthenticationProvider
 from api.millenium_patron import MilleniumPatronAPI
@@ -100,6 +111,10 @@ from core.local_analytics_provider import LocalAnalyticsProvider
 from api.adobe_vendor_id import AuthdataUtility
 
 from core.external_search import ExternalSearchIndex
+
+from api.axis import (Axis360API, MockAxis360API)
+from core.selftest import HasSelfTests
+from core.opds_import import (OPDSImporter, OPDSImportMonitor)
 
 class AdminControllerTest(CirculationControllerTest):
 
@@ -1206,7 +1221,7 @@ class TestWorkController(AdminControllerTest):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.preview_book_cover,
                           identifier.type, identifier.identifier)
-        
+
 
     def test_change_book_cover(self):
         # Mock image processing which has been tested in other methods.
@@ -1361,7 +1376,7 @@ class TestWorkController(AdminControllerTest):
                           identifier.type, identifier.identifier)
 
         self.manager.admin_work_controller._process_cover_image = old_process
-        
+
     def test_custom_lists_get(self):
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, library=self._default_library, data_source=staff_data_source)
@@ -1795,6 +1810,149 @@ class TestSignInController(AdminControllerTest):
             # The admin's credentials have been removed from the session.
             eq_(None, flask.session.get("admin_email"))
             eq_(None, flask.session.get("auth_type"))
+
+
+class TestPatronController(AdminControllerTest):
+    def setup(self):
+        super(TestPatronController, self).setup()
+        self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
+
+    def test__load_patrondata(self):
+        """Test the _load_patrondata helper method."""
+        class MockAuthenticator(object):
+            def __init__(self, providers):
+                self.providers = providers
+
+        class MockAuthenticationProvider(object):
+            def __init__(self, patron_dict):
+                self.patron_dict = patron_dict
+
+            def remote_patron_lookup(self, patrondata):
+                return self.patron_dict.get(patrondata.authorization_identifier)
+
+        authenticator = MockAuthenticator([])
+        auth_provider = MockAuthenticationProvider({})
+        identifier = "Patron"
+
+        form = MultiDict([("identifier", identifier)])
+        m = self.manager.admin_patron_controller._load_patrondata
+
+        # User doesn't have admin permission
+        with self.request_context_with_library("/"):
+            assert_raises(AdminNotAuthorized, m, authenticator)
+
+        # No form data specified
+        with self.request_context_with_library_and_admin("/"):
+            response = m(authenticator)
+            eq_(404, response.status_code)
+            eq_(NO_SUCH_PATRON.uri, response.uri)
+            eq_("No patron identifier provided", response.detail)
+
+        # AuthenticationProvider has no Authenticators.
+        with self.request_context_with_library_and_admin("/"):
+            flask.request.form = form
+            response = m(authenticator)
+
+            eq_(404, response.status_code)
+            eq_(NO_SUCH_PATRON.uri, response.uri)
+            eq_("This library has no authentication providers, so it has no patrons.",
+                response.detail
+            )
+
+        # Authenticator can't find patron with this identifier
+        authenticator.providers.append(auth_provider)
+        with self.request_context_with_library_and_admin("/"):
+            flask.request.form = form
+            response = m(authenticator)
+
+            eq_(404, response.status_code)
+            eq_(NO_SUCH_PATRON.uri, response.uri)
+            eq_("Lookup failed for patron with identifier %s" % identifier,
+            response.detail)
+
+    def test_lookup_patron(self):
+
+        # Here's a patron.
+        patron = self._patron()
+        patron.authorization_identifier = self._str
+
+        # This PatronController will always return information about that
+        # patron, no matter what it's asked for.
+        class MockPatronController(PatronController):
+            def _load_patrondata(self, authenticator):
+                self.called_with = authenticator
+                return PatronData(
+                    authorization_identifier="An Identifier",
+                    personal_name="A Patron",
+                )
+
+        controller = MockPatronController(self.manager)
+
+        authenticator = object()
+        with self.request_context_with_library_and_admin("/"):
+            flask.request.form = MultiDict([("identifier", object())])
+            response = controller.lookup_patron(authenticator)
+            # The authenticator was passed into _load_patrondata()
+            eq_(authenticator, controller.called_with)
+
+            # _load_patrondata() returned a PatronData object. We
+            # converted it to a dictionary, which will be dumped to
+            # JSON on the way out.
+            eq_("An Identifier", response['authorization_identifier'])
+            eq_("A Patron", response['personal_name'])
+
+    def test_reset_adobe_id(self):
+        # Here's a patron with two Adobe-relevant credentials.
+        patron = self._patron()
+        patron.authorization_identifier = self._str
+
+        self._credential(
+            patron=patron, type=AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE
+        )
+        self._credential(
+            patron=patron, type=AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER
+        )
+
+        # This PatronController will always return a specific
+        # PatronData object, no matter what is asked for.
+        class MockPatronController(PatronController):
+            mock_patrondata = None
+            def _load_patrondata(self, authenticator):
+                self.called_with = authenticator
+                return self.mock_patrondata
+
+        controller = MockPatronController(self.manager)
+        controller.mock_patrondata = PatronData(
+            authorization_identifier=patron.authorization_identifier
+        )
+
+        # We reset their Adobe ID.
+        authenticator = object()
+        with self.request_context_with_library_and_admin("/"):
+            form = MultiDict([("identifier", patron.authorization_identifier)])
+            flask.request.form = form
+
+            response = controller.reset_adobe_id(authenticator)
+            eq_(200, response.status_code)
+
+            # _load_patrondata was called and gave us information about
+            # which Patron to modify.
+            controller.called_with = authenticator
+
+        # Both of the Patron's credentials are gone.
+        eq_(patron.credentials, [])
+
+        # Here, the AuthenticationProvider finds a PatronData, but the
+        # controller can't turn it into a Patron because it's too vague.
+        controller.mock_patrondata = PatronData()
+        with self.request_context_with_library_and_admin("/"):
+            flask.request.form = form
+            response = controller.reset_adobe_id(authenticator)
+
+            eq_(404, response.status_code)
+            eq_(NO_SUCH_PATRON.uri, response.uri)
+            assert "Could not create local patron object" in response.detail
+
 
 class TestFeedController(AdminControllerTest):
 
@@ -3221,6 +3379,150 @@ class TestSettingsController(SettingsControllerTest):
         library = get_one(self._db, Library, uuid=library.uuid)
         eq_(None, library)
 
+    def mock_prior_test_results(self, *args, **kwargs):
+        self.prior_test_results_called_with = (args, kwargs)
+        self_test_results = dict(
+            duration=0.9,
+            start="2018-08-08T16:04:05Z",
+            end="2018-08-08T16:05:05Z",
+            results=[]
+        )
+        self.self_test_results = self_test_results
+
+        return self_test_results
+
+    def mock_run_self_tests(self, *args, **kwargs):
+        self.run_self_tests_called_with = (args, kwargs)
+        return ("value", "results")
+
+    def mock_failed_run_self_tests(self, *args, **kwargs):
+        self.failed_run_self_tests_called_with = (args, kwargs)
+        return (None, None)
+
+    def test_get_prior_test_results(self):
+        controller = SettingsController(self.manager)
+        old_prior_test_results = HasSelfTests.prior_test_results
+        HasSelfTests.prior_test_results = self.mock_prior_test_results
+
+        collectionNoProtocol = self._collection()
+        collectionNoProtocol.protocol = ""
+
+        # No collection or collection with protocol passed
+        self_test_results = controller._get_prior_test_results({}, {})
+        eq_(None, self_test_results)
+        self_test_results = controller._get_prior_test_results(collectionNoProtocol, {})
+        eq_(None, self_test_results)
+
+        collection = MockAxis360API.mock_collection(self._db)
+        # Test that a collection's protocol calls HasSelfTests.prior_test_results
+        self_test_results = controller._get_prior_test_results(collection, Axis360API)
+        args = self.prior_test_results_called_with[0]
+        eq_(args[1], Axis360API)
+        eq_(args[3], collection)
+
+        OPDSCollection = self._collection()
+        # If a collection's protocol is OPDSImporter, make sure that
+        # OPDSImportMonitor.prior_test_results is called
+        self_test_results = controller._get_prior_test_results(OPDSCollection, OPDSImporter)
+        args = self.prior_test_results_called_with[0]
+        eq_(args[1], OPDSImportMonitor)
+        eq_(args[3], OPDSCollection)
+
+        HasSelfTests.prior_test_results = old_prior_test_results
+
+    def test_collection_self_tests_with_no_identifier(self):
+        with self.request_context_with_admin("/"):
+            response = self.manager.admin_settings_controller.collection_self_tests(None)
+            eq_(response, MISSING_COLLECTION_IDENTIFIER)
+            eq_(response.status_code, 400)
+
+    def test_collection_self_tests_test_get(self):
+        old_prior_test_results = HasSelfTests.prior_test_results
+        HasSelfTests.prior_test_results = self.mock_prior_test_results
+        collection = MockAxis360API.mock_collection(self._db)
+
+        # Make sure that HasSelfTest.prior_test_results() was called and that
+        # it is in the response's collection object.
+        with self.request_context_with_admin("/"):
+            response = self.manager.admin_settings_controller.collection_self_tests(collection.id)
+
+            responseCollection = response.get("collection")
+
+            eq_(responseCollection.get("id"), collection.id)
+            eq_(responseCollection.get("name"), collection.name)
+            eq_(responseCollection.get("protocol"), collection.protocol)
+            eq_(responseCollection.get("self_test_results"), self.self_test_results)
+
+        HasSelfTests.prior_test_results = old_prior_test_results
+
+    def test_collection_self_tests_failed_post(self):
+        # This makes HasSelfTests.run_self_tests return no values
+        old_run_self_tests = HasSelfTests.run_self_tests
+        HasSelfTests.run_self_tests = self.mock_failed_run_self_tests
+
+        collection = MockAxis360API.mock_collection(self._db)
+
+        # Failed to run self tests
+        with self.request_context_with_admin("/", method="POST"):
+            response = self.manager.admin_settings_controller.collection_self_tests(collection.id)
+
+            (run_self_tests_args, run_self_tests_kwargs) = self.failed_run_self_tests_called_with
+            eq_(response, FAILED_TO_RUN_SELF_TESTS)
+            eq_(response.status_code, 400)
+
+        HasSelfTests.run_self_tests = old_run_self_tests
+
+    def test_collection_self_tests_post(self):
+        old_run_self_tests = HasSelfTests.run_self_tests
+        HasSelfTests.run_self_tests = self.mock_run_self_tests
+
+        collection = self._collection()
+        # Successfully ran new self tests for the OPDSImportMonitor provider API
+        with self.request_context_with_admin("/", method="POST"):
+            response = self.manager.admin_settings_controller.collection_self_tests(collection.id)
+
+            (run_self_tests_args, run_self_tests_kwargs) = self.run_self_tests_called_with
+            eq_(response.response, _("Successfully ran new self tests"))
+            eq_(response._status, "200 OK")
+
+            # The provider API class and the collection should be passed to
+            # the run_self_tests method of the provider API class.
+            eq_(run_self_tests_args[1], OPDSImportMonitor)
+            eq_(run_self_tests_args[3], collection)
+
+
+        collection = MockAxis360API.mock_collection(self._db)
+        # Successfully ran new self tests
+        with self.request_context_with_admin("/", method="POST"):
+            response = self.manager.admin_settings_controller.collection_self_tests(collection.id)
+
+            (run_self_tests_args, run_self_tests_kwargs) = self.run_self_tests_called_with
+            eq_(response.response, _("Successfully ran new self tests"))
+            eq_(response._status, "200 OK")
+
+            # The provider API class and the collection should be passed to
+            # the run_self_tests method of the provider API class.
+            eq_(run_self_tests_args[1], Axis360API)
+            eq_(run_self_tests_args[3], collection)
+
+        collection = MockAxis360API.mock_collection(self._db)
+        collection.protocol = "Non existing protocol"
+        # clearing out previous call to mocked run_self_tests
+        self.run_self_tests_called_with = (None, None)
+
+        # No protocol found so run_self_tests was not called
+        with self.request_context_with_admin("/", method="POST"):
+            response = self.manager.admin_settings_controller.collection_self_tests(collection.id)
+
+            (run_self_tests_args, run_self_tests_kwargs) = self.run_self_tests_called_with
+            eq_(response, FAILED_TO_RUN_SELF_TESTS)
+            eq_(response.status_code, 400)
+
+            # The method returns None but it was not called
+            eq_(run_self_tests_args, None)
+
+        HasSelfTests.run_self_tests = old_run_self_tests
+
     def test_collections_get_with_no_collections(self):
         # Delete any existing collections created by the test setup.
         for collection in self._db.query(Collection):
@@ -3235,7 +3537,9 @@ class TestSettingsController(SettingsControllerTest):
             assert ExternalIntegration.OVERDRIVE in names
             assert ExternalIntegration.OPDS_IMPORT in names
 
-    def test_collections_get_protocols(self):
+    def test_collections_get_collection_protocols(self):
+        old_prior_test_results = HasSelfTests.prior_test_results
+        HasSelfTests.prior_test_results = self.mock_prior_test_results
 
         [c1] = self._default_library.collections
 
@@ -3285,7 +3589,12 @@ class TestSettingsController(SettingsControllerTest):
                           for integration in (storage1, storage2)]
                 eq_(expect, use_mirrors)
 
+        HasSelfTests.prior_test_results = old_prior_test_results
+
     def test_collections_get_collections_with_multiple_collections(self):
+
+        old_prior_test_results = HasSelfTests.prior_test_results
+        HasSelfTests.prior_test_results = self.mock_prior_test_results
 
         [c1] = self._default_library.collections
 
@@ -3298,6 +3607,8 @@ class TestSettingsController(SettingsControllerTest):
         )
         c2.external_account_id = "1234"
         c2.external_integration.password = "b"
+        c2.external_integration.username = "user"
+        c2.external_integration.setting('website_id').value = '100'
         c2.mirror_integration_id=c2_storage.id
 
         c3 = self._collection(
@@ -3333,6 +3644,10 @@ class TestSettingsController(SettingsControllerTest):
             eq_(c1.protocol, coll1.get("protocol"))
             eq_(c2.protocol, coll2.get("protocol"))
             eq_(c3.protocol, coll3.get("protocol"))
+
+            eq_(self.self_test_results, coll1.get("self_test_results"))
+            eq_(self.self_test_results, coll2.get("self_test_results"))
+            eq_(self.self_test_results, coll3.get("self_test_results"))
 
             settings1 = coll1.get("settings", {})
             settings2 = coll2.get("settings", {})
@@ -3370,6 +3685,8 @@ class TestSettingsController(SettingsControllerTest):
             eq_(1, len(coll3_libraries))
             eq_("L1", coll3_libraries[0].get("short_name"))
             eq_("14", coll3_libraries[0].get("ebook_loan_duration"))
+
+        HasSelfTests.prior_test_results = old_prior_test_results
 
     def test_collections_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):

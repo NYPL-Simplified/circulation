@@ -34,7 +34,7 @@ class TestConfiguration(DatabaseTest):
         # holdings.
         large_setting = ConfigurationSetting.for_library(
             C.LARGE_COLLECTION_LANGUAGES, library
-        ) 
+        )
         eq_(["eng"], large_setting.json_value)
         eq_([], ConfigurationSetting.for_library(
             C.SMALL_COLLECTION_LANGUAGES, library).json_value)
@@ -44,7 +44,7 @@ class TestConfiguration(DatabaseTest):
         # We can change these values.
         large_setting.value = json.dumps(["spa", "jpn"])
         eq_(["spa", "jpn"], C.large_collection_languages(library))
-        
+
         # If we enter an invalid value, or a value that's not a list,
         # the estimate is re-calculated the next time we look.
         large_setting.value = "this isn't json"
@@ -52,7 +52,7 @@ class TestConfiguration(DatabaseTest):
 
         large_setting.value = '"this is json but it\'s not a list"'
         eq_(["eng"], C.large_collection_languages(library))
-        
+
     def test_estimate_language_collection_for_library(self):
 
         library = self._default_library
@@ -76,11 +76,11 @@ class TestConfiguration(DatabaseTest):
         eq_(["eng"], ConfigurationSetting.for_library(
             Configuration.LARGE_COLLECTION_LANGUAGES, library
         ).json_value)
-        
+
         eq_([], ConfigurationSetting.for_library(
             Configuration.SMALL_COLLECTION_LANGUAGES, library
         ).json_value)
-            
+
         eq_([], ConfigurationSetting.for_library(
             Configuration.TINY_COLLECTION_LANGUAGES, library
         ).json_value)
@@ -88,7 +88,7 @@ class TestConfiguration(DatabaseTest):
     def test_classify_holdings(self):
 
         m = Configuration.classify_holdings
-        
+
         # If there are no titles in the collection at all, we assume
         # there will eventually be a large English collection.
         eq_([["eng"], [], []], m(Counter()))
@@ -105,4 +105,4 @@ class TestConfiguration(DatabaseTest):
                                   nav=6, ukr=4000, ira=1500)
         eq_([['fre', 'jpn'], ['spa', 'ukr', 'ira'], ['nav']],
             m(different_sizes))
-        
+

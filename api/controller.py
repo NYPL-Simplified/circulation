@@ -70,7 +70,6 @@ from core.model import (
     Loan,
     LicensePoolDeliveryMechanism,
     Patron,
-    PatronProfileStorage,
     Representation,
     Session,
     Work,
@@ -112,6 +111,7 @@ from problem_details import *
 
 from authenticator import (
     Authenticator,
+    CirculationPatronProfileStorage,
     OAuthController,
 )
 from config import (
@@ -145,7 +145,6 @@ from novelist import (
 )
 from base_controller import BaseCirculationManagerController
 from testing import MockCirculationAPI, MockSharedCollectionAPI
-from services import ServiceStatus
 from core.analytics import Analytics
 from accept_types import parse_header
 
@@ -316,7 +315,6 @@ class CirculationManager(object):
         self.analytics_controller = AnalyticsController(self)
         self.profiles = ProfileController(self)
         self.heartbeat = HeartbeatController()
-        self.service_status = ServiceStatusController(self)
         self.odl_notification_controller = ODLNotificationController(self)
         self.shared_collection_controller = SharedCollectionController(self)
 
@@ -786,7 +784,9 @@ class OPDSFeedController(CirculationManagerController):
         )
         if not query:
             # Send the search form
-            return OpenSearchDocument.for_lane(lane, make_url())
+            open_search_doc = OpenSearchDocument.for_lane(lane, make_url())
+            headers = { "Content-Type" : "application/opensearchdescription+xml" }
+            return Response(open_search_doc, 200, headers)
 
         pagination = load_pagination_from_request(default_size=Pagination.DEFAULT_SEARCH_SIZE)
         if isinstance(pagination, ProblemDetail):
@@ -804,6 +804,7 @@ class OPDSFeedController(CirculationManagerController):
             query=query, annotator=annotator, pagination=pagination,
             languages=languages, facets=facets
         )
+
         return feed_response(opds_feed)
 
 
@@ -1552,7 +1553,6 @@ class WorkController(CirculationManagerController):
         )
         return feed_response(unicode(feed))
 
-
 class ProfileController(CirculationManagerController):
     """Implement the User Profile Management Protocol."""
 
@@ -1561,7 +1561,7 @@ class ProfileController(CirculationManagerController):
         """Instantiate a CoreProfileController that actually does the work.
         """
         patron = self.authenticated_patron_from_request()
-        storage = PatronProfileStorage(patron)
+        storage = CirculationPatronProfileStorage(patron)
         return CoreProfileController(storage)
 
     def protocol(self):
@@ -1592,33 +1592,6 @@ class AnalyticsController(CirculationManagerController):
         else:
             return INVALID_ANALYTICS_EVENT_TYPE
 
-
-class ServiceStatusController(CirculationManagerController):
-
-    template = """<!DOCTYPE HTML>
-<html lang="en" class="">
-<head>
-<meta charset="utf8">
-</head>
-<body>
-<ul>
-%(statuses)s
-</ul>
-</body>
-</html>
-"""
-
-    def __call__(self):
-        library = flask.request.library
-        circulation = self.manager.circulation_apis[library.id]
-        service_status = ServiceStatus(circulation)
-        timings = service_status.loans_status(response=True)
-        statuses = []
-        for k, v in sorted(timings.items()):
-            statuses.append(" <li><b>%s</b>: %s</li>" % (k, v))
-
-        doc = self.template % dict(statuses="\n".join(statuses))
-        return Response(doc, 200, {"Content-Type": "text/html"})
 
 class ODLNotificationController(CirculationManagerController):
     """Receive notifications from an ODL distributor when the

@@ -171,7 +171,7 @@ def lane_from_genres(_db, library, genres, display_name=None,
             sublane_priority = 0
             for subgenre in genre.get("subgenres", []):
                 sublanes.append(lane_from_genres(
-                        _db, library, [subgenre], 
+                        _db, library, [subgenre],
                         priority=sublane_priority, **extra_args))
                 sublane_priority += 1
 
@@ -233,10 +233,10 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
 
     * A "%(language)s YA Fiction" lane containing sublanes for the
       most popular YA fiction genres.
-    
+
     * A "%(language)s YA Nonfiction" lane containing sublanes for the
       most popular YA fiction genres.
-    
+
     * A "%(language)s Children and Middle Grade" lane containing
       sublanes for childrens' books at different age levels.
 

@@ -17,7 +17,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
     # an extra step of indirection, because it lets us use as a
     # starting point the actual (albeit redacted) SIP2 messages we
     # receive from servers.
-    
+
     sierra_valid_login = "64              000201610210000142637000000000000000000000000AOnypl |AA12345|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|BEfoo@example.com|AY1AZD1B7"
     sierra_excessive_fines = "64              000201610210000142637000000000000000000000000AOnypl |AA12345|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQY|BV20.00|CC15.00|BEfoo@example.com|AY1AZD1B7"
     sierra_invalid_login = "64Y  YYYYYYYYYYY000201610210000142725000000000000000000000000AOnypl |AA12345|AESHELDON, ALICE|BZ0030|CA0050|CB0050|BLY|CQN|BV0|CC15.00|BEfoo@example.com|AFInvalid PIN entered.  Please try again or see a staff member for assistance.|AFThere are unresolved issues with your account.  Please see a staff member for assistance.|AY1AZ91A8"
@@ -30,7 +30,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
     evergreen_inactive_account = "64YYYY          00020161021    143028000000000000000000000000AE|AA12345|BLN|AOBiblioTest|AY2AZ0000"
 
     polaris_valid_pin = "64              00120161121    143327000000000000000000000000AO3|AA25891000331441|AEFalk, Jen|BZ0050|CA0075|CB0075|BLY|CQY|BHUSD|BV9.25|CC9.99|BD123 Charlotte Hall, MD 20622|BEfoo@bar.com|BF501-555-1212|BC19710101    000000|PA1|PEHALL|PSSt. Mary's|U1|U2|U3|U4|U5|PZ20622|PX20180609    235959|PYN|FA0.00|AFPatron status is ok.|AGPatron status is ok.|AY2AZ94F3"
-        
+
     polaris_wrong_pin = "64YYYY          00120161121    143157000000000000000000000000AO3|AA25891000331441|AEFalk, Jen|BZ0050|CA0075|CB0075|BLY|CQN|BHUSD|BV9.25|CC9.99|BD123 Charlotte Hall, MD 20622|BEfoo@bar.com|BF501-555-1212|BC19710101    000000|PA1|PEHALL|PSSt. Mary's|U1|U2|U3|U4|U5|PZ20622|PX20180609    235959|PYN|FA0.00|AFInvalid patron password. Passwords do not match.|AGInvalid patron password.|AY2AZ87B4"
 
     polaris_expired_card = "64YYYY          00120161121    143430000000000000000000000000AO3|AA25891000224613|AETester, Tess|BZ0050|CA0075|CB0075|BLY|CQY|BHUSD|BV0.00|CC9.99|BD|BEfoo@bar.com|BF|BC19710101    000000|PA1|PELEON|PSSt. Mary's|U1|U2|U3|U4|U5|PZ|PX20161025    235959|PYY|FA0.00|AFPatron has blocks.|AGPatron has blocks.|AY2AZA4F8"
@@ -56,7 +56,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_("pass1", client.login_password)
         eq_("\t", client.separator)
         eq_("server.com", client.target_server)
-        
+
         # Default port is 6001.
         eq_(6001, client.target_port)
 
@@ -64,7 +64,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         integration.setting(p.PORT).value = "1234"
         provider = p(self._default_library, integration, connect=False)
         eq_(1234, provider.client.target_port)
-        
+
     def test_remote_authenticate(self):
         integration = self._external_integration(self._str)
         client = MockSIPClient()
@@ -82,7 +82,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_(None, patrondata.authorization_expires)
         eq_(None, patrondata.external_type)
         eq_(PatronData.NO_VALUE, patrondata.block_reason)
-        
+
         client.queue_response(self.sierra_invalid_login)
         eq_(None, auth.remote_authenticate("user", "pass"))
 
@@ -93,7 +93,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         client.queue_response(self.sierra_excessive_fines)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(PatronData.EXCESSIVE_FINES, patrondata.block_reason)
-        
+
         # A patron with an expired card.
         client.queue_response(self.evergreen_expired_card)
         patrondata = auth.remote_authenticate("user", "pass")
@@ -116,7 +116,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_(datetime(2019, 10, 04), patrondata.authorization_expires)
 
         # We happen to know that this patron can't borrow books due to
-        # excessive fines, but that information doesn't show up as a 
+        # excessive fines, but that information doesn't show up as a
         # block, because Evergreen doesn't also provide the
         # fine limit. This isn't a big deal -- we'll pick it up later
         # when we apply the site policy.
@@ -134,7 +134,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         client.queue_response(self.evergreen_card_reported_lost)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(PatronData.CARD_REPORTED_LOST, patrondata.block_reason)
-        
+
         # Some examples taken from a Polaris instance.
         client.queue_response(self.polaris_valid_pin)
         patrondata = auth.remote_authenticate("user", "pass")
@@ -148,12 +148,12 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         client.queue_response(self.polaris_wrong_pin)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(None, patrondata)
-        
+
         client.queue_response(self.polaris_expired_card)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(datetime(2016, 10, 25, 23, 59, 59),
             patrondata.authorization_expires)
-        
+
         client.queue_response(self.polaris_excess_fines)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(11.50, patrondata.fines)
@@ -236,7 +236,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
             provider.remote_authenticate,
             "username", "password",
         )
-        
+
     def test_parse_date(self):
         parse = SIP2AuthenticationProvider.parse_date
         eq_(datetime(2011, 1, 2), parse("20110102"))

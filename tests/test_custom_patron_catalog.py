@@ -145,9 +145,9 @@ class TestCustomRootLane(DatabaseTest):
                 self.replace_link_called_with = (doc, rel, kwargs)
                 doc['modified'] = True
 
-            def url_for(self, view, library_short_name, lane_identifier):
+            def url_for(self, view, library_short_name, lane_identifier, _external):
                 self.url_for_called_with = (
-                    view, library_short_name, lane_identifier
+                    view, library_short_name, lane_identifier, _external
                 )
                 return "new-root"
 
@@ -165,7 +165,7 @@ class TestCustomRootLane(DatabaseTest):
 
         # url_for was called with the expected arguments, and it
         # returned 'new-root', seen above.
-        eq_(("acquisition_groups", library.name, custom_root.lane_id),
+        eq_(("acquisition_groups", library.name, custom_root.lane_id, True),
             custom_root.url_for_called_with)
 
         # replace_link was called with the result of calling url_for.
@@ -207,9 +207,10 @@ class TestCOPPAGate(DatabaseTest):
             def replace_link(self, doc, rel, **kwargs):
                 self.replace_link_called_with = (doc, rel, kwargs)
 
-            def url_for(self, view, library_short_name, lane_identifier):
+            def url_for(self, view, library_short_name, lane_identifier,
+                        _external):
                 self.url_for_called_with.append(
-                    (view, library_short_name, lane_identifier)
+                    (view, library_short_name, lane_identifier, _external)
                 )
                 return view + "/" + str(lane_identifier)
         library = self._default_library
@@ -225,11 +226,11 @@ class TestCOPPAGate(DatabaseTest):
         # the adults' section and the kids' section.
         [yes_call, no_call] = gate.url_for_called_with
         eq_(
-            ("acquisition_groups", library.name, gate.yes_lane_id),
+            ("acquisition_groups", library.name, gate.yes_lane_id, True),
             yes_call
         )
         eq_(
-            ("acquisition_groups", library.name, gate.no_lane_id),
+            ("acquisition_groups", library.name, gate.no_lane_id, True),
             no_call
         )
 

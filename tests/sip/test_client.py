@@ -108,13 +108,13 @@ class TestNetworkError(object):
         # When we try to send any data through the client, we get an
         # IOError.
         assert_raises(IOError, sip.login, 'username', 'password', 'location')
-        
+
         # But after the initial failure we created a new socket
         # connection and sent the data again, so at least we tried.
         expect = ['Creating new socket connection.',
                   "I was unable to send data."] * 2
         eq_(expect, sip.status)
-        
+
     def test_retry_on_initial_timeout(self):
         sip = CannotReceiveMockSIPClient()
 
@@ -132,7 +132,7 @@ class TestNetworkError(object):
 
 
 class TestLogin(object):
-       
+
     def test_login_success(self):
         sip = MockSIPClient()
         sip.queue_response('941')
@@ -151,7 +151,7 @@ class TestLogin(object):
         # message.
         eq_(False, sip.logged_in)
         eq_(True, sip.must_log_in)
-        
+
         sip.queue_response('941')
         sip.queue_response('64Y                201610050000114734                        AOnypl |AA12345|AENo Name|BLN|AFYour library card number cannot be located.  Please see a staff member for assistance.|AY1AZC9DE')
         response = sip.patron_information('patron_identifier')
@@ -162,7 +162,7 @@ class TestLogin(object):
 
         # We're logged in.
         eq_(True, sip.logged_in)
-        
+
         # We ended up with the right data.
         eq_('12345', response['patron_identifier'])
 
@@ -170,7 +170,7 @@ class TestLogin(object):
         sip.connect()
         eq_(False, sip.logged_in)
         eq_(0, sip.sequence_number)
-        
+
     def test_login_failure_interrupts_other_request(self):
         sip = MockSIPClient('user_id', 'password')
         sip.queue_response('940')
@@ -178,7 +178,7 @@ class TestLogin(object):
         # We don't even get a chance to make the patron information request
         # because our login attempt fails.
         assert_raises(IOError,  sip.patron_information, 'patron_identifier')
-        
+
     def test_login_does_not_happen_implicitly_when_user_id_and_password_not_specified(self):
         sip = MockSIPClient()
 
@@ -192,7 +192,7 @@ class TestLogin(object):
         # One request was made.
         eq_(1, len(sip.requests))
         eq_(1, sip.sequence_number)
-        
+
         # We ended up with the right data.
         eq_('12345', response['patron_identifier'])
 
@@ -201,7 +201,7 @@ class TestPatronResponse(object):
 
     def setup(self):
         self.sip = MockSIPClient()
-    
+
     def test_incorrect_card_number(self):
         self.sip.queue_response("64Y                201610050000114734                        AOnypl |AA240|AENo Name|BLN|AFYour library card number cannot be located.|AY1AZC9DE")
         response = self.sip.patron_information('identifier')
@@ -215,11 +215,11 @@ class TestPatronResponse(object):
         parsed = response['patron_status_parsed']
         eq_(True, parsed['charge privileges denied'])
         eq_(False, parsed['too many items charged'])
-        
+
     def test_hold_items(self):
         "A patron has multiple items on hold."
         self.sip.queue_response("64              000201610050000114837000300020002000000000000AOnypl |AA233|AEBAR, FOO|BZ0030|CA0050|CB0050|BLY|CQY|BV0|CC15.00|AS123|AS456|AS789|BEFOO@BAR.COM|AY1AZC848")
-        response = self.sip.patron_information('identifier')        
+        response = self.sip.patron_information('identifier')
         eq_('0003', response['hold_items_count'])
         eq_(['123', '456', '789'], response['hold_items'])
 
@@ -241,7 +241,7 @@ class TestPatronResponse(object):
         # The ZZ field is an unknown extension and is captured under
         # its SIP code.
         eq_(["foo"], response['ZZ'])
-       
+
     def test_embedded_pipe(self):
         """In most cases we can handle data even if it contains embedded
         instances of the separator character.
@@ -269,7 +269,7 @@ class TestPatronResponse(object):
             "login_id", "login_password", "location_code"
         )
         assert with_code.endswith("COlogin_password|CPlocation_code")
-        
+
     def test_patron_password_is_optional(self):
         without_password = self.sip.patron_information_request(
             "patron_identifier"

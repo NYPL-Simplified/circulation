@@ -11,6 +11,8 @@ from config import (
     CannotLoadConfiguration,
 )
 
+from core.model import Patron
+
 class SimpleAuthenticationProvider(BasicAuthenticationProvider):
     """An authentication provider that authenticates a single patron.
 
@@ -52,7 +54,7 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         if additional_identifiers:
             for identifier in additional_identifiers:
                 self.test_identifiers += [identifier, identifier + "_username"]
-        
+
     def remote_authenticate(self, username, password):
         "Fake 'remote' authentication."
         if not username or (self.collects_password and not password):
@@ -61,17 +63,25 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         if not self.valid_patron(username, password):
             return None
 
-        if username.endswith("_username"):
-            username = username
-            identifier = username[:-9]
+        return self.generate_patrondata(username)
+
+    @classmethod
+    def generate_patrondata(cls, authorization_identifier):
+
+        if authorization_identifier.endswith("_username"):
+            username = authorization_identifier
+            identifier = authorization_identifier[:-9]
         else:
-            identifier = username
-            username = identifier + "_username"
+            identifier = authorization_identifier
+            username = authorization_identifier + "_username"
+
+        personal_name = "PersonalName" + identifier
 
         patrondata = PatronData(
             authorization_identifier=identifier,
             permanent_id=identifier + "_id",
             username=username,
+            personal_name=personal_name,
             authorization_expires = None,
             fines = None,
         )
@@ -81,7 +91,7 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
     # methods.
 
     def valid_patron(self, username, password):
-        """Is this patron associated with the given password in 
+        """Is this patron associated with the given password in
         the given dictionary?
         """
         if self.collects_password:
@@ -89,5 +99,13 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         else:
             password_match = (password in (None, ''))
         return password_match and username in self.test_identifiers
+
+    def remote_patron_lookup(self, patron_or_patrondata):
+        if not patron_or_patrondata:
+            return None
+        if ((isinstance(patron_or_patrondata, PatronData)
+            or isinstance(patron_or_patrondata, Patron))
+            and patron_or_patrondata.authorization_identifier in self.test_identifiers):
+                return self.generate_patrondata(patron_or_patrondata.authorization_identifier)
 
 AuthenticationProvider = SimpleAuthenticationProvider

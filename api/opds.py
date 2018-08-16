@@ -20,6 +20,7 @@ from core.util.opds_writer import (
     OPDSFeed,
 )
 from core.model import (
+    CirculationEvent,
     ConfigurationSetting,
     Credential,
     DataSource,
@@ -49,6 +50,7 @@ from annotations import AnnotationWriter
 from circulation import BaseCirculationAPI
 from config import Configuration
 from novelist import NoveListAPI
+from core.analytics import Analytics
 
 class CirculationManagerAnnotator(Annotator):
 
@@ -606,6 +608,20 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                 )
             )
 
+        if Analytics.is_configured(self.library):
+            feed.add_link_to_entry(
+                entry,
+                rel="http://librarysimplified.org/terms/rel/analytics/open-book",
+                href=self.url_for(
+                    'track_analytics_event',
+                    identifier_type=identifier.type,
+                    identifier=identifier.identifier,
+                    event_type=CirculationEvent.OPEN_BOOK,
+                    library_short_name=self.library.short_name,
+                    _external=True
+                )
+            )
+
     @classmethod
     def related_books_available(cls, work, library):
         """:return: bool asserting whether related books might exist for
@@ -923,19 +939,6 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         link_tag.attrib.update(dict(href=fulfill_url))
         return link_tag
 
-    @classmethod
-    def _adobe_patron_identifier(self, patron):
-        _db = Session.object_session(patron)
-        internal = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
-
-        def refresh(credential):
-            credential.credential = str(uuid.uuid1())
-        patron_identifier = Credential.lookup(
-            _db, internal, AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER, patron,
-            refresher_method=refresh, allow_persistent_token=True
-        )
-        return patron_identifier.credential
-
     def drm_device_registration_tags(self, license_pool, active_loan,
                                      delivery_mechanism):
         """Construct OPDS Extensions for DRM tags that explain how to
@@ -976,27 +979,15 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             cache_key = patron_identifier
         cached = self._adobe_id_tags.get(cache_key)
         if cached is None:
-            if isinstance(patron_identifier, Patron):
-                # Find the patron's identifier for Adobe ID purposes.
-                patron_identifier = self._adobe_patron_identifier(
-                    patron_identifier
-                )
             cached = []
             authdata = AuthdataUtility.from_config(self.library)
             if authdata:
-                # TODO: We would like to call encode() here, and have
-                # the client use a JWT as authdata, but we can't,
-                # because there's no way to use authdata to deactivate
-                # a device. So we've used this alternate technique
-                # that's much smaller than a JWT and can be smuggled
-                # into username/password.
-                vendor_id, jwt = authdata.encode_short_client_token(patron_identifier)
-
+                vendor_id, token = authdata.short_client_token_for_patron(patron_identifier)
                 drm_licensor = OPDSFeed.makeelement("{%s}licensor" % OPDSFeed.DRM_NS)
                 vendor_attr = "{%s}vendor" % OPDSFeed.DRM_NS
                 drm_licensor.attrib[vendor_attr] = vendor_id
                 patron_key = OPDSFeed.makeelement("{%s}clientToken" % OPDSFeed.DRM_NS)
-                patron_key.text = jwt
+                patron_key.text = token
                 drm_licensor.append(patron_key)
 
                 # Add the link to the DRM Device Management Protocol

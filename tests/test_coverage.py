@@ -62,7 +62,7 @@ from api.coverage import (
 
 class TestImporterSubclasses(DatabaseTest):
     """Test the subclasses of OPDSImporter."""
-    
+
     def test_success_status_codes(self):
         """Validate the status codes that different importers
         will treat as successes.
@@ -97,11 +97,11 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         """
 
         # Unlike other tests in this class, we are using a real
-        # implementation of OPDSImportCoverageProvider.process_batch.        
+        # implementation of OPDSImportCoverageProvider.process_batch.
         class TestProvider(OPDSImportCoverageProvider):
             SERVICE_NAME = "Test provider"
             DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
-            
+
             # Mock the identifier mapping
             def create_identifier_mapping(self, batch):
                 return self.mapping
@@ -159,7 +159,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         # problem: the LicensePool will show up in the results, but
         # the corresponding Edition will not.
         edition2, pool2 = self._edition(with_license_pool=True)
-        
+
         # Here's an identifier that can't be looked up at all,
         # and an identifier that shows up in messages_by_id because
         # its simplified:message was determined to indicate success
@@ -183,17 +183,17 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
         # Make the CoverageProvider do its thing.
         fake_batch = [object()]
-        (success_import, failure_mismatched, failure_message, 
+        (success_import, failure_mismatched, failure_message,
          success_message) = provider.process_batch(
             fake_batch
         )
-        
+
         # The fake batch was provided to lookup_and_import_batch.
         eq_([fake_batch], provider.batches)
 
         # The matched Edition/LicensePool pair was returned.
         eq_(success_import, edition.primary_identifier)
-        
+
         # The LicensePool of that pair was passed into finalize_license_pool.
         # The mismatched LicensePool was not.
         eq_([pool], provider.finalized)
@@ -205,7 +205,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
             failure_mismatched.exception)
         eq_(pool2.identifier, failure_mismatched.obj)
         eq_(True, failure_mismatched.transient)
-        
+
         # The OPDSMessage with status code 500 was returned as a
         # CoverageFailure object.
         assert isinstance(failure_message, CoverageFailure)
@@ -216,7 +216,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         # The identifier that had a treat-as-success OPDSMessage was returned
         # as-is.
         eq_(not_an_error_identifier, success_message)
-        
+
     def test_process_batch_success_even_if_no_licensepool_exists(self):
         """This shouldn't happen since CollectionCoverageProvider
         only operates on Identifiers that are licensed through a Collection.
@@ -249,7 +249,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         eq_([[item]], provider.batches)
 
     def test_import_feed_response(self):
-        """Verify that import_feed_response instantiates the 
+        """Verify that import_feed_response instantiates the
         OPDS_IMPORTER_CLASS subclass and calls import_from_feed
         on it.
         """
@@ -261,7 +261,7 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
                 right values.
                 """
                 return (
-                    text, self.collection, 
+                    text, self.collection,
                     self.identifier_mapping, self.data_source_name
                 )
 
@@ -275,13 +275,13 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
             200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, "some data"
         )
         id_mapping = object()
-        (text, collection, mapping, 
+        (text, collection, mapping,
          data_source_name) = provider.import_feed_response(response, id_mapping)
         eq_("some data", text)
         eq_(provider.collection, collection)
         eq_(id_mapping, mapping)
         eq_(provider.data_source.name, data_source_name)
-            
+
 
 class MetadataWranglerCoverageProviderTest(DatabaseTest):
 
@@ -359,7 +359,7 @@ class TestBaseMetadataWranglerCoverageProvider(MetadataWranglerCoverageProviderT
                 Identifier.AXIS_360_ID,
                 Identifier.ONECLICK_ID,
                 Identifier.URI,
-            ]), 
+            ]),
             set(BaseMetadataWranglerCoverageProvider.INPUT_IDENTIFIER_TYPES)
         )
 
@@ -450,7 +450,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         id1 = self._identifier()
         id2 = self._identifier()
         assert_raises_regexp(
-            BadResponseException, 'Wrong media type', 
+            BadResponseException, 'Wrong media type',
             self.provider.process_batch, [id1, id2]
         )
         eq_([], id1.coverage_records)
@@ -462,7 +462,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
             'Internal Server Error'
         )
         assert_raises_regexp(
-            BadResponseException, "Got status code 500", 
+            BadResponseException, "Got status code 500",
             self.provider.process_batch, [id1, id2]
         )
         eq_([], id1.coverage_records)
@@ -513,11 +513,11 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         # This identifier was reaped...
         cr = self._coverage_record(
             pool.identifier, self.provider.data_source,
-            operation=CoverageRecord.REAP_OPERATION, 
+            operation=CoverageRecord.REAP_OPERATION,
             collection=self.collection
         )
         eq_(
-            set(original_coverage_records + [cr]), 
+            set(original_coverage_records + [cr]),
             set(identifier.coverage_records)
         )
 
@@ -545,7 +545,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         # Adding coverage for an irrelevant collection won't fix that.
         cr = self._coverage_record(
             pool.identifier, self.provider.data_source,
-            operation=self.provider.OPERATION, 
+            operation=self.provider.OPERATION,
             collection=other_collection
         )
         eq_([identifier], qu.all())
@@ -553,7 +553,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         # Adding coverage for the relevant collection will.
         cr = self._coverage_record(
             pool.identifier, self.provider.data_source,
-            operation=self.provider.OPERATION, 
+            operation=self.provider.OPERATION,
             collection=self.provider.collection
         )
         eq_([], qu.all())
@@ -574,7 +574,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         # from self.provider.collection.
         cr = self._coverage_record(
             pool.identifier, self.provider.data_source,
-            operation=CoverageRecord.REAP_OPERATION, 
+            operation=CoverageRecord.REAP_OPERATION,
             collection=other_collection
         )
 
@@ -610,7 +610,7 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         )
 
         # The book starts showing up in items_that_need_coverage.
-        eq_([pool.identifier], 
+        eq_([pool.identifier],
             provider_with_cutoff.items_that_need_coverage().all())
 
     def test_items_that_need_coverage_respects_count_as_covered(self):
@@ -620,12 +620,12 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
             identifier_type=Identifier.OVERDRIVE_ID,
         )
         cr = self._coverage_record(
-            pool.identifier, self.provider.data_source, 
+            pool.identifier, self.provider.data_source,
             operation=self.provider.operation,
             status=CoverageRecord.TRANSIENT_FAILURE,
             collection=self.collection
         )
-        
+
         # Ordinarily, a transient failure does not count as coverage.
         [needs_coverage] = self.provider.items_that_need_coverage().all()
         eq_(needs_coverage, pool.identifier)
@@ -842,7 +842,7 @@ class TestMetadataUploadCoverageProvider(DatabaseTest):
         # We don't have a CoverageRecord yet, so the book doesn't show up.
         items = self.provider.items_that_need_coverage().all()
         eq_([], items)
-        
+
         cr = self._coverage_record(
             pool.identifier, self.provider.data_source,
             operation=self.provider.OPERATION, collection=self.collection

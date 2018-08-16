@@ -11,8 +11,8 @@ package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
 from core.model import (
-    production_session, 
-    Contributor, 
+    production_session,
+    Contributor,
 )
 
 _db = production_session()
@@ -24,7 +24,7 @@ print contributors.count()
 for contributor in contributors:
     display_name, family_name = contributor.default_names()
     print "%s/%s: %s => %s, %s => %s" % (
-        contributor.id, 
+        contributor.id,
         contributor.name,
         contributor.display_name, display_name,
         contributor.family_name, family_name

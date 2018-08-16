@@ -14,7 +14,7 @@ from core.model import (
 )
 
 class TestMARCExtractor(object):
-    
+
     def sample_data(self, filename):
         return sample_data(filename, "marc")
 
