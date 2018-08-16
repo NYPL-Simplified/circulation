@@ -20,7 +20,7 @@ from util import (
     Bigrams,
     english_bigrams,
     LanguageCodes,
-    LookupDict,
+    LookupTable,
     MetadataSimilarity,
     MoneyUtility,
     TitleProcessor,
@@ -369,10 +369,10 @@ class TestMetadataSimilarity(object):
         eq_(1, MetadataSimilarity.author_similarity([], []))
 
 
-class TestLookupDict(object):
+class TestLookupTable(object):
 
     def test_lookup(self):
-        d = LookupDict()
+        d = LookupTable()
         d['key'] = 'value'
         eq_('value', d['key'])
         eq_(None, d['missing'])

@@ -65,13 +65,13 @@ def slugify(text, length_limit=None):
         slug = slug[:length_limit]
     return unicode(slug)
 
-class LookupDict(dict):
+class LookupTable(dict):
     """Return None on x[key] when 'key' isn't in the dictionary,
     rather than raising a ValueError.
     """
     def __getitem__(self, k):
         if k in self:
-            return super(LookupDict, self).__getitem__(k)
+            return super(LookupTable, self).__getitem__(k)
         else:
             return None
 
@@ -83,10 +83,10 @@ class LanguageCodes(object):
     http://www.loc.gov/standards/iso639-2/ISO-639-2_utf-8.txt
     """
 
-    two_to_three = LookupDict()
-    three_to_two = LookupDict()
+    two_to_three = LookupTable()
+    three_to_two = LookupTable()
     english_names = defaultdict(list)
-    english_names_to_three = LookupDict()
+    english_names_to_three = LookupTable()
     native_names = defaultdict(list)
 
     RAW_DATA = u"""aar||aa|Afar|afar
