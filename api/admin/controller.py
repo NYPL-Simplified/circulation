@@ -2496,18 +2496,17 @@ class SettingsController(AdminCirculationManagerController):
                     protocolClass = protocolClassFound
 
             if protocolClass:
+                value = None
                 if (collectionProtocol == OPDSImportMonitor.PROTOCOL):
                     protocolClass = OPDSImportMonitor
                     value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, collection, OPDSImporter)
-                else:
+                elif issubclass(protocolClass, HasSelfTests):
                     value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, collection)
 
                 if (value):
                     return Response(_("Successfully ran new self tests"), 200)
-                else:
-                    return FAILED_TO_RUN_SELF_TESTS
 
-            return UNKNOWN_PROTOCOL
+            return FAILED_TO_RUN_SELF_TESTS
 
     def collections(self):
         protocols = self._get_collection_protocols(self.PROVIDER_APIS)
