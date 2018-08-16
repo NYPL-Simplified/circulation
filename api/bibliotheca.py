@@ -71,7 +71,8 @@ from core.monitor import (
 from core.util.web_publication_manifest import AudiobookManifest
 from core.util.xmlparser import XMLParser
 from core.util.http import (
-    BadResponseException
+    BadResponseException,
+    HTTP
 )
 
 from circulation_exceptions import *
@@ -89,9 +90,6 @@ from core.metadata_layer import (
 )
 
 from core.testing import DatabaseTest
-
-from core.util.http import HTTP
-from core.util.xmlparser import XMLParser
 
 class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
 
