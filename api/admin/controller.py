@@ -1417,7 +1417,6 @@ class PatronController(AdminCirculationManagerController):
         patrondata = self._load_patrondata(authenticator)
         if isinstance(patrondata, ProblemDetail):
             return patrondata
-
         # Turn the Identifier into a Patron object.
         try:
             patron, is_new = patrondata.get_or_create_patron(

@@ -412,6 +412,14 @@ def patron_auth_service(service_id):
 def lookup_patron():
     return app.manager.admin_patron_controller.lookup_patron()
 
+@app.route("/admin/manage_patrons/reset_adobe_id", methods=['GET', 'POST'])
+@has_library
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def reset_adobe_id():
+    return app.manager.admin_patron_controller.reset_adobe_id()
+
 @app.route("/admin/metadata_services", methods=['GET', 'POST'])
 @returns_json_or_response_or_problem_detail
 @requires_admin
