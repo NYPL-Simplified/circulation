@@ -82,10 +82,6 @@ class BibliothecaAPITest(DatabaseTest):
     @classmethod
     def sample_data(self, filename):
         return sample_data(filename, 'bibliotheca')
-    @classmethod
-    def get_data(cls, filename):
-        path = os.path.join(cls.resource_path, filename)
-        return open(path).read()
 
 class TestBibliothecaAPI(BibliothecaAPITest):
 
@@ -204,7 +200,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         assert headers['3mcl-Authorization'] != expect
 
     def test_bibliographic_lookup(self):
-        data = self.get_data("item_metadata_single.xml")
+        data = self.sample_data("item_metadata_single.xml")
         metadata = []
         self.api.queue_response(200, content=data)
         identifier = self._identifier()
@@ -1116,7 +1112,7 @@ class TestItemListParser(BibliothecaAPITest):
             f("Action &amp;amp; Adventure,Science Fiction, Fantasy, Magic,Renaissance,"))
 
     def test_item_list(cls):
-        data = cls.get_data("item_metadata_list_mini.xml")
+        data = cls.sample_data("item_metadata_list_mini.xml")
         data = list(ItemListParser().parse(data))
 
         # There should be 2 items in the list.
@@ -1165,7 +1161,7 @@ class TestItemListParser(BibliothecaAPITest):
         assert description.content.startswith("<b>Winner")
 
     def test_multiple_contributor_roles(self):
-        data = self.get_data("item_metadata_audio.xml")
+        data = self.sample_data("item_metadata_audio.xml")
         [data] = list(ItemListParser().parse(data))
         names_and_roles = []
         for c in data.contributors:
@@ -1212,7 +1208,7 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
         provider = BibliothecaBibliographicCoverageProvider(
             self.collection, api_class=MockBibliothecaAPI
         )
-        data = self.get_data("item_metadata_single.xml")
+        data = self.sample_data("item_metadata_single.xml")
 
         # We can't use self.api because that's not the same object
         # as the one created by the coverage provider.
