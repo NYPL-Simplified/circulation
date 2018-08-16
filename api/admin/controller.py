@@ -2478,7 +2478,9 @@ class SettingsController(AdminCirculationManagerController):
                 )
 
                 if col.protocol in [p.get("name") for p in protocols]:
-                    [protocolClass] = [p for p in self.PROVIDER_APIS if p.NAME == col.protocol]
+                    protocolClassFound = [p for p in self.PROVIDER_APIS if p.NAME == col.protocol]
+                    if len(protocolClassFound) == 1:
+                        [protocolClass] = protocolClassFound
 
                 collection["self_test_results"] = self._get_prior_test_results(col, protocolClass)
             return dict(collection=collection)
@@ -2492,8 +2494,9 @@ class SettingsController(AdminCirculationManagerController):
                 collectionProtocol = col.protocol
 
                 if collectionProtocol in [p.get("name") for p in protocols]:
-                    [protocolClassFound] = [p for p in self.PROVIDER_APIS if p.NAME == col.protocol]
-                    protocolClass = protocolClassFound
+                    protocolClassFound = [p for p in self.PROVIDER_APIS if p.NAME == col.protocol]
+                    if len(protocolClassFound) == 1:
+                        [protocolClass] = protocolClassFound
 
             if protocolClass:
                 value = None
@@ -2554,8 +2557,9 @@ class SettingsController(AdminCirculationManagerController):
                                 value = c.external_integration.setting(key).value
                             collection["settings"][key] = value
 
-                    [protocolClassFound] = [p for p in self.PROVIDER_APIS if p.NAME == c.protocol]
-                    protocolClass = protocolClassFound
+                    protocolClassFound = [p for p in self.PROVIDER_APIS if p.NAME == c.protocol]
+                    if len(protocolClassFound) == 1:
+                        [protocolClass] = protocolClassFound
 
                 collection["self_test_results"] = self._get_prior_test_results(c, protocolClass)
                 collections.append(collection)
