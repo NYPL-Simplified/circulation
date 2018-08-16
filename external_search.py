@@ -209,7 +209,6 @@ class ExternalSearchIndex(object):
         alias to point to the new index.
         """
         index = new_index or self.works_index
-
         if self.indices.exists(index):
             self.indices.delete(index)
 

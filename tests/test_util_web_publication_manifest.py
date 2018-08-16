@@ -55,15 +55,15 @@ class TestManifest(object):
             dict['links']
         )
 
-    def test_add_spine(self):
+    def test_add_reading_order(self):
         manifest = Manifest()
-        manifest.add_spine("http://foo/", "text/html", "Chapter 1",
+        manifest.add_reading_order("http://foo/", "text/html", "Chapter 1",
                            extra="value")
         dict = manifest.as_dict
         eq_(
             [{'href': 'http://foo/', 'type': 'text/html', 'title': 'Chapter 1',
               'extra': 'value'}],
-            dict['spine']
+            dict['readingOrder']
         )
 
     def test_add_resource(self):
