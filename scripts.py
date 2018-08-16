@@ -40,7 +40,7 @@ from sqlalchemy.orm.exc import (
 from sqlalchemy.orm import Session
 
 from app_server import ComplaintController
-from axis import Axis360BibliographicCoverageProvider
+# from axis import Axis360BibliographicCoverageProvider
 from config import Configuration, CannotLoadConfiguration
 from coverage import CollectionCoverageProviderJob
 from lane import Lane
@@ -843,7 +843,8 @@ class BibliographicRefreshScript(RunCollectionCoverageProviderScript, Identifier
     """
 
     PROVIDER_CLASSES = (
-        Axis360BibliographicCoverageProvider,
+        # Axis360BibliographicCoverageProvider,
+        # BibliothecaBibliographicCoverageProvider,
         OneClickBibliographicCoverageProvider,
         OverdriveBibliographicCoverageProvider,
     )

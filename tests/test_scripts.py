@@ -2328,7 +2328,7 @@ class TestBibliographicRefreshScript(DatabaseTest):
 
         script = BibliographicRefreshScript(_db=self._db)
         # There is a provider for each Collection.
-        eq_(3, len(script.providers))
+        eq_(2, len(script.providers))
         # None of the providers are OverdriveBibliographicCoverageProviders.
         assert not filter(
             lambda p: p.DATA_SOURCE_NAME == DataSource.OVERDRIVE,
@@ -2336,7 +2336,7 @@ class TestBibliographicRefreshScript(DatabaseTest):
         )
 
     def test_replacement_policy_set_at_initialization(self):
-        collection = self.create_collection_for_data_source(DataSource.AXIS_360)
+        collection = self.create_collection_for_data_source(DataSource.ONECLICK)
         mirror = object()
         script = BibliographicRefreshScript(
             _db=self._db, link_content=True, mirror=mirror
