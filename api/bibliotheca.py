@@ -397,7 +397,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI, HasSelfTests):
             output_key = 'findaway:' + findaway_extension
             encrypted[output_key] = value
 
-        # Add the spine items. All of them are in the same format.
+        # Add the readingOrder items. All of them are in the same format.
         # None of them will have working 'href' fields -- it's just to
         # give the client a picture of the structure of the timeline.
         audio_format = findaway_license.get('format')
@@ -429,17 +429,17 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI, HasSelfTests):
             sequence = int(part.get('sequence', 0))
             kwargs[sequence_key] = sequence
 
-            manifest.add_spine(
+            manifest.add_reading_order(
                 href=None, title=title, duration=duration,
                 type=part_media_type, **kwargs
             )
             total_duration += duration
 
-        # Make sure the spine items are sorted by part (~="part" in a
+        # Make sure the readingOrder items are sorted by part (~="part" in a
         # book) and then sequence (~="chapter" in a book).
         def sort_key(item):
             return (item[part_key], item[sequence_key])
-        manifest.spine.sort(key=sort_key)
+        manifest.readingOrder.sort(key=sort_key)
 
         manifest.metadata['duration'] = total_duration
         return DeliveryMechanism.FINDAWAY_DRM, unicode(manifest)
