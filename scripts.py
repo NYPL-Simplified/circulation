@@ -106,11 +106,6 @@ from util.worker_pools import (
     DatabasePool,
 )
 
-from bibliotheca import (
-    BibliothecaBibliographicCoverageProvider,
-)
-
-
 class Script(object):
 
     @property
@@ -849,7 +844,7 @@ class BibliographicRefreshScript(RunCollectionCoverageProviderScript, Identifier
 
     PROVIDER_CLASSES = (
         # Axis360BibliographicCoverageProvider,
-        BibliothecaBibliographicCoverageProvider,
+        # BibliothecaBibliographicCoverageProvider,
         OneClickBibliographicCoverageProvider,
         OverdriveBibliographicCoverageProvider,
     )

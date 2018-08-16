@@ -65,6 +65,17 @@ def slugify(text, length_limit=None):
         slug = slug[:length_limit]
     return unicode(slug)
 
+class LookupTable(dict):
+    """Return None on x[key] when 'key' isn't in the dictionary,
+    rather than raising a ValueError.
+    """
+    def __getitem__(self, k):
+        if k in self:
+            return super(LookupTable, self).__getitem__(k)
+        else:
+            return None
+
+
 class LanguageCodes(object):
     """Convert between ISO-639-2 and ISO-693-1 language codes.
 
@@ -72,10 +83,10 @@ class LanguageCodes(object):
     http://www.loc.gov/standards/iso639-2/ISO-639-2_utf-8.txt
     """
 
-    two_to_three = defaultdict(lambda: None)
-    three_to_two = defaultdict(lambda: None)
+    two_to_three = LookupTable()
+    three_to_two = LookupTable()
     english_names = defaultdict(list)
-    english_names_to_three = defaultdict(lambda: None)
+    english_names_to_three = LookupTable()
     native_names = defaultdict(list)
 
     RAW_DATA = u"""aar||aa|Afar|afar
