@@ -12,9 +12,6 @@ import urlparse
 import time
 import hmac
 import hashlib
-import os
-import re
-import logging
 
 from flask_babel import lazy_gettext as _
 
