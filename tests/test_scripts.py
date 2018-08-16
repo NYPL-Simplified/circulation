@@ -2320,7 +2320,7 @@ class TestBibliographicRefreshScript(DatabaseTest):
             DataSource.AXIS_360,
             DataSource.BIBLIOTHECA,
             DataSource.ONECLICK,
-            DataSource.BIBLIOTHECA,
+            DataSource.ONECLICK,
         ]
         collections = list()
         for source in sources:
@@ -2328,7 +2328,7 @@ class TestBibliographicRefreshScript(DatabaseTest):
 
         script = BibliographicRefreshScript(_db=self._db)
         # There is a provider for each Collection.
-        eq_(4, len(script.providers))
+        eq_(3, len(script.providers))
         # None of the providers are OverdriveBibliographicCoverageProviders.
         assert not filter(
             lambda p: p.DATA_SOURCE_NAME == DataSource.OVERDRIVE,
@@ -2747,4 +2747,3 @@ class TestNYTBestSellerListsScript(object):
 class TestRefreshMaterializedViewsScript(object):
     """TODO"""
     pass
-
