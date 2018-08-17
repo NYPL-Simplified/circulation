@@ -106,44 +106,9 @@ class Manifest(JSONable):
             self.add_link(edition.cover_thumbnail_url, 'cover')
 
 
-class TimelinePart(JSONable):
-    """A single element in an Audiobook Manifest's 'timeline'.
-
-    This has its own class because it can contain child TimelineParts,
-    recursively, making it qualitatively more complicated than an
-    entry in 'links' or 'readingOrder'.
-    """
-    def __init__(self, href, title, children=None, **kwargs):
-        self.href = href
-        self.title = title
-        self.children = children or []
-        self.extra = kwargs
-
-    def add_child(self, href, title, children=None, **kwargs):
-        self.children.append(TimelinePart(href, title, children, **kwargs))
-
-    @property
-    def as_dict(self):
-        data = dict(href=self.href, title=self.title)
-        if self.children:
-            data['children'] = [x.as_dict for x in self.children]
-        data.update(self.extra)
-        return data
-
-
 class AudiobookManifest(Manifest):
     """A Python object corresponding to a Readium Web Publication
     Manifest.
     """
 
     DEFAULT_TYPE = Manifest.AUDIOBOOK_TYPE
-
-    @property
-    def component_lists(self):
-        return super(AudiobookManifest, self).component_lists + ('timeline',)
-
-    def add_timeline(self, href, title, children=None, **kwargs):
-        """Add an item to the timeline."""
-        part = TimelinePart(href, title, children, **kwargs)
-        self.timeline.append(part)
-        return part
