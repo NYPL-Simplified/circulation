@@ -368,7 +368,6 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
     }
 
     def __init__(self, _db, collection):
-        # super(OdiloAPI, self).__init__(_db, collection)
         self.odilo_bibliographic_coverage_provider = (
             OdiloBibliographicCoverageProvider(
                 collection, api_class=self
@@ -852,7 +851,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
     def _do_get(url, headers, **kwargs):
         # More time please
         if 'timeout' not in kwargs:
-            kwargs['timeout'] = 600
+            kwargs['timeout'] = 60
 
         if 'allow_redirects' not in kwargs:
             kwargs['allow_redirects'] = True
@@ -864,7 +863,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
     def _do_post(url, payload, headers, **kwargs):
         # More time please
         if 'timeout' not in kwargs:
-            kwargs['timeout'] = 600
+            kwargs['timeout'] = 60
 
         return HTTP.post_with_timeout(url, payload, headers=headers, **kwargs)
 
@@ -951,35 +950,6 @@ class OdiloCirculationMonitor(CollectionMonitor):
 
         return url
 
-
-class FullOdiloCollectionMonitor(OdiloCirculationMonitor):
-    """Monitor every single book in the Odilo collection.
-
-    This tells us about books added to the Odilo collection that
-    are not found in our collection.
-    """
-    SERVICE_NAME = "Odilo Full Collection Overview"
-    INTERVAL_SECONDS = 3600 * 4
-
-    def run_once(self, start=None, cutoff=None):
-        """Ignore the dates and return all IDs."""
-        self.log.info("Starting recently_changed_ids, start: " + str(start) + ", cutoff: " + str(cutoff))
-
-        start_time = datetime.datetime.now()
-        self.all_ids(None)
-        finish_time = datetime.datetime.now()
-
-        time_elapsed = finish_time - start_time
-        self.log.info("recently_changed_ids finished in: " + str(time_elapsed))
-
-
-class RecentOdiloCollectionMonitor(OdiloCirculationMonitor):
-    """Monitor recently changed books in the Odilo collection."""
-
-    SERVICE_NAME = "Odilo Collection Recent Monitor"
-    INTERVAL_SECONDS = 60
-
-
 class MockOdiloAPI(OdiloAPI):
     def patron_request(self, patron, pin, *args, **kwargs):
         response = self._make_request(*args, **kwargs)
@@ -990,7 +960,7 @@ class MockOdiloAPI(OdiloAPI):
         # The last item in the record of the request is keyword arguments.
         # Stick this information in there to minimize confusion.
         original_data[-1]['_patron'] = patron
-        original_data[-1]['_pin'] = patron
+        original_data[-1]['_pin'] = pin
         return response
     @classmethod
     def mock_collection(cls, _db):
