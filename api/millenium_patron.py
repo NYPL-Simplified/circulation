@@ -215,8 +215,11 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             return True
         return False
 
-    def _remote_patron_lookup(self, patron_or_patrondata):
-        identifier = patron_or_patrondata.authorization_identifier
+    def _remote_patron_lookup(self, patron_or_patrondata_or_identifier):
+        if isinstance(patron_or_patrondata_or_identifier, basestring):
+            identifier = patron_or_patrondata_or_identifier
+        else:
+            identifier = patron_or_patrondata_or_identifier.authorization_identifier
         """Look up patron information for the given identifier."""
         path = "%(barcode)s/dump" % dict(barcode=identifier)
         url = self.root + path

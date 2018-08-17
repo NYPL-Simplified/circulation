@@ -1642,7 +1642,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
 
     def remote_patron_lookup(self, patron_or_patrondata):
         patron_info = self._remote_patron_lookup(patron_or_patrondata)
-        return self.enforce_library_identifier_restriction(patron_info)
+        return self.enforce_library_identifier_restriction(patron_info.authorization_identifier, patron_info)
 
     @property
     def collects_password(self):
