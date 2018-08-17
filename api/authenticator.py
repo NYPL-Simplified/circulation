@@ -1647,7 +1647,10 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         the patron belongs to the library associated with thie BasicAuthenticationProvider."""
 
         patron_info = self._remote_patron_lookup(patron_or_patrondata)
-        return self.enforce_library_identifier_restriction(patron_info.authorization_identifier, patron_info)
+        if patron_info:
+            return self.enforce_library_identifier_restriction(patron_info.authorization_identifier, patron_info)
+        else:
+            return patron_info
 
     @property
     def collects_password(self):
