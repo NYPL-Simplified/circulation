@@ -1379,9 +1379,9 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         )
 
 
-    #BasicAuthenticationProvider defines remote_patron_lookup to call this
-    #method and then do something additional; by default, we want the core
-    #lookup mechanism to work the same way as AuthenticationProvider.remote_patron_lookup.
+    # BasicAuthenticationProvider defines remote_patron_lookup to call this
+    # method and then do something additional; by default, we want the core
+    # lookup mechanism to work the same way as AuthenticationProvider.remote_patron_lookup.
 
     _remote_patron_lookup = remote_patron_lookup
 
