@@ -1378,6 +1378,11 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
             patron_or_patrondata
         )
 
+
+    #BasicAuthenticationProvider defines remote_patron_lookup to call this
+    #method and then do something additional; by default, we want the core
+    #lookup mechanism to work the same way as AuthenticationProvider.remote_patron_lookup.
+
     _remote_patron_lookup = remote_patron_lookup
 
     def _authentication_flow_document(self, _db):
@@ -1637,10 +1642,10 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             or self.DEFAULT_PASSWORD_LABEL
         )
 
-    def _remote_patron_lookup(self, patron_or_patrondata):
-        return super(BasicAuthenticationProvider, self)._remote_patron_lookup(patron_or_patrondata)
-
     def remote_patron_lookup(self, patron_or_patrondata):
+        """Ask the remote for information about this patron, and then make sure
+        the patron belongs to the library associated with thie BasicAuthenticationProvider."""
+
         patron_info = self._remote_patron_lookup(patron_or_patrondata)
         return self.enforce_library_identifier_restriction(patron_info.authorization_identifier, patron_info)
 
