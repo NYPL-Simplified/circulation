@@ -22,7 +22,7 @@ class SummaryEvaluator(object):
     All else being equal, a shorter summary is better.
 
     A summary is penalized for apparently not being in English.
-    """   
+    """
 
     # These phrases are indicative of a description we can't use for
     # whatever reason.

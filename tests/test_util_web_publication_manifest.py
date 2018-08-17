@@ -51,19 +51,19 @@ class TestManifest(object):
         manifest.add_link("http://foo/", "self", extra="value")
         dict = manifest.as_dict
         eq_(
-            [{'href': 'http://foo/', 'rel': 'self', 'extra': 'value'}], 
+            [{'href': 'http://foo/', 'rel': 'self', 'extra': 'value'}],
             dict['links']
         )
 
-    def test_add_spine(self):
+    def test_add_reading_order(self):
         manifest = Manifest()
-        manifest.add_spine("http://foo/", "text/html", "Chapter 1",
+        manifest.add_reading_order("http://foo/", "text/html", "Chapter 1",
                            extra="value")
         dict = manifest.as_dict
         eq_(
             [{'href': 'http://foo/', 'type': 'text/html', 'title': 'Chapter 1',
-              'extra': 'value'}], 
-            dict['spine']
+              'extra': 'value'}],
+            dict['readingOrder']
         )
 
     def test_add_resource(self):
@@ -71,7 +71,7 @@ class TestManifest(object):
         manifest.add_resource("http://foo/", "text/html", extra="value")
         dict = manifest.as_dict
         eq_(
-            [{'href': 'http://foo/', 'type': 'text/html', 'extra': 'value'}], 
+            [{'href': 'http://foo/', 'type': 'text/html', 'extra': 'value'}],
             dict['resources']
         )
 
@@ -121,9 +121,9 @@ class TestUpdateBibliographicMetadata(DatabaseTest):
 class TestTimelinePart(object):
 
     expect = {
-        'href': 'http://foo/pt1', 
+        'href': 'http://foo/pt1',
         'title': 'Part 1',
-        'children': [{'extra': 'value', 'href': 'http://foo/ch1', 
+        'children': [{'extra': 'value', 'href': 'http://foo/ch1',
                       'title': 'Chapter 1'}]
     }
 
@@ -164,6 +164,6 @@ class TestAudiobookManifest(object):
 
         dict = manifest.as_dict
         eq_(
-            [{'href': 'http://foo/pt1', 'title': 'Part 1', 'extra': 'value'}], 
+            [{'href': 'http://foo/pt1', 'title': 'Part 1', 'extra': 'value'}],
             dict['timeline']
         )

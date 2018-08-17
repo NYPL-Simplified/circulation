@@ -13,7 +13,7 @@ from util.opds_writer import (
 class TestOPDSMessage(object):
 
     def test_equality(self):
-        
+
         a = OPDSMessage("urn", 200, "message")
         eq_(a,a)
         assert a != None
@@ -29,7 +29,7 @@ class TestOPDSMessage(object):
         a = OPDSMessage("urn", 200, "message")
         text = etree.tostring(a.tag)
         eq_(text, str(a))
-        
+
         # Verify that we start with a simplified:message tag.
         assert text.startswith('<simplified:message')
 

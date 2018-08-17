@@ -12,11 +12,11 @@ from facets import (
 
 
 class TestFacetConfig(DatabaseTest):
-   
+
     def test_from_library(self):
         library = self._default_library
         order_by = Facets.ORDER_FACET_GROUP_NAME
-    
+
         # When you create a FacetConfig from a Library it implements
         # enabled_facets() and default_facet() the same as the Library
         # does.
@@ -27,7 +27,7 @@ class TestFacetConfig(DatabaseTest):
                 library.enabled_facets(group))
             eq_(config.default_facet(group),
                 library.default_facet(group))
-            
+
         # If you then modify the FacetConfig, it deviates from what
         # the Library would do.
         config.set_default_facet(order_by, Facets.ORDER_RANDOM)

@@ -29,4 +29,4 @@ if loggly_conf:
     )
     integration.password = loggly_conf.get('token')
 _db.commit()
-    
+

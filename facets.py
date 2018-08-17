@@ -39,7 +39,7 @@ class FacetConstants(object):
     ORDER_SERIES_POSITION = 'series'
     ORDER_WORK_ID = 'work_id'
     ORDER_RANDOM = 'random'
-    # Some order facets, like series and work id, 
+    # Some order facets, like series and work id,
     # only make sense in certain contexts.
     # These are the options that can be enabled
     # for all feeds as a library-wide setting.
@@ -117,7 +117,7 @@ class FacetConfig(object):
     Library, and allows modifications to the enabled
     and default facets. For use when a controller needs to
     use a facet configuration different from the site-wide
-    facets. 
+    facets.
     """
     @classmethod
     def from_library(cls, library):
@@ -129,7 +129,7 @@ class FacetConfig(object):
         default_facets = dict()
         for group in FacetConstants.DEFAULT_FACET.keys():
             default_facets[group] = library.default_facet(group)
-        
+
         return FacetConfig(enabled_facets, default_facets)
 
     def __init__(self, enabled_facets, default_facets, entrypoints=[]):

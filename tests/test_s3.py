@@ -111,7 +111,7 @@ class TestS3Uploader(S3UploaderTest):
         eq_("https://s3.amazonaws.com/a-bucket/a-path", m("a-bucket", "a-path"))
         eq_("https://s3.amazonaws.com/a-bucket/a-path", m("a-bucket", "/a-path"))
         eq_("http://a-bucket.com/a-path", m("http://a-bucket.com/", "a-path"))
-        eq_("https://a-bucket.com/a-path", 
+        eq_("https://a-bucket.com/a-path",
             m("https://a-bucket.com/", "/a-path"))
 
     def test_final_mirror_url(self):
@@ -132,7 +132,7 @@ class TestS3Uploader(S3UploaderTest):
     def test_key_join(self):
         """Test the code used to build S3 keys from parts."""
         parts = ["Gutenberg", "Gutenberg ID", 1234, "Die Flügelmaus.epub"]
-        eq_('Gutenberg/Gutenberg+ID/1234/Die+Fl%C3%BCgelmaus.epub', 
+        eq_('Gutenberg/Gutenberg+ID/1234/Die+Fl%C3%BCgelmaus.epub',
             S3Uploader.key_join(parts))
 
     def test_cover_image_root(self):
@@ -175,10 +175,10 @@ class TestS3Uploader(S3UploaderTest):
 
         # The default extension is .epub, but a custom extension can
         # be specified.
-        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg+ID/ABOOK.pdf', 
+        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg+ID/ABOOK.pdf',
             m(identifier, extension='pdf'))
 
-        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg+ID/ABOOK.pdf', 
+        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg+ID/ABOOK.pdf',
             m(identifier, extension='.pdf'))
 
         # If a data source is provided, the book is stored underneath the
@@ -220,7 +220,7 @@ class TestS3Uploader(S3UploaderTest):
         original_cover_location = "http://example.com/a-cover.png"
         content = open(self.sample_cover_path("test-book-cover.png")).read()
         cover, ignore = pool.add_link(
-            Hyperlink.IMAGE, original_cover_location, edition.data_source, 
+            Hyperlink.IMAGE, original_cover_location, edition.data_source,
             Representation.PNG_MEDIA_TYPE,
             content=content
         )
@@ -320,7 +320,7 @@ class TestS3Uploader(S3UploaderTest):
         uploader.client.fail_with = Exception("crash!")
         assert_raises(Exception, uploader.mirror_one, epub_rep, self._url)
 
-    def test_automatic_conversion_while_mirroring(self):
+    def test_svg_mirroring(self):
         edition, pool = self._edition(with_license_pool=True)
         original = self._url
 
@@ -332,7 +332,7 @@ class TestS3Uploader(S3UploaderTest):
     <ellipse cx="50" cy="25" rx="50" ry="25" style="fill:blue;"/>
 </svg>"""
         hyperlink, ignore = pool.add_link(
-            Hyperlink.IMAGE, original, edition.data_source, 
+            Hyperlink.IMAGE, original, edition.data_source,
             Representation.SVG_MEDIA_TYPE,
             content=svg)
 
@@ -341,8 +341,6 @@ class TestS3Uploader(S3UploaderTest):
         s3.mirror_one(hyperlink.resource.representation, self._url)
         [[data, bucket, key, args, ignore]] = s3.client.uploads
 
-        # The thing that got uploaded was a PNG, not the original SVG
-        # file.
-        eq_(Representation.PNG_MEDIA_TYPE, args['ContentType'])
-        assert 'PNG' in data
-        assert 'svg' not in data
+        eq_(Representation.SVG_MEDIA_TYPE, args['ContentType'])
+        assert 'svg' in data
+        assert 'PNG' not in data

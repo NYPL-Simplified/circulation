@@ -114,7 +114,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
 
         self.api.queue_response(500)
         assert_raises_regexp(
-            BadResponseException, 
+            BadResponseException,
             ".*Got status code 500.*",
             self.api.get_library
         )
@@ -133,7 +133,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
             self._db,
             self.collection
         )
-        
+
     def test_401_on_get_refreshes_bearer_token(self):
 
         eq_("bearer token", self.api.token)
@@ -147,7 +147,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         self.api.access_token_response = self.api.mock_access_token_response(
             "new bearer token"
         )
-        
+
         # Then we retry the GET and it succeeds this time.
         self.api.queue_response(200, content="at last, the content")
 
@@ -202,7 +202,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
 
         assert_raises_regexp(
             BadResponseException,
-            ".*Got status code 401.*can only continue on: 200.",        
+            ".*Got status code 401.*can only continue on: 200.",
             self.api.refresh_creds,
             None
         )
@@ -258,7 +258,7 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         eq_('title is missing', item['id'])
         eq_(None, item['title'])
 
-                
+
     def test_link(self):
         data, raw = self.sample_json("overdrive_book_list.json")
         expect = OverdriveAPI.make_link_safe("http://api.overdrive.com/v1/collections/collection-id/products?limit=300&offset=0&lastupdatetime=2014-04-28%2009:25:09&sort=popularity:desc&formats=ebook-epub-open,ebook-epub-adobe,ebook-pdf-adobe,ebook-pdf-open")
@@ -319,19 +319,19 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         # in addition to the actual ASIN and ISBN, but they don't show up here.
         eq_(
             [
-                (Identifier.ASIN, "B000VI88N2"), 
+                (Identifier.ASIN, "B000VI88N2"),
                 (Identifier.ISBN, "9780470856246"),
                 (Identifier.OVERDRIVE_ID, '3896665d-9d81-4cac-bd43-ffc5066de1f5'),
             ],
             sorted(ids)
         )
 
-        # Available formats.      
-        [kindle, pdf] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)        
-        eq_(DeliveryMechanism.KINDLE_CONTENT_TYPE, kindle.content_type)       
-        eq_(DeliveryMechanism.KINDLE_DRM, kindle.drm_scheme)      
+        # Available formats.
+        [kindle, pdf] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)
+        eq_(DeliveryMechanism.KINDLE_CONTENT_TYPE, kindle.content_type)
+        eq_(DeliveryMechanism.KINDLE_DRM, kindle.drm_scheme)
 
-        eq_(Representation.PDF_MEDIA_TYPE, pdf.content_type)      
+        eq_(Representation.PDF_MEDIA_TYPE, pdf.content_type)
         eq_(DeliveryMechanism.ADOBE_DRM, pdf.drm_scheme)
 
         # Links to various resources.
@@ -376,11 +376,11 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
 
         eq_(None, metadata.title)
 
-        [kindle, pdf] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)        
-        eq_(DeliveryMechanism.KINDLE_CONTENT_TYPE, kindle.content_type)       
-        eq_(DeliveryMechanism.KINDLE_DRM, kindle.drm_scheme)      
+        [kindle, pdf] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)
+        eq_(DeliveryMechanism.KINDLE_CONTENT_TYPE, kindle.content_type)
+        eq_(DeliveryMechanism.KINDLE_DRM, kindle.drm_scheme)
 
-        eq_(Representation.PDF_MEDIA_TYPE, pdf.content_type)      
+        eq_(Representation.PDF_MEDIA_TYPE, pdf.content_type)
         eq_(DeliveryMechanism.ADOBE_DRM, pdf.drm_scheme)
 
 
@@ -395,7 +395,7 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(info)
 
         grade_levels = sorted(
-            [x.identifier for x in metadata.subjects 
+            [x.identifier for x in metadata.subjects
              if x.type==Subject.GRADE_LEVEL]
         )
         eq_([u'Grade 4', u'Grade 5', u'Grade 6', u'Grade 7', u'Grade 8'],
@@ -405,7 +405,7 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         raw, info = self.sample_json("has_awards.json")
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(info)
 
-        [awards] = [x for x in metadata.measurements 
+        [awards] = [x for x in metadata.measurements
                     if Measurement.AWARDS == x.quantity_measured
         ]
         eq_(1, awards.value)
@@ -419,7 +419,7 @@ class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
         returns an empty list.
         """
         eq_([], self.api.get_advantage_accounts())
-    
+
     def test_from_representation(self):
         """Test the creation of OverdriveAdvantageAccount objects
         from Overdrive's representation of a list of accounts.
@@ -454,7 +454,7 @@ class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
             "Cannot create a Collection whose parent does not already exist.",
             account.to_collection, self._db
         )
-        
+
         # So, create a Collection to be the parent.
         parent = self._collection(
             name="Parent", protocol=ExternalIntegration.OVERDRIVE,
@@ -475,7 +475,7 @@ class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
         # parent.
         eq_("%s / %s" % (parent.name, account.name), collection.name)
 
-        
+
 class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
     """Test the code that looks up bibliographic information from Overdrive."""
 
@@ -485,7 +485,7 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
             self.collection, api_class=MockOverdriveAPI
         )
         self.api = self.provider.api
-        
+
     def test_script_instantiation(self):
         """Test that RunCoverageProviderScript can instantiate
         the coverage provider.
@@ -504,7 +504,7 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         """A bad or malformed GUID can't get coverage."""
         identifier = self._identifier()
         identifier.identifier = 'bad guid'
-        
+
         error = '{"errorCode": "InvalidGuid", "message": "An invalid guid was given.", "token": "7aebce0e-2e88-41b3-b6d3-82bf15f8e1a2"}'
         self.api.queue_response(200, content=error)
 
@@ -549,10 +549,10 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         eq_(0, pool.licenses_owned)
         [lpdm1, lpdm2] = pool.delivery_mechanisms
         names = [x.delivery_mechanism.name for x in pool.delivery_mechanisms]
-        eq_(sorted([u'application/pdf (application/vnd.adobe.adept+xml)', 
+        eq_(sorted([u'application/pdf (application/vnd.adobe.adept+xml)',
                     u'Kindle via Amazon (Kindle DRM)']), sorted(names))
 
         # A Work was created and made presentation ready.
         eq_("Agile Documentation", pool.work.title)
         eq_(True, pool.work.presentation_ready)
-       
+

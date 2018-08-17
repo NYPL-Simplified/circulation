@@ -9,10 +9,10 @@ from permanent_work_id import WorkIDCalculator;
 
 def normalize_title_for_matching(title):
     """
-    Used to standardize book titles before matching them to each other to identify best results 
+    Used to standardize book titles before matching them to each other to identify best results
     in VIAF author search feeds.
 
-    Run WorkIDCalculator.normalize_title on the name, which will convert to NFKD unicode, 
+    Run WorkIDCalculator.normalize_title on the name, which will convert to NFKD unicode,
     de-lint special characters, and lowercase.
     """
     title = WorkIDCalculator.normalize_title(u''.join(title))
@@ -21,8 +21,8 @@ def normalize_title_for_matching(title):
 
 def title_match_ratio(title1, title2):
     """
-    Returns a number between 0 and 100, representing the percent 
-    match (Levenshtein Distance) between book title1 and book title2, 
+    Returns a number between 0 and 100, representing the percent
+    match (Levenshtein Distance) between book title1 and book title2,
     after each has been normalized.
     """
     title1 = normalize_title_for_matching(title1)
@@ -33,7 +33,7 @@ def title_match_ratio(title1, title2):
 
 def unfluff_title(title):
     """
-    Removes parts of the title that are deemed to be add-ons, like imprint information, 
+    Removes parts of the title that are deemed to be add-ons, like imprint information,
     inserted subtitles and corporate names.
     For example, in:
     Hello World, edited by Bob Bobbinson

@@ -63,7 +63,7 @@ class Manifest(JSONable):
 
     @property
     def component_lists(self):
-        return 'links', 'spine', 'resources'
+        return 'links', 'readingOrder', 'resources'
 
     def _append(self, append_to, **kwargs):
         append_to.append(kwargs)
@@ -71,8 +71,8 @@ class Manifest(JSONable):
     def add_link(self, href, rel, **kwargs):
         self._append(self.links, href=href, rel=rel, **kwargs)
 
-    def add_spine(self, href, type, title, **kwargs):
-        self._append(self.spine, href=href, type=type, title=title, **kwargs)
+    def add_reading_order(self, href, type, title, **kwargs):
+        self._append(self.readingOrder, href=href, type=type, title=title, **kwargs)
 
     def add_resource(self, href, type, **kwargs):
         self._append(self.resources, href=href, type=type, **kwargs)
@@ -111,7 +111,7 @@ class TimelinePart(JSONable):
 
     This has its own class because it can contain child TimelineParts,
     recursively, making it qualitatively more complicated than an
-    entry in 'links' or 'spine'.
+    entry in 'links' or 'readingOrder'.
     """
     def __init__(self, href, title, children=None, **kwargs):
         self.href = href

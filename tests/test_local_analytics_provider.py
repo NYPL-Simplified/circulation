@@ -62,7 +62,7 @@ class TestLocalAnalyticsProvider(DatabaseTest):
         # In that case, it will process events for any library.
         for library in [self._default_library, library2]:
             now = datetime.datetime.now()
-            la.collect_event(library, lp, 
+            la.collect_event(library, lp,
                              CirculationEvent.DISTRIBUTOR_CHECKIN, now,
                              old_value=None, new_value=None
             )

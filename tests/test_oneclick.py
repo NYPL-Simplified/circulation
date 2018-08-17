@@ -2,7 +2,7 @@
 
 from nose.tools import (
     assert_raises_regexp,
-    eq_, 
+    eq_,
     set_trace,
 )
 
@@ -16,7 +16,7 @@ from coverage import CoverageFailure
 
 from model import (
     Contributor,
-    DataSource, 
+    DataSource,
     DeliveryMechanism,
     Edition,
     Identifier,
@@ -37,7 +37,7 @@ from oneclick import (
 )
 
 from util.http import (
-    BadResponseException, 
+    BadResponseException,
     RemoteIntegrationException,
     HTTP,
 )
@@ -69,7 +69,7 @@ class TestOneClickAPI(OneClickTest):
     def test_availability_exception(self):
         self.api.queue_response(500)
         assert_raises_regexp(
-            BadResponseException, "Bad response from availability_search", 
+            BadResponseException, "Bad response from availability_search",
             self.api.get_all_available_through_search
         )
 
@@ -110,14 +110,14 @@ class TestOneClickAPI(OneClickTest):
         self.api.queue_response(status_code=200, content=datastr)
 
         assert_raises_regexp(
-            ValueError, 'from_date 2000-01-01 00:00:00 must be real, in the past, and less than 6 months ago.', 
+            ValueError, 'from_date 2000-01-01 00:00:00 must be real, in the past, and less than 6 months ago.',
             self.api.get_delta, from_date="2000-01-01", to_date="2000-02-01"
         )
 
         today = datetime.datetime.now()
         three_months = relativedelta(months=3)
         assert_raises_regexp(
-            ValueError, "from_date .* - to_date .* asks for too-wide date range.", 
+            ValueError, "from_date .* - to_date .* asks for too-wide date range.",
             self.api.get_delta, from_date=(today - three_months), to_date=today
         )
 
@@ -139,7 +139,7 @@ class TestOneClickAPI(OneClickTest):
     def test_get_ebook_availability_info(self):
         datastr, datadict = self.api.get_data("response_availability_ebook_1.json")
         self.api.queue_response(status_code=200, content=datastr)
-        
+
         response_list = self.api.get_ebook_availability_info()
         eq_(u'9781420128567', response_list[0]['isbn'])
         eq_(False, response_list[0]['availability'])
@@ -148,15 +148,15 @@ class TestOneClickAPI(OneClickTest):
     def test_get_metadata_by_isbn(self):
         datastr, datadict = self.api.get_data("response_isbn_notfound_1.json")
         self.api.queue_response(status_code=200, content=datastr)
-        
+
         response_dictionary = self.api.get_metadata_by_isbn('97BADISBNFAKE')
         eq_(None, response_dictionary)
 
 
         self.api.queue_response(status_code=404, content="{}")
         assert_raises_regexp(
-            BadResponseException, 
-            "Bad response from .*", 
+            BadResponseException,
+            "Bad response from .*",
             self.api.get_metadata_by_isbn, identifier='97BADISBNFAKE'
         )
 
@@ -205,10 +205,10 @@ class TestOneClickRepresentationExtractor(OneClickTest):
 
         eq_([(None, u"FICTION / Humorous / General", Subject.BISAC, 100),
 
-            (u'adult', None, Classifier.RBDIGITAL_AUDIENCE, 500), 
+            (u'adult', None, Classifier.RBDIGITAL_AUDIENCE, 500),
 
-            (u'humorous-fiction', None, Subject.RBDIGITAL, 200), 
-            (u'mystery', None, Subject.RBDIGITAL, 200), 
+            (u'humorous-fiction', None, Subject.RBDIGITAL, 200),
+            (u'mystery', None, Subject.RBDIGITAL, 200),
             (u'womens-fiction', None, Subject.RBDIGITAL, 200)
          ],
             [(x.identifier, x.name, x.type, x.weight) for x in subjects]
@@ -226,10 +226,10 @@ class TestOneClickRepresentationExtractor(OneClickTest):
             sorted(ids)
         )
 
-        # Available formats.      
-        [epub] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)        
-        eq_(Representation.EPUB_MEDIA_TYPE, epub.content_type)       
-        eq_(DeliveryMechanism.ADOBE_DRM, epub.drm_scheme)      
+        # Available formats.
+        [epub] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)
+        eq_(Representation.EPUB_MEDIA_TYPE, epub.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, epub.drm_scheme)
 
         # Links to various resources.
         shortd, image = sorted(
@@ -257,9 +257,9 @@ class TestOneClickRepresentationExtractor(OneClickTest):
         # Request only the format information.
         metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(datadict, include_bibliographic=False, include_formats=True)
         eq_(None, metadata.title)
-        [epub] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)        
-        eq_(Representation.EPUB_MEDIA_TYPE, epub.content_type)       
-        eq_(DeliveryMechanism.ADOBE_DRM, epub.drm_scheme)      
+        [epub] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)
+        eq_(Representation.EPUB_MEDIA_TYPE, epub.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, epub.drm_scheme)
 
 
     def test_book_info_metadata_no_series(self):
@@ -306,7 +306,7 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
 
         identifier = self._identifier()
         identifier.identifier = 'ISBNbadbad'
-        
+
         datastr, datadict = self.api.get_data("response_isbn_notfound_1.json")
         self.api.queue_response(status_code=200, content=datastr)
 
@@ -319,10 +319,10 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
     def test_process_item_creates_presentation_ready_work(self):
         # Test the normal workflow where we ask OneClick for data,
         # OneClick provides it, and we create a presentation-ready work.
-        
+
         datastr, datadict = self.api.get_data("response_isbn_found_1.json")
         self.api.queue_response(200, content=datastr)
-        
+
         # Here's the book mentioned in response_isbn_found_1.
         identifier = self._identifier(identifier_type=Identifier.ONECLICK_ID)
         identifier.identifier = '9780307378101'
@@ -344,7 +344,7 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
         # A Work was created and made presentation ready.
         eq_('Tea Time for the Traditionally Built', pool.work.title)
         eq_(True, pool.work.presentation_ready)
-       
+
 
 class TestOneClickSyncMonitor(DatabaseTest):
 
@@ -362,7 +362,7 @@ class TestOneClickSyncMonitor(DatabaseTest):
         self.base_path = os.path.split(__file__)[0]
         self.resource_path = os.path.join(self.base_path, "files", "oneclick")
         self.collection = MockOneClickAPI.mock_collection(self._db)
-    
+
     def get_data(self, filename):
         # returns contents of sample file as string and as dict
         path = os.path.join(self.resource_path, filename)
@@ -385,9 +385,9 @@ class TestOneClickSyncMonitor(DatabaseTest):
         # verify that we created Works, Editions, LicensePools
         works = self._db.query(Work).all()
         work_titles = [work.title for work in works]
-        expected_titles = ["Tricks", "Emperor Mage: The Immortals", 
-            "In-Flight Russian", "Road, The", "Private Patient, The", 
-            "Year of Magical Thinking, The", "Junkyard Bot: Robots Rule, Book 1, The", 
+        expected_titles = ["Tricks", "Emperor Mage: The Immortals",
+            "In-Flight Russian", "Road, The", "Private Patient, The",
+            "Year of Magical Thinking, The", "Junkyard Bot: Robots Rule, Book 1, The",
             "Challenger Deep"]
         eq_(set(expected_titles), set(work_titles))
 
@@ -422,7 +422,7 @@ class TestOneClickSyncMonitor(DatabaseTest):
         # Now we're going to run the delta monitor to change things
         # around a bit.
         #
-        
+
         # set license numbers on test pool to match what's in the
         # delta document.
         pool, made_new = LicensePool.for_foreign_id(
@@ -435,7 +435,7 @@ class TestOneClickSyncMonitor(DatabaseTest):
         pool.licenses_reserved = 2
         pool.patrons_in_hold_queue = 1
 
-        # now update that library with a sample delta            
+        # now update that library with a sample delta
         delta_monitor = OneClickDeltaMonitor(
             self._db, self.collection, api_class=MockOneClickAPI,
             api_class_kwargs=dict(base_path=self.base_path)
@@ -448,9 +448,9 @@ class TestOneClickSyncMonitor(DatabaseTest):
         # "Emperor Mage: The Immortals" got new metadata.
         works = self._db.query(Work).all()
         work_titles = [work.title for work in works]
-        expected_titles = ["Tricks", "Emperor Mage: The Immortals", 
-            "In-Flight Russian", "Road, The", "Private Patient, The", 
-            "Year of Magical Thinking, The", "Junkyard Bot: Robots Rule, Book 1, The", 
+        expected_titles = ["Tricks", "Emperor Mage: The Immortals",
+            "In-Flight Russian", "Road, The", "Private Patient, The",
+            "Year of Magical Thinking, The", "Junkyard Bot: Robots Rule, Book 1, The",
             "Challenger Deep"]
         eq_(set(expected_titles), set(work_titles))
 

@@ -52,7 +52,7 @@ from util import LanguageCodes
 from util.personal_names import name_tidy, sort_name_to_display_name
 
 from util.http import (
-    BadResponseException, 
+    BadResponseException,
     HTTP,
 )
 
@@ -63,7 +63,7 @@ class OneClickAPI(object):
     API_VERSION = "v1"
     PRODUCTION_BASE_URL = "https://api.rbdigital.com/"
     QA_BASE_URL = "http://api.rbdigitalstage.com/"
-    
+
     # Map simple nicknames to server URLs.
     SERVER_NICKNAMES = {
         "production" : PRODUCTION_BASE_URL,
@@ -74,7 +74,7 @@ class OneClickAPI(object):
 
     # a complete response returns the json structure with more data fields than a basic response does
     RESPONSE_VERBOSITY = {0:'basic', 1:'compact', 2:'complete', 3:'extended', 4:'hypermedia'}
-   
+
     log = logging.getLogger("OneClick API")
 
     def __init__(self, _db, collection):
@@ -150,22 +150,22 @@ class OneClickAPI(object):
         headers['Accept-Media'] = verbosity
         headers.update(self.authorization_headers)
 
-        # prevent the code throwing a BadResponseException when OneClick 
-        # responds with a 500, because OneClick uses 500s to indicate bad input, 
+        # prevent the code throwing a BadResponseException when OneClick
+        # responds with a 500, because OneClick uses 500s to indicate bad input,
         # rather than server error.
         # must list all 9 possibilities to use
         allowed_response_codes = ['1xx', '2xx', '3xx', '4xx', '5xx', '6xx', '7xx', '8xx', '9xx']
-        # for now, do nothing with disallowed error codes, but in the future might have 
+        # for now, do nothing with disallowed error codes, but in the future might have
         # some that will warrant repeating the request.
         disallowed_response_codes = []
 
         response = self._make_request(
             url=url, method=method, headers=headers,
-            data=data, params=params, 
-            allowed_response_codes=allowed_response_codes, 
+            data=data, params=params,
+            allowed_response_codes=allowed_response_codes,
             disallowed_response_codes=disallowed_response_codes
         )
-    
+
         if (response.content
             and 'Invalid Basic Token or permission denied' in response.content):
             raise BadResponseException(
@@ -173,7 +173,7 @@ class OneClickAPI(object):
                 debug_message=response.content,
                 status_code=502
             )
-    
+
         return response
 
 
@@ -187,8 +187,8 @@ class OneClickAPI(object):
         Calls paged search until done.
         Uses minimal verbosity for result set.
 
-        Note:  Some libraries can see other libraries' catalogs, even if the patron 
-        cannot checkout the items.  The library ownership information is in the "interest" 
+        Note:  Some libraries can see other libraries' catalogs, even if the patron
+        cannot checkout the items.  The library ownership information is in the "interest"
         fields of the response.
 
         :return A dictionary representation of the response, containing catalog count and ebook item - interest pairs.
@@ -196,7 +196,7 @@ class OneClickAPI(object):
         page = 0;
         response = self.search(availability='available', verbosity=self.RESPONSE_VERBOSITY[0])
 
-        try: 
+        try:
             respdict = response.json()
         except Exception, e:
             raise BadResponseException("availability_search", "OneClick availability response not parseable.")
@@ -222,14 +222,14 @@ class OneClickAPI(object):
         return respdict
 
 
-    def get_all_catalog(self): 
+    def get_all_catalog(self):
         """
         Gets the entire OneClick catalog for a particular library.
 
         Note:  This call taxes OneClick's servers, and is to be performed sparingly.
         The results are returned unpaged.
 
-        Also, the endpoint returns about as much metadata per item as the media/{isbn} endpoint does.  
+        Also, the endpoint returns about as much metadata per item as the media/{isbn} endpoint does.
         If want more metadata, perform a search.
 
         :return A list of dictionaries representation of the response.
@@ -246,12 +246,12 @@ class OneClickAPI(object):
         return response.json()
 
 
-    def get_delta(self, from_date=None, to_date=None, verbosity=None): 
+    def get_delta(self, from_date=None, to_date=None, verbosity=None):
         """
         Gets the changes to the library's catalog.
 
-        Note:  As of now, OneClick saves deltas for past 6 months, and can display them  
-        in max 2-month increments. 
+        Note:  As of now, OneClick saves deltas for past 6 months, and can display them
+        in max 2-month increments.
 
         :return A dictionary listing items added/removed/modified in the collection.
         """
@@ -306,7 +306,7 @@ class OneClickAPI(object):
     def get_ebook_availability_info(self, media_type='ebook'):
         """
         Gets a list of ebook items this library has access to, through the "availability" endpoint.
-        The response at this endpoint is laconic -- just enough fields per item to 
+        The response at this endpoint is laconic -- just enough fields per item to
         identify the item and declare it either available to lend or not.
 
         :param media_type 'eBook'/'eAudio'
@@ -319,7 +319,7 @@ class OneClickAPI(object):
             "availability": false
             "titleId": 39764
         """
-        url = "%s/libraries/%s/media/%s/availability" % (self.base_url, str(self.library_id), media_type) 
+        url = "%s/libraries/%s/media/%s/availability" % (self.base_url, str(self.library_id), media_type)
 
         response = self.request(url)
 
@@ -332,9 +332,9 @@ class OneClickAPI(object):
 
     def get_metadata_by_isbn(self, identifier):
         """
-        Gets metadata, s.a. publisher, date published, genres, etc for the 
-        eBook or eAudio item passed, using isbn to search on. 
-        If isbn is not found, the response we get from OneClick is an error message, 
+        Gets metadata, s.a. publisher, date published, genres, etc for the
+        eBook or eAudio item passed, using isbn to search on.
+        If isbn is not found, the response we get from OneClick is an error message,
         and we throw an error.
 
         :return the json dictionary of the response object
@@ -343,7 +343,7 @@ class OneClickAPI(object):
             raise ValueError("Need valid identifier to get metadata.")
 
         identifier_string = self.create_identifier_strings([identifier])[0]
-        url = "%s/libraries/%s/media/%s" % (self.base_url, str(self.library_id), identifier_string) 
+        url = "%s/libraries/%s/media/%s" % (self.base_url, str(self.library_id), identifier_string)
 
         response = self.request(url)
 
@@ -358,7 +358,7 @@ class OneClickAPI(object):
 
         if "message" in respdict:
             message = respdict['message']
-            if (message.startswith("Invalid 'MediaType', 'TitleId' or 'ISBN' token value supplied: ") or 
+            if (message.startswith("Invalid 'MediaType', 'TitleId' or 'ISBN' token value supplied: ") or
                 message.startswith("eXtensible Framework was unable to locate the resource")):
                 # we searched for item that's not in library's catalog -- a mistake, but not an exception
                 return None
@@ -399,10 +399,10 @@ class OneClickAPI(object):
                     coverage_provider.handle_success(result)
 
                     # We're populating the catalog, so we can assume the list OneClick
-                    # sent us is of books we own licenses to.  
-                    # NOTE:  TODO later:  For the 4 out of 2000 libraries that chose to display 
-                    # books they don't own, we'd need to call the search endpoint to get 
-                    # the interest field, and then deal with licenses_owned. 
+                    # sent us is of books we own licenses to.
+                    # NOTE:  TODO later:  For the 4 out of 2000 libraries that chose to display
+                    # books they don't own, we'd need to call the search endpoint to get
+                    # the interest field, and then deal with licenses_owned.
                     for lp in result.licensed_through:
                         if lp.collection == self.collection:
                             lp.licenses_owned = 1
@@ -423,7 +423,7 @@ class OneClickAPI(object):
 
 
     def populate_delta(self, months=1):
-        """ Call get_delta for the last month to get all of the library's book info changes 
+        """ Call get_delta for the last month to get all of the library's book info changes
         from OneClick.  Update Work, Edition, LicensePool objects in our database.
         """
         today = datetime.datetime.utcnow()
@@ -454,7 +454,7 @@ class OneClickAPI(object):
 
             if not metadata:
                 # generate a CoverageFailure to let the system know to revisit this book
-                # TODO:  if did not create a Work, but have a CoverageFailure for the isbn, 
+                # TODO:  if did not create a Work, but have a CoverageFailure for the isbn,
                 # check that re-processing that coverage would generate the work.
                 e = "Could not extract metadata from OneClick data: %r" % catalog_item
                 make_note = CoverageFailure(identifier, e, data_source=self.data_source, transient=True)
@@ -489,14 +489,14 @@ class OneClickAPI(object):
         return items_transmitted, items_updated
 
 
-    def search(self, mediatype='ebook', genres=[], audience=None, availability=None, author=None, title=None, 
-        page_size=100, page_index=None, verbosity=None): 
+    def search(self, mediatype='ebook', genres=[], audience=None, availability=None, author=None, title=None,
+        page_size=100, page_index=None, verbosity=None):
         """
         Form a rest-ful search query, send to OneClick, and obtain the results.
 
         :param mediatype Facet to limit results by media type.  Options are: "eAudio", "eBook".
         :param genres The books found lie at intersection of genres passed.
-        :audience Facet to limit results by target age group.  Options include (there may be more): "adult", 
+        :audience Facet to limit results by target age group.  Options include (there may be more): "adult",
             "beginning-reader", "childrens", "young-adult".
         :param availability Facet to limit results by copies left.  Options are "available", "unavailable", or None
         :param author Full name to search on.
@@ -549,11 +549,11 @@ class MockOneClickAPI(OneClickAPI):
         )
         integration = collection.create_external_integration(
             protocol=ExternalIntegration.RB_DIGITAL
-        )        
+        )
         integration.password = u'abcdef123hijklm'
         library.collections.append(collection)
         return collection
-    
+
     def __init__(self, _db, collection, base_path=None, **kwargs):
         self._collection = collection
         self.responses = []
@@ -568,7 +568,7 @@ class MockOneClickAPI(OneClickAPI):
         so there's no need to store the ID and do lookups.
         """
         return self._collection
-    
+
     def queue_response(self, status_code, headers={}, content=None):
         from testing import MockRequestsResponse
         self.responses.insert(
@@ -592,9 +592,9 @@ class MockOneClickAPI(OneClickAPI):
 
 
     def populate_all_catalog(self):
-        """ 
-        Set up to use the smaller test catalog file, and then call the real 
-        populate_all_catalog.  Used to test import on non-test permanent database.  
+        """
+        Set up to use the smaller test catalog file, and then call the real
+        populate_all_catalog.  Used to test import on non-test permanent database.
         """
         datastr, datadict = self.get_data("response_catalog_all_sample.json")
         self.queue_response(status_code=200, content=datastr)
@@ -651,9 +651,9 @@ class OneClickRepresentationExtractor(object):
 
         if include_bibliographic:
             title = book.get('title', None)
-            # NOTE: An item that's part of a series, will have the seriesName field, and 
+            # NOTE: An item that's part of a series, will have the seriesName field, and
             # will have its seriesPosition and seriesTotal fields set to >0.
-            # An item not part of a series will have the seriesPosition and seriesTotal fields 
+            # An item not part of a series will have the seriesPosition and seriesTotal fields
             # set to 0, and will not have a seriesName at all.
             # Sometimes, series position and total == 0, for many series items (ex: "seriesName": "EngLits").
             # Sometimes, seriesName is set to "Default Blank", meaning "not actually a series".
@@ -747,21 +747,21 @@ class OneClickRepresentationExtractor(object):
             if oneclick_medium and oneclick_medium not in cls.oneclick_medium_to_simplified_medium:
                 cls.log.error(
                     "Could not process medium %s for %s", oneclick_medium, oneclick_id)
-                
+
             medium = cls.oneclick_medium_to_simplified_medium.get(
                 oneclick_medium, Edition.BOOK_MEDIUM
             )
 
-            # passed to metadata.apply, the isbn_identifier will create an equivalency 
-            # between the OneClick-labeled and the ISBN-labeled identifier rows, which 
+            # passed to metadata.apply, the isbn_identifier will create an equivalency
+            # between the OneClick-labeled and the ISBN-labeled identifier rows, which
             # will in turn allow us to ask the MetadataWrangler for more info about the book.
             isbn_identifier = IdentifierData(Identifier.ISBN, oneclick_id)
 
             identifiers = [primary_identifier, isbn_identifier]
-            
+
             links = []
             # A cover and its thumbnail become a single LinkData.
-            # images come in small (ex: 71x108px), medium (ex: 95x140px), 
+            # images come in small (ex: 71x108px), medium (ex: 95x140px),
             # and large (ex: 128x192px) sizes
             if 'images' in book:
                 images = book['images']
@@ -813,13 +813,13 @@ class OneClickRepresentationExtractor(object):
                 drm_scheme = DeliveryMechanism.ADOBE_DRM
                 formats.append(FormatData(content_type, drm_scheme))
             elif metadata.medium == Edition.AUDIO_MEDIUM:
-                content_type = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, 
+                content_type = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE,
                 drm_scheme = DeliveryMechanism.NO_DRM
                 formats.append(FormatData(content_type, drm_scheme))
             else:
                 cls.log.warn("Unfamiliar format: %s", format_id)
 
-            # Make a CirculationData so we can write the formats, 
+            # Make a CirculationData so we can write the formats,
             circulationdata = CirculationData(
                 data_source=DataSource.RB_DIGITAL,
                 primary_identifier=primary_identifier,
@@ -873,13 +873,13 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             self.api = api_class(_db, collection, **api_class_kwargs)
 
     def process_item(self, identifier):
-        """ OneClick availability information is served separately from 
-        the book's metadata.  Furthermore, the metadata returned by the 
-        "book by isbn" request is less comprehensive than the data returned 
+        """ OneClick availability information is served separately from
+        the book's metadata.  Furthermore, the metadata returned by the
+        "book by isbn" request is less comprehensive than the data returned
         by the "search titles/genres/etc." endpoint.
 
-        This method hits the "by isbn" endpoint and updates the bibliographic 
-        metadata returned by it. 
+        This method hits the "by isbn" endpoint and updates the bibliographic
+        metadata returned by it.
         """
         try:
             response_dictionary = self.api.get_metadata_by_isbn(identifier)
@@ -905,7 +905,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         """
         Creates db objects corresponding to the book info passed in.
 
-        Note: It is expected that CoverageProvider.handle_success, which is responsible for 
+        Note: It is expected that CoverageProvider.handle_success, which is responsible for
         setting the work to be presentation-ready is handled in the calling code.
 
         :catalog_item - JSON representation of the book's metadata, coming from OneClick.
@@ -915,7 +915,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
 
         if not metadata:
             # generate a CoverageFailure to let the system know to revisit this book
-            # TODO:  if did not create a Work, but have a CoverageFailure for the isbn, 
+            # TODO:  if did not create a Work, but have a CoverageFailure for the isbn,
             # check that re-processing that coverage would generate the work.
             e = "Could not extract metadata from OneClick data: %r" % catalog_item
             return self.failure(identifier, e)
@@ -934,7 +934,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
 class OneClickSyncMonitor(CollectionMonitor):
 
     PROTOCOL = ExternalIntegration.RB_DIGITAL
-    
+
     def __init__(self, _db, collection, api_class=OneClickAPI,
                  api_class_kwargs={}):
         """Constructor."""
@@ -946,7 +946,7 @@ class OneClickSyncMonitor(CollectionMonitor):
         self._db.commit()
         result_string = "%s items transmitted, %s items saved to DB" % (items_transmitted, items_created)
         self.log.info(result_string)
-        
+
     def invoke(self):
         raise NotImplementedError()
 
@@ -954,12 +954,12 @@ class OneClickSyncMonitor(CollectionMonitor):
 class OneClickImportMonitor(OneClickSyncMonitor):
 
     SERVICE_NAME = "OneClick Full Import"
-    
+
     def invoke(self):
         timestamp = self.timestamp()
         if timestamp.counter and timestamp.counter > 0:
             self.log.debug(
-                "Collection %s has already had its initial import; doing nothing.", 
+                "Collection %s has already had its initial import; doing nothing.",
                 self.collection.name or self.collection.id
             )
             return 0, 0
@@ -976,7 +976,7 @@ class OneClickImportMonitor(OneClickSyncMonitor):
 class OneClickDeltaMonitor(OneClickSyncMonitor):
 
     SERVICE_NAME = "OneClick Delta Sync"
-    
+
     def invoke(self):
         return self.api.populate_delta()
 

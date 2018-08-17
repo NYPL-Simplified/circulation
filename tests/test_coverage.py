@@ -64,7 +64,7 @@ from coverage import (
 
 class TestCoverageFailure(DatabaseTest):
     """Test the CoverageFailure class."""
-    
+
     def test_to_coverage_record(self):
         source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         identifier = self._identifier()
@@ -85,7 +85,7 @@ class TestCoverageFailure(DatabaseTest):
         )
         rec = persistent_failure.to_coverage_record(operation="the_operation")
         eq_(CoverageRecord.PERSISTENT_FAILURE, rec.status)
-        eq_("Bah forever!", rec.exception)        
+        eq_("Bah forever!", rec.exception)
 
     def test_to_work_coverage_record(self):
         work = self._work()
@@ -107,7 +107,7 @@ class TestCoverageFailure(DatabaseTest):
             operation="the_operation"
         )
         eq_(CoverageRecord.PERSISTENT_FAILURE, rec.status)
-        eq_("Bah forever!", rec.exception)        
+        eq_("Bah forever!", rec.exception)
 
 
 class CoverageProviderTest(DatabaseTest):
@@ -154,14 +154,14 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         now = cutoff_time=datetime.datetime.utcnow()
         provider = ValidMock(self._db, cutoff_time=now)
-    
+
         # Class variables defined in subclasses become appropriate
         # instance variables.
         eq_("A Service (An Operation)", provider.service_name)
         eq_("An Operation", provider.operation)
         eq_(50, provider.batch_size)
         eq_(now, provider.cutoff_time)
-        
+
         # If you pass in an invalid value for batch_size, you get the default.
         provider = ValidMock(self._db, batch_size=-10)
         eq_(50, provider.batch_size)
@@ -187,7 +187,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         provider = MockProvider(self._db)
         provider.run()
         eq_(True, provider.was_run)
-        
+
     def test_run_once_and_update_timestamp(self):
         """Test that run_once_and_update_timestamp calls run_once twice and
         then updates a Timestamp.
@@ -195,14 +195,14 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         class MockProvider(BaseCoverageProvider):
             SERVICE_NAME = "I do nothing"
             run_once_calls = []
-            
+
             def run_once(self, offset, count_as_covered=None):
                 self.run_once_calls.append(count_as_covered)
-            
+
         # We start with no timestamp value.
         service_name = "I do nothing"
         eq_(None, Timestamp.value(self._db, service_name, collection=None))
-        
+
         # Instantiate the Provider, and call
         # run_once_and_update_timestamp.
         provider = MockProvider(self._db)
@@ -218,7 +218,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # success or persistent failure (DEFAULT_COUNT_AS_COVERED).
         eq_([CoverageRecord.PREVIOUSLY_ATTEMPTED,
              CoverageRecord.DEFAULT_COUNT_AS_COVERED], provider.run_once_calls)
-        
+
     def test_run_once(self):
         """Test run_once, showing how it covers items with different types of
         CoverageRecord.
@@ -226,10 +226,10 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         TODO: This could use a bit more work to show what the return
         value of run_once() means.
         """
-        
+
         # We start with no CoverageRecords.
         eq_([], self._db.query(CoverageRecord).all())
-        
+
         # Four identifiers.
         transient = self._identifier()
         persistent = self._identifier()
@@ -239,7 +239,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # This provider will try to cover them.
         provider = AlwaysSuccessfulCoverageProvider(self._db)
         data_source = provider.data_source
-        
+
         # We previously tried to cover one of them, but got a
         # transient failure.
         self._coverage_record(
@@ -249,9 +249,9 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         # Another of the four has a persistent failure.
         self._coverage_record(
-            persistent, data_source, 
+            persistent, data_source,
             status=CoverageRecord.PERSISTENT_FAILURE
-        )        
+        )
 
         # The third one has no coverage record at all.
 
@@ -259,15 +259,15 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         self._coverage_record(
             covered, data_source, status=CoverageRecord.SUCCESS
         )
-        
+
         # Now let's run the coverage provider. Every Identifier
         # that's covered will succeed, so the question is which ones
         # get covered.
         provider.run_once(0)
-        
+
         # By default, run_once() finds Identifiers that have no coverage
         # or which have transient failures.
-        
+
         [transient_failure_has_gone] = transient.coverage_records
         eq_(CoverageRecord.SUCCESS, transient_failure_has_gone.status)
 
@@ -276,7 +276,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         assert transient in provider.attempts
         assert uncovered in provider.attempts
-        
+
         # Nothing happened to the identifier that had a persistent
         # failure or the identifier that was successfully covered.
 
@@ -284,7 +284,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             [x.status for x in persistent.coverage_records])
         eq_([CoverageRecord.SUCCESS],
             [x.status for x in covered.coverage_records])
-        
+
         assert persistent not in provider.attempts
         assert covered not in provider.attempts
 
@@ -320,7 +320,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
             def finalize_batch(self):
                 self.finalized = True
-            
+
         success_provider = MockProvider(self._db)
 
         batch = [i1, i2]
@@ -331,7 +331,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         # finalize_batch() was called.
         eq_(True, success_provider.finalized)
-        
+
         # Each represented with a CoverageRecord with status='success'
         assert all(isinstance(x, CoverageRecord) for x in successes)
         eq_([CoverageRecord.SUCCESS] * 2, [x.status for x in successes])
@@ -346,7 +346,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # failures.
         class MockProvider(TransientFailureCoverageProvider):
             OPERATION = "i fail transiently"
-            
+
         transient_failure_provider = MockProvider(self._db)
         counts, failures = transient_failure_provider.process_batch_and_handle_results(batch)
         # Two transient failures.
@@ -406,7 +406,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             self._db, cutoff_time = cutoff
         )
         identifier = self._identifier()
-        
+
         # If coverage is missing, we should update.
         eq_(True, provider.should_update(None))
 
@@ -441,7 +441,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         class Base(IdentifierCoverageProvider):
             SERVICE_NAME = "Test provider"
             DATA_SOURCE_NAME = DataSource.GUTENBERG
-            
+
         class MockProvider(Base):
             INPUT_IDENTIFIER_TYPES = None
         provider = MockProvider(self._db)
@@ -499,7 +499,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         provider = AlwaysSuccessfulCoverageProvider(self._db)
         eq_(True, provider.replacement_policy.identifiers)
         eq_(False, provider.replacement_policy.formats)
-        
+
         policy = ReplacementPolicy.from_license_source(self._db)
         provider = AlwaysSuccessfulCoverageProvider(
             self._db, replacement_policy=policy
@@ -511,7 +511,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         eq_(0, len(self.identifier.coverage_records))
 
         provider = AlwaysSuccessfulCoverageProvider
-        
+
         # If a CoverageRecord doesn't exist for the provider,
         # a 'registered' record is created.
         new_record, was_registered = provider.register(self.identifier)
@@ -650,19 +650,19 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
     def test_ensure_coverage_works_on_edition(self):
         """Verify that ensure_coverage() works on an Edition by covering
         its primary identifier.
-        """        
+        """
         edition = self._edition()
         provider = AlwaysSuccessfulCoverageProvider(self._db)
         record = provider.ensure_coverage(edition)
         assert isinstance(record, CoverageRecord)
         eq_(edition.primary_identifier, record.identifier)
-        
+
     def test_ensure_coverage_respects_operation(self):
         # Two providers with the same output source but different operations.
         class Mock1(AlwaysSuccessfulCoverageProvider):
             OPERATION = "foo"
         provider1 = Mock1(self._db)
-        
+
         class Mock2(NeverSuccessfulCoverageProvider):
             OPERATION = "bar"
         provider2 = Mock2(self._db)
@@ -683,7 +683,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         new_coverage = provider1.ensure_coverage(self.identifier)
         eq_(new_coverage, coverage1)
         new_coverage.timestamp = old_timestamp
-        
+
     def test_ensure_coverage_persistent_coverage_failure(self):
 
         provider = NeverSuccessfulCoverageProvider(self._db)
@@ -718,9 +718,9 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         eq_(None,
             Timestamp.value(self._db, provider.service_name, collection=None)
         )
-        
+
     def test_ensure_coverage_changes_status(self):
-        """Verify that processing an item that has a preexisting 
+        """Verify that processing an item that has a preexisting
         CoverageRecord can change the status of that CoverageRecord.
         """
         always = AlwaysSuccessfulCoverageProvider(self._db)
@@ -755,11 +755,11 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         # because it has no Collection.
         provider = AlwaysSuccessfulCoverageProvider(self._db)
         eq_(None, provider.collection)
-        
+
         # Here's an Identifier, with no Editions.
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
         eq_([], identifier.primarily_identifies)
-        
+
         # Calling CoverageProvider.edition() on the Identifier gives
         # us a container for the provider's bibliographic information,
         # as given to us by the provider's data source.
@@ -786,16 +786,16 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         # Collection.
         provider = AlwaysSuccessfulCoverageProvider(self._db)
         eq_(None, provider.collection)
-        
+
         # It can't set circulation data, because it's not a
         # CollectionCoverageProvider.
         assert not hasattr(provider, 'set_metadata_and_circulationdata')
 
-        # But it can set metadata.        
+        # But it can set metadata.
         test_metadata = self.BIBLIOGRAPHIC_DATA
         identifier = self._identifier(
-            identifier_type=Identifier.OVERDRIVE_ID, 
-            foreign_id=self.BIBLIOGRAPHIC_DATA.primary_identifier.identifier, 
+            identifier_type=Identifier.OVERDRIVE_ID,
+            foreign_id=self.BIBLIOGRAPHIC_DATA.primary_identifier.identifier,
         )
         eq_([], identifier.primarily_identifies)
         result = provider.set_metadata(identifier, test_metadata)
@@ -849,7 +849,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
 
         # Here's a generic CoverageRecord for an identifier.
         record1 = CoverageRecord.add_for(self.identifier, provider.data_source)
-        
+
         # That record doesn't count for purposes of
         # items_that_need_coverage, because the CoverageRecord doesn't
         # have an operation, and the CoverageProvider does.
@@ -901,7 +901,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
             provider.run_on_specific_identifiers([self.identifier])
         )
 
-        # ...but we get an automatic success. We didn't even try to 
+        # ...but we get an automatic success. We didn't even try to
         # run the coverage provider on self.identifier because the
         # coverage record was up-to-date.
         eq_(1, success)
@@ -928,7 +928,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         """
 
         provider = NeverSuccessfulCoverageProvider(self._db)
-        
+
         # We start with no CoverageRecords and no Timestamp.
         eq_([], self._db.query(CoverageRecord).all())
         eq_(None,
@@ -990,7 +990,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         # This is the same as calling CoverageRecord.add_for with
         # appropriate arguments.
         record2, is_new = CoverageRecord.add_for(
-            identifier, data_source=provider.data_source, 
+            identifier, data_source=provider.data_source,
             operation=provider.operation,
             collection=provider.collection_or_not
         )
@@ -1000,7 +1000,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         # By default, the CoverageRecord is not associated with any
         # particular collection.
         eq_(None, record.collection)
-        
+
         # Setting COVERAGE_COUNTS_FOR_EVERY_COLLECTION to False will
         # change that -- a CoverageRecord will only count for the
         # collection associated with the CoverageProvider.
@@ -1009,14 +1009,14 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         eq_(self._default_collection, record.collection)
 
         record2, is_new = CoverageRecord.add_for(
-            identifier, data_source=provider.data_source, 
+            identifier, data_source=provider.data_source,
             operation=provider.operation,
             collection=provider.collection_or_not
         )
         eq_(False, is_new)
         eq_(record, record2)
 
-        
+
     def test_record_failure_as_coverage_record(self):
         """TODO: We need test coverage here."""
 
@@ -1035,7 +1035,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         # By default, the failure is not associated with any
         # particular collection.
         eq_(None, failure.collection)
-        
+
         # Setting COVERAGE_COUNTS_FOR_EVERY_COLLECTION to False
         # will change that -- a failure will only count for the
         # collection associated with the CoverageProvider.
@@ -1073,7 +1073,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             )
         ]
     )
-    
+
     def test_class_variables(self):
         """Verify that class variables become appropriate instance
         variables.
@@ -1116,7 +1116,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         eq_(True, collection_provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION)
         eq_(True, no_collection_provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION)
 
-        eq_(collection_provider.data_source, 
+        eq_(collection_provider.data_source,
             no_collection_provider.data_source)
         data_source = collection_provider.data_source
 
@@ -1176,7 +1176,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         collection_2_provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION = False
         no_collection_provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION = False
 
-        eq_(collection_1_provider.data_source, 
+        eq_(collection_1_provider.data_source,
             collection_2_provider.data_source)
         data_source = collection_1_provider.data_source
 
@@ -1235,13 +1235,13 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         )
         eq_(True, provider.replacement_policy.identifiers)
         eq_(True, provider.replacement_policy.formats)
-        
+
         policy = ReplacementPolicy.from_metadata_source()
         provider = AlwaysSuccessfulCollectionCoverageProvider(
             self._default_collection, replacement_policy=policy
         )
         eq_(policy, provider.replacement_policy)
-        
+
     def test_all(self):
         """Verify that all() gives a sequence of CollectionCoverageProvider
         objects, one for each Collection that implements the
@@ -1306,7 +1306,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         provider.collection_id = None
         failure = provider._set_circulationdata(identifier, correct)
         assert isinstance(failure, CoverageFailure)
-        
+
     def test_set_metadata_incorporates_replacement_policy(self):
         """Make sure that if a ReplacementPolicy is passed in to
         set_metadata(), the policy's settings (and those of its
@@ -1327,7 +1327,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             200, content='I am an epub.',
             media_type=Representation.EPUB_MEDIA_TYPE,
         )
-        
+
         # ..and will then be uploaded to this 'mirror'.
         mirror = MockS3Uploader()
 
@@ -1359,7 +1359,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # We get an error if the CirculationData's identifier is
         # doesn't match what we pass in.
         circulationdata = CirculationData(
-            provider.data_source, 
+            provider.data_source,
             primary_identifier=self._identifier(),
             links=[link]
         )
@@ -1371,8 +1371,8 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
 
         # Otherwise, the data is applied.
         circulationdata = CirculationData(
-            provider.data_source, 
-            primary_identifier=metadata.primary_identifier, 
+            provider.data_source,
+            primary_identifier=metadata.primary_identifier,
             links=[link]
         )
 
@@ -1386,7 +1386,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         assert mirrored.mirror_url.endswith(
             "/%s/%s.epub" % (identifier.identifier, edition.title)
         )
-        
+
         # The book content was removed from the db after it was
         # mirrored successfully.
         eq_(None, mirrored.content)
@@ -1416,7 +1416,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             self._db, cutoff_time=cutoff_time
         )
         eq_([], provider.items_that_need_coverage().all())
-        
+
         # But if we set the cutoff time to immediately after the time
         # the Identifier was covered...
         one_second_after = cutoff_time + datetime.timedelta(seconds=1)
@@ -1425,9 +1425,9 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         )
 
         # The identifier is treated as lacking coverage.
-        eq_([identifier], 
+        eq_([identifier],
             provider.items_that_need_coverage().all())
-    
+
     def test_work(self):
         """Verify that a CollectionCoverageProvider can create a Work."""
         # Here's an Gutenberg ID.
@@ -1446,7 +1446,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         result = provider.work(identifier)
         assert isinstance(result, CoverageFailure)
         eq_("Cannot locate LicensePool", result.exception)
-        
+
         # The CoverageProvider _can_ automatically create a
         # LicensePool, but since there is no Edition associated with
         # the Identifier, a Work still can't be created.
@@ -1459,7 +1459,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # with minimal bibliographic information.
         edition = provider.edition(identifier)
         edition.title = u"A title"
-        
+
         # Now we can create a Work.
         work = provider.work(identifier)
         assert isinstance(work, Work)
@@ -1510,7 +1510,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # Here's an Overdrive Identifier to work with.
         identifier = self._identifier(
             identifier_type=Identifier.OVERDRIVE_ID,
-            foreign_id=self.BIBLIOGRAPHIC_DATA.primary_identifier.identifier, 
+            foreign_id=self.BIBLIOGRAPHIC_DATA.primary_identifier.identifier,
         )
 
         # Here's a CollectionCoverageProvider that is associated with
@@ -1530,7 +1530,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         )
         assert isinstance(result, CoverageFailure)
         eq_(
-            "Received neither metadata nor circulation data from input source", 
+            "Received neither metadata nor circulation data from input source",
             result.exception
         )
 
@@ -1546,7 +1546,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         eq_("Work could not be calculated", result.exception)
 
         # Restore the title and try again. This time it will work.
-        test_metadata.title = old_title        
+        test_metadata.title = old_title
         result = provider.set_metadata_and_circulation_data(
             identifier, test_metadata, test_circulationdata
         )
@@ -1560,7 +1560,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         [pool] = identifier.licensed_through
         work = identifier.work
         eq_(work, pool.work)
-        
+
         # CoverageProviders that offer bibliographic information
         # typically don't have circulation information in the sense of
         # 'how many copies are in this Collection?', but sometimes
@@ -1584,7 +1584,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         assert isinstance(result, CoverageFailure)
         assert "ValueError" in result.exception
         test_metadata.primary_identifier = old_identifier
-        
+
     def test_autocreate_licensepool(self):
         """A CollectionCoverageProvider can locate (or, if necessary, create)
         a LicensePool for an identifier.
@@ -1677,7 +1677,7 @@ class TestCatalogCoverageProvider(CoverageProviderTest):
         # things.
         edition, lp = self._edition(with_license_pool=True,
                                     collection=c1)
-        
+
         # We have four identifiers, but only i1 shows up, because
         # it's the only one in c1's catalog.
         class Provider(CatalogCoverageProvider):
@@ -1700,7 +1700,7 @@ class TestBibliographicCoverageProvider(CoverageProviderTest):
         self.work.presentation_ready = False
         [self.pool] = self.work.license_pools
         self.identifier = self.pool.identifier
-        
+
     def test_work_set_presentation_ready_on_success(self):
         """When a Work is successfully run through a
         BibliographicCoverageProvider, it's set as presentation-ready.
@@ -1740,12 +1740,12 @@ class TestWorkCoverageProvider(DatabaseTest):
     def test_success(self):
         class MockProvider(AlwaysSuccessfulWorkCoverageProvider):
             OPERATION = "the_operation"
-        
+
         qu = self._db.query(WorkCoverageRecord).filter(
             WorkCoverageRecord.operation==MockProvider.OPERATION
         )
         provider = MockProvider(self._db)
-        
+
         # We start with no relevant WorkCoverageRecord and no Timestamp.
         eq_([], qu.all())
         eq_(None, Timestamp.value(
@@ -1768,7 +1768,7 @@ class TestWorkCoverageProvider(DatabaseTest):
         class MockProvider(TransientFailureWorkCoverageProvider):
             OPERATION = "the_operation"
         provider = MockProvider(self._db)
-            
+
         # We start with no relevant WorkCoverageRecords.
         qu = self._db.query(WorkCoverageRecord).filter(
             WorkCoverageRecord.operation==provider.operation
@@ -1778,7 +1778,7 @@ class TestWorkCoverageProvider(DatabaseTest):
         provider.run()
 
         # We now have a CoverageRecord for the transient failure.
-        [failure] = [x for x in self.work.coverage_records if 
+        [failure] = [x for x in self.work.coverage_records if
                      x.operation==provider.operation]
         eq_(CoverageRecord.TRANSIENT_FAILURE, failure.status)
 
@@ -1818,7 +1818,7 @@ class TestWorkCoverageProvider(DatabaseTest):
         w1 = self.work
         w2 = self._work(with_license_pool=True)
         w3 = self._work(with_license_pool=True)
-        
+
         # w2 has coverage, the other two do not.
         record = self._work_coverage_record(w2, provider.operation)
 
@@ -1851,7 +1851,7 @@ class TestWorkCoverageProvider(DatabaseTest):
         eq_(True, result.transient)
         eq_("Was ignored by WorkCoverageProvider.", result.exception)
         eq_(self.work, result.obj)
-        
+
     def test_add_coverage_record_for(self):
         """TODO: We have coverage of code that calls this method,
         but not the method itself.

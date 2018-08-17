@@ -68,7 +68,7 @@ class ExternalSearchTest(DatabaseTest):
         in the default collection.
         """
         work = self._work(
-            *args, with_license_pool=True, 
+            *args, with_license_pool=True,
             collection=self._default_collection, **kwargs
         )
         work.set_presentation_ready()
@@ -158,7 +158,7 @@ class TestExternalSearch(ExternalSearchTest):
         # An error is raised if you try to set the alias to point to
         # an index that doesn't already exist.
         assert_raises(
-            ValueError, self.search.transfer_current_alias, self._db, 
+            ValueError, self.search.transfer_current_alias, self._db,
             'no-such-index'
         )
 
@@ -197,7 +197,7 @@ class TestExternalSearch(ExternalSearchTest):
 
         # If the index doesn't have the same base name, an error is raised.
         assert_raises(
-            ValueError, self.search.transfer_current_alias, self._db, 
+            ValueError, self.search.transfer_current_alias, self._db,
             'banana-v10'
         )
 
@@ -237,7 +237,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             self.summary_match = _work()
             self.summary_match.summary_text = "Match"
             self.summary_match.set_presentation_ready()
-        
+
             self.publisher_match = _work()
             self.publisher_match.presentation_edition.publisher = "Match"
             self.publisher_match.set_presentation_ready()
@@ -247,7 +247,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
             self.tiffany = _work(title="Breakfast at Tiffany's")
             self.tiffany.set_presentation_ready()
-            
+
             self.les_mis = _work()
             self.les_mis.presentation_edition.title = u"Les Mis\u00E9rables"
             self.les_mis.set_presentation_ready()
@@ -324,7 +324,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             self.pride_audio.set_presentation_ready()
 
             self.sherlock = _work(
-                title="The Adventures of Sherlock Holmes", 
+                title="The Adventures of Sherlock Holmes",
                 with_open_access_download=True
             )
             self.sherlock.presentation_edition.language = "en"
@@ -344,7 +344,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             # Create a second collection that only contains a few books.
             self.tiny_collection = self._collection("A Tiny Collection")
             self.tiny_book = self._work(
-                title="A Tiny Book", with_license_pool=True, 
+                title="A Tiny Book", with_license_pool=True,
                 collection=self.tiny_collection
             )
             self.tiny_book.set_presentation_ready()
@@ -427,7 +427,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         eq_(unicode(self.subtitle_match.id), hits[1]['_id'])
         eq_(unicode(self.summary_match.id), hits[2]['_id'])
         eq_(unicode(self.publisher_match.id), hits[3]['_id'])
-        
+
 
         # Ranks both title and author higher than only title
 
@@ -549,7 +549,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         eq_(unicode(self.age_9_10.id), hits[0]['_id'])
-        
+
         results = query("grade 4-6", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
@@ -562,7 +562,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         eq_(unicode(self.age_9_10.id), hits[0]['_id'])
-        
+
         results = query("age 10-12", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
@@ -653,7 +653,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         results = query("sherlock", None, both_lane.languages, None, None, None, None, None)
         hits = results["hits"]["hits"]
-        eq_(2, len(hits))        
+        eq_(2, len(hits))
 
         # Filters on fiction
 
@@ -815,12 +815,12 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             None, "book", None, None, None, None, None, None, None
         )
         hits = results["hits"]["hits"]
-        eq_(1, len(hits))        
+        eq_(1, len(hits))
         results = self.search.query_works(
             None, "moby dick", None, None, None, None, None, None, None
         )
         hits = results["hits"]["hits"]
-        eq_(2, len(hits))        
+        eq_(2, len(hits))
 
         #
         # Test searching across collections.
@@ -839,7 +839,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         # associated with the default library, it only shows up once
         # in search results.
         results = query(
-            "sherlock holmes", None, ['en'], None, None, 
+            "sherlock holmes", None, ['en'], None, None,
             None, None, None
         )
         hits = results['hits']['hits']
@@ -1033,7 +1033,7 @@ class TestSearchQuery(DatabaseTest):
         # The search string is matched against a number of
         # minimally processed fields.
         assert_field_names(
-            minimal, 
+            minimal,
             'title.minimal', 'author', 'series.minimal'
         )
 
@@ -1091,7 +1091,7 @@ class TestSearchQuery(DatabaseTest):
 
         # Query with fiction
         query = search.make_query("test nonfiction")
-        
+
         must = query['dis_max']['queries']
 
         eq_(6, len(must))
@@ -1105,7 +1105,7 @@ class TestSearchQuery(DatabaseTest):
         assert "test" in remaining_query['query']
         assert "fiction" not in remaining_query['query']
         assert 'author^4' in remaining_query['fields']
-        
+
 
         # Query with genre and fiction
         query = search.make_query("test romance fiction")
@@ -1145,10 +1145,10 @@ class TestSearchQuery(DatabaseTest):
         remaining_query = classification_query[1]['simple_query_string']
         assert "test" in remaining_query['query']
         assert "young" not in remaining_query['query']
-        
+
         # Query with grade
         query = search.make_query("test grade 6")
-        
+
         must = query['dis_max']['queries']
 
         eq_(6, len(must))
@@ -1168,7 +1168,7 @@ class TestSearchQuery(DatabaseTest):
         remaining_query = classification_query[1]['simple_query_string']
         assert "test" in remaining_query['query']
         assert "grade" not in remaining_query['query']
-        
+
         # Query with age
         query = search.make_query("test 5-10 years")
 
@@ -1228,7 +1228,7 @@ class TestSearchFilterFromLane(DatabaseTest):
         collection_filter, medium_filter = filter['and']
         expect = dict(terms=dict(medium=[Edition.AUDIO_MEDIUM.lower()]))
         eq_(expect, medium_filter)
-        
+
     def test_query_works_from_lane_definition_handles_age_range(self):
         search = DummyExternalSearchIndex()
 
@@ -1258,7 +1258,7 @@ class TestSearchFilterFromLane(DatabaseTest):
             lane.fiction, lane.audiences, lane.target_age,
             lane.genre_ids, lane.customlist_ids,
         )
-        
+
         collection_filter, languages_filter = filter['and']
         expect_languages = ['eng', 'spa']
         assert 'terms' in languages_filter
@@ -1276,7 +1276,7 @@ class TestBulkUpdate(DatabaseTest):
         w3 = self._work()
         index = DummyExternalSearchIndex()
         successes, failures = index.bulk_update([w1, w2, w3])
-        
+
         # All three works are regarded as successes, because their
         # state was successfully mirrored to the index.
         eq_(set([w1, w2, w3]), set(successes))
@@ -1316,7 +1316,7 @@ class TestSearchErrors(ExternalSearchTest):
             return 0, errors
 
         self.search.bulk = bulk_with_timeout
-        
+
         work = self._work()
         work.set_presentation_ready()
         successes, failures = self.search.bulk_update([work])
@@ -1382,7 +1382,7 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
     def test_failure(self):
         class DoomedExternalSearchIndex(DummyExternalSearchIndex):
             """All documents sent to this index will fail."""
-            def bulk(self, docs, **kwargs):                
+            def bulk(self, docs, **kwargs):
                 return 0, [
                     dict(data=dict(_id=failing_work['_id']),
                          error="There was an error!",
@@ -1417,17 +1417,17 @@ class TestSearchIndexMonitor(DatabaseTest):
         # There is no record that it has ever been indexed
         def _record(work):
             records = [
-                x for x in work.coverage_records 
+                x for x in work.coverage_records
                 if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
             ]
             if not records:
                 return None
             [record] = records
             return record
-        eq_(None, _record(work))            
+        eq_(None, _record(work))
 
         # Here's a Monitor that can index it.
-        monitor = SearchIndexMonitor(self._db, None, "works-index", 
+        monitor = SearchIndexMonitor(self._db, None, "works-index",
                                      index_client=index)
         eq_("Search index update (works)", monitor.service_name)
 

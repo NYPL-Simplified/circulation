@@ -90,7 +90,7 @@ class S3Uploader(MirrorUploader):
                 )
             self.client = client_class(
                 's3',
-                aws_access_key_id=access_key, 
+                aws_access_key_id=access_key,
                 aws_secret_access_key=secret_key,
             )
         else:
@@ -226,7 +226,7 @@ class S3Uploader(MirrorUploader):
         assuming that it was successfully uploaded to the given
         `bucket` as `key`.
 
-        Depending on ExternalIntegration configuration this may 
+        Depending on ExternalIntegration configuration this may
         be any of the following:
 
         https://s3.amazonaws.com/{bucket}/{key}

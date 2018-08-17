@@ -66,7 +66,7 @@ class TestMeasurement(DatabaseTest):
 
 
     def test_can_insert_measurement_after_the_fact(self):
-        
+
         old = datetime.datetime(2011, 1, 1)
         new = datetime.datetime(2012, 1, 1)
 
@@ -77,7 +77,7 @@ class TestMeasurement(DatabaseTest):
 
         m2 = wi.add_measurement(self.source, Measurement.DOWNLOADS, 5,
                                 taken_at=old)
-        eq_(True, m1.is_most_recent)      
+        eq_(True, m1.is_most_recent)
 
     def test_normalized_popularity(self):
         # Here's a very popular book on the scale defined in
@@ -88,7 +88,7 @@ class TestMeasurement(DatabaseTest):
         # Here's a slightly less popular book.
         p = self._popularity(5804)
         eq_(0.99, p.normalized_value)
-            
+
         # Here's a very unpopular book
         p = self._popularity(1)
         eq_(0, p.normalized_value)
@@ -105,8 +105,8 @@ class TestMeasurement(DatabaseTest):
 
         # Here's a slightly less good book.
         p = self._rating(9)
-        eq_(8.0/9, p.normalized_value) 
-           
+        eq_(8.0/9, p.normalized_value)
+
         # Here's a very bad book
         p = self._rating(1)
         eq_(0, p.normalized_value)
@@ -130,7 +130,7 @@ class TestMeasurement(DatabaseTest):
         pop = popularity.normalized_value
         rat = rating.normalized_value
         eq_(0.5, pop)
-        eq_(1.0/3, rat) 
+        eq_(1.0/3, rat)
         l = [popularity, rating, irrelevant]
         eq_((0.7*rat)+(0.3*pop), Measurement.overall_quality(l))
 
@@ -146,7 +146,7 @@ class TestMeasurement(DatabaseTest):
         qual = self._quality(0.5)
 
         # We would expect the final quality score to be 1/2 of the quality
-        # score we got from the metadata wrangler, and 1/2 of the normalized 
+        # score we got from the metadata wrangler, and 1/2 of the normalized
         # value of the 4-star rating.
         expect = (rat.normalized_value / 2) + 0.25
         eq_(expect, Measurement.overall_quality([rat, qual], 0.5, 0.5))
@@ -156,7 +156,7 @@ class TestMeasurement(DatabaseTest):
         qual = self._quality(0.5)
 
         # We would expect the final quality score to be 1/2 of the quality
-        # score we got from the metadata wrangler, and 1/2 of the normalized 
+        # score we got from the metadata wrangler, and 1/2 of the normalized
         # value of the 4-star rating.
         expect = (pop.normalized_value / 2) + (0.5/2)
         eq_(expect, Measurement.overall_quality([pop, qual], 0.5, 0.5))

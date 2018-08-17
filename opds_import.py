@@ -336,12 +336,12 @@ class OPDSXMLParser(XMLParser):
 
 class OPDSImporter(object):
     """ Imports editions and license pools from an OPDS feed.
-    Creates Edition, LicensePool and Work rows in the database, if those 
+    Creates Edition, LicensePool and Work rows in the database, if those
     don't already exist.
 
-    Should be used when a circulation server asks for data from 
-    our internal content server, and also when our content server asks for data 
-    from external content servers. 
+    Should be used when a circulation server asks for data from
+    our internal content server, and also when our content server asks for data
+    from external content servers.
     """
 
     COULD_NOT_CREATE_LICENSE_POOL = (
@@ -536,8 +536,8 @@ class OPDSImporter(object):
             url, status, len(body)
         )
         return False
-        
-    def import_from_feed(self, feed, even_if_no_author=False, 
+
+    def import_from_feed(self, feed, even_if_no_author=False,
                          immediately_presentation_ready=False,
                          feed_url=None):
 
@@ -601,7 +601,7 @@ class OPDSImporter(object):
     def import_edition_from_metadata(
             self, metadata, even_if_no_author, immediately_presentation_ready
     ):
-        """ For the passed-in Metadata object, see if can find or create an Edition 
+        """ For the passed-in Metadata object, see if can find or create an Edition
             in the database. Also create a LicensePool if the Metadata has
             CirculationData in it.
         """
@@ -642,7 +642,7 @@ class OPDSImporter(object):
         )
 
         if pool:
-            # Note: pool.calculate_work will call self.set_presentation_edition(), 
+            # Note: pool.calculate_work will call self.set_presentation_edition(),
             # which will find editions attached to same Identifier.
             work, is_new_work = pool.calculate_work(even_if_no_author=even_if_no_author)
             # Note: if pool.calculate_work found or made a work, it already called work.calculate_presentation()
@@ -666,11 +666,11 @@ class OPDSImporter(object):
         next_links = []
         if feed and 'links' in feed:
             next_links = [
-                link['href'] for link in feed['links'] 
+                link['href'] for link in feed['links']
                 if link['rel'] == 'next'
             ]
         return next_links
-        
+
 
     @classmethod
     def extract_last_update_dates(cls, feed):
@@ -718,7 +718,7 @@ class OPDSImporter(object):
         self.identifier_mapping = mapping
 
     def extract_feed_data(self, feed, feed_url=None):
-        """Turn an OPDS feed into lists of Metadata and CirculationData objects, 
+        """Turn an OPDS feed into lists of Metadata and CirculationData objects,
         with associated messages and next_links.
         """
         data_source = self.data_source
@@ -763,15 +763,15 @@ class OPDSImporter(object):
             combined_meta = self.combine(m_data_dict, xml_data_dict)
             if combined_meta.get('data_source') is None:
                 combined_meta['data_source'] = self.data_source_name
-            
+
             combined_meta['primary_identifier'] = identifier_obj
-            
+
             metadata[internal_identifier.urn] = Metadata(**combined_meta)
 
             # Form the CirculationData that would correspond to this Metadata,
             # assuming there is a Collection to hold the LicensePool that
             # would result.
-            c_data_dict = None 
+            c_data_dict = None
             if self.collection:
                 c_circulation_dict = m_data_dict.get('circulation')
                 xml_circulation_dict = xml_data_dict.get('circulation', {})
@@ -795,7 +795,7 @@ class OPDSImporter(object):
                 circulation = CirculationData(**combined_circ)
 
                 self._add_format_data(circulation)
-            
+
                 if circulation.formats:
                     metadata[internal_identifier.urn].circulation = circulation
                 else:
@@ -822,7 +822,7 @@ class OPDSImporter(object):
         """
         external_identifier, ignore = Identifier.parse_urn(self._db, urn)
         if self.identifier_mapping:
-            # The identifier found in the OPDS feed is different from 
+            # The identifier found in the OPDS feed is different from
             # the identifier we want to export.
             internal_identifier = self.identifier_mapping.get(
                 external_identifier, external_identifier)
@@ -900,7 +900,7 @@ class OPDSImporter(object):
                     if detail:
                         values[identifier] = detail
             else:
-                # That's bad. Can't make an item-specific error message, but write to 
+                # That's bad. Can't make an item-specific error message, but write to
                 # log that something very wrong happened.
                 logging.error("Tried to parse an element without a valid identifier.  feed=%s" % feed)
         return values, failures
@@ -1049,7 +1049,7 @@ class OPDSImporter(object):
                         )
                     )
         last_opds_update = cls._datetime(entry, 'updated_parsed')
-            
+
         publisher = entry.get('publisher', None)
         if not publisher:
             publisher = entry.get('dcterms_publisher', None)
@@ -1057,7 +1057,7 @@ class OPDSImporter(object):
         language = entry.get('language', None)
         if not language:
             language = entry.get('dcterms_language', None)
-        
+
         links = []
 
         def summary_to_linkdata(detail):
@@ -1122,7 +1122,7 @@ class OPDSImporter(object):
         """
         rights = entry.get('rights', "")
         return cls.rights_uri(rights)
-        
+
     @classmethod
     def rights_uri_from_entry_tag(cls, entry):
         """Extract a rights string from an lxml <entry> tag.
@@ -1132,7 +1132,7 @@ class OPDSImporter(object):
         rights = cls.PARSER_CLASS._xpath1(entry, 'rights')
         if rights:
             return cls.rights_uri(rights)
-    
+
     @classmethod
     def extract_messages(cls, parser, feed_tag):
         """Extract <simplified:message> tags from an OPDS feed and convert
@@ -1165,9 +1165,9 @@ class OPDSImporter(object):
                 description = ''
             else:
                 description = description_tag.text
-        
+
             yield OPDSMessage(urn, status_code, description)
-    
+
     @classmethod
     def coveragefailures_from_messages(cls, data_source, parser, feed_tag):
         """Extract CoverageFailure objects from a parsed OPDS document. This
@@ -1184,7 +1184,7 @@ class OPDSImporter(object):
         """Turn a <simplified:message> tag into a CoverageFailure."""
 
         _db = Session.object_session(data_source)
-        
+
         # First thing to do is determine which Identifier we're
         # talking about. If we can't do that, we can't create a
         # CoverageFailure object.
@@ -1199,7 +1199,7 @@ class OPDSImporter(object):
             # Identifier so we can't turn it into a CoverageFailure.
             return None
 
-        if (cls.SUCCESS_STATUS_CODES 
+        if (cls.SUCCESS_STATUS_CODES
             and message.status_code in cls.SUCCESS_STATUS_CODES):
             # This message is telling us that nothing went wrong. It
             # should be treated as a success.
@@ -1220,13 +1220,13 @@ class OPDSImporter(object):
             exception = description
         else:
             exception = 'No detail provided.'
-            
+
         # All these CoverageFailures are transient because ATM we can
         # only assume that the server will eventually have the data.
         return CoverageFailure(
             identifier, exception, data_source, transient=True
         )
-    
+
     @classmethod
     def detail_for_elementtree_entry(
             cls, parser, entry_tag, data_source, feed_url=None,
@@ -1240,11 +1240,11 @@ class OPDSImporter(object):
 
         identifier = parser._xpath1(entry_tag, 'atom:id')
         if identifier is None or not identifier.text:
-            # This <entry> tag doesn't identify a book so we 
+            # This <entry> tag doesn't identify a book so we
             # can't derive any information from it.
             return None, None, None
         identifier = identifier.text
-            
+
         try:
             data = cls._detail_for_elementtree_entry(
                 parser, entry_tag, feed_url
@@ -1269,16 +1269,16 @@ class OPDSImporter(object):
         # We will fill this dictionary with all the information
         # we can find.
         data = dict()
-        
+
         alternate_identifiers = []
         for id_tag in parser._xpath(entry_tag, "dcterms:identifier"):
             v = cls.extract_identifier(id_tag)
             if v:
                 alternate_identifiers.append(v)
         data['identifiers'] = alternate_identifiers
-           
+
         data['medium'] = cls.extract_medium(entry_tag)
-        
+
         data['contributors'] = []
         for author_tag in parser._xpath(entry_tag, 'atom:author'):
             contributor = cls.extract_contributor(parser, author_tag)
@@ -1297,7 +1297,7 @@ class OPDSImporter(object):
                 ratings.append(v)
         data['measurements'] = ratings
         rights_uri = cls.rights_uri_from_entry_tag(entry_tag)
-        
+
         data['links'] = cls.consolidate_links([
             cls.extract_link(link_tag, feed_url, rights_uri)
             for link_tag in parser._xpath(entry_tag, 'atom:link')
@@ -1341,7 +1341,7 @@ class OPDSImporter(object):
         default_additional_type = Edition.medium_to_additional_type[
             Edition.BOOK_MEDIUM
         ]
-        additional_type = entry_tag.get('{http://schema.org/}additionalType', 
+        additional_type = entry_tag.get('{http://schema.org/}additionalType',
                                         default_additional_type)
         return Edition.additional_type_to_medium.get(additional_type)
 
@@ -1403,9 +1403,9 @@ class OPDSImporter(object):
             weight = 1
 
         return SubjectData(
-            type=subject_type, 
+            type=subject_type,
             identifier=term,
-            name=name, 
+            name=name,
             weight=weight
         )
 
@@ -1445,7 +1445,7 @@ class OPDSImporter(object):
     def make_link_data(cls, rel, href=None, media_type=None, rights_uri=None,
                        content=None):
         """Hook method for creating a LinkData object.
-            
+
         Intended to be overridden in subclasses.
         """
         return LinkData(rel=rel, href=href, media_type=media_type,
@@ -1482,7 +1482,7 @@ class OPDSImporter(object):
                 # image-thumbnail pair.
                 next_link_already_handled = False
                 continue
-                
+
             if i == len(links)-1:
                 # This is the last link. Since there is no next link
                 # there's nothing to do here.
@@ -1524,7 +1524,7 @@ class OPDSImporter(object):
         try:
             value = float(value)
             return MeasurementData(
-                quantity_measured=type, 
+                quantity_measured=type,
                 value=value,
             )
         except ValueError:
@@ -1543,7 +1543,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
     every title it mentions.
     """
     SERVICE_NAME = "OPDS Import Monitor"
-    
+
     # This Monitor will do its work every time it's invoked.
     INTERVAL_SECONDS = 0
 
@@ -1561,7 +1561,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
             raise ValueError(
                 "OPDSImportMonitor can only be run in the context of a Collection."
             )
-        
+
         if collection.protocol != self.PROTOCOL:
             raise ValueError(
                 "Collection %s is configured for protocol %s, not %s." % (
@@ -1675,14 +1675,14 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
                 # anything about it.
                 self.log.info(
                     "Ignoring %s because unable to turn into an Identifier."
-                )                
+                )
                 continue
 
             if self.identifier_needs_import(identifier, remote_updated):
                 new_data = True
                 break
         return new_data
-            
+
     def identifier_needs_import(self, identifier, last_updated_remote):
         """Does the remote side have new information about this Identifier?
 
@@ -1692,7 +1692,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         """
         if not identifier:
             return False
-        
+
         record = CoverageRecord.lookup(
             identifier, self.importer.data_source,
             operation=CoverageRecord.IMPORT_OPERATION
@@ -1702,17 +1702,17 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
             # We have no record of importing this Identifier. Import
             # it now.
             self.log.info(
-                "Counting %s as new because it has no CoverageRecord.", 
+                "Counting %s as new because it has no CoverageRecord.",
                 identifier
             )
             return True
-            
+
         # If there was a transient failure last time we tried to
         # import this book, try again regardless of whether the
         # feed has changed.
         if record.status == CoverageRecord.TRANSIENT_FAILURE:
             self.log.info(
-                "Counting %s as new because previous attempt resulted in transient failure: %s", 
+                "Counting %s as new because previous attempt resulted in transient failure: %s",
                 identifier, record.exception
             )
             return True
@@ -1720,7 +1720,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         # If our last attempt was a success or a persistent
         # failure, we only want to import again if something
         # changed since then.
-        
+
         if record.timestamp:
             # We've imported this entry before, so don't import it
             # again unless it's changed.
@@ -1729,7 +1729,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
                 # The remote isn't telling us whether the entry
                 # has been updated. Import it again to be safe.
                 self.log.info(
-                    "Counting %s as new because remote has no information about when it was updated.", 
+                    "Counting %s as new because remote has no information about when it was updated.",
                     identifier
                 )
                 return True
@@ -1737,7 +1737,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
             if last_updated_remote >= record.timestamp:
                 # This book has been updated.
                 self.log.info(
-                    "Counting %s as new because its coverage date is %s and remote has %s.", 
+                    "Counting %s as new because its coverage date is %s and remote has %s.",
                     identifier, record.timestamp, last_updated_remote
                 )
                 return True
@@ -1746,7 +1746,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         """Download a representation of a URL and extract the useful
         information.
 
-        :return: A 2-tuple (next_links, feed). `next_links` is a list of 
+        :return: A 2-tuple (next_links, feed). `next_links` is a list of
             additional links that need to be followed. `feed` is the content
             that needs to be imported.
         """
@@ -1781,7 +1781,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
 
     def import_one_feed(self, feed):
         """Import every book mentioned in an OPDS feed."""
-        
+
         # Because we are importing into a Collection, we will immediately
         # mark a book as presentation-ready if possible.
         imported_editions, pools, works, failures = self.importer.import_from_feed(
@@ -1803,12 +1803,12 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
             failure.to_coverage_record(
                 operation=CoverageRecord.IMPORT_OPERATION
             )
-        
+
     def run_once(self, start_ignore, cutoff_ignore):
         feeds = []
         queue = [self.feed_url]
         seen_links = set([])
-        
+
         # First, follow the feed's next links until we reach a page with
         # nothing new. If any link raises an exception, nothing will be imported.
         while queue:

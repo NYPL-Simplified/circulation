@@ -477,7 +477,7 @@ class Configuration(object):
                 _db, cls.SITE_CONFIGURATION_TIMEOUT
             ).value
         if timeout is None:
-            timeout = 600
+            timeout = 60
 
         last_check = cls.instance.get(
             cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE
@@ -510,7 +510,6 @@ class Configuration(object):
         # Whether that record changed or not, the time at which we
         # _checked_ is going to be set to the current time.
         cls.instance[cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE] = now
-
         return last_update
 
     @classmethod

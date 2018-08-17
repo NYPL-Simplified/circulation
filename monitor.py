@@ -53,7 +53,7 @@ class Monitor(object):
     Although any Monitor may be associated with a Collection, it's
     most useful to subclass CollectionMonitor if you're writing code
     that needs to be run on every Collection of a certain type.
-    """    
+    """
     # In your subclass, set this to the name of the service,
     # e.g. "Overdrive Circulation Monitor". All instances of your
     # subclass will give this as their service name and track their
@@ -64,7 +64,7 @@ class Monitor(object):
     # When it runs, the work will be done but no Timestamp will be
     # created, and any existing timestamp will not be updated.
     KEEP_TIMESTAMP = True
-    
+
     # The Monitor code will not run more than once every this number
     # of seconds. If the Monitor is invoked and its Timestamp is not
     # this old, the Monitor will do no work. If this is set to 0, the
@@ -85,7 +85,7 @@ class Monitor(object):
     #
     # This is only used by the SweepMonitor subclass.
     DEFAULT_COUNTER = None
-    
+
     def __init__(self, _db, collection=None):
         self._db = _db
         cls = self.__class__
@@ -101,19 +101,19 @@ class Monitor(object):
             )
         self.default_start_time = default_start_time
         self.default_counter = cls.DEFAULT_COUNTER
-        
+
         # We store the collection ID rather than the Collection to
         # avoid breakage in case an app server with a scoped session
         # ever uses a Monitor.
         self.collection_id = None
         if collection:
             self.collection_id = collection.id
-        
+
     @property
     def log(self):
         if not hasattr(self, '_log'):
             self._log = logging.getLogger(self.service_name)
-        return self._log        
+        return self._log
 
     @property
     def collection(self):
@@ -142,8 +142,8 @@ class Monitor(object):
             )
         )
         return timestamp
-    
-    def run(self):        
+
+    def run(self):
         """Do the Monitor's work, assuming it's not too soon since
         the last time.
         """
@@ -157,7 +157,7 @@ class Monitor(object):
         if start == self.NEVER:
             start = None
 
-        cutoff = datetime.datetime.utcnow()           
+        cutoff = datetime.datetime.utcnow()
         new_timestamp_value = self.run_once(start, cutoff) or cutoff
         duration = datetime.datetime.utcnow() - cutoff
         self.cleanup()
@@ -172,7 +172,7 @@ class Monitor(object):
 
     def run_once(self, start, cutoff):
         """Do the actual work of the Monitor.
-        
+
         :param start: The last time the Monitor was run.
 
         :param cutoff: It's not necessary to do work for anything that
@@ -218,7 +218,7 @@ class CollectionMonitor(Monitor):
             )
 
         super(CollectionMonitor, self).__init__(_db, collection)
-    
+
     @classmethod
     def all(cls, _db, **constructor_kwargs):
         """Yield a sequence of CollectionMonitor objects: one for every
@@ -267,12 +267,12 @@ class SweepMonitor(CollectionMonitor):
     INTERVAL_SECONDS = 3600
 
     DEFAULT_COUNTER = 0
-    
+
     # The model class corresponding to the database table that this
     # Monitor sweeps over. This class must keep its primary key in the
     # `id` field.
     MODEL_CLASS = None
-    
+
     def __init__(self, _db, collection=None, batch_size=None):
         cls = self.__class__
         if not batch_size or batch_size < 0:
@@ -283,7 +283,7 @@ class SweepMonitor(CollectionMonitor):
         self.model_class = cls.MODEL_CLASS
         super(SweepMonitor, self).__init__(_db, collection=collection)
 
-    def run(self):        
+    def run(self):
         timestamp = self.timestamp()
         offset = timestamp.counter
 
@@ -340,13 +340,13 @@ class SweepMonitor(CollectionMonitor):
         q = self.item_query().filter(self.model_class.id > offset).order_by(
             self.model_class.id).limit(self.batch_size)
         return q
-        
+
     def item_query(self):
         """Find the items that need to be processed in the sweep.
 
         :return: A query object.
         """
-        # Start by getting everything in the table. 
+        # Start by getting everything in the table.
         qu = self._db.query(self.model_class)
         if self.collection:
             # Restrict to only those items associated with self.collection
@@ -363,7 +363,7 @@ class SweepMonitor(CollectionMonitor):
         :param collection: A Collection object, presumed to not be None.
         """
         raise NotImplementedError()
-    
+
     def process_item(self, item):
         """Do the work that needs to be done for a given item."""
         raise NotImplementedError()
@@ -371,7 +371,7 @@ class SweepMonitor(CollectionMonitor):
 
 class IdentifierSweepMonitor(SweepMonitor):
     """A Monitor that does some work for every Identifier."""
-    MODEL_CLASS = Identifier    
+    MODEL_CLASS = Identifier
 
     def scope_to_collection(self, qu, collection):
         """Only find Identifiers licensed through the given Collection."""
@@ -387,7 +387,7 @@ class SubjectSweepMonitor(SweepMonitor):
     # It's usually easy to process a Subject, so make the batch size
     # large.
     DEFAULT_BATCH_SIZE = 500
-    
+
     def __init__(self, _db, subject_type=None, filter_string=None):
         """Constructor.
         :param subject_type: Only process Subjects of this type.
@@ -397,7 +397,7 @@ class SubjectSweepMonitor(SweepMonitor):
         super(SubjectSweepMonitor, self).__init__(_db, None)
         self.subject_type = subject_type
         self.filter_string = filter_string
-        
+
     def item_query(self):
         """Find only Subjects that match the given filters."""
         qu = self._db.query(Subject)
@@ -459,7 +459,7 @@ class WorkSweepMonitor(SweepMonitor):
 
 class PresentationReadyWorkSweepMonitor(WorkSweepMonitor):
     """A Monitor that does something to every presentation-ready Work."""
-    
+
     def item_query(self):
         return super(
             PresentationReadyWorkSweepMonitor, self).item_query().filter(
@@ -467,10 +467,10 @@ class PresentationReadyWorkSweepMonitor(WorkSweepMonitor):
             )
 
 class NotPresentationReadyWorkSweepMonitor(WorkSweepMonitor):
-    """A Monitor that does something to every Work that is not 
+    """A Monitor that does something to every Work that is not
     presentation-ready.
     """
-    
+
     def item_query(self):
         not_presentation_ready = or_(
             Work.presentation_ready==False,
@@ -481,7 +481,7 @@ class NotPresentationReadyWorkSweepMonitor(WorkSweepMonitor):
                 not_presentation_ready
             )
 
-    
+
 # SweepMonitors that do something specific.
 
 class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
@@ -493,7 +493,7 @@ class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
     with the 'generate-opds' operation.
     """
     SERVICE_NAME = "ODPS Entry Cache Monitor"
-    
+
     def process_item(self, work):
         work.calculate_opds_entries()
 
@@ -503,7 +503,7 @@ class PermanentWorkIDRefreshMonitor(EditionSweepMonitor):
     every edition.
     """
     SERVICE_NAME = "Permanent work ID refresh"
-    
+
     def process_item(self, edition):
         edition.calculate_permanent_work_id()
 
@@ -516,7 +516,7 @@ class MakePresentationReadyMonitor(NotPresentationReadyWorkSweepMonitor):
     the ensure_coverage() calls succeed, presentation of the work is
     calculated and the work is marked presentation ready.
     """
-    SERVICE_NAME = "Make Works Presentation Ready" 
+    SERVICE_NAME = "Make Works Presentation Ready"
 
     def __init__(self, _db, coverage_providers, collection=None,
                  calculate_work_even_if_no_author=False):
@@ -559,7 +559,7 @@ class MakePresentationReadyMonitor(NotPresentationReadyWorkSweepMonitor):
         else:
             # Success!
             work.calculate_presentation(self.policy)
-            work.set_presentation_ready()                    
+            work.set_presentation_ready()
 
     def prepare(self, work):
         """Try to make a single Work presentation-ready.
@@ -578,7 +578,7 @@ class MakePresentationReadyMonitor(NotPresentationReadyWorkSweepMonitor):
             covered_types = provider.input_identifier_types
             if covered_types and identifier.type in covered_types:
                 coverage_record = provider.ensure_coverage(identifier)
-                if (not isinstance(coverage_record, CoverageRecord) 
+                if (not isinstance(coverage_record, CoverageRecord)
                     or coverage_record.status != CoverageRecord.SUCCESS
                     or coverage_record.exception is not None):
                     # This provider has failed.
@@ -601,14 +601,14 @@ class CoverageProvidersFailed(Exception):
 
 class WorkRandomnessUpdateMonitor(WorkSweepMonitor):
     """Update the random value associated with each work.
-    
+
     (This value is used when randomly choosing books to feature.)
     """
 
     SERVICE_NAME = "Work Randomness Updater"
     INTERVAL_SECONDS = 3600 * 24
     DEFAULT_BATCH_SIZE = 1000
-    
+
     def process_batch(self, offset):
         """Unlike other Monitors, this one leaves process_item() undefined
         because it works on a large number of Works at once using raw
@@ -630,7 +630,7 @@ class CustomListEntryWorkUpdateMonitor(CustomListEntrySweepMonitor):
     SERVICE_NAME = "Update Works for custom list entries"
     INTERVAL_SECONDS = 3600 * 24
     DEFAULT_BATCH_SIZE = 100
-    
+
     def process_item(self, item):
         item.set_work()
 

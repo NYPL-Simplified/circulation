@@ -43,7 +43,7 @@ class TestSummaryEvaluator(object):
         for its deviations from average English bigram distribution.
         """
         dutch = "Op haar nieuwe school leert de jarige Bella (ik-figuur) een mysterieuze jongen kennen op wie ze ogenblikkelijk verliefd wordt. Hij blijkt een groot geheim te hebben. Vanaf ca. jaar."
-        
+
         evaluator = SummaryEvaluator()
         evaluator.add(dutch)
         evaluator.ready()

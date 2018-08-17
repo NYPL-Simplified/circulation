@@ -8,7 +8,6 @@ from lxml import etree
 from nose.tools import set_trace
 import base64
 import bisect
-import cairosvg
 import datetime
 import isbnlib
 import json
@@ -892,23 +891,28 @@ class Hold(Base, LoanAndHoldMixin):
             # The book will never be available
             return None
 
-        # Start with the default loan period to clear out everyone who
-        # currently has the book checked out.
-        duration = default_loan_period
+        # If you are at the very front of the queue, the worst case
+        # time to get the book is is the time it takes for the person
+        # in front of you to get a reservation notification, borrow
+        # the book at the last minute, and keep the book for the
+        # maximum allowable time.
+        cycle_period = (default_reservation_period + default_loan_period)
 
-        if queue_position < total_licenses:
-            # After that period, the book will be available to this patron.
-            # Do nothing.
+        # This will happen at least once.
+        cycles = 1
+
+        if queue_position <= total_licenses:
+            # But then the book will be available to you.
             pass
         else:
-            # Otherwise, add a number of cycles in which other people are
-            # notified that it's their turn.
-            cycle_period = (default_loan_period + default_reservation_period)
-            cycles = queue_position / total_licenses
+            # This will happen more than once. After the first cycle,
+            # other people will be notified that it's their turn,
+            # they'll wait a while, get a reservation, and then keep
+            # the book for a while, and so on.
+            cycles += queue_position / total_licenses
             if (total_licenses > 1 and queue_position % total_licenses == 0):
                 cycles -= 1
-            duration += (cycle_period * cycles)
-        return start + duration
+        return start + (cycle_period * cycles)
 
 
     def until(self, default_loan_period, default_reservation_period):
@@ -925,14 +929,16 @@ class Hold(Base, LoanAndHoldMixin):
             # not obviously wrong, so use it.
             return self.end
 
-        if default_reservation_period is None:
-            # This hold has no definite end date.
+        if default_loan_period is None or default_reservation_period is None:
+            # This hold has no definite end date, because there's no known
+            # upper bound on how long someone in front of you can keep the
+            # book.
             return None
 
         start = datetime.datetime.utcnow()
         licenses_available = self.license_pool.licenses_owned
         position = self.position
-        if not position:
+        if position is None:
             # We don't know where in line we are. Assume we're at the
             # end.
             position = self.license_pool.patrons_in_hold_queue
@@ -2224,7 +2230,7 @@ class Identifier(Base):
             rights_status = RightsStatus.lookup(_db, rights_status_uri)
         resource, new_resource = get_one_or_create(
             _db, Resource, url=href,
-            create_method_kwargs=dict(data_source=data_source, 
+            create_method_kwargs=dict(data_source=data_source,
                                       rights_status=rights_status,
                                       rights_explanation=rights_explanation)
         )
@@ -7157,7 +7163,7 @@ class LicensePool(Base):
         )
 
     def add_link(self, rel, href, data_source, media_type=None,
-                 content=None, content_path=None, 
+                 content=None, content_path=None,
                  rights_status_uri=None, rights_explanation=None,
                  original_resource=None, transformation_settings=None,
                  ):
@@ -8886,9 +8892,10 @@ class Representation(Base):
         """
         if self.media_type and self.media_type.startswith('image/'):
             image = self.as_image()
-            self.image_width, self.image_height = image.size
-        else:
-            self.image_width = self.image_height = None
+            if image:
+                self.image_width, self.image_height = image.size
+                return
+        self.image_width = self.image_height = None
 
     @classmethod
     def normalize_content_path(cls, content_path, base=None):
@@ -9201,8 +9208,6 @@ class Representation(Base):
 
     @property
     def external_media_type(self):
-        if self.clean_media_type == self.SVG_MEDIA_TYPE:
-            return self.PNG_MEDIA_TYPE
         return self.media_type
 
     def external_content(self):
@@ -9210,17 +9215,7 @@ class Representation(Base):
         should be mirrored externally, and the media type to be used
         when mirroring.
         """
-        if not self.is_image or self.clean_media_type != self.SVG_MEDIA_TYPE:
-            # Passthrough
-            return self.content_fh()
-
-        # This representation is an SVG image. We want to mirror it as
-        # PNG.
-        image = self.as_image()
-        output = StringIO()
-        image.save(output, format='PNG')
-        output.seek(0)
-        return output
+        return self.content_fh()
 
     def content_fh(self):
         """Return an open filehandle to the representation's contents.
@@ -9246,12 +9241,8 @@ class Representation(Base):
             raise ValueError("Image representation has no content.")
 
         fh = self.content_fh()
-        if not fh:
+        if not fh or self.clean_media_type == self.SVG_MEDIA_TYPE:
             return None
-        if self.clean_media_type == self.SVG_MEDIA_TYPE:
-            # Transparently convert the SVG to a PNG.
-            png_data = cairosvg.svg2png(fh.read())
-            fh = StringIO(png_data)
         return Image.open(fh)
 
     pil_format_for_media_type = {
@@ -9279,6 +9270,7 @@ class Representation(Base):
         pil_format = self.pil_format_for_media_type[destination_media_type]
 
         # Make sure we actually have an image to scale.
+        image = None
         try:
             image = self.as_image()
         except Exception, e:
@@ -9289,6 +9281,8 @@ class Representation(Base):
             self.fetch_exception = "Error found while scaling: %s" % (
                 self.scale_exception)
             logging.error("Error found while scaling %r", self, exc_info=e)
+
+        if not image:
             return self, False
 
         # Now that we've loaded the image, take the opportunity to set

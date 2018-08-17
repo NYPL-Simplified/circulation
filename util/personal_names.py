@@ -41,7 +41,7 @@ def _replace_phd(match):
 
 def _replace_end_punctuation(match):
     """
-    If there was found to be improper punctuation at the end of the name string, 
+    If there was found to be improper punctuation at the end of the name string,
     clean it off.
     :param match: a regular expression matched to a string
     """
@@ -53,8 +53,8 @@ def _replace_end_punctuation(match):
 
 def contributor_name_match_ratio(name1, name2, normalize_names=True):
     """
-    Returns a number between 0 and 100, representing the percent 
-    match (Levenshtein Distance) between name1 and name2, 
+    Returns a number between 0 and 100, representing the percent
+    match (Levenshtein Distance) between name1 and name2,
     after each has been normalized.
     """
     if normalize_names:
@@ -69,33 +69,33 @@ def is_corporate_name(display_name):
 
     corporations = [
         # magazines and scientific institutions by name
-        'National Geographic', 'Smithsonian Institution', 
+        'National Geographic', 'Smithsonian Institution',
 
         # educational institutions by name
-        'Princeton', 
+        'Princeton',
 
         # educational institutions, general
-        'Verlag', 'College', 'University', 'Scholastic', 'Faculty of', 'Library', "School of", 
-        'Professors', 
+        'Verlag', 'College', 'University', 'Scholastic', 'Faculty of', 'Library', "School of",
+        'Professors',
 
         # publishing houses by name
-        'Harper & Brothers', 'Harper Collins', 'HarperCollins', 'Williams & Wilkins', 
-        'Estampie', 'Paul Taylor Dance', 'Gallery', 'EMI Televisa', 'Mysterious Traveler', 
+        'Harper & Brothers', 'Harper Collins', 'HarperCollins', 'Williams & Wilkins',
+        'Estampie', 'Paul Taylor Dance', 'Gallery', 'EMI Televisa', 'Mysterious Traveler',
 
         # group names, general
-        'Association', 'International', 'National', 'Society', 'Team', 
+        'Association', 'International', 'National', 'Society', 'Team',
 
         # religious institutions
-        "Church of", "Temple of",  
+        "Church of", "Temple of",
 
         # subject names
-        'History', 'Science', 
+        'History', 'Science',
 
         # copyrights and trademarks
-        u'\xa9', 'Copyright', '(C)', '&#169;', 
+        u'\xa9', 'Copyright', '(C)', '&#169;',
 
         # performing arts collaborations
-        'Multiple', 'Various',  
+        'Multiple', 'Various',
         'Full Cast', 'BBC', 'LTD', 'Limited', 'Productions', 'Visual Media', 'Radio Classics'
         ]
 
@@ -108,7 +108,7 @@ def is_corporate_name(display_name):
         if fuzz.ratio(corporation, display_name) > 90:
             return True
 
-    if (display_name.startswith('the ') or display_name.startswith('editor ') 
+    if (display_name.startswith('the ') or display_name.startswith('editor ')
         or display_name.startswith('editors ') or display_name.endswith(' inc')
         or display_name.endswith(' llc') or display_name.startswith('compiled')):
         return True
@@ -125,13 +125,13 @@ def is_one_name(human_name):
 
 def display_name_to_sort_name(display_name):
     """
-    Take the "First Name Last Name"-formatted display_name, and convert it 
+    Take the "First Name Last Name"-formatted display_name, and convert it
     to a "Last Name, First Name" format appropriate for searching and sorting by.
 
     Checks first if the display_name fits what we know of corporate entity business names.
     If yes, uses the whole name without re-converting it.
 
-    Uses the HumanName library to try to parse the name into parts, and rearrange the parts into 
+    Uses the HumanName library to try to parse the name into parts, and rearrange the parts into
     desired order and format.
     """
     if not display_name:
@@ -152,8 +152,8 @@ def display_name_to_sort_name(display_name):
     if name.nickname:
         name.nickname = '(' + name.nickname + ')'
 
-    # Note: When the first and middle names are initials that have come in with a space between them, 
-    # let them keep that space, to be consistent with initials with no periods, which would be more 
+    # Note: When the first and middle names are initials that have come in with a space between them,
+    # let them keep that space, to be consistent with initials with no periods, which would be more
     # easily algorithm-recognized if they were placed separately. So:
     # 'Classy, A. B.' and 'Classy Abe B.' and 'Classy A. Barney' and 'Classy, Abe Barney' and 'Classy, A B'.
     if not name.last:
@@ -175,9 +175,9 @@ def name_tidy(name):
     - Converts to NFKD unicode.
     - Strips excessive whitespace and trailing punctuation.
     - Normalizes PhD/MD suffixes.
-    - Does not perform any potentially name-altering business logic, such as 
-    running HumanName parser or any other name part reorganization. 
-    - Does not perform any cleaning that would later need to be reversed, 
+    - Does not perform any potentially name-altering business logic, such as
+    running HumanName parser or any other name part reorganization.
+    - Does not perform any cleaning that would later need to be reversed,
     such as lowercasing.
     """
     name = unicodedata.normalize("NFKD", unicode(name))
@@ -185,8 +185,8 @@ def name_tidy(name):
 
     name = name.strip()
 
-    # Check that we don't have illegitimate punctuation.  So in 'Classy, Abe.' 
-    # the period is probably an artifact of dirty data, but in 'Classy, A.' 
+    # Check that we don't have illegitimate punctuation.  So in 'Classy, Abe.'
+    # the period is probably an artifact of dirty data, but in 'Classy, A.'
     # the period is a legitimate part of the initials.
     name = trailingPunctuation.sub(_replace_end_punctuation, name, re.I)
 
@@ -199,14 +199,14 @@ def name_tidy(name):
 
 def normalize_contributor_name_for_matching(name):
     """
-    Used to standardize author names before matching them to each other to identify best results 
+    Used to standardize author names before matching them to each other to identify best results
     in VIAF author search feeds.
 
     Split the name into title, first, middle, last name, suffix, nickname, and set the parts in that order.
-    Remove spacing around abbreviated initials, so 'George RR Martin' matches 'George R R Martin' (treat 
+    Remove spacing around abbreviated initials, so 'George RR Martin' matches 'George R R Martin' (treat
     two-letter words as initials).
 
-    Run WorkIDCalculator.normalize_author on the name, which will convert to NFKD unicode, 
+    Run WorkIDCalculator.normalize_author on the name, which will convert to NFKD unicode,
     de-lint special characters and spaces, and lowercase.
 
     TODO: Consider: Further remove periods, commas, dashes, and all non-word characters.
@@ -228,14 +228,14 @@ def normalize_contributor_name_for_matching(name):
 
 def sort_name_to_display_name(sort_name):
     """
-    Take the "Last Name, First Name"-formatted sort_name, and convert it 
+    Take the "Last Name, First Name"-formatted sort_name, and convert it
     to a "First Name Last Name" format appropriate for displaying to patrons in a catalog listing.
 
-    While the code attempts to do the best it can, name recognition gets complicated 
-    really fast when there's more than one plain-format first name and one plain-format last name. 
-    This code is meant to serve as first line of approximation.  If we later on can find better 
+    While the code attempts to do the best it can, name recognition gets complicated
+    really fast when there's more than one plain-format first name and one plain-format last name.
+    This code is meant to serve as first line of approximation.  If we later on can find better
     human librarian-checked sort and display names in the Metadata Wrangler, we use those.
-    
+
     :param sort_name Doe, Jane
     :return display_name Jane Doe
     """
