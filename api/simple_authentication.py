@@ -100,7 +100,7 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
             password_match = (password in (None, ''))
         return password_match and username in self.test_identifiers
 
-    def remote_patron_lookup(self, patron_or_patrondata):
+    def _remote_patron_lookup(self, patron_or_patrondata):
         if not patron_or_patrondata:
             return None
         if ((isinstance(patron_or_patrondata, PatronData)

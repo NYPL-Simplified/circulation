@@ -110,6 +110,11 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             )
         self.client = client
 
+    def _remote_patron_lookup(self, patron_or_patrondata):
+        return self.client.patron_information(
+            patron_or_patrondata.authorization_identifier, None
+        )
+
     def remote_authenticate(self, username, password):
         """Authenticate a patron with the SIP2 server.
 
