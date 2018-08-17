@@ -233,7 +233,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY : "http://css/"
         }
 
-        # The very first request made is going to be to the 
+        # The very first request made is going to be to the
         # REPLACEMENT_CSS_KEY URL.
         self.http.queue_response(
             200, content="Some new CSS", media_type="text/css",

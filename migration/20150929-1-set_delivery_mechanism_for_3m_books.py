@@ -18,7 +18,7 @@ class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
 
     def __init__(self, _db, interval_seconds=None):
         super(SetDeliveryMechanismMonitor, self).__init__(
-            _db, "20150929 migration - Set delivery mechanism for 3M books", 
+            _db, "20150929 migration - Set delivery mechanism for 3M books",
             interval_seconds, batch_size=10)
         self.api = ThreeMAPI(_db)
         self.metadata_client = SimplifiedOPDSLookup(
@@ -40,5 +40,5 @@ class SetDeliveryMechanismMonitor(IdentifierSweepMonitor):
                 format.drm_scheme,
                 format.link
             )
-    
+
 RunMonitorScript(SetDeliveryMechanismMonitor).run()

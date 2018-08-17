@@ -18,7 +18,7 @@ from api.config import (
 from . import DatabaseTest
 
 class TestSimpleAuth(DatabaseTest):
-    
+
     def test_simple(self):
         p = SimpleAuthenticationProvider
         integration = self._external_integration(self._str)
@@ -84,7 +84,7 @@ class TestSimpleAuth(DatabaseTest):
 
         eq_(None, provider.remote_authenticate("a", None))
         eq_(None, provider.remote_authenticate(None, "pass"))
-        
+
         user = provider.remote_authenticate("a", "pass")
         assert isinstance(user, PatronData)
         eq_("a", user.authorization_identifier)
@@ -107,3 +107,46 @@ class TestSimpleAuth(DatabaseTest):
         # The main user can still authenticate too.
         user5 = provider.remote_authenticate("barcode", "pass")
         eq_("barcode", user5.authorization_identifier)
+
+    def test_generate_patrondata(self):
+
+        #Pass in numeric barcode as identifier
+        result = SimpleAuthenticationProvider.generate_patrondata("1234")
+        eq_(result.permanent_id, "1234_id")
+        eq_(result.authorization_identifier, '1234')
+        eq_(result.personal_name, "PersonalName1234")
+        eq_(result.username, '1234_username')
+
+        #Pass in username as identifier
+        result = SimpleAuthenticationProvider.generate_patrondata("1234_username")
+        eq_(result.permanent_id, "1234_id")
+        eq_(result.authorization_identifier, '1234')
+        eq_(result.personal_name, "PersonalName1234")
+        eq_(result.username, '1234_username')
+
+    def test__remote_patron_lookup(self):
+        p = SimpleAuthenticationProvider
+        integration = self._external_integration(self._str)
+        integration.setting(p.TEST_IDENTIFIER).value = "barcode"
+        integration.setting(p.TEST_PASSWORD).value = "pass"
+        integration.setting(p.PASSWORD_KEYBOARD).value = p.NULL_KEYBOARD
+        provider = p(self._default_library, integration)
+        patron_data = PatronData(authorization_identifier="barcode")
+        patron = self._patron()
+        patron.authorization_identifier = "barcode"
+
+        #Returns None if nothing is passed in
+        eq_(provider._remote_patron_lookup(None), None)
+
+        #Returns a patron if a patron is passed in and something is found
+        result = provider._remote_patron_lookup(patron)
+        eq_(result.permanent_id, "barcode_id")
+
+        #Returns None if no patron is found
+        patron.authorization_identifier = "wrong barcode"
+        result = provider._remote_patron_lookup(patron)
+        eq_(result, None)
+
+        #Returns a patron if a PatronData object is passed in and something is found
+        result = provider._remote_patron_lookup(patron_data)
+        eq_(result.permanent_id, "barcode_id")

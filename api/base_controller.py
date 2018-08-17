@@ -10,7 +10,7 @@ class BaseCirculationManagerController(object):
     """Define minimal standards for a circulation manager controller,
     mainly around authentication.
     """
-    
+
     def __init__(self, manager):
         """:param manager: A CirculationManager object."""
         self.manager = manager
@@ -90,12 +90,12 @@ class BaseCirculationManagerController(object):
         has been changed and needs to be updated.
         """
         self.manager.reload_settings_if_changed()
-        
+
         if library_short_name:
             library = Library.lookup(self._db, short_name=library_short_name)
         else:
             library = Library.default(self._db)
-        
+
         if not library:
             return LIBRARY_NOT_FOUND
         flask.request.library = library

@@ -9,7 +9,7 @@ import uuid
 from flask_babel import lazy_gettext as _
 
 from circulation import (
-    BaseCirculationAPI, 
+    BaseCirculationAPI,
     FulfillmentInfo,
     HoldInfo,
     LoanInfo,
@@ -32,7 +32,7 @@ from core.oneclick import (
 )
 
 from core.metadata_layer import (
-    CirculationData, 
+    CirculationData,
     FormatData,
     ReplacementPolicy,
 )
@@ -47,7 +47,7 @@ from core.model import (
     Edition,
     ExternalIntegration,
     Hyperlink,
-    Identifier, 
+    Identifier,
     Library,
     LicensePool,
     Patron,
@@ -82,7 +82,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
         { "key": ExternalIntegration.URL, "label": _("URL"), "default": BaseOneClickAPI.PRODUCTION_BASE_URL },
     ] + BASE_SETTINGS
-    
+
     # The loan duration must be specified when connecting a library to an
     # RBdigital account, but if it's not specified, try one week.
     DEFAULT_LOAN_DURATION = 7
@@ -96,14 +96,14 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
     )
     my_ebook_setting.update(default=DEFAULT_LOAN_DURATION)
     LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
-        my_audiobook_setting, 
+        my_audiobook_setting,
         my_ebook_setting
     ]
 
     EXPIRATION_DATE_FORMAT = '%Y-%m-%d'
 
     log = logging.getLogger("OneClick Patron API")
-   
+
     def __init__(self, *args, **kwargs):
         super(OneClickAPI, self).__init__(*args, **kwargs)
         self.bibliographic_coverage_provider = (
@@ -187,7 +187,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
 
         :param patron: a Patron object for the patron who wants to return the book.
         :param pin: The patron's password (not used).
-        :param licensepool: The Identifier of the book to be checked out is 
+        :param licensepool: The Identifier of the book to be checked out is
         attached to this licensepool.
 
         :return True on success, raises circulation exceptions on failure.
@@ -198,7 +198,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
         resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=True)
 
         if resp_dict.get('message') == 'success':
-            self.log.debug("Patron %s/%s returned item %s.", patron.authorization_identifier, 
+            self.log.debug("Patron %s/%s returned item %s.", patron.authorization_identifier,
                 patron_oneclick_id, item_oneclick_id)
             return True
 
@@ -217,7 +217,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
 
         :param patron: a Patron object for the patron who wants to check out the book.
         :param pin: The patron's password (not used).
-        :param licensepool: The Identifier of the book to be checked out is 
+        :param licensepool: The Identifier of the book to be checked out is
         attached to this licensepool.
         :param internal_format: Represents the patron's desired book format.  Ignored for now.
 
@@ -246,7 +246,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
         if not resp_dict or ('error_code' in resp_dict):
             return None
 
-        self.log.debug("Patron %s/%s checked out item %s with transaction id %s.", patron.authorization_identifier, 
+        self.log.debug("Patron %s/%s checked out item %s with transaction id %s.", patron.authorization_identifier,
             patron_oneclick_id, item_oneclick_id, resp_dict['transactionId'])
 
         expires = today + datetime.timedelta(days=days)
@@ -341,13 +341,13 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
     def place_hold(self, patron, pin, licensepool, notification_email_address):
         """Place a book on hold.
 
-        Note: If the requested book is available for checkout, OneClick will respond 
-        with a "success" to the hold request.  Then, at the next database clean-up sweep, 
-        OneClick will automatically convert the hold record to a checkout record. 
+        Note: If the requested book is available for checkout, OneClick will respond
+        with a "success" to the hold request.  Then, at the next database clean-up sweep,
+        OneClick will automatically convert the hold record to a checkout record.
 
         :param patron: a Patron object for the patron who wants to check out the book.
         :param pin: The patron's password (not used).
-        :param licensepool: The Identifier of the book to be checked out is 
+        :param licensepool: The Identifier of the book to be checked out is
         attached to this licensepool.
         :param internal_format: Represents the patron's desired book format.  Ignored for now.
 
@@ -365,7 +365,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
             self.log.error("Item hold request failed: %r", e, exc_info=e)
             raise CannotHold(e.message)
 
-        self.log.debug("Patron %s/%s reserved item %s with transaction id %s.", patron.authorization_identifier, 
+        self.log.debug("Patron %s/%s reserved item %s with transaction id %s.", patron.authorization_identifier,
             patron_oneclick_id, item_oneclick_id, resp_obj)
 
         today = datetime.datetime.now()
@@ -389,7 +389,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
 
         :param patron: a Patron object for the patron who wants to return the book.
         :param pin: The patron's password (not used).
-        :param licensepool: The Identifier of the book to be checked out is 
+        :param licensepool: The Identifier of the book to be checked out is
         attached to this licensepool.
 
         :return True on success, raises circulation exceptions on failure.
@@ -400,7 +400,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
         resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, hold=True, return_item=True)
 
         if resp_dict.get('message') == 'success':
-            self.log.debug("Patron %s/%s released hold %s.", patron.authorization_identifier, 
+            self.log.debug("Patron %s/%s released hold %s.", patron.authorization_identifier,
                 patron_oneclick_id, item_oneclick_id)
             return True
 
@@ -430,14 +430,14 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
         If the book has never been seen before, a new LicensePool
         will be created for the book.
 
-        The book's LicensePool will be updated with current approximate 
-        circulation information (we can tell if it's available, but 
-        not how many copies). 
-        Bibliographic coverage will be ensured for the OneClick Identifier. 
+        The book's LicensePool will be updated with current approximate
+        circulation information (we can tell if it's available, but
+        not how many copies).
+        Bibliographic coverage will be ensured for the OneClick Identifier.
         Work will be created for the LicensePool and set as presentation-ready.
 
         :param isbn the identifier OneClick uses
-        :param availability boolean denoting if book can be lent to patrons 
+        :param availability boolean denoting if book can be lent to patrons
         :param medium: The name OneClick uses for the book's medium.
         """
 
@@ -466,8 +466,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
         # at least one license to it.
         licenses_owned = 1
 
-        if (not is_new_pool and 
-            license_pool.licenses_owned == licenses_owned and 
+        if (not is_new_pool and
+            license_pool.licenses_owned == licenses_owned and
             license_pool.licenses_available == licenses_available):
             # Optimization: Nothing has changed, so don't even bother
             # calling CirculationData.apply()
@@ -498,16 +498,16 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
 
         if delivery_type:
             formats.append(FormatData(delivery_type, drm_scheme))
-        
+
         circulation_data = CirculationData(
-            data_source=DataSource.RB_DIGITAL, 
-            primary_identifier=license_pool.identifier, 
+            data_source=DataSource.RB_DIGITAL,
+            primary_identifier=license_pool.identifier,
             licenses_owned=licenses_owned,
             licenses_available=licenses_available,
             formats=formats,
         )
 
-        policy = policy or self.default_circulation_replacement_policy        
+        policy = policy or self.default_circulation_replacement_policy
         license_pool, circulation_changed = circulation_data.apply(
             self._db,
             self.collection,
@@ -515,12 +515,12 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
         )
 
         return license_pool, is_new_pool, circulation_changed
-        
+
 
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool.
         Part of the CirculationAPI interface.
-        Inactive for now, because we'd have to request and go through all availabilities 
+        Inactive for now, because we'd have to request and go through all availabilities
         from OneClick just to pick the one licensepool we want.
         """
         pass
@@ -532,7 +532,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
         format.
         """
         return delivery_mechanism
-    
+
 ### Patron account handling
 
     def patron_remote_identifier(self, patron):
@@ -614,7 +614,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
                 patron_oneclick_id = patron_info.get('patronId')
 
         if not patron_oneclick_id:
-            raise RemotePatronCreationFailedException(action + 
+            raise RemotePatronCreationFailedException(action +
                 ": http=" + str(response.status_code) + ", response=" + response.text)
         return patron_oneclick_id
 
@@ -650,8 +650,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
     def get_patron_checkouts(self, patron_id):
         """
         Gets the books and audio the patron currently has checked out.
-        Obtains fulfillment info for each item -- the way to fulfill a book 
-        is to get this list of possibilities first, and then call individual 
+        Obtains fulfillment info for each item -- the way to fulfill a book
+        is to get this list of possibilities first, and then call individual
         fulfillment endpoints on the individual items.
 
         :param patron_id OneClick internal id for the patron.
@@ -701,7 +701,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
             ).date()
 
         identifier, made_new = Identifier.for_foreign_id(
-            self._db, foreign_identifier_type=Identifier.RB_DIGITAL_ID, 
+            self._db, foreign_identifier_type=Identifier.RB_DIGITAL_ID,
             foreign_id=isbn, autocreate=False
         )
         if not identifier:
@@ -712,7 +712,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
         fulfillment_info = RBFulfillmentInfo(
             self,
             DataSource.RB_DIGITAL,
-            identifier, 
+            identifier,
             item,
         )
 
@@ -825,8 +825,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
 
     ''' -------------------------- Validation Handling -------------------------- '''
     def validate_item(self, licensepool):
-        """ Are we performing operations on a book that exists and can be 
-        uniquely identified? 
+        """ Are we performing operations on a book that exists and can be
+        uniquely identified?
         """
         item_oneclick_id = None
         media = None
@@ -843,8 +843,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
 
     def validate_response(self, response, message, action=""):
         """ OneClick tries to communicate statuses and errors through http codes.
-        Malformed url requests will throw a 500, non-existent ids will get a 404, 
-        trying an action like checkout on a patron/item combo that's blocked 
+        Malformed url requests will throw a 500, non-existent ids will get a 404,
+        trying an action like checkout on a patron/item combo that's blocked
         (like if the item is already checked out, for example) will get a 409, etc..
         Further details are usually elaborated on in the "message" field of the response.
 
@@ -888,13 +888,13 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
                     raise NotCheckedOut(action + ": " + message)
                 else:
                     raise CannotReturn(action + ": " + message)
-                
+
             if response.status_code == 404:
                 raise NotFoundOnRemote(action + ": " + message)
 
             if response.status_code == 400:
                 raise InvalidInputException(action + ": " + message)
-            
+
         elif message:
             if message == 'success':
                 # There is no additional information to be had.
@@ -908,7 +908,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
 
 
     def queue_response(self, status_code, headers={}, content=None):
-        """ Allows smoother faster creation of unit tests by letting 
+        """ Allows smoother faster creation of unit tests by letting
         us live-test as we write. """
         pass
 
@@ -936,7 +936,7 @@ class RBFulfillmentInfo(object):
         self._content_type = None
         self._content = None
         self._content_expires = None
-        
+
     @property
     def content_link(self):
         self.fetch()
@@ -982,7 +982,7 @@ class RBFulfillmentInfo(object):
                 file_format = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE
             self._content_type = file_format
             individual_download_url = file.get('downloadUrl', None)
-            
+
         if self._content_type == Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
             # We have an audiobook.
             self._content = self.process_audiobook_manifest(self.raw_data)
@@ -1039,7 +1039,7 @@ class MockOneClickAPI(BaseMockOneClickAPI, OneClickAPI):
                     (Collection.EBOOK_LOAN_DURATION_KEY, 2)
             ):
                 ConfigurationSetting.for_library_and_externalintegration(
-                    _db, key, library, 
+                    _db, key, library,
                     collection.external_integration
                 ).value = value
         return collection
@@ -1057,7 +1057,7 @@ class OneClickCirculationMonitor(CollectionMonitor):
     DEFAULT_BATCH_SIZE = 50
 
     PROTOCOL = ExternalIntegration.RB_DIGITAL
-    
+
     def __init__(self, _db, collection, batch_size=None, api_class=OneClickAPI,
                  api_class_kwargs={}):
         super(OneClickCirculationMonitor, self).__init__(_db, collection)
@@ -1105,7 +1105,7 @@ class OneClickCirculationMonitor(CollectionMonitor):
     def run_once(self, start, cutoff):
         ebook_count = self.process_availability(media_type='eBook')
         eaudio_count = self.process_availability(media_type='eAudio')
-        
+
         self.log.info("Processed %d ebooks and %d audiobooks.", ebook_count, eaudio_count)
 
 
@@ -1155,7 +1155,7 @@ class AudiobookManifest(CoreAudiobookManifest):
         download_url = self.raw.get('downloadUrl')
         if download_url:
             self.add_link(
-                download_url, 'alternate', 
+                download_url, 'alternate',
                 type=Representation.guess_media_type(download_url)
             )
 
@@ -1218,4 +1218,4 @@ class AudiobookManifest(CoreAudiobookManifest):
         ):
             if k in file_data:
                 extra[v] = transform(file_data[k])
-        self.add_spine(href, type, title, **extra)
+        self.add_reading_order(href, type, title, **extra)

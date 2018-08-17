@@ -184,6 +184,13 @@ COLLECTION_NAME_ALREADY_IN_USE = pd(
     detail=_("The collection name must be unique, and there's already a collection with the specified name."),
 )
 
+MISSING_COLLECTION_IDENTIFIER = pd(
+    "http://librarysimplified.org/terms/problem/missing-collection-identifier",
+    status_code=400,
+    title=_("Missing collection identifier"),
+    detail=_("No collection identifier was used."),
+)
+
 CANNOT_DELETE_COLLECTION_WITH_CHILDREN = pd(
     "http://librarysimplified.org/terms/problem/cannot-delete-collection-with-children",
     status_code=400,
@@ -310,6 +317,13 @@ MULTIPLE_BASIC_AUTH_SERVICES = pd(
     detail=_("Each library can only have one patron authentication service using basic auth."),
 )
 
+NO_SUCH_PATRON = pd(
+    "http://librarysimplified.org/terms/problem/no-such-patron",
+    status_code=404,
+    title=_("No such patron"),
+    detail=_("The specified patron doesn't exist, or is associated with a different library."),
+)
+
 MISSING_SITEWIDE_SETTING_KEY = pd(
     "http://librarysimplified.org/terms/problem/missing-sitewide-setting-key",
     status_code=400,
@@ -385,14 +399,14 @@ NO_CUSTOM_LISTS_FOR_LANE = pd(
     status_code=400,
     title=_("No custom lists for lane"),
     detail=_("A custom lane must have at least one associated list."),
-)    
+)
 
 LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS = pd(
     "http://librarysimplified.org/terms/problem/lane-with-parent-and-display-name-already-exists",
     status_code=400,
     title=_("Lane with parent and display name already exists"),
     detail=_("You cannot create a lane with the same parent and display name as an existing lane."),
-)    
+)
 
 CANNOT_SHOW_LANE_WITH_HIDDEN_PARENT = pd(
     "http://librarysimplified.org/terms/problem/cannot-show-lane-with-hidden-parent",
@@ -406,4 +420,11 @@ COLLECTION_DOES_NOT_SUPPORT_REGISTRATION = pd(
     status_code=400,
     title=_("The collection does not support registration"),
     detail=_("The collection does not support registration."),
+)
+
+FAILED_TO_RUN_SELF_TESTS = pd(
+    "http://librarysimplified.org/terms/problem/failed-to-run-self-tests",
+    status_code=400,
+    title=_("Failed to run self tests for collection."),
+    detail=_("Failed to run self tests for collection.")
 )

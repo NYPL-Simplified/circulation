@@ -70,7 +70,6 @@ from core.model import (
     Loan,
     LicensePoolDeliveryMechanism,
     Patron,
-    PatronProfileStorage,
     Representation,
     Session,
     Work,
@@ -112,6 +111,7 @@ from problem_details import *
 
 from authenticator import (
     Authenticator,
+    CirculationPatronProfileStorage,
     OAuthController,
 )
 from config import (
@@ -784,7 +784,9 @@ class OPDSFeedController(CirculationManagerController):
         )
         if not query:
             # Send the search form
-            return OpenSearchDocument.for_lane(lane, make_url())
+            open_search_doc = OpenSearchDocument.for_lane(lane, make_url())
+            headers = { "Content-Type" : "application/opensearchdescription+xml" }
+            return Response(open_search_doc, 200, headers)
 
         pagination = load_pagination_from_request(default_size=Pagination.DEFAULT_SEARCH_SIZE)
         if isinstance(pagination, ProblemDetail):
@@ -802,6 +804,7 @@ class OPDSFeedController(CirculationManagerController):
             query=query, annotator=annotator, pagination=pagination,
             languages=languages, facets=facets
         )
+
         return feed_response(opds_feed)
 
 
@@ -1550,7 +1553,6 @@ class WorkController(CirculationManagerController):
         )
         return feed_response(unicode(feed))
 
-
 class ProfileController(CirculationManagerController):
     """Implement the User Profile Management Protocol."""
 
@@ -1559,7 +1561,7 @@ class ProfileController(CirculationManagerController):
         """Instantiate a CoreProfileController that actually does the work.
         """
         patron = self.authenticated_patron_from_request()
-        storage = PatronProfileStorage(patron)
+        storage = CirculationPatronProfileStorage(patron)
         return CoreProfileController(storage)
 
     def protocol(self):

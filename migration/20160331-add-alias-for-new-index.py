@@ -4,7 +4,7 @@ Add an alias to a new search index.
 
 Process for creating and switching to the new index:
 Deploy the new code.
-Run this migration, which creates a new index ("-v2") and an alias ("-current") 
+Run this migration, which creates a new index ("-v2") and an alias ("-current")
 based on the current index name.
 Run `bin/repair/search_index <new_index_name>`.
 Change the config file to point to the alias instead of the old index name.

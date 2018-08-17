@@ -32,6 +32,7 @@ from core.model import (
     DelegatedPatronIdentifier,
     ExternalIntegration,
     Library,
+    Patron,
 )
 from core.scripts import Script
 
@@ -84,7 +85,7 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
     """
     DEVICE_ID_LIST_MEDIA_TYPE = "vnd.librarysimplified/drm-device-id-list"
     PLAIN_TEXT_HEADERS = {"Content-Type" : "text/plain"}
-    
+
     @property
     def link_template_header(self):
         """Generate the Link Template that explains how to deregister
@@ -100,7 +101,7 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
     def _request_handler(self, patron):
         """Create a DeviceManagementRequestHandler for the appropriate
         Credential of the given Patron.
-       
+
         :return: A DeviceManagementRequestHandler
         """
         if not patron:
@@ -110,13 +111,13 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
             patron
         )
         return DeviceManagementRequestHandler(credential)
-    
+
     def device_id_list_handler(self):
         """Manage the list of device IDs associated with an Adobe ID."""
         handler = self._request_handler(flask.request.patron)
         if isinstance(handler, ProblemDetail):
             return handler
-        
+
         device_ids = self.DEVICE_ID_LIST_MEDIA_TYPE
         if flask.request.method=='GET':
             # Serve a list of device IDs.
@@ -141,9 +142,9 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
         return METHOD_NOT_ALLOWED.detailed(
             _("Only GET and POST are supported.")
         )
-        
+
     def device_id_handler(self, device_id):
-        """Manage one of the device IDs associated with an Adobe ID."""       
+        """Manage one of the device IDs associated with an Adobe ID."""
         handler = self._request_handler(getattr(flask.request, 'patron', None))
         if isinstance(handler, ProblemDetail):
             return handler
@@ -156,7 +157,7 @@ class DeviceManagementProtocolController(BaseCirculationManagerController):
         if isinstance(output, ProblemDetail):
             return output
         return Response(output, 200, self.PLAIN_TEXT_HEADERS)
-    
+
 
 class AdobeVendorIDRequestHandler(object):
 
@@ -174,7 +175,7 @@ class AdobeVendorIDRequestHandler(object):
 </accountInfoResponse>"""
 
     AUTH_ERROR_TYPE = "AUTH"
-    ACCOUNT_INFO_ERROR_TYPE = "ACCOUNT_INFO"   
+    ACCOUNT_INFO_ERROR_TYPE = "ACCOUNT_INFO"
 
     ERROR_RESPONSE_TEMPLATE = '<error xmlns="http://ns.adobe.com/adept" data="E_%(vendor_id)s_%(type)s %(message)s"/>'
 
@@ -245,10 +246,10 @@ class AdobeVendorIDRequestHandler(object):
 
 class DeviceManagementRequestHandler(object):
     """Handle incoming requests for the DRM Device Management Protocol."""
-        
+
     def __init__(self, credential):
         self.credential = credential
-        
+
     def device_list(self):
         return "\n".join(
             sorted(
@@ -267,7 +268,7 @@ class DeviceManagementRequestHandler(object):
             if device_id:
                 self.credential.register_drm_device_identifier(device_id)
         return 'Success'
-            
+
     def deregister_device(self, device_id):
         self.credential.deregister_drm_device_identifier(device_id)
         return 'Success'
@@ -369,7 +370,7 @@ class AdobeVendorIDModel(object):
         """
         if not patron:
             return None, None
-        
+
         # First, find or create a Credential containing the patron's
         # anonymized key into the DelegatedPatronIdentifier database.
         adobe_account_id_patron_identifier_credential = self.get_or_create_patron_identifier_credential(
@@ -384,7 +385,7 @@ class AdobeVendorIDModel(object):
             self._db, Credential, patron=patron, data_source=self.data_source,
             type=self.VENDOR_ID_UUID_TOKEN_TYPE
         )
-        
+
         if old_style_adobe_account_id_credential:
             # The value of the old-style credential will become the
             # default value of the DelegatedPatronIdentifier, assuming
@@ -397,7 +398,7 @@ class AdobeVendorIDModel(object):
             # using the default mechanism.
             new_value = None
 
-        # Look up or create a DelegatedPatronIdentifier using the 
+        # Look up or create a DelegatedPatronIdentifier using the
         # anonymized patron identifier we just looked up or created.
         utility = AuthdataUtility.from_config(patron.library, self._db)
         return self.to_delegated_patron_identifier_uuid(
@@ -417,7 +418,7 @@ class AdobeVendorIDModel(object):
         UUID and their human-readable label, creating a Credential
         object to hold the UUID if necessary.
         """
-        username = authorization_data.get('username') 
+        username = authorization_data.get('username')
         password = authorization_data.get('password')
         if username and not password:
             # The absence of a password indicates the username might
@@ -434,7 +435,7 @@ class AdobeVendorIDModel(object):
             uuid, label = self.short_client_token_lookup(username, password)
             if uuid and label:
                 return uuid, label
-        
+
         # Last ditch effort: try a normal username/password lookup.
         # This should almost never be used.
         patron = self.authenticator.authenticated_patron(
@@ -457,7 +458,7 @@ class AdobeVendorIDModel(object):
         """
         if not authdata:
             return None, None
-        
+
         library_uri = foreign_patron_identifier = None
         utility = AuthdataUtility.from_config(self.library, self._db)
         if utility:
@@ -470,7 +471,7 @@ class AdobeVendorIDModel(object):
             except Exception, e:
                 # Not a problem -- we'll try the old system.
                 pass
-            
+
         if library_uri and foreign_patron_identifier:
             # We successfully decoded the authdata as a JWT. We know
             # which library the patron is from and which (hopefully
@@ -506,7 +507,7 @@ class AdobeVendorIDModel(object):
                 # This didn't work--either the incoming data was wrong
                 # or this technique wasn't the right one to use.
                 pass
-            
+
         if library_uri and foreign_patron_identifier:
             # We successfully decoded the authdata as a short client
             # token. We know which library the patron is from and
@@ -546,7 +547,7 @@ class AdobeVendorIDModel(object):
     def patron_from_authdata_lookup(self, authdata):
         """Look up a patron by their persistent authdata token."""
         credential = Credential.lookup_by_token(
-            self._db, self.data_source, self.AUTHDATA_TOKEN_TYPE, 
+            self._db, self.data_source, self.AUTHDATA_TOKEN_TYPE,
             authdata, allow_persistent_token=True
         )
         if not credential:
@@ -583,7 +584,7 @@ class AdobeVendorIDModel(object):
 class AuthdataUtility(object):
 
     """Generate authdata JWTs as per the Vendor ID Service spec:
-    https://docs.google.com/document/d/1j8nWPVmy95pJ_iU4UTC-QgHK2QhDUSdQ0OQTFR2NE_0    
+    https://docs.google.com/document/d/1j8nWPVmy95pJ_iU4UTC-QgHK2QhDUSdQ0OQTFR2NE_0
 
     Capable of encoding JWTs (for this library), and decoding them
     (from this library and potentially others).
@@ -600,9 +601,9 @@ class AuthdataUtility(object):
     # the patron needs to reset their Adobe account ID) with no
     # consequences other than losing their currently checked-in books.
     ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER = "Identifier for Adobe account ID purposes"
-    
+
     ALGORITHM = 'HS256'
-   
+
     def __init__(self, vendor_id, library_uri, library_short_name, secret,
                  other_libraries={}):
         """Basic constructor.
@@ -663,7 +664,7 @@ class AuthdataUtility(object):
                 )
             self.library_uris_by_short_name[short_name] = uri
             self.secrets_by_library_uri[uri] = secret
-        
+
         self.log = logging.getLogger("Adobe authdata utility")
 
         self.short_token_signer = HMACAlgorithm(HMACAlgorithm.SHA256)
@@ -747,7 +748,26 @@ class AuthdataUtility(object):
             )
         return cls(vendor_id, library_uri, library_short_name, secret,
                    other_libraries)
-        
+
+    @classmethod
+    def adobe_relevant_credentials(self, patron):
+        """Find all Adobe-relevant Credential objects for the given
+        patron.
+
+        This includes the patron's identifier for Adobe ID purposes,
+        and (less likely) any Adobe IDs directly associated with the
+        Patron.
+
+        :return: A SQLAlchemy query
+        """
+        _db = Session.object_session(patron)
+        types = (AdobeVendorIDModel.VENDOR_ID_UUID_TOKEN_TYPE,
+                 AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER)
+        return _db.query(
+            Credential).filter(Credential.patron==patron).filter(
+                Credential.type.in_(types)
+            )
+
     def encode(self, patron_identifier):
         """Generate an authdata JWT suitable for putting in an OPDS feed, where
         it can be picked up by a client and sent to the delegation
@@ -794,7 +814,7 @@ class AuthdataUtility(object):
         """Undoes adobe_base64_encode."""
         encoded = str.replace(":", "+").replace(";", "/").replace("@", "=")
         return base64.decodestring(encoded)
-    
+
     def decode(self, authdata):
         """Decode and verify an authdata JWT from one of the libraries managed
         by `secrets_by_library`.
@@ -829,7 +849,7 @@ class AuthdataUtility(object):
         # If we got to this point there is at least one exception
         # in the list.
         raise exceptions[-1]
-                
+
     def _decode(self, authdata):
         # First, decode the authdata without checking the signature.
         decoded = jwt.decode(
@@ -854,6 +874,36 @@ class AuthdataUtility(object):
             raise jwt.exceptions.DecodeError("No subject specified.")
         return library_uri, decoded['sub']
 
+    @classmethod
+    def _adobe_patron_identifier(self, patron):
+        """Take patron object and return identifier for Adobe ID purposes"""
+        _db = Session.object_session(patron)
+        internal = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
+
+        def refresh(credential):
+            credential.credential = str(uuid.uuid1())
+        patron_identifier = Credential.lookup(
+            _db, internal, AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER, patron,
+            refresher_method=refresh, allow_persistent_token=True
+        )
+        return patron_identifier.credential
+
+
+    def short_client_token_for_patron(self, patron_information):
+        """Generate short client token for patron, or for a patron's identifier
+         for Adobe ID purposes"""
+
+        if isinstance(patron_information, Patron):
+            # Find the patron's identifier for Adobe ID purposes.
+            patron_identifier = self._adobe_patron_identifier(
+                patron_information
+            )
+        else:
+            patron_identifier = patron_information
+
+        vendor_id, token = self.encode_short_client_token(patron_identifier)
+        return vendor_id, token
+
     def encode_short_client_token(self, patron_identifier):
         """Generate a short client token suitable for putting in an OPDS feed,
         where it can be picked up by a client and sent to the
@@ -869,7 +919,7 @@ class AuthdataUtility(object):
             self.short_name, patron_identifier, expires
         )
         return self.vendor_id, authdata
-    
+
     def _encode_short_client_token(self, library_short_name,
                                    patron_identifier, expires):
         base = library_short_name + "|" + str(expires) + "|" + patron_identifier
@@ -886,7 +936,7 @@ class AuthdataUtility(object):
                 "Password portion of short client token exceeds 76 characters; Adobe will probably truncate it."
             )
         return base + "|" + signature
-            
+
     def decode_short_client_token(self, token):
         """Attempt to interpret a 'username' and 'password' as a short
         client token identifying a patron of a specific library.
@@ -902,7 +952,7 @@ class AuthdataUtility(object):
 
         username, password = token.rsplit('|', 1)
         return self.decode_two_part_short_client_token(username, password)
-        
+
     def decode_two_part_short_client_token(self, username, password):
         """Decode a short client token that has already been split into
         two parts.
@@ -930,7 +980,7 @@ class AuthdataUtility(object):
             raise ValueError(
                 "Token %s has empty patron identifier" % token
             )
-       
+
         if not library_short_name in self.library_uris_by_short_name:
             raise ValueError(
                 "I don't know how to handle tokens from library \"%s\"" % library_short_name
@@ -955,14 +1005,14 @@ class AuthdataUtility(object):
         # Sign the token and check against the provided signature.
         key = self.short_token_signer.prepare_key(secret)
         actual_signature = self.short_token_signer.sign(token, key)
-        
+
         if actual_signature != supposed_signature:
             raise ValueError(
                 "Invalid signature for %s." % token
             )
 
         return library_uri, patron_identifier
-        
+
     EPOCH = datetime.datetime(1970, 1, 1)
 
     @classmethod
@@ -979,7 +1029,7 @@ class AuthdataUtility(object):
         20161102-adobe-id-is-delegated-patron-identifier.py.
         """
         import uuid
-        
+
         _db = Session.object_session(patron)
         credential = get_one(
             _db, Credential,
@@ -1016,15 +1066,15 @@ class VendorIDLibraryConfigurationScript(Script):
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--website-url', 
+            '--website-url',
             help="The URL to this library's patron-facing website (not their circulation manager), e.g. \"https://nypl.org/\". This is used to uniquely identify a library."
         )
         parser.add_argument(
-            '--short-name', 
+            '--short-name',
             help="The short name the library will use in Short Client Tokens, e.g. \"NYNYPL\"."
         )
         parser.add_argument(
-            '--secret', 
+            '--secret',
             help="The secret the library will use to sign Short Client Tokens."
         )
         return parser
@@ -1080,7 +1130,7 @@ class VendorIDLibraryConfigurationScript(Script):
             short_name, secret = other_libraries[chosen_website]
             self.explain(output, other_libraries, chosen_website)
         other_libraries[chosen_website] = [args.short_name, args.secret]
-        
+
         output.write("New configuration:\n")
         self.explain(output, other_libraries, chosen_website)
         setting.value = json.dumps(other_libraries)
@@ -1101,21 +1151,21 @@ class ShortClientTokenLibraryConfigurationScript(Script):
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--website-url', 
+            '--website-url',
             help="The URL to this library's patron-facing website (not their circulation manager), e.g. \"https://nypl.org/\". This is used to uniquely identify a library.",
             required=True,
         )
         parser.add_argument(
-            '--vendor-id', 
+            '--vendor-id',
             help="The name of the vendor ID the library will use. The default of 'NYPL' is probably what you want.",
             default='NYPL'
         )
         parser.add_argument(
-            '--short-name', 
+            '--short-name',
             help="The short name the library will use in Short Client Tokens, e.g. \"NYBPL\".",
         )
         parser.add_argument(
-            '--secret', 
+            '--secret',
             help="The secret the library will use to sign Short Client Tokens.",
         )
         return parser
@@ -1175,9 +1225,9 @@ class ShortClientTokenLibraryConfigurationScript(Script):
             vendor_id_s.value = vendor_id
             username_s.value = short_name
             password_s.value = secret
-        
+
         output.write(
-            "Current Short Client Token configuration for %s:\n" 
+            "Current Short Client Token configuration for %s:\n"
             % website_url
         )
         output.write(" Vendor ID: %s\n" % vendor_id_s.value)

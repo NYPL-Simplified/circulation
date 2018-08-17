@@ -58,14 +58,14 @@ class ReaperImporter(OPDSImporter):
     """
     SUCCESS_STATUS_CODES = [200, 404]
 
-    
+
 class OPDSImportCoverageProvider(CollectionCoverageProvider):
     """Provide coverage for identifiers by looking them up, in batches,
     using the Simplified lookup protocol.
     """
     DEFAULT_BATCH_SIZE = 25
     OPDS_IMPORTER_CLASS = OPDSImporter
-    
+
     def __init__(self, collection, lookup_client, **kwargs):
         """Constructor.
 
@@ -76,7 +76,7 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
 
     def process_batch(self, batch):
         """Perform a Simplified lookup and import the resulting OPDS feed."""
-        (imported_editions, pools, works, 
+        (imported_editions, pools, works,
          error_messages_by_id) = self.lookup_and_import_batch(batch)
 
         results = []
@@ -347,7 +347,7 @@ class MetadataWranglerCollectionReaper(BaseMetadataWranglerCoverageProvider):
         # 'reaper' coverage record for the same Identifier.
         reaper_coverage = aliased(CoverageRecord)
         qu = self._db.query(CoverageRecord).join(
-            reaper_coverage, 
+            reaper_coverage,
             CoverageRecord.identifier_id==reaper_coverage.identifier_id
 
         # The CoverageRecords were selecting are 'import' records.
@@ -396,7 +396,7 @@ class MetadataUploadCoverageProvider(BaseMetadataWranglerCoverageProvider):
                 results.append(work)
         feed = AcquisitionFeed(self._db, "Metadata Upload Feed", "", works, None)
         self.lookup_client.add_with_metadata(feed)
-        
+
         # We grant coverage for all identifiers if the upload doesn't raise an exception.
         return results
 
@@ -405,7 +405,7 @@ class MockOPDSImportCoverageProvider(OPDSImportCoverageProvider):
 
     SERVICE_NAME = "Mock Provider"
     DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
-    
+
     def __init__(self, collection, *args, **kwargs):
         super(MockOPDSImportCoverageProvider, self).__init__(
             collection, None, *args, **kwargs
