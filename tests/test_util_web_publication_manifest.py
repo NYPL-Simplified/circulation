@@ -5,7 +5,6 @@ from nose.tools import (
 from util.web_publication_manifest import (
     JSONable,
     Manifest,
-    TimelinePart,
     AudiobookManifest,
 )
 
@@ -118,25 +117,6 @@ class TestUpdateBibliographicMetadata(DatabaseTest):
             assert missing not in manifest.metadata
         eq_([], manifest.links)
 
-class TestTimelinePart(object):
-
-    expect = {
-        'href': 'http://foo/pt1',
-        'title': 'Part 1',
-        'children': [{'extra': 'value', 'href': 'http://foo/ch1',
-                      'title': 'Chapter 1'}]
-    }
-
-    def test_as_dict(self):
-        chapter_1 = TimelinePart("http://foo/ch1", "Chapter 1", extra="value")
-        part_1 = TimelinePart("http://foo/pt1", "Part 1", [chapter_1])
-        eq_(self.expect, part_1.as_dict)
-
-    def test_add_child(self):
-        part_1 = TimelinePart("http://foo/pt1", "Part 1")
-        part_1.add_child("http://foo/ch1", "Chapter 1", extra="value")
-        eq_(self.expect, part_1.as_dict)
-
 
 class TestAudiobookManifest(object):
 
@@ -154,16 +134,4 @@ class TestAudiobookManifest(object):
                 'metadata' : {'@type': manifest.type}
             },
             manifest.as_dict
-        )
-
-    def test_add_timeline(self):
-        manifest = AudiobookManifest()
-        part = manifest.add_timeline("http://foo/pt1", "Part 1", extra="value")
-        # At this point you could add children to `part`.
-        assert isinstance(part, TimelinePart)
-
-        dict = manifest.as_dict
-        eq_(
-            [{'href': 'http://foo/pt1', 'title': 'Part 1', 'extra': 'value'}],
-            dict['timeline']
         )
