@@ -537,40 +537,6 @@ class AgeClassifier(Classifier):
                     break
         return (target_age, age_words)
 
-
-class Axis360AudienceClassifier(Classifier):
-
-    TEEN_PREFIX = "Teen -"
-    CHILDRENS_PREFIX = "Children's -"
-
-    age_re = re.compile("Age ([0-9]+)-([0-9]+)$")
-
-    @classmethod
-    def audience(cls, identifier, name, require_explicit_age_marker=False):
-        if not identifier:
-            return None
-        if identifier == 'General Adult':
-            return Classifier.AUDIENCE_ADULT
-        elif identifier.startswith(cls.TEEN_PREFIX):
-            return Classifier.AUDIENCE_YOUNG_ADULT
-        elif identifier.startswith(cls.CHILDRENS_PREFIX):
-            return Classifier.AUDIENCE_CHILDREN
-        return None
-
-    @classmethod
-    def target_age(cls, identifier, name, require_explicit_age_marker=False):
-        if (not identifier.startswith(cls.TEEN_PREFIX)
-            and not identifier.startswith(cls.CHILDRENS_PREFIX)):
-            return cls.range_tuple(None, None)
-        m = cls.age_re.search(identifier)
-        if not m:
-            return cls.range_tuple(None, None)
-        young, old = map(int, m.groups())
-        if young > old:
-            young, old = old, young
-        return cls.range_tuple(young, old)
-
-
 # This is the large-scale structure of our classification system.
 #
 # If the name of a genre is a string, it's the name of the genre
