@@ -48,11 +48,10 @@ from model import (
 )
 from lane import Lane
 from metadata_layer import LinkData
-from oneclick import MockOneClickAPI
+from rbdigital import MockRBDigitalAPI
 
 from scripts import (
     AddClassificationScript,
-    BibliographicRefreshScript,
     CheckContributorNamesInDB,
     CollectionInputScript,
     ConfigureCollectionScript,
@@ -2304,83 +2303,6 @@ I would now expect you to be able to find 1 works.
 
         # The materialized view was refreshed.
         eq_(1, mw_query.count())
-
-
-class TestBibliographicRefreshScript(DatabaseTest):
-
-    def create_collection_for_data_source(self, data_source_name):
-        return self._collection(
-            protocol=data_source_name, data_source_name=data_source_name,
-            external_account_id=u'external_account', url=self._url,
-            username=u'username', password=u'password'
-        )
-
-    def test_providers_created_at_initialization(self):
-        sources = [
-            DataSource.AXIS_360,
-            DataSource.BIBLIOTHECA,
-            DataSource.ONECLICK,
-            DataSource.ONECLICK,
-        ]
-        collections = list()
-        for source in sources:
-            collections.append(self.create_collection_for_data_source(source))
-
-        script = BibliographicRefreshScript(_db=self._db)
-        # There is a provider for each Collection.
-        eq_(2, len(script.providers))
-        # None of the providers are OverdriveBibliographicCoverageProviders.
-        assert not filter(
-            lambda p: p.DATA_SOURCE_NAME == DataSource.OVERDRIVE,
-            script.providers
-        )
-
-    def test_replacement_policy_set_at_initialization(self):
-        collection = self.create_collection_for_data_source(DataSource.ONECLICK)
-        mirror = object()
-        script = BibliographicRefreshScript(
-            _db=self._db, link_content=True, mirror=mirror
-        )
-
-        [provider] = script.providers
-        eq_(True, provider.replacement_policy.link_content)
-        eq_(mirror, provider.replacement_policy.mirror)
-
-    def test_refresh_metadata(self):
-        script = BibliographicRefreshScript(_db=self._db)
-
-        # Override the BibliographicCoverageProvider creation process.
-        provider = AlwaysSuccessfulBibliographicCoverageProvider(
-            self._default_collection
-        )
-        script.providers = [provider]
-
-        # Without being part of a Collection, an identifier is not refreshed.
-        identifier = self._identifier()
-        eq_(False, script.refresh_metadata(identifier))
-
-        # As part of a Collection that is not covered by a provider, an
-        # identifier is not refreshed.
-        collection = self._collection(
-            protocol=ExternalIntegration.OPDS_IMPORT,
-            data_source_name=DataSource.GUTENBERG,
-        )
-        lp = self._licensepool(
-            None, data_source_name=DataSource.OVERDRIVE, collection=collection
-        )
-        identifier = lp.identifier
-        eq_(False, script.refresh_metadata(identifier))
-
-        # Now that the identifier is in a collection with a CoverageProvider,
-        # it's covered.
-        lp.collection = self._default_collection
-        eq_(True, script.refresh_metadata(identifier))
-
-        # Unless an error is raised!
-        provider = BrokenBibliographicCoverageProvider(self._default_collection)
-        script.providers = [provider]
-        eq_(False, script.refresh_metadata(identifier))
-
 
 class TestExplain(DatabaseTest):
 

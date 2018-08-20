@@ -108,7 +108,7 @@ class Configuration(object):
     CONTENT_SERVER_INTEGRATION = u"Content Server"
 
     AXIS_INTEGRATION = "Axis 360"
-    ONECLICK_INTEGRATION = "OneClick"
+    RBDIGITAL_INTEGRATION = "RBDigital"
     OVERDRIVE_INTEGRATION = "Overdrive"
     THREEM_INTEGRATION = "3M"
 
