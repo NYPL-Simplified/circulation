@@ -90,9 +90,9 @@ from opds_import import (
     OPDSImportMonitor,
     OPDSImporter,
 )
-from oneclick import (
-    OneClickBibliographicCoverageProvider,
-)
+# from oneclick import (
+#     OneClickBibliographicCoverageProvider,
+# )
 from overdrive import OverdriveBibliographicCoverageProvider
 from util import fast_query_count
 from util.opds_writer import OPDSFeed
