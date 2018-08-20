@@ -96,12 +96,17 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
     NAME = ExternalIntegration.RB_DIGITAL
 
-    # With this API we don't need to guess the default loan period -- we
-    # know which loan period we will ask for in which situations.
+    # The loan duration must be specified when connecting a library to an
+    # RBdigital account, but if it's not specified, try one week.
+
     DEFAULT_LOAN_DURATION = 7
     API_VERSION = "v1"
     PRODUCTION_BASE_URL = "https://api.rbdigital.com/"
     QA_BASE_URL = "http://api.rbdigitalstage.com/"
+    SERVER_NICKNAMES = {
+        "production" : PRODUCTION_BASE_URL,
+        "qa" : QA_BASE_URL,
+    }
 
     BASE_SETTINGS = [x for x in BaseCirculationAPI.SETTINGS
                      if x['key'] != BaseCirculationAPI.DEFAULT_LOAN_PERIOD]
@@ -111,9 +116,6 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
         { "key": ExternalIntegration.URL, "label": _("URL"), "default": PRODUCTION_BASE_URL },
     ] + BASE_SETTINGS
-
-    # The loan duration must be specified when connecting a library to an
-    # RBdigital account, but if it's not specified, try one week.
 
     my_audiobook_setting = dict(
         BaseCirculationAPI.AUDIOBOOK_LOAN_DURATION_SETTING
@@ -129,10 +131,6 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
     ]
 
     EXPIRATION_DATE_FORMAT = '%Y-%m-%d'
-    SERVER_NICKNAMES = {
-        "production" : PRODUCTION_BASE_URL,
-        "qa" : QA_BASE_URL,
-    }
 
     DATE_FORMAT = "%Y-%m-%d" #ex: 2013-12-27
 
@@ -1500,8 +1498,8 @@ class RBFulfillmentInfo(object):
 class MockRBDigitalAPI(RBDigitalAPI):
 
     @classmethod
-    def make_collection(self, _db):
-        library = DatabaseTest.make_default_library(_db)
+    def mock_collection(self, _db):
+        seTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
             name="Test RBDigital Collection",
@@ -1514,11 +1512,6 @@ class MockRBDigitalAPI(RBDigitalAPI):
         )
         integration.password = u'abcdef123hijklm'
         library.collections.append(collection)
-        return collection
-
-    @classmethod
-    def mock_collection(self, _db):
-        collection = self.make_collection(_db)
         for library in _db.query(Library):
             for key, value in (
                     (Collection.AUDIOBOOK_LOAN_DURATION_KEY, 1),
