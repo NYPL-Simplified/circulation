@@ -114,7 +114,7 @@ def convert_one_click(_db, library):
 
     collection, ignore = get_one_or_create(
         _db, Collection,
-        protocol=Collection.ONE_CLICK,
+        protocol=Collection.ONECLICK,
         name="OneClick"
     )
     library.collections.append(collection)
