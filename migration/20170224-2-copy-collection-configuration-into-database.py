@@ -114,8 +114,8 @@ def convert_one_click(_db, library):
 
     collection, ignore = get_one_or_create(
         _db, Collection,
-        protocol=Collection.RB_DIGITAL,
-        name="RBDigital"
+        protocol=Collection.ONECLICK,
+        name="OneClick"
     )
     library.collections.append(collection)
     collection.external_integration.password = basic_token
