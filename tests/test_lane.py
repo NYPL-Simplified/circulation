@@ -15,6 +15,8 @@ from sqlalchemy import (
     func,
 )
 
+from elasticsearch.exceptions import ElasticsearchException
+
 from classifier import Classifier
 
 from entrypoint import (
@@ -1740,6 +1742,19 @@ class TestWorkList(DatabaseTest):
         # navigation were not.
         for i in ['size', 'query_string', 'offset']:
             assert i not in entrypoint.called_with
+
+    def test_search_returns_empty_list_on_elasticsearch_failure(self):
+        # If there's a problem communicating with Elasticsearch,
+        # return an empty list of search results rather than raising
+        # an exception.
+        class Mock(DummyExternalSearchIndex):
+            def query_works(self, **kwargs):
+                raise ElasticsearchException("quite bad")
+
+        wl = WorkList()
+        wl.initialize(self._default_library, "Work List")
+        search_client = Mock()
+        eq_([], wl.search(self._db, "a search", search_client))
 
 
 class TestLane(DatabaseTest):
