@@ -1536,8 +1536,8 @@ class TestAuthenticationProvider(AuthenticatorTest):
         # patron.last_external_sync didn't change.
         eq_(None, patron.last_external_sync)
 
-    def test_remote_patron_lookup_is_noop(self):
-        """The default implementation of remote_patron_lookup is a no-op."""
+    def test_remote_patron_lookup(self):
+        """The default implementation of remote_patron_lookup returns whatever was passed in."""
         provider = BasicAuthenticationProvider(
             self._default_library, self._external_integration(self._str)
         )
@@ -1625,11 +1625,17 @@ class TestAuthenticationProvider(AuthenticatorTest):
         eq_(True, m("345", re.compile("^(12|34)"), AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX))
         eq_(False, m("abc", re.compile("^bc"), AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX))
 
-    def test_enforce_library_identifier_restriction_matches(self):
+    def test_enforce_library_identifier_restriction(self):
         """Test the enforce_library_identifier_restriction method."""
         provider = self.mock_basic()
         m = provider.enforce_library_identifier_restriction
+        patron = self._patron()
         patrondata = PatronData()
+
+        #Test with patron rather than patrondata as argument
+        eq_(patron, m(object(), patron))
+        patron.library_id = -1
+        eq_(False, m(object(), patron))
 
         # Test no restriction
         provider.library_identifier_restriction_type = MockBasic.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE
@@ -2013,6 +2019,33 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
             inputs['login']['maximum_length'])
         eq_(provider.password_maximum_length,
             inputs['password']['maximum_length'])
+
+    def test_remote_patron_lookup(self):
+        #remote_patron_lookup does the lookup by calling _remote_patron_lookup,
+        #then calls enforce_library_identifier_restriction to make sure that the patron
+        #is associated with the correct library
+
+        class Mock(BasicAuthenticationProvider):
+            def _remote_patron_lookup(self, patron_or_patrondata):
+                self._remote_patron_lookup_called_with = patron_or_patrondata
+                return patron_or_patrondata
+            def enforce_library_identifier_restriction(self, identifier, patrondata):
+                self.enforce_library_identifier_restriction_called_with = (
+                    identifier, patrondata
+                )
+                return "Result"
+
+        integration = self._external_integration(
+            self._str, ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        provider = Mock(self._default_library, integration)
+        patron = self._patron()
+        eq_("Result", provider.remote_patron_lookup(patron))
+        eq_(provider._remote_patron_lookup_called_with, patron)
+        eq_(provider.enforce_library_identifier_restriction_called_with, (
+                patron.authorization_identifier, patron
+            ))
+
 
 
 class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):

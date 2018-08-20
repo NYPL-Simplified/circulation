@@ -76,15 +76,15 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("http://example.com/", api.root)
         eq_(["a", "b"], [x.pattern for x in api.blacklist])
 
-    def test_remote_patron_lookup_no_such_patron(self):
+    def test__remote_patron_lookup_no_such_patron(self):
         self.api.enqueue("dump.no such barcode.html")
         patrondata = PatronData(authorization_identifier="bad barcode")
-        eq_(None, self.api.remote_patron_lookup(patrondata))
+        eq_(None, self.api._remote_patron_lookup(patrondata))
 
-    def test_remote_patron_lookup_success(self):
+    def test__remote_patron_lookup_success(self):
         self.api.enqueue("dump.success.html")
         patrondata = PatronData(authorization_identifier="good barcode")
-        patrondata = self.api.remote_patron_lookup(patrondata)
+        patrondata = self.api._remote_patron_lookup(patrondata)
 
         # Although "good barcode" was successful in lookup this patron
         # up, it didn't show up in their patron dump as a barcode, so
@@ -99,21 +99,21 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("alice@sheldon.com", patrondata.email_address)
         eq_(PatronData.NO_VALUE, patrondata.block_reason)
 
-    def test_remote_patron_lookup_barcode_spaces(self):
+    def test__remote_patron_lookup_barcode_spaces(self):
         self.api.enqueue("dump.success_barcode_spaces.html")
         patrondata = PatronData(authorization_identifier="44444444444447")
-        patrondata = self.api.remote_patron_lookup(patrondata)
+        patrondata = self.api._remote_patron_lookup(patrondata)
         eq_("44444444444447", patrondata.authorization_identifier)
         eq_(["44444444444447", "4 444 4444 44444 7"], patrondata.authorization_identifiers)
 
-    def test_remote_patron_lookup_block_rules(self):
+    def test__remote_patron_lookup_block_rules(self):
         """This patron has a value of "m" in MBLOCK[56], which generally
         means they are blocked.
         """
         # Default behavior -- anything other than '-' means blocked.
         self.api.enqueue("dump.blocked.html")
         patrondata = PatronData(authorization_identifier="good barcode")
-        patrondata = self.api.remote_patron_lookup(patrondata)
+        patrondata = self.api._remote_patron_lookup(patrondata)
         eq_(PatronData.UNKNOWN_BLOCK, patrondata.block_reason)
 
         # If we set custom block types that say 'm' doesn't really
@@ -121,7 +121,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         api = self.mock_api(block_types='abcde')
         api.enqueue("dump.blocked.html")
         patrondata = PatronData(authorization_identifier="good barcode")
-        patrondata = api.remote_patron_lookup(patrondata)
+        patrondata = api._remote_patron_lookup(patrondata)
         eq_(PatronData.NO_VALUE, patrondata.block_reason)
 
         # If we set custom block types that include 'm', the patron
@@ -129,7 +129,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         api = self.mock_api(block_types='lmn')
         api.enqueue("dump.blocked.html")
         patrondata = PatronData(authorization_identifier="good barcode")
-        patrondata = api.remote_patron_lookup(patrondata)
+        patrondata = api._remote_patron_lookup(patrondata)
         eq_(PatronData.UNKNOWN_BLOCK, patrondata.block_reason)
 
     def test_parse_poorly_behaved_dump(self):
@@ -138,7 +138,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         """
         self.api.enqueue("dump.embedded_html.html")
         patrondata = PatronData(authorization_identifier="good barcode")
-        patrondata = self.api.remote_patron_lookup(patrondata)
+        patrondata = self.api._remote_patron_lookup(patrondata)
         eq_("abcd", patrondata.authorization_identifier)
 
     def test_incoming_authorization_identifier_retained(self):
