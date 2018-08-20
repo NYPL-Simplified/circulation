@@ -1187,12 +1187,12 @@ class TestRBDigitalRepresentationExtractor(RBDigitalAPITest):
         assert shortd.content.startswith("THE NO. 1 LADIES' DETECTIVE AGENCY")
 
         eq_(Hyperlink.IMAGE, image.rel)
-        eq_('http://images.rbdigital.com/EB00148140/EB00148140_image_128x192.jpg', image.href)
+        eq_('http://images.oneclickdigital.com/EB00148140/EB00148140_image_128x192.jpg', image.href)
 
         thumbnail = image.thumbnail
 
         eq_(Hyperlink.THUMBNAIL_IMAGE, thumbnail.rel)
-        eq_('http://images.rbdigital.com/EB00148140/EB00148140_image_95x140.jpg', thumbnail.href)
+        eq_('http://images.oneclickdigital.com/EB00148140/EB00148140_image_95x140.jpg', thumbnail.href)
 
         # Note: For now, no measurements associated with the book.
 
