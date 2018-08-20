@@ -1499,7 +1499,7 @@ class MockRBDigitalAPI(RBDigitalAPI):
 
     @classmethod
     def mock_collection(self, _db):
-        seTest.make_default_library(_db)
+        library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
             name="Test RBDigital Collection",
