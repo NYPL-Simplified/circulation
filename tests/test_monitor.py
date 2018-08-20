@@ -405,7 +405,7 @@ class TestLoanlikeReaperMonitor(DatabaseTest):
         not_open_access_3 = self._licensepool(edition,
             open_access=False, data_source_name=DataSource.AXIS_360)
         not_open_access_4 = self._licensepool(edition,
-            open_access=False, data_source_name=DataSource.ONECLICK)
+            open_access=False, data_source_name=DataSource.RBDIGITAL)
 
         # Here's a collection that is the source of truth for its
         # loans and holds, rather than mirroring loan and hold information

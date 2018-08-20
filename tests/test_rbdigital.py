@@ -29,15 +29,15 @@ from api.config import (
 
 from api.circulation_exceptions import *
 
-from api.oneclick import (
+from api.rbdigital import (
     AudiobookManifest,
-    OneClickAPI,
-    OneClickBibliographicCoverageProvider,
-    OneClickCirculationMonitor,
-    OneClickDeltaMonitor,
-    OneClickImportMonitor,
-    OneClickRepresentationExtractor,
-    MockOneClickAPI,
+    RBDigitalAPI,
+    RBDigitalBibliographicCoverageProvider,
+    RBDigitalCirculationMonitor,
+    RBDigitalDeltaMonitor,
+    RBDigitalImportMonitor,
+    RBDigitalRepresentationExtractor,
+    MockRBDigitalAPI,
     RBFulfillmentInfo,
 )
 
@@ -83,27 +83,27 @@ from . import (
     DatabaseTest,
 )
 
-class OneClickAPITest(DatabaseTest):
+class RBDigitalAPITest(DatabaseTest):
 
     def setup(self):
-        super(OneClickAPITest, self).setup()
+        super(RBDigitalAPITest, self).setup()
 
         self.base_path = os.path.split(__file__)[0]
         # Make sure the default library is created so that it will
         # be configured properly with the mock collection.
         self._default_library
-        self.collection = MockOneClickAPI.mock_collection(self._db)
-        self.api = MockOneClickAPI(
+        self.collection = MockRBDigitalAPI.mock_collection(self._db)
+        self.api = MockRBDigitalAPI(
             self._db, self.collection, base_path=self.base_path
         )
-        self.default_patron = self._patron(external_identifier="oneclick_testuser")
+        self.default_patron = self._patron(external_identifier="rbdigital_testuser")
         self.default_patron.authorization_identifier="13057226"
 
 
-class TestOneClickAPI(OneClickAPITest):
+class TestRBDigitalAPI(RBDigitalAPITest):
 
     def test__run_self_tests(self):
-        class Mock(MockOneClickAPI):
+        class Mock(MockRBDigitalAPI):
             """Mock the methods invoked by the self-test."""
 
             # We're going to count the number of items in the
@@ -184,7 +184,7 @@ class TestOneClickAPI(OneClickAPITest):
         site.
         """
         error = dict(message='Invalid library id is provided or permission denied')
-        class Mock(MockOneClickAPI):
+        class Mock(MockRBDigitalAPI):
             def get_ebook_availability_info(self, media_type):
                 return error
 
@@ -201,7 +201,7 @@ class TestOneClickAPI(OneClickAPITest):
             self.api.external_integration(self._db))
 
     def queue_initial_patron_id_lookup(self):
-        """All the OneClickAPI methods that take a Patron object call
+        """All the RBDigitalAPI methods that take a Patron object call
         self.patron_remote_identifier() immediately, to find the
         patron's RBdigital ID.
 
@@ -245,7 +245,7 @@ class TestOneClickAPI(OneClickAPITest):
 
     def test_create_identifier_strings(self):
         identifier = self._identifier()
-        values = OneClickAPI.create_identifier_strings(["foo", identifier])
+        values = RBDigitalAPI.create_identifier_strings(["foo", identifier])
         eq_(["foo", identifier.identifier], values)
 
     def test_availability_exception(self):
@@ -315,8 +315,8 @@ class TestOneClickAPI(OneClickAPITest):
 
     def test_patron_remote_identifier_new_patron(self):
 
-        class NeverHeardOfYouAPI(OneClickAPI):
-            """A mock OneClickAPI that has never heard of any patron
+        class NeverHeardOfYouAPI(RBDigitalAPI):
+            """A mock RBDigitalAPI that has never heard of any patron
             and returns a known ID as a way of registering them.
             """
             def patron_remote_identifier_lookup(self, patron):
@@ -342,8 +342,8 @@ class TestOneClickAPI(OneClickAPITest):
 
     def test_patron_remote_identifier_existing_patron(self):
 
-        class IKnowYouAPI(OneClickAPI):
-            """A mock OneClickAPI that has heard of any given
+        class IKnowYouAPI(RBDigitalAPI):
+            """A mock RBDigitalAPI that has heard of any given
             patron but will refuse to register a new patron.
             """
             def patron_remote_identifier_lookup(self, patron):
@@ -408,8 +408,8 @@ class TestOneClickAPI(OneClickAPITest):
             "response_patron_internal_id_not_found.json"
         )
         self.api.queue_response(status_code=200, content=datastr)
-        oneclick_patron_id = self.api.patron_remote_identifier_lookup(patron)
-        eq_(None, oneclick_patron_id)
+        rbdigital_patron_id = self.api.patron_remote_identifier_lookup(patron)
+        eq_(None, rbdigital_patron_id)
 
         # The patron's otherwise meaningless
         # identifier-to-remote-service was used to identify the patron
@@ -434,8 +434,8 @@ class TestOneClickAPI(OneClickAPITest):
         # patron_remote_identifier_lookup returns the patron's
         # RBdigital ID.
         self.queue_initial_patron_id_lookup()
-        oneclick_patron_id = self.api.patron_remote_identifier_lookup(patron)
-        eq_(939981, oneclick_patron_id)
+        rbdigital_patron_id = self.api.patron_remote_identifier_lookup(patron)
+        eq_(939981, rbdigital_patron_id)
 
     def test_get_patron_information(self):
         datastr, datadict = self.api.get_data("response_patron_info_not_found.json")
@@ -504,10 +504,10 @@ class TestOneClickAPI(OneClickAPITest):
 
         # We don't need to go through the process of establishing this
         # patron's RBdigital ID -- just make one up.
-        oneclick_id = self._str
+        rbdigital_id = self._str
 
         # borrow functionality checks
-        response_dictionary = self.api.circulate_item(oneclick_id, edition.primary_identifier.identifier)
+        response_dictionary = self.api.circulate_item(rbdigital_id, edition.primary_identifier.identifier)
         assert('error_code' not in response_dictionary)
         eq_("9781441260468", response_dictionary['isbn'])
         eq_("SUCCESS", response_dictionary['output'])
@@ -523,7 +523,7 @@ class TestOneClickAPI(OneClickAPITest):
         self.api.queue_response(status_code=409, content=datastr)
         assert_raises_regexp(
             NoAvailableCopies, "Title is not available for checkout",
-            self.api.circulate_item, oneclick_id, edition.primary_identifier.identifier
+            self.api.circulate_item, rbdigital_id, edition.primary_identifier.identifier
         )
         request_url, request_args, request_kwargs = self.api.requests[-1]
         assert "checkouts" in request_url
@@ -532,7 +532,7 @@ class TestOneClickAPI(OneClickAPITest):
         # book return functionality checks
         self.api.queue_response(status_code=200, content="")
 
-        response_dictionary = self.api.circulate_item(oneclick_id, edition.primary_identifier.identifier,
+        response_dictionary = self.api.circulate_item(rbdigital_id, edition.primary_identifier.identifier,
             return_item=True)
         eq_({}, response_dictionary)
         request_url, request_args, request_kwargs = self.api.requests[-1]
@@ -543,7 +543,7 @@ class TestOneClickAPI(OneClickAPITest):
         self.api.queue_response(status_code=409, content=datastr)
         assert_raises_regexp(
             NotCheckedOut, "checkin:",
-            self.api.circulate_item, oneclick_id, edition.primary_identifier.identifier,
+            self.api.circulate_item, rbdigital_id, edition.primary_identifier.identifier,
             return_item=True
         )
         request_url, request_args, request_kwargs = self.api.requests[-1]
@@ -554,7 +554,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_hold_success.json")
         self.api.queue_response(status_code=200, content=datastr)
 
-        response = self.api.circulate_item(oneclick_id, edition.primary_identifier.identifier,
+        response = self.api.circulate_item(rbdigital_id, edition.primary_identifier.identifier,
                                            hold=True)
         eq_(9828560, response)
         request_url, request_args, request_kwargs = self.api.requests[-1]
@@ -564,7 +564,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_hold_fail_409_reached_limit.json")
         self.api.queue_response(status_code=409, content=datastr)
 
-        response = self.api.circulate_item(oneclick_id, edition.primary_identifier.identifier,
+        response = self.api.circulate_item(rbdigital_id, edition.primary_identifier.identifier,
                                            hold=True)
         eq_("You have reached your checkout limit and therefore are unable to place additional holds.",
             response)
@@ -573,7 +573,7 @@ class TestOneClickAPI(OneClickAPITest):
         eq_("post", request_kwargs.get("method"))
 
     def test_checkin(self):
-        # Returning a book is, for now, more of a "notify OneClick that we've
+        # Returning a book is, for now, more of a "notify RBDigital that we've
         # returned through Adobe" formality than critical functionality.
         # There's no information returned from the server on success, so we use a
         # boolean success flag.
@@ -676,10 +676,10 @@ class TestOneClickAPI(OneClickAPITest):
             "response_patron_create_success.json"
         )
         self.api.queue_response(status_code=201, content=datastr)
-        patron_oneclick_id = self.api.create_patron(patron)
+        patron_rbdigital_id = self.api.create_patron(patron)
 
         # The patron's remote account ID is returned.
-        eq_(940000, patron_oneclick_id)
+        eq_(940000, patron_rbdigital_id)
 
         # The data sent to RBdigital is based on the patron's
         # identifier-to-remote-service.
@@ -906,7 +906,7 @@ class TestOneClickAPI(OneClickAPITest):
         assert (hold_info.start_date - today).total_seconds() < 20
 
     def test_release_hold(self):
-        "Test releasing a book resevation early."
+        "Test releasing a book reservation early."
 
         patron = self.default_patron
         self.queue_initial_patron_id_lookup()
@@ -931,7 +931,7 @@ class TestOneClickAPI(OneClickAPITest):
                       patron, None, pool)
 
     def test_update_licensepool_for_identifier(self):
-        """Test the OneClick implementation of the update_availability method
+        """Test the RBDigital implementation of the update_availability method
         defined by the CirculationAPI interface.
         """
 
@@ -997,11 +997,11 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(1, pool.licenses_available)
         eq_(3, pool.patrons_in_hold_queue)
 
-class TestCirculationMonitor(OneClickAPITest):
+class TestCirculationMonitor(RBDigitalAPITest):
 
     def test_process_availability(self):
-        monitor = OneClickCirculationMonitor(
-            self._db, self.collection, api_class=MockOneClickAPI,
+        monitor = RBDigitalCirculationMonitor(
+            self._db, self.collection, api_class=MockRBDigitalAPI,
             api_class_kwargs=dict(base_path=self.base_path)
         )
         eq_(ExternalIntegration.RB_DIGITAL, monitor.protocol)
@@ -1030,7 +1030,7 @@ class TestCirculationMonitor(OneClickAPITest):
         eq_(1, item_count)
         pool_ebook.licenses_available = 0
 
-class TestAudiobookManifest(OneClickAPITest):
+class TestAudiobookManifest(RBDigitalAPITest):
 
     def test_constructor(self):
         """A reasonable RBdigital manifest becomes a reasonable
@@ -1115,13 +1115,13 @@ class TestAudiobookManifest(OneClickAPITest):
             {'name': 'xx-large', 'url': 'yep'},
         ]))
 
-class TestOneClickRepresentationExtractor(OneClickAPITest):
+class TestRBDigitalRepresentationExtractor(RBDigitalAPITest):
 
     def test_book_info_with_metadata(self):
-        # Tests that can convert a oneclick json block into a Metadata object.
+        # Tests that can convert a RBDigital json block into a Metadata object.
 
         datastr, datadict = self.api.get_data("response_isbn_found_1.json")
-        metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(datadict)
+        metadata = RBDigitalRepresentationExtractor.isbn_info_to_metadata(datadict)
 
         eq_("Tea Time for the Traditionally Built", metadata.title)
         eq_(None, metadata.sort_title)
@@ -1162,14 +1162,14 @@ class TestOneClickRepresentationExtractor(OneClickAPITest):
         )
 
         # Related IDs.
-        eq_((Identifier.ONECLICK_ID, '9780307378101'),
+        eq_((Identifier.RB_DIGITAL_ID, '9780307378101'),
             (metadata.primary_identifier.type, metadata.primary_identifier.identifier))
 
         ids = [(x.type, x.identifier) for x in metadata.identifiers]
 
-        # We made exactly one OneClick and one ISBN-type identifiers.
+        # We made exactly one RBDigital and one ISBN-type identifiers.
         eq_(
-            [(Identifier.ISBN, "9780307378101"), (Identifier.ONECLICK_ID, "9780307378101")],
+            [(Identifier.ISBN, "9780307378101"), (Identifier.RB_DIGITAL_ID, "9780307378101")],
             sorted(ids)
         )
 
@@ -1187,22 +1187,22 @@ class TestOneClickRepresentationExtractor(OneClickAPITest):
         assert shortd.content.startswith("THE NO. 1 LADIES' DETECTIVE AGENCY")
 
         eq_(Hyperlink.IMAGE, image.rel)
-        eq_('http://images.oneclickdigital.com/EB00148140/EB00148140_image_128x192.jpg', image.href)
+        eq_('http://images.rbdigital.com/EB00148140/EB00148140_image_128x192.jpg', image.href)
 
         thumbnail = image.thumbnail
 
         eq_(Hyperlink.THUMBNAIL_IMAGE, thumbnail.rel)
-        eq_('http://images.oneclickdigital.com/EB00148140/EB00148140_image_95x140.jpg', thumbnail.href)
+        eq_('http://images.rbdigital.com/EB00148140/EB00148140_image_95x140.jpg', thumbnail.href)
 
         # Note: For now, no measurements associated with the book.
 
         # Request only the bibliographic information.
-        metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(datadict, include_bibliographic=True, include_formats=False)
+        metadata = RBDigitalRepresentationExtractor.isbn_info_to_metadata(datadict, include_bibliographic=True, include_formats=False)
         eq_("Tea Time for the Traditionally Built", metadata.title)
         eq_(None, metadata.circulation)
 
         # Request only the format information.
-        metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(datadict, include_bibliographic=False, include_formats=True)
+        metadata = RBDigitalRepresentationExtractor.isbn_info_to_metadata(datadict, include_bibliographic=False, include_formats=True)
         eq_(None, metadata.title)
         [epub] = sorted(metadata.circulation.formats, key=lambda x: x.content_type)
         eq_(Representation.EPUB_MEDIA_TYPE, epub.content_type)
@@ -1215,20 +1215,20 @@ class TestOneClickRepresentationExtractor(OneClickAPITest):
         """
 
         datastr, datadict = self.api.get_data("response_isbn_found_no_series.json")
-        metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(datadict)
+        metadata = RBDigitalRepresentationExtractor.isbn_info_to_metadata(datadict)
 
         eq_("Tea Time for the Traditionally Built", metadata.title)
         eq_(None, metadata.series)
         eq_(None, metadata.series_position)
 
-class TestOneClickBibliographicCoverageProvider(OneClickAPITest):
-    """Test the code that looks up bibliographic information from OneClick."""
+class TestRBDigitalBibliographicCoverageProvider(RBDigitalAPITest):
+    """Test the code that looks up bibliographic information from RBDigital."""
 
     def setup(self):
-        super(TestOneClickBibliographicCoverageProvider, self).setup()
+        super(TestRBDigitalBibliographicCoverageProvider, self).setup()
 
-        self.provider = OneClickBibliographicCoverageProvider(
-            self.collection, api_class=MockOneClickAPI,
+        self.provider = RBDigitalBibliographicCoverageProvider(
+            self.collection, api_class=MockRBDigitalAPI,
             api_class_kwargs=dict(base_path=os.path.split(__file__)[0])
         )
         self.api = self.provider.api
@@ -1238,13 +1238,13 @@ class TestOneClickBibliographicCoverageProvider(OneClickAPITest):
         the coverage provider.
         """
         script = RunCollectionCoverageProviderScript(
-            OneClickBibliographicCoverageProvider, self._db,
-            api_class=MockOneClickAPI
+            RBDigitalBibliographicCoverageProvider, self._db,
+            api_class=MockRBDigitalAPI
         )
         [provider] = script.providers
         assert isinstance(provider,
-                          OneClickBibliographicCoverageProvider)
-        assert isinstance(provider.api, MockOneClickAPI)
+                          RBDigitalBibliographicCoverageProvider)
+        assert isinstance(provider.api, MockRBDigitalAPI)
         eq_(self.collection, provider.collection)
 
     def test_invalid_or_unrecognized_guid(self):
@@ -1259,23 +1259,23 @@ class TestOneClickBibliographicCoverageProvider(OneClickAPITest):
         failure = self.provider.process_item(identifier)
         assert isinstance(failure, CoverageFailure)
         eq_(True, failure.transient)
-        assert failure.exception.startswith('Cannot find OneClick metadata')
+        assert failure.exception.startswith('Cannot find RBDigital metadata')
 
     def test_process_item_creates_presentation_ready_work(self):
-        # Test the normal workflow where we ask OneClick for data,
-        # OneClick provides it, and we create a presentation-ready work.
+        # Test the normal workflow where we ask RBDigital for data,
+        # RBDigital provides it, and we create a presentation-ready work.
 
         datastr, datadict = self.api.get_data("response_isbn_found_1.json")
         self.api.queue_response(200, content=datastr)
 
         # Here's the book mentioned in response_isbn_found_1.
-        identifier = self._identifier(identifier_type=Identifier.ONECLICK_ID)
+        identifier = self._identifier(identifier_type=Identifier.RB_DIGITAL_ID)
         identifier.identifier = '9780307378101'
 
         # This book has no LicensePool.
         eq_([], identifier.licensed_through)
 
-        # Run it through the OneClickBibliographicCoverageProvider
+        # Run it through the RBDigitalBibliographicCoverageProvider
         result = self.provider.process_item(identifier)
         eq_(identifier, result)
 
@@ -1290,22 +1290,22 @@ class TestOneClickBibliographicCoverageProvider(OneClickAPITest):
         eq_('Tea Time for the Traditionally Built', pool.work.title)
         eq_(True, pool.work.presentation_ready)
 
-class TestOneClickSyncMonitor(DatabaseTest):
+class TestRBDigitalSyncMonitor(DatabaseTest):
 
     # TODO: The only thing this should test is that the monitors can
     # be instantiated using the constructor arguments used by
     # RunCollectionMonitorScript, and that calling run_once() results
-    # in a call to the appropriate OneClickAPI method.
+    # in a call to the appropriate RBDigitalAPI method.
     #
     # However, there's no other code that tests populate_all_catalog()
     # or populate_delta(), so we can't just remove the code; we need to
     # refactor the tests.
 
     def setup(self):
-        super(TestOneClickSyncMonitor, self).setup()
+        super(TestRBDigitalSyncMonitor, self).setup()
         self.base_path = os.path.split(__file__)[0]
-        self.resource_path = os.path.join(self.base_path, "files", "oneclick")
-        self.collection = MockOneClickAPI.mock_collection(self._db)
+        self.resource_path = os.path.join(self.base_path, "files", "rbdigital")
+        self.collection = MockRBDigitalAPI.mock_collection(self._db)
 
     def get_data(self, filename):
         # returns contents of sample file as string and as dict
@@ -1315,11 +1315,11 @@ class TestOneClickSyncMonitor(DatabaseTest):
 
     def test_import(self):
 
-        # Create a OneClickImportMonitor, which will take the current
-        # state of a OneClick collection and mirror the whole thing to
+        # Create a RBDigitalImportMonitor, which will take the current
+        # state of a RBDigital collection and mirror the whole thing to
         # a local database.
-        monitor = OneClickImportMonitor(
-            self._db, self.collection, api_class=MockOneClickAPI,
+        monitor = RBDigitalImportMonitor(
+            self._db, self.collection, api_class=MockRBDigitalAPI,
             api_class_kwargs=dict(base_path=self.base_path)
         )
         datastr, datadict = self.get_data("response_catalog_all_sample.json")
@@ -1336,14 +1336,14 @@ class TestOneClickSyncMonitor(DatabaseTest):
         eq_(set(expected_titles), set(work_titles))
 
         # make sure we created some Editions
-        edition = Edition.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9780062231727", create_if_not_exists=False)
+        edition = Edition.for_foreign_id(self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID, "9780062231727", create_if_not_exists=False)
         assert(edition is not None)
-        edition = Edition.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186", create_if_not_exists=False)
+        edition = Edition.for_foreign_id(self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID, "9781615730186", create_if_not_exists=False)
         assert(edition is not None)
 
         # make sure we created some LicensePools
         pool, made_new = LicensePool.for_foreign_id(
-            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
+            self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID,
             "9780062231727", collection=self.collection
         )
         eq_(1, pool.licenses_owned)
@@ -1351,7 +1351,7 @@ class TestOneClickSyncMonitor(DatabaseTest):
 
         eq_(False, made_new)
         pool, made_new = LicensePool.for_foreign_id(
-            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
+            self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID,
             "9781615730186", collection=self.collection
         )
         eq_(False, made_new)
@@ -1370,7 +1370,7 @@ class TestOneClickSyncMonitor(DatabaseTest):
         # set license numbers on test pool to match what's in the
         # delta document.
         pool, made_new = LicensePool.for_foreign_id(
-            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
+            self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID,
             "9781615730186", collection=self.collection
         )
         eq_(False, made_new)
@@ -1380,8 +1380,8 @@ class TestOneClickSyncMonitor(DatabaseTest):
         pool.patrons_in_hold_queue = 1
 
         # now update that library with a sample delta
-        delta_monitor = OneClickDeltaMonitor(
-            self._db, self.collection, api_class=MockOneClickAPI,
+        delta_monitor = RBDigitalDeltaMonitor(
+            self._db, self.collection, api_class=MockRBDigitalAPI,
             api_class_kwargs=dict(base_path=self.base_path)
         )
         datastr, datadict = self.get_data("response_catalog_delta.json")
@@ -1406,7 +1406,7 @@ class TestOneClickSyncMonitor(DatabaseTest):
         assert (datetime.datetime.utcnow() - pool.last_checked) < datetime.timedelta(seconds=20)
 
         # make sure we updated fields
-        edition = Edition.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781934180723", create_if_not_exists=False)
+        edition = Edition.for_foreign_id(self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID, "9781934180723", create_if_not_exists=False)
         eq_("Recorded Books, Inc.", edition.publisher)
 
         # make sure there are still 8 LicensePools

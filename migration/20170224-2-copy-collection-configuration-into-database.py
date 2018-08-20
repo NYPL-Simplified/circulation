@@ -100,12 +100,12 @@ def convert_axis(_db, library):
     collection.external_account_id = library_id
     collection.external_integration.url = url
 
-def convert_one_click(_db, library):
-    config = Configuration.integration('OneClick')
+def convert_rbdigital(_db, library):
+    config = Configuration.integration('RBDigital')
     if not config:
-        print u"No OneClick configuration, not creating a Collection for it."
+        print u"No RBDigital configuration, not creating a Collection for it."
         return
-    print u"Creating Collection object for OneClick collection."
+    print u"Creating Collection object for RBDigital collection."
     basic_token = config.get('basic_token')
     library_id = config.get('library_id')
     url = config.get('url')
@@ -114,8 +114,8 @@ def convert_one_click(_db, library):
 
     collection, ignore = get_one_or_create(
         _db, Collection,
-        protocol=Collection.ONE_CLICK,
-        name="OneClick"
+        protocol=Collection.RBDIGITAL,
+        name="RBDigital"
     )
     library.collections.append(collection)
     collection.external_integration.password = basic_token

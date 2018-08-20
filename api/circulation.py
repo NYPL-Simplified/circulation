@@ -250,7 +250,7 @@ class HoldInfo(CirculationInfo):
 
     """A record of a hold.
 
-    :param identifier_type Ex.: Identifier.ONECLICK_ID.
+    :param identifier_type Ex.: Identifier.RBDIGITAL_ID.
     :param identifier Expected to be the unicode string of the isbn, etc..
     :param start_date When the patron made the reservation.
     :param end_date When reserved book is expected to become available.  Expected to be passed in
@@ -350,7 +350,7 @@ class CirculationAPI(object):
         from odilo import OdiloAPI
         from bibliotheca import BibliothecaAPI
         from axis import Axis360API
-        from oneclick import OneClickAPI
+        from rbdigital import RBDigitalAPI
         from enki import EnkiAPI
         from opds_for_distributors import OPDSForDistributorsAPI
         from odl import ODLWithConsolidatedCopiesAPI, SharedODLAPI
@@ -359,7 +359,7 @@ class CirculationAPI(object):
             ExternalIntegration.ODILO : OdiloAPI,
             ExternalIntegration.BIBLIOTHECA : BibliothecaAPI,
             ExternalIntegration.AXIS_360 : Axis360API,
-            ExternalIntegration.ONE_CLICK : OneClickAPI,
+            ExternalIntegration.ONE_CLICK : RBDigitalAPI,
             EnkiAPI.ENKI_EXTERNAL : EnkiAPI,
             OPDSForDistributorsAPI.NAME: OPDSForDistributorsAPI,
             ODLWithConsolidatedCopiesAPI.NAME: ODLWithConsolidatedCopiesAPI,

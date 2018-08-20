@@ -92,7 +92,7 @@ from selftest import (
     SelfTestResult,
 )
 
-class OneClickAPI(BaseCirculationAPI, HasSelfTests):
+class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
     NAME = ExternalIntegration.RB_DIGITAL
 
@@ -139,12 +139,12 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
     # a complete response returns the json structure with more data fields than a basic response does
     RESPONSE_VERBOSITY = {0:'basic', 1:'compact', 2:'complete', 3:'extended', 4:'hypermedia'}
 
-    log = logging.getLogger("OneClick Patron API")
+    log = logging.getLogger("RBDigital Patron API")
 
     def __init__(self, _db, collection):
         if collection.protocol != ExternalIntegration.RB_DIGITAL:
             raise ValueError(
-                "Collection protocol is %s, but passed into OneClickAPI!" %
+                "Collection protocol is %s, but passed into RBDigitalAPI!" %
                 collection.protocol
             )
         self._db = _db
@@ -154,7 +154,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
 
         if not (self.library_id and self.token):
             raise CannotLoadConfiguration(
-                "OneClick configuration is incomplete."
+                "RBDigital configuration is incomplete."
             )
 
         # Use utf8 instead of unicode encoding
@@ -167,7 +167,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
             base_url = self.SERVER_NICKNAMES[base_url]
         self.base_url = (base_url + self.API_VERSION).encode("utf8")
         self.bibliographic_coverage_provider = (
-            OneClickBibliographicCoverageProvider(
+            RBDigitalBibliographicCoverageProvider(
                 self.collection, api_class=self
             )
         )
@@ -249,7 +249,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
 
     @property
     def authorization_headers(self):
-        # the token given us by OneClick is already utf/base64-encoded
+        # the token given us by RBDigital is already utf/base64-encoded
         authorization = self.token
         return dict(Authorization="Basic " + authorization)
 
@@ -272,8 +272,8 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         headers['Accept-Media'] = verbosity
         headers.update(self.authorization_headers)
 
-        # prevent the code throwing a BadResponseException when OneClick
-        # responds with a 500, because OneClick uses 500s to indicate bad input,
+        # prevent the code throwing a BadResponseException when RBDigital
+        # responds with a 500, because RBDigital uses 500s to indicate bad input,
         # rather than server error.
         # must list all 9 possibilities to use
         allowed_response_codes = ['1xx', '2xx', '3xx', '4xx', '5xx', '6xx', '7xx', '8xx', '9xx']
@@ -323,21 +323,21 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
 
         :return True on success, raises circulation exceptions on failure.
         """
-        patron_oneclick_id = self.patron_remote_identifier(patron)
-        (item_oneclick_id, item_media) = self.validate_item(licensepool)
+        patron_rbdigital_id = self.patron_remote_identifier(patron)
+        (item_rbdigital_id, item_media) = self.validate_item(licensepool)
 
-        resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=True)
+        resp_dict = self.circulate_item(patron_id=patron_rbdigital_id, item_id=item_rbdigital_id, return_item=True)
 
         if resp_dict.get('message') == 'success':
             self.log.debug("Patron %s/%s returned item %s.", patron.authorization_identifier,
-                patron_oneclick_id, item_oneclick_id)
+                patron_rbdigital_id, item_rbdigital_id)
             return True
 
         # should never happen
         raise CirculationException(
             "Unknown error %s/%s checking in %s." % (
-                patron.authorization_identifier, patron_oneclick_id,
-                item_oneclick_id
+                patron.authorization_identifier, patron_rbdigital_id,
+                item_rbdigital_id
             )
         )
 
@@ -353,8 +353,8 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
 
         :return LoanInfo on success, None on failure.
         """
-        patron_oneclick_id = self.patron_remote_identifier(patron)
-        (item_oneclick_id, item_media) = self.validate_item(licensepool)
+        patron_rbdigital_id = self.patron_remote_identifier(patron)
+        (item_rbdigital_id, item_media) = self.validate_item(licensepool)
 
         today = datetime.datetime.utcnow()
 
@@ -371,20 +371,20 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         else:
             days = self.collection.default_loan_period(library)
 
-        resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=False, days=days)
+        resp_dict = self.circulate_item(patron_id=patron_rbdigital_id, item_id=item_rbdigital_id, return_item=False, days=days)
 
         if not resp_dict or ('error_code' in resp_dict):
             return None
 
         self.log.debug("Patron %s/%s checked out item %s with transaction id %s.", patron.authorization_identifier,
-            patron_oneclick_id, item_oneclick_id, resp_dict['transactionId'])
+            patron_rbdigital_id, item_rbdigital_id, resp_dict['transactionId'])
 
         expires = today + datetime.timedelta(days=days)
         loan = LoanInfo(
             self.collection,
             DataSource.RB_DIGITAL,
             identifier_type=licensepool.identifier.type,
-            identifier=item_oneclick_id,
+            identifier=item_rbdigital_id,
             start_date=today,
             end_date=expires,
             fulfillment_info=None,
@@ -394,7 +394,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
     def circulate_item(self, patron_id, item_id, hold=False, return_item=False, days=None):
         """
         Borrow or return a catalog item.
-        :param patron_id OneClick internal id
+        :param patron_id RBDigital internal id
         :param item_id isbn
         :return A dictionary of information on the transaction or error status and message
             Calling methods are expected to use this dictionary to create XxxInfo objects.
@@ -443,22 +443,22 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         :return a FulfillmentInfo object.
         """
 
-        patron_oneclick_id = self.patron_remote_identifier(patron)
-        (item_oneclick_id, item_media) = self.validate_item(licensepool)
+        patron_rbdigital_id = self.patron_remote_identifier(patron)
+        (item_rbdigital_id, item_media) = self.validate_item(licensepool)
 
-        checkouts_list = self.get_patron_checkouts(patron_id=patron_oneclick_id)
+        checkouts_list = self.get_patron_checkouts(patron_id=patron_rbdigital_id)
 
         # find this licensepool in patron's checkouts
         found_checkout = None
         for checkout in checkouts_list:
-            if checkout.identifier == item_oneclick_id:
+            if checkout.identifier == item_rbdigital_id:
                 found_checkout = checkout
                 break
         if not found_checkout:
             raise NoActiveLoan(
                 "Cannot fulfill %s - patron %s/%s has no such checkout." % (
-                    item_oneclick_id, patron.authorization_identifier,
-                    patron_oneclick_id
+                    item_rbdigital_id, patron.authorization_identifier,
+                    patron_rbdigital_id
                 )
             )
 
@@ -467,9 +467,9 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
     def place_hold(self, patron, pin, licensepool, notification_email_address):
         """Place a book on hold.
 
-        Note: If the requested book is available for checkout, OneClick will respond
+        Note: If the requested book is available for checkout, RBDigital will respond
         with a "success" to the hold request.  Then, at the next database clean-up sweep,
-        OneClick will automatically convert the hold record to a checkout record.
+        RBDigital will automatically convert the hold record to a checkout record.
 
         :param patron: a Patron object for the patron who wants to check out the book.
         :param pin: The patron's password (not used).
@@ -479,10 +479,10 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
 
         :return: A HoldInfo object on success, None on failure
         """
-        patron_oneclick_id = self.patron_remote_identifier(patron)
-        (item_oneclick_id, item_media) = self.validate_item(licensepool)
+        patron_rbdigital_id = self.patron_remote_identifier(patron)
+        (item_rbdigital_id, item_media) = self.validate_item(licensepool)
 
-        resp_obj = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, hold=True, return_item=False)
+        resp_obj = self.circulate_item(patron_id=patron_rbdigital_id, item_id=item_rbdigital_id, hold=True, return_item=False)
 
         # successful holds return a numeric transaction id
         try:
@@ -492,7 +492,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
             raise CannotHold(e.message)
 
         self.log.debug("Patron %s/%s reserved item %s with transaction id %s.", patron.authorization_identifier,
-            patron_oneclick_id, item_oneclick_id, resp_obj)
+            patron_rbdigital_id, item_rbdigital_id, resp_obj)
 
         today = datetime.datetime.now()
 
@@ -500,9 +500,9 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
             self.collection,
             DataSource.RB_DIGITAL,
             identifier_type=licensepool.identifier.type,
-            identifier=item_oneclick_id,
+            identifier=item_rbdigital_id,
             start_date=today,
-            # OneClick sets hold expirations to 2050-12-31, as a "forever"
+            # RBDigital sets hold expirations to 2050-12-31, as a "forever"
             end_date=None,
             hold_position=None,
         )
@@ -519,21 +519,21 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
 
         :return True on success, raises circulation exceptions on failure.
         """
-        patron_oneclick_id = self.patron_remote_identifier(patron)
-        (item_oneclick_id, item_media) = self.validate_item(licensepool)
+        patron_rbdigital_id = self.patron_remote_identifier(patron)
+        (item_rbdigital_id, item_media) = self.validate_item(licensepool)
 
-        resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, hold=True, return_item=True)
+        resp_dict = self.circulate_item(patron_id=patron_rbdigital_id, item_id=item_rbdigital_id, hold=True, return_item=True)
 
         if resp_dict.get('message') == 'success':
             self.log.debug("Patron %s/%s released hold %s.", patron.authorization_identifier,
-                patron_oneclick_id, item_oneclick_id)
+                patron_rbdigital_id, item_rbdigital_id)
             return True
 
         # should never happen
         raise CirculationException(
             "Unknown error %s/%s releasing %s." % (
-                patron.authorization_identifier, patron_oneclick_id,
-                item_oneclick_id
+                patron.authorization_identifier, patron_rbdigital_id,
+                item_rbdigital_id
             )
         )
 
@@ -558,12 +558,12 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         The book's LicensePool will be updated with current approximate
         circulation information (we can tell if it's available, but
         not how many copies).
-        Bibliographic coverage will be ensured for the OneClick Identifier.
+        Bibliographic coverage will be ensured for the RBDigital Identifier.
         Work will be created for the LicensePool and set as presentation-ready.
 
-        :param isbn the identifier OneClick uses
+        :param isbn the identifier RBDigital uses
         :param availability boolean denoting if book can be lent to patrons
-        :param medium: The name OneClick uses for the book's medium.
+        :param medium: The name RBDigital uses for the book's medium.
         """
 
         # find a license pool to match the isbn, and see if it'll need a metadata update later
@@ -612,7 +612,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         medium = medium.lower()
         if medium == 'ebook':
             delivery_type = Representation.EPUB_MEDIA_TYPE
-            # OneClick doesn't tell us the DRM scheme at this
+            # RBDigital doesn't tell us the DRM scheme at this
             # point, but some of their EPUBs do have Adobe DRM.
             # Also, their DRM usage may change in the future.
             drm_scheme = DeliveryMechanism.ADOBE_DRM
@@ -645,7 +645,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         """Update the availability information for a single LicensePool.
         Part of the CirculationAPI interface.
         Inactive for now, because we'd have to request and go through all availabilities
-        from OneClick just to pick the one licensepool we want.
+        from RBDigital just to pick the one licensepool we want.
         """
         pass
 
@@ -729,17 +729,17 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
             response=response, message=message, action=action
         )
 
-        # Extract the patron's OneClick ID from the response document.
-        patron_oneclick_id = None
+        # Extract the patron's RBDigital ID from the response document.
+        patron_rbdigital_id = None
         if response.status_code == 201:
             patron_info = resp_dict.get('patron')
             if patron_info:
-                patron_oneclick_id = patron_info.get('patronId')
+                patron_rbdigital_id = patron_info.get('patronId')
 
-        if not patron_oneclick_id:
+        if not patron_rbdigital_id:
             raise RemotePatronCreationFailedException(action +
                 ": http=" + str(response.status_code) + ", response=" + response.text)
-        return patron_oneclick_id
+        return patron_rbdigital_id
 
     def patron_remote_identifier_lookup(self, patron):
         """Look up a patron's RBdigital account based on a unique ID
@@ -777,7 +777,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         is to get this list of possibilities first, and then call individual
         fulfillment endpoints on the individual items.
 
-        :param patron_id OneClick internal id for the patron.
+        :param patron_id RBDigital internal id for the patron.
         """
         url = "%s/libraries/%s/patrons/%s/checkouts/" % (self.base_url, str(self.library_id), patron_id)
         action="patron_checkouts"
@@ -851,7 +851,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
 
     def get_patron_holds(self, patron_id):
         """
-        :param patron_id OneClick internal id for the patron.
+        :param patron_id RBDigital internal id for the patron.
         """
         url = "%s/libraries/%s/patrons/%s/holds/" % (self.base_url, str(self.library_id), patron_id)
         action="patron_holds"
@@ -886,7 +886,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
                 expires = datetime.datetime.strptime(expires, self.EXPIRATION_DATE_FORMAT).date()
 
             identifier = Identifier.from_asin(self._db, isbn, autocreate=False)
-            # Note: if OneClick knows about a patron's checked-out item that wasn't
+            # Note: if RBDigital knows about a patron's checked-out item that wasn't
             # checked out through us, we ignore it
             if not identifier:
                 continue
@@ -907,12 +907,12 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
 
     def get_patron_information(self, patron_id):
         """
-        Retrieves patron's name, email, library card number from OneClick.
+        Retrieves patron's name, email, library card number from RBDigital.
 
-        :param patron_id OneClick's internal id for the patron.
+        :param patron_id RBDigital's internal id for the patron.
         """
         if not patron_id:
-            raise InvalidInputException("Need patron OneClick id.")
+            raise InvalidInputException("Need patron RBDigital id.")
 
         url = "%s/libraries/%s/patrons/%s" % (self.base_url, str(self.library_id), patron_id)
         action="patron_info"
@@ -936,10 +936,10 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         :param patron: a Patron object for the patron who wants to return the book.
         :param pin: The patron's password (not used).
         """
-        patron_oneclick_id = self.patron_remote_identifier(patron)
+        patron_rbdigital_id = self.patron_remote_identifier(patron)
 
-        patron_checkouts = self.get_patron_checkouts(patron_oneclick_id)
-        patron_holds = self.get_patron_holds(patron_oneclick_id)
+        patron_checkouts = self.get_patron_checkouts(patron_rbdigital_id)
+        patron_holds = self.get_patron_holds(patron_rbdigital_id)
 
         return patron_checkouts + patron_holds
 
@@ -949,28 +949,28 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         """ Are we performing operations on a book that exists and can be
         uniquely identified?
         """
-        item_oneclick_id = None
+        item_rbdigital_id = None
         media = None
 
         identifier = licensepool.identifier
-        item_oneclick_id=identifier.identifier
-        if not item_oneclick_id:
+        item_rbdigital_id=identifier.identifier
+        if not item_rbdigital_id:
             raise InvalidInputException("Licensepool %r doesn't know its ISBN.", licensepool)
 
         if licensepool.work and licensepool.work.presentation_edition:
             media = licensepool.work.presentation_edition.medium
 
-        return item_oneclick_id, media
+        return item_rbdigital_id, media
 
     def validate_response(self, response, message, action=""):
-        """ OneClick tries to communicate statuses and errors through http codes.
+        """ RBDigital tries to communicate statuses and errors through http codes.
         Malformed url requests will throw a 500, non-existent ids will get a 404,
         trying an action like checkout on a patron/item combo that's blocked
         (like if the item is already checked out, for example) will get a 409, etc..
         Further details are usually elaborated on in the "message" field of the response.
 
         :param response http response object
-        :message OneClick puts error explanation into 'message' field in response dictionary
+        :message RBDigital puts error explanation into 'message' field in response dictionary
         """
         if response.status_code not in [200, 201]:
             if not message:
@@ -1055,13 +1055,13 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         try:
             respdict = response.json()
         except Exception, e:
-            raise BadResponseException("availability_search", "OneClick availability response not parseable.")
+            raise BadResponseException("availability_search", "RBDigital availability response not parseable.")
 
         if not respdict:
-            raise BadResponseException("availability_search", "OneClick availability response not parseable - has no structure.")
+            raise BadResponseException("availability_search", "RBDigital availability response not parseable - has no structure.")
 
         if not ('pageIndex' in respdict and 'pageCount' in respdict):
-            raise BadResponseException("availability_search", "OneClick availability response not parseable - has no page counts.")
+            raise BadResponseException("availability_search", "RBDigital availability response not parseable - has no page counts.")
 
         page_index = respdict['pageIndex']
         page_count = respdict['pageCount']
@@ -1071,7 +1071,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
             response = self.search(availability='available', verbosity=self.RESPONSE_VERBOSITY[0], page_index=page_index)
             tempdict = response.json()
             if not ('items' in tempdict):
-                raise BadResponseException("availability_search", "OneClick availability response not parseable - has no next dict.")
+                raise BadResponseException("availability_search", "RBDigital availability response not parseable - has no next dict.")
             item_interest_pairs = tempdict['items']
             respdict['items'].extend(item_interest_pairs)
 
@@ -1080,9 +1080,9 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
 
     def get_all_catalog(self):
         """
-        Gets the entire OneClick catalog for a particular library.
+        Gets the entire RBDigital catalog for a particular library.
 
-        Note:  This call taxes OneClick's servers, and is to be performed sparingly.
+        Note:  This call taxes RBDigital's servers, and is to be performed sparingly.
         The results are returned unpaged.
 
         Also, the endpoint returns about as much metadata per item as the media/{isbn} endpoint does.
@@ -1097,7 +1097,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         try:
             resplist = response.json()
         except Exception, e:
-            raise BadResponseException(url, "OneClick all catalog response not parseable.")
+            raise BadResponseException(url, "RBDigital all catalog response not parseable.")
 
         return response.json()
 
@@ -1105,7 +1105,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         """
         Gets the changes to the library's catalog.
 
-        Note:  As of now, OneClick saves deltas for past 6 months, and can display them
+        Note:  As of now, RBDigital saves deltas for past 6 months, and can display them
         in max 2-month increments.
 
         :return A dictionary listing items added/removed/modified in the collection.
@@ -1180,14 +1180,14 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         try:
             resplist = response.json()
         except Exception, e:
-            raise BadResponseException(url, "OneClick availability response not parseable.")
+            raise BadResponseException(url, "RBDigital availability response not parseable.")
         return resplist
 
     def get_metadata_by_isbn(self, identifier):
         """
         Gets metadata, s.a. publisher, date published, genres, etc for the
         eBook or eAudio item passed, using isbn to search on.
-        If isbn is not found, the response we get from OneClick is an error message,
+        If isbn is not found, the response we get from RBDigital is an error message,
         and we throw an error.
 
         :return the json dictionary of the response object
@@ -1203,11 +1203,11 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         try:
             respdict = response.json()
         except Exception, e:
-            raise BadResponseException(url, "OneClick isbn search response not parseable.")
+            raise BadResponseException(url, "RBDigital isbn search response not parseable.")
 
         if not respdict:
             # should never happen
-            raise BadResponseException(url, "OneClick isbn search response not parseable - has no respdict.")
+            raise BadResponseException(url, "RBDigital isbn search response not parseable - has no respdict.")
 
         if "message" in respdict:
             message = respdict['message']
@@ -1223,7 +1223,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         return respdict
 
     def populate_all_catalog(self):
-        """ Call get_all_catalog to get all of library's book info from OneClick.
+        """ Call get_all_catalog to get all of library's book info from RBDigital.
         Create Work, Edition, LicensePool objects in our database.
         """
         catalog_list = self.get_all_catalog()
@@ -1234,7 +1234,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         metadata_replacement_policy = ReplacementPolicy.from_metadata_source()
         metadata_replacement_policy.formats = True
 
-        coverage_provider = OneClickBibliographicCoverageProvider(
+        coverage_provider = RBDigitalBibliographicCoverageProvider(
             self.collection, api_class=self,
             replacement_policy=metadata_replacement_policy
         )
@@ -1250,7 +1250,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
                     # calls work.set_presentation_ready() for us
                     coverage_provider.handle_success(result)
 
-                    # We're populating the catalog, so we can assume the list OneClick
+                    # We're populating the catalog, so we can assume the list RBDigital
                     # sent us is of books we own licenses to.
                     # NOTE:  TODO later:  For the 4 out of 2000 libraries that chose to display
                     # books they don't own, we'd need to call the search endpoint to get
@@ -1275,7 +1275,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
 
     def populate_delta(self, months=1):
         """ Call get_delta for the last month to get all of the library's book info changes
-        from OneClick.  Update Work, Edition, LicensePool objects in our database.
+        from RBDigital.  Update Work, Edition, LicensePool objects in our database.
         """
         today = datetime.datetime.utcnow()
         time_ago = relativedelta(months=months)
@@ -1288,7 +1288,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
         items_removed = delta[0].get("removedTitles", 0)
         items_transmitted = len(items_added) + len(items_removed)
         items_updated = 0
-        coverage_provider = OneClickBibliographicCoverageProvider(
+        coverage_provider = RBDigitalBibliographicCoverageProvider(
             collection=self.collection, api_class=self
         )
         for catalog_item in items_added:
@@ -1301,13 +1301,13 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
                     coverage_provider.handle_success(result)
 
         for catalog_item in items_removed:
-            metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(catalog_item)
+            metadata = RBDigitalRepresentationExtractor.isbn_info_to_metadata(catalog_item)
 
             if not metadata:
                 # generate a CoverageFailure to let the system know to revisit this book
                 # TODO:  if did not create a Work, but have a CoverageFailure for the isbn,
                 # check that re-processing that coverage would generate the work.
-                e = "Could not extract metadata from OneClick data: %r" % catalog_item
+                e = "Could not extract metadata from RBDigital data: %r" % catalog_item
                 make_note = CoverageFailure(identifier, e, data_source=self.data_source, transient=True)
 
             # convert IdentifierData into Identifier, if can
@@ -1342,7 +1342,7 @@ class OneClickAPI(BaseCirculationAPI, HasSelfTests):
     def search(self, mediatype='ebook', genres=[], audience=None, availability=None, author=None, title=None,
         page_size=100, page_index=None, verbosity=None):
         """
-        Form a rest-ful search query, send to OneClick, and obtain the results.
+        Form a rest-ful search query, send to RBDigital, and obtain the results.
 
         :param mediatype Facet to limit results by media type.  Options are: "eAudio", "eBook".
         :param genres The books found lie at intersection of genres passed.
@@ -1497,14 +1497,14 @@ class RBFulfillmentInfo(object):
         expires = datetime.datetime.utcnow() + datetime.timedelta(minutes=14)
         return content_type, content_link, expires
 
-class MockOneClickAPI(OneClickAPI):
+class MockRBDigitalAPI(RBDigitalAPI):
 
     @classmethod
     def make_collection(self, _db):
         library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
-            name="Test OneClick Collection",
+            name="Test RBDigital Collection",
             create_method_kwargs=dict(
                 external_account_id=u'library_id_123',
             )
@@ -1535,8 +1535,8 @@ class MockOneClickAPI(OneClickAPI):
         self.responses = []
         self.requests = []
         base_path = base_path or os.path.split(__file__)[0]
-        self.resource_path = os.path.join(base_path, "files", "oneclick")
-        return super(MockOneClickAPI, self).__init__(_db, collection, **kwargs)
+        self.resource_path = os.path.join(base_path, "files", "rbdigital")
+        return super(MockRBDigitalAPI, self).__init__(_db, collection, **kwargs)
 
     @property
     def collection(self):
@@ -1572,18 +1572,18 @@ class MockOneClickAPI(OneClickAPI):
         """
         datastr, datadict = self.get_data("response_catalog_all_sample.json")
         self.queue_response(status_code=200, content=datastr)
-        items_transmitted, items_created = super(MockOneClickAPI, self).populate_all_catalog()
+        items_transmitted, items_created = super(MockRBDigitalAPI, self).populate_all_catalog()
 
         return items_transmitted, items_created
 
-class OneClickRepresentationExtractor(object):
-    """ Extract useful information from OneClick's JSON representations. """
+class RBDigitalRepresentationExtractor(object):
+    """ Extract useful information from RBDigital's JSON representations. """
     DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ" #ex: 2013-12-27T00:00:00Z
     DATE_FORMAT = "%Y-%m-%d" #ex: 2013-12-27
 
-    log = logging.getLogger("OneClick representation extractor")
+    log = logging.getLogger("RBDigital representation extractor")
 
-    oneclick_medium_to_simplified_medium = {
+    rbdigital_medium_to_simplified_medium = {
         "eBook" : Edition.BOOK_MEDIUM,
         "eAudio" : Edition.AUDIO_MEDIUM,
     }
@@ -1601,7 +1601,7 @@ class OneClickRepresentationExtractor(object):
 
     @classmethod
     def isbn_info_to_metadata(cls, book, include_bibliographic=True, include_formats=True):
-        """Turn OneClick's JSON representation of a book into a Metadata object.
+        """Turn RBDigital's JSON representation of a book into a Metadata object.
         Assumes the JSON is in the format that comes from the media/{isbn} endpoint.
 
         TODO:  Use the seriesTotal field.
@@ -1610,9 +1610,9 @@ class OneClickRepresentationExtractor(object):
         """
         if not 'isbn' in book:
             return None
-        oneclick_id = book['isbn']
+        rbdigital_id = book['isbn']
         primary_identifier = IdentifierData(
-            Identifier.RB_DIGITAL_ID, oneclick_id
+            Identifier.RB_DIGITAL_ID, rbdigital_id
         )
 
         metadata = Metadata(
@@ -1703,7 +1703,7 @@ class OneClickRepresentationExtractor(object):
                     subjects.append(subject)
 
             # audience options are: adult, beginning-reader, childrens, young-adult
-            # NOTE: In OneClick metadata, audience can be set to "Adult" while publisher is "HarperTeen".
+            # NOTE: In RBDigital metadata, audience can be set to "Adult" while publisher is "HarperTeen".
             audience = book.get('audience', None)
             if audience:
                 subject = SubjectData(
@@ -1714,19 +1714,19 @@ class OneClickRepresentationExtractor(object):
                 subjects.append(subject)
 
             # options are: "eBook", "eAudio"
-            oneclick_medium = book.get('mediaType', None)
-            if oneclick_medium and oneclick_medium not in cls.oneclick_medium_to_simplified_medium:
+            rbdigital_medium = book.get('mediaType', None)
+            if rbdigital_medium and rbdigital_medium not in cls.rbdigital_medium_to_simplified_medium:
                 cls.log.error(
-                    "Could not process medium %s for %s", oneclick_medium, oneclick_id)
+                    "Could not process medium %s for %s", rbdigital_medium, rbdigital_id)
 
-            medium = cls.oneclick_medium_to_simplified_medium.get(
-                oneclick_medium, Edition.BOOK_MEDIUM
+            medium = cls.rbdigital_medium_to_simplified_medium.get(
+                rbdigital_medium, Edition.BOOK_MEDIUM
             )
 
             # passed to metadata.apply, the isbn_identifier will create an equivalency
-            # between the OneClick-labeled and the ISBN-labeled identifier rows, which
+            # between the RBDigital-labeled and the ISBN-labeled identifier rows, which
             # will in turn allow us to ask the MetadataWrangler for more info about the book.
-            isbn_identifier = IdentifierData(Identifier.ISBN, oneclick_id)
+            isbn_identifier = IdentifierData(Identifier.ISBN, rbdigital_id)
 
             identifiers = [primary_identifier, isbn_identifier]
 
@@ -1801,32 +1801,32 @@ class OneClickRepresentationExtractor(object):
 
         return metadata
 
-class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
-    """Fill in bibliographic metadata for OneClick records."""
+class RBDigitalBibliographicCoverageProvider(BibliographicCoverageProvider):
+    """Fill in bibliographic metadata for RBDigital records."""
 
-    SERVICE_NAME = "OneClick Bibliographic Coverage Provider"
+    SERVICE_NAME = "RBDigital Bibliographic Coverage Provider"
     DATA_SOURCE_NAME = DataSource.RB_DIGITAL
     PROTOCOL = ExternalIntegration.RB_DIGITAL
     INPUT_IDENTIFIER_TYPES = Identifier.RB_DIGITAL_ID
     DEFAULT_BATCH_SIZE = 25
 
-    def __init__(self, collection, api_class=OneClickAPI, api_class_kwargs={},
+    def __init__(self, collection, api_class=RBDigitalAPI, api_class_kwargs={},
                  **kwargs):
         """Constructor.
 
         :param collection: Provide bibliographic coverage to all
-            One Click books in the given Collection.
+            RBDigital books in the given Collection.
         :param api_class: Instantiate this class with the given Collection,
-            rather than instantiating OneClickAPI.
+            rather than instantiating RBDigitalAPI.
         """
-        super(OneClickBibliographicCoverageProvider, self).__init__(
+        super(RBDigitalBibliographicCoverageProvider, self).__init__(
             collection, **kwargs
         )
-        if isinstance(api_class, OneClickAPI):
+        if isinstance(api_class, RBDigitalAPI):
             # We were passed in a specific API object. This is not
             # generally the done thing, but it is necessary when a
-            # OneClickAPI object itself wants a
-            # OneClickBibliographicCoverageProvider.
+            # RBDigitalAPI object itself wants a
+            # RBDigitalBibliographicCoverageProvider.
             if api_class.collection_id != collection.id:
                 raise ValueError(
                     "Coverage provider and its API are scoped to different collections! (%s vs. %s)" % (
@@ -1842,7 +1842,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             self.api = api_class(_db, collection, **api_class_kwargs)
 
     def process_item(self, identifier):
-        """ OneClick availability information is served separately from
+        """ RBDigital availability information is served separately from
         the book's metadata.  Furthermore, the metadata returned by the
         "book by isbn" request is less comprehensive than the data returned
         by the "search titles/genres/etc." endpoint.
@@ -1858,7 +1858,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             return self.failure(identifier, error.message)
 
         if not response_dictionary:
-            message = "Cannot find OneClick metadata for %r" % identifier
+            message = "Cannot find RBDigital metadata for %r" % identifier
             return self.failure(identifier, message)
 
         result = self.update_metadata(response_dictionary, identifier)
@@ -1876,16 +1876,16 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         Note: It is expected that CoverageProvider.handle_success, which is responsible for
         setting the work to be presentation-ready is handled in the calling code.
 
-        :catalog_item - JSON representation of the book's metadata, coming from OneClick.
+        :catalog_item - JSON representation of the book's metadata, coming from RBDigital.
         :return CoverageFailure or a database object (Work, Identifier, etc.)
         """
-        metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(catalog_item)
+        metadata = RBDigitalRepresentationExtractor.isbn_info_to_metadata(catalog_item)
 
         if not metadata:
             # generate a CoverageFailure to let the system know to revisit this book
             # TODO:  if did not create a Work, but have a CoverageFailure for the isbn,
             # check that re-processing that coverage would generate the work.
-            e = "Could not extract metadata from OneClick data: %r" % catalog_item
+            e = "Could not extract metadata from RBDigital data: %r" % catalog_item
             return self.failure(identifier, e)
 
         # convert IdentifierData into Identifier, if can
@@ -1893,19 +1893,19 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             identifier, made_new = metadata.primary_identifier.load(_db=self._db)
 
         if not identifier:
-            e = "Could not create identifier for OneClick data: %r" % catalog_item
+            e = "Could not create identifier for RBDigital data: %r" % catalog_item
             return self.failure(identifier, e)
 
         return self.set_metadata(identifier, metadata)
 
-class OneClickSyncMonitor(CollectionMonitor):
+class RBDigitalSyncMonitor(CollectionMonitor):
 
     PROTOCOL = ExternalIntegration.RB_DIGITAL
 
-    def __init__(self, _db, collection, api_class=OneClickAPI,
+    def __init__(self, _db, collection, api_class=RBDigitalAPI,
                  api_class_kwargs={}):
         """Constructor."""
-        super(OneClickSyncMonitor, self).__init__(_db, collection)
+        super(RBDigitalSyncMonitor, self).__init__(_db, collection)
         self.api = api_class(_db, collection, **api_class_kwargs)
 
     def run_once(self, start, cutoff):
@@ -1917,9 +1917,9 @@ class OneClickSyncMonitor(CollectionMonitor):
     def invoke(self):
         raise NotImplementedError()
 
-class OneClickImportMonitor(OneClickSyncMonitor):
+class RBDigitalImportMonitor(RBDigitalSyncMonitor):
 
-    SERVICE_NAME = "OneClick Full Import"
+    SERVICE_NAME = "RBDigital Full Import"
 
     def invoke(self):
         timestamp = self.timestamp()
@@ -1938,34 +1938,34 @@ class OneClickImportMonitor(OneClickSyncMonitor):
             timestamp.counter += 1
         return result
 
-class OneClickDeltaMonitor(OneClickSyncMonitor):
+class RBDigitalDeltaMonitor(RBDigitalSyncMonitor):
 
-    SERVICE_NAME = "OneClick Delta Sync"
+    SERVICE_NAME = "RBDigital Delta Sync"
 
     def invoke(self):
         return self.api.populate_delta()
 
-class OneClickCirculationMonitor(CollectionMonitor):
-    """Maintain LicensePools for OneClick titles.
+class RBDigitalCirculationMonitor(CollectionMonitor):
+    """Maintain LicensePools for RBDigital titles.
 
     Bibliographic data isn't inserted into new LicensePools until
     we hear from the metadata wrangler.
     """
-    SERVICE_NAME = "OneClick CirculationMonitor"
+    SERVICE_NAME = "RBDigital CirculationMonitor"
     DEFAULT_START_TIME = datetime.datetime(1970, 1, 1)
     INTERVAL_SECONDS = 1200
     DEFAULT_BATCH_SIZE = 50
 
     PROTOCOL = ExternalIntegration.RB_DIGITAL
 
-    def __init__(self, _db, collection, batch_size=None, api_class=OneClickAPI,
+    def __init__(self, _db, collection, batch_size=None, api_class=RBDigitalAPI,
                  api_class_kwargs={}):
-        super(OneClickCirculationMonitor, self).__init__(_db, collection)
+        super(RBDigitalCirculationMonitor, self).__init__(_db, collection)
         self.batch_size = batch_size or self.DEFAULT_BATCH_SIZE
 
         self.api = api_class(_db, self.collection, **api_class_kwargs)
         self.bibliographic_coverage_provider = (
-            OneClickBibliographicCoverageProvider(
+            RBDigitalBibliographicCoverageProvider(
                 collection=self.collection, api_class=self.api,
             )
         )
@@ -1998,7 +1998,7 @@ class OneClickCirculationMonitor(CollectionMonitor):
         return item_count
 
     def run(self):
-        super(OneClickCirculationMonitor, self).run()
+        super(RBDigitalCirculationMonitor, self).run()
 
     def run_once(self, start, cutoff):
         ebook_count = self.process_availability(media_type='eBook')
