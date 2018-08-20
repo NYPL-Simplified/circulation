@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk
+from elasticsearch.exceptions import ElasticsearchException
 from flask_babel import lazy_gettext as _
 from config import (
     Configuration,
@@ -142,7 +143,13 @@ class ExternalSearchIndex(object):
         # Document upload runs against the works_index.
         # Search queries run against works_alias.
         if works_index and integration:
-            self.set_works_index_and_alias(_db)
+            try:
+                self.set_works_index_and_alias(_db)
+            except ElasticsearchException, e:
+                raise CannotLoadConfiguration(
+                    "Exception communicating with Elasticsearch server: %s" %
+                    repr(e)
+                )
 
         def bulk(docs, **kwargs):
             return elasticsearch_bulk(self.__client, docs, **kwargs)

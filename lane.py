@@ -1322,7 +1322,7 @@ class WorkList(object):
             )
 
         # Get the search results from Elasticsearch.
-        results = None
+        results = []
 
         if not media:
             media = self.media
@@ -1372,13 +1372,13 @@ class WorkList(object):
 
             try:
                 docs = search_client.query_works(**kwargs)
-            except elasticsearch.exceptions.ConnectionError, e:
+            except elasticsearch.exceptions.ElasticsearchException, e:
                 logging.error(
-                    "Could not connect to ElasticSearch. Returning empty list of search results."
+                    "Problem communicating with ElasticSearch. Returning empty list of search results.",
+                    exc_info=e
                 )
             b = time.time()
             logging.debug("Elasticsearch query completed in %.2fsec", b-a)
-            results = []
             if docs:
                 doc_ids = [
                     int(x['_id']) for x in docs['hits']['hits']

@@ -1,5 +1,6 @@
 from nose.tools import (
     assert_raises,
+    assert_raises_regexp,
     eq_,
     set_trace,
 )
@@ -11,6 +12,9 @@ from . import (
     DatabaseTest,
 )
 
+from elasticsearch.exceptions import ElasticsearchException
+
+from config import CannotLoadConfiguration
 from lane import Lane
 from model import (
     Edition,
@@ -76,6 +80,25 @@ class ExternalSearchTest(DatabaseTest):
 
 
 class TestExternalSearch(ExternalSearchTest):
+
+    def test_elasticsearch_error_in_constructor_becomes_cannotloadconfiguration(self):
+        """If we're unable to establish a connection to the Elasticsearch
+        server, CannotLoadConfiguration (which the circulation manager can
+        understand) is raised instead of an Elasticsearch-specific exception.
+        """
+
+        # Unlike other tests in this module, this one runs even if no
+        # ElasticSearch server is running, since it's testing what
+        # happens if there's a problem communicating with that server.
+        class Mock(ExternalSearchIndex):
+            def set_works_index_and_alias(self, _db):
+                raise ElasticsearchException("very bad")
+
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Exception communicating with Elasticsearch server:.*very bad",
+            Mock, self._db
+        )
 
     def test_works_index_name(self):
         """The name of the search index is the prefix (defined in
@@ -863,6 +886,8 @@ class TestExactMatches(ExternalSearchTest):
 
     def setup(self):
         super(TestExactMatches, self).setup()
+        if not self.search:
+            return
         _work = self.default_work
 
         # Here the title is 'Modern Romance'
@@ -919,6 +944,8 @@ class TestExactMatches(ExternalSearchTest):
         time.sleep(2)
 
     def test_exact_matches(self):
+        if not self.search:
+            return
 
         # Convenience method to query the default library.
         def query(*args, **kwargs):
