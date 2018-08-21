@@ -1,5 +1,4 @@
-import classifier
-from classifier import *
+from . import *
 
 class LCCClassifier(Classifier):
 
