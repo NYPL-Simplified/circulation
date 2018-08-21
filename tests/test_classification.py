@@ -25,7 +25,6 @@ from classifier import (
     AgeClassifier,
     AgeOrGradeClassifier,
     InterestLevelClassifier,
-    Axis360AudienceClassifier,
     Lowercased,
     WorkClassifier,
     Lowercased,
@@ -489,36 +488,6 @@ class TestBIC(object):
             gen("YNC"))
         eq_(classifier.European_History,
             gen("HBJD"))
-
-class TestAxis360Classifier(object):
-
-    def test_audience(self):
-        def f(t):
-            return Axis360AudienceClassifier.audience(t, None)
-        eq_(Classifier.AUDIENCE_CHILDREN,
-            f("Children's - Kindergarten, Age 5-6"))
-        eq_(Classifier.AUDIENCE_CHILDREN,
-            f("Children's - Grade 2-3, Age 7-8"))
-        eq_(Classifier.AUDIENCE_CHILDREN,
-            f("Children's - Grade 4-6, Age 9-11"))
-        eq_(Classifier.AUDIENCE_YOUNG_ADULT,
-            f("Teen - Grade 7-9, Age 12-14"))
-        eq_(Classifier.AUDIENCE_YOUNG_ADULT,
-            f("Teen - Grade 10-12, Age 15-18"))
-        eq_(Classifier.AUDIENCE_ADULT, f("General Adult"))
-        eq_(None, f(""))
-        eq_(None, f(None))
-
-    def test_age(self):
-        def f(t):
-            return Axis360AudienceClassifier.target_age(t, None)
-        eq_((5,6), f("Children's - Kindergarten, Age 5-6"))
-        eq_((7,8), f("Children's - Grade 2-3, Age 7-8"))
-        eq_((9,11), f("Children's - Grade 4-6, Age 9-11"))
-        eq_((12,14), f("Teen - Grade 7-9, Age 12-14"))
-        eq_((12,14), f("Teen - Grade 7-9, Age 14-12"))
-        eq_((15,18), f("Teen - Grade 10-12, Age 15-18"))
-        eq_((None,None), f("General Adult"))
 
 class TestNestedSubgenres(object):
 
