@@ -1,4 +1,5 @@
 from . import *
+from keyword import KeywordBasedClassifier
 
 class RBDigitalAudienceClassifier(FreeformAudienceClassifier):
 
