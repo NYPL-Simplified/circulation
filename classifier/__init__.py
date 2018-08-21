@@ -538,39 +538,6 @@ class AgeClassifier(Classifier):
         return (target_age, age_words)
 
 
-class Axis360AudienceClassifier(Classifier):
-
-    TEEN_PREFIX = "Teen -"
-    CHILDRENS_PREFIX = "Children's -"
-
-    age_re = re.compile("Age ([0-9]+)-([0-9]+)$")
-
-    @classmethod
-    def audience(cls, identifier, name, require_explicit_age_marker=False):
-        if not identifier:
-            return None
-        if identifier == 'General Adult':
-            return Classifier.AUDIENCE_ADULT
-        elif identifier.startswith(cls.TEEN_PREFIX):
-            return Classifier.AUDIENCE_YOUNG_ADULT
-        elif identifier.startswith(cls.CHILDRENS_PREFIX):
-            return Classifier.AUDIENCE_CHILDREN
-        return None
-
-    @classmethod
-    def target_age(cls, identifier, name, require_explicit_age_marker=False):
-        if (not identifier.startswith(cls.TEEN_PREFIX)
-            and not identifier.startswith(cls.CHILDRENS_PREFIX)):
-            return cls.range_tuple(None, None)
-        m = cls.age_re.search(identifier)
-        if not m:
-            return cls.range_tuple(None, None)
-        young, old = map(int, m.groups())
-        if young > old:
-            young, old = old, young
-        return cls.range_tuple(young, old)
-
-
 # This is the large-scale structure of our classification system.
 #
 # If the name of a genre is a string, it's the name of the genre
@@ -1153,28 +1120,6 @@ class LCCClassifier(Classifier):
         # Everything else is implicitly for adults.
         return cls.AUDIENCE_ADULT
 
-class AgeOrGradeClassifier(Classifier):
-
-    @classmethod
-    def audience(cls, identifier, name):
-        audience = AgeClassifier.audience(identifier, name)
-        if audience == None:
-            audience = GradeLevelClassifier.audience(identifier, name)
-        return audience
-
-    @classmethod
-    def target_age(cls, identifier, name):
-        """This tag might contain a grade level, an age in years, or nothing.
-        We will try both a grade level and an age in years, but we
-        will require that the tag indicate what's being measured. A
-        tag like "9-12" will not match anything because we don't know if it's
-        age 9-12 or grade 9-12.
-        """
-        age = AgeClassifier.target_age(identifier, name, True)
-        if age == cls.range_tuple(None, None):
-            age = GradeLevelClassifier.target_age(identifier, name, True)
-        return age
-
 def match_kw(*l):
     """Turn a list of strings into a function which uses a regular expression
     to match any of those strings, so long as there's a word boundary on both ends.
@@ -1199,264 +1144,27 @@ def match_kw(*l):
     # This is a dictionary so it can be used as a class variable
     return {"search": match_term}
 
-class GutenbergBookshelfClassifier(Classifier):
-
-    # Any classification that includes the string "Fiction" will be
-    # counted as fiction. This is just the leftovers.
-    FICTION = set([
-        "Bestsellers, American, 1895-1923",
-        "Adventure",
-        "Fantasy",
-        "Horror",
-        "Mystery",
-        "Western",
-        "Suspense",
-        "Thriller",
-        "Children's Anthologies",
-        ])
-
-    GENRES = {
-        Adventure: [
-            "Adventure",
-            "Pirates, Buccaneers, Corsairs, etc.",
-        ],
-        # African_American : ["African American Writers"],
-        Ancient_History: ["Classical Antiquity"],
-        Architecture : [
-            "Architecture",
-            "The American Architect and Building News",
-        ],
-        Art : ["Art"],
-        Biography_Memoir : [
-            "Biographies",
-            "Children's Biography",
-        ],
-        Christianity : ["Christianity"],
-        Civil_War_History: "US Civil War",
-        Classics : [
-            "Best Books Ever Listings",
-            "Harvard Classics",
-        ],
-        Cooking : [
-            "Armour's Monthly Cook Book",
-            "Cookery",
-        ],
-        Drama : [
-            "One Act Plays",
-            "Opera",
-            "Plays",
-        ],
-        Erotica : "Erotic Fiction",
-        Fantasy : "Fantasy",
-        Foreign_Language_Study : [
-            "Language Education",
-        ],
-        Gardening : [
-            "Garden and Forest",
-            "Horticulture",
-        ],
-        Historical_Fiction : "Historical Fiction",
-        History : [
-            "Children's History",
-        ],
-        Horror : ["Gothic Fiction", "Horror"],
-        Humorous_Fiction : ["Humor"],
-        Islam : "Islam",
-        Judaism : "Judaism",
-        Law : [
-            "British Law",
-            "Noteworthy Trials",
-            "United States Law",
-        ],
-        Literary_Criticism : ["Bibliomania"],
-        Mathematics : "Mathematics",
-        Medical : [
-            "Medicine",
-            "The North American Medical and Surgical Journal",
-            "Physiology",
-        ],
-        Military_History : [
-            "American Revolutionary War",
-            "World War I",
-            "World War II",
-            "Spanish American War",
-            "Boer War",
-            "Napoleonic",
-        ],
-        Modern_History: "Current History",
-        Music : [
-            "Music",
-            "Child's Own Book of Great Musicians",
-        ],
-        Mystery : [
-            "Crime Fiction",
-            "Detective Fiction",
-            "Mystery Fiction",
-        ],
-        Nature : [
-            "Animal",
-            "Animals-Wild",
-            "Bird-Lore"
-            "Birds, Illustrated by Color Photography",
-        ],
-        Periodicals : [
-            "Ainslee's",
-            "Prairie Farmer",
-            "Blackwood's Edinburgh Magazine",
-            u"Barnavännen",
-            "Buchanan's Journal of Man",
-            "Bulletin de Lille",
-            "Celtic Magazine",
-            "Chambers's Edinburgh Journal",
-            "Contemporary Reviews",
-            "Continental Monthly",
-            "De Aarde en haar Volken",
-            "Dew Drops",
-            "Donahoe's Magazine",
-            "Golden Days for Boys and Girls",
-            "Harper's New Monthly Magazine",
-            "Harper's Young People",
-            "Graham's Magazine",
-            "Lippincott's Magazine",
-            "L'Illustration",
-            "McClure's Magazine",
-            "Mrs Whittelsey's Magazine for Mothers and Daughters",
-            "Northern Nut Growers Association",
-            "Notes and Queries",
-            "Our Young Folks",
-            "The American Missionary",
-            "The American Quarterly Review",
-            "The Arena",
-            "The Argosy",
-            "The Atlantic Monthly",
-            "The Baptist Magazine",
-            "The Bay State Monthly",
-            "The Botanical Magazine",
-            "The Catholic World",
-            "The Christian Foundation",
-            "The Church of England Magazine",
-            "The Contemporary Review",
-            "The Economist",
-            "The Esperantist",
-            "The Girls Own Paper",
-            "The Great Round World And What Is Going On In It",
-            "The Idler",
-            "The Illustrated War News",
-            "The International Magazine of Literature, Art, and Science",
-            "The Irish Ecclesiastical Record",
-            "The Irish Penny Journal",
-            "The Journal of Negro History",
-            "The Knickerbocker",
-            "The Mayflower",
-            "The Menorah Journal",
-            "The Mentor",
-            "The Mirror of Literature, Amusement, and Instruction",
-            "The Mirror of Taste, and Dramatic Censor",
-            "The National Preacher",
-            "The Aldine",
-            "The Nursery",
-            "St. Nicholas Magazine for Boys and Girls",
-            "Punch",
-            "Punchinello",
-            "Scribner's Magazine",
-            "The Scrap Book",
-            "The Speaker",
-            "The Stars and Stripes",
-            "The Strand Magazine",
-            "The Unpopular Review",
-            "The Writer",
-            "The Yellow Book",
-            "Women's Travel Journals",
-        ],
-        Pets : ["Animals-Domestic"],
-        Philosophy : ["Philosophy"],
-        Photography : "Photography",
-        Poetry : [
-            "Poetry",
-            "Poetry, A Magazine of Verse",
-            "Children's Verse",
-        ],
-        Political_Science : [
-            "Anarchism",
-            "Politics",
-        ],
-        Psychology : ["Psychology"],
-        Reference_Study_Aids : [
-            "Reference",
-            "CIA World Factbooks",
-        ],
-        Religion_Spirituality : [
-            "Atheism",
-            "Bahá'í Faith",
-            "Hinduism",
-            "Paganism",
-            "Children's Religion",
-        ],
-        Science : [
-            "Astronomy",
-            "Biology",
-            "Botany",
-            "Chemistry",
-            "Ecology",
-            "Geology",
-            "Journal of Entomology and Zoology",
-            "Microbiology",
-            "Microscopy",
-            "Natural History",
-            "Mycology",
-            "Popular Science Monthly",
-            "Physics",
-            "Scientific American",
-        ],
-        Science_Fiction : [
-            "Astounding Stories",
-            "Precursors of Science Fiction",
-            "The Galaxy",
-            "Science Fiction",
-        ],
-        Social_Sciences : [
-            "Anthropology",
-            "Archaeology",
-            "The American Journal of Archaeology",
-            "Sociology",
-        ],
-        Suspense_Thriller : [
-            "Suspense",
-            "Thriller",
-        ],
-        Technology : [
-            "Engineering",
-            "Technology",
-            "Transportation",
-        ],
-        Travel : "Travel",
-        True_Crime : "Crime Nonfiction",
-        Westerns : "Western",
-    }
-
-    @classmethod
-    def scrub_identifier(cls, identifier):
-        return identifier
-
-    @classmethod
-    def is_fiction(cls, identifier, name):
-        if (identifier in cls.FICTION
-            or "Fiction" in identifier or "Stories" in identifier):
-            return True
-        return None
+class AgeOrGradeClassifier(Classifier):
 
     @classmethod
     def audience(cls, identifier, name):
-        if ("Children's" in identifier):
-            return cls.AUDIENCE_CHILDREN
-        return cls.AUDIENCE_ADULT
+        audience = AgeClassifier.audience(identifier, name)
+        if audience == None:
+            audience = GradeLevelClassifier.audience(identifier, name)
+        return audience
 
     @classmethod
-    def genre(cls, identifier, name, fiction=None, audience=None):
-        for l, v in cls.GENRES.items():
-            if identifier == v or (isinstance(v, list) and identifier in v):
-                return l
-        return None
+    def target_age(cls, identifier, name):
+        """This tag might contain a grade level, an age in years, or nothing.
+        We will try both a grade level and an age in years, but we
+        will require that the tag indicate what's being measured. A
+        tag like "9-12" will not match anything because we don't know if it's
+        age 9-12 or grade 9-12.
+        """
+        age = AgeClassifier.target_age(identifier, name, True)
+        if age == cls.range_tuple(None, None):
+            age = GradeLevelClassifier.target_age(identifier, name, True)
+        return age
 
 class FreeformAudienceClassifier(AgeOrGradeClassifier):
     @classmethod
@@ -2059,222 +1767,28 @@ class WorkClassifier(object):
         #    print "", genre, weight
         return consolidated
 
-class BICClassifier(Classifier):
-    # These prefixes came from from http://editeur.dyndns.org/bic_categories
-
-    LEVEL_1_PREFIXES = {
-        Art_Design: 'A',
-        Biography_Memoir: 'B',
-        Foreign_Language_Study: 'C',
-        Literary_Criticism: 'D',
-        Reference_Study_Aids: 'G',
-        Social_Sciences: 'J',
-        Personal_Finance_Business: 'K',
-        Law: 'L',
-        Medical: 'M',
-        Science_Technology: 'P',
-        Technology: 'T',
-        Computers: 'U',
-    }
-
-    LEVEL_2_PREFIXES = {
-        Art_History: 'AC',
-        Photography: 'AJ',
-        Design: 'AK',
-        Architecture: 'AM',
-        Film_TV: 'AP',
-        Performing_Arts: 'AS',
-        Music: 'AV',
-        Poetry: 'DC',
-        Drama: 'DD',
-        Classics: 'FC',
-        Mystery: 'FF',
-        Suspense_Thriller: 'FH',
-        Adventure: 'FJ',
-        Horror: 'FK',
-        Science_Fiction: 'FL',
-        Fantasy: 'FM',
-        Erotica: 'FP',
-        Romance: 'FR',
-        Historical_Fiction: 'FV',
-        Religious_Fiction: 'FW',
-        Comics_Graphic_Novels: 'FX',
-        History: 'HB',
-        Philosophy: 'HP',
-        Religion_Spirituality: 'HR',
-        Psychology: 'JM',
-        Education: 'JN',
-        Political_Science: 'JP',
-        Economics: 'KC',
-        Business: 'KJ',
-        Mathematics: 'PB',
-        Science: 'PD',
-        Self_Help: 'VS',
-        Body_Mind_Spirit: 'VX',
-        Food_Health: 'WB',
-        Antiques_Collectibles: 'WC',
-        Crafts_Hobbies: 'WF',
-        Humorous_Nonfiction: 'WH',
-        House_Home: 'WK',
-        Gardening: 'WM',
-        Nature: 'WN',
-        Sports: 'WS',
-        Travel: 'WT',
-    }
-
-    LEVEL_3_PREFIXES = {
-        Historical_Mystery: 'FFH',
-        Espionage: 'FHD',
-        Westerns: 'FJW',
-        Space_Opera: 'FLS',
-        Historical_Romance: 'FRH',
-        Short_Stories: 'FYB',
-        World_History: 'HBG',
-        Military_History: 'HBW',
-        Christianity: 'HRC',
-        Buddhism: 'HRE',
-        Hinduism: 'HRG',
-        Islam: 'HRH',
-        Judaism: 'HRJ',
-        Fashion: 'WJF',
-        Poetry: 'YDP',
-        Adventure: 'YFC',
-        Horror: 'YFD',
-        Science_Fiction: 'YFG',
-        Fantasy: 'YFH',
-        Romance: 'YFM',
-        Humorous_Fiction: 'YFQ',
-        Historical_Fiction: 'YFT',
-        Comics_Graphic_Novels: 'YFW',
-        Art: 'YNA',
-        Music: 'YNC',
-        Performing_Arts: 'YND',
-        Film_TV: 'YNF',
-        History: 'YNH',
-        Nature: 'YNN',
-        Religion_Spirituality: 'YNR',
-        Science_Technology: 'YNT',
-        Humorous_Nonfiction: 'YNU',
-        Sports: 'YNW',
-    }
-
-    LEVEL_4_PREFIXES = {
-        European_History: 'HBJD',
-        Asian_History: 'HBJF',
-        African_History: 'HBJH',
-        Ancient_History: 'HBLA',
-        Modern_History: 'HBLL',
-        Drama: 'YNDS',
-        Comics_Graphic_Novels: 'YNUC',
-    }
-
-    PREFIX_LISTS = [LEVEL_4_PREFIXES, LEVEL_3_PREFIXES, LEVEL_2_PREFIXES, LEVEL_1_PREFIXES]
-
-    @classmethod
-    def is_fiction(cls, identifier, name):
-        if identifier.startswith('f') or identifier.startswith('yf'):
-            return True
-        return False
-
-    @classmethod
-    def audience(cls, identifier, name):
-        # BIC doesn't distinguish children's and YA.
-        # Classify it as YA to be safe.
-        if identifier.startswith("y"):
-            return cls.AUDIENCE_YOUNG_ADULT
-        return cls.AUDIENCE_ADULT
-
-    @classmethod
-    def genre(cls, identifier, name, fiction=None, audience=None):
-        for prefixes in cls.PREFIX_LISTS:
-            for l, v in prefixes.items():
-                if identifier.startswith(v.lower()):
-                    return l
-        return None
-
-class SimplifiedGenreClassifier(Classifier):
-
-    NONE = NO_VALUE
-
-    @classmethod
-    def scrub_identifier(cls, identifier):
-        # If the identifier is a URI identifying a Simplified genre,
-        # strip off the first part of the URI to get the genre name.
-        if not identifier:
-            return identifier
-        if identifier.startswith(cls.SIMPLIFIED_GENRE):
-            identifier = identifier[len(cls.SIMPLIFIED_GENRE):]
-            identifier = urllib.unquote(identifier)
-        return Lowercased(identifier)
-
-    @classmethod
-    def genre(cls, identifier, name, fiction=None, audience=None):
-        if fiction == True:
-            all_genres = fiction_genres
-        elif fiction == False:
-            all_genres = nonfiction_genres
-        else:
-            all_genres = fiction_genres + nonfiction_genres
-        return cls._genre_by_name(identifier.original, all_genres)
-
-    @classmethod
-    def is_fiction(cls, identifier, name):
-        if not globals()["genres"].get(identifier.original):
-            return None
-        return globals()["genres"][identifier.original].is_fiction
-
-    @classmethod
-    def _genre_by_name(cls, name, genres):
-        for genre in genres:
-            if genre == name:
-                return globals()["genres"][name]
-            elif isinstance(genre, dict):
-                if name == genre["name"] or name in genre.get("subgenres", []):
-                    return globals()["genres"][name]
-        return None
-
-
-class SimplifiedFictionClassifier(Classifier):
-
-    @classmethod
-    def scrub_identifier(cls, identifier):
-        # If the identifier is a URI identifying a Simplified genre,
-        # strip off the first part of the URI to get the genre name.
-        if not identifier:
-            return identifier
-        if identifier.startswith(cls.SIMPLIFIED_FICTION_STATUS):
-            identifier = identifier[len(cls.SIMPLIFIED_FICTION_STATUS):]
-            identifier = urllib.unquote(identifier)
-        return Lowercased(identifier)
-
-    @classmethod
-    def is_fiction(cls, identifier, name):
-        if identifier == "fiction":
-            return True
-        elif identifier == "nonfiction":
-            return False
-        else:
-            return None
-
-
 # Make a dictionary of classification schemes to classifiers.
 Classifier.classifiers[Classifier.DDC] = DeweyDecimalClassifier
 Classifier.classifiers[Classifier.LCC] = LCCClassifier
-Classifier.classifiers[Classifier.BIC] = BICClassifier
-Classifier.classifiers[Classifier.AGE_RANGE] = AgeClassifier
-Classifier.classifiers[Classifier.GRADE_LEVEL] = GradeLevelClassifier
 Classifier.classifiers[Classifier.FREEFORM_AUDIENCE] = FreeformAudienceClassifier
-Classifier.classifiers[Classifier.GUTENBERG_BOOKSHELF] = GutenbergBookshelfClassifier
-Classifier.classifiers[Classifier.INTEREST_LEVEL] = InterestLevelClassifier
 Classifier.classifiers[Classifier.AXIS_360_AUDIENCE] = AgeOrGradeClassifier
-Classifier.classifiers[Classifier.SIMPLIFIED_GENRE] = SimplifiedGenreClassifier
-Classifier.classifiers[Classifier.SIMPLIFIED_FICTION_STATUS] = SimplifiedFictionClassifier
 
 # Finally, import classifiers described in submodules.
+from age import (
+    GradeLevelClassifier,
+    InterestLevelClassifier,
+    AgeClassifier,
+)
 from bisac import BISACClassifier
 from rbdigital import (
     RBDigitalAudienceClassifier,
     RBDigitalSubjectClassifier,
+)
+from gutenberg import GutenbergBookshelfClassifier
+from bic import BICClassifier
+from simplified import (
+    SimplifiedFictionClassifier,
+    SimplifiedGenreClassifier,
 )
 from overdrive import OverdriveClassifier
 from keyword import (
