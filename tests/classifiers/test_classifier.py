@@ -1,7 +1,7 @@
 """Test logic surrounding classification schemes."""
 
 from nose.tools import eq_, set_trace
-from . import DatabaseTest
+from .. import DatabaseTest
 from collections import Counter
 from psycopg2.extras import NumericRange
 from model import (
@@ -21,13 +21,19 @@ from classifier import (
         nonfiction_genres,
         GenreData,
     )
+
+from classifier.age import (
+    AgeClassifier,
+    GradeLevelClassifier,
+    InterestLevelClassifier,
+)
 from classifier.ddc import DeweyDecimalClassifier as DDC
 from classifier.keyword import (
     LCSHClassifier as LCSH,
     FASTClassifier as FAST,
 )
-
 from classifier.lcc import LCCClassifier as LCC
+from classifier.simplified import SimplifiedGenreClassifier
 
 genres = dict()
 GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
