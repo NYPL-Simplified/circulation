@@ -1,6 +1,30 @@
 import classifier
 from classifier import *
 
+def match_kw(*l):
+    """Turn a list of strings into a function which uses a regular expression
+    to match any of those strings, so long as there's a word boundary on both ends.
+    The function will match all the strings by default, or can exclude the strings
+    that are examples of the classification.
+    """
+    def match_term(term, exclude_examples=False):
+        if not l:
+            return None
+        if exclude_examples:
+            keywords = [keyword for keyword in l if not isinstance(keyword, Eg)]
+        else:
+            keywords = [str(keyword) for keyword in l]
+
+        if not keywords:
+            return None
+        any_keyword = "|".join(keywords)
+        with_boundaries = r'\b(%s)\b' % any_keyword
+        return re.compile(with_boundaries, re.I).search(term)
+
+
+    # This is a dictionary so it can be used as a class variable
+    return {"search": match_term}
+    
 class Eg(object):
     """Mark this string as an example of a classification, rather than
     an exact identifier for that classification. For example, basketball
@@ -13,7 +37,7 @@ class Eg(object):
 
     def __str__(self):
         return self.term
-        
+
 class KeywordBasedClassifier(AgeOrGradeClassifier):
 
     """Classify a book based on keywords."""
