@@ -24,7 +24,7 @@ def match_kw(*l):
 
     # This is a dictionary so it can be used as a class variable
     return {"search": match_term}
-    
+
 class Eg(object):
     """Mark this string as an example of a classification, rather than
     an exact identifier for that classification. For example, basketball
