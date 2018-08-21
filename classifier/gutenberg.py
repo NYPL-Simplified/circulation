@@ -1,3 +1,5 @@
+# encoding: utf-8
+
 import classifier
 from classifier import *
 
