@@ -538,39 +538,6 @@ class AgeClassifier(Classifier):
         return (target_age, age_words)
 
 
-class Axis360AudienceClassifier(Classifier):
-
-    TEEN_PREFIX = "Teen -"
-    CHILDRENS_PREFIX = "Children's -"
-
-    age_re = re.compile("Age ([0-9]+)-([0-9]+)$")
-
-    @classmethod
-    def audience(cls, identifier, name, require_explicit_age_marker=False):
-        if not identifier:
-            return None
-        if identifier == 'General Adult':
-            return Classifier.AUDIENCE_ADULT
-        elif identifier.startswith(cls.TEEN_PREFIX):
-            return Classifier.AUDIENCE_YOUNG_ADULT
-        elif identifier.startswith(cls.CHILDRENS_PREFIX):
-            return Classifier.AUDIENCE_CHILDREN
-        return None
-
-    @classmethod
-    def target_age(cls, identifier, name, require_explicit_age_marker=False):
-        if (not identifier.startswith(cls.TEEN_PREFIX)
-            and not identifier.startswith(cls.CHILDRENS_PREFIX)):
-            return cls.range_tuple(None, None)
-        m = cls.age_re.search(identifier)
-        if not m:
-            return cls.range_tuple(None, None)
-        young, old = map(int, m.groups())
-        if young > old:
-            young, old = old, young
-        return cls.range_tuple(young, old)
-
-
 # This is the large-scale structure of our classification system.
 #
 # If the name of a genre is a string, it's the name of the genre
@@ -1153,28 +1120,6 @@ class LCCClassifier(Classifier):
         # Everything else is implicitly for adults.
         return cls.AUDIENCE_ADULT
 
-class AgeOrGradeClassifier(Classifier):
-
-    @classmethod
-    def audience(cls, identifier, name):
-        audience = AgeClassifier.audience(identifier, name)
-        if audience == None:
-            audience = GradeLevelClassifier.audience(identifier, name)
-        return audience
-
-    @classmethod
-    def target_age(cls, identifier, name):
-        """This tag might contain a grade level, an age in years, or nothing.
-        We will try both a grade level and an age in years, but we
-        will require that the tag indicate what's being measured. A
-        tag like "9-12" will not match anything because we don't know if it's
-        age 9-12 or grade 9-12.
-        """
-        age = AgeClassifier.target_age(identifier, name, True)
-        if age == cls.range_tuple(None, None):
-            age = GradeLevelClassifier.target_age(identifier, name, True)
-        return age
-
 def match_kw(*l):
     """Turn a list of strings into a function which uses a regular expression
     to match any of those strings, so long as there's a word boundary on both ends.
@@ -1211,6 +1156,28 @@ class Eg(object):
 
     def __str__(self):
         return self.term
+
+class AgeOrGradeClassifier(Classifier):
+
+    @classmethod
+    def audience(cls, identifier, name):
+        audience = AgeClassifier.audience(identifier, name)
+        if audience == None:
+            audience = GradeLevelClassifier.audience(identifier, name)
+        return audience
+
+    @classmethod
+    def target_age(cls, identifier, name):
+        """This tag might contain a grade level, an age in years, or nothing.
+        We will try both a grade level and an age in years, but we
+        will require that the tag indicate what's being measured. A
+        tag like "9-12" will not match anything because we don't know if it's
+        age 9-12 or grade 9-12.
+        """
+        age = AgeClassifier.target_age(identifier, name, True)
+        if age == cls.range_tuple(None, None):
+            age = GradeLevelClassifier.target_age(identifier, name, True)
+        return age
 
 class KeywordBasedClassifier(AgeOrGradeClassifier):
 
@@ -3547,14 +3514,16 @@ Classifier.classifiers[Classifier.FAST] = FASTClassifier
 Classifier.classifiers[Classifier.LCSH] = LCSHClassifier
 Classifier.classifiers[Classifier.TAG] = TAGClassifier
 Classifier.classifiers[Classifier.BIC] = BICClassifier
-Classifier.classifiers[Classifier.AGE_RANGE] = AgeClassifier
-Classifier.classifiers[Classifier.GRADE_LEVEL] = GradeLevelClassifier
 Classifier.classifiers[Classifier.FREEFORM_AUDIENCE] = FreeformAudienceClassifier
 Classifier.classifiers[Classifier.GUTENBERG_BOOKSHELF] = GutenbergBookshelfClassifier
-Classifier.classifiers[Classifier.INTEREST_LEVEL] = InterestLevelClassifier
 Classifier.classifiers[Classifier.AXIS_360_AUDIENCE] = AgeOrGradeClassifier
 
 # Finally, import classifiers described in submodules.
+from age import (
+    GradeLevelClassifier,
+    InterestLevelClassifier,
+    AgeClassifier,
+)
 from bisac import BISACClassifier
 from rbdigital import (
     RBDigitalAudienceClassifier,
