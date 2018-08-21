@@ -1,6 +1,6 @@
 import re
 from nose.tools import set_trace
-from classifier import Classifier
+from . import Classifier
 
 class GradeLevelClassifier(Classifier):
     # How old a kid is when they start grade N in the US.

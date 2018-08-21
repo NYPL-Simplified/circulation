@@ -1,5 +1,4 @@
-import classifier
-from classifier import *
+from . import *
 
 def match_kw(*l):
     """Turn a list of strings into a function which uses a regular expression

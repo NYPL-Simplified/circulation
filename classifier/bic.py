@@ -1,5 +1,4 @@
-import classifier
-from classifier import *
+from . import *
 
 class BICClassifier(Classifier):
     # These prefixes came from from http://editeur.dyndns.org/bic_categories
@@ -133,5 +132,5 @@ class BICClassifier(Classifier):
                 if identifier.startswith(v.lower()):
                     return l
         return None
-        
+
 Classifier.classifiers[Classifier.BIC] = BICClassifier
