@@ -4,6 +4,7 @@ import os
 import re
 import string
 from . import *
+from keyword import KeywordBasedClassifier
 
 class CustomMatchToken(object):
     """A custom token used in matching rules."""
