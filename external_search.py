@@ -343,7 +343,9 @@ class ExternalSearchIndex(object):
                     'query': query_string,
                     'fields': fields,
                     'type': 'best_fields',
-                    'fuzziness': 'AUTO'
+                    'fuzziness': 'AUTO',
+                    'prefix_length': 1,
+                    'max_expansions': 2,
                 }
             }
 
