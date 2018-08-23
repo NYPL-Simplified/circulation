@@ -193,7 +193,7 @@ class BaseMetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         Identifier.OVERDRIVE_ID,
         Identifier.BIBLIOTHECA_ID,
         Identifier.AXIS_360_ID,
-        Identifier.ONECLICK_ID,
+        Identifier.RB_DIGITAL_ID,
         Identifier.URI,
     ]
 
@@ -225,7 +225,7 @@ class BaseMetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         for identifier in batch:
             if identifier.type in [
                     Identifier.AXIS_360_ID, Identifier.BIBLIOTHECA_ID,
-                    Identifier.ONECLICK_ID
+                    Identifier.RB_DIGITAL_ID
             ]:
                 for e in identifier.equivalencies:
                     if e.output.type == Identifier.ISBN:

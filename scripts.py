@@ -104,17 +104,11 @@ from api.circulation import CirculationAPI
 from api.opds import CirculationManagerAnnotator
 from api.overdrive import (
     OverdriveAPI,
-    OverdriveBibliographicCoverageProvider,
 )
 from api.bibliotheca import (
-    BibliothecaBibliographicCoverageProvider,
     BibliothecaCirculationSweep
 )
-from api.axis import (
-    Axis360API,
-)
 from api.nyt import NYTBestSellerAPI
-from core.axis import Axis360BibliographicCoverageProvider
 from api.opds_for_distributors import (
     OPDSForDistributorsImporter,
     OPDSForDistributorsImportMonitor,
@@ -653,27 +647,6 @@ You'll get another chance to back out before the database session is committed."
             )
             if self.delete:
                 self._db.delete(credential)
-
-
-class BibliographicCoverageProvidersScript(RunCoverageProvidersScript):
-    """Alternate between running bibliographic coverage providers for
-    all registered book sources.
-    """
-
-    def __init__(self):
-
-        providers = []
-        if Configuration.integration('3M'):
-            providers.append(BibliothecaBibliographicCoverageProvider)
-        if Configuration.integration('Overdrive'):
-            providers.append(OverdriveBibliographicCoverageProvider)
-        if Configuration.integration('Axis 360'):
-            providers.append(Axis360BibliographicCoverageProvider)
-
-        if not providers:
-            raise Exception("No licensed book sources configured, nothing to get coverage from!")
-        super(BibliographicCoverageProvidersScript, self).__init__(providers)
-
 
 class AvailabilityRefreshScript(IdentifierInputScript):
     """Refresh the availability information for a LicensePool, direct from the

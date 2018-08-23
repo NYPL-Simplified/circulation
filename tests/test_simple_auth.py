@@ -124,7 +124,7 @@ class TestSimpleAuth(DatabaseTest):
         eq_(result.personal_name, "PersonalName1234")
         eq_(result.username, '1234_username')
 
-    def test_remote_patron_lookup(self):
+    def test__remote_patron_lookup(self):
         p = SimpleAuthenticationProvider
         integration = self._external_integration(self._str)
         integration.setting(p.TEST_IDENTIFIER).value = "barcode"
@@ -136,17 +136,17 @@ class TestSimpleAuth(DatabaseTest):
         patron.authorization_identifier = "barcode"
 
         #Returns None if nothing is passed in
-        eq_(provider.remote_patron_lookup(None), None)
+        eq_(provider._remote_patron_lookup(None), None)
 
         #Returns a patron if a patron is passed in and something is found
-        result = provider.remote_patron_lookup(patron)
+        result = provider._remote_patron_lookup(patron)
         eq_(result.permanent_id, "barcode_id")
 
         #Returns None if no patron is found
         patron.authorization_identifier = "wrong barcode"
-        result = provider.remote_patron_lookup(patron)
+        result = provider._remote_patron_lookup(patron)
         eq_(result, None)
 
         #Returns a patron if a PatronData object is passed in and something is found
-        result = provider.remote_patron_lookup(patron_data)
+        result = provider._remote_patron_lookup(patron_data)
         eq_(result.permanent_id, "barcode_id")

@@ -135,7 +135,7 @@ from api.overdrive import OverdriveAPI
 from api.odilo import OdiloAPI
 from api.bibliotheca import BibliothecaAPI
 from api.axis import Axis360API
-from api.oneclick import OneClickAPI
+from api.rbdigital import RBDigitalAPI
 from api.enki import EnkiAPI
 from api.odl import ODLWithConsolidatedCopiesAPI, SharedODLAPI
 
@@ -2077,7 +2077,7 @@ class SettingsController(AdminCirculationManagerController):
                      OdiloAPI,
                      BibliothecaAPI,
                      Axis360API,
-                     OneClickAPI,
+                     RBDigitalAPI,
                      EnkiAPI,
                      ODLWithConsolidatedCopiesAPI,
                      SharedODLAPI,

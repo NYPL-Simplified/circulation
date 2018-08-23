@@ -1,0 +1,5966 @@
+[
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781420128567",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 39764
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781441260468",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 42688
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780761176398",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 43483
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781603423601",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 43702
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781603423656",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 43707
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781603423946",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 43735
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781612121840",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 44033
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781616200985",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 45345
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781616203184",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 45451
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781459210523",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 47558
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781459265905",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 48647
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781460308974",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 49512
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781426893483",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 50173
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781459225152",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 51171
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781426801686",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 58335
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547351551",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 65524
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547351797",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 65532
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547415994",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 65545
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547417110",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 65555
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547417158",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 65556
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547487946",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 65571
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547536781",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 65586
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547935423",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 65737
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780156035422",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 65966
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547249643",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66084
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547344942",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66094
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547345031",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66099
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547345666",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66109
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547346540",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66134
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547347929",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66199
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547370224",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 66290
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547415970",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66325
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547416113",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66333
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547487069",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66387
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547504186",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 66451
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547504841",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66484
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547518244",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66492
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547523620",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66506
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547526515",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66639
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547527628",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 66702
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547536842",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66726
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547544403",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66867
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547545080",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 66878
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547951973",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 67318
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547952017",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 67321
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547952048",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 67323
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547346243",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 67520
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547350004",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 67524
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547350042",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 67527
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547350103",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 67532
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547391670",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 67536
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547394138",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 67541
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547533001",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 67596
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547534176",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 67610
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547822860",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 67656
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547868684",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 67661
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781459275300",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 68468
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547345444",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 68688
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547345901",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 68699
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547416397",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 68782
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547488899",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 68806
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547529875",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 68849
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781604826715",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 70600
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780547946993",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 70767
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780544236974",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 70792
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781452104591",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 71074
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781452104812",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 71078
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781452110035",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 71148
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781452113104",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 71219
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781452126517",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 71446
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398606",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72021
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398613",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72022
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398620",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72023
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398637",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72024
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398644",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72025
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398682",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72028
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398712",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72031
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398729",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72032
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398767",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72035
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398774",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72036
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398781",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72037
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398798",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72038
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398804",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72039
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398811",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72040
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398828",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72041
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398835",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72042
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398842",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72043
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398859",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72044
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398866",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72045
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398880",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72046
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398897",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72047
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398910",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72048
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398927",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72049
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398965",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72052
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398996",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72055
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399009",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72056
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399016",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72057
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399054",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72061
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399061",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72062
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399078",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72063
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399085",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72064
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399092",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72065
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399108",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72066
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399115",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72067
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399146",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72069
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399153",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72070
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399160",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72071
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399184",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72073
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399191",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72074
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399214",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72076
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399252",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72080
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399306",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72085
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399344",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72088
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399351",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72089
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399399",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72093
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399405",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72094
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399412",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72095
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399429",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72096
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399443",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72098
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399504",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72104
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399528",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72106
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399542",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72108
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399580",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72112
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399603",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72113
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399610",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72114
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399634",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72116
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399658",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72118
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399719",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72124
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399726",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72125
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399740",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72127
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399764",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72129
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398354",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72132
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398361",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72133
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398392",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72136
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398408",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72137
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398439",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72140
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398453",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72142
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398507",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72147
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470398583",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72155
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470379339",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72157
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470379414",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72165
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470379445",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72167
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470379483",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72170
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470379513",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72173
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399870",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72176
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399887",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72177
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399917",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72180
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781470399948",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72183
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781490600031",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72193
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781490600093",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72199
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781490600147",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72204
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781490600215",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72210
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781490600284",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72217
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781490600369",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72224
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781490600376",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72225
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781490600437",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 72231
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453203903",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 73238
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453223970",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 73627
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453258859",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 74062
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453258866",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 74063
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453258873",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 74064
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453258880",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 74065
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453258897",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 74066
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453258903",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 74067
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453258910",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 74068
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453258927",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 74069
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453258934",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 74070
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453258941",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 74071
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453258958",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 74072
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453258965",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 74073
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453258972",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 74074
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453258989",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 74075
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780544289727",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 75205
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780470597422",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 75615
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780470636053",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 75664
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780470638163",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 75670
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780470649169",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 75692
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780470922194",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 75812
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780470923504",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 75814
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780470977323",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 75851
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118024362",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 75905
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118038598",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 75924
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118051306",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 75997
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118068892",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76281
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118069639",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76333
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118069899",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76356
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118077405",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76387
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118102046",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76444
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118181300",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76511
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118232262",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76551
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118282304",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76632
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118348666",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76669
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118429426",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76753
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118490341",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76816
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118491126",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76820
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118491300",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76824
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118497135",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76830
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118525616",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76858
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118550212",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76881
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118550250",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76882
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118568507",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76893
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118596692",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76912
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118605417",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76923
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118637371",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76938
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118646434",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76944
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781119943853",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 76990
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781119997993",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 77088
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780470435229",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 77124
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118634547",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 78034
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780470451281",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 78366
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780470872277",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 78987
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118050774",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 79656
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118064719",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 79710
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118079362",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 79778
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118238240",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 80389
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118238257",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 80390
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118238271",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 80392
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118238288",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 80393
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118238981",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 80402
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118240014",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 80430
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118709412",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 81399
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781554905409",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 85333
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781554905997",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 85368
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781936317097",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 86481
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781452129440",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 86492
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781480457188",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 87317
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781480457225",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 87321
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781480421141",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 87889
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118095850",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 88306
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781480451711",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 88339
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9783527679621",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 88926
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781250024008",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 90079
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781429962506",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 97394
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453293041",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 101120
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453203705",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 101294
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781480417168",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 101309
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781480465640",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 101635
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781441246233",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 101811
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453289396",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 102226
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453289440",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 102230
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453289464",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 102232
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453293096",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 102286
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453202616",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 102410
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453202715",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 102412
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453271780",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 102501
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453297339",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 102573
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781453298442",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 102607
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781480422490",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 102845
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307273284",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 106832
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307276797",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 106841
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307378101",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 106882
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307430212",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 107064
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307455611",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 107078
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307481146",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 107119
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307593627",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 107227
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307700469",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 107237
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307787279",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 107370
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307787712",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 107373
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307797957",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 107412
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307797971",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 107414
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307816450",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 107450
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307831743",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 107480
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345805690",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 107551
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385528221",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 107631
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385528832",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 107645
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385528849",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 107646
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385528856",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 107647
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385528863",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 107648
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385532174",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 107717
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780770433765",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 107929
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307813763",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 108282
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307813770",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 108283
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345527721",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 108326
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345532367",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 108355
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345538611",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 108366
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345542946",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 108389
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345546098",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 108393
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553898699",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 108463
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553900316",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 108506
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553901207",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 108534
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553901238",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 108537
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553901696",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 108551
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553904109",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 108606
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307414717",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 108826
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307416858",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 108937
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307432728",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 108995
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307513106",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 109130
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307761583",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 109221
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307762542",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 109228
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307767660",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 109267
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307813534",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 109523
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345449436",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 109600
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345464453",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 109700
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345464538",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 109705
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345472243",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 109737
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345478658",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 109765
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345484543",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 109823
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345484758",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 109838
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345485984",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 109846
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345490841",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 109868
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345495303",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 109942
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345500434",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 109996
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345504524",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 110029
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345504531",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 110030
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345509390",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 110102
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345509437",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 110104
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345509802",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 110120
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345513731",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 110173
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345515308",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 110208
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345517463",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 110255
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345519092",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 110289
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345530301",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 110456
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345531322",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 110459
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345532084",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 110467
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345538864",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 110565
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345542687",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 110598
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345548412",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 110656
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345549877",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 110663
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375412219",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 110668
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375413841",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 110672
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781400042982",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 110704
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307394255",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 110887
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307592446",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 111828
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307888860",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 111935
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307481245",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 112301
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307874153",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 112351
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307874177",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 112352
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307874184",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 112353
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307885777",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 112382
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307888037",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 112391
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307888051",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 112392
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307953209",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 112406
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307953339",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 112418
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307953872",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 112427
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307382092",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 112601
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307394125",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 112607
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307589705",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 112945
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307718983",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 112990
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307887450",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 113071
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307952950",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 113097
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307575593",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 113460
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345546067",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 113693
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553897579",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 113723
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553902174",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 113871
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804151931",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114112
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804151948",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114113
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804151955",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114114
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804151962",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114115
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375893667",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114162
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553898545",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114256
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553901962",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114277
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553904574",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 114330
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553905755",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114351
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345444608",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114373
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307494108",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114629
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307559890",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114689
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307759405",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114691
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307817693",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114699
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307817709",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114700
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307817747",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114701
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307817754",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114702
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307817761",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114703
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307817778",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114704
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307817785",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114705
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307818928",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114710
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307975058",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114757
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375843174",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114777
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375848018",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114795
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375891038",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114850
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375896163",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 114968
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385376464",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115103
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385729840",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115128
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385729857",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115129
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385729956",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115135
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307423498",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115181
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307554246",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 115614
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307554253",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115615
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307554260",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115616
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307554277",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115617
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307554284",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115618
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307554291",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115619
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307554307",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 115620
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307554314",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115621
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307760098",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115643
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307760104",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115644
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307760111",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115645
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307760128",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115646
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307760135",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115647
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307760142",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115648
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307802101",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115689
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307802118",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115690
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307803399",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115692
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307481184",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115785
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307481214",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115786
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307567161",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 115918
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307569264",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 115937
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307576125",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 116008
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345546074",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 116182
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307575241",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 116531
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375890857",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 117384
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375891915",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 117391
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375894077",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 117397
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375895975",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 117400
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375898075",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 117412
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385738132",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 117449
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804151429",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 118375
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307481573",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 118748
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307834249",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 118800
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307834256",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 118801
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307834263",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 118802
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307834294",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 118805
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307974181",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 118811
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375837531",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 118861
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375890031",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 118904
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375890369",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 118908
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375891410",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 118925
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375896989",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 119017
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375899799",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 119071
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375989346",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 119159
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307510228",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 119260
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307576224",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 119314
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307512536",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 119487
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307957733",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 119881
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307959911",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 119919
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307961839",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 119942
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307962126",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 119955
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385350402",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 120028
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307875136",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 120104
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780679644088",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 121209
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781588369581",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 121318
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307907141",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 121500
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307908636",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 121537
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307493811",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 122666
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375723964",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 122690
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375723971",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 122691
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307493927",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 122935
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307802064",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 123015
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780679604624",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 123218
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780679644385",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 123274
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780679645191",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 123299
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780812984651",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 123324
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780812995046",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 123348
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781588360052",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 123363
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781588363879",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 123494
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781588365095",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 123563
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781588365118",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 123564
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781588365781",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 123607
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781588366887",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 123674
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781588367532",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 123715
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375982750",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 123886
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307416773",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 123967
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307417022",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 123968
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307744098",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 124032
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307744104",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 124033
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307767387",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 124056
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780679604204",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 124159
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780679643821",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 124171
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780679643951",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 124172
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780679643999",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 124173
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780812985979",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 124243
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780812993677",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 124250
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781588365408",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 124294
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781607742487",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 124697
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385530255",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 124881
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307944672",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 124967
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307945938",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 124992
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307946324",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 124999
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804125239",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 125020
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307974969",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 125314
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375853852",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 125462
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375890437",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 125476
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375890536",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 125478
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375890802",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 125482
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375893162",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 125542
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307496775",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 126082
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307829467",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 126139
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780805242645",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 126168
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553900347",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 126429
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553900354",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 126430
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553900361",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 126431
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553900934",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 126437
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553900941",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 126438
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553900965",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 126440
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307809834",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 126929
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307817662",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 126931
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307817686",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 126932
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307817716",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 126933
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307264336",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 128078
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307264664",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 128079
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307267450",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 128137
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307270931",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 128225
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307271556",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 128252
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307276940",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 128307
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307279729",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 128322
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307377593",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 128342
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307388629",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 128439
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307389411",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 128450
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307424624",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 128486
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307424648",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 128487
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307430113",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 128801
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307434784",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 128834
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307481306",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 128907
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307493774",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 129032
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307595300",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 129353
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307743985",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 129465
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307755490",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 129510
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307758989",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 129541
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307760609",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 129559
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307763297",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 129618
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307763600",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 129628
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307763808",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 129638
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307763860",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 129643
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307787316",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 129981
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307791498",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 130087
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307791931",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 130106
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307792167",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 130117
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307792211",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 130122
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307794147",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 130149
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307809889",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 130368
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307816412",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 130425
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307822529",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 130498
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307829061",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 130562
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375849251",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 130603
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780823027224",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 130924
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780609607169",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 130948
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780676793994",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 130949
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781770490215",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131016
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781770490543",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131042
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375892691",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131191
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375893919",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131195
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307831965",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131294
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307832627",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131331
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307832696",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131338
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307946744",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 131429
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307950116",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131493
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307960467",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 131592
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307960832",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131596
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345803054",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131635
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345803078",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131637
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345803092",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131639
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345807380",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131725
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375412677",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131735
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375726958",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131805
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385534802",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 131850
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780679604075",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131858
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780679641438",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131860
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804149693",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131864
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804149716",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131866
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804169486",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131917
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804170536",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131942
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804171670",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131963
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781400032860",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131988
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781400032976",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131990
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781400032983",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 131991
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781588361653",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 132070
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781938073311",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 132074
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780544277373",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 132157
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780544333406",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 132176
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780544284234",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 132200
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781606842447",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 132533
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781623659974",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 134530
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781781680582",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 134722
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781590514269",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 135081
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780807001882",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 135395
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781426205293",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 135881
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804125024",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 137164
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781583946831",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 137783
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781426306662",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 138672
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307888082",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 139128
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781594747144",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 139170
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385534840",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 139277
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780679603993",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 139304
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780812995008",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 139305
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781616149345",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 139308
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375898648",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 139312
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345544933",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 139633
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385376532",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 139892
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385373821",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 140017
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385387903",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 140067
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781460326718",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 140252
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781781168493",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 140516
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780375984648",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 141262
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781624054341",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 141870
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385352116",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 141937
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781101874097",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 141940
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781607745570",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 141968
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804178280",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 141984
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781118640111",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 142390
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062023346",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 142815
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062121530",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 142886
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781443411073",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 143180
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781443414869",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 143187
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061738005",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 143329
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061738449",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 143330
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061739255",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 143331
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061739910",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 143333
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062077011",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 143643
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062114457",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 143653
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062209276",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 143663
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062112156",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 143706
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061756153",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 143737
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061971822",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 143789
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062323927",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 143907
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062115126",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 143916
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062302182",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 144083
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781443409148",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 144116
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061756160",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 144127
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061909016",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 144167
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061973208",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 144220
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061973222",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 144221
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062044013",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 144280
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062069726",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 144290
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062102980",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 144312
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062216243",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 144347
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062216267",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 144348
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062216304",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 144349
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062287670",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 144384
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062097712",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 144528
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062206084",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 144566
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062309532",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 144605
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062096821",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 144754
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061738470",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 144840
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061839948",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 145421
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061843136",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 145453
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061926952",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 145834
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062013828",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 146349
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062234834",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 146730
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062023339",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 146837
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062123145",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 146890
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062062901",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 147185
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062207425",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 147242
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061973802",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 147312
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062198495",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 147767
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062216281",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 147779
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062269249",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 148035
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061739200",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 148108
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781443414760",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 150303
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781443414821",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 150307
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061739934",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 150482
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062210937",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 150537
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062211033",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 150539
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062211057",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 150540
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062298096",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 150986
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062298195",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 150988
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062298201",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 150989
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062298232",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 150990
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062300591",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 150995
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062302816",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 151015
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061966675",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 151095
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062234360",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 151478
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061738036",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 151540
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061741241",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 151612
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061935411",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 152188
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061970870",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 152279
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062028853",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 152587
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061948909",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 153707
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062009616",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 154107
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062101983",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 154152
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062290236",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 154203
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062065261",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 154310
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062290373",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 154384
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062306838",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 154471
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061746369",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 154538
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061758126",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 154808
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061980244",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 155535
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062130037",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 156100
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781443411226",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 156146
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553419108",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 156704
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062194749",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 156756
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062209573",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 156757
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781101872413",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 156809
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385754910",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 157521
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780544358454",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 157563
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062266545",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 157757
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062023322",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 158318
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345804419",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 158430
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062123206",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 158433
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307974105",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 158440
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385753487",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 158442
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781467716277",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 159542
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781467716284",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 159543
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781467716291",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 159544
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781467716307",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 159545
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062298102",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 160373
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062298133",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 160374
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062298164",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 160375
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781615707577",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 160403
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781615707584",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 160404
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345543141",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 160463
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781480499263",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 160710
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804125222",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 161168
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780761359647",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 161485
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780761359654",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 161486
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780761359661",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 161487
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780761359678",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 161488
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781600584176",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 162146
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061738883",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 162223
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062008442",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 162329
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316287036",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 162840
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316290265",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 162878
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316373593",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 163084
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316134880",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 163155
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316134972",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 163160
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316135863",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 163189
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316136310",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 163202
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316136648",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 163206
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316137362",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 163225
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316137539",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 163231
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316143936",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 163282
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316144544",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 163288
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316145602",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 163322
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316152266",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 163377
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316171823",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 163449
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316185226",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 163472
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316191876",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 163478
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316194525",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 163486
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316204774",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 163496
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316233668",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 163516
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316144209",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 163748
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316135023",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 163816
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316246286",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 164117
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316251952",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 164130
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316279703",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 164143
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316175876",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 165044
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316193245",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 165117
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780446585675",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 165238
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780446595810",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 165594
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780446596152",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 165613
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781455545179",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 165866
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781455545193",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 165867
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781455580569",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 165944
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781609416522",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 166227
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781496400048",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 166567
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781496400499",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 166588
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316140973",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 167085
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316144636",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 167108
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316145275",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 167124
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316192187",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 167239
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316248624",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 167285
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316252225",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 167301
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316280372",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 167628
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316280389",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 167629
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781455548477",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 167913
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780446587389",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 168059
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781609415679",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 168430
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780316137690",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 168756
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781460330388",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 169612
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781616954901",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 169718
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780061972065",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 169737
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062007957",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 169747
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781480481572",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 170055
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781616204341",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 170888
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307974068",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 171640
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385386050",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 171641
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385347006",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 171694
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385539715",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 171751
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804142946",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 171769
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804142977",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 171770
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781781168691",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 171840
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345543868",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 171848
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780758289766",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 171975
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345545886",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 172298
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307975652",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 172304
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553391626",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 172330
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062368171",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 172464
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062368683",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 172638
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385539166",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 172914
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804186117",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 173016
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307956811",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 173019
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781594747328",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 173052
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780544151543",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 173247
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781460340196",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 174059
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062300010",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 174511
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780307911551",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 174663
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345548474",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 174840
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553392630",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 174841
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781609805937",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 174982
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781101591352",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 177325
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781101593844",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 177337
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781101597767",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 179251
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780698158269",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 182586
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780698154117",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 183436
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780698183605",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 183444
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781101010938",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 183795
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780698173064",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 187922
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781101569184",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 188250
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780698189744",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 196093
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780698165403",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 196188
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781420135947",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 197128
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780804143035",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 197427
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780544338210",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 203029
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780544027800",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 205217
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780544465077",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 205230
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062231727",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 207156
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781627790550",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 207508
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781250027689",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 207747
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781466852198",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 207882
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781627791595",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 208085
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780718001773",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 208791
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781476729107",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 212125
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781442497481",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 214419
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781442472907",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 215670
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781442494886",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 215683
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780743237338",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 222477
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780698403970",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 230404
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781481401012",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 231309
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780544087279",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 237163
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780544633711",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 237208
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780544633728",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 237209
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062409874",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 243948
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553539615",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 244731
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781613126608",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 248485
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553510430",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 258831
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553533903",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 258834
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385372466",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 259267
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385391993",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 259269
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553512441",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 259278
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553539042",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 259286
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553521931",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 259951
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780698180451",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 259958
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385387989",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 263127
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780449815816",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 263131
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553510003",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 263144
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781613128398",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 263486
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062422422",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 263735
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780698172623",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 263780
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780698176058",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 263785
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780698176324",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 263786
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780698182363",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 263789
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553511000",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 264392
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780812988413",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 264419
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780062387691",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 265007
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385376501",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 270865
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553536195",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 270879
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780385392341",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 271255
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780679644644",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 271284
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780698410053",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 272624
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780345541413",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 272969
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780553521368",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 272985
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781466890688",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 273093
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781588345387",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 273133
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780399187209",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 275464
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780544272477",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 279029
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780698175303",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 281648
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781616205898",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 282579
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780698404175",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 282774
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781101971925",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 282796
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781492620891",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 283547
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780399542893",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 283619
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9780399588648",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 292087
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781619321199",
+    "mediaType": "eBook",
+    "availability": true,
+    "titleId": 313983
+  },
+  {
+    "timeStamp": "2016-10-07T16:11:52.5887333Z",
+    "isbn": "9781781107041",
+    "mediaType": "eBook",
+    "availability": false,
+    "titleId": 339469
+  }
+]
