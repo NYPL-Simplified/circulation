@@ -4839,7 +4839,6 @@ class Work(Base):
             or not self.license_pools
             or not self.title
             or not self.language
-            or self.fiction is None
         ):
             self.presentation_ready = False
             # The next time the search index WorkCoverageRecords are

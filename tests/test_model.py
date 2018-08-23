@@ -2917,7 +2917,6 @@ class TestWork(DatabaseTest):
         eq_(WorkCoverageRecord.REGISTERED, record.status)
 
         # This work is presentation ready because it has a title
-        # and a fiction status.
 
         # Remove the title, and the work stops being presentation
         # ready.
@@ -2933,16 +2932,10 @@ class TestWork(DatabaseTest):
         work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(True, work.presentation_ready)
 
-        # Remove the fiction status, and the work stops being
+        # Remove the fiction status, and the work is still
         # presentation ready.
         work.fiction = None
         work.set_presentation_ready_based_on_content(search_index_client=search)
-        eq_(False, work.presentation_ready)
-
-        # Restore the fiction status, and everything is fixed.
-        work.fiction = False
-        work.set_presentation_ready_based_on_content(search_index_client=search)
-
         eq_(True, work.presentation_ready)
 
     def test_assign_genres_from_weights(self):
