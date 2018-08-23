@@ -3863,7 +3863,7 @@ class TestWorkConsolidation(DatabaseTest):
 
     def test_calculate_work_even_if_no_author(self):
         title = "Book"
-        e, p = self._edition(with_license_pool=True, authors=[], title)
+        e, p = self._edition(with_license_pool=True, authors=[], title=title)
         work, new = p.calculate_work()
         eq_(title, work.title)
         eq_(True, new)
