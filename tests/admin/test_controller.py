@@ -6198,12 +6198,18 @@ class TestLibraryRegistration(SettingsControllerTest):
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, "library-registration-status", succeeded, discovery_service,
             ).value = "success"
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-registration-stage", succeeded, discovery_service,
+            ).value = "production"
         failed, ignore = create(
             self._db, Library, name="Library 2", short_name="L2",
         )
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, "library-registration-status", failed, discovery_service,
             ).value = "failure"
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-registration-stage", failed, discovery_service,
+            ).value = "testing"
         unregistered, ignore = create(
             self._db, Library, name="Library 3", short_name="L3",
         )
@@ -6218,8 +6224,8 @@ class TestLibraryRegistration(SettingsControllerTest):
 
             libraryInfo = serviceInfo[0].get("libraries")
             expected = [
-                dict(short_name=succeeded.short_name, status="success"),
-                dict(short_name=failed.short_name, status="failure"),
+                dict(short_name=succeeded.short_name, status="success", stage="production"),
+                dict(short_name=failed.short_name, status="failure", stage="testing"),
             ]
             eq_(expected, libraryInfo)
 
