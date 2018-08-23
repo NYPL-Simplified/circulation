@@ -210,7 +210,7 @@ class S3Uploader(MirrorUploader):
         return root + self.key_join(parts)
 
     @classmethod
-    def bucket_and_filename(cls, url):
+    def bucket_and_filename(cls, url, unquote=True):
         scheme, netloc, path, query, fragment = urlsplit(url)
         if netloc == 's3.amazonaws.com':
             if path.startswith('/'):
@@ -219,7 +219,9 @@ class S3Uploader(MirrorUploader):
         else:
             bucket = netloc
             filename = path[1:]
-        return bucket, urllib.unquote_plus(filename)
+        if unquote:
+            filename = urllib.unquote_plus(filename)
+        return bucket, filename
 
     def final_mirror_url(self, bucket, key):
         """Determine the URL to pass into Representation.set_as_mirrored,

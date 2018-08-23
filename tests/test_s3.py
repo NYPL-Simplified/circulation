@@ -215,6 +215,15 @@ class TestS3Uploader(S3UploaderTest):
         eq_(("book-covers.nypl.org", "directory/filename.jpg"),
             m("http://book-covers.nypl.org/directory/filename.jpg"))
 
+        # By default, escaped characters in the filename are unescaped.
+        eq_(("book-covers.nypl.org", "directory/filename with spaces!.jpg"),
+            m("http://book-covers.nypl.org/directory/filename+with+spaces%21.jpg"))
+
+        # But you can choose to leave them alone.
+        eq_(("book-covers.nypl.org", "directory/filename+with+spaces%21.jpg"),
+            m("http://book-covers.nypl.org/directory/filename+with+spaces%21.jpg", False))
+
+
     def test_mirror_one(self):
         edition, pool = self._edition(with_license_pool=True)
         original_cover_location = "http://example.com/a-cover.png"
