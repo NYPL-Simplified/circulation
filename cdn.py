@@ -1,5 +1,6 @@
 """Turn local URLs into CDN URLs."""
 import os, sys
+import urllib
 import urlparse
 from nose.tools import set_trace
 
@@ -22,8 +23,11 @@ def cdnify(url, cdns=None):
         # This is a URL like "http://s3.amazonaws.com/bucket/foo".
         # It's equivalent to "http://bucket/foo".
         # i.e. treat the bucket name as the netloc.
-        bucket, path = S3Uploader.bucket_and_filename(url)
-        netloc = bucket
+        #
+        # Since we are using the 'filename' to generate a URL rather
+        # than talk to S3, we don't want it to be unquoted.
+        #
+        netloc, path = S3Uploader.bucket_and_filename(url, unquote=False)
 
     if netloc not in cdns:
         # This domain name is not covered by any of our CDNs.
@@ -32,3 +36,4 @@ def cdnify(url, cdns=None):
     cdn_host = cdns[netloc]
     cdn_scheme, cdn_netloc, i1, i2, i3 = urlparse.urlsplit(cdn_host)
     return urlparse.urlunsplit((cdn_scheme, cdn_netloc, path, query, fragment))
+
