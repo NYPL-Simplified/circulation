@@ -312,11 +312,18 @@ class ExternalSearchIndex(object):
 
     def make_query(self, query_string):
 
-        def make_query_string_query(query_string, fields):
-            return {
+        def make_query_string_query(query_string, fields, boost=15):
+            query = {
                 'simple_query_string': {
                     'query': query_string,
                     'fields': fields,
+                }
+            }
+            return {
+                'bool': {
+                    'should': query,
+                    'minimum_should_match' : 1,
+                    'boost': boost
                 }
             }
 
