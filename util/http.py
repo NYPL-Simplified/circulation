@@ -201,6 +201,7 @@ class HTTP(object):
 
         The core of `request_with_timeout` made easy to test.
         """
+        process_response = kwargs.pop('process_response', cls.process_response)
         allowed_response_codes = kwargs.pop('allowed_response_codes', [])
         disallowed_response_codes = kwargs.pop('disallowed_response_codes', [])
         verbose = kwargs.pop('verbose', False)
@@ -243,7 +244,7 @@ class HTTP(object):
             # a generic RequestNetworkException.
             raise RequestNetworkException(url, e.message)
 
-        return cls._process_response(
+        return process_response(
             url, response, allowed_response_codes, disallowed_response_codes
         )
 
@@ -345,8 +346,12 @@ class HTTP(object):
             allowed_response_codes = None
         logging.info("Making debuggable %s request to %s: kwargs %r",
                      http_method, url, kwargs)
-        response = HTTP.request_with_timeout(http_method, url, **kwargs)
-        return cls.process_debuggable_response(response, allowed_response_codes)
+        return HTTP.request_with_timeout(
+            http_method, url,
+            process_response=cls.process_debuggable_response,
+            allowed_response_codes=allowed_response_codes,
+            **kwargs
+        )
 
     @classmethod
     def process_debuggable_response(cls, response, allowed_response_codes=None):
