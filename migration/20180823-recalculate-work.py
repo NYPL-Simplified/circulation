@@ -31,4 +31,4 @@ license_pools = _db.query(LicensePool)
 
 for license_pool in license_pools:
     license_pool.calculate_work()
-    _db.commit
+    _db.commit()
