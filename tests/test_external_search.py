@@ -1039,7 +1039,7 @@ class TestSearchQuery(DatabaseTest):
         # subquery are boosted with respect to the fuzzy subquery,
         # which will come later.
         boosted = stemmed['bool']
-        eq_(15, boosted['boost'])
+        eq_(1.5, boosted['boost'])
         stemmed_query = boosted['must']['simple_query_string']
         eq_("test", stemmed_query['query'])
         assert "title^4" in stemmed_query['fields']

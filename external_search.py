@@ -449,7 +449,7 @@ class ExternalSearchIndex(object):
 
         # Query string operators like "AND", "OR", "-", and quotation marks will
         # work in the query string queries, but not the fuzzy query.
-        match_full_query_stemmed = make_query_string_query(query_string, stemmed_query_string_fields, boost=15)
+        match_full_query_stemmed = make_query_string_query(query_string, stemmed_query_string_fields, boost=1.5)
         must_match_options = [match_full_query_stemmed]
 
         match_phrase = make_phrase_query(query_string, ['title.minimal', 'author', 'series.minimal'])
