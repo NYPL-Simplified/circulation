@@ -446,10 +446,7 @@ class ExternalSearchIndex(object):
         match_full_query_stemmed = make_query_string_query(query_string, stemmed_query_string_fields, boost=1.5)
         must_match_options = [match_full_query_stemmed]
 
-        # It's great if the query string occurs as a phrase in the title,
-        # author, or series.
         match_phrase = make_phrase_query(query_string, ['title.minimal', 'author', 'series.minimal'])
-        match_phrase = _boost(match_phrase, 3)
         must_match_options.append(match_phrase)
 
         # An exact title or author match outweighs a match that is split
