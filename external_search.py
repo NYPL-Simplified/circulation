@@ -312,6 +312,21 @@ class ExternalSearchIndex(object):
 
     def make_query(self, query_string):
 
+        def _boost(query, boost):
+            """Boost a preexisting query."""
+            if 'bool' in query:
+                # It's already a boolean query, just boost it.
+                query['boost'] = boost
+            else:
+                # Create a new boolean query with only one clause and
+                # a boost.
+                return {
+                    'bool': {
+                        'must': query,
+                        'boost': boost
+                    }
+                }
+
         def make_query_string_query(query_string, fields, boost=15):
             query = {
                 'simple_query_string': {
@@ -319,13 +334,7 @@ class ExternalSearchIndex(object):
                     'fields': fields,
                 }
             }
-            return {
-                'bool': {
-                    'should': query,
-                    'minimum_should_match' : 1,
-                    'boost': boost
-                }
-            }
+            return _boost(query, boost)
 
         def make_phrase_query(query_string, fields, boost=100):
             field_queries = []
@@ -352,7 +361,6 @@ class ExternalSearchIndex(object):
                     'type': 'best_fields',
                     'fuzziness': 'AUTO',
                     'prefix_length': 1,
-                    'max_expansions': 2,
                 }
             }
 
