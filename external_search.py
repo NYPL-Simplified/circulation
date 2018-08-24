@@ -314,13 +314,7 @@ class ExternalSearchIndex(object):
 
         def _boost(query, boost=1):
             """Boost a preexisting query."""
-            if boost == 1:
-                # No boost.
-                return query
-            if 'bool' in query:
-                # It's already a boolean query, just boost it.
-                query['boost'] = boost
-            else:
+            if boost > 1:
                 # Create a new boolean query with only one clause and
                 # a boost.
                 query = {
