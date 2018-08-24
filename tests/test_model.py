@@ -3915,9 +3915,7 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(True, created)
         assert work != preexisting_work
 
-
-
-    def test_calculate_work_does_nothing_unless_edition_has_title_and_author(self):
+    def test_calculate_work_does_nothing_unless_edition_has_title(self):
         collection=self._collection()
         edition, ignore = Edition.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
@@ -3931,38 +3929,14 @@ class TestWorkConsolidation(DatabaseTest):
 
         edition.title = u"foo"
         work, created = pool.calculate_work()
-        eq_(None, work)
-
-        edition.add_contributor(u"bar", Contributor.PRIMARY_AUTHOR_ROLE)
         edition.calculate_presentation()
-        work, created = pool.calculate_work()
         eq_(True, created)
-
-        # The edition is the work's presentation edition.
+        #
+        # # The edition is the work's presentation edition.
         eq_(work, edition.work)
         eq_(edition, work.presentation_edition)
         eq_(u"foo", work.title)
-        eq_(u"bar", work.author)
-
-    def test_calculate_work_can_be_forced_to_work_with_no_author(self):
-        collection = self._collection()
-        edition, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
-        )
-        pool, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
-            collection=collection
-        )
-        work, created = pool.calculate_work()
-        eq_(None, work)
-
-        edition.title = u"foo"
-        work, created = pool.calculate_work(even_if_no_author=True)
-        eq_(True, created)
-        self._db.commit()
-        eq_(edition, work.presentation_edition)
-        eq_(u"foo", work.title)
-        eq_(Edition.UNKNOWN_AUTHOR, work.author)
+        eq_(u"[Unknown]", work.author)
 
     def test_calculate_work_fails_when_presentation_edition_identifier_does_not_match_license_pool(self):
 
