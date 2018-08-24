@@ -5,11 +5,13 @@ As per http://datatracker.ietf.org/doc/draft-ietf-appsawg-http-problem/
 import json as j
 import logging
 from flask_babel import LazyString
+from nose.tools import set_trace
 
 JSON_MEDIA_TYPE = "application/api-problem+json"
 
 
 def json(type, status, title, detail=None, instance=None, debug_message=None):
+    set_trace()
     d = dict(type=type, title=unicode(title), status=status)
     if detail:
         d['detail'] = unicode(detail)

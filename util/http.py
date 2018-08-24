@@ -201,7 +201,7 @@ class HTTP(object):
 
         The core of `request_with_timeout` made easy to test.
         """
-        process_response = kwargs.pop('process_response', cls.process_response)
+        process_response = kwargs.pop('process_response', cls._process_response)
         allowed_response_codes = kwargs.pop('allowed_response_codes', [])
         disallowed_response_codes = kwargs.pop('disallowed_response_codes', [])
         verbose = kwargs.pop('verbose', False)
@@ -349,12 +349,11 @@ class HTTP(object):
         return HTTP.request_with_timeout(
             http_method, url,
             process_response=cls.process_debuggable_response,
-            allowed_response_codes=allowed_response_codes,
             **kwargs
         )
 
     @classmethod
-    def process_debuggable_response(cls, response, allowed_response_codes=None):
+    def process_debuggable_response(cls, url, response, disallowed_response_codes=None, allowed_response_codes=None):
         """If there was a problem with an integration request,
         return an appropriate ProblemDetail. Otherwise, return the
         response to the original request.
@@ -376,12 +375,13 @@ class HTTP(object):
             # The server returned a problem detail document. Wrap it
             # in a new document that represents the integration
             # failure.
-            return INTEGRATION_ERROR.detailed(
+            problem = INTEGRATION_ERROR.detailed(
                 _('Remote service returned a problem detail document: %r') % (
                     response.content
                 )
             )
-
+            problem.debug_message = response.content
+            return problem
         # There's been a problem. Return the message we got from the
         # server, verbatim.
         return INTEGRATION_ERROR.detailed(
