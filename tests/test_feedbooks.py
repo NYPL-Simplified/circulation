@@ -269,9 +269,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             content=feed
         )
 
-        [edition], [pool], [work], failures = importer.import_from_feed(
-            feed, immediately_presentation_ready=True,
-        )
+        [edition], [pool], [work], failures = importer.import_from_feed(feed)
 
         eq_({}, failures)
 
