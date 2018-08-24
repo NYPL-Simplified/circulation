@@ -312,22 +312,26 @@ class ExternalSearchIndex(object):
 
     def make_query(self, query_string):
 
-        def _boost(query, boost):
+        def _boost(query, boost=1):
             """Boost a preexisting query."""
+            if boost == 1:
+                # No boost.
+                return query
             if 'bool' in query:
                 # It's already a boolean query, just boost it.
                 query['boost'] = boost
             else:
                 # Create a new boolean query with only one clause and
                 # a boost.
-                return {
+                query = {
                     'bool': {
                         'must': query,
                         'boost': boost
                     }
                 }
+            return query
 
-        def make_query_string_query(query_string, fields, boost=15):
+        def make_query_string_query(query_string, fields, boost=1):
             query = {
                 'simple_query_string': {
                     'query': query_string,
@@ -445,7 +449,7 @@ class ExternalSearchIndex(object):
 
         # Query string operators like "AND", "OR", "-", and quotation marks will
         # work in the query string queries, but not the fuzzy query.
-        match_full_query_stemmed = make_query_string_query(query_string, stemmed_query_string_fields)
+        match_full_query_stemmed = make_query_string_query(query_string, stemmed_query_string_fields, boost=15)
         must_match_options = [match_full_query_stemmed]
 
         match_phrase = make_phrase_query(query_string, ['title.minimal', 'author', 'series.minimal'])

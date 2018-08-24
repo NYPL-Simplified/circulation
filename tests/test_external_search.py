@@ -1034,9 +1034,13 @@ class TestSearchQuery(DatabaseTest):
         # Here are the matching techniques.
         stemmed, minimal, standard_title, standard_author, fuzzy = must
 
-        # The search string is stemmed and matched against a number
-        # of fields such as title and publisher.
-        stemmed_query = stemmed['simple_query_string']
+        # The search string is stemmed and matched against a number of
+        # fields such as title and publisher. Results from this
+        # subquery are boosted with respect to the fuzzy subquery,
+        # which will come later.
+        boosted = stemmed['bool']
+        eq_(15, boosted['boost'])
+        stemmed_query = boosted['must']['simple_query_string']
         eq_("test", stemmed_query['query'])
         assert "title^4" in stemmed_query['fields']
         assert 'publisher' in stemmed_query['fields']
@@ -1100,7 +1104,7 @@ class TestSearchQuery(DatabaseTest):
         must = query['dis_max']['queries']
 
         eq_(6, len(must))
-        full_query = must[0]['simple_query_string']
+        full_query = must[0]['bool']['must']['simple_query_string']
         eq_("test romance", full_query['query'])
         assert "title^4" in full_query['fields']
         assert 'publisher' in full_query['fields']
@@ -1161,7 +1165,7 @@ class TestSearchQuery(DatabaseTest):
         must = query['dis_max']['queries']
 
         eq_(6, len(must))
-        full_query = must[0]['simple_query_string']
+        full_query = must[0]['bool']['must']['simple_query_string']
         eq_("test young adult", full_query['query'])
 
         classification_query = must[5]['bool']['must']
@@ -1179,7 +1183,7 @@ class TestSearchQuery(DatabaseTest):
         must = query['dis_max']['queries']
 
         eq_(6, len(must))
-        full_query = must[0]['simple_query_string']
+        full_query = must[0]['bool']['must']['simple_query_string']
         eq_("test grade 6", full_query['query'])
 
         classification_query = must[5]['bool']['must']
@@ -1202,7 +1206,7 @@ class TestSearchQuery(DatabaseTest):
         must = query['dis_max']['queries']
 
         eq_(6, len(must))
-        full_query = must[0]['simple_query_string']
+        full_query = must[0]['bool']['must']['simple_query_string']
         eq_("test 5-10 years", full_query['query'])
 
         classification_query = must[5]['bool']['must']
