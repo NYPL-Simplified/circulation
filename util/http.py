@@ -195,13 +195,21 @@ class HTTP(object):
         )
 
     @classmethod
-    def _request_with_timeout(cls, url, m, *args, **kwargs):
+    def _request_with_timeout(cls, url, make_request_with, *args, **kwargs):
         """Call some kind of method and turn a timeout into a RequestTimedOut
         exception.
 
         The core of `request_with_timeout` made easy to test.
+
+        :param url: Make the request to this URL.
+        :param make_request_with: A function that actually makes the
+            HTTP request.
+        :param args: Positional arguments for the request function.
+        :param kwargs: Keyword arguments for the request function.
         """
-        process_response = kwargs.pop('process_response', cls._process_response)
+        process_response = kwargs.pop(
+            'process_response_with', cls._process_response
+        )
         allowed_response_codes = kwargs.pop('allowed_response_codes', [])
         disallowed_response_codes = kwargs.pop('disallowed_response_codes', [])
         verbose = kwargs.pop('verbose', False)
@@ -228,7 +236,7 @@ class HTTP(object):
             if verbose:
                 logging.info("Sending %s request to %s: kwargs %r",
                              http_method, url, kwargs)
-            response = m(*args, **kwargs)
+            response = make_request_with(*args, **kwargs)
             if verbose:
                 logging.info(
                     "Response from %s: %s %r %r",
@@ -326,17 +334,24 @@ class HTTP(object):
         return cls.debuggable_request("POST", url, **kwargs)
 
     @classmethod
-    def debuggable_request(cls, http_method, url, m=None, **kwargs):
+    def debuggable_request(cls, http_method, url, make_request_with=None,
+                           **kwargs):
         """Make a request that returns a detailed problem detail document on
         error, rather than a generic "an integration error occured"
         message.
+
+        :param http_method: HTTP method to use when making the request.
+        :param url: Make the request to this URL.
+        :param make_request_with: A function that actually makes the
+            HTTP request.
+        :param kwargs: Keyword arguments for the make_request_with
+            function.
         """
-        # set_trace()
         logging.info("Making debuggable %s request to %s: kwargs %r",
                      http_method, url, kwargs)
         return cls._request_with_timeout(
-            url, m, http_method,
-            process_response=cls.process_debuggable_response,
+            url, make_request_with, http_method,
+            process_response_with=cls.process_debuggable_response,
             **kwargs
         )
 

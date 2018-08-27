@@ -197,11 +197,13 @@ class TestHTTP(object):
             response = MockRequestsResponse(200, "Success!")
             return response
 
-        Mock.debuggable_request("method", "url", m=mock_request, key="value")
+        Mock.debuggable_request(
+            "method", "url", make_request_with=mock_request, key="value"
+        )
         (args, kwargs) = Mock.called_with
         eq_(args, ("url", mock_request, "method"))
         eq_(kwargs["key"], "value")
-        eq_(kwargs["process_response"], Mock.process_debuggable_response)
+        eq_(kwargs["process_response_with"], Mock.process_debuggable_response)
 
     def test_process_debuggable_response(self):
         """Test a method that gives more detailed information when a
