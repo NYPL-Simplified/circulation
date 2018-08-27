@@ -326,11 +326,12 @@ class HTTP(object):
         return cls.debuggable_request("POST", url, **kwargs)
 
     @classmethod
-    def debuggable_request(cls, http_method, url, **kwargs):
+    def debuggable_request(cls, http_method, url, m=None, **kwargs):
         """Make a request that returns a detailed problem detail document on
         error, rather than a generic "an integration error occured"
         message.
         """
+        # set_trace()
         if 'allowed_response_codes' in kwargs:
             # The caller wants to treat a specific set of response codes
             # as successful.
@@ -346,8 +347,8 @@ class HTTP(object):
             allowed_response_codes = None
         logging.info("Making debuggable %s request to %s: kwargs %r",
                      http_method, url, kwargs)
-        return HTTP.request_with_timeout(
-            http_method, url,
+        return cls._request_with_timeout(
+            url, m, http_method,
             process_response=cls.process_debuggable_response,
             **kwargs
         )
