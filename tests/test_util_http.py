@@ -187,7 +187,7 @@ class TestHTTP(object):
             assert isinstance(v, bytes)
         assert isinstance(data, bytes)
 
-    def test_process_debuggable_request(self):
+    def test_debuggable_request(self):
         class Mock(HTTP):
             @classmethod
             def _request_with_timeout(cls, *args, **kwargs):

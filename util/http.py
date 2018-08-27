@@ -207,7 +207,7 @@ class HTTP(object):
         :param args: Positional arguments for the request function.
         :param kwargs: Keyword arguments for the request function.
         """
-        process_response = kwargs.pop(
+        process_response_with = kwargs.pop(
             'process_response_with', cls._process_response
         )
         allowed_response_codes = kwargs.pop('allowed_response_codes', [])
@@ -252,7 +252,7 @@ class HTTP(object):
             # a generic RequestNetworkException.
             raise RequestNetworkException(url, e.message)
 
-        return process_response(
+        return process_response_with(
             url, response, allowed_response_codes, disallowed_response_codes
         )
 
