@@ -187,37 +187,54 @@ class TestHTTP(object):
             assert isinstance(v, bytes)
         assert isinstance(data, bytes)
 
+    def test_process_debuggable_request(self):
+        class Mock(HTTP):
+            @classmethod
+            def _request_with_timeout(cls, *args, **kwargs):
+                cls.called_with = (args, kwargs)
+                return "response"
+        def mock_request(*args, **kwargs):
+            response = MockRequestsResponse(200, "Success!")
+            return response
+
+        Mock.debuggable_request("method", "url", m=mock_request, key="value")
+        (args, kwargs) = Mock.called_with
+        eq_(args, ("url", mock_request, "method"))
+        eq_(kwargs["key"], "value")
+        eq_(kwargs["process_response"], Mock.process_debuggable_response)
+        eq_(kwargs["allowed_response_codes"], ["1xx", "2xx", "3xx", "4xx", "5xx"])
+
     def test_process_debuggable_response(self):
         """Test a method that gives more detailed information when a
         problem happens.
         """
         m = HTTP.process_debuggable_response
         success = MockRequestsResponse(200, content="Success!")
-        eq_(success, m(success))
+        eq_(success, m("url", success))
 
         success = MockRequestsResponse(302, content="Success!")
-        eq_(success, m(success))
+        eq_(success, m("url", success))
 
         # An error is turned into a detailed ProblemDetail
         error = MockRequestsResponse(500, content="Error!")
-        problem = m(error)
+        problem = m("url", error)
         assert isinstance(problem, ProblemDetail)
         eq_(INTEGRATION_ERROR.uri, problem.uri)
         eq_("500 response from integration server: 'Error!'", problem.detail)
 
         content, status_code, headers = INVALID_INPUT.response
         error = MockRequestsResponse(status_code, headers, content)
-        problem = m(error)
+        problem = m("url", error)
         assert isinstance(problem, ProblemDetail)
         eq_(INTEGRATION_ERROR.uri, problem.uri)
         eq_(u"Remote service returned a problem detail document: %r" % content,
             problem.detail)
-
+        eq_(content, problem.debug_message)
         # You can force a response to be treated as successful by
         # passing in its response code as allowed_response_codes.
-        eq_(error, m(error, allowed_response_codes=[400]))
-        eq_(error, m(error, allowed_response_codes=["400"]))
-        eq_(error, m(error, allowed_response_codes=['4xx']))
+        eq_(error, m("url", error, allowed_response_codes=[400]))
+        eq_(error, m("url", error, allowed_response_codes=["400"]))
+        eq_(error, m("url", error, allowed_response_codes=['4xx']))
 
 class TestRemoteIntegrationException(object):
 
@@ -326,4 +343,3 @@ class TestRequestNetworkException(object):
         # The status code corresponding to an upstream timeout is 502.
         document, status_code, headers = standard_detail.response
         eq_(502, status_code)
-
