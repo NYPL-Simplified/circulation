@@ -813,6 +813,16 @@ class WorkList(object):
         :param media: Only Works in one of these media will be included
         in lists.
 
+        :param customlist_ids: Only Works included on one of these CustomLists
+        will be included in lists.
+
+        :param list_datasource_id: Only Works included on a CustomList
+        associated with this DataSource will be included in lists.
+
+        :param list_seen_in_previous_days: Only Works that were added
+        to a matching CustomList within this number of days will be
+        included in lists.
+
         :param children: This WorkList has children, which are also
         WorkLists.
 
@@ -823,8 +833,6 @@ class WorkList(object):
         :param entrypoints: A list of EntryPoint classes representing
         different ways of slicing up this WorkList.
 
-        :param customlist_ids: Only Works included on one of these CustomLists
-        will be included in lists.
         """
         self.library_id = None
         self.collection_ids = []
@@ -2297,9 +2305,6 @@ class Lane(Base, WorkList):
 
         if self.fiction is not None:
             clauses.append(work_model.fiction==self.fiction)
-
-        if self.media:
-            clauses.append(work_model.medium.in_(self.media))
 
         clauses.extend(self.age_range_filter_clauses())
 
