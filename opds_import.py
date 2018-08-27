@@ -537,9 +537,7 @@ class OPDSImporter(object):
         )
         return False
 
-    def import_from_feed(self, feed, even_if_no_author=False,
-                         immediately_presentation_ready=False,
-                         feed_url=None):
+    def import_from_feed(self, feed, feed_url=None):
 
         # Keep track of editions that were imported. Pools and works
         # for those editions may be looked up or created.
@@ -563,9 +561,7 @@ class OPDSImporter(object):
 
             try:
                 # Create an edition. This will also create a pool if there's circulation data.
-                edition = self.import_edition_from_metadata(
-                    metadata, even_if_no_author, immediately_presentation_ready
-                )
+                edition = self.import_edition_from_metadata(metadata)
                 if edition:
                     imported_editions[key] = edition
             except Exception, e:
@@ -583,9 +579,7 @@ class OPDSImporter(object):
                 continue
 
             try:
-                pool, work = self.update_work_for_edition(
-                    edition, even_if_no_author, immediately_presentation_ready
-                )
+                pool, work = self.update_work_for_edition(edition)
                 if pool:
                     pools[key] = pool
                 if work:
@@ -599,7 +593,7 @@ class OPDSImporter(object):
         return imported_editions.values(), pools.values(), works.values(), failures
 
     def import_edition_from_metadata(
-            self, metadata, even_if_no_author, immediately_presentation_ready
+            self, metadata
     ):
         """ For the passed-in Metadata object, see if can find or create an Edition
             in the database. Also create a LicensePool if the Metadata has
@@ -626,7 +620,7 @@ class OPDSImporter(object):
 
         return edition
 
-    def update_work_for_edition(self, edition, even_if_no_author=False, immediately_presentation_ready=False):
+    def update_work_for_edition(self, edition):
         work = None
 
         # Find a pool for this edition's primary identifier. Any
@@ -644,15 +638,14 @@ class OPDSImporter(object):
         if pool:
             # Note: pool.calculate_work will call self.set_presentation_edition(),
             # which will find editions attached to same Identifier.
-            work, is_new_work = pool.calculate_work(even_if_no_author=even_if_no_author)
+            work, is_new_work = pool.calculate_work()
             # Note: if pool.calculate_work found or made a work, it already called work.calculate_presentation()
             if work:
-                if immediately_presentation_ready:
-                    # We want this book to be presentation-ready
-                    # immediately upon import. As long as no crucial
-                    # information is missing (like language or title),
-                    # this will do it.
-                    work.set_presentation_ready_based_on_content()
+                # We want this book to be presentation-ready
+                # immediately upon import. As long as no crucial
+                # information is missing (like language or title),
+                # this will do it.
+                work.set_presentation_ready_based_on_content()
 
         return pool, work
 
@@ -1785,8 +1778,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         # Because we are importing into a Collection, we will immediately
         # mark a book as presentation-ready if possible.
         imported_editions, pools, works, failures = self.importer.import_from_feed(
-            feed, even_if_no_author=True,
-            immediately_presentation_ready = True,
+            feed,
             feed_url=self.opds_url(self.collection)
         )
 

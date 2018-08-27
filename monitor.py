@@ -518,21 +518,16 @@ class MakePresentationReadyMonitor(NotPresentationReadyWorkSweepMonitor):
     """
     SERVICE_NAME = "Make Works Presentation Ready"
 
-    def __init__(self, _db, coverage_providers, collection=None,
-                 calculate_work_even_if_no_author=False):
+    def __init__(self, _db, coverage_providers, collection=None):
         super(MakePresentationReadyMonitor, self).__init__(_db, collection)
         self.coverage_providers = coverage_providers
-        self.calculate_work_even_if_no_author = calculate_work_even_if_no_author
         self.policy = PresentationCalculationPolicy(
             choose_edition=False
         )
 
     def run(self):
         """Before doing anything, consolidate works."""
-        LicensePool.consolidate_works(
-            self._db,
-            calculate_work_even_if_no_author=self.calculate_work_even_if_no_author
-        )
+        LicensePool.consolidate_works(self._db)
         return super(MakePresentationReadyMonitor, self).run()
 
     def process_item(self, work):

@@ -998,10 +998,8 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(RightsStatus.GENERIC_OPEN_ACCESS,
             mouse_pool.delivery_mechanisms[0].rights_status.uri)
 
-        # The 'mouse' work has not been marked presentation-ready,
-        # because the OPDS importer was not told to make works
-        # presentation-ready as they're imported.
-        eq_(False, mouse_pool.work.presentation_ready)
+        # The 'mouse' work was marked presentation-ready immediately.
+        eq_(True, mouse_pool.work.presentation_ready)
 
         # The OPDS feed didn't actually say where the 'crow' book
         # comes from, but we did tell the importer to use the open access
@@ -1009,27 +1007,6 @@ class TestOPDSImporter(OPDSImporterTest):
         # were created, and their data source is the open access content server,
         # not Project Gutenberg.
         eq_(DataSource.OA_CONTENT_SERVER, crow_pool.data_source.name)
-
-
-    def test_import_and_make_presentation_ready(self):
-        # Now let's tell the OPDS importer to make works presentation-ready
-        # as soon as they're imported.
-        feed = self.content_server_mini_feed
-        importer = OPDSImporter(
-            self._db,
-            collection=self._default_collection,
-            data_source_name=DataSource.OA_CONTENT_SERVER
-        )
-        imported_editions, imported_pools, imported_works, failures = (
-            importer.import_from_feed(feed, immediately_presentation_ready=True)
-        )
-
-        [crow, mouse] = sorted(imported_works, key=lambda x: x.title)
-
-        # Both the 'crow' and the 'mouse' book had presentation-ready works created.
-        eq_(True, crow.presentation_ready)
-        eq_(True, mouse.presentation_ready)
-
 
     def test_import_from_feed_treats_message_as_failure(self):
         path = os.path.join(self.resource_path, "unrecognized_identifier.opds")

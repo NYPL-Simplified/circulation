@@ -4839,7 +4839,6 @@ class Work(Base):
             or not self.license_pools
             or not self.title
             or not self.language
-            or self.fiction is None
         ):
             self.presentation_ready = False
             # The next time the search index WorkCoverageRecords are
@@ -7517,8 +7516,7 @@ class LicensePool(Base):
         return hold, new
 
     @classmethod
-    def consolidate_works(cls, _db, calculate_work_even_if_no_author=False,
-                          batch_size=10):
+    def consolidate_works(cls, _db, batch_size=10):
         """Assign a (possibly new) Work to every unassigned LicensePool."""
         a = 0
         lps = cls.with_no_work(_db)
@@ -7526,8 +7524,7 @@ class LicensePool(Base):
             "Assigning Works to %d LicensePools with no Work.", len(lps)
         )
         for unassigned in lps:
-            etext, new = unassigned.calculate_work(
-                even_if_no_author=calculate_work_even_if_no_author)
+            etext, new = unassigned.calculate_work()
             if not etext:
                 # We could not create a work for this LicensePool,
                 # most likely because it does not yet have any
@@ -7541,7 +7538,7 @@ class LicensePool(Base):
 
 
     def calculate_work(
-        self, even_if_no_author=False, known_edition=None, exclude_search=False,
+        self, known_edition=None, exclude_search=False,
         even_if_no_title=False
     ):
         """Find or create a Work for this LicensePool.
@@ -7550,12 +7547,6 @@ class LicensePool(Base):
         Work. Open-access LicensePools will be grouped together with
         other open-access LicensePools based on the permanent work ID
         of the LicensePool's presentation edition.
-
-        :param even_if_no_author: Ordinarily this method will refuse
-        to create a Work for a LicensePool whose Edition has no
-        author. But sometimes a book just has no known author. If
-        that's really the case, pass in even_if_no_author=True and the
-        Work will be created.
 
         :param even_if_no_title: Ordinarily this method will refuse to
         create a Work for a LicensePool whose Edition has no title.
@@ -7609,20 +7600,6 @@ class LicensePool(Base):
                 )
             else:
                 logging.info("Edition %r has no title and it will not get a Work.", presentation_edition)
-            self.work = None
-            self.work_id = None
-            return None, False
-
-        if (not presentation_edition.work
-            and presentation_edition.author in (None, Edition.UNKNOWN_AUTHOR)
-            and not even_if_no_author
-        ):
-            logging.warn(
-                "Edition %r has no author, not assigning Work to Edition.",
-                presentation_edition
-            )
-            # If there was a work associated with this LicensePool,
-            # it was by mistake. Remove it.
             self.work = None
             self.work_id = None
             return None, False
@@ -7705,7 +7682,6 @@ class LicensePool(Base):
                     pool.work = None
                     pool.calculate_work(
                         exclude_search=exclude_search,
-                        even_if_no_author=even_if_no_author,
                         even_if_no_title=even_if_no_title
                     )
                     licensepools_changed = True

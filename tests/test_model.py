@@ -2917,7 +2917,6 @@ class TestWork(DatabaseTest):
         eq_(WorkCoverageRecord.REGISTERED, record.status)
 
         # This work is presentation ready because it has a title
-        # and a fiction status.
 
         # Remove the title, and the work stops being presentation
         # ready.
@@ -2933,16 +2932,10 @@ class TestWork(DatabaseTest):
         work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(True, work.presentation_ready)
 
-        # Remove the fiction status, and the work stops being
+        # Remove the fiction status, and the work is still
         # presentation ready.
         work.fiction = None
         work.set_presentation_ready_based_on_content(search_index_client=search)
-        eq_(False, work.presentation_ready)
-
-        # Restore the fiction status, and everything is fixed.
-        work.fiction = False
-        work.set_presentation_ready_based_on_content(search_index_client=search)
-
         eq_(True, work.presentation_ready)
 
     def test_assign_genres_from_weights(self):
@@ -3850,38 +3843,30 @@ class TestWorkConsolidation(DatabaseTest):
 
     def test_calculate_work_success(self):
         e, p = self._edition(with_license_pool=True)
-        work, new = p.calculate_work(even_if_no_author=True)
+        work, new = p.calculate_work()
         eq_(p.presentation_edition, work.presentation_edition)
         eq_(True, new)
 
     def test_calculate_work_bails_out_if_no_title(self):
         e, p = self._edition(with_license_pool=True)
         e.title=None
-        work, new = p.calculate_work(even_if_no_author=True)
+        work, new = p.calculate_work()
         eq_(None, work)
         eq_(False, new)
 
         # even_if_no_title means we don't need a title.
-        work, new = p.calculate_work(
-            even_if_no_author=True, even_if_no_title=True
-        )
+        work, new = p.calculate_work(even_if_no_title=True)
         assert isinstance(work, Work)
         eq_(True, new)
         eq_(None, work.title)
         eq_(None, work.presentation_edition.permanent_work_id)
 
-    def test_calculate_work_bails_out_if_no_author(self):
-        e, p = self._edition(with_license_pool=True, authors=[])
-        work, new = p.calculate_work(even_if_no_author=False)
-        eq_(None, work)
-        eq_(False, new)
-
-        # If we know that there simply is no author for this work,
-        # we can pass in even_if_no_author=True
-        work, new = p.calculate_work(even_if_no_author=True)
-        eq_(p.presentation_edition, work.presentation_edition)
+    def test_calculate_work_even_if_no_author(self):
+        title = "Book"
+        e, p = self._edition(with_license_pool=True, authors=[], title=title)
+        work, new = p.calculate_work()
+        eq_(title, work.title)
         eq_(True, new)
-
 
     def test_calculate_work_matches_based_on_permanent_work_id(self):
         # Here are two Editions with the same permanent work ID,
@@ -3930,9 +3915,7 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(True, created)
         assert work != preexisting_work
 
-
-
-    def test_calculate_work_does_nothing_unless_edition_has_title_and_author(self):
+    def test_calculate_work_does_nothing_unless_edition_has_title(self):
         collection=self._collection()
         edition, ignore = Edition.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
@@ -3946,38 +3929,14 @@ class TestWorkConsolidation(DatabaseTest):
 
         edition.title = u"foo"
         work, created = pool.calculate_work()
-        eq_(None, work)
-
-        edition.add_contributor(u"bar", Contributor.PRIMARY_AUTHOR_ROLE)
         edition.calculate_presentation()
-        work, created = pool.calculate_work()
         eq_(True, created)
-
-        # The edition is the work's presentation edition.
+        #
+        # # The edition is the work's presentation edition.
         eq_(work, edition.work)
         eq_(edition, work.presentation_edition)
         eq_(u"foo", work.title)
-        eq_(u"bar", work.author)
-
-    def test_calculate_work_can_be_forced_to_work_with_no_author(self):
-        collection = self._collection()
-        edition, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
-        )
-        pool, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
-            collection=collection
-        )
-        work, created = pool.calculate_work()
-        eq_(None, work)
-
-        edition.title = u"foo"
-        work, created = pool.calculate_work(even_if_no_author=True)
-        eq_(True, created)
-        self._db.commit()
-        eq_(edition, work.presentation_edition)
-        eq_(u"foo", work.title)
-        eq_(Edition.UNKNOWN_AUTHOR, work.author)
+        eq_(u"[Unknown]", work.author)
 
     def test_calculate_work_fails_when_presentation_edition_identifier_does_not_match_license_pool(self):
 
