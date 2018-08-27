@@ -1174,7 +1174,7 @@ class DirectoryImportScript(Script):
         else:
             self.log.info("Updating existing edition for %s", edition.title)
 
-        work, ignore = pool.calculate_work(even_if_no_author=True)
+        work, ignore = pool.calculate_work()
         if work:
             work.set_presentation_ready()
             self.log.info(

@@ -760,9 +760,7 @@ class EnkiImport(CollectionMonitor):
         )
         bibliographic.apply(edition, self.collection, replace=policy)
         if not license_pool.work:
-            work, is_new = license_pool.calculate_work(
-                even_if_no_author=True
-            )
+            work, is_new = license_pool.calculate_work()
             if work:
                 work.set_presentation_ready()
 
