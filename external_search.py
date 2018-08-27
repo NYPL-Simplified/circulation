@@ -914,20 +914,23 @@ class Query(object):
 
     def execute(self, searcher, fields=None, size=30, offset=0):
         # Build the query.
-        query = self.build_query(query_string)
+        query = self.build(self.query_string)
 
         # Add the filter, if necessary.
         if self.filter:
             query = Q("filtered", query=query, filter=self.filter.build())
 
         # Run the query.
-        results = searcher.query(query)
+        qu = searcher.query
+        set_trace()
+        results = qu(query)
+        import pprint
         print pprint.pprint(results.to_dict())
         return results
 
-    def build(self):
+    def build(self, query_string):
         """Build an Elasticsearch Query object."""
-        return self.simple_query_string_query
+        return self.simple_query_string_query(query_string)
 
     def simple_query_string_query(self, query_string, fields=None):
         fields = fields or self.SIMPLE_QUERY_STRING_FIELDS
@@ -947,16 +950,10 @@ class Filter(object):
                  fiction=None, audiences=None, target_age=None,
                  in_any_of_these_genres=[], on_any_of_these_customlists=None):
 
-        if isinstance(library, Library):
+        if isinstance(collection_ids, Library):
             # Find all works in this Library's collections.
             collection_ids = library.collections
-            self.collection_ids = self._filter_ids(library.collections)
-        elif isinstance(library, list):
-            self.collection_ids = self.
-            # We are searching the entire collection, not any
-            # particular library. This should no longer happen but we'll
-            # make it work.
-            self.collection_ids = None
+        self.collection_ids = self._filter_ids(collection_ids)
 
         self.media = self._filter_list(media)
         self.language = self._filter_list(languages)
