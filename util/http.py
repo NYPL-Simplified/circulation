@@ -332,19 +332,6 @@ class HTTP(object):
         message.
         """
         # set_trace()
-        if 'allowed_response_codes' in kwargs:
-            # The caller wants to treat a specific set of response codes
-            # as successful.
-            allowed_response_codes = kwargs['allowed_response_codes']
-        else:
-            # We want request_with_timeout to allow through all
-            # response codes so that we can handle bad ones in a more
-            # helpful way.
-            kwargs['allowed_response_codes']=["1xx", "2xx", "3xx", "4xx", "5xx"]
-
-            # But we want to apply the normal rules when deciding whether
-            # a given response is 'bad'.
-            allowed_response_codes = None
         logging.info("Making debuggable %s request to %s: kwargs %r",
                      http_method, url, kwargs)
         return cls._request_with_timeout(

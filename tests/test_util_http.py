@@ -202,7 +202,6 @@ class TestHTTP(object):
         eq_(args, ("url", mock_request, "method"))
         eq_(kwargs["key"], "value")
         eq_(kwargs["process_response"], Mock.process_debuggable_response)
-        eq_(kwargs["allowed_response_codes"], ["1xx", "2xx", "3xx", "4xx", "5xx"])
 
     def test_process_debuggable_response(self):
         """Test a method that gives more detailed information when a
