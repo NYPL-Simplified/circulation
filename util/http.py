@@ -195,12 +195,21 @@ class HTTP(object):
         )
 
     @classmethod
-    def _request_with_timeout(cls, url, m, *args, **kwargs):
+    def _request_with_timeout(cls, url, make_request_with, *args, **kwargs):
         """Call some kind of method and turn a timeout into a RequestTimedOut
         exception.
 
         The core of `request_with_timeout` made easy to test.
+
+        :param url: Make the request to this URL.
+        :param make_request_with: A function that actually makes the
+            HTTP request.
+        :param args: Positional arguments for the request function.
+        :param kwargs: Keyword arguments for the request function.
         """
+        process_response_with = kwargs.pop(
+            'process_response_with', cls._process_response
+        )
         allowed_response_codes = kwargs.pop('allowed_response_codes', [])
         disallowed_response_codes = kwargs.pop('disallowed_response_codes', [])
         verbose = kwargs.pop('verbose', False)
@@ -227,7 +236,7 @@ class HTTP(object):
             if verbose:
                 logging.info("Sending %s request to %s: kwargs %r",
                              http_method, url, kwargs)
-            response = m(*args, **kwargs)
+            response = make_request_with(*args, **kwargs)
             if verbose:
                 logging.info(
                     "Response from %s: %s %r %r",
@@ -243,7 +252,7 @@ class HTTP(object):
             # a generic RequestNetworkException.
             raise RequestNetworkException(url, e.message)
 
-        return cls._process_response(
+        return process_response_with(
             url, response, allowed_response_codes, disallowed_response_codes
         )
 
@@ -325,31 +334,29 @@ class HTTP(object):
         return cls.debuggable_request("POST", url, **kwargs)
 
     @classmethod
-    def debuggable_request(cls, http_method, url, **kwargs):
+    def debuggable_request(cls, http_method, url, make_request_with=None,
+                           **kwargs):
         """Make a request that returns a detailed problem detail document on
         error, rather than a generic "an integration error occured"
         message.
-        """
-        if 'allowed_response_codes' in kwargs:
-            # The caller wants to treat a specific set of response codes
-            # as successful.
-            allowed_response_codes = kwargs['allowed_response_codes']
-        else:
-            # We want request_with_timeout to allow through all
-            # response codes so that we can handle bad ones in a more
-            # helpful way.
-            kwargs['allowed_response_codes']=["1xx", "2xx", "3xx", "4xx", "5xx"]
 
-            # But we want to apply the normal rules when deciding whether
-            # a given response is 'bad'.
-            allowed_response_codes = None
+        :param http_method: HTTP method to use when making the request.
+        :param url: Make the request to this URL.
+        :param make_request_with: A function that actually makes the
+            HTTP request.
+        :param kwargs: Keyword arguments for the make_request_with
+            function.
+        """
         logging.info("Making debuggable %s request to %s: kwargs %r",
                      http_method, url, kwargs)
-        response = HTTP.request_with_timeout(http_method, url, **kwargs)
-        return cls.process_debuggable_response(response, allowed_response_codes)
+        return cls._request_with_timeout(
+            url, make_request_with, http_method,
+            process_response_with=cls.process_debuggable_response,
+            **kwargs
+        )
 
     @classmethod
-    def process_debuggable_response(cls, response, allowed_response_codes=None):
+    def process_debuggable_response(cls, url, response, disallowed_response_codes=None, allowed_response_codes=None):
         """If there was a problem with an integration request,
         return an appropriate ProblemDetail. Otherwise, return the
         response to the original request.
@@ -371,12 +378,13 @@ class HTTP(object):
             # The server returned a problem detail document. Wrap it
             # in a new document that represents the integration
             # failure.
-            return INTEGRATION_ERROR.detailed(
+            problem = INTEGRATION_ERROR.detailed(
                 _('Remote service returned a problem detail document: %r') % (
                     response.content
                 )
             )
-
+            problem.debug_message = response.content
+            return problem
         # There's been a problem. Return the message we got from the
         # server, verbatim.
         return INTEGRATION_ERROR.detailed(
