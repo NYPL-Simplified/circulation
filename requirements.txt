@@ -12,6 +12,8 @@ isbnlib
 textblob
 rdflib
 elasticsearch==2.1.0
+elasticsearch-dsl<2.0.0
+
 python-dateutil
 uwsgi
 loggly-python-handler

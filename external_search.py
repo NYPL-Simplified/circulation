@@ -2,6 +2,12 @@ from nose.tools import set_trace
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk
 from elasticsearch.exceptions import ElasticsearchException
+from elasticsearch_dsl import (
+    Search,
+    Q,
+    F,
+)
+
 from flask_babel import lazy_gettext as _
 from config import (
     Configuration,
@@ -881,6 +887,169 @@ class ExternalSearchIndexVersions(object):
         else:
             search_client.setup_index(new_index=versioned_index)
             return True
+
+class Query(object):
+    """An attempt to find something in the search index."""
+
+    # When we run a simple query string search, we are matching the
+    # query string against these fields.
+    SIMPLE_QUERY_STRING_FIELDS = [
+        # These fields have been stemmed.
+        'title^4',
+        "series^4",
+        'subtitle^3',
+        'summary^2',
+        "classifications.term^2",
+
+        # These fields only use the standard analyzer and are closer to the
+        # original text.
+        'author^6',
+        'publisher',
+        'imprint'
+    ]
+
+    def __init__(self, query_string, filter=None):
+        self.query_string = query_string
+        self.filter = filter
+
+    def execute(self, searcher, fields=None, size=30, offset=0):
+        # Build the query.
+        query = self.build_query(query_string)
+
+        # Add the filter, if necessary.
+        if self.filter:
+            query = Q("filtered", query=query, filter=self.filter.build())
+
+        # Run the query.
+        results = searcher.query(query)
+        print pprint.pprint(results.to_dict())
+        return results
+
+    def build(self):
+        """Build an Elasticsearch Query object."""
+        return self.simple_query_string_query
+
+    def simple_query_string_query(self, query_string, fields=None):
+        fields = fields or self.SIMPLE_QUERY_STRING_FIELDS
+        q = Q("simple_query_string", query=query_string, fields=fields)
+        return q
+
+
+class Filter(object):
+    """A filter for search results.
+
+    This covers every reason you might want to not show a search
+    result that matches the query string -- wrong media, wrong
+    language, not available in the patron's library, etc.
+    """
+
+    def __init__(self, collection_ids, media=None, languages=None,
+                 fiction=None, audiences=None, target_age=None,
+                 in_any_of_these_genres=[], on_any_of_these_customlists=None):
+
+        if isinstance(library, Library):
+            # Find all works in this Library's collections.
+            collection_ids = library.collections
+            self.collection_ids = self._filter_ids(library.collections)
+        elif isinstance(library, list):
+            self.collection_ids = self.
+            # We are searching the entire collection, not any
+            # particular library. This should no longer happen but we'll
+            # make it work.
+            self.collection_ids = None
+
+        self.media = self._filter_list(media)
+        self.language = self._filter_list(languages)
+        self.fiction = self._filter_scrub(fiction)
+        self.audiences = self._filter_list(audiences)
+
+        if target_age:
+            if isinstance(target_age, int):
+                self.target_age = (int, int)
+            elif isinstance(target_age, tuple) and len(target_age) == 2:
+                self.target_age = target_age
+            else:
+                # It's a SQLAlchemy range object. Convert it to a tuple
+                self.target_age = (target_age.lower, target_age.upper)
+        else:
+            self.target_age = None
+
+        self.genre_ids = self._filter_ids(in_any_of_these_genres)
+        self.customlist_ids = self._filter_ids(on_any_of_these_customlists)
+
+    def build(self):
+        """Convert this object to an Elasticsearch Filter object."""
+        f = F('term', collection_ids=self.collection_ids)
+
+        if self.media:
+            f = f & F('term', medium=self.media)
+
+        if self.languages:
+            f = f & F('term', language=self.languages)
+
+        if self.fiction is not None:
+            if self.fiction:
+                value = 'fiction'
+            else:
+                value = 'nonfiction'
+            f = f & F('term', fiction=value)
+
+        if self.audiences:
+            f = f & F('term', audience=self.audiences)
+
+        if self.target_age:
+            # TODO
+            pass
+
+        if self.genre_ids:
+            f = f & F('term', **{'genres.term' : genre_ids})
+
+        if self.customlist_ids:
+            f = f & F('term', list_id=customlist_ids)
+
+        return f
+
+
+    @classmethod
+    def _filter_scrub(cls, s):
+        """Modify a string for use in a filter match.
+        
+        e.g. "Young Adult" becomes "youngadult"
+
+        :param s: The string to modify.
+        """
+        if not s:
+            return s
+        return s.lower().replace(" ", "")
+
+    @classmethod
+    def _filter_list(cls, s):
+        """The same as _filter_scrub, except it always outputs
+        a list of items.
+        """
+        if s is None:
+            return []
+        if isinstance(s, basestring):
+            s = [s]
+        return [cls.filter_scrub(x) for x in s]
+
+    @classmethod
+    def _filter_ids(cls, ids):
+        """Filter a list of database objects, provided either as their
+        IDs or as the objects themselves.
+
+        :return: A list of IDs, or None if nothing was provided.
+        """
+        if not ids:
+            return None
+
+        processed = []
+        for id in ids:
+            if not isinstance(id, int):
+                # Turn a database object into an ID.
+                id = id.id
+            processed.append(id)
+        return processed
 
 
 class DummyExternalSearchIndex(ExternalSearchIndex):
