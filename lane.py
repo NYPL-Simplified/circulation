@@ -785,9 +785,9 @@ class WorkList(object):
 
     def initialize(self, library, display_name=None, genres=None,
                    audiences=None, languages=None, media=None,
-                   children=None, priority=None, entrypoints=None,
                    customlist_ids=None, list_datasource_id=None,
-                   list_seen_in_previous_days=None
+                   list_seen_in_previous_days=None,
+                   children=None, priority=None, entrypoints=None,
     ):
         """Initialize with basic data.
 
