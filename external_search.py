@@ -1022,6 +1022,27 @@ class Filter(object):
     language, not available in the patron's library, etc.
     """
 
+    @classmethod
+    def from_worklist(cls, _db, worklist):
+        """Create a Filter that, as much as possible, tries to find only
+        works that belong in the given WorkList.
+
+        The 'as much as possible' caveat is because if a Lane inherits
+        settings from its parent, those inherited settings won't be
+        reflected here.
+
+        :param worklist: A WorkList
+        """
+        library = worklist.get_library(_db)
+        media = worklist.media
+        languages = worklist.languages
+        fiction = worklist.fiction
+        return cls(
+            library, worklist.media, worklist.languages,
+            worklist.fiction, worklist.audiences, worklist.target_age,
+            worklist.genre_ids, worklist.customlist_ids
+        )
+
     def __init__(self, collection_ids, media=None, languages=None,
                  fiction=None, audiences=None, target_age=None,
                  in_any_of_these_genres=[], on_any_of_these_customlists=None):
@@ -1071,8 +1092,7 @@ class Filter(object):
             f = f & F('term', audience=self.audiences)
 
         if self.target_age:
-            # TODO
-            pass
+            f = f & self.target_age_filter
 
         if self.genre_ids:
             f = f & F('term', **{'genres.term' : genre_ids})
@@ -1082,6 +1102,22 @@ class Filter(object):
 
         return f
 
+    @property
+    def target_age_filter(self):
+        lower, upper = self.target_age
+
+        def does_not_exist(field):
+            F('bool', must_not=F('exists', field))
+
+        lower_in_range = F("target_age.lower", "lte", upper)
+        lower_does_not_exist = does_not_exist("target_age.lower")
+
+        upper_in_range = F("target_age.upper", "gte", lower)
+        upper_does_not_exist = does_not_exist("target_age.upper")
+
+        lower_match = or_(lower_does_not_exist, lower_in_range)
+        upper_match = or_(upper_does_not_exist, upper_in_range)
+        return F('and', [upper_match, lower_match])
 
     @classmethod
     def _filter_scrub(cls, s):
