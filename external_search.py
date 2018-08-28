@@ -1141,7 +1141,6 @@ class Filter(SearchBase):
             ]
         }
 
-
         def does_not_exist(field):
             """A filter that matches if there is no value for `field`."""
             return F('bool', must_not=[F('exists', field=field)])
@@ -1152,9 +1151,9 @@ class Filter(SearchBase):
         upper_does_not_exist = does_not_exist("target_age.upper")
         upper_in_range = self._match_op("target_age.upper", "gte", lower)
 
-        lower_match = {"or": [lower_does_not_exist, lower_in_range]}
-        upper_match = {"or": [upper_does_not_exist, upper_in_range]}
-        final = {'and': [upper_match, lower_match]}
+        lower_match = F("or", [lower_does_not_exist, lower_in_range])
+        upper_match = F("or", [upper_does_not_exist, upper_in_range])
+        final = F('and', [upper_match, lower_match])
         return final
 
     @classmethod
