@@ -1077,7 +1077,7 @@ class Filter(SearchBase):
 
     def build(self):
         """Convert this object to an Elasticsearch Filter object."""
-        f = F('term', collection_ids=self.collection_ids)
+        f = F('terms', collection_id=self.collection_ids)
 
         if self.media:
             f = f & F('term', medium=self.media)
@@ -1096,7 +1096,9 @@ class Filter(SearchBase):
             f = f & F('term', audience=self.audiences)
 
         if self.target_age:
-            f = f & self.target_age_filter
+            filter = self.target_age_filter 
+            if filter:
+                f = f & filter
 
         if self.genre_ids:
             f = f & F('term', **{'genres.term' : genre_ids})
@@ -1110,6 +1112,36 @@ class Filter(SearchBase):
     def target_age_filter(self):
         lower, upper = self.target_age
 
+        age_clause = {
+            "and": [
+                {
+                    "or" : [
+                        {"range": {"target_age.upper": {"gte": lower}}},
+                        {
+                            "bool": {
+                                "must_not" : {
+                                    "exists": {"field" : "target_age.upper"}
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "or" : [
+                        {"range": {"target_age.lower": {"lte": upper}}},
+                        {
+                            "bool": {
+                                "must_not" : {
+                                    "exists": {"field" : "target_age.lower"}
+                                }
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+
+
         def does_not_exist(field):
             """A filter that matches if there is no value for `field`."""
             return F('bool', must_not=[F('exists', field=field)])
@@ -1118,7 +1150,7 @@ class Filter(SearchBase):
         lower_in_range = self._match_op("target_age.lower", "lte", upper)
 
         upper_does_not_exist = does_not_exist("target_age.upper")
-        upper_in_range = self._match_op("target_age.lower", "lte", upper)
+        upper_in_range = self._match_op("target_age.upper", "gte", lower)
 
         lower_match = {"or": [lower_does_not_exist, lower_in_range]}
         upper_match = {"or": [upper_does_not_exist, upper_in_range]}
