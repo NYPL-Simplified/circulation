@@ -879,11 +879,51 @@ class WorkList(object):
         return False
 
     @property
+    def parent(self):
+        """A WorkList has no parent. This method is defined for compatibility
+        with Lane.
+        """
+        return None
+
+    @property
+    def inherit_parent_restrictions(self):
+        """Since a WorkList has no parent, it cannot inherit any restrictions
+        from its parent. This method is defined for compatibility
+        with Lane.
+        """
+        return False
+
+    @property
     def parentage(self):
         """WorkLists have no parentage. This method is defined for compatibility
         with Lane.
         """
         return []
+
+    def inherited_value(self, k):
+        """Try to find this WorkList's value for the given key (e.g. 'fiction'
+        or 'audiences').
+
+        If it's not set, try to inherit a value from the WorkList's
+        parent. This only works if this WorkList has a parent and is
+        configured to inherit values from its parent.
+
+        Note that inheritance works differently for customlist_ids.
+        For most fields, a Lane's value overrides any value specified
+        for its parent. With customlist_ids, parent values add
+        additional restrictions to child values, rather than child
+        values replacing the parent values. That is, a "Staff Picks"
+        lane beneath "Best Sellers" is only supposed to find staff
+        picks that are _also_ best-sellers.
+        """
+        value = getattr(self, k)
+        if value not in (None, []):
+            return value
+        else:
+            if not self.parent or not self.inherit_parent_restrictions:
+                return None
+            parent = self.parent
+            return parent.inherited_value(k)
 
     @property
     def customlist_ids(self):

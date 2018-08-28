@@ -745,8 +745,8 @@ class Query(SearchBase):
         # Run the query.
         qu = searcher.query
         results = qu(query)
-        import pprint
-        print pprint.pprint(results.to_dict())
+        # import pprint
+        # print pprint.pprint(results.to_dict())
         return results
 
     def build(self, query_string):
@@ -1032,19 +1032,26 @@ class Filter(SearchBase):
         works that belong in the given WorkList.
 
         The 'as much as possible' caveat is because if a Lane inherits
-        settings from its parent, those inherited settings won't be
-        reflected here.
+        settings from its parent, and both parent and child include
+        CustomList-based restriction, the restrictions won't be
+        combined -- only the child restrictions will be used.
 
         :param worklist: A WorkList
         """
         library = worklist.get_library(_db)
-        media = worklist.media
-        languages = worklist.languages
-        fiction = worklist.fiction
+
+        v = worklist.inherited_value
+        media = v('media')
+        languages = v('languages')
+        fiction = v('fiction')
+        audiences = v('audiences')
+        target_age = v('target_age')
+        genre_ids = v('genre_ids')
+        customlist_ids = v('customlist_ids')
+
         return cls(
-            library, worklist.media, worklist.languages,
-            worklist.fiction, worklist.audiences, worklist.target_age,
-            worklist.genre_ids, worklist.customlist_ids
+            library, media, languages, fiction, audiences,
+            target_age, genre_ids, customlist_ids
         )
 
     def __init__(self, collection_ids, media=None, languages=None,
@@ -1053,12 +1060,12 @@ class Filter(SearchBase):
 
         if isinstance(collection_ids, Library):
             # Find all works in this Library's collections.
-            collection_ids = library.collections
+            collection_ids = collection_ids.collections
         self.collection_ids = self._filter_ids(collection_ids)
 
         self.media = self._filter_list(media)
         self.languages = self._filter_list(languages)
-        self.fiction = self._filter_scrub(fiction)
+        self.fiction = fiction
         self.audiences = self._filter_list(audiences)
 
         if target_age:
@@ -1080,10 +1087,10 @@ class Filter(SearchBase):
         f = F('terms', collection_id=self.collection_ids)
 
         if self.media:
-            f = f & F('term', medium=self.media)
+            f = f & F('terms', medium=self.media)
 
         if self.languages:
-            f = f & F('term', language=self.languages)
+            f = f & F('terms', language=self.languages)
 
         if self.fiction is not None:
             if self.fiction:
@@ -1093,18 +1100,16 @@ class Filter(SearchBase):
             f = f & F('term', fiction=value)
 
         if self.audiences:
-            f = f & F('term', audience=self.audiences)
+            f = f & F('terms', audience=self.audiences)
 
         if self.target_age:
-            filter = self.target_age_filter 
-            if filter:
-                f = f & filter
+            f = f & self.target_age_filter
 
         if self.genre_ids:
-            f = f & F('term', **{'genres.term' : genre_ids})
+            f = f & F('terms', **{'genres.term' : self.genre_ids})
 
         if self.customlist_ids:
-            f = f & F('term', list_id=customlist_ids)
+            f = f & F('terms', list_id=self.customlist_ids)
 
         return f
 
@@ -1153,7 +1158,7 @@ class Filter(SearchBase):
             return []
         if isinstance(s, basestring):
             s = [s]
-        return [cls.filter_scrub(x) for x in s]
+        return [cls._filter_scrub(x) for x in s]
 
     @classmethod
     def _filter_ids(cls, ids):
