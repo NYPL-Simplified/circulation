@@ -908,6 +908,59 @@ class Query(object):
         'imprint'
     ]
 
+    # When we look for a close match against title, author, or series,
+    # we apply minimal stemming, because we're handling the case where
+    # the user typed something in exactly as is.
+    MINIMAL_STEMMING_QUERY_FIELDS = [
+        'title.minimal', 'author', 'series.minimal'
+    ]
+
+    # When we run a fuzzy query string search, we are matching the
+    # query string against these fields. It's more important that we
+    # use fields that have undergone minimal stemming because the part
+    # of the word that was stemmed may be the part that is misspelled
+    FUZZY_QUERY_STRING_FIELDS = [
+        'title.minimal^4',
+        'series.minimal^4',
+        "subtitle.minimal^3",
+        "summary.minimal^2",
+        'author^4',
+        'publisher',
+        'imprint'
+    ]
+
+    # These words will fuzzy-match other common words that aren't relevant,
+    # so if they're present and correctly spelled we shouldn't use a
+    # fuzzy query.
+    FUZZY_CONFOUNDERS = [
+        "baseball", "basketball", # These fuzzy match each other
+
+        "soccer", # Fuzzy matches "saucer", "docker", "sorcery"
+
+        "football", "softball", "software", "postwar",
+
+        # "tennis",
+
+        "hamlet", "harlem", "amulet", "tablet",
+
+        "biology", "ecology", "zoology", "geology",
+
+        "joke", "jokes" # "jake"
+
+        "cat", "cats",
+        "car", "cars",
+        "war", "wars",
+
+        "away", "stay",
+    ]
+
+    # If this regular expression matches a query, we will not run
+    # a fuzzy match against that query, because it's likely to be
+    # counterproductive.
+    FUZZY_CIRCUIT_BREAKER = re.compile(
+        r'\b(%s)\b' % "|".join(FUZZY_CONFOUNDERS), re.I
+    )
+
     def __init__(self, query_string, filter=None):
         self.query_string = query_string
         self.filter = filter
@@ -922,20 +975,284 @@ class Query(object):
 
         # Run the query.
         qu = searcher.query
-        set_trace()
         results = qu(query)
         import pprint
         print pprint.pprint(results.to_dict())
         return results
 
     def build(self, query_string):
-        """Build an Elasticsearch Query object."""
-        return self.simple_query_string_query(query_string)
+        """Build an Elasticsearch query document for the given query
+        string.
+
+        :param query_string: A user typed this string into a search box.
+        """
+
+        # The search query will create a dis_max query, which tests a
+        # number of hypotheses about what the query string might
+        # 'really' mean. For each book, the highest-rated hypothesis
+        # will be assumed to be true, and the highest-rated titles
+        # overall will become the search results.
+        hypotheses = []
+        def hypothesize(query, boost=1.5):
+            """Add a hypothesis to the ones to be tested for each book.
+
+            :param boost: Boost the overall weight of this hypothesis
+            relative to other hypotheses being tested.
+            """
+            if boost > 1:
+                query = self._boost(boost, query)
+            hypotheses.append(query)
+
+        # Here are the hypotheses:
+
+        # The query string might appear in one of the standard
+        # searchable fields.
+        simple = self.simple_query_string_query(query_string)
+        hypothesize(simple)
+
+        # The query string might be a close match against title,
+        # author, or series.
+        hypothesize(
+            self.minimal_stemming_query(
+                query_string, self.MINIMAL_STEMMING_QUERY_FIELDS
+            ),
+            100
+        )
+
+        # The query string might be an exact match for title or
+        # author. Such a match would be boosted quite a lot.
+        hypothesize(
+            self._match_phrase("title.standard", query_string), 200
+        )
+        hypothesize(
+            self._match_phrase("author.standard", query_string), 200
+        )
+
+        # The query string might be a fuzzy match against one of the
+        # standard searchable fields.
+        fuzzy = self.fuzzy_string_query(query_string)
+        if fuzzy:
+            hypothesize(fuzzy, 1)
+
+        # The query string might contain some specific field matches
+        # (e.g. a genre name or target age), with the remainder being
+        # the "real" query string.
+        with_field_matches = self._query_with_field_matches(query_string)
+        if with_field_matches:
+            hypothesize(with_field_matches)
+
+        # For a given book, whichever one of these hypotheses gives
+        # the highest score should be used.
+        qu = Q("dis_max", queries=hypotheses)
+        return qu
+
+    def _boost(self, boost, queries):
+        """Boost a query by a certain amount relative to its neighbors in a
+        dis_max query.
+        """
+        if not isinstance(queries, list):
+            queries = [queries]
+        return Q("bool", boost=float(boost), minimum_should_match=1,
+                 should=queries)
 
     def simple_query_string_query(self, query_string, fields=None):
         fields = fields or self.SIMPLE_QUERY_STRING_FIELDS
         q = Q("simple_query_string", query=query_string, fields=fields)
         return q
+
+    def fuzzy_string_query(self, query_string):
+        # TODO: If all (or a high percentage) of the words in the
+        # query string look like correctly spelled English words,
+        # don't run a fuzzy query. This can potentially replace the
+        # use of FUZZY_CIRCUIT_BREAKER.
+        #if self.FUZZY_CIRCUIT_BREAKER.search(query_string):
+        #    return None
+        fuzzy = Q(
+            "multi_match", fields=self.FUZZY_QUERY_STRING_FIELDS,
+            type="best_fields", fuzziness="AUTO",
+            query=query_string,
+            prefix_length=1,
+        )
+        return fuzzy
+
+    def _match_phrase(self, field, query_string):
+        """A clause that matches the query string against a specific field in the search document.
+
+        The words in the query_string must match the words in the field,
+        in order. E.g. "fiction science" will not match "Science Fiction".
+        """
+        return Q("match_phrase", **{field: query_string})
+
+    def _match(self, field, query_string):
+        """A clause that matches the query string against a specific field in the search document.
+        """
+        return Q("match", **{field: query_string})
+
+    def minimal_stemming_query(self, query_string, fields):
+        return [self._match_phrase(field, query_string) for field in fields]
+
+    def _match_op(self, field, operation, value):
+        """Match an operation on a field other than equality."""
+        match = {field : {operation: value}}
+        return dict(range=match)
+
+    def make_target_age_query(self, target_age, boost=1):
+        (lower, upper) = target_age[0], target_age[1]
+        # There must be _some_ overlap with the provided range.
+        must = [
+            self._match_op("target_age.upper", "gte", lower),
+            self._match_op("target_age.lower", "lte", upper)
+        ]
+
+        # Results with ranges closer to the query are better
+        # e.g. for query 4-6, a result with 5-6 beats 6-7
+        should = [
+            self._match_op("target_age.upper", "lte", upper),
+            self._match_op("target_age.lower", "gte", lower),
+        ]
+        return Q("bool", must=must, should=should, boost=boost)
+
+    def _query_with_field_matches(self, query_string):
+        """Deal with a query string that contains information that should be
+        exactly matched against a controlled vocabulary
+        (e.g. "nonfiction" or "grade 5") along with information that
+        is more search-like (such as a title or author).
+
+        The match information is pulled out of the query string
+        and used to make a series of match_phrase queries. The rest of
+        the information is used in a simple 
+        """
+        original_query_string = query_string
+
+        def without_match(query_string, match):
+            """Take the portion of a query string that matched a controlled
+            vocabulary, and remove it from the query string, so it
+            doesn't get reused in another part of this method.
+            """
+            # If the match was "children" and the query string was
+            # "children's", we want to remove the "'s" as well as
+            # the match. We want to remove everything up to the
+            # next word boundary that's not an apostrophe or a
+            # dash.
+            word_boundary_pattern = r"\b%s[\w'\-]*\b"
+
+            return re.compile(
+                word_boundary_pattern % match.strip(), re.IGNORECASE
+            ).sub("", query_string)
+
+        # We start with no match queries.
+        match_queries = []
+
+        def add_match_query(query, field, query_string, matched_portion):
+            """Create a match query that finds documents whose value for `field`
+            matches `query`.
+
+            Add it to `match_queries`, and remove the relevant portion
+            of `query_string` so it doesn't get reused.
+            """
+            if not query:
+                # This is not a relevant part of the query string.
+                return query_string
+            match_query = self._match(field, query)
+            match_queries.append(match_query)
+            return without_match(query_string, matched_portion)
+
+        def add_target_age_query(query, query_string, matched_portion):
+            """Create a query that finds documents whose value for `target_age`
+            matches `query`.
+
+            Add it to `match_queries`, and remove the relevant portion
+            of `query_string` so it doesn't get reused.
+            """
+            if not query:
+                # This is not a relevant part of the query string.
+                return query_string
+            match_query = self.make_target_age_query(query, 40)
+            match_queries.append(match_query)
+            return without_match(query_string, matched_portion)
+
+        # We handle genre first so that later matches don't see genre
+        # names like 'Science Fiction'.
+
+        # Handle the 'romance' part of 'young adult romance'
+        genre, genre_match = KeywordBasedClassifier.genre_match(query_string)
+        if genre:
+            query_string = add_match_query(
+                genre.name, 'genres.name', query_string, genre_match
+            )
+
+        # Handle the 'young adult' part of 'young adult romance'
+        audience, audience_match = KeywordBasedClassifier.audience_match(
+            query_string
+        )
+        if audience:
+            query_string = add_match_query(
+                audience.replace(" ", ""), 'audience', query_string,
+                audience_match
+            )
+
+        # Handle the 'nonfiction' part of 'asteroids nonfiction'
+        fiction = None
+        if re.compile(r"\bnonfiction\b", re.IGNORECASE).search(query_string):
+            fiction = "Nonfiction"
+        elif re.compile(r"\bfiction\b", re.IGNORECASE).search(query_string):
+            fiction = "Fiction"
+        query_string = add_match_query(
+            fiction, 'fiction', query_string, fiction
+        )
+
+        # Handle the 'grade 5' part of 'dogs grade 5'
+        age_from_grade, grade_match = GradeLevelClassifier.target_age_match(query_string)
+        if age_from_grade and age_from_grade[0] == None:
+            age_from_grade = None
+        query_string = add_target_age_query(
+            age_from_grade, query_string, grade_match
+        )
+
+        # Handle the 'age 10 and up' part of 'divorce age 10 and up'
+        age, age_match = AgeClassifier.target_age_match(query_string)
+        if age and age[0] == None:
+            age = None
+        query_string = add_target_age_query(age, query_string, age_match)
+
+        if query_string == original_query_string:
+            # We didn't find anything that indicates this is a search
+            # that includes a field match component. So this method should
+            # not try to modify the search document at all.
+            return None
+
+        if len(query_string.strip()) > 0:
+            # Someone who searched for 'young adult romance'
+            # now has an empty query string -- they matched an audience
+            # and a genre, and now there's nothing else to match.
+            #
+            # Someone who searched for 'asteroids nonfiction'
+            # still has a query string of 'asteroids'. Their query string
+            # has a field match component and a query-type component.
+            #
+            # What is likely to be in this query-type component?
+            #
+            # In theory, it could be anything that would go into a
+            # regular query. So would be a really cool place to
+            # call build_query recursively.
+            #
+            # However, someone who searches by genre is probably
+            # not looking for a specific book. They might be
+            # looking for an author (eg, 'science fiction iain
+            # banks'). But they're most likely searching for a
+            # _type_ of book, which means a match against summary or
+            # subject ('asteroids')  would be the most useful.
+            match_rest_of_query = self.simple_query_string_query(
+                query_string.strip(),
+                ["author^4", "subtitle^3", "summary^5", "title^1", "series^1",
+                ]
+            )
+            match_queries.append(match_rest_of_query)
+
+        # If all of the match queries match, the result will have a
+        # higher score than results that match the full query in one
+        # of the main fields.
+        return Q('bool', must=match_queries, boost=200.0)
 
 
 class Filter(object):
