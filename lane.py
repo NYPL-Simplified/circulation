@@ -2039,13 +2039,20 @@ class Lane(Base, WorkList):
         """
         if value:
             self.customlists = []
-            value = value.id
-        self._list_datasource_id = value
+            if hasattr(self, '_customlist_ids'):
+                # The next time someone asks for .customlist_ids,
+                # the list will be refreshed.
+                del self._customlist_ids
+
+        # TODO: It's not clear to me why it's necessary to set these two
+        # values separately.
+        self._list_datasource = value
+        self._list_datasource_id = value.id
 
     @property
     def list_datasource_id(self):
-        if self.list_datasource:
-            return self.list_datasource.id
+        if self._list_datasource_id:
+            return self._list_datasource_id
         return None
 
     @property

@@ -1026,13 +1026,13 @@ class TestWorkList(DatabaseTest):
 
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
 
-        customlist1 = self._customlist(
+        customlist1, ignore = self._customlist(
             data_source_name=gutenberg.name, num_entries=0
         )
-        customlist2 = self._customlist(
+        customlist2, ignore = self._customlist(
             data_source_name=gutenberg.name, num_entries=0
         )
-        customlist3 = self._customlist(
+        customlist3, ignore = self._customlist(
             data_source_name=DataSource.OVERDRIVE, num_entries=0
         )
 
@@ -1996,12 +1996,29 @@ class TestLane(DatabaseTest):
         lane = self._lane()
         eq_(self._default_library, lane.get_library(self._db))
 
-    def test_list_datasource_id(self):
+    def test_list_datasource(self):
+        """Test setting and retrieving the DataSource object and
+        the underlying ID.
+        """
         lane = self._lane()
+
+        # This lane is based on a specific CustomList.
+        customlist1, ignore = self._customlist(num_entries=0)
+        customlist2, ignore = self._customlist(num_entries=0)
+        lane.customlists.append(customlist1)
+        eq_(None, lane.list_datasource)
         eq_(None, lane.list_datasource_id)
-        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        lane.list_datasource = gutenberg
-        eq_(gutenberg.id, lane.list_datasource_id)
+        eq_([customlist1.id], lane.customlist_ids)
+
+        # Now change it so it's based on all CustomLists from a given
+        # DataSource.
+        source = customlist1.data_source
+        lane.list_datasource = source
+        eq_(source, lane.list_datasource)
+        eq_(source.id, lane.list_datasource_id)
+
+        # The lane is now based on two CustomLists instead of one.
+        eq_(set([customlist1.id, customlist2.id]), set(lane.customlist_ids))
 
     def test_set_audiences(self):
         """Setting Lane.audiences to a single value will
