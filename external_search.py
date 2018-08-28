@@ -20,6 +20,7 @@ from classifier import (
 )
 from model import (
     ExternalIntegration,
+    Library,
     Work,
     WorkCoverageRecord,
 )
@@ -644,7 +645,15 @@ class ExternalSearchIndexVersions(object):
             search_client.setup_index(new_index=versioned_index)
             return True
 
-class Query(object):
+class SearchBase(object):
+
+    def _match_op(self, field, operation, value):
+        """Match an operation on a field other than equality."""
+        match = {field : {operation: value}}
+        return dict(range=match)
+
+
+class Query(SearchBase):
     """An attempt to find something in the search index."""
 
     # When we run a simple query string search, we are matching the
@@ -850,11 +859,6 @@ class Query(object):
     def minimal_stemming_query(self, query_string, fields):
         return [self._match_phrase(field, query_string) for field in fields]
 
-    def _match_op(self, field, operation, value):
-        """Match an operation on a field other than equality."""
-        match = {field : {operation: value}}
-        return dict(range=match)
-
     def make_target_age_query(self, target_age, boost=1):
         (lower, upper) = target_age[0], target_age[1]
         # There must be _some_ overlap with the provided range.
@@ -1014,7 +1018,7 @@ class Query(object):
         return Q('bool', must=match_queries, boost=200.0)
 
 
-class Filter(object):
+class Filter(SearchBase):
     """A filter for search results.
 
     This covers every reason you might want to not show a search
@@ -1053,7 +1057,7 @@ class Filter(object):
         self.collection_ids = self._filter_ids(collection_ids)
 
         self.media = self._filter_list(media)
-        self.language = self._filter_list(languages)
+        self.languages = self._filter_list(languages)
         self.fiction = self._filter_scrub(fiction)
         self.audiences = self._filter_list(audiences)
 
@@ -1107,17 +1111,19 @@ class Filter(object):
         lower, upper = self.target_age
 
         def does_not_exist(field):
-            F('bool', must_not=F('exists', field))
+            """A filter that matches if there is no value for `field`."""
+            return F('bool', must_not=[F('exists', field=field)])
 
-        lower_in_range = F("target_age.lower", "lte", upper)
         lower_does_not_exist = does_not_exist("target_age.lower")
+        lower_in_range = self._match_op("target_age.lower", "lte", upper)
 
-        upper_in_range = F("target_age.upper", "gte", lower)
         upper_does_not_exist = does_not_exist("target_age.upper")
+        upper_in_range = self._match_op("target_age.lower", "lte", upper)
 
-        lower_match = or_(lower_does_not_exist, lower_in_range)
-        upper_match = or_(upper_does_not_exist, upper_in_range)
-        return F('and', [upper_match, lower_match])
+        lower_match = {"or": [lower_does_not_exist, lower_in_range]}
+        upper_match = {"or": [upper_does_not_exist, upper_in_range]}
+        final = {'and': [upper_match, lower_match]}
+        return final
 
     @classmethod
     def _filter_scrub(cls, s):
