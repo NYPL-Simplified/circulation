@@ -236,7 +236,12 @@ class HTTP(object):
             if verbose:
                 logging.info("Sending %s request to %s: kwargs %r",
                              http_method, url, kwargs)
-            args = args + (url,)
+            if len(args) == 1:
+                # requests.request takes two positional arguments,
+                # an HTTP method and a URL. In most cases, the URL
+                # gets added on here. But if you do pass in both
+                # arguments, it will still work.
+                args = args + (url,)
             response = make_request_with(*args, **kwargs)
             if verbose:
                 logging.info(
