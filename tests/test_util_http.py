@@ -171,7 +171,7 @@ class TestHTTP(object):
         generator = ResponseGenerator()
         url = "http://foo"
         response = HTTP._request_with_timeout(
-            url, generator.response, url, "POST",
+            url, generator.response, "POST",
             headers = { u"unicode header": u"unicode value"},
             data=u"unicode data"
         )

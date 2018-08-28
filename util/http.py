@@ -191,7 +191,7 @@ class HTTP(object):
         exception.
         """
         return cls._request_with_timeout(
-            url, requests.request, http_method, url, *args, **kwargs
+            url, requests.request, http_method, *args, **kwargs
         )
 
     @classmethod
@@ -236,6 +236,7 @@ class HTTP(object):
             if verbose:
                 logging.info("Sending %s request to %s: kwargs %r",
                              http_method, url, kwargs)
+            args = args + (url,)
             response = make_request_with(*args, **kwargs)
             if verbose:
                 logging.info(
@@ -349,6 +350,7 @@ class HTTP(object):
         """
         logging.info("Making debuggable %s request to %s: kwargs %r",
                      http_method, url, kwargs)
+        make_request_with = make_request_with or requests.request
         return cls._request_with_timeout(
             url, make_request_with, http_method,
             process_response_with=cls.process_debuggable_response,
