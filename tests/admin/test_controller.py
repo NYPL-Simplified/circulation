@@ -3028,7 +3028,7 @@ class SettingsControllerTest(AdminControllerTest):
         """Mock HTTP get/post method to replace HTTP.get_with_timeout or post_with_timeout."""
         self.requests.append((url, args, kwargs))
         response = self.responses.pop()
-        return HTTP.process_debuggable_response(response)
+        return HTTP.process_debuggable_response(None, response)
 
 
 class TestSettingsController(SettingsControllerTest):
