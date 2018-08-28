@@ -316,250 +316,6 @@ class ExternalSearchIndex(object):
         # print "Results: %r" % results
         return results
 
-    def make_query(self, query_string):
-
-        def _boost(query, boost=1):
-            """Boost a preexisting query."""
-            if boost > 1:
-                # Create a new boolean query with only one clause and
-                # a boost.
-                query = {
-                    'bool': {
-                        'must': query,
-                        'boost': boost
-                    }
-                }
-            return query
-
-        def make_query_string_query(query_string, fields, boost=1):
-            query = {
-                'simple_query_string': {
-                    'query': query_string,
-                    'fields': fields,
-                }
-            }
-            return _boost(query, boost)
-
-        def make_phrase_query(query_string, fields, boost=100):
-            field_queries = []
-            for field in fields:
-                field_query = {
-                  'match_phrase': {
-                    field: query_string
-                  }
-                }
-                field_queries.append(field_query)
-            return {
-                'bool': {
-                  'should': field_queries,
-                  'minimum_should_match': 1,
-                  'boost': boost,
-                }
-              }
-
-        def make_fuzzy_query(query_string, fields):
-            return {
-                'multi_match': {
-                    'query': query_string,
-                    'fields': fields,
-                    'type': 'best_fields',
-                    'fuzziness': 'AUTO',
-                    'prefix_length': 1,
-                }
-            }
-
-        def make_match_query(query_string, field):
-            query = {'match': {}}
-            query['match'][field] = query_string
-            return query
-
-        def make_target_age_query(target_age):
-            (lower, upper) = target_age[0], target_age[1]
-            return {
-                "bool" : {
-                    # There must be some overlap with the range in the query
-                    "must": [
-                       {"range": {"target_age.upper": {"gte": lower}}},
-                       {"range": {"target_age.lower": {"lte": upper}}},
-                     ],
-                    # Results with ranges closer to the query are better
-                    # e.g. for query 4-6, a result with 5-6 beats 6-7
-                    "should": [
-                       {"range": {"target_age.upper": {"lte": upper}}},
-                       {"range": {"target_age.lower": {"gte": lower}}},
-                     ],
-                    "boost": 40
-                }
-            }
-
-
-        stemmed_query_string_fields = [
-            # These fields have been stemmed.
-            'title^4',
-            "series^4",
-            'subtitle^3',
-            'summary^2',
-            "classifications.term^2",
-
-            # These fields only use the standard analyzer and are closer to the
-            # original text.
-            'author^6',
-            'publisher',
-            'imprint'
-        ]
-
-        fuzzy_fields = [
-            # Only minimal stemming should be used with fuzzy queries.
-            'title.minimal^4',
-            'series.minimal^4',
-            "subtitle.minimal^3",
-            "summary.minimal^2",
-
-            'author^4',
-            'publisher',
-            'imprint'
-        ]
-
-        # These words will fuzzy match other common words that aren't relevant,
-        # so if they're present and correctly spelled we shouldn't use a
-        # fuzzy query.
-        fuzzy_blacklist = [
-            "baseball", "basketball", # These fuzzy match each other
-
-            "soccer", # Fuzzy matches "saucer", "docker", "sorcery"
-
-            "football", "softball", "software", "postwar",
-
-            "hamlet", "harlem", "amulet", "tablet",
-
-            "biology", "ecology", "zoology", "geology",
-
-            "joke", "jokes" # "jake"
-
-            "cat", "cats",
-            "car", "cars",
-            "war", "wars",
-
-            "away", "stay",
-        ]
-        fuzzy_blacklist_re = re.compile(r'\b(%s)\b' % "|".join(fuzzy_blacklist), re.I)
-
-        # Find results that match the full query string in one of the main
-        # fields.
-
-        # Query string operators like "AND", "OR", "-", and quotation marks will
-        # work in the query string queries, but not the fuzzy query.
-        match_full_query_stemmed = make_query_string_query(query_string, stemmed_query_string_fields, boost=1.5)
-        must_match_options = [match_full_query_stemmed]
-
-        match_phrase = make_phrase_query(query_string, ['title.minimal', 'author', 'series.minimal'])
-        must_match_options.append(match_phrase)
-
-        # An exact title or author match outweighs a match that is split
-        # across fields.
-        match_title = make_phrase_query(query_string, ['title.standard'], 200)
-        must_match_options.append(match_title)
-        match_author = make_phrase_query(query_string, ['author.standard'], 200)
-        must_match_options.append(match_author)
-
-        if not fuzzy_blacklist_re.search(query_string):
-            fuzzy_query = make_fuzzy_query(query_string, fuzzy_fields)
-            must_match_options.append(fuzzy_query)
-
-        # If fiction or genre is in the query, results can match the fiction or
-        # genre value and the remaining words in the query string, instead of the
-        # full query.
-
-        fiction = None
-        if re.compile(r"\bnonfiction\b", re.IGNORECASE).search(query_string):
-            fiction = "Nonfiction"
-        elif re.compile(r"\bfiction\b", re.IGNORECASE).search(query_string):
-            fiction = "Fiction"
-
-        # Get the genre and the words in the query that matched it, if any
-        genre, genre_match = KeywordBasedClassifier.genre_match(query_string)
-
-        # Get the audience and the words in the query that matched it, if any
-        audience, audience_match = KeywordBasedClassifier.audience_match(query_string)
-
-        # Get the grade level and the words in the query that matched it, if any
-        age_from_grade, grade_match = GradeLevelClassifier.target_age_match(query_string)
-        if age_from_grade and age_from_grade[0] == None:
-            age_from_grade = None
-
-        # Get the age range and the words in the query that matched it, if any
-        age, age_match = AgeClassifier.target_age_match(query_string)
-        if age and age[0] == None:
-            age = None
-
-        if fiction or genre or audience or age_from_grade or age:
-            remaining_string = query_string
-            classification_queries = []
-
-            def without_match(original_string, match):
-                # If the match was "children" and the query string was "children's",
-                # we want to remove the "'s" as well as the match. We want to remove
-                # everything up to the next word boundary that's not an apostrophe
-                # or a dash.
-                word_boundary_pattern = r"\b%s[\w'\-]*\b"
-
-                return re.compile(word_boundary_pattern % match.strip(), re.IGNORECASE).sub("", original_string)
-
-            if genre:
-                match_genre = make_match_query(genre.name, 'genres.name')
-                classification_queries.append(match_genre)
-                remaining_string = without_match(remaining_string, genre_match)
-
-            if audience:
-                match_audience = make_match_query(audience.replace(" ", ""), 'audience')
-                classification_queries.append(match_audience)
-                remaining_string = without_match(remaining_string, audience_match)
-
-            if fiction:
-                match_fiction = make_match_query(fiction, 'fiction')
-                classification_queries.append(match_fiction)
-                remaining_string = without_match(remaining_string, fiction)
-
-            if age_from_grade:
-                match_age_from_grade = make_target_age_query(age_from_grade)
-                classification_queries.append(match_age_from_grade)
-                remaining_string = without_match(remaining_string, grade_match)
-
-            if age:
-                match_age = make_target_age_query(age)
-                classification_queries.append(match_age)
-                remaining_string = without_match(remaining_string, age_match)
-
-            if len(remaining_string.strip()) > 0:
-                # Someone who searches by genre is probably not looking for a specific book,
-                # but they might be looking for an author (eg, "science fiction iain banks").
-                # However, it's possible that they're searching for a subject that's not
-                # mentioned in the summary (eg, a person's name in a biography). So title
-                # is a possible match, but is less important than author, subtitle, and summary.
-                match_rest_of_query = make_query_string_query(remaining_string, ["author^4", "subtitle^3", "summary^5", "title^1", "series^1"])
-                classification_queries.append(match_rest_of_query)
-
-            # If classification queries and the remaining string all match, the result will
-            # have a higher score than results that match the full query in one of the
-            # main fields.
-            match_classification_and_rest_of_query = {
-                'bool': {
-                    'must': classification_queries,
-                    'boost': 200.0
-                }
-            }
-
-            must_match_options.append(match_classification_and_rest_of_query)
-
-        # Results must match either the full query or the genre/fiction query.
-        # dis_max uses the highest score from the matching queries, rather than
-        # summing the scores.
-        return {
-            'dis_max': {
-                'queries': must_match_options,
-            }
-        }
-
     def make_filter(self, collection_ids, media, languages, fiction, audiences, target_age, genres, customlist_ids):
         def _f(s):
             if not s:
@@ -939,7 +695,7 @@ class Query(object):
 
         "football", "softball", "software", "postwar",
 
-        # "tennis",
+        "tennis",
 
         "hamlet", "harlem", "amulet", "tablet",
 
@@ -957,6 +713,10 @@ class Query(object):
     # If this regular expression matches a query, we will not run
     # a fuzzy match against that query, because it's likely to be
     # counterproductive.
+    #
+    # TODO: Instead of this, avoid the fuzzy query or weigh it much
+    # lower if there don't appear to be any misspelled words in the
+    # query string.
     FUZZY_CIRCUIT_BREAKER = re.compile(
         r'\b(%s)\b' % "|".join(FUZZY_CONFOUNDERS), re.I
     )
@@ -1061,12 +821,11 @@ class Query(object):
         return q
 
     def fuzzy_string_query(self, query_string):
-        # TODO: If all (or a high percentage) of the words in the
-        # query string look like correctly spelled English words,
-        # don't run a fuzzy query. This can potentially replace the
-        # use of FUZZY_CIRCUIT_BREAKER.
-        #if self.FUZZY_CIRCUIT_BREAKER.search(query_string):
-        #    return None
+        # If the query string contains any of the strings known to counfound
+        # fuzzy search, don't do the fuzzy search.
+        if self.FUZZY_CIRCUIT_BREAKER.search(query_string):
+            return None
+
         fuzzy = Q(
             "multi_match", fields=self.FUZZY_QUERY_STRING_FIELDS,
             type="best_fields", fuzziness="AUTO",
