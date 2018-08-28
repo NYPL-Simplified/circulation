@@ -1022,6 +1022,35 @@ class TestWorkList(DatabaseTest):
         # to the constructor.
         eq_([1,2,3], wl.entrypoints)
 
+    def test_initialize_with_customlists(self):
+
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+
+        customlist1 = self._customlist(
+            data_source_name=gutenberg.name, num_entries=0
+        )
+        customlist2 = self._customlist(
+            data_source_name=gutenberg.name, num_entries=0
+        )
+        customlist3 = self._customlist(
+            data_source_name=DataSource.OVERDRIVE, num_entries=0
+        )
+
+        # Make a WorkList based on specific CustomLists.
+        worklist = WorkList()
+        worklist.initialize(self._default_library,
+                            customlists=[customlist1, customlist3])
+        eq_([customlist1.id, customlist3.id], worklist.customlist_ids)
+        eq_(None, worklist.list_datasource_id)
+
+        # Make a WorkList based on a DataSource, as a shorthand for
+        # 'all the CustomLists from that DataSource'.
+        worklist = WorkList()
+        worklist.initialize(self._default_library,
+                            list_datasource=gutenberg)
+        eq_([customlist1.id, customlist2.id], worklist.customlist_ids)
+        eq_(gutenberg.id, worklist.list_datasource_id)
+
     def test_initialize_without_library(self):
         wl = WorkList()
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
@@ -1136,17 +1165,17 @@ class TestWorkList(DatabaseTest):
         eq_([wl_child, lane_child], wl.visible_children)
 
     def test_uses_customlists(self):
-        """A WorkList is said to use CustomLists if either .customlist_ids
+        """A WorkList is said to use CustomLists if either ._customlist_ids
         or .list_datasource_id is set.
         """
         wl = WorkList()
         wl.initialize(self._default_library)
         eq_(False, wl.uses_customlists)
 
-        wl.customlist_ids = object()
+        wl._customlist_ids = object()
         eq_(True, wl.uses_customlists)
 
-        wl.customlist_ids = None
+        wl._customlist_ids = None
         wl.list_datasource_id = object()
         eq_(True, wl.uses_customlists)
 
@@ -1457,13 +1486,16 @@ class TestWorkList(DatabaseTest):
             """
 
             def __init__(self, languages=None, genre_ids=None, media=None,
-                         customlist_ids=None, list_datasource_id=None,
+                         customlists=[], list_datasource=None,
                          list_seen_in_previous_days=None):
                 self.languages = languages
                 self.genre_ids = genre_ids
                 self.media = media
-                self.customlist_ids=customlist_ids
-                self.list_datasource_id=list_datasource_id
+                self._customlist_ids=[x.id for x in customlists]
+                if list_datasource:
+                    self.list_datasource_id = list_datasource.id
+                else:
+                    self.list_datasource_id = None
                 self.list_seen_in_previous_days = list_seen_in_previous_days
 
             def audience_filter_clauses(self, _db, qu):
@@ -1553,7 +1585,7 @@ class TestWorkList(DatabaseTest):
 
         worklist_has_books([], featured="featured value",
                            outer_join="outer_join value",
-                           customlist_ids=[empty_list.id])
+                           customlists=[empty_list])
         # There were no results, but customlist_filter_clauses was
         # called, with the arguments we passed in for `featured`
         # and `outer_join` (plus an intermediary query that we can't
@@ -1563,7 +1595,7 @@ class TestWorkList(DatabaseTest):
         eq_(outer_join, "outer_join value")
         eq_(featured, "featured value")
 
-        worklist_has_books([english_sf], customlist_ids=[sf_list.id])
+        worklist_has_books([english_sf], customlists=[sf_list])
 
 
     def test_audience_filter_clauses(self):
@@ -1658,14 +1690,14 @@ class TestWorkList(DatabaseTest):
         # This WorkList gets every work on a specific list.
         works_on_list = WorkList()
         works_on_list.initialize(
-            self._default_library, customlist_ids=[gutenberg_list.id]
+            self._default_library, customlists=[gutenberg_list]
         )
 
         # This lane gets every work on every list associated with Project
         # Gutenberg.
         works_on_gutenberg_lists = WorkList()
         works_on_gutenberg_lists.initialize(
-            self._default_library, list_datasource_id=gutenberg.id
+            self._default_library, list_datasource=gutenberg
         )
         self.add_to_materialized_view([work])
 
@@ -1696,7 +1728,7 @@ class TestWorkList(DatabaseTest):
         # work only shows up once.
         gutenberg_list_2, ignore = self._customlist(num_entries=0)
         gutenberg_list_2_entry, ignore = gutenberg_list_2.add_entry(work)
-        works_on_list.customlist_ids.append(gutenberg_list.id)
+        works_on_list._customlist_ids.append(gutenberg_list.id)
         eq_([work.id], results(works_on_list))
 
         # This WorkList gets every work on a list associated with Overdrive.
@@ -1704,7 +1736,7 @@ class TestWorkList(DatabaseTest):
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         works_on_overdrive_lists = WorkList()
         works_on_overdrive_lists.initialize(
-            self._default_library, list_datasource_id=overdrive.id
+            self._default_library, list_datasource=overdrive
         )
         eq_([], results(works_on_overdrive_lists))
 
@@ -1736,7 +1768,7 @@ class TestWorkList(DatabaseTest):
         # method.
         gutenberg_list_2_wl = WorkList()
         gutenberg_list_2_wl.initialize(
-            self._default_library, customlist_ids = [gutenberg_list_2.id]
+            self._default_library, customlists = [gutenberg_list_2]
         )
 
         # These two lines don't do anything, because these are
@@ -1963,6 +1995,13 @@ class TestLane(DatabaseTest):
     def test_get_library(self):
         lane = self._lane()
         eq_(self._default_library, lane.get_library(self._db))
+
+    def test_list_datasource_id(self):
+        lane = self._lane()
+        eq_(None, lane.list_datasource_id)
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        lane.list_datasource = gutenberg
+        eq_(gutenberg.id, lane.list_datasource_id)
 
     def test_set_audiences(self):
         """Setting Lane.audiences to a single value will

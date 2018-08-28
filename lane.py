@@ -785,7 +785,7 @@ class WorkList(object):
 
     def initialize(self, library, display_name=None, genres=None,
                    audiences=None, languages=None, media=None,
-                   customlist_ids=None, list_datasource_id=None,
+                   customlists=None, list_datasource=None,
                    list_seen_in_previous_days=None,
                    children=None, priority=None, entrypoints=None,
     ):
@@ -813,11 +813,13 @@ class WorkList(object):
         :param media: Only Works in one of these media will be included
         in lists.
 
-        :param customlist_ids: Only Works included on one of these CustomLists
+        :param customlists: Only Works included on one of these CustomLists
         will be included in lists.
 
-        :param list_datasource_id: Only Works included on a CustomList
-        associated with this DataSource will be included in lists.
+        :param list_datasource: Only Works included on a CustomList
+        associated with this DataSource will be included in
+        lists. This overrides any specific CustomLists provided in
+        `customlists`.
 
         :param list_seen_in_previous_days: Only Works that were added
         to a matching CustomList within this number of days will be
@@ -850,8 +852,28 @@ class WorkList(object):
         self.languages = languages
         self.media = media
 
-        self.customlist_ids = customlist_ids
-        self.list_datasource_id = list_datasource_id
+        # If a specific set of CustomLists was passed in, store their IDs.
+        #
+        # If a custom list DataSource was passed in, gather the IDs for
+        # every CustomList associated with that DataSource, and store
+        # those IDs.
+        #
+        # Either way, WorkList starts out with a specific list of IDs,
+        # which simplifies the WorkList code in a way that isn't
+        # available to Lane.
+        self._customlist_ids = None
+        self.list_datasource_id = None
+        if list_datasource:
+            customlists = list_datasource.custom_lists
+
+            # We do also store the CustomList ID, which is used as an
+            # optimization in customlist_filter_clauses().
+            self.list_datasource_id = list_datasource.id
+
+        # The custom list IDs are stored in _customlist_ids, for
+        # compatibility with Lane.
+        if customlists:
+            self._customlist_ids = [x.id for x in customlists]
         self.list_seen_in_previous_days = list_seen_in_previous_days
 
         # By default, a WorkList doesn't have a fiction status or target age.
@@ -869,11 +891,16 @@ class WorkList(object):
             self.entrypoints = []
 
     @property
+    def customlist_ids(self):
+        """Return the custom list IDs."""
+        return self._customlist_ids
+
+    @property
     def uses_customlists(self):
         """Does the works() implementation for this WorkList look for works on
         CustomLists?
         """
-        if self.customlist_ids or self.list_datasource_id:
+        if self._customlist_ids or self.list_datasource_id:
             return True
         return False
 
@@ -2014,6 +2041,12 @@ class Lane(Base, WorkList):
             self.customlists = []
             value = value.id
         self._list_datasource_id = value
+
+    @property
+    def list_datasource_id(self):
+        if self.list_datasource:
+            return self.list_datasource.id
+        return None
 
     @property
     def uses_customlists(self):
