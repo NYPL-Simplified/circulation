@@ -1027,9 +1027,9 @@ class Filter(SearchBase):
     """
 
     @classmethod
-    def from_worklist(cls, _db, worklist):
+    def from_worklist(cls, _db, worklist, entrypoint):
         """Create a Filter that, as much as possible, tries to find only
-        works that belong in the given WorkList.
+        works that belong in the given WorkList and EntryPoint.
 
         The 'as much as possible' caveat is because if a Lane inherits
         settings from its parent, and both parent and child include
@@ -1037,6 +1037,7 @@ class Filter(SearchBase):
         combined -- only the child restrictions will be used.
 
         :param worklist: A WorkList
+        :param entrypoint: An EntryPoint
         """
         library = worklist.get_library(_db)
 
@@ -1051,22 +1052,24 @@ class Filter(SearchBase):
 
         return cls(
             library, media, languages, fiction, audiences,
-            target_age, genre_ids, customlist_ids
+            target_age, genre_ids, customlist_ids, entrypoint
         )
 
     def __init__(self, collection_ids, media=None, languages=None,
                  fiction=None, audiences=None, target_age=None,
-                 in_any_of_these_genres=[], on_any_of_these_customlists=None):
+                 in_any_of_these_genres=[], on_any_of_these_customlists=None,
+                 entrypoint=None,
+    ):
 
         if isinstance(collection_ids, Library):
             # Find all works in this Library's collections.
             collection_ids = collection_ids.collections
         self.collection_ids = self._filter_ids(collection_ids)
 
-        self.media = self._filter_list(media)
-        self.languages = self._filter_list(languages)
+        self.media = self._scrub_list(media)
+        self.languages = self._scrub_list(languages)
         self.fiction = fiction
-        self.audiences = self._filter_list(audiences)
+        self.audiences = self._scrub_list(audiences)
 
         if target_age:
             if isinstance(target_age, int):
@@ -1081,6 +1084,7 @@ class Filter(SearchBase):
 
         self.genre_ids = self._filter_ids(in_any_of_these_genres)
         self.customlist_ids = self._filter_ids(on_any_of_these_customlists)
+        self.entrypoint = entrypoint
 
     def build(self):
         """Convert this object to an Elasticsearch Filter object."""
@@ -1111,6 +1115,11 @@ class Filter(SearchBase):
         if self.customlist_ids:
             f = f & F('terms', list_id=self.customlist_ids)
 
+        if self.entrypoint:
+            additional = self.entrypoint.additional_search_filter()
+            if additional:
+                f = f & additional
+
         return f
 
     @property
@@ -1138,7 +1147,7 @@ class Filter(SearchBase):
         return both_ends_match
 
     @classmethod
-    def _filter_scrub(cls, s):
+    def _scrub(cls, s):
         """Modify a string for use in a filter match.
         
         e.g. "Young Adult" becomes "youngadult"
@@ -1150,15 +1159,15 @@ class Filter(SearchBase):
         return s.lower().replace(" ", "")
 
     @classmethod
-    def _filter_list(cls, s):
-        """The same as _filter_scrub, except it always outputs
+    def _scrub_list(cls, s):
+        """The same as _scrub, except it always outputs
         a list of items.
         """
         if s is None:
             return []
         if isinstance(s, basestring):
             s = [s]
-        return [cls._filter_scrub(x) for x in s]
+        return [cls._scrub(x) for x in s]
 
     @classmethod
     def _filter_ids(cls, ids):

@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+from elasticsearch_dsl import F
 
 class EntryPoint(object):
 
@@ -81,9 +82,9 @@ class EntryPoint(object):
         raise NotImplementedError()
 
     @classmethod
-    def modified_search_arguments(cls, **kwargs):
-        """If possible, modify the arguments to ExternalSearch.query_works()
-        so that only items belonging to this entry point are found.
+    def additional_search_filter(cls, **kwargs):
+        """If possible, create an ElasticSearch Filter object that restricts
+        results to items belonging to this entry point.
 
         Any items returned will be run through the materialized view
         lookup, which will filter any items that don't belong in this
@@ -91,6 +92,7 @@ class EntryPoint(object):
         there's a chance that every item returned by
         ExternalSearch.search() will be filtered out, giving the
         impression that there are no search results when there are.
+
         """
         return kwargs
 
@@ -130,12 +132,12 @@ class MediumEntryPoint(EntryPoint):
         return qu.filter(mv.medium==cls.INTERNAL_NAME)
 
     @classmethod
-    def modified_search_arguments(cls, **kwargs):
-        """Modify a set of arguments to ExternalSearch.query_works to find
-        only items with the given medium.
+    def additional_search_filter(cls, **kwargs):
+        """Create an ElasticSearch filter that restricts results to
+        items belonging to this EntryPoint.
         """
-        kwargs['media'] = [cls.INTERNAL_NAME]
-        return kwargs
+        from external_search import Filter
+        return F('term', medium=Filter._scrub(cls.INTERNAL_NAME))
 
 
 class EbooksEntryPoint(MediumEntryPoint):
