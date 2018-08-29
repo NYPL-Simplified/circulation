@@ -990,6 +990,13 @@ class WorkList(object):
         """
         return []
 
+    @property
+    def hierarchy(self):
+        """The portion of the WorkList hierarchy that culminates in this
+        WorkList.
+        """
+        return list(reversed(list(self.parentage))) + [self]
+
     def inherited_value(self, k):
         """Try to find this WorkList's value for the given key (e.g. 'fiction'
         or 'audiences').
@@ -1020,8 +1027,7 @@ class WorkList(object):
         can override.
         """
         values = []
-        complete_parentage = list(reversed(self.parentage)) + [self]
-        for wl in complete_parentage:
+        for wl in self.hierarchy:
             value = getattr(wl, k)
             if value not in (None, []):
                 values.append(value)
@@ -1039,8 +1045,7 @@ class WorkList(object):
         """A human-readable identifier for this WorkList that
         captures its position within the heirarchy.
         """
-        lane_parentage = list(reversed(list(self.parentage))) + [self]
-        full_parentage = [unicode(x.display_name) for x in lane_parentage]
+        full_parentage = [unicode(x.display_name) for x in self.hierarchy]
         if getattr(self, 'library', None):
             # This WorkList is associated with a specific library.
             # incorporate the library's name to distinguish between it

@@ -1019,10 +1019,10 @@ class Filter(SearchBase):
             f = f & self.target_age_filter
 
         for genre_ids in self.genre_restriction_sets:
-            f = f & F('terms', **{'genres.term' : filter_ids(self.genre_ids)})
+            f = f & F('terms', **{'genres.term' : filter_ids(genre_ids)})
 
         for customlist_ids in self.customlist_restriction_sets:
-            f = f & F('terms', list_id=filter_ids(self.customlist_ids))
+            f = f & F('terms', list_id=filter_ids(customlist_ids))
 
         return f
 
