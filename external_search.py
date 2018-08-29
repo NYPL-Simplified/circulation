@@ -279,8 +279,8 @@ class ExternalSearchIndex(object):
         if not self.works_alias:
             return []
 
-        query = QueryBuilder(query_string, filter).query
-        search = Search(using=self.__client)
+        query = QueryBuilder.build(query_string, filter)
+        search = Search(using=self.__client).query(query)
         if fields:
             search = search.fields(fields)
         return search.execute()
@@ -614,18 +614,23 @@ class QueryBuilder(SearchBase):
         r'\b(%s)\b' % "|".join(FUZZY_CONFOUNDERS), re.I
     )
 
-    def __init__(self, query_string, filter=None):
-        """Build a Query object for the given query string and filter."""
-        self.query_string = query_string
-        self.filter = filter
+    @classmethod
+    def build(cls, query_string, filter=None):
+        """Build an Elasticsearch Query for the given query string and
+        filter.
+        """
+        query = cls.query(query_string)
 
-        query = self.build(query_string)
         # Add the filter, if necessary.
-        if self.filter:
-            query = Q("filtered", query=query, filter=self.filter.build())
-        self.query = query
+        if filter:
+            set_trace()
+            query = Q("filtered", query=query, filter=filter.build())
 
-    def build(self, query_string):
+        # There you go!
+        return query
+
+    @classmethod
+    def query(cls, query_string):
         """Build an Elasticsearch Query object for the given query
         string.
 
@@ -645,21 +650,21 @@ class QueryBuilder(SearchBase):
             relative to other hypotheses being tested.
             """
             if boost > 1:
-                query = self._boost(boost, query)
+                query = cls._boost(boost, query)
             hypotheses.append(query)
 
         # Here are the hypotheses:
 
         # The query string might appear in one of the standard
         # searchable fields.
-        simple = self.simple_query_string_query(query_string)
+        simple = cls.simple_query_string_query(query_string)
         hypothesize(simple)
 
         # The query string might be a close match against title,
         # author, or series.
         hypothesize(
-            self.minimal_stemming_query(
-                query_string, self.MINIMAL_STEMMING_QUERY_FIELDS
+            cls.minimal_stemming_query(
+                query_string, cls.MINIMAL_STEMMING_QUERY_FIELDS
             ),
             100
         )
@@ -667,22 +672,22 @@ class QueryBuilder(SearchBase):
         # The query string might be an exact match for title or
         # author. Such a match would be boosted quite a lot.
         hypothesize(
-            self._match_phrase("title.standard", query_string), 200
+            cls._match_phrase("title.standard", query_string), 200
         )
         hypothesize(
-            self._match_phrase("author.standard", query_string), 200
+            cls._match_phrase("author.standard", query_string), 200
         )
 
         # The query string might be a fuzzy match against one of the
         # standard searchable fields.
-        fuzzy = self.fuzzy_string_query(query_string)
+        fuzzy = cls.fuzzy_string_query(query_string)
         if fuzzy:
             hypothesize(fuzzy, 1)
 
         # The query string might contain some specific field matches
         # (e.g. a genre name or target age), with the remainder being
         # the "real" query string.
-        with_field_matches = self._query_with_field_matches(query_string)
+        with_field_matches = cls._query_with_field_matches(query_string)
         if with_field_matches:
             hypothesize(with_field_matches)
 
@@ -691,7 +696,8 @@ class QueryBuilder(SearchBase):
         qu = Q("dis_max", queries=hypotheses)
         return qu
 
-    def _boost(self, boost, queries):
+    @classmethod
+    def _boost(cls, boost, queries):
         """Boost a query by a certain amount relative to its neighbors in a
         dis_max query.
         """
@@ -700,26 +706,29 @@ class QueryBuilder(SearchBase):
         return Q("bool", boost=float(boost), minimum_should_match=1,
                  should=queries)
 
-    def simple_query_string_query(self, query_string, fields=None):
-        fields = fields or self.SIMPLE_QUERY_STRING_FIELDS
+    @classmethod
+    def simple_query_string_query(cls, query_string, fields=None):
+        fields = fields or cls.SIMPLE_QUERY_STRING_FIELDS
         q = Q("simple_query_string", query=query_string, fields=fields)
         return q
 
-    def fuzzy_string_query(self, query_string):
+    @classmethod
+    def fuzzy_string_query(cls, query_string):
         # If the query string contains any of the strings known to counfound
         # fuzzy search, don't do the fuzzy search.
-        if self.FUZZY_CIRCUIT_BREAKER.search(query_string):
+        if cls.FUZZY_CIRCUIT_BREAKER.search(query_string):
             return None
 
         fuzzy = Q(
-            "multi_match", fields=self.FUZZY_QUERY_STRING_FIELDS,
+            "multi_match", fields=cls.FUZZY_QUERY_STRING_FIELDS,
             type="best_fields", fuzziness="AUTO",
             query=query_string,
             prefix_length=1,
         )
         return fuzzy
 
-    def _match_phrase(self, field, query_string):
+    @classmethod
+    def _match_phrase(cls, field, query_string):
         """A clause that matches the query string against a specific field in the search document.
 
         The words in the query_string must match the words in the field,
@@ -727,31 +736,35 @@ class QueryBuilder(SearchBase):
         """
         return Q("match_phrase", **{field: query_string})
 
-    def _match(self, field, query_string):
+    @classmethod
+    def _match(cls, field, query_string):
         """A clause that matches the query string against a specific field in the search document.
         """
         return Q("match", **{field: query_string})
 
-    def minimal_stemming_query(self, query_string, fields):
-        return [self._match_phrase(field, query_string) for field in fields]
+    @classmethod
+    def minimal_stemming_query(cls, query_string, fields):
+        return [cls._match_phrase(field, query_string) for field in fields]
 
-    def make_target_age_query(self, target_age, boost=1):
+    @classmethod
+    def make_target_age_query(cls, target_age, boost=1):
         (lower, upper) = target_age[0], target_age[1]
         # There must be _some_ overlap with the provided range.
         must = [
-            self._match_op("target_age.upper", "gte", lower),
-            self._match_op("target_age.lower", "lte", upper)
+            cls._match_op("target_age.upper", "gte", lower),
+            cls._match_op("target_age.lower", "lte", upper)
         ]
 
         # Results with ranges closer to the query are better
         # e.g. for query 4-6, a result with 5-6 beats 6-7
         should = [
-            self._match_op("target_age.upper", "lte", upper),
-            self._match_op("target_age.lower", "gte", lower),
+            cls._match_op("target_age.upper", "lte", upper),
+            cls._match_op("target_age.lower", "gte", lower),
         ]
         return Q("bool", must=must, should=should, boost=boost)
 
-    def _query_with_field_matches(self, query_string):
+    @classmethod
+    def _query_with_field_matches(cls, query_string):
         """Deal with a query string that contains information that should be
         exactly matched against a controlled vocabulary
         (e.g. "nonfiction" or "grade 5") along with information that
@@ -792,7 +805,7 @@ class QueryBuilder(SearchBase):
             if not query:
                 # This is not a relevant part of the query string.
                 return query_string
-            match_query = self._match(field, query)
+            match_query = cls._match(field, query)
             match_queries.append(match_query)
             return without_match(query_string, matched_portion)
 
@@ -806,7 +819,7 @@ class QueryBuilder(SearchBase):
             if not query:
                 # This is not a relevant part of the query string.
                 return query_string
-            match_query = self.make_target_age_query(query, 40)
+            match_query = cls.make_target_age_query(query, 40)
             match_queries.append(match_query)
             return without_match(query_string, matched_portion)
 
@@ -881,7 +894,7 @@ class QueryBuilder(SearchBase):
             # banks'). But they're most likely searching for a
             # _type_ of book, which means a match against summary or
             # subject ('asteroids')  would be the most useful.
-            match_rest_of_query = self.simple_query_string_query(
+            match_rest_of_query = cls.simple_query_string_query(
                 query_string.strip(),
                 ["author^4", "subtitle^3", "summary^5", "title^1", "series^1",
                 ]
