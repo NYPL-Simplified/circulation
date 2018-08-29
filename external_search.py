@@ -283,7 +283,7 @@ class ExternalSearchIndex(object):
         search = Search(using=self.__client).query(query.build())
         if fields:
             search = search.fields(fields)
-        return search.execute()
+        return search
 
     def bulk_update(self, works, retry_on_batch_failure=True):
         """Upload a batch of works to the search index at once."""
@@ -616,27 +616,31 @@ class Query(SearchBase):
     )
 
     def __init__(self, query_string, filter=None):
-        """Store a query string and filter."""
+        """Store a query string and filter.
+
+        :param query_string: A user typed this string into a search box.
+        :param filter: A Filter object representing the circumstances
+            of the search -- for example, maybe we are searching within
+            a specific lane.
+        """
         self.query_string = query_string
         self.filter = filter
 
     def build(self):
         """Make an Elasticsearch-DSL query object out of this query."""
-        query = self.query(self.query_string)
+        query = self.query()
 
-        # Add the filter, if necessary.
+        # Add the filter, if there is one.
         if self.filter:
             query = Q("filtered", query=query, filter=self.filter.build())
 
         # There you go!
         return query
 
-    def query(self, query_string):
-        """Build an Elasticsearch Query object for the given query
-        string.
-
-        :param query_string: A user typed this string into a search box.
+    def query(self):
+        """Build an Elasticsearch Query object for this query string.
         """
+        query_string = self.query_string
 
         # The search query will create a dis_max query, which tests a
         # number of hypotheses about what the query string might
@@ -648,7 +652,9 @@ class Query(SearchBase):
             """Add a hypothesis to the ones to be tested for each book.
 
             :param boost: Boost the overall weight of this hypothesis
-            relative to other hypotheses being tested.
+            relative to other hypotheses being tested. The default of 1.5
+            allows most 'ordinary' hypotheses to rank higher than the
+            fuzzy-search hypothesis.
             """
             if boost > 1:
                 query = self._boost(boost, query)
