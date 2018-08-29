@@ -141,8 +141,6 @@ class ExternalSearchIndex(object):
                 url, use_ssl=use_ssl, timeout=20, maxsize=25
             )
 
-        self.search = Search(using=self.__client)
-
         self.indices = self.__client.indices
         self.index = self.__client.index
         self.delete = self.__client.delete
@@ -277,19 +275,15 @@ class ExternalSearchIndex(object):
 
         return base_works_index
 
-    def query_works(self, query_string, filter,
-                    fields=None, size=30, offset=0):
+    def query_works(self, query_string, filter, fields=None):
         if not self.works_alias:
             return []
 
-
-        # TODO: we need index=works_alias, from_=offset,
-        # size=size, and fields if possible
-        qu = Query(query_string, filter)
-        set_trace()
-        results = qu.execute(self.search)
-        # print "Results: %r" % results
-        return results
+        query = QueryBuilder(query_string, filter).query
+        search = Search(using=self.__client)
+        if fields:
+            search = search.fields(fields)
+        return search.execute()
 
     def bulk_update(self, works, retry_on_batch_failure=True):
         """Upload a batch of works to the search index at once."""
@@ -543,7 +537,7 @@ class SearchBase(object):
         return dict(range=match)
 
 
-class Query(SearchBase):
+class QueryBuilder(SearchBase):
     """An attempt to find something in the search index."""
 
     # When we run a simple query string search, we are matching the
@@ -621,26 +615,18 @@ class Query(SearchBase):
     )
 
     def __init__(self, query_string, filter=None):
+        """Build a Query object for the given query string and filter."""
         self.query_string = query_string
         self.filter = filter
 
-    def execute(self, searcher, fields=None, size=30, offset=0):
-        # Build the query.
-        query = self.build(self.query_string)
-
+        query = self.build(query_string)
         # Add the filter, if necessary.
         if self.filter:
             query = Q("filtered", query=query, filter=self.filter.build())
-
-        # Run the query.
-        qu = searcher.query
-        results = qu(query)
-        # import pprint
-        # print pprint.pprint(results.to_dict())
-        return results
+        self.query = query
 
     def build(self, query_string):
-        """Build an Elasticsearch query document for the given query
+        """Build an Elasticsearch Query object for the given query
         string.
 
         :param query_string: A user typed this string into a search box.
