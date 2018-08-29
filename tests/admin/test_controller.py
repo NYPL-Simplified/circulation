@@ -3028,7 +3028,7 @@ class SettingsControllerTest(AdminControllerTest):
         """Mock HTTP get/post method to replace HTTP.get_with_timeout or post_with_timeout."""
         self.requests.append((url, args, kwargs))
         response = self.responses.pop()
-        return HTTP.process_debuggable_response(response)
+        return HTTP.process_debuggable_response(url, response)
 
 
 class TestSettingsController(SettingsControllerTest):
@@ -3427,6 +3427,22 @@ class TestSettingsController(SettingsControllerTest):
         args = self.prior_test_results_called_with[0]
         eq_(args[1], OPDSImportMonitor)
         eq_(args[3], OPDSCollection)
+
+        # We don't crash if there's a problem getting the prior test
+        # results -- _get_prior_test_results just returns None.
+        @classmethod
+        def oops(cls, *args, **kwargs):
+            raise Exception("Test result disaster!")
+        HasSelfTests.prior_test_results = oops
+        self_test_results = controller._get_prior_test_results(
+            OPDSCollection, OPDSImporter
+        )
+        eq_(
+            "Exception getting self-test results for collection %s: Test result disaster!" % (
+                OPDSCollection.name
+            ),
+            self_test_results
+        )
 
         HasSelfTests.prior_test_results = old_prior_test_results
 
