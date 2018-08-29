@@ -915,7 +915,7 @@ class Filter(SearchBase):
     """
 
     @classmethod
-    def from_worklist(cls, _db, worklist, entrypoint):
+    def from_worklist(cls, _db, worklist, facets):
         """Create a Filter that, as much as possible, tries to find only
         works that belong in the given WorkList and EntryPoint.
 
@@ -925,7 +925,7 @@ class Filter(SearchBase):
         combined -- only the child restrictions will be used.
 
         :param worklist: A WorkList
-        :param entrypoint: An EntryPoint
+        :param facets: A SearchFacets object.
         """
         library = worklist.get_library(_db)
 
@@ -940,24 +940,24 @@ class Filter(SearchBase):
 
         return cls(
             library, media, languages, fiction, audiences,
-            target_age, genre_ids, customlist_ids, entrypoint
+            target_age, genre_ids, customlist_ids, facets
         )
 
     def __init__(self, collection_ids, media=None, languages=None,
                  fiction=None, audiences=None, target_age=None,
                  in_any_of_these_genres=[], on_any_of_these_customlists=None,
-                 entrypoint=None,
+                 facets=None
     ):
 
         if isinstance(collection_ids, Library):
             # Find all works in this Library's collections.
             collection_ids = collection_ids.collections
-        self.collection_ids = self._filter_ids(collection_ids)
+        self.collection_ids = collection_ids
 
-        self.media = self._scrub_list(media)
-        self.languages = self._scrub_list(languages)
+        self.media = media
+        self.languages = languages
         self.fiction = fiction
-        self.audiences = self._scrub_list(audiences)
+        self.audiences = audiences
 
         if target_age:
             if isinstance(target_age, int):
@@ -970,19 +970,36 @@ class Filter(SearchBase):
         else:
             self.target_age = None
 
-        self.genre_ids = self._filter_ids(in_any_of_these_genres)
-        self.customlist_ids = self._filter_ids(on_any_of_these_customlists)
-        self.entrypoint = entrypoint
+        self.genre_ids = in_any_of_these_genres
+        self.customlist_ids = on_any_of_these_customlists
+
+        # Give the Facets object a chance to modify any or all of this
+        # information.
+        if facets:
+            facets.modify_search_filter(self)
+
+        # Filter the lists of database IDs to make sure we aren't
+        # storing any database objects.
+        self.collection_ids = self._filter_ids(self.collection_ids)
+        self.genre_ids = self._filter_ids(self.genre_ids)
+        self.customlist_ids = self._filter_ids(self.customlist_ids)
 
     def build(self):
         """Convert this object to an Elasticsearch Filter object."""
-        f = F('terms', collection_id=self.collection_ids)
+
+        # Since a Filter object can be modified after it's created, we
+        # need to scrub all the inputs, whether or not they were
+        # scrubbed in the constructor.
+        scrub_list = self._scrub_list
+        filter_ids = self._filter_ids
+
+        f = F('terms', collection_id=filter_ids(self.collection_ids))
 
         if self.media:
-            f = f & F('terms', medium=self.media)
+            f = f & F('terms', medium=scrub_list(self.media))
 
         if self.languages:
-            f = f & F('terms', language=self.languages)
+            f = f & F('terms', language=scrub_list(self.languages))
 
         if self.fiction is not None:
             if self.fiction:
@@ -992,21 +1009,16 @@ class Filter(SearchBase):
             f = f & F('term', fiction=value)
 
         if self.audiences:
-            f = f & F('terms', audience=self.audiences)
+            f = f & F('terms', audience=scrub_list(self.audiences))
 
         if self.target_age:
             f = f & self.target_age_filter
 
         if self.genre_ids:
-            f = f & F('terms', **{'genres.term' : self.genre_ids})
+            f = f & F('terms', **{'genres.term' : filter_ids(self.genre_ids)})
 
         if self.customlist_ids:
-            f = f & F('terms', list_id=self.customlist_ids)
-
-        if self.entrypoint:
-            additional = self.entrypoint.additional_search_filter()
-            if additional:
-                f = f & additional
+            f = f & F('terms', list_id=filter_ids(self.customlist_ids))
 
         return f
 

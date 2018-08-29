@@ -132,12 +132,11 @@ class MediumEntryPoint(EntryPoint):
         return qu.filter(mv.medium==cls.INTERNAL_NAME)
 
     @classmethod
-    def additional_search_filter(cls, **kwargs):
-        """Create an ElasticSearch filter that restricts results to
-        items belonging to this EntryPoint.
+    def modify_search_filter(cls, filter):
+        """Modify an external_search.Filter object so it only finds
+        titles available through this EntryPoint.
         """
-        from external_search import Filter
-        return F('term', medium=Filter._scrub(cls.INTERNAL_NAME))
+        filter.media = [cls.INTERNAL_NAME]
 
 
 class EbooksEntryPoint(MediumEntryPoint):
