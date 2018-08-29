@@ -140,8 +140,10 @@ class ExternalSearchIndex(object):
             ExternalSearchIndex.__client = Elasticsearch(
                 url, use_ssl=use_ssl, timeout=20, maxsize=25
             )
+
+        self.search = Search(using=self.__client)
+
         self.indices = self.__client.indices
-        self.search = self.__client.search
         self.index = self.__client.index
         self.delete = self.__client.delete
         self.exists = self.__client.exists
@@ -275,131 +277,19 @@ class ExternalSearchIndex(object):
 
         return base_works_index
 
-    def query_works(self, library, query_string, media, languages, fiction, audiences,
-                    target_age, in_any_of_these_genres=[], on_any_of_these_lists=None, fields=None, size=30, offset=0):
+    def query_works(self, query_string, filter,
+                    fields=None, size=30, offset=0):
         if not self.works_alias:
             return []
 
-        if library is None:
-            # TODO: We're searching the entire index and filtering out
-            # books that aren't available to the patron's current
-            # library in a later step. To avoid search disruption,
-            # this is the behavior we'll use until we're able to
-            # migrate all existing search indexes to the new document
-            # format.
-            collection_ids = None
-        else:
-            collection_ids = [x.id for x in library.collections]
 
-        filter = self.make_filter(
-            collection_ids, media, languages, fiction,
-            audiences, target_age, in_any_of_these_genres,
-            on_any_of_these_lists
-        )
-        q = dict(
-            filtered=dict(
-                query=self.make_query(query_string),
-                filter=filter,
-            ),
-        )
-        body = dict(query=q)
-        search_args = dict(
-            index=self.works_alias,
-            body=dict(query=q),
-            from_=offset,
-            size=size,
-        )
-        if fields is not None:
-            search_args['fields'] = fields
-        # search_args['explain'] = True
-        # print "Args looks like: %r" % search_args
-        results = self.search(**search_args)
+        # TODO: we need index=works_alias, from_=offset,
+        # size=size, and fields if possible
+        qu = Query(query_string, filter)
+        set_trace()
+        results = qu.execute(self.search)
         # print "Results: %r" % results
         return results
-
-    def make_filter(self, collection_ids, media, languages, fiction, audiences, target_age, genres, customlist_ids):
-        def _f(s):
-            if not s:
-                return s
-            return s.lower().replace(" ", "")
-
-        clauses = []
-        if collection_ids is not None:
-            # Either the collection ID field must be completely
-            # missing (as it will be in older indexes) or it must
-            # include one of the collection IDs we're looking for.
-            collection_id_matches = dict(
-                terms=dict(collection_id=list(collection_ids))
-            )
-            no_collection_id = dict(
-                bool=dict(must_not=dict(exists=dict(field="collection_id")))
-            )
-            clauses.append({'or': [collection_id_matches, no_collection_id]})
-        if languages:
-            clauses.append(dict(terms=dict(language=list(languages))))
-        if genres:
-            genres = [x for x in genres]
-            if isinstance(genres[0], int):
-                # We were given genre IDs. Leave them alone.
-                genre_ids = genres
-            else:
-                # We were given genre objects. This should
-                # no longer happen but we'll handle it.
-                genre_ids = [genre.id for genre in genres]
-            clauses.append(dict(terms={"genres.term": genre_ids}))
-        if customlist_ids is not None:
-            clauses.append(dict(terms={"list_id": customlist_ids}))
-        if media:
-            media = [_f(medium) for medium in media]
-            clauses.append(dict(terms=dict(medium=media)))
-        if fiction == True:
-            clauses.append(dict(term=dict(fiction="fiction")))
-        elif fiction == False:
-            clauses.append(dict(term=dict(fiction="nonfiction")))
-        if audiences:
-            if isinstance(audiences, list) or isinstance(audiences, set):
-                audiences = [_f(aud) for aud in audiences]
-                clauses.append(dict(terms=dict(audience=audiences)))
-        if target_age:
-            if isinstance(target_age, tuple) and len(target_age) == 2:
-                lower, upper = target_age
-            else:
-                lower = target_age.lower
-                upper = target_age.upper
-
-            age_clause = {
-                "and": [
-                    {
-                        "or" : [
-                            {"range": {"target_age.upper": {"gte": lower}}},
-                            {
-                                "bool": {
-                                    "must_not" : {
-                                        "exists": {"field" : "target_age.upper"}
-                                    }
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        "or" : [
-                            {"range": {"target_age.lower": {"lte": upper}}},
-                            {
-                                "bool": {
-                                    "must_not" : {
-                                        "exists": {"field" : "target_age.lower"}
-                                    }
-                                }
-                            }
-                        ]
-                    }
-                ]
-            }
-            clauses.append(age_clause)
-        if len(clauses) > 0:
-            return {'and': clauses}
-        else:
-            return {}
 
     def bulk_update(self, works, retry_on_batch_failure=True):
         """Upload a batch of works to the search index at once."""
