@@ -2466,10 +2466,10 @@ class SettingsController(AdminCirculationManagerController):
                 # this whole process -- that might prevent an admin from
                 # making the configuration changes necessary to fix
                 # this problem.
-                logging.warn(
-                    "Exception getting self-test results for %r",
-                    collection, exc_info=e
-                )
+                message = _("Exception getting self-test results for collection %s: %s")
+                args = (collection.name, e.message)
+                logging.warn(message, *args, exc_info=e)
+                self_test_results = message % args
 
         return self_test_results
 
