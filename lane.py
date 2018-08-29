@@ -10,6 +10,8 @@ from psycopg2.extras import NumericRange
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import Select
 
+from accept_types import parse_header
+
 from config import Configuration
 from flask_babel import lazy_gettext as _
 
@@ -122,7 +124,8 @@ class FacetsWithEntryPoint(FacetConstants):
 
     @classmethod
     def from_request(
-            cls, library, facet_config, get_argument, worklist, **extra_kwargs
+            cls, library, facet_config, get_argument, get_header, worklist,
+            **extra_kwargs
     ):
         """Load a faceting object from an HTTP request.
 
@@ -132,6 +135,10 @@ class FacetsWithEntryPoint(FacetConstants):
         :param get_argument: A callable that takes one argument and
            retrieves (or pretends to retrieve) a query string
            parameter of that name from an incoming HTTP request.
+
+        :param get_header: A callable that takes one argument and
+           retrieves (or pretends to retrieve) an HTTP header
+           of that name from an incoming HTTP request.
 
         :param worklist: A WorkList associated with the current request,
            if any.
@@ -143,12 +150,13 @@ class FacetsWithEntryPoint(FacetConstants):
             a problem with the input from the request.
         """
         return cls._from_request(
-            facet_config, get_argument, worklist, **extra_kwargs
+            facet_config, get_argument, get_header, worklist, **extra_kwargs
         )
 
     @classmethod
     def _from_request(
-            cls, facet_config, get_argument, worklist, **extra_kwargs
+            cls, facet_config, get_argument, get_header, worklist,
+            **extra_kwargs
     ):
         """Load a faceting object from an HTTP request.
 
@@ -256,7 +264,8 @@ class Facets(FacetsWithEntryPoint):
         )
 
     @classmethod
-    def from_request(cls, library, config, get_argument, worklist, **extra):
+    def from_request(cls, library, config, get_argument, get_header, worklist, 
+                     **extra):
         """Load a faceting object from an HTTP request."""
         g = Facets.ORDER_FACET_GROUP_NAME
         order = get_argument(g, config.default_facet(g))
@@ -299,7 +308,8 @@ class Facets(FacetsWithEntryPoint):
         }
         extra['library'] = library
 
-        return cls._from_request(config, get_argument, worklist, **extra)
+        return cls._from_request(config, get_argument, get_header, worklist,
+                                 **extra)
 
     def __init__(self, library, collection, availability, order,
                  order_ascending=None, enabled_facets=None, entrypoint=None):
@@ -660,17 +670,51 @@ class SearchFacets(FacetsWithEntryPoint):
     def __init__(self, entrypoint=None, media=None, languages=None, **kwargs):
         
         super(SearchFacets, self).__init__(entrypoint, **kwargs)
+
+        # The incoming 'media' argument takes precedence over any
+        # media restriction defined by the WorkList.
         if media == Edition.ALL_MEDIUM:
             self.media = media
         else:
             self.media = self._ensure_list(media)
-        self.languages = self._ensure_list(languages)
+
+        # The language restriction defined by the worklist takes
+        # precedence over any language restriction defined by the
+        # client.  That's because clients always send the
+        # Accept-Language header passively.
+        if not self.languages:
+            self.languages = self._ensure_list(languages)
 
     def _ensure_list(self, x):
         """Make sure x is a list."""
         if isinstance(x, list):
             return x
         return [x]
+
+    @classmethod
+    def from_request(cls, library, config, get_argument, get_header, worklist,
+                     **extra):
+
+        # Searches against a WorkList that has no particular language
+        # restrictions will use the languages defined in the
+        # Accept-Language header used by the client.
+        language_header = get_header("Accept-Language")
+        if language_header:
+            languages = parse_header(language_header)
+            languages = map(str, languages)
+            languages = map(LanguageCodes.iso_639_2_for_locale, languages)
+            languages = [l for l in languages if l]
+        else:
+            languages = None
+
+        # The client can request an additional restriction on 
+        # the media types to be returned by searches.
+        extra['media'] = get_argument("media", None)
+        extra['languages'] = languages
+
+        return cls._from_request(
+            config, get_argument, get_header, worklist, **extra
+        )
 
     @classmethod
     def selectable_entrypoints(cls, worklist):
@@ -1432,6 +1476,7 @@ class WorkList(object):
         start = pagination.offset
         stop = start + pagination.size
         a = time.time()
+        hits = []
         try:
             hits = list(prepared[start:stop])
         except elasticsearch.exceptions.ElasticsearchException, e:
@@ -1448,7 +1493,7 @@ class WorkList(object):
                         '%02d "%s" (%s) work=%s',
                         i, hit.title, hit.author, hit.meta['id']
                     )
-            doc_ids = [int(x.meta['id']) for x in hits]
+            doc_ids = [int(hit.meta['id']) for hit in hits]
             if doc_ids:
                 results = self.works_for_specific_ids(_db, doc_ids)
 

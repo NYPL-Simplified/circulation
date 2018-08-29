@@ -870,16 +870,22 @@ class AcquisitionFeed(OPDSFeed):
         self.show_current_entrypoint(entrypoint)
 
     @classmethod
-    def search(cls, _db, title, url, lane, search_engine, query, media=None, pagination=None,
-               annotator=None, languages=None, facets=None
+    def search(cls, _db, title, url, lane, search_engine, query,
+               pagination=None, facets=None, annotator=None
     ):
         facets = facets or SearchFacets()
         pagination = pagination or Pagination.default()
         results = lane.search(
-            _db, query, search_engine, media, pagination=pagination, languages=languages, facets=facets
+            _db, query, search_engine, pagination=pagination, facets=facets
         )
-        opds_feed = AcquisitionFeed(_db, title, url, results, annotator=annotator)
-        AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel='start', href=annotator.default_lane_url(), title=annotator.top_level_title())
+        opds_feed = AcquisitionFeed(
+            _db, title, url, results, annotator=annotator
+        )
+        AcquisitionFeed.add_link_to_feed(
+            feed=opds_feed.feed, rel='start',
+            href=annotator.default_lane_url(),
+            title=annotator.top_level_title()
+        )
 
         # A feed of search results may link to alternate entry points
         # into those results.
