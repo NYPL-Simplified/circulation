@@ -1006,7 +1006,7 @@ class WorkList(object):
         configured to inherit values from its parent.
 
         Note that inheritance works differently for genre_ids and
-        customlist_ids -- use inherited_values for that.
+        customlist_ids -- use inherited_values() for that.
         """
         value = getattr(self, k)
         if value not in (None, []):
@@ -1019,12 +1019,12 @@ class WorkList(object):
 
     def inherited_values(self, k):
         """Find the values for the given key (e.g. 'genre_ids' or
-        'customlist_ids') in this WorkList and its entire parentage.
+        'customlist_ids') imposed by this WorkList and its parentage.
 
-        This is for values like genre_ids and customlist_ids, where a
-        WorkList's parent can impose an _additional_ restriction on
-        the WorkList, rather than providing a default which the WorkList
-        can override.
+        This is for values like .genre_ids and .customlist_ids, where
+        each member of the WorkList hierarchy can impose a restriction
+        on query results, and the effects of the restrictions are
+        additive.
         """
         values = []
         for wl in self.hierarchy:

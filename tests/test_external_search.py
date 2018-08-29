@@ -24,7 +24,7 @@ from model import (
 from external_search import (
     ExternalSearchIndex,
     ExternalSearchIndexVersions,
-    DummyExternalSearchIndex,
+    MockExternalSearchIndex,
     SearchIndexCoverageProvider,
     SearchIndexMonitor,
 )
@@ -1022,7 +1022,7 @@ class TestExactMatches(ExternalSearchTest):
 class TestSearchQuery(DatabaseTest):
     def test_make_query(self):
 
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         # Basic query
         query = search.make_query("test")
@@ -1228,7 +1228,7 @@ class TestSearchQuery(DatabaseTest):
 class TestSearchFilterFromLane(DatabaseTest):
 
     def test_make_filter_handles_collection_id(self):
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         lane = self._lane("anything")
         collection_ids = [x.id for x in lane.library.collections]
@@ -1246,7 +1246,7 @@ class TestSearchFilterFromLane(DatabaseTest):
         eq_(expect, collection_filter['or'])
 
     def test_query_works_from_lane_definition_handles_medium(self):
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         lane = self._lane("Only Audio")
         lane.media = [Edition.AUDIO_MEDIUM]
@@ -1261,7 +1261,7 @@ class TestSearchFilterFromLane(DatabaseTest):
         eq_(expect, medium_filter)
 
     def test_query_works_from_lane_definition_handles_age_range(self):
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         lane = self._lane("For Ages 5-10")
         lane.target_age = (5,10)
@@ -1280,7 +1280,7 @@ class TestSearchFilterFromLane(DatabaseTest):
         eq_(expect_lower, lower_filter)
 
     def test_query_works_from_lane_definition_handles_languages(self):
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         lane = self._lane("english or spanish", languages=['eng', 'spa'])
         filter = search.make_filter(
@@ -1305,7 +1305,7 @@ class TestBulkUpdate(DatabaseTest):
         w2 = self._work()
         w2.set_presentation_ready()
         w3 = self._work()
-        index = DummyExternalSearchIndex()
+        index = MockExternalSearchIndex()
         successes, failures = index.bulk_update([w1, w2, w3])
 
         # All three works are regarded as successes, because their
@@ -1388,7 +1388,7 @@ class TestSearchErrors(ExternalSearchTest):
 class TestSearchIndexCoverageProvider(DatabaseTest):
 
     def test_operation(self):
-        index = DummyExternalSearchIndex()
+        index = MockExternalSearchIndex()
         provider = SearchIndexCoverageProvider(
             self._db, search_index_client=index
         )
@@ -1398,7 +1398,7 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
     def test_success(self):
         work = self._work()
         work.set_presentation_ready()
-        index = DummyExternalSearchIndex()
+        index = MockExternalSearchIndex()
         provider = SearchIndexCoverageProvider(
             self._db, search_index_client=index
         )
@@ -1411,7 +1411,7 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
         eq_(1, len(index.docs))
 
     def test_failure(self):
-        class DoomedExternalSearchIndex(DummyExternalSearchIndex):
+        class DoomedExternalSearchIndex(MockExternalSearchIndex):
             """All documents sent to this index will fail."""
             def bulk(self, docs, **kwargs):
                 return 0, [
@@ -1439,7 +1439,7 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
 class TestSearchIndexMonitor(DatabaseTest):
 
     def test_process_batch(self):
-        index = DummyExternalSearchIndex()
+        index = MockExternalSearchIndex()
 
         # Here's a work.
         work = self._work()

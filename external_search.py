@@ -931,8 +931,9 @@ class Filter(SearchBase):
         audiences = v('audiences')
         target_age = v('target_age')
 
-        # For genre IDs and CustomList IDs, we want to get a separate
-        # set of restrictions from every 
+        # For genre IDs and CustomList IDs, we might get a separate
+        # set of restrictions from every item in the WorkList hierarchy.
+        # _All_ restrictions must be met for a work to match the filter.
         v = worklist.inherited_values
         genre_id_restrictions = v('genre_ids')
         customlist_id_restrictions = v('customlist_ids')
@@ -1092,7 +1093,7 @@ class Filter(SearchBase):
         return processed
 
 
-class DummyExternalSearchIndex(ExternalSearchIndex):
+class MockExternalSearchIndex(ExternalSearchIndex):
 
     work_document_type = 'work-type'
 
@@ -1101,7 +1102,7 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
         self.docs = {}
         self.works_index = "works"
         self.works_alias = "works-current"
-        self.log = logging.getLogger("Dummy external search index")
+        self.log = logging.getLogger("Mock external search index")
         self.queries = []
 
     def _key(self, index, doc_type, id):
