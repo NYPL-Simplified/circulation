@@ -28,11 +28,22 @@ class TestHTTP(object):
 
     def test_request_with_timeout_success(self):
 
+        called_with = None
         def fake_200_response(*args, **kwargs):
+            # The HTTP method and URL are passed in the order
+            # requests.request would expect.
+            eq_(("GET", "http://url/"), args)
+
+            # Keyword arguments to _request_with_timeout are passed in
+            # as-is.
+            eq_("value", kwargs["kwarg"])
+
+            # A default timeout is added.
+            eq_(20, kwargs['timeout'])
             return MockRequestsResponse(200, content="Success!")
 
         response = HTTP._request_with_timeout(
-            "the url", fake_200_response, "a", "b"
+            "http://url/", fake_200_response, "GET", kwarg="value"
         )
         eq_(200, response.status_code)
         eq_("Success!", response.content)
@@ -171,7 +182,7 @@ class TestHTTP(object):
         generator = ResponseGenerator()
         url = "http://foo"
         response = HTTP._request_with_timeout(
-            url, generator.response, url, "POST",
+            url, generator.response, "POST",
             headers = { u"unicode header": u"unicode value"},
             data=u"unicode data"
         )
