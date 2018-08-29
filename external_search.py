@@ -916,13 +916,8 @@ class Filter(SearchBase):
 
     @classmethod
     def from_worklist(cls, _db, worklist, facets):
-        """Create a Filter that, as much as possible, tries to find only
-        works that belong in the given WorkList and EntryPoint.
-
-        The 'as much as possible' caveat is because if a Lane inherits
-        settings from its parent, and both parent and child include
-        CustomList-based restriction, the restrictions won't be
-        combined -- only the child restrictions will be used.
+        """Create a Filter that finds only works that belong in the given
+        WorkList and EntryPoint.
 
         :param worklist: A WorkList
         :param facets: A SearchFacets object.
@@ -935,17 +930,22 @@ class Filter(SearchBase):
         fiction = v('fiction')
         audiences = v('audiences')
         target_age = v('target_age')
-        genre_ids = v('genre_ids')
-        customlist_ids = v('customlist_ids')
+
+        # For genre IDs and CustomList IDs, we want to get a separate
+        # set of restrictions from every 
+        v = worklist.inherited_values
+        genre_id_restrictions = v('genre_ids')
+        customlist_id_restrictions = v('customlist_ids')
 
         return cls(
             library, media, languages, fiction, audiences,
-            target_age, genre_ids, customlist_ids, facets
+            target_age, genre_id_restrictions, customlist_id_restrictions,
+            facets
         )
 
     def __init__(self, collection_ids, media=None, languages=None,
                  fiction=None, audiences=None, target_age=None,
-                 in_any_of_these_genres=[], on_any_of_these_customlists=None,
+                 genre_restriction_sets=[], customlist_restriction_sets=[],
                  facets=None
     ):
 
@@ -970,8 +970,8 @@ class Filter(SearchBase):
         else:
             self.target_age = None
 
-        self.genre_ids = in_any_of_these_genres
-        self.customlist_ids = on_any_of_these_customlists
+        self.genre_restriction_sets = genre_restriction_sets
+        self.customlist_restriction_sets = customlist_restriction_sets
 
         # Give the Facets object a chance to modify any or all of this
         # information.
@@ -981,8 +981,12 @@ class Filter(SearchBase):
         # Filter the lists of database IDs to make sure we aren't
         # storing any database objects.
         self.collection_ids = self._filter_ids(self.collection_ids)
-        self.genre_ids = self._filter_ids(self.genre_ids)
-        self.customlist_ids = self._filter_ids(self.customlist_ids)
+        self.genre_restriction_sets = [
+            self._filter_ids(x) for x in self.genre_restriction_sets
+        ]
+        self.customlist_restriction_sets = [
+            self._filter_ids(x) for x in self.customlist_restriction_sets
+        ]
 
     def build(self):
         """Convert this object to an Elasticsearch Filter object."""
@@ -1014,10 +1018,10 @@ class Filter(SearchBase):
         if self.target_age:
             f = f & self.target_age_filter
 
-        if self.genre_ids:
+        for genre_ids in self.genre_restriction_sets:
             f = f & F('terms', **{'genres.term' : filter_ids(self.genre_ids)})
 
-        if self.customlist_ids:
+        for customlist_ids in self.customlist_restriction_sets:
             f = f & F('terms', list_id=filter_ids(self.customlist_ids))
 
         return f

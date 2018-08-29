@@ -998,13 +998,8 @@ class WorkList(object):
         parent. This only works if this WorkList has a parent and is
         configured to inherit values from its parent.
 
-        Note that inheritance works differently for customlist_ids.
-        For most fields, a Lane's value overrides any value specified
-        for its parent. With customlist_ids, parent values add
-        additional restrictions to child values, rather than child
-        values replacing the parent values. That is, a "Staff Picks"
-        lane beneath "Best Sellers" is only supposed to find staff
-        picks that are _also_ best-sellers.
+        Note that inheritance works differently for genre_ids and
+        customlist_ids -- use inherited_values for that.
         """
         value = getattr(self, k)
         if value not in (None, []):
@@ -1014,6 +1009,23 @@ class WorkList(object):
                 return None
             parent = self.parent
             return parent.inherited_value(k)
+
+    def inherited_values(self, k):
+        """Find the values for the given key (e.g. 'genre_ids' or
+        'customlist_ids') in this WorkList and its entire parentage.
+
+        This is for values like genre_ids and customlist_ids, where a
+        WorkList's parent can impose an _additional_ restriction on
+        the WorkList, rather than providing a default which the WorkList
+        can override.
+        """
+        values = []
+        complete_parentage = list(reversed(self.parentage)) + [self]
+        for wl in complete_parentage:
+            value = getattr(wl, k)
+            if value not in (None, []):
+                values.append(value)
+        return values
 
     @property
     def customlist_ids(self):
