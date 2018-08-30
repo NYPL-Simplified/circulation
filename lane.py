@@ -733,23 +733,24 @@ class SearchFacets(FacetsWithEntryPoint):
         """Modify the given external_search.Filter object
         so that it reflects this SearchFacets object.
         """
-        filter = super(SearchFacets, self).modify_search_filter(filter)
+        super(SearchFacets, self).modify_search_filter(filter)
 
         # The incoming 'media' argument takes precedence over any
-        # media restriction defined by the WorkList.
+        # media restriction defined by the WorkList or the EntryPoint.
         if self.media == Edition.ALL_MEDIUM:
             # Clear any preexisting media restrictions.
             filter.media = None
         elif self.media:
-            filter.media = media
+            filter.media = self.media
 
-        # A language restriction already set by the WorkList takes
-        # precedence over any language restriction defined by this
-        # SearchFacets objects.  That's because clients always send
-        # the Accept-Language header passively -- it's not an
-        # explicitly expressed preference the way `media` is.
+        # A language restriction already set by the WorkList or
+        # EntryPoint takes precedence over any language restriction
+        # defined by this SearchFacets object.  That's because
+        # clients always send the Accept-Language header passively --
+        # it's not an explicitly expressed preference the way `media`
+        # is.
         if self.languages and not filter.languages:
-            filter.languages = languages
+            filter.languages = self.languages
 
 
 class Pagination(object):

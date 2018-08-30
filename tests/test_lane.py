@@ -27,6 +27,7 @@ from entrypoint import (
 )
 
 from external_search import (
+    Filter,
     MockExternalSearchIndex,
 )
 
@@ -943,7 +944,6 @@ class TestSearchFacets(DatabaseTest):
         eq_(None, facets.media)
         eq_(None, facets.languages)
 
-
     def test_selectable_entrypoints(self):
         """If the WorkList has more than one facet, an 'everything' facet
         is added for search purposes.
@@ -986,6 +986,41 @@ class TestSearchFacets(DatabaseTest):
         new_facets = facets.navigate(new_ep)
         assert isinstance(new_facets, SearchFacets)
         eq_(new_ep, new_facets.entrypoint)
+
+    def test_modify_search_filter(self):
+
+        # Test superclass behavior -- filter is modified by entrypoint.
+        facets = SearchFacets(AudiobooksEntryPoint)
+        filter = Filter()
+        facets.modify_search_filter(filter)
+        eq_([Edition.AUDIO_MEDIUM], filter.media)
+
+        # The medium specified in the constructor overrides anything
+        # already present in the filter.
+        facets = SearchFacets(None, Edition.BOOK_MEDIUM)
+        filter = Filter(media=Edition.AUDIO_MEDIUM)
+        facets.modify_search_filter(filter)
+        eq_([Edition.BOOK_MEDIUM], filter.media)
+
+        # It also overrides anything specified by the EntryPoint.
+        facets = SearchFacets(AudiobooksEntryPoint, Edition.BOOK_MEDIUM)
+        filter = Filter()
+        facets.modify_search_filter(filter)
+        eq_([Edition.BOOK_MEDIUM], filter.media)
+
+        # The language specified in the constructor does *not* override
+        # anything already present in the filter.
+        facets = SearchFacets(None, languages=["eng", "spa"])
+        filter = Filter(languages="spa")
+        facets.modify_search_filter(filter)
+        eq_("spa", filter.languages)
+
+        # It only takes effect if the filter doesn't have any languages
+        # set.
+        filter = Filter()
+        facets.modify_search_filter(filter)
+        eq_(["eng", "spa"], filter.languages)
+
 
 class TestPagination(DatabaseTest):
 
