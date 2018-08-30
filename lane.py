@@ -985,19 +985,19 @@ class WorkList(object):
         return None
 
     @property
+    def parentage(self):
+        """WorkLists have no parentage. This method is defined for compatibility
+        with Lane.
+        """
+        return []
+
+    @property
     def inherit_parent_restrictions(self):
         """Since a WorkList has no parent, it cannot inherit any restrictions
         from its parent. This method is defined for compatibility
         with Lane.
         """
         return False
-
-    @property
-    def parentage(self):
-        """WorkLists have no parentage. This method is defined for compatibility
-        with Lane.
-        """
-        return []
 
     @property
     def hierarchy(self):

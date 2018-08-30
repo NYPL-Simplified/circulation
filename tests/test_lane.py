@@ -1265,6 +1265,25 @@ class TestWorkList(DatabaseTest):
                         Classifier.AUDIENCE_YOUNG_ADULT]
         eq_(u'Children,Young+Adult', wl.audience_key)
 
+    def test_parent(self):
+        # A WorkList has no parent.
+        eq_(None, WorkList().parent)
+
+    def test_parentage(self):
+        # A WorkList has no parentage, since it has no parent.
+        eq_([], WorkList().parentage)
+
+    def test_inherit_parent_restrictions(self):
+        # A WorkList never inherits parent restrictions, because it
+        # can't have a parent.
+        eq_(False, WorkList().inherit_parent_restrictions)
+
+    def test_hierarchy(self):
+        # A WorkList's hierarchy includes only itself, because it
+        # can't have a parent.
+        wl = WorkList()
+        eq_([wl], wl.hierarchy)
+
     def test_visible_children(self):
         """Invisible children don't show up in WorkList.visible_children."""
         wl = WorkList()
@@ -2003,6 +2022,8 @@ class TestLane(DatabaseTest):
             grandchild_lane.full_identifier
         )
 
+        eq_([lane, child_lane, grandchild_lane], grandchild_lane.hierarchy)
+
         # TODO: The error should be raised when we try to set the parent
         # to an illegal value, not afterwards.
         lane.parent = child_lane
@@ -2061,6 +2082,39 @@ class TestLane(DatabaseTest):
         # list.
         eq_([lane2], Lane.affected_by_customlist(l1).all())
         eq_(0, Lane.affected_by_customlist(l2).count())
+
+    def test_inherited_value(self):
+        # Test WorkList.inherited_value.
+        #
+        # It's easier to test this in Lane because WorkLists can't have
+        # parents.
+
+        # This lane contains fiction.
+        fiction_lane = self._lane(fiction=True)
+
+        # This sublane contains nonfiction.
+        nonfiction_sublane = self._lane(parent=fiction_lane, fiction=False)
+        nonfiction_sublane.inherit_parent_restrictions = False
+
+        # This sublane doesn't specify a value for .fiction.
+        default_sublane = self._lane(parent=fiction_lane)
+        default_sublane.inherit_parent_restrictions = False
+
+        # When inherit_parent_restrictions is False,
+        # inherited_value("fiction") returns whatever value is set for
+        # .fiction.
+        eq_(None, default_sublane.inherited_value("fiction"))
+        eq_(False, nonfiction_sublane.inherited_value("fiction"))
+
+        # When inherit_parent_restrictions is True,
+        # inherited_value("fiction") returns False for the sublane
+        # that sets no value for .fiction.
+        default_sublane.inherit_parent_restrictions = True
+        eq_(True, default_sublane.inherited_value("fiction"))
+
+        # The sublane that sets its own value for .fiction is unaffected.
+        nonfiction_sublane.inherit_parent_restrictions = True
+        eq_(False, nonfiction_sublane.inherited_value("fiction"))
 
     def test_setting_target_age_locks_audiences(self):
         lane = self._lane()

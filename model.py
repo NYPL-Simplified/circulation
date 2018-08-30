@@ -3092,7 +3092,7 @@ class Edition(Base):
         additional_type_to_medium[v] = k
 
     medium = Column(
-        Enum(KNOWN_MEDIA, name="medium"),
+        Enum(*KNOWN_MEDIA, name="medium"),
         default=BOOK_MEDIUM, index=True
     )
 
