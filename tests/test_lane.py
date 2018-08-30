@@ -2116,6 +2116,39 @@ class TestLane(DatabaseTest):
         nonfiction_sublane.inherit_parent_restrictions = True
         eq_(False, nonfiction_sublane.inherited_value("fiction"))
 
+    def test_inherited_values(self):
+        # Test WorkList.inherited_values.
+        #
+        # It's easier to test this in Lane because WorkLists can't have
+        # parents.
+
+        # This lane contains best-sellers.
+        best_sellers_lane = self._lane()
+        best_sellers, ignore = self._customlist(num_entries=0)
+        best_sellers_lane.customlists.append(best_sellers)
+
+        # This sublane contains staff picks.
+        staff_picks_lane = self._lane(parent=best_sellers_lane)
+        staff_picks, ignore = self._customlist(num_entries=0)
+        staff_picks_lane.customlists.append(staff_picks)
+
+        # What does it mean that the 'staff picks' lane is *inside*
+        # the 'best sellers' lane?
+
+        # If inherit_parent_restrictions is False, it doesn't mean
+        # anything in particular. This lane contains books that
+        # are on the staff picks list.
+        staff_picks_lane.inherit_parent_restrictions = False
+        eq_([[staff_picks]], staff_picks_lane.inherited_values('customlists'))
+
+        # If inherit_parent_restrictions is True, then the lane
+        # has *two* sets of restrictions: a book must be on both
+        # the staff picks list *and* the best sellers list.
+        staff_picks_lane.inherit_parent_restrictions = True
+        x = staff_picks_lane.inherited_values('customlists')
+        eq_(sorted([[staff_picks], [best_sellers]]),
+            sorted(staff_picks_lane.inherited_values('customlists')))
+
     def test_setting_target_age_locks_audiences(self):
         lane = self._lane()
         lane.target_age = (16, 18)

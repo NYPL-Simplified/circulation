@@ -1036,7 +1036,11 @@ class WorkList(object):
         additive.
         """
         values = []
-        for wl in self.hierarchy:
+        if not self.inherit_parent_restrictions:
+            hierarchy = [self]
+        else:
+            hierarchy = self.hierarchy
+        for wl in hierarchy:
             value = getattr(wl, k)
             if value not in (None, []):
                 values.append(value)
