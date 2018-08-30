@@ -1836,112 +1836,100 @@ class TestWorkList(DatabaseTest):
         wl = WorkList()
         eq_(wl, wl.search_target)
 
+
     def test_search(self):
-        work = self._work(with_license_pool=True)
-        self.add_to_materialized_view(work)
+        # Test the successful execution of WorkList.search()
 
         class MockWorkList(WorkList):
-            def customlist_ids(self):
-                """WorkList.customlist_ids returns an empty list; we
-                want to return something specific so we can make sure
-                the results are passed into search().
-                """
-                return ["a customlist id"]
+            def works_for_specific_ids(self, _db, work_ids):
+                self.works_for_specific_ids_called_with = (_db, work_ids)
+                return "A bunch of MaterializedWorkWithGenres"
 
-        # Create a WorkList that has very specific requirements.
         wl = MockWorkList()
-        sf, ignore = Genre.lookup(self._db, "Science Fiction")
         wl.initialize(
-            self._default_library, "Work List",
-            genres=[sf], audiences=[Classifier.AUDIENCE_CHILDREN],
-            languages=["eng", "spa"], media=[Edition.BOOK_MEDIUM],
+            self._default_library, audiences=[Classifier.AUDIENCE_CHILDREN]
         )
-        wl.fiction = True
-        wl.target_age = tuple_to_numericrange((2,2))
-        search_client = MockExternalSearchIndex()
-        search_client.bulk_update([work])
+        query = "a query"
 
-        # Do a search within the list.
-        pagination = Pagination(offset=0, size=1)
-        results = wl.search(
-            self._db, work.title, search_client, pagination=pagination,
+        class MockSearchClient(object):
+            def query_works(self, query, filter, pagination, debug):
+                self.query_works_called_with = (
+                    query, filter, pagination, debug
+                )
+                return "A bunch of work IDs"
+
+        # Search with the default arguments.
+        client = MockSearchClient()
+        results = wl.search(self._db, query, client)
+
+        # The results of query_works were passed into
+        # MockWorkList.works_for_specific_ids.
+        eq_(
+            (self._db, "A bunch of work IDs"),
+            wl.works_for_specific_ids_called_with
         )
 
-        # The List configuration was passed on to the search client
-        # as parameters to use when creating the search query.
-        [query] = search_client.queries
-        [fixed, kw] = query
-        eq_((), fixed)
-        eq_(wl.fiction, kw['fiction'])
-        eq_((2,2), kw['target_age'])
-        eq_(wl.languages, kw['languages'])
-        eq_(wl.media, kw['media'])
-        eq_(wl.audiences, kw['audiences'])
-        eq_(wl.genre_ids, kw['in_any_of_these_genres'])
-        eq_(wl.customlist_ids, kw['on_any_of_these_lists'])
-        eq_(1, kw['size'])
-        eq_(0, kw['offset'])
+        # The return value of MockWorkList.works_for_specific_ids is
+        # used as the return value of query_works().
+        eq_("A bunch of MaterializedWorkWithGenres", results)
 
-        # The single search result was converted to a MaterializedWorkWithGenre.
-        [result] = results
-        from model import MaterializedWorkWithGenre as mwg
-        assert isinstance(result, mwg)
-        eq_(work.id, result.works_id)
+        # From this point on we are only interested in the arguments
+        # passed in to query_works, since MockSearchClient always
+        # returns the same result.
 
-        # Test that language and media are passed in
-        languages = ["fre"]
-        media = ["audiobook"]
-        results = wl.search(
-            self._db, work.title, search_client, media, pagination, languages
-        )
-        [query, second_query] = search_client.queries
-        [fixed, kw] = second_query
-        # lane languages should take preference over user entered languages
-        eq_(["eng", "spa"], kw["languages"])
-        eq_(media, kw["media"])
+        # First, let's see what the default arguments look like.
+        qu, filter, pagination, debug = client.query_works_called_with
 
-        # pass all media
-        media = Edition.ALL_MEDIUM
-        results = wl.search(
-            self._db, work.title, search_client, media, pagination, languages
-        )
-        [query, second_query, third_query] = search_client.queries
-        [fixed, kw] = third_query
-        eq_(None, kw["media"])
+        # The query was passed through.
+        eq_(query, qu)
+        eq_(False, debug)
 
-        # If a Facets object is passed into search(), and the Facets
-        # object has an EntryPoint set, a subset of search arguments
-        # are passed into EntryPoint.modified_search_arguments().
-        class MockEntryPoint(object):
-            def modified_search_arguments(self, **kwargs):
-                self.called_with = dict(kwargs)
-                return kwargs
-        entrypoint = MockEntryPoint()
-        facets = SearchFacets(entrypoint=entrypoint)
-        wl.search(self._db, work.title, search_client, facets=facets)
+        # A Filter object was created to match only works that belong
+        # in the MockWorkList.
+        eq_([Classifier.AUDIENCE_CHILDREN], filter.audiences)
 
-        # Arguments relevant to the EntryPoint's view of the
-        # collection were passed in...
-        for i in ['audiences', 'fiction', 'in_any_of_these_genres', 'languages', 'media', 'target_age']:
-            assert i in entrypoint.called_with
+        # A default Pagination object was created.
+        eq_(0, pagination.offset)
+        eq_(Pagination.DEFAULT_SEARCH_SIZE, pagination.size)
 
-        # Arguments pertaining to the search query or result
-        # navigation were not.
-        for i in ['size', 'query_string', 'offset']:
-            assert i not in entrypoint.called_with
+        # Now let's try a search with specific Pagination and Facets
+        # objects.
+        facets = SearchFacets(None, languages=["chi"])
+        pagination = object()
+        results = wl.search(self._db, query, client, pagination, facets,
+                            debug=True)
+        
+        qu, filter, pag, debug = client.query_works_called_with
+        eq_(query, qu)
+        eq_(pagination, pag)
+        eq_(True, debug)
 
-    def test_search_returns_empty_list_on_elasticsearch_failure(self):
-        # If there's a problem communicating with Elasticsearch,
-        # return an empty list of search results rather than raising
-        # an exception.
-        class Mock(MockExternalSearchIndex):
-            def query_works(self, **kwargs):
-                raise ElasticsearchException("quite bad")
+        # The Filter incorporates restrictions imposed by both the
+        # MockWorkList and the Facets.
+        eq_([Classifier.AUDIENCE_CHILDREN], filter.audiences)
+        eq_(["chi"], filter.languages)
 
+    def test_search_failures(self):
+        # Test reasons why WorkList.search() might not work.
         wl = WorkList()
-        wl.initialize(self._default_library, "Work List")
-        search_client = Mock()
-        eq_([], wl.search(self._db, "a search", search_client))
+        wl.initialize(self._default_library)
+        query = "a query"
+
+        # If there is no SearchClient, there are no results.
+        eq_([], wl.search(self._db, query, None))
+
+        # If the SearchClient returns nothing, there are no results.
+        class NoResults(object):
+            def query_works(self, *args, **kwargs):
+                return None
+        eq_([], wl.search(self._db, query, NoResults()))
+
+        # If there's an ElasticSearch exception during the query,
+        # there are no results.
+        class RaisesException(object):
+            def query_works(self, *args, **kwargs):
+                raise ElasticsearchException("oh no")
+        eq_([], wl.search(self._db, query, RaisesException()))
 
 
 class TestLane(DatabaseTest):
@@ -2384,7 +2372,7 @@ class TestLane(DatabaseTest):
         eq_([Edition.BOOK_MEDIUM], target.media)
 
     def test_search(self):
-        # Searching a Lane searches its search_target.
+        # Searching a Lane calls search() on its search_target.
 
         work = self._work(with_license_pool=True)
         self.add_to_materialized_view(work)

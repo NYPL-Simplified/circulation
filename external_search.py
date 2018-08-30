@@ -275,7 +275,18 @@ class ExternalSearchIndex(object):
 
         return base_works_index
 
-    def query_works(self, query_string, filter, fields=None):
+    def query_works(self, query_string, filter, pagination, debug=False):
+        """Run a search query.
+
+        :param query_string: The string to search for.
+        :param filter: A Filter object, used to filter out works that
+            would otherwise match the query string.
+        :param pagination: A Pagination object, used to get a subset
+            of the search results.
+        :param debug: If this is True, some debugging information will
+            be gathered (at a slight performance cost) and logged.
+        :return: A list of Work IDs that match the query string.
+        """
         if not self.works_alias:
             return []
 
@@ -283,7 +294,32 @@ class ExternalSearchIndex(object):
         search = Search(using=self.__client).query(query.build())
         if fields:
             search = search.fields(fields)
-        return search
+
+        if debug:
+            # Get some additional fields to make it easy to check whether
+            # we got reasonable looking results.
+            fields = ["_id", "title", "author", "license_pool_id"]
+        else:
+            # All we absolutely need is the document ID, which is a
+            # key into the database.
+            fields = ["_id"]
+
+        start = pagination.offset
+        stop = start + pagination.size
+
+        a = time.time()
+        # NOTE: This is the code that actually executes the ElasticSearch
+        # request.
+        results = search[start:stop]
+        if debug:
+            b = time.time()
+            self.log.info("Elasticsearch query completed in %.2fsec", b-a)
+            for i, result in enumerate(results):
+                self.log.info(
+                    '%02d "%s" (%s) work=%s',
+                    i, result.title, result.author, result.meta['id']
+                )
+        return [int(result.meta['id']) for result in results]
 
     def bulk_update(self, works, retry_on_batch_failure=True):
         """Upload a batch of works to the search index at once."""
@@ -1128,7 +1164,7 @@ class MockExternalSearchIndex(ExternalSearchIndex):
             offset = kwargs['offset']
             size = kwargs['size']
             doc_ids = doc_ids[offset: offset + size]
-        return { "hits" : { "hits" : doc_ids }}
+        return [x['_id'] for x in doc_ids]
 
     def bulk(self, docs, **kwargs):
         for doc in docs:

@@ -1484,6 +1484,7 @@ class WorkList(object):
             from the search index.
         """
         results = []
+        work_ids = None
         if not search_client:
             # We have no way of actually doing a search. Return nothing.
             return results
@@ -1494,38 +1495,17 @@ class WorkList(object):
             )
 
         filter = Filter.from_worklist(_db, self, facets)
-        if debug:
-            # Get some additional fields to make it easy to check whether
-            # we got reasonable looking results.
-            fields = ["_id", "title", "author", "license_pool_id"]
-        else:
-            # All we absolutely need is the document ID, which is a
-            # key into the database.
-            fields = ["_id"]
-        prepared = search_client.query_works(query, filter, fields)
-        start = pagination.offset
-        stop = start + pagination.size
-        a = time.time()
-        hits = []
         try:
-            hits = list(prepared[start:stop])
+            work_ids = search_client.query_works(
+                query, filter, pagination, debug
+            )
         except elasticsearch.exceptions.ElasticsearchException, e:
             logging.error(
                 "Problem communicating with ElasticSearch. Returning empty list of search results.",
                 exc_info=e
             )
-        b = time.time()
-        logging.debug("Elasticsearch query completed in %.2fsec", b-a)
-        if hits:
-            if debug:
-                for i, hit in enumerate(hits):
-                    logging.info(
-                        '%02d "%s" (%s) work=%s',
-                        i, hit.title, hit.author, hit.meta['id']
-                    )
-            doc_ids = [int(hit.meta['id']) for hit in hits]
-            if doc_ids:
-                results = self.works_for_specific_ids(_db, doc_ids)
+        if work_ids:
+            results = self.works_for_specific_ids(_db, work_ids)
 
         return results
 
