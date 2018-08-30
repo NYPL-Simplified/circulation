@@ -944,16 +944,16 @@ class Filter(SearchBase):
             facets
         )
 
-    def __init__(self, collection_ids, media=None, languages=None,
+    def __init__(self, collections=None, media=None, languages=None,
                  fiction=None, audiences=None, target_age=None,
                  genre_restriction_sets=[], customlist_restriction_sets=[],
                  facets=None
     ):
 
-        if isinstance(collection_ids, Library):
+        if isinstance(collections, Library):
             # Find all works in this Library's collections.
-            collection_ids = collection_ids.collections
-        self.collection_ids = collection_ids
+            collections = collections.collections
+        self.collection_ids = self._filter_ids(collections)
 
         self.media = media
         self.languages = languages
@@ -998,7 +998,9 @@ class Filter(SearchBase):
         scrub_list = self._scrub_list
         filter_ids = self._filter_ids
 
-        f = F('terms', collection_id=filter_ids(self.collection_ids))
+        collection_ids = filter_ids(self.collection_ids)
+        if collection_ids:
+            f = F('terms', collection_id=filter_ids(collection_ids))
 
         if self.media:
             f = f & F('terms', medium=scrub_list(self.media))
