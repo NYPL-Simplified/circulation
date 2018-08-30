@@ -129,6 +129,8 @@ class FacetsWithEntryPoint(FacetConstants):
     ):
         """Load a faceting object from an HTTP request.
 
+        # TODO: Is the 'library' argument redundant?
+
         :param facet_config: A Library (or mock of one) that knows
            which subset of the available facets are configured.
 

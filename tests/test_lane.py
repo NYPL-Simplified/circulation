@@ -27,7 +27,7 @@ from entrypoint import (
 )
 
 from external_search import (
-    DummyExternalSearchIndex,
+    MockExternalSearchIndex,
 )
 
 from lane import (
@@ -108,28 +108,30 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         class Mock(FacetsWithEntryPoint):
             @classmethod
             def _from_request(cls, *args, **kwargs):
+                cls.called_with = (args, kwargs)
                 return expect
-        eq_(expect, Mock.from_request(None, None, None, None))
-
-    def test_from_request_propagates_extra_kwargs(self):
-        """Any keyword arguments passed to from_request() are propagated
-        through to the facet constructor.
-        """
-        class ExtraFacets(FacetsWithEntryPoint):
-            def __init__(self, entrypoint=None, extra=None):
-                self.extra = extra
-
-        facets = ExtraFacets.from_request(
-            None, self.MockFacetConfig, {}.get, None, extra="extra value"
+        result = Mock.from_request(
+            "library", "facet config", "get_argument",
+            "get_header", "worklist", extra="extra argument"
         )
-        assert isinstance(facets, ExtraFacets)
-        eq_("extra value", facets.extra)
+
+        # The arguments given to from_request were propagated to _from_request.
+        args, kwargs = Mock.called_with
+        eq_(("facet config", "get_argument",
+             "get_header", "worklist"), args)
+        eq_(dict(extra="extra argument"), kwargs)
+
+        # The return value of _from_request was propagated through
+        # from_request.
+        eq_(expect, result)
 
     def test__from_request(self):
         """_from_request calls load_entrypoint and instantiates the
         class with the result.
         """
-        self.expect = object()
+
+        # Mock load_entrypoint() to return whatever value we have set up
+        # ahead of time.
         @classmethod
         def mock_load_entrypoint(cls, entrypoint_name, entrypoints):
             self.called_with = (entrypoint_name, entrypoints)
@@ -137,30 +139,50 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         old = FacetsWithEntryPoint.load_entrypoint
         FacetsWithEntryPoint.load_entrypoint = mock_load_entrypoint
 
-        # The facet group name will be pulled out of the 'request'
-        # and passed into mock_load_entrypoint.
+        # Mock the functions that pull information out of an HTTP
+        # request.
+
+        # EntryPoint.load_entrypoint pulls the facet group name out of
+        # the 'request' and passes it into load_entrypoint().
         def get_argument(key, default):
             eq_(key, Facets.ENTRY_POINT_FACET_GROUP_NAME)
             return "name of the entrypoint"
 
-        mock_worklist = object()
-        config = self.MockFacetConfig
-        facets = FacetsWithEntryPoint._from_request(
-            config, get_argument, mock_worklist
-        )
-        assert isinstance(facets, FacetsWithEntryPoint)
-        eq_(self.expect, facets.entrypoint)
-        eq_(("name of the entrypoint", config.entrypoints), self.called_with)
+        # FacetsWithEntryPoint.load_entrypoint does not use
+        # get_header().
+        def get_header(name):
+            raise Exception("I'll never be called")
 
-        # If load_entrypoint returns a ProblemDetail, that object is
-        # returned instead of the faceting class.
+        config = self.MockFacetConfig
+        mock_worklist = object()
+
+        # First, test failure. If load_entrypoint() returns a
+        # ProblemDetail, that object is returned instead of the
+        # faceting class.
         self.expect = INVALID_INPUT
         eq_(
             self.expect,
             FacetsWithEntryPoint._from_request(
-                config, get_argument, mock_worklist
+                config, get_argument, get_header, mock_worklist,
+                extra="extra kwarg"
             )
         )
+
+        # Now, test success. If load_entrypoint() returns an object,
+        # that object is passed as 'entrypoint' into the
+        # FacetsWithEntryPoint constructor.
+        self.expect = object()
+        config = self.MockFacetConfig
+        facets = FacetsWithEntryPoint._from_request(
+            config, get_argument, get_header, mock_worklist,
+            extra="extra kwarg"
+        )
+        assert isinstance(facets, FacetsWithEntryPoint)
+        eq_(self.expect, facets.entrypoint)
+        eq_(("name of the entrypoint", config.entrypoints), self.called_with)
+        eq_(dict(extra="extra kwarg"), facets.constructor_kwargs)
+
+        # Un-mock load_entrypoint().
         FacetsWithEntryPoint.load_entrypoint = old
 
     def test_load_entrypoint(self):
@@ -1671,7 +1693,7 @@ class TestWorkList(DatabaseTest):
         )
         wl.fiction = True
         wl.target_age = tuple_to_numericrange((2,2))
-        search_client = DummyExternalSearchIndex()
+        search_client = MockExternalSearchIndex()
         search_client.bulk_update([work])
 
         # Do a search within the list.
@@ -1747,7 +1769,7 @@ class TestWorkList(DatabaseTest):
         # If there's a problem communicating with Elasticsearch,
         # return an empty list of search results rather than raising
         # an exception.
-        class Mock(DummyExternalSearchIndex):
+        class Mock(MockExternalSearchIndex):
             def query_works(self, **kwargs):
                 raise ElasticsearchException("quite bad")
 
@@ -2135,7 +2157,7 @@ class TestLane(DatabaseTest):
         self.add_to_materialized_view(work)
 
         lane = self._lane()
-        search_client = DummyExternalSearchIndex()
+        search_client = MockExternalSearchIndex()
         search_client.bulk_update([work])
 
         pagination = Pagination(offset=0, size=1)
