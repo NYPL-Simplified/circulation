@@ -3074,6 +3074,9 @@ class Edition(Base):
     # client.
     FULFILLABLE_MEDIA = [BOOK_MEDIUM, AUDIO_MEDIUM]
 
+    KNOWN_MEDIA = (BOOK_MEDIUM, PERIODICAL_MEDIUM, AUDIO_MEDIUM, MUSIC_MEDIUM,
+                   VIDEO_MEDIUM, IMAGE_MEDIUM, COURSEWARE_MEDIUM)
+
     medium_to_additional_type = {
         BOOK_MEDIUM : u"http://schema.org/EBook",
         AUDIO_MEDIUM : u"http://bib.schema.org/Audiobook",
@@ -3089,8 +3092,7 @@ class Edition(Base):
         additional_type_to_medium[v] = k
 
     medium = Column(
-        Enum(BOOK_MEDIUM, PERIODICAL_MEDIUM, AUDIO_MEDIUM, MUSIC_MEDIUM, VIDEO_MEDIUM, IMAGE_MEDIUM, COURSEWARE_MEDIUM,
-             name="medium"),
+        Enum(KNOWN_MEDIA, name="medium"),
         default=BOOK_MEDIUM, index=True
     )
 

@@ -670,25 +670,18 @@ class SearchFacets(FacetsWithEntryPoint):
     """
     
     def __init__(self, entrypoint=None, media=None, languages=None, **kwargs):
-        
         super(SearchFacets, self).__init__(entrypoint, **kwargs)
-
-        # The incoming 'media' argument takes precedence over any
-        # media restriction defined by the WorkList.
         if media == Edition.ALL_MEDIUM:
             self.media = media
         else:
             self.media = self._ensure_list(media)
 
-        # The language restriction defined by the worklist takes
-        # precedence over any language restriction defined by the
-        # client.  That's because clients always send the
-        # Accept-Language header passively.
-        if not self.languages:
-            self.languages = self._ensure_list(languages)
+        self.languages = self._ensure_list(languages)
 
     def _ensure_list(self, x):
-        """Make sure x is a list."""
+        """Make sure x is a list of values, if there is a value at all."""
+        if x is None:
+            return None
         if isinstance(x, list):
             return x
         return [x]
@@ -701,17 +694,21 @@ class SearchFacets(FacetsWithEntryPoint):
         # restrictions will use the languages defined in the
         # Accept-Language header used by the client.
         language_header = get_header("Accept-Language")
+        languages = None
         if language_header:
             languages = parse_header(language_header)
             languages = map(str, languages)
             languages = map(LanguageCodes.iso_639_2_for_locale, languages)
             languages = [l for l in languages if l]
-        else:
-            languages = None
+        languages = languages or None
 
         # The client can request an additional restriction on 
         # the media types to be returned by searches.
-        extra['media'] = get_argument("media", None)
+
+        media = get_argument("media", None)
+        if media not in Edition.KNOWN_MEDIA:
+            media = None
+        extra['media'] = media
         extra['languages'] = languages
 
         return cls._from_request(
@@ -734,16 +731,25 @@ class SearchFacets(FacetsWithEntryPoint):
 
     def modify_search_filter(self, filter):
         """Modify the given external_search.Filter object
-        so that it reflects this Facets object.
+        so that it reflects this SearchFacets object.
         """
         filter = super(SearchFacets, self).modify_search_filter(filter)
-        if self.languages:
-            filter.languages = languages
+
+        # The incoming 'media' argument takes precedence over any
+        # media restriction defined by the WorkList.
         if self.media == Edition.ALL_MEDIUM:
             # Clear any preexisting media restrictions.
             filter.media = None
         elif self.media:
             filter.media = media
+
+        # A language restriction already set by the WorkList takes
+        # precedence over any language restriction defined by this
+        # SearchFacets objects.  That's because clients always send
+        # the Accept-Language header passively -- it's not an
+        # explicitly expressed preference the way `media` is.
+        if self.languages and not filter.languages:
+            filter.languages = languages
 
 
 class Pagination(object):

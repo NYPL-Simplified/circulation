@@ -848,6 +848,102 @@ class TestFeaturedFacets(DatabaseTest):
 
 class TestSearchFacets(DatabaseTest):
 
+    def test_constructor(self):
+        # The SearchFacets constructor allows you to specify
+        # a medium and language (or a list of them) as well
+        # as an entrypoint.
+
+        m = SearchFacets
+
+        # If you don't pass any information in, you get a SearchFacets
+        # that does nothing.
+        defaults = m()
+        eq_(None, defaults.entrypoint)
+        eq_(None, defaults.languages)
+        eq_(None, defaults.media)
+
+        mock_entrypoint = object()
+
+        # If you pass in a single value for medium or language
+        # they are turned into a list.
+        with_single_value = m(mock_entrypoint, Edition.BOOK_MEDIUM, "eng")
+        eq_(mock_entrypoint, with_single_value.entrypoint)
+        eq_([Edition.BOOK_MEDIUM], with_single_value.media)
+        eq_(["eng"], with_single_value.languages)
+
+        # If you pass in a list of values, it's left alone.
+        media = [Edition.BOOK_MEDIUM, Edition.AUDIO_MEDIUM]
+        languages = ["eng", "spa"]
+        with_multiple_values = m(None, media, languages)
+        eq_(media, with_multiple_values.media)
+        eq_(languages, with_multiple_values.languages)
+
+        # The only exception is if you pass in Edition.ALL_MEDIUM
+        # as 'medium' -- that's passed through as is.
+        every_medium = m(None, Edition.ALL_MEDIUM)
+        eq_(Edition.ALL_MEDIUM, every_medium.media)
+
+    def test_from_request(self):
+        # An HTTP client can customize which SearchFacets object
+        # is created by sending different HTTP requests.
+
+        # These variables mock the query string arguments and
+        # HTTP headers of an HTTP request.
+        arguments = dict(entrypoint=EbooksEntryPoint.INTERNAL_NAME,
+                         media=Edition.AUDIO_MEDIUM)
+        headers = {"Accept-Language" : "da, en-gb;q=0.8"}
+        get_argument = arguments.get
+        get_header = headers.get
+
+        unused = object()
+
+        library = self._default_library
+        library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
+            [AudiobooksEntryPoint.INTERNAL_NAME, EbooksEntryPoint.INTERNAL_NAME]
+        )
+
+        def from_request(**extra):
+            return SearchFacets.from_request(
+                unused, self._default_library, get_argument, get_header,
+                unused, **extra
+            )
+
+        facets = from_request(extra="value")
+        eq_(dict(extra="value"), facets.constructor_kwargs)
+
+        # The superclass's from_request implementation pulled the
+        # requested EntryPoint out of the request.
+        eq_(EbooksEntryPoint, facets.entrypoint)
+
+        # The SearchFacets implementation pulled the 'media' query
+        # string argument.
+        #
+        # The medium from the 'media' argument contradicts the medium
+        # implied by the entry point, but that's not our problem.
+        eq_([Edition.AUDIO_MEDIUM], facets.media)
+
+        # The SearchFacets implementation turned the 'Accept-Language'
+        # header into a set of language codes.
+        eq_(['dan', 'eng'], facets.languages)
+
+        # Try again with bogus media and languages.
+        arguments['media'] = 'Unknown Media'
+        headers['Accept-Language'] = "xx, ql"
+
+        # None of the bogus information was used.
+        facets = from_request()
+        eq_(None, facets.media)
+        eq_(None, facets.languages)
+
+        # Try again with no information.
+        del arguments['media']
+        del headers['Accept-Language']
+
+        facets = from_request()
+        eq_(None, facets.media)
+        eq_(None, facets.languages)
+
+
     def test_selectable_entrypoints(self):
         """If the WorkList has more than one facet, an 'everything' facet
         is added for search purposes.
