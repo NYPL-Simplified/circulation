@@ -33,6 +33,7 @@ from core.model import (
     get_one_or_create,
     Admin,
     AdminRole,
+    CachedFeed,
     CirculationEvent,
     Classification,
     Collection,
@@ -60,7 +61,7 @@ from core.model import (
     Work,
     WorkGenre,
 )
-from core.lane import Lane
+from core.lane import (Lane, WorkList)
 from core.log import (LogConfiguration, SysLogger, Loggly)
 from core.util.problem_detail import (
     ProblemDetail,
@@ -95,11 +96,11 @@ from password_admin_authentication_provider import PasswordAdminAuthenticationPr
 
 from api.controller import CirculationManagerController
 from api.coverage import MetadataWranglerCollectionRegistrar
-from core.app_server import entry_response
 from core.app_server import (
     entry_response,
     feed_response,
-    load_pagination_from_request
+    load_pagination_from_request,
+    load_facets_from_request
 )
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
@@ -1598,6 +1599,31 @@ class CustomListsController(AdminCirculationManagerController):
         list = get_one(self._db, CustomList, id=list_id, data_source=data_source)
         if not list:
             return MISSING_CUSTOM_LIST
+
+        worklist = WorkList()
+        worklist.initialize(library, customlists=[list])
+
+        annotator = self.manager.annotator(worklist)
+        facets = load_facets_from_request(worklist=worklist)
+        if isinstance(facets, ProblemDetail):
+            return facets
+        pagination = load_pagination_from_request()
+        if isinstance(pagination, ProblemDetail):
+            return pagination
+        url = annotator.feed_url(
+            worklist,
+            facets=facets,
+            pagination=pagination,
+        )
+        feed = AcquisitionFeed.page(
+            self._db, list.name, url, worklist,
+            annotator=annotator,
+            facets=facets, pagination=pagination,
+            cache_type=AcquisitionFeed.NO_CACHE
+        )
+        # return feed_response(unicode(feed))
+        testlist = list
+        # set_trace()
 
         if flask.request.method == "GET":
             entries = []
