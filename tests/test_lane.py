@@ -227,6 +227,21 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         eq_(mock_entrypoints, m(worklist))
         eq_([], m(None))
 
+    def test_modify_search_filter(self):
+
+        # When an entry point is selected, search filters are modified so
+        # that they only find works that fit that entry point.
+        filter = Filter()
+        facets = FacetsWithEntryPoint(AudiobooksEntryPoint)
+        facets.modify_search_filter(filter)
+        eq_([Edition.AUDIO_MEDIUM], filter.media)
+
+        # If no entry point is selected, the filter is not modified.
+        filter = Filter()
+        facets = FacetsWithEntryPoint()
+        facets.modify_search_filter(filter)
+        eq_(None, filter.media)
+
 
 class TestFacets(DatabaseTest):
 
