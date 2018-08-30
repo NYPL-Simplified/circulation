@@ -3441,7 +3441,7 @@ class TestSettingsController(SettingsControllerTest):
             "Exception getting self-test results for collection %s: Test result disaster!" % (
                 OPDSCollection.name
             ),
-            self_test_results
+            self_test_results.exception
         )
 
         HasSelfTests.prior_test_results = old_prior_test_results
