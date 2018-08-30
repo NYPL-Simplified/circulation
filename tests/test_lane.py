@@ -2373,6 +2373,9 @@ class TestLane(DatabaseTest):
 
     def test_search(self):
         # Searching a Lane calls search() on its search_target.
+        #
+        # TODO: This test could be trimmed down quite a bit with
+        # mocks.
 
         work = self._work(with_license_pool=True)
         self.add_to_materialized_view(work)

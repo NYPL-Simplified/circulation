@@ -82,7 +82,7 @@ from classifier import (
     Mystery,
 )
 
-from external_search import DummyExternalSearchIndex
+from external_search import MockExternalSearchIndex
 import xml.etree.ElementTree as ET
 from flask_babel import lazy_gettext as _
 
@@ -1276,7 +1276,7 @@ class TestOPDS(DatabaseTest):
         self.add_to_materialized_view([work1, work2], True)
 
         pagination = Pagination(size=1)
-        search_client = DummyExternalSearchIndex()
+        search_client = MockExternalSearchIndex()
         search_client.bulk_update([work1, work2])
 
         def make_page(pagination):

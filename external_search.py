@@ -1157,13 +1157,13 @@ class MockExternalSearchIndex(ExternalSearchIndex):
     def exists(self, index, doc_type, id):
         return self._key(index, doc_type, id) in self.docs
 
-    def query_works(self, *args, **kwargs):
-        self.queries.append((args, kwargs))
+    def query_works(self, query_string, filter, pagination, debug=False):
+        self.queries.append((query_string, filter, pagination, debug))
         doc_ids = sorted([dict(_id=key[2]) for key in self.docs.keys()])
-        if 'offset' in kwargs and 'size' in kwargs:
-            offset = kwargs['offset']
-            size = kwargs['size']
-            doc_ids = doc_ids[offset: offset + size]
+        if pagination:
+            start = pagination.offset
+            stop = start + pagination.size
+            doc_ids = doc_ids[start:stop]
         return [x['_id'] for x in doc_ids]
 
     def bulk(self, docs, **kwargs):
