@@ -2453,11 +2453,25 @@ class SettingsController(AdminCirculationManagerController):
         if collection.protocol == OPDSImportMonitor.PROTOCOL:
             protocol = OPDSImportMonitor
 
+        self_test_results = None
         if protocol in provider_apis and issubclass(protocol, HasSelfTests):
             if (collection.protocol == OPDSImportMonitor.PROTOCOL):
-                self_test_results = protocol.prior_test_results(self._db, protocol, self._db, collection, OPDSImporter)
+                extra_args = (OPDSImporter,)
             else:
-                self_test_results = protocol.prior_test_results(self._db, protocol, self._db, collection)
+                extra_args = ()
+            try:
+                self_test_results = protocol.prior_test_results(
+                    self._db, protocol, self._db, collection, *extra_args
+                )
+            except Exception, e:
+                # This is bad, but not so bad that we should short-circuit
+                # this whole process -- that might prevent an admin from
+                # making the configuration changes necessary to fix
+                # this problem.
+                message = _("Exception getting self-test results for collection %s: %s")
+                args = (collection.name, e.message)
+                logging.warn(message, *args, exc_info=e)
+                self_test_results = message % args
 
         return self_test_results
 
@@ -3269,7 +3283,6 @@ class SettingsController(AdminCirculationManagerController):
             # We have a relative path. Create a full registration url.
             base_url = catalog.get('id')
             register_url = urlparse.urljoin(base_url, register_url)
-
         # Generate a public key for this website.
         if not key:
             key = RSA.generate(2048)
