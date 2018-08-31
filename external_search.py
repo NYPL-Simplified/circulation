@@ -1025,8 +1025,12 @@ class Filter(SearchBase):
             self._filter_ids(x) for x in self.customlist_restriction_sets
         ]
 
-    def build(self):
-        """Convert this object to an Elasticsearch Filter object."""
+    def build(self, _chain_filters=None):
+        """Convert this object to an Elasticsearch Filter object.
+
+        :param _chain_filters: Mock function to pass in instead of
+        Filter._chain_filters
+        """
 
         # Since a Filter object can be modified after it's created, we
         # need to scrub all the inputs, whether or not they were
@@ -1034,39 +1038,48 @@ class Filter(SearchBase):
         scrub_list = self._scrub_list
         filter_ids = self._filter_ids
 
+        chain = chain or self._chain_filters
+
         collection_ids = filter_ids(self.collection_ids)
+        f = None
         if collection_ids:
-            f = F('terms', collection_id=filter_ids(collection_ids))
+            f = add(f, F(collection_id=filter_ids(collection_ids)))
 
         if self.media:
-            f = f & F('terms', medium=scrub_list(self.media))
+            f = add(f, F('terms', medium=scrub_list(self.media)))
 
         if self.languages:
-            f = f & F('terms', language=scrub_list(self.languages))
+            f = add(f, F('terms', language=scrub_list(self.languages)))
 
         if self.fiction is not None:
             if self.fiction:
                 value = 'fiction'
             else:
                 value = 'nonfiction'
-            f = f & F('term', fiction=value)
+            f = add(f, F('term', fiction=value))
 
         if self.audiences:
-            f = f & F('terms', audience=scrub_list(self.audiences))
+            f = add(f, F('terms', audience=scrub_list(self.audiences)))
 
         if self.target_age:
-            f = f & self.target_age_filter
+            f = add(f, self.target_age_filter)
 
         for genre_ids in self.genre_restriction_sets:
-            f = f & F('terms', **{'genres.term' : filter_ids(genre_ids)})
+            f = add(f, F('terms', **{'genres.term' : filter_ids(genre_ids)}))
 
         for customlist_ids in self.customlist_restriction_sets:
-            f = f & F('terms', list_id=filter_ids(customlist_ids))
+            f = add(f, F('terms', list_id=filter_ids(customlist_ids)))
 
         return f
 
     @property
     def target_age_filter(self):
+        """Helper method to generate the target age subfilter.
+        
+        It's complicated because it has to handle cases where the upper
+        or lower bound on target age is missing (indicating there is no
+        upper or lower bound).
+        """
         lower, upper = self.target_age
         def does_not_exist(field):
             """A filter that matches if there is no value for `field`."""
@@ -1119,7 +1132,10 @@ class Filter(SearchBase):
 
         :return: A list of IDs, or None if nothing was provided.
         """
-        if not ids:
+        # Generally None means 'no restriction', while an empty list
+        # means 'one of the values in this empty list' -- in other
+        # words, they are opposites.
+        if ids is None:
             return None
 
         processed = []
@@ -1129,6 +1145,17 @@ class Filter(SearchBase):
                 id = id.id
             processed.append(id)
         return processed
+
+    @classmethod
+    def _chain_filters(cls, existing, new):
+        """Either chain two filters together or start a new chain."""
+        if existing:
+            # We're combining two filters.
+            new = existing & new
+        else:
+            # There was no previous filter -- the 'new' one is it.
+            pass
+        return new
 
 
 class MockExternalSearchIndex(ExternalSearchIndex):

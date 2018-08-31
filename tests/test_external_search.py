@@ -12,6 +12,10 @@ from . import (
     DatabaseTest,
 )
 
+from elasticsearch_dsl import (
+    Q,
+    F,
+)
 from elasticsearch.exceptions import ElasticsearchException
 
 from config import CannotLoadConfiguration
@@ -24,7 +28,9 @@ from model import (
 from external_search import (
     ExternalSearchIndex,
     ExternalSearchIndexVersions,
+    Filter,
     MockExternalSearchIndex,
+    Query,
     SearchIndexCoverageProvider,
     SearchIndexMonitor,
 )
@@ -1018,8 +1024,99 @@ class TestExactMatches(ExternalSearchTest):
             "peter graves biography"
         )
 
+class TestFilter(DatabaseTest):
+
+    def test_constructor(self):
+        pass
+
+    def test_from_worklist(self):
+        # Any WorkList can be converted into a Filter.
+        #
+        # WorkList.inherited_value() and WorkList.inherited_values()
+        # are used to determine what should go into the constructor.
+        pass
+
+    def test_build(self):
+        # Turn a Filter into an ElasticSearch filter object.
+        pass
+
+    def test_target_age_filter(self):
+        # Test an especially complex subfilter.
+
+        two_to_five = Filter(target_age=(2,5))
+        filter = two_to_five.target_age_filter
+
+        # This is the combination of two filters -- both must match.
+        eq_("and", filter.name)
+
+        # One filter matches against the lower age range; the other 
+        # matches against the upper age range.
+        lower_match, upper_match = filter.filters
+
+        set_trace()
+
+        up_to_ten = Filter(target_age=(None, 10))
+        twelve_and_up = Filter(target_age=(12, None))
+
+
+
+
+
+    def test__scrub(self):
+        # Test the _scrub helper method, which transforms incoming strings
+        # to the type of strings Elasticsearch uses.
+        m = Filter._scrub
+        eq_(None, m(None))
+        eq_("foo", m("foo"))
+        eq_("youngadult", m("Young Adult"))
+
+    def test__scrub_list(self):
+        # Test the _scrub_list helper method, which scrubs incoming
+        # strings and makes sure they are in a list.
+        m = Filter._scrub_list
+        eq_([], m(None))
+        eq_([], m([]))
+        eq_(["foo"], m("foo"))
+        eq_(["youngadult", "adult"], m(["Young Adult", "Adult"]))
+
+    def test__filter_ids(self):
+        # Test the _filter_ids helper method, which converts database
+        # objects to their IDs.
+        m = Filter._filter_ids
+        eq_(None, m(None))
+        eq_([], m([]))
+        eq_([1,2,3], m([1,2,3]))
+
+        library = self._default_library
+        eq_([library.id], m([library]))
+
+    def test__chain_filters(self):
+        # Test the _chain_filters method, which combines
+        # two Elasticsearch filter objects.
+        f1 = F('term', key="value")
+        f2 = F('term', key2="value2")
+
+        m = Filter._chain_filters
+
+        # If this filter is the start of the chain, it's returned unaltered.
+        eq_(f1, m(None, f1))
+
+        # Otherwise, a new filter is created.
+        chained = m(f1, f2)
+
+        # The chained filter is the conjunction of the two input
+        # filters.
+        eq_(chained, f1 & f2)
+
+
+class TestQuery(DatabaseTest):
+    pass
+
 
 class TestSearchQuery(DatabaseTest):
+    """NOTE: This is old code, TestQuery is the new code. I need to make
+    sure TestQuery covers everything and then I'll be removing this.
+    """
     def test_make_query(self):
 
         search = MockExternalSearchIndex()
@@ -1226,6 +1323,10 @@ class TestSearchQuery(DatabaseTest):
 
 
 class TestSearchFilterFromLane(DatabaseTest):
+
+    """NOTE: This is old code, TestQuery is the new code. I need to make
+    sure TestQuery covers everything and then I'll be removing this.
+    """
 
     def test_make_filter_handles_collection_id(self):
         search = MockExternalSearchIndex()
