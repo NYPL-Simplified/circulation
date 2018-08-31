@@ -77,7 +77,6 @@ from core.model import (
 from core.opds import (
     AcquisitionFeed,
 )
-from core.util import LanguageCodes
 from core.util.opds_writer import (
      OPDSFeed,
 )
@@ -146,7 +145,6 @@ from novelist import (
 from base_controller import BaseCirculationManagerController
 from testing import MockCirculationAPI, MockSharedCollectionAPI
 from core.analytics import Analytics
-from accept_types import parse_header
 
 class CirculationManager(object):
 
@@ -758,22 +756,9 @@ class OPDSFeedController(CirculationManagerController):
         query = flask.request.args.get('q')
         library_short_name = flask.request.library.short_name
 
-        language_header = flask.request.headers.get("Accept-Language")
-        if language_header:
-            languages = parse_header(language_header)
-            languages = map(str, languages)
-            languages = map(LanguageCodes.iso_639_2_for_locale, languages)
-            languages = [l for l in languages if l]
-        else:
-            languages = None
-
         facets = load_facets_from_request(
             worklist=lane, base_class=SearchFacets
         )
-        kwargs = dict()
-        if languages:
-            kwargs['language'] = languages
-        kwargs.update(dict(facets.items()))
 
         # Create a function that, when called, generates a URL to the
         # search controller.
@@ -802,7 +787,7 @@ class OPDSFeedController(CirculationManagerController):
             _db=self._db, title=info['name'],
             url=this_url, lane=lane, search_engine=self.manager.external_search,
             query=query, annotator=annotator, pagination=pagination,
-            languages=languages, facets=facets
+            facets=facets
         )
 
         return feed_response(opds_feed)
