@@ -1043,19 +1043,62 @@ class TestFilter(DatabaseTest):
     def test_target_age_filter(self):
         # Test an especially complex subfilter.
 
+        # We're going to test the construction of this subfilter a
+        # number of ways.
+
+        # First, let's create a filter that matches "ages 2 to 5".
         two_to_five = Filter(target_age=(2,5))
         filter = two_to_five.target_age_filter
 
-        # This is the combination of two filters -- both must match.
+        # The result is the combination of two filters -- both must
+        # match.
         eq_("and", filter.name)
 
-        # One filter matches against the lower age range; the other 
-        # matches against the upper age range.
-        lower_match, upper_match = filter.filters
+        # One filter matches against the upper age range; the other 
+        # matches against the lower age range.
+        upper_match, lower_match = filter.filters
+
+        # First we must establish that two-year-olds are not too old
+        # for the book.
+        eq_("or", upper_match.name)
+        more_than_two, no_upper_limit = upper_match.filters
+
+        # Either the upper age limit must be greater than two...
+        eq_(
+            {'range': {'target_age.upper': {'gte': 2}}},
+            more_than_two.to_dict()
+        )
+
+        # ...or the upper age limit must be missing entirely.
+        def assert_matches_nonexistent_field(f, field):
+            """Verify that a filter only matches when there is
+            no value for the given field.
+            """
+            eq_(
+                f.to_dict(),
+                {'bool': {'must_not': [{'exists': {'field': field}}]}},
+            )
+        assert_matches_nonexistent_field(no_upper_limit, 'target_age.upper')
+
+        # Next we must establish that five-year-olds are not too young
+        # for the book. Again, there are two ways of doing this.
+        eq_("or", lower_match.name)
+        less_than_five, no_lower_limit = lower_match.filters
+
+        # Either the lower age limit must be less than five...
+        eq_(
+            {'range': {'target_age.lower': {'lte': 5}}},
+            less_than_five.to_dict()
+        )
+
+        # ...or the lower age limit must be missing entirely.
+        assert_matches_nonexistent_field(no_lower_limit, 'target_age.lower')
+
+
+        up_to_ten = Filter(target_age=(None, 10))
 
         set_trace()
 
-        up_to_ten = Filter(target_age=(None, 10))
         twelve_and_up = Filter(target_age=(12, None))
 
 
