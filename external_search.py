@@ -973,7 +973,6 @@ class Filter(SearchBase):
         v = worklist.inherited_values
         genre_id_restrictions = v('genre_ids')
         customlist_id_restrictions = v('customlist_ids')
-
         return cls(
             library, media, languages, fiction, audiences,
             target_age, genre_id_restrictions, customlist_id_restrictions,
@@ -1017,13 +1016,13 @@ class Filter(SearchBase):
                 self._filter_ids(x) for x in genre_restriction_sets
             ]
         else:
-            self.genre_restriction_sets = None
+            self.genre_restriction_sets = []
         if customlist_restriction_sets:
             self.customlist_restriction_sets = [
                 self._filter_ids(x) for x in customlist_restriction_sets
             ]
         else:
-            self.customlist_restriction_sets = None
+            self.customlist_restriction_sets = []
 
         # Give the Facets object a chance to modify any or all of this
         # information.
@@ -1164,7 +1163,7 @@ class Filter(SearchBase):
 
         processed = []
 
-        if not isinstance(ids, list):
+        if not isinstance(ids, list) and not isinstance(ids, set):
             ids = [ids]
 
         for id in ids:

@@ -1103,8 +1103,9 @@ class TestFilter(DatabaseTest):
 
         # Test genre_restriction_sets
 
-        eq_(None, empty_filter.genre_restriction_sets)        
-        eq_(None, Filter(genre_restriction_sets=[]).genre_restriction_sets)
+        eq_([], empty_filter.genre_restriction_sets)        
+        eq_([], Filter(genre_restriction_sets=[]).genre_restriction_sets)
+        eq_([], Filter(genre_restriction_sets=None).genre_restriction_sets)
         # This means 'only books that have no genre'
         eq_([[]], Filter(genre_restriction_sets=[[]]).genre_restriction_sets)
 
@@ -1121,8 +1122,9 @@ class TestFilter(DatabaseTest):
         )
 
         # Test customlist_restriction_sets
-        eq_(None, empty_filter.customlist_restriction_sets)        
-        eq_(None, Filter(customlist_restriction_sets=[]).customlist_restriction_sets)
+        eq_([], empty_filter.customlist_restriction_sets)        
+        eq_([], Filter(customlist_restriction_sets=None).customlist_restriction_sets)
+        eq_([], Filter(customlist_restriction_sets=[]).customlist_restriction_sets)
         # This means 'only books that are on no lists'
         eq_([[]], Filter(customlist_restriction_sets=[[]]).customlist_restriction_sets)
 
@@ -1153,7 +1155,72 @@ class TestFilter(DatabaseTest):
         #
         # WorkList.inherited_value() and WorkList.inherited_values()
         # are used to determine what should go into the constructor.
-        pass
+
+        parent = self._lane(
+            display_name="Parent Lane", library=self._default_library
+        )
+        parent.media = Edition.AUDIO_MEDIUM
+        parent.languages = ["eng", "fra"]
+        parent.fiction = True
+        parent.audiences = [Classifier.AUDIENCE_CHILDREN]
+        parent.target_age = NumericRange(10, 11, '[]')
+        parent.genres = [self.horror, self.fantasy]
+        parent.customlists = [self.best_sellers]
+
+        # This lane inherits most of its configuration from its parent.
+        inherits = self._lane(
+            display_name="Child who inherits", parent=parent
+        )
+        inherits.genres = [self.literary_fiction]
+        inherits.customlists = [self.staff_picks]
+
+        class Mock(object):
+            def modify_search_filter(self, filter):
+                self.called_with = filter
+        facets = Mock()
+
+        filter = Filter.from_worklist(self._db, inherits, facets)
+        eq_([self._default_collection.id], filter.collection_ids)
+        eq_(parent.media, filter.media)
+        eq_(parent.languages, filter.languages)
+        eq_(parent.fiction, filter.fiction)
+        eq_(parent.audiences, filter.audiences)
+        eq_((parent.target_age.lower, parent.target_age.upper),
+            filter.target_age)
+
+        # Filter.from_worklist passed the mock Facets object in to
+        # the Filter constructor, which called its modify_search_filter()
+        # method.
+        assert facets.called_with is not None
+
+        # For genre and custom list restrictions, the child values are
+        # appended to the parent's rather than replacing it.
+        eq_([parent.genre_ids, inherits.genre_ids],
+            [set(x) for x in filter.genre_restriction_sets]
+        )
+
+        eq_([parent.customlist_ids, inherits.customlist_ids],
+            filter.customlist_restriction_sets
+        )
+
+        # If any other value is set on the child lane, the parent value
+        # is overridden.
+        inherits.media = Edition.BOOK_MEDIUM
+        filter = Filter.from_worklist(self._db, inherits, facets)
+        eq_(inherits.media, filter.media)
+
+        # This lane doesn't inherit anything from its parent.
+        does_not_inherit = self._lane(
+            display_name="Child who does not inherit", parent=parent
+        )
+        does_not_inherit.inherit_parent_restrictions = False
+
+        # Because of that, the final filter we end up with is nearly
+        # empty. The only restriction here is the collection
+        # restriction imposed by does_not_inherit.library.
+        filter = Filter.from_worklist(self._db, does_not_inherit, facets)
+        eq_({'match_all': {'collection_id': [self._default_collection.id]}},
+            filter.build().to_dict())
 
     def test_build(self):
         # Test the ability to turn a Filter into an ElasticSearch
