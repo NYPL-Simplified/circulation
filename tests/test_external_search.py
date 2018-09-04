@@ -1043,8 +1043,8 @@ class TestFilter(DatabaseTest):
     def test_target_age_filter(self):
         # Test an especially complex subfilter.
 
-        # We're going to test the construction of this subfilter a
-        # number of ways.
+        # We're going to test the construction of this subfilter using
+        # a number of inputs.
 
         # First, let's create a filter that matches "ages 2 to 5".
         two_to_five = Filter(target_age=(2,5))
@@ -1054,11 +1054,11 @@ class TestFilter(DatabaseTest):
         # match.
         eq_("and", filter.name)
 
-        # One filter matches against the upper age range; the other 
-        # matches against the lower age range.
-        upper_match, lower_match = filter.filters
+        # One filter matches against the lower age range; the other 
+        # matches against the upper age range.
+        lower_match, upper_match = filter.filters
 
-        # First we must establish that two-year-olds are not too old
+        # We must establish that two-year-olds are not too old
         # for the book.
         eq_("or", upper_match.name)
         more_than_two, no_upper_limit = upper_match.filters
@@ -1080,7 +1080,7 @@ class TestFilter(DatabaseTest):
             )
         assert_matches_nonexistent_field(no_upper_limit, 'target_age.upper')
 
-        # Next we must establish that five-year-olds are not too young
+        # We must also establish that five-year-olds are not too young
         # for the book. Again, there are two ways of doing this.
         eq_("or", lower_match.name)
         less_than_five, no_lower_limit = lower_match.filters
@@ -1094,16 +1094,35 @@ class TestFilter(DatabaseTest):
         # ...or the lower age limit must be missing entirely.
         assert_matches_nonexistent_field(no_lower_limit, 'target_age.lower')
 
+        # Now let's try a filter that matches "ten and under"
+        ten_and_under = Filter(target_age=(None, 10))
+        filter = ten_and_under.target_age_filter
 
-        up_to_ten = Filter(target_age=(None, 10))
+        # There are two clauses, and one of the two must match.
+        eq_('or', filter.name)
+        less_than_ten, no_lower_limit = filter.filters
 
-        set_trace()
+        # Either the lower part of the age range must be <= ten, or
+        # there must be no lower age limit. If neither of these are
+        # true, then ten-year-olds are too young for the book.
+        eq_({'range': {'target_age.lower': {'lte': 10}}},
+            less_than_ten.to_dict())
+        assert_matches_nonexistent_field(no_lower_limit, 'target_age.lower')
 
+        # Finally, let's try a filter that matches "twelve and up".
         twelve_and_up = Filter(target_age=(12, None))
+        filter = twelve_and_up.target_age_filter
 
+        # There are two clauses, and one of the two must match.
+        eq_('or', filter.name)
+        more_than_twelve, no_upper_limit = filter.filters
 
-
-
+        # Either the upper part of the age range must be >= twelve, or
+        # there must be no upper age limit. If neither of these are true,
+        # then twelve-year-olds are too old for the book.
+        eq_({'range': {'target_age.upper': {'gte': 12}}},
+            more_than_twelve.to_dict())
+        assert_matches_nonexistent_field(no_upper_limit, 'target_age.upper')
 
     def test__scrub(self):
         # Test the _scrub helper method, which transforms incoming strings

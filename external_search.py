@@ -1091,16 +1091,30 @@ class Filter(SearchBase):
             """
             return F('or', [clause, does_not_exist(field)])
 
-        lower_does_not_exist = does_not_exist("target_age.lower")
-        lower_in_range = self._match_op("target_age.lower", "lte", upper)
+        clauses = []
 
-        upper_does_not_exist = does_not_exist("target_age.upper")
-        upper_in_range = self._match_op("target_age.upper", "gte", lower)
+        if upper is not None:
+            lower_does_not_exist = does_not_exist("target_age.lower")
+            lower_in_range = self._match_op("target_age.lower", "lte", upper)
+            lower_match = or_does_not_exist(lower_in_range, "target_age.lower")
+            clauses.append(lower_match)
 
-        lower_match = or_does_not_exist(lower_in_range, "target_age.lower")
-        upper_match = or_does_not_exist(upper_in_range, "target_age.upper")
-        both_ends_match = F('and', [upper_match, lower_match])
-        return both_ends_match
+        if lower is not None:
+            upper_does_not_exist = does_not_exist("target_age.upper")
+            upper_in_range = self._match_op("target_age.upper", "gte", lower)
+            upper_match = or_does_not_exist(upper_in_range, "target_age.upper")
+            clauses.append(upper_match)
+        
+        if not clauses:
+            # Neither upper nor lower age must match.
+            return None
+
+        if len(clauses) == 1:
+            # Upper or lower age must match, but not both.
+            return clauses[0]
+    
+        # Both upper and lower age must match.
+        return F('and', clauses)
 
     @classmethod
     def _scrub(cls, s):
