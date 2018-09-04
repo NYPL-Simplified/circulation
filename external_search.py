@@ -982,7 +982,7 @@ class Filter(SearchBase):
 
     def __init__(self, collections=None, media=None, languages=None,
                  fiction=None, audiences=None, target_age=None,
-                 genre_restriction_sets=[], customlist_restriction_sets=[],
+                 genre_restriction_sets=None, customlist_restriction_sets=None,
                  facets=None
     ):
 
@@ -998,32 +998,37 @@ class Filter(SearchBase):
 
         if target_age:
             if isinstance(target_age, int):
-                self.target_age = (int, int)
+                self.target_age = (target_age, target_age)
             elif isinstance(target_age, tuple) and len(target_age) == 2:
                 self.target_age = target_age
             else:
-                # It's a SQLAlchemy range object. Convert it to a tuple
+                # It's a SQLAlchemy range object. Convert it to a tuple.
+                #
+                # NOTE: This assumes that the range is inclusive
+                # on both sides.
                 self.target_age = (target_age.lower, target_age.upper)
         else:
             self.target_age = None
 
-        self.genre_restriction_sets = genre_restriction_sets
-        self.customlist_restriction_sets = customlist_restriction_sets
+        # Filter the lists of database IDs to make sure we aren't
+        # storing any database objects.
+        if genre_restriction_sets:
+            self.genre_restriction_sets = [
+                self._filter_ids(x) for x in genre_restriction_sets
+            ]
+        else:
+            self.genre_restriction_sets = None
+        if customlist_restriction_sets:
+            self.customlist_restriction_sets = [
+                self._filter_ids(x) for x in customlist_restriction_sets
+            ]
+        else:
+            self.customlist_restriction_sets = None
 
         # Give the Facets object a chance to modify any or all of this
         # information.
         if facets:
             facets.modify_search_filter(self)
-
-        # Filter the lists of database IDs to make sure we aren't
-        # storing any database objects.
-        self.collection_ids = self._filter_ids(self.collection_ids)
-        self.genre_restriction_sets = [
-            self._filter_ids(x) for x in self.genre_restriction_sets
-        ]
-        self.customlist_restriction_sets = [
-            self._filter_ids(x) for x in self.customlist_restriction_sets
-        ]
 
     def build(self, _chain_filters=None):
         """Convert this object to an Elasticsearch Filter object.
@@ -1158,6 +1163,10 @@ class Filter(SearchBase):
             return None
 
         processed = []
+
+        if not isinstance(ids, list):
+            ids = [ids]
+
         for id in ids:
             if not isinstance(id, int):
                 # Turn a database object into an ID.

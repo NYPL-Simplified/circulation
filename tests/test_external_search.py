@@ -1027,8 +1027,126 @@ class TestExactMatches(ExternalSearchTest):
 
 class TestFilter(DatabaseTest):
 
+    def setup(self):
+        super(TestFilter, self).setup()
+
+        # Look up three Genre objects which can be used to make filters.
+        self.literary_fiction, ignore = Genre.lookup(
+            self._db, "Literary Fiction"
+        )
+        self.fantasy, ignore = Genre.lookup(self._db, "Fantasy")
+        self.horror, ignore = Genre.lookup(self._db, "Horror")
+        
+        # Create two empty CustomLists which can be used to make filters.
+        self.best_sellers, ignore = self._customlist(num_entries=0)
+        self.staff_picks, ignore = self._customlist(num_entries=0)
+        
     def test_constructor(self):
-        pass
+        collection = self._default_collection
+
+        media = object()
+        languages = object()
+        fiction = object()
+        audiences = object()
+
+        # Test the easy stuff -- these arguments just get stored on the
+        # filter object. They'll be cleaned up later, during build().
+        filter = Filter(
+            media=media, languages=languages,
+            fiction=fiction, audiences=audiences
+        )
+        eq_(media, filter.media)
+        eq_(languages, filter.languages)
+        eq_(fiction, filter.fiction)
+        eq_(audiences, filter.audiences)
+
+        # Test the `collections` argument.
+
+        # If you pass in a library, you get all of its collections.
+        library_filter = Filter(collections=self._default_library)
+        eq_([self._default_collection.id], library_filter.collection_ids)
+
+        # If the library has no collections, the collection filter
+        # will filter everything out.
+        self._default_library.collections = []
+        library_filter = Filter(collections=self._default_library)
+        eq_([], library_filter.collection_ids)
+
+        # If you pass in Collection objects, you get their IDs.
+        collection_filter = Filter(collections=self._default_collection)
+        eq_([self._default_collection.id], collection_filter.collection_ids)
+        collection_filter = Filter(collections=[self._default_collection])
+        eq_([self._default_collection.id], collection_filter.collection_ids)
+
+        # If you pass in IDs, they're left alone.
+        ids = [10, 11, 22]
+        collection_filter = Filter(collections=ids)
+        eq_(ids, collection_filter.collection_ids)
+
+        # If you pass in nothing, there is no collection filter. This
+        # is different from the case above, where the library had no
+        # collections and everything was filtered out.
+        empty_filter = Filter()
+        eq_(None, empty_filter.collection_ids)
+
+        # Test the `target_age` argument.
+        eq_(None, empty_filter.target_age)
+
+        one_year = Filter(target_age=8)
+        eq_((8,8), one_year.target_age)
+
+        year_range = Filter(target_age=(8,10))
+        eq_((8,10), year_range.target_age)
+
+        year_range = Filter(target_age=NumericRange(4, 5, '[]'))
+        eq_((4, 5), year_range.target_age)
+
+        # Test genre_restriction_sets
+
+        eq_(None, empty_filter.genre_restriction_sets)        
+        eq_(None, Filter(genre_restriction_sets=[]).genre_restriction_sets)
+        # This means 'only books that have no genre'
+        eq_([[]], Filter(genre_restriction_sets=[[]]).genre_restriction_sets)
+
+        restricted = Filter(
+            genre_restriction_sets = [
+                [self.horror, self.fantasy],
+                [self.literary_fiction],
+            ]
+        )
+        eq_(
+            [[self.horror.id, self.fantasy.id],
+             [self.literary_fiction.id]],
+            restricted.genre_restriction_sets
+        )
+
+        # Test customlist_restriction_sets
+        eq_(None, empty_filter.customlist_restriction_sets)        
+        eq_(None, Filter(customlist_restriction_sets=[]).customlist_restriction_sets)
+        # This means 'only books that are on no lists'
+        eq_([[]], Filter(customlist_restriction_sets=[[]]).customlist_restriction_sets)
+
+        restricted = Filter(
+            customlist_restriction_sets = [
+                [self.best_sellers],
+                [self.staff_picks],
+            ]
+        )
+        eq_(
+            [[self.best_sellers.id],
+             [self.staff_picks.id]],
+            restricted.customlist_restriction_sets
+        )
+
+        # If you pass in a Facets object, its modify_search_filter()
+        # is called.
+        class Mock(object):
+            def modify_search_filter(self, filter):
+                self.called_with = filter
+
+        facets = Mock()
+        filter = Filter(facets=facets)
+        eq_(filter, facets.called_with)
 
     def test_from_worklist(self):
         # Any WorkList can be converted into a Filter.
@@ -1086,15 +1204,14 @@ class TestFilter(DatabaseTest):
 
         # We want books that are literary fiction, *and* either
         # fantasy or horror.
-        literary_fiction, ignore = Genre.lookup(self._db, "Literary Fiction")
-        fantasy, ignore = Genre.lookup(self._db, "Fantasy")
-        horror, ignore = Genre.lookup(self._db, "Horror")
-        filter.genre_restriction_sets = [[literary_fiction], [fantasy, horror]]
+        filter.genre_restriction_sets = [
+            [self.literary_fiction], [self.fantasy, self.horror]
+        ]
         
-        # We want books that are on _both_ of these lists.
-        best_sellers, ignore = self._customlist(num_entries=0)
-        staff_picks, ignore = self._customlist(num_entries=0)
-        filter.customlist_restriction_sets = [[best_sellers], [staff_picks]]
+        # We want books that are on _both_ of the custom lists.
+        filter.customlist_restriction_sets = [
+            [self.best_sellers], [self.staff_picks]
+        ]
 
         # At this point every item on this Filter that can be set, has been
         # set. When we run build, we'll end up with the output of our mocked
