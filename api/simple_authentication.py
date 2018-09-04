@@ -28,7 +28,12 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
 
     ADDITIONAL_TEST_IDENTIFIERS = 'additional_test_identifiers'
 
-    SETTINGS = BasicAuthenticationProvider.SETTINGS + [
+    basic_settings = BasicAuthenticationProvider.SETTINGS
+    for setting in basic_settings:
+        if setting['key'] == 'test_password':
+            setting['optional'] = False
+
+    SETTINGS = basic_settings + [
         { "key": ADDITIONAL_TEST_IDENTIFIERS,
           "label": _("Additional test identifiers"),
           "type": "list",
