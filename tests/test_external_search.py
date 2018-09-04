@@ -1054,16 +1054,16 @@ class TestFilter(DatabaseTest):
 
         # Add a medium clause to the filter.
         filter.media = "a medium"
-        eq_({'terms': {'medium': ['amedium']}},
-            filter.build().to_dict())
+        medium_built = {'terms': {'medium': ['amedium']}}
+        eq_(medium_built, filter.build().to_dict())
 
         # Add a language clause to the filter.
         filter.languages = ["lang1", "LANG2"]
+        language_built = {'terms': {'language': ['lang1', 'lang2']}}
+
+        # Now both the medium clause and the language clause must match.
         eq_(
-            {'bool': {'must': [
-                {'terms': {'medium': ['amedium']}},
-                {'terms': {'language': ['lang1', 'lang2']}}
-            ]}},
+            {'bool': {'must': [medium_built, language_built]}},
             filter.build().to_dict()
         )
 
@@ -1100,13 +1100,59 @@ class TestFilter(DatabaseTest):
         # set. When we run build, we'll end up with the output of our mocked
         # chain() method -- a list of small filters.
         built = filter.build(_chain_filters=chain)
-        set_trace()
-        pass
 
+        # Every restriction imposed on the Filter object becomes an
+        # Elasticsearch filter object in this list.
+        (collection, medium, language, fiction, audience, target_age,
+         literary_fiction_filter, fantasy_or_horror_filter,
+         best_sellers_filter, staff_picks_filter) = built
+
+        # Test them one at a time.
+        #
+        # Throughout this test, notice that the data model objects --
+        # Collections, Genres, and CustomLists -- have been replaced with
+        # their database IDs. This is done by filter_ids.
+        #
+        # Also, audience, medium, and language have been run through
+        # scrub_list, which turns scalar values into lists, removes
+        # spaces, and converts to lowercase.
+        
+        # TODO: why is this a match_all?
+        eq_(
+            {'match_all': {'collection_id': [self._default_collection.id]}},
+            collection.to_dict()
+        )
+
+        # These we tested earlier -- we're just making sure the same
+        # documents are put into the full filter.
+        eq_(medium_built, medium.to_dict())
+        eq_(language_built, language.to_dict())
+
+        eq_({'term': {'fiction': 'fiction'}}, fiction.to_dict())
+        eq_({'terms': {'audience': ['children']}}, audience.to_dict())
+        
+        # The contents of target_age_filter are tested below -- this
+        # just tests that the target_age_filter is included.
+        eq_(filter.target_age_filter, target_age)
+
+        # There are two different restrictions on genre, because
+        # genre_restriction_sets was set to two lists of genres.
+        eq_({'terms': {'genres.term': [literary_fiction.id]}},
+            literary_fiction_filter.to_dict())
+        eq_({'terms': {'genres.term': [fantasy.id, horror.id]}},
+            fantasy_or_horror_filter.to_dict())
+
+        # Similarly, there are two different restrictions on custom
+        # list membership.
+        eq_({'terms': {'list_id': [best_sellers.id]}},
+            best_sellers_filter.to_dict())
+        eq_({'terms': {'list_id': [staff_picks.id]}},
+            staff_picks_filter.to_dict())
 
         # We tried fiction; now try nonfiction.
-
-        
+        filter = Filter()
+        filter.fiction = False
+        eq_({'term': {'fiction': 'nonfiction'}}, filter.build().to_dict())
 
     def test_target_age_filter(self):
         # Test an especially complex subfilter.
