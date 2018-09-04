@@ -23,6 +23,7 @@ from lane import Lane
 from model import (
     Edition,
     ExternalIntegration,
+    Genre,
     WorkCoverageRecord,
 )
 from external_search import (
@@ -1037,8 +1038,75 @@ class TestFilter(DatabaseTest):
         pass
 
     def test_build(self):
-        # Turn a Filter into an ElasticSearch filter object.
+        # Test the ability to turn a Filter into an ElasticSearch
+        # filter object.
+
+        # build() takes the information in the Filter object, scrubs
+        # it, and uses _chain_filters to chain together a number of
+        # sub-filters.
+        #
+        # Let's try it with some simple cases before mocking
+        # _chain_filters for a more detailed test.
+
+        # Start with an empty filter.
+        filter = Filter()
+        eq_(None, filter.build())
+
+        # Add a medium clause to the filter.
+        filter.media = "a medium"
+        eq_({'terms': {'medium': ['amedium']}},
+            filter.build().to_dict())
+
+        # Add a language clause to the filter.
+        filter.languages = ["lang1", "LANG2"]
+        eq_(
+            {'bool': {'must': [
+                {'terms': {'medium': ['amedium']}},
+                {'terms': {'language': ['lang1', 'lang2']}}
+            ]}},
+            filter.build().to_dict()
+        )
+
+        # Now let's mock _chain_filters so we don't have to check
+        # our test results against super-complicated Elasticsearch
+        # filter objects.
+        #
+        # Instead, we'll get a list of smaller filter objects.
+        def chain(filters, new_filter):
+            if filters is None:
+                # This is the first filter:
+                filters = []
+            filters.append(new_filter)
+            return filters
+
+        filter.collection_ids = [self._default_collection]
+        filter.fiction = True
+        filter.audiences = 'CHILDREN'
+        filter.target_age = (2,3)
+
+        # We want books that are literary fiction, *and* either
+        # fantasy or horror.
+        literary_fiction, ignore = Genre.lookup(self._db, "Literary Fiction")
+        fantasy, ignore = Genre.lookup(self._db, "Fantasy")
+        horror, ignore = Genre.lookup(self._db, "Horror")
+        filter.genre_restriction_sets = [[literary_fiction], [fantasy, horror]]
+        
+        # We want books that are on _both_ of these lists.
+        best_sellers, ignore = self._customlist(num_entries=0)
+        staff_picks, ignore = self._customlist(num_entries=0)
+        filter.customlist_restriction_sets = [[best_sellers], [staff_picks]]
+
+        # At this point every item on this Filter that can be set, has been
+        # set. When we run build, we'll end up with the output of our mocked
+        # chain() method -- a list of small filters.
+        built = filter.build(_chain_filters=chain)
+        set_trace()
         pass
+
+
+        # We tried fiction; now try nonfiction.
+
+        
 
     def test_target_age_filter(self):
         # Test an especially complex subfilter.
@@ -1109,7 +1177,7 @@ class TestFilter(DatabaseTest):
             less_than_ten.to_dict())
         assert_matches_nonexistent_field(no_lower_limit, 'target_age.lower')
 
-        # Finally, let's try a filter that matches "twelve and up".
+        # Next, let's try a filter that matches "twelve and up".
         twelve_and_up = Filter(target_age=(12, None))
         filter = twelve_and_up.target_age_filter
 
@@ -1123,6 +1191,13 @@ class TestFilter(DatabaseTest):
         eq_({'range': {'target_age.upper': {'gte': 12}}},
             more_than_twelve.to_dict())
         assert_matches_nonexistent_field(no_upper_limit, 'target_age.upper')
+
+        # Finally, test filters that put no restriction on target age.
+        no_target_age = Filter()
+        eq_(None, no_target_age.target_age_filter)
+
+        no_target_age = Filter(target_age=(None, None))
+        eq_(None, no_target_age.target_age_filter)
 
     def test__scrub(self):
         # Test the _scrub helper method, which transforms incoming strings
