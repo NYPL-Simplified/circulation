@@ -185,6 +185,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     def _request(self, method, url, headers, data, params, **kwargs):
         """Actually make an HTTP request.
+
         MockEnkiAPI overrides this method.
         """
         return HTTP.request_with_timeout(
@@ -196,6 +197,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
     @classmethod
     def _minutes_since(cls, since):
         """How many minutes have elapsed since `since`?
+
         This is a helper method to create the `minutes` parameter to
         the API.
         """
@@ -204,6 +206,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     def recent_activity(self, since):
         """Find recent circulation events that affected loans or holds.
+
         :param since: A DateTime
         :yield: A sequence of CirculationData objects.
         """
@@ -225,9 +228,11 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     def updated_titles(self, since):
         """Find recent changes to book metadata.
+
         NOTE: getUpdateTitles will return a maximum of 1000 items, so
         in theory this may need to be paginated. This shouldn't be a
         problem assuming the monitor is run regularly.
+
         :param since: A DateTime
         :yield: A sequence of Metadata objects.
         """
@@ -246,6 +251,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
     def get_item(self, enki_id):
         """Retrieve bibliographic and availability information for
         a specific title.
+
         :param enki_id: An Enki record ID.
         :return: If the book is in the library's collection, a
             Metadata object with attached CirculationData. Otherwise, None.
@@ -271,8 +277,10 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     def get_all_titles(self, strt=0, qty=10):
         """Retrieve a single page of items from the Enki collection.
+
         Iterating over the entire collection is very expensive and
         should only happen during initial data population.
+
         :yield: A sequence of Metadata objects, each with a
             CirculationData attached.
         """
@@ -509,6 +517,7 @@ class BibliographicParser(object):
     def extract_bibliographic(self, element):
         """Extract Metadata and CirculationData from a dictionary
         of information from Enki.
+
         :return: A Metadata with attached CirculationData.
         """
         # TODO: it's not clear what these are or whether we'd find them
@@ -724,8 +733,10 @@ class EnkiImport(CollectionMonitor):
     def process_book(self, bibliographic):
         """Make the local database reflect the state of the remote Enki
         collection for the given book.
+
         :param bibliographic: A Metadata object with attached
         CirculationData
+
         :return: A 2-tuple (LicensePool, Edition). If possible, a
         presentation-ready Work will be created for the LicensePool.
         """
