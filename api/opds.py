@@ -770,9 +770,6 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             feed.add_link_to_feed(feed.feed, **crawlable_link)
 
         if lane and lane.uses_customlists and (hasattr(lane, "customlist_ids") and lane.customlist_ids):
-            # _db = Session.object_session(self.library)
-            # clfound = CustomList.find(_db, lane.customlist_ids[0])
-            # set_trace()
             crawlable_url = self.url_for(
                 "crawlable_list_feed", list_name="list name",
                 library_short_name=self.library.short_name,

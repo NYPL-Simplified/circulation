@@ -41,6 +41,7 @@ from core.model import (
     ConfigurationSetting,
     Contributor,
     CustomList,
+    CustomListEntry,
     DataSource,
     Edition,
     ExternalIntegration,
@@ -112,7 +113,11 @@ from core.classifier import (
     NO_VALUE
 )
 from datetime import datetime, timedelta
-from sqlalchemy.sql import func
+from sqlalchemy.sql import (
+    func,
+    select,
+    join,
+)
 from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, select, join
 from sqlalchemy.orm import lazyload
 
@@ -1600,30 +1605,53 @@ class CustomListsController(AdminCirculationManagerController):
         if not list:
             return MISSING_CUSTOM_LIST
 
+        # select w.id
+        #   from customlists as cl join customlistentries as cle on cl.id=cle.list_id
+        #       join works as w on cle.work_id=w.id
+        #   where cl.id=4;
+        clQuery = select([Work]
+            ).select_from(
+                join(CustomList, CustomListEntry, CustomList.id==CustomListEntry.list_id)
+                .join(Work, CustomListEntry.work_id==Work.id)
+            ).where(CustomList.id==list_id)
+
+        works = self._db.execute(clQuery)
+
         worklist = WorkList()
         worklist.initialize(library, customlists=[list])
+        # works = worklist.works(self._db)
+        #
+        # result = self._db.execute(works)
+        # set_trace()
+        # for item in result:
+        #     set_trace()
+        #     print item
 
         annotator = self.manager.annotator(worklist)
-        facets = load_facets_from_request(worklist=worklist)
-        if isinstance(facets, ProblemDetail):
-            return facets
-        pagination = load_pagination_from_request()
-        if isinstance(pagination, ProblemDetail):
-            return pagination
-        url = annotator.feed_url(
-            worklist,
-            facets=facets,
-            pagination=pagination,
-        )
-        feed = AcquisitionFeed.page(
-            self._db, list.name, url, worklist,
-            annotator=annotator,
-            facets=facets, pagination=pagination,
-            cache_type=AcquisitionFeed.NO_CACHE
-        )
-        # return feed_response(unicode(feed))
-        testlist = list
+        # facets = load_facets_from_request(worklist=worklist)
+        # if isinstance(facets, ProblemDetail):
+        #     return facets
+        # pagination = load_pagination_from_request()
+        # if isinstance(pagination, ProblemDetail):
+        #     return pagination
+        # url = annotator.feed_url(
+        #     worklist,
+        #     facets=facets,
+        #     pagination=pagination,
+        # )
+        # feed = AcquisitionFeed.page(
+        #     self._db, list.name, url, worklist,
+        #     annotator=annotator,
+        #     facets=facets, pagination=pagination,
+        #     cache_type=AcquisitionFeed.NO_CACHE
+        # )
+        # # return feed_response(unicode(feed))
+        # testlist = list
         # set_trace()
+
+        af = AcquisitionFeed(self._db, "title", "url", works)
+
+        set_trace()
 
         if flask.request.method == "GET":
             entries = []
