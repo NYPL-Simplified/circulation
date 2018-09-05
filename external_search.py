@@ -768,17 +768,20 @@ class Query(SearchBase):
         q = Q("simple_query_string", query=query_string, fields=fields)
         return q
 
-    def fuzzy_string_query(self, query_string):
+    @classmethod
+    def fuzzy_string_query(cls, query_string):
         # If the query string contains any of the strings known to counfound
         # fuzzy search, don't do the fuzzy search.
-        if self.FUZZY_CIRCUIT_BREAKER.search(query_string):
+        if cls.FUZZY_CIRCUIT_BREAKER.search(query_string):
             return None
 
         fuzzy = Q(
-            "multi_match", fields=self.FUZZY_QUERY_STRING_FIELDS,
-            type="best_fields", fuzziness="AUTO",
+            "multi_match",                        # Match any or all fields
             query=query_string,
-            prefix_length=1,
+            fields=cls.FUZZY_QUERY_STRING_FIELDS, # Look in these fields
+            type="best_fields",                   # Score based on best match
+            fuzziness="AUTO",          # More typos allowed in longer strings
+            prefix_length=1,           # People don't usually typo first letter
         )
         return fuzzy
 

@@ -1227,6 +1227,26 @@ class TestQuery(DatabaseTest):
         eq_(custom_fields, qu.fields)
         eq_("hello", qu.query)
 
+    def test_fuzzy_string_query(self):
+        # fuzzy_string_query() returns a MultiMatch Elasticsearch
+        # object, unless the query string looks like a fuzzy search
+        # will do poorly on it -- then it returns None.
+
+        qu = Query.fuzzy_string_query("hello")
+        eq_("multi_match", qu.name)
+        eq_(Query.FUZZY_QUERY_STRING_FIELDS, qu.fields)
+        eq_("best_fields", qu.type)
+        eq_("AUTO", qu.fuzziness)
+        eq_("hello", qu.query)
+        eq_(1, qu.prefix_length)
+
+        # This query string contains a string that is known to mess
+        # with fuzzy searches.
+        qu = Query.fuzzy_string_query("tennis players")
+
+        # fuzzy_string_query does nothing, to avoid bad results.
+        eq_(None, qu)
+
 class TestFilter(DatabaseTest):
 
     def setup(self):
