@@ -1164,7 +1164,35 @@ class TestQuery(DatabaseTest):
             result
         )
 
-        
+    def test__hypothesize(self):
+        # Verify that _hypothesize() adds a query to a list,
+        # boosting it if necessary.
+        class Mock(Query):
+            @classmethod
+            def _boost(cls, boost, query):
+                return "%s boosted by %d" % (query, boost)
+
+        hypotheses = []
+
+        # If the boost is greater than 1, _boost() is called on the
+        # query object.
+        Mock._hypothesize(hypotheses, "query object", 10)        
+        eq_(["query object boosted by 10"], hypotheses)
+
+        # If it's not greater than 1, _boost() is not called and the query
+        # object is used as-is.
+        Mock._hypothesize(hypotheses, "another query object", 1)        
+        eq_(["query object boosted by 10", "another query object"], hypotheses)
+
+    def test__combine_hypotheses(self):
+        # Verify that _combine_hypotheses creates a DisMax query object
+        # that chooses the best one out of whichever queries it was passed.
+        h1 = Q("simple_query_string", query="query 1")
+        h2 = Q("simple_query_string", query="query 2")
+        hypotheses = [h1, h2]
+        combined = Query._combine_hypotheses(hypotheses)
+        eq_("dis_max", combined.name)
+        eq_(hypotheses, combined.queries)
 
 class TestFilter(DatabaseTest):
 

@@ -673,25 +673,6 @@ class Query(SearchBase):
         # There you go!
         return query
 
-    def _hypothesize(self, hypotheses, query, boost=1.5):
-        """Add a hypothesis to the ones to be tested for each book.
-
-        :param boost: Boost the overall weight of this hypothesis
-        relative to other hypotheses being tested. The default of 1.5
-        allows most 'ordinary' hypotheses to rank higher than the
-        fuzzy-search hypothesis.
-        """
-        if boost > 1:
-            query = self._boost(boost, query)
-        hypotheses.append(query)
-        return hypotheses
-
-    def _combine_hypotheses(self, hypotheses):
-        """Build an Elasticsearch Query object that tests a number
-        of hypotheses at once.
-        """
-        return Q("dis_max", queries=hypotheses)
-
     def query(self):
         """Build an Elasticsearch Query object for this query string.
         """
@@ -750,7 +731,29 @@ class Query(SearchBase):
         qu = self._combine_hypotheses(hypotheses)
         return qu
 
-    def _boost(self, boost, queries):
+    @classmethod
+    def _hypothesize(cls, hypotheses, query, boost=1.5):
+        """Add a hypothesis to the ones to be tested for each book.
+
+        :param boost: Boost the overall weight of this hypothesis
+        relative to other hypotheses being tested. The default of 1.5
+        allows most 'ordinary' hypotheses to rank higher than the
+        fuzzy-search hypothesis.
+        """
+        if boost > 1:
+            query = cls._boost(boost, query)
+        hypotheses.append(query)
+        return hypotheses
+
+    @classmethod
+    def _combine_hypotheses(cls, hypotheses):
+        """Build an Elasticsearch Query object that tests a number
+        of hypotheses at once.
+        """
+        return Q("dis_max", queries=hypotheses)
+
+    @classmethod
+    def _boost(cls, boost, queries):
         """Boost a query by a certain amount relative to its neighbors in a
         dis_max query.
         """
