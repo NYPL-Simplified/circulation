@@ -771,7 +771,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
 
         if lane and lane.uses_customlists and (hasattr(lane, "customlist_ids") and lane.customlist_ids):
             crawlable_url = self.url_for(
-                "crawlable_list_feed", list_name="list name",
+                "crawlable_list_feed", list_name="custom list",
                 library_short_name=self.library.short_name,
                 _external=True
             )

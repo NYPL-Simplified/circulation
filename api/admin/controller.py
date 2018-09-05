@@ -158,6 +158,8 @@ from core.external_search import ExternalSearchIndex
 
 from core.selftest import HasSelfTests
 
+from core.util.opds_writer import OPDSFeed
+
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
     if not manager.testing:
@@ -1605,75 +1607,37 @@ class CustomListsController(AdminCirculationManagerController):
         if not list:
             return MISSING_CUSTOM_LIST
 
-        # select w.id
-        #   from customlists as cl join customlistentries as cle on cl.id=cle.list_id
-        #       join works as w on cle.work_id=w.id
-        #   where cl.id=4;
-        clQuery = select([Work]
-            ).select_from(
-                join(CustomList, CustomListEntry, CustomList.id==CustomListEntry.list_id)
-                .join(Work, CustomListEntry.work_id==Work.id)
-            ).where(CustomList.id==list_id)
-
-        works = self._db.execute(clQuery)
-
-        worklist = WorkList()
-        worklist.initialize(library, customlists=[list])
-        # works = worklist.works(self._db)
-        #
-        # result = self._db.execute(works)
-        # set_trace()
-        # for item in result:
-        #     set_trace()
-        #     print item
-
-        annotator = self.manager.annotator(worklist)
-        # facets = load_facets_from_request(worklist=worklist)
-        # if isinstance(facets, ProblemDetail):
-        #     return facets
-        # pagination = load_pagination_from_request()
-        # if isinstance(pagination, ProblemDetail):
-        #     return pagination
-        # url = annotator.feed_url(
-        #     worklist,
-        #     facets=facets,
-        #     pagination=pagination,
-        # )
-        # feed = AcquisitionFeed.page(
-        #     self._db, list.name, url, worklist,
-        #     annotator=annotator,
-        #     facets=facets, pagination=pagination,
-        #     cache_type=AcquisitionFeed.NO_CACHE
-        # )
-        # # return feed_response(unicode(feed))
-        # testlist = list
-        # set_trace()
-
-        af = AcquisitionFeed(self._db, "title", "url", works)
-
-        set_trace()
-
         if flask.request.method == "GET":
-            entries = []
-            for entry in list.entries:
-                if entry.edition:
-                    url = self.url_for(
-                        "permalink",
-                        identifier_type=entry.edition.primary_identifier.type,
-                        identifier=entry.edition.primary_identifier.identifier,
-                        library_short_name=library.short_name,
-                    )
-                    entries.append(dict(identifier_urn=entry.edition.primary_identifier.urn,
-                                        title=entry.edition.title,
-                                        authors=[author.display_name for author in entry.edition.author_contributors],
-                                        medium=Edition.medium_to_additional_type.get(entry.edition.medium, None),
-                                        url=url,
-                                        language=entry.edition.language,
-                    ))
-            collections = []
-            for collection in list.collections:
-                collections.append(dict(id=collection.id, name=collection.name, protocol=collection.protocol))
-            return dict(id=list.id, name=list.name, entries=entries, collections=collections, entry_count=len(entries))
+            pagination = load_pagination_from_request()
+            if isinstance(pagination, ProblemDetail):
+                return pagination
+
+            all_works = self._db.query(Work).join(Work.custom_list_entries).filter(CustomListEntry.list_id==list_id)
+            page_of_works = pagination.apply(all_works)
+
+            worklist = WorkList()
+            worklist.initialize(library, customlists=[list])
+
+            annotator = self.manager.annotator(worklist)
+
+            url = self.cdn_url_for(
+                "crawlable_list_feed", list_name=list.name,
+                library_short_name=library.short_name,
+            )
+
+            feed = AcquisitionFeed(self._db, list.name, url, page_of_works, annotator)
+
+            # set_trace()
+            if len(list.entries) > 50 and pagination.has_next_page:
+                OPDSFeed.add_link_to_feed(feed=feed.feed, rel="next", href=self.url_for("custom_list", after=pagination.next_page.offset, library_short_name=library.short_name, list_id=list_id))
+            if pagination.offset > 0:
+                OPDSFeed.add_link_to_feed(feed=feed.feed, rel="first", href=self.url_for("custom_list", after=pagination.first_page.offset, library_short_name=library.short_name, list_id=list_id))
+            if pagination.previous_page:
+                OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=self.url_for("custom_list", after=pagination.previous_page.offset, library_short_name=library.short_name, list_id=list_id))
+
+
+            annotator.annotate_feed(feed, worklist)
+            return feed_response(unicode(feed))
 
         elif flask.request.method == "POST":
             name = flask.request.form.get("name")
