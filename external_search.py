@@ -785,7 +785,8 @@ class Query(SearchBase):
         )
         return fuzzy
 
-    def _match_phrase(self, field, query_string):
+    @classmethod
+    def _match_phrase(cls, field, query_string):
         """A clause that matches the query string against a specific field in the search document.
 
         The words in the query_string must match the words in the field,
@@ -793,13 +794,15 @@ class Query(SearchBase):
         """
         return Q("match_phrase", **{field: query_string})
 
-    def _match(self, field, query_string):
+    @classmethod
+    def _match(cls, field, query_string):
         """A clause that matches the query string against a specific field in the search document.
         """
         return Q("match", **{field: query_string})
 
-    def minimal_stemming_query(self, query_string, fields):
-        return [self._match_phrase(field, query_string) for field in fields]
+    @classmethod
+    def minimal_stemming_query(cls, query_string, fields):
+        return [cls._match_phrase(field, query_string) for field in fields]
 
     def make_target_age_query(self, target_age, boost=1):
         (lower, upper) = target_age[0], target_age[1]

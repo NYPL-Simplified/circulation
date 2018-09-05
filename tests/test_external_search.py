@@ -1247,6 +1247,25 @@ class TestQuery(DatabaseTest):
         # fuzzy_string_query does nothing, to avoid bad results.
         eq_(None, qu)
 
+    def test__match_phrase(self):
+        # match_phrases creates a MatchPhrase Elasticsearch
+        # object which does a phrase match against a specific field.
+        qu = Query._match_phrase("author.standard", "flannery o'connor")
+        eq_(
+            {'match_phrase': {'author.standard': "flannery o'connor"}},
+            qu.to_dict()
+        )
+
+    def test__match(self):
+        # match_phrases creates a Match Elasticsearch object which
+        # does a match against a specific field.
+        qu = Query._match("author.standard", "flannery o'connor")
+        eq_(
+            {'match': {'author.standard': "flannery o'connor"}},
+            qu.to_dict()
+        )
+
+
 class TestFilter(DatabaseTest):
 
     def setup(self):
