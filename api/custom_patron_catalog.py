@@ -143,7 +143,7 @@ class CustomRootLane(CustomPatronCatalog):
     def annotate_authentication_document(self, library, doc, url_for):
         """Replace the 'start' link with a link to the configured Lane."""
         root_url = url_for(
-            "acquisition_groups", library_short_name=library.name,
+            "acquisition_groups", library_short_name=library.short_name,
             lane_identifier=self.lane_id, _external=True
         )
         self.replace_link(
