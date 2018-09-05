@@ -696,9 +696,7 @@ class Query(SearchBase):
         # author, or series.
         self._hypothesize(
             hypotheses,
-            self.minimal_stemming_query(
-                query_string, self.MINIMAL_STEMMING_QUERY_FIELDS
-            ),
+            self.minimal_stemming_query(query_string),
             100
         )
 
@@ -786,6 +784,12 @@ class Query(SearchBase):
         return fuzzy
 
     @classmethod
+    def _match(cls, field, query_string):
+        """A clause that matches the query string against a specific field in the search document.
+        """
+        return Q("match", **{field: query_string})
+
+    @classmethod
     def _match_phrase(cls, field, query_string):
         """A clause that matches the query string against a specific field in the search document.
 
@@ -795,28 +799,26 @@ class Query(SearchBase):
         return Q("match_phrase", **{field: query_string})
 
     @classmethod
-    def _match(cls, field, query_string):
-        """A clause that matches the query string against a specific field in the search document.
-        """
-        return Q("match", **{field: query_string})
-
-    @classmethod
-    def minimal_stemming_query(cls, query_string, fields):
+    def minimal_stemming_query(
+            cls, query_string,
+            fields=MINIMAL_STEMMING_QUERY_FIELDS
+    ):
         return [cls._match_phrase(field, query_string) for field in fields]
 
-    def make_target_age_query(self, target_age, boost=1):
+    @classmethod
+    def make_target_age_query(cls, target_age, boost=1):
         (lower, upper) = target_age[0], target_age[1]
         # There must be _some_ overlap with the provided range.
         must = [
-            self._match_op("target_age.upper", "gte", lower),
-            self._match_op("target_age.lower", "lte", upper)
+            cls._match_op("target_age.upper", "gte", lower),
+            cls._match_op("target_age.lower", "lte", upper)
         ]
 
         # Results with ranges closer to the query are better
         # e.g. for query 4-6, a result with 5-6 beats 6-7
         should = [
-            self._match_op("target_age.upper", "lte", upper),
-            self._match_op("target_age.lower", "gte", lower),
+            cls._match_op("target_age.upper", "lte", upper),
+            cls._match_op("target_age.lower", "gte", lower),
         ]
         return Q("bool", must=must, should=should, boost=boost)
 

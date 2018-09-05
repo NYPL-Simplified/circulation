@@ -1247,15 +1247,6 @@ class TestQuery(DatabaseTest):
         # fuzzy_string_query does nothing, to avoid bad results.
         eq_(None, qu)
 
-    def test__match_phrase(self):
-        # match_phrases creates a MatchPhrase Elasticsearch
-        # object which does a phrase match against a specific field.
-        qu = Query._match_phrase("author.standard", "flannery o'connor")
-        eq_(
-            {'match_phrase': {'author.standard': "flannery o'connor"}},
-            qu.to_dict()
-        )
-
     def test__match(self):
         # match_phrases creates a Match Elasticsearch object which
         # does a match against a specific field.
@@ -1265,6 +1256,80 @@ class TestQuery(DatabaseTest):
             qu.to_dict()
         )
 
+    def test__match_phrase(self):
+        # match_phrases creates a MatchPhrase Elasticsearch
+        # object which does a phrase match against a specific field.
+        qu = Query._match_phrase("author.standard", "flannery o'connor")
+        eq_(
+            {'match_phrase': {'author.standard': "flannery o'connor"}},
+            qu.to_dict()
+        )
+
+    def test_minimal_stemming_query(self):
+        class Mock(Query):
+            @classmethod
+            def _match_phrase(cls, field, query_string):
+                return "%s=%s" % (field, query_string)
+
+        m = Mock.minimal_stemming_query
+
+        # No fields, no queries.
+        eq_([], m("query string", []))
+
+        # If you pass in any fields, you get a _match_phrase
+        # query for each one.
+        results = m("query string", ["field1", "field2"])
+        eq_(
+            ["field1=query string", "field2=query string"],
+            results
+        )
+
+        # The default fields are MINIMAL_STEMMING_QUERY_FIELDS.
+        results = m("query string")
+        eq_(
+            ["%s=query string" % field
+             for field in Mock.MINIMAL_STEMMING_QUERY_FIELDS],
+            results
+        )
+
+    def test_make_target_age_query(self):
+        
+        # Search for material suitable for children between the
+        # ages of 5 and 10.
+        qu = Query.make_target_age_query((5,10), boost=50)
+
+        # We get a boosted boolean query.
+        eq_("bool", qu.name)
+        eq_(50, qu.boost)
+
+        # To match the query, the material's target age must overlap
+        # the 5-10 age range.
+        five_year_olds_not_too_old, ten_year_olds_not_too_young = qu.must
+        eq_(
+            {'range': {'target_age.upper': {'gte': 5}}},
+            five_year_olds_not_too_old.to_dict()
+        )
+        eq_(
+            {'range': {'target_age.lower': {'lte': 10}}},
+            ten_year_olds_not_too_young.to_dict()
+        )
+        
+        # To get the full boost, the target age must fit entirely within
+        # the 5-10 age range. If a book would also work for older or younger
+        # kids who aren't in this age range, it's not as good a match.
+        would_work_for_older_kids, would_work_for_younger_kids = qu.should
+        eq_(
+            {'range': {'target_age.upper': {'lte': 10}}},
+            would_work_for_older_kids.to_dict()
+        )
+        eq_(
+            {'range': {'target_age.lower': {'gte': 5}}},
+            would_work_for_younger_kids.to_dict()
+        )
+
+        # The default boost is 1.
+        qu = Query.make_target_age_query((5,10))
+        eq_(1, qu.boost)
 
 class TestFilter(DatabaseTest):
 
