@@ -1434,8 +1434,12 @@ class PatronController(AdminCirculationManagerController):
         # Wipe the Patron's 'identifier for Adobe ID purposes'.
         for credential in AuthdataUtility.adobe_relevant_credentials(patron):
             self._db.delete(credential)
+        if patron.username:
+            identifier = patron.username
+        else:
+            identifier = "with identifier " + patron.authorization_identifier
         return Response(
-            unicode(_("Adobe ID for patron %(patron_username)s has been reset.", patron_username=patron.username)),
+            unicode(_("Adobe ID for patron %(name_or_auth_id)s has been reset.", name_or_auth_id=identifier)),
             200
         )
 
