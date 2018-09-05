@@ -1025,6 +1025,45 @@ class TestExactMatches(ExternalSearchTest):
             "peter graves biography"
         )
 
+class TestQuery(DatabaseTest):
+
+    def test_constructor(self):
+        # Verify that the Query constructor sets members with
+        # no processing.
+        query = Query("query string", "filter")
+        eq_("query string", query.query_string)
+        eq_("filter", query.filter)
+
+    def test_build(self):
+        # Verify that the build() method combines the 'query' part of the
+        # Query and the 'filter' part to create a single Elasticsearch
+        # query object.
+        class Mock(Query):
+            def query(self):
+                return Q("simple_query_string", query=self.query_string)
+
+        # If there's a filter, an ElasticSearch Filtered object is created.
+        filter = Filter(fiction=True)
+        m = Mock("query string", filter=filter)
+        filtered = m.build()
+
+        # The 'query' part came from calling Query.query()
+        eq_(filtered.query, m.query())
+
+        # The 'filter' part came from Filter.build()
+        eq_(filtered.filter, filter.build())        
+
+        # If there's no filter, the return value of Query.query()
+        # is used as-is.
+        m.filter = None
+        unfiltered = m.build()
+        eq_(unfiltered, m.query())
+        assert not hasattr(unfiltered, 'filter')
+
+    def test_query(self):
+        # The query() method 
+        pass
+
 class TestFilter(DatabaseTest):
 
     def setup(self):
@@ -1042,6 +1081,8 @@ class TestFilter(DatabaseTest):
         self.staff_picks, ignore = self._customlist(num_entries=0)
         
     def test_constructor(self):
+        # Verify that the Filter constructor sets members with
+        # minimal processing.
         collection = self._default_collection
 
         media = object()
@@ -1103,12 +1144,13 @@ class TestFilter(DatabaseTest):
 
         # Test genre_restriction_sets
 
+        # In these three cases, there are no restrictions on genre.
         eq_([], empty_filter.genre_restriction_sets)        
         eq_([], Filter(genre_restriction_sets=[]).genre_restriction_sets)
         eq_([], Filter(genre_restriction_sets=None).genre_restriction_sets)
-        # This means 'only books that have no genre'
-        eq_([[]], Filter(genre_restriction_sets=[[]]).genre_restriction_sets)
 
+        # Restrict to books that are literary fiction AND (horror OR
+        # fantasy).
         restricted = Filter(
             genre_restriction_sets = [
                 [self.horror, self.fantasy],
@@ -1121,13 +1163,18 @@ class TestFilter(DatabaseTest):
             restricted.genre_restriction_sets
         )
 
+        # This is a restriction: 'only books that have no genre'
+        eq_([[]], Filter(genre_restriction_sets=[[]]).genre_restriction_sets)
+
         # Test customlist_restriction_sets
-        eq_([], empty_filter.customlist_restriction_sets)        
+
+        # In these three cases, there are no restrictions.
+        eq_([], empty_filter.customlist_restriction_sets)
         eq_([], Filter(customlist_restriction_sets=None).customlist_restriction_sets)
         eq_([], Filter(customlist_restriction_sets=[]).customlist_restriction_sets)
-        # This means 'only books that are on no lists'
-        eq_([[]], Filter(customlist_restriction_sets=[[]]).customlist_restriction_sets)
 
+        # Restrict to books that are on *both* the best sellers list and the
+        # staff picks list.
         restricted = Filter(
             customlist_restriction_sets = [
                 [self.best_sellers],
@@ -1138,6 +1185,12 @@ class TestFilter(DatabaseTest):
             [[self.best_sellers.id],
              [self.staff_picks.id]],
             restricted.customlist_restriction_sets
+        )
+
+        # This is a restriction -- 'only books that are not on any lists'.
+        eq_(
+            [[]], 
+            Filter(customlist_restriction_sets=[[]]).customlist_restriction_sets
         )
 
         # If you pass in a Facets object, its modify_search_filter()
@@ -1474,10 +1527,6 @@ class TestFilter(DatabaseTest):
         # The chained filter is the conjunction of the two input
         # filters.
         eq_(chained, f1 & f2)
-
-
-class TestQuery(DatabaseTest):
-    pass
 
 
 class TestSearchQuery(DatabaseTest):
