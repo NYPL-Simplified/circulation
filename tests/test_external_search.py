@@ -1194,6 +1194,25 @@ class TestQuery(DatabaseTest):
         eq_("dis_max", combined.name)
         eq_(hypotheses, combined.queries)
 
+    def test__boost(self):
+        # Verify that _boost() converts a regular query (or list of queries)
+        # into a boosted query.
+        q1 = Q("simple_query_string", query="query 1")
+        q2 = Q("simple_query_string", query="query 2")
+        
+        boosted_one = Query._boost(10, q1)
+        eq_("bool", boosted_one.name)
+        eq_(10.0, boosted_one.boost)
+        eq_(1, boosted_one.minimum_should_match)
+        eq_([q1], boosted_one.should)
+
+        boosted_multiple = Query._boost(4.5, [q1, q2])
+        eq_("bool", boosted_multiple.name)
+        eq_(4.5, boosted_multiple.boost)
+        eq_(1, boosted_multiple.minimum_should_match)
+        eq_([q1, q2], boosted_multiple.should)
+        
+
 class TestFilter(DatabaseTest):
 
     def setup(self):
