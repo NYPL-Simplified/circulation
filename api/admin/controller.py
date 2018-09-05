@@ -113,11 +113,7 @@ from core.classifier import (
     NO_VALUE
 )
 from datetime import datetime, timedelta
-from sqlalchemy.sql import (
-    func,
-    select,
-    join,
-)
+from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, select, join
 from sqlalchemy.orm import lazyload
 
@@ -1627,7 +1623,6 @@ class CustomListsController(AdminCirculationManagerController):
 
             feed = AcquisitionFeed(self._db, list.name, url, page_of_works, annotator)
 
-            # set_trace()
             if len(list.entries) > 50 and pagination.has_next_page:
                 OPDSFeed.add_link_to_feed(feed=feed.feed, rel="next", href=self.url_for("custom_list", after=pagination.next_page.offset, library_short_name=library.short_name, list_id=list_id))
             if pagination.offset > 0:
