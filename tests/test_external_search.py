@@ -1212,6 +1212,20 @@ class TestQuery(DatabaseTest):
         eq_(1, boosted_multiple.minimum_should_match)
         eq_([q1, q2], boosted_multiple.should)
         
+    def test_simple_query_string_query(self):
+        # Verify that simple_query_string_query() returns a
+        # SimpleQueryString Elasticsearch object.
+        qu = Query.simple_query_string_query("hello")
+        eq_("simple_query_string", qu.name)
+        eq_(Query.SIMPLE_QUERY_STRING_FIELDS, qu.fields)
+        eq_("hello", qu.query)
+
+        # It's possible to use your own set of fields instead of
+        # the defaults.
+        custom_fields = ['field1', 'field2']
+        qu = Query.simple_query_string_query("hello", custom_fields)
+        eq_(custom_fields, qu.fields)
+        eq_("hello", qu.query)
 
 class TestFilter(DatabaseTest):
 

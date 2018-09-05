@@ -762,8 +762,9 @@ class Query(SearchBase):
         return Q("bool", boost=float(boost), minimum_should_match=1,
                  should=queries)
 
-    def simple_query_string_query(self, query_string, fields=None):
-        fields = fields or self.SIMPLE_QUERY_STRING_FIELDS
+    @classmethod
+    def simple_query_string_query(cls, query_string, fields=None):
+        fields = fields or cls.SIMPLE_QUERY_STRING_FIELDS
         q = Q("simple_query_string", query=query_string, fields=fields)
         return q
 
