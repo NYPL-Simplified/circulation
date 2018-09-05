@@ -673,6 +673,25 @@ class Query(SearchBase):
         # There you go!
         return query
 
+    def _hypothesize(self, hypotheses, query, boost=1.5):
+        """Add a hypothesis to the ones to be tested for each book.
+
+        :param boost: Boost the overall weight of this hypothesis
+        relative to other hypotheses being tested. The default of 1.5
+        allows most 'ordinary' hypotheses to rank higher than the
+        fuzzy-search hypothesis.
+        """
+        if boost > 1:
+            query = self._boost(boost, query)
+        hypotheses.append(query)
+        return hypotheses
+
+    def _combine_hypotheses(self, hypotheses):
+        """Build an Elasticsearch Query object that tests a number
+        of hypotheses at once.
+        """
+        return Q("dis_max", queries=hypotheses)
+
     def query(self):
         """Build an Elasticsearch Query object for this query string.
         """
@@ -684,28 +703,18 @@ class Query(SearchBase):
         # will be assumed to be true, and the highest-rated titles
         # overall will become the search results.
         hypotheses = []
-        def hypothesize(query, boost=1.5):
-            """Add a hypothesis to the ones to be tested for each book.
-
-            :param boost: Boost the overall weight of this hypothesis
-            relative to other hypotheses being tested. The default of 1.5
-            allows most 'ordinary' hypotheses to rank higher than the
-            fuzzy-search hypothesis.
-            """
-            if boost > 1:
-                query = self._boost(boost, query)
-            hypotheses.append(query)
 
         # Here are the hypotheses:
 
         # The query string might appear in one of the standard
         # searchable fields.
         simple = self.simple_query_string_query(query_string)
-        hypothesize(simple)
+        self._hypothesize(hypotheses, simple)
 
         # The query string might be a close match against title,
         # author, or series.
-        hypothesize(
+        self._hypothesize(
+            hypotheses,
             self.minimal_stemming_query(
                 query_string, self.MINIMAL_STEMMING_QUERY_FIELDS
             ),
@@ -714,10 +723,12 @@ class Query(SearchBase):
 
         # The query string might be an exact match for title or
         # author. Such a match would be boosted quite a lot.
-        hypothesize(
+        self._hypothesize(
+            hypotheses,
             self._match_phrase("title.standard", query_string), 200
         )
-        hypothesize(
+        self._hypothesize(
+            hypotheses,
             self._match_phrase("author.standard", query_string), 200
         )
 
@@ -725,18 +736,18 @@ class Query(SearchBase):
         # standard searchable fields.
         fuzzy = self.fuzzy_string_query(query_string)
         if fuzzy:
-            hypothesize(fuzzy, 1)
+            self._hypothesize(hypotheses, fuzzy, 1)
 
         # The query string might contain some specific field matches
         # (e.g. a genre name or target age), with the remainder being
         # the "real" query string.
         with_field_matches = self._query_with_field_matches(query_string)
         if with_field_matches:
-            hypothesize(with_field_matches)
+            self._hypothesize(hypotheses, with_field_matches)
 
         # For a given book, whichever one of these hypotheses gives
         # the highest score should be used.
-        qu = Q("dis_max", queries=hypotheses)
+        qu = self._combine_hypotheses(hypotheses)
         return qu
 
     def _boost(self, boost, queries):

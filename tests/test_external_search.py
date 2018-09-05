@@ -1061,8 +1061,110 @@ class TestQuery(DatabaseTest):
         assert not hasattr(unfiltered, 'filter')
 
     def test_query(self):
-        # The query() method 
-        pass
+        # The query() method calls a number of other methods
+        # to generate hypotheses, then creates a dis_max query
+        # to find the most likely hypothesis for any given book.
+
+        class Mock(Query):
+
+            _match_phrase_called_with = []
+            _boosts = {}
+
+            fuzzy_string_query_returns_something = True
+            _query_with_field_matches_returns_something = True
+
+            def simple_query_string_query(self, query_string):
+                self.simple_query_string_called_with = query_string
+                return "simple"
+
+            def minimal_stemming_query(self, query_string, fields):
+                self.minimal_stemming_called_with = (query_string, fields)
+                return "minimal stemming"
+
+            def _match_phrase(self, field, query_string):
+                self._match_phrase_called_with.append((field, query_string))
+                return "%s match phrase" % field
+
+            def fuzzy_string_query(self, query_string):
+                self.fuzzy_string_called_with = query_string
+                if self.fuzzy_string_query_returns_something:
+                    return "fuzzy string"
+                else:
+                    return None
+
+            def _query_with_field_matches(self, query_string):
+                self._query_with_field_matches_called_with = query_string
+                if self._query_with_field_matches_returns_something:
+                    return "with field matches"
+                else:
+                    return None
+
+            def _hypothesize(self, hypotheses, new_hypothesis, boost="default"):
+                self._boosts[new_hypothesis] = boost
+                hypotheses.append(new_hypothesis)
+                return hypotheses
+
+            def _combine_hypotheses(self, hypotheses):
+                self._combine_hypotheses_called_with = hypotheses
+                return hypotheses
+
+        q = "query string"
+        query = Mock(q)
+        result = query.query()
+
+        # The final result is the result of calling _combine_hypotheses
+        # on a number of hypotheses. Our mock class just returns
+        # the hypotheses as-is, for easier testing.
+        eq_(result, query._combine_hypotheses_called_with)
+
+        # We ended up with five hypotheses. The mock methods were called
+        # once, except for _match_phrase, which was called once for title
+        # and once for author.
+        eq_(['simple', 'minimal stemming',
+             'title.standard match phrase', 'author.standard match phrase',
+             'fuzzy string', 'with field matches'], result)
+
+        # In each case, the original query string was used as the
+        # input into the mocked method.
+        eq_(q, query.simple_query_string_called_with)
+        eq_((q, query.MINIMAL_STEMMING_QUERY_FIELDS),
+            query.minimal_stemming_called_with)
+        eq_([('title.standard', q), ('author.standard', q)],
+            query._match_phrase_called_with)
+        eq_(q, query.fuzzy_string_called_with)
+        eq_(q, query._query_with_field_matches_called_with)
+
+        # Each call to _hypothesize included a boost factor indicating
+        # how heavily to weight that hypothesis. Rather than do anything
+        # with this information, we just stored it in _boosts.
+
+        # Exact title or author matches are valued quite highly.
+        for field in 'title.standard', 'author.standard':
+            key = field + " match phrase"
+            eq_(200, query._boosts[key])
+
+        # A near-exact match is also valued highly.
+        eq_(100, query._boosts['minimal stemming'])
+
+        # The default query match has the default boost.
+        eq_("default", query._boosts['simple'])
+
+        # The fuzzy match has a boost that's very low, to encourage any
+        # matches that are better to show up first.
+        eq_(1, query._boosts['fuzzy string'])
+
+        # If fuzzy_string_query() or _query_with_field_matches()
+        # returns None, then those hypotheses are not tested.
+        query.fuzzy_string_query_returns_something = False
+        query._query_with_field_matches_returns_something = False
+        result = query.query()
+        eq_(
+            ['simple', 'minimal stemming',
+             'title.standard match phrase', 'author.standard match phrase',],
+            result
+        )
+
+        
 
 class TestFilter(DatabaseTest):
 
