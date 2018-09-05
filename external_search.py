@@ -864,13 +864,23 @@ class QueryParser(object):
     these criteria to a greater or lesser extent.
     """
 
-    def __init__(self, query_string):
+    # The unparseable portion of a query is matched against these
+    # fields.
+    SIMPLE_QUERY_STRING_FIELDS = [
+        "author^4", "subtitle^3", "summary^5", "title^1", "series^1"
+    ]
+
+    def __init__(self, query_string, query_class=Query):
         """Parse the query string and create a list of clauses
         that will boost certain types of books.
 
         Use .query to get an Elasticsearch Query object.
+
+        :param query_class: Pass in a mock of Query here during testing
+        to generate 'query' objects that are easier for you to test.
         """
         self.original_query_string = query_string
+        self.query_class = query_class
 
         # We start with no match queries.
         self.match_queries = []
@@ -921,7 +931,7 @@ class QueryParser(object):
             age = None
         query_string = self.add_target_age_query(age, query_string, age_match)
 
-        self.final_query_string = query_string
+        self.final_query_string = query_string.strip()
 
         if len(query_string.strip()) == 0:
             # Someone who searched for 'young adult romance' ended up
@@ -945,10 +955,9 @@ class QueryParser(object):
         # banks'). But they're most likely searching for a _type_
         # of book, which means a match against summary or subject
         # ('asteroids') would be the most useful.
-        match_rest_of_query = Query.simple_query_string_query(
-            query_string.strip(),
-            ["author^4", "subtitle^3", "summary^5", "title^1", "series^1",
-            ]
+        match_rest_of_query = self.query_class.simple_query_string_query(
+            self.final_query_string,
+            self.SIMPLE_QUERY_STRING_FIELDS
         )
         self.match_queries.append(match_rest_of_query)
 
@@ -974,6 +983,34 @@ class QueryParser(object):
         # genre with "Modern" in its title.
         return Q('bool', must=self.match_queries, boost=190.0)
 
+    def add_match_query(self, query, field, query_string, matched_portion):
+        """Create a match query that finds documents whose value for `field`
+        matches `query`.
+
+        Add it to `self.match_queries`, and remove the relevant portion
+        of `query_string` so it doesn't get reused.
+        """
+        if not query:
+            # This is not a relevant part of the query string.
+            return query_string
+        match_query = self.query_class._match(field, query)
+        self.match_queries.append(match_query)
+        return self._without_match(query_string, matched_portion)
+
+    def add_target_age_query(self, query, query_string, matched_portion):
+        """Create a query that finds documents whose value for `target_age`
+        matches `query`.
+
+        Add it to `match_queries`, and remove the relevant portion
+        of `query_string` so it doesn't get reused.
+        """
+        if not query:
+            # This is not a relevant part of the query string.
+            return query_string
+        match_query = self.query_class.make_target_age_query(query, 40)
+        self.match_queries.append(match_query)
+        return self._without_match(query_string, matched_portion)
+
     @classmethod
     def _without_match(cls, query_string, match):
         """Take the portion of a query string that matched a controlled
@@ -990,34 +1027,6 @@ class QueryParser(object):
         return re.compile(
             word_boundary_pattern % match.strip(), re.IGNORECASE
         ).sub("", query_string)
-
-    def add_match_query(self, query, field, query_string, matched_portion):
-        """Create a match query that finds documents whose value for `field`
-        matches `query`.
-
-        Add it to `self.match_queries`, and remove the relevant portion
-        of `query_string` so it doesn't get reused.
-        """
-        if not query:
-            # This is not a relevant part of the query string.
-            return query_string
-        match_query = Query._match(field, query)
-        self.match_queries.append(match_query)
-        return self._without_match(query_string, matched_portion)
-
-    def add_target_age_query(self, query, query_string, matched_portion):
-        """Create a query that finds documents whose value for `target_age`
-        matches `query`.
-
-        Add it to `match_queries`, and remove the relevant portion
-        of `query_string` so it doesn't get reused.
-        """
-        if not query:
-            # This is not a relevant part of the query string.
-            return query_string
-        match_query = Query.make_target_age_query(query, 40)
-        self.match_queries.append(match_query)
-        return self._without_match(query_string, matched_portion)
 
 
 class Filter(SearchBase):

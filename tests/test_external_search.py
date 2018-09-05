@@ -32,6 +32,7 @@ from external_search import (
     Filter,
     MockExternalSearchIndex,
     Query,
+    QueryParser,
     SearchIndexCoverageProvider,
     SearchIndexMonitor,
 )
@@ -1346,6 +1347,86 @@ class TestQuery(DatabaseTest):
         eq_(190, qu.boost)
         [must_match] = qu.must
         eq_({'match': {'fiction': 'Nonfiction'}}, must_match.to_dict())
+
+
+class TestQueryParser(DatabaseTest):
+    """Test the class that tries to derive structure from freeform
+    text search requests.
+    """
+
+    def test_constructor(self):
+        # The constructor parses the query string, creates any
+        # necessary query objects, and stores the remaining part of
+        # the query
+
+        class MockQuery(object):
+            """Create 'query' objects that are easier to test than
+            the ones the Query class makes.
+            """
+            @classmethod
+            def simple_query_string_query(cls, query_string, fields):
+                return (query_string, fields)
+
+            @classmethod
+            def _match(cls, field, query):
+                return (field, query)
+
+            @classmethod
+            def make_target_age_query(cls, query, boost):
+                return (query, boost)
+
+        def parse(query):
+            # Convenience method to create a mocked QueryParser.
+            return QueryParser(query, MockQuery)
+
+        parser = parse("science fiction about dogs")
+
+        # The original query string is always stored as .original_query_string.
+        eq_("science fiction about dogs", parser.original_query_string)
+        
+        # The part of the query that couldn't be parsed is always stored
+        # as final_query_string.
+        eq_("about dogs", parser.final_query_string)
+
+        # The query string becomes a series of Query objects
+        # (simulated here by the tuples returned by the MockQuery
+        # methods).
+        #
+        # parser.match_queries contains some number of field-match
+        # queries, and then one final query that runs the unparseable
+        # portion of the query through a simple multi-field match.
+        query_string_fields = QueryParser.SIMPLE_QUERY_STRING_FIELDS
+        eq_(
+            [('genres.name', 'Science Fiction'),
+             ('about dogs', query_string_fields)],
+            parser.match_queries
+        )
+
+        # Now that you see how it works, let's define a helper
+        # function that will let us rapidly verify that a certain
+        # query string becomes a certain set of field matches plus a
+        # certain string left over.
+        def assert_parses_as(query_string, *matches):
+            matches = list(matches)
+            parser = parse(query_string)
+            remainder = matches.pop(-1)
+            remainder_match = MockQuery.simple_query_string_query(
+                remainder, query_string_fields
+            )
+            eq_(matches + [remainder_match], parser.match_queries)
+            eq_(query_string, parser.original_query_string)
+            eq_(remainder, parser.final_query_string)
+
+        # Genres are parsed before fiction/nonfiction; otherwise
+        # "science fiction" would be chomped by a search for "fiction"
+        # and "nonfiction" would not be picked up.
+        assert_parses_as(
+            "science fiction or nonfiction dinosaurs",
+            ("genres.name", "Science Fiction"), ("fiction", "Nonfiction"),
+            "or dinosaurs"
+        )
+
+
 
 class TestFilter(DatabaseTest):
 
