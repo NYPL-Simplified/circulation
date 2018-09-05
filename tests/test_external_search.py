@@ -1071,13 +1071,15 @@ class TestQuery(DatabaseTest):
             _boosts = {}
 
             fuzzy_string_query_returns_something = True
-            _query_with_field_matches_returns_something = True
+            _parsed_query_matches_returns_something = True
 
             def simple_query_string_query(self, query_string):
                 self.simple_query_string_called_with = query_string
                 return "simple"
 
-            def minimal_stemming_query(self, query_string, fields):
+            def minimal_stemming_query(
+                    self, query_string, fields="default fields"
+            ):
                 self.minimal_stemming_called_with = (query_string, fields)
                 return "minimal stemming"
 
@@ -1092,10 +1094,10 @@ class TestQuery(DatabaseTest):
                 else:
                     return None
 
-            def _query_with_field_matches(self, query_string):
-                self._query_with_field_matches_called_with = query_string
-                if self._query_with_field_matches_returns_something:
-                    return "with field matches"
+            def _parsed_query_matches(self, query_string):
+                self._parsed_query_matches_called_with = query_string
+                if self._parsed_query_matches_returns_something:
+                    return "parsed query matches"
                 else:
                     return None
 
@@ -1122,17 +1124,17 @@ class TestQuery(DatabaseTest):
         # and once for author.
         eq_(['simple', 'minimal stemming',
              'title.standard match phrase', 'author.standard match phrase',
-             'fuzzy string', 'with field matches'], result)
+             'fuzzy string', 'parsed query matches'], result)
 
         # In each case, the original query string was used as the
         # input into the mocked method.
         eq_(q, query.simple_query_string_called_with)
-        eq_((q, query.MINIMAL_STEMMING_QUERY_FIELDS),
+        eq_((q, "default fields"),
             query.minimal_stemming_called_with)
         eq_([('title.standard', q), ('author.standard', q)],
             query._match_phrase_called_with)
         eq_(q, query.fuzzy_string_called_with)
-        eq_(q, query._query_with_field_matches_called_with)
+        eq_(q, query._parsed_query_matches_called_with)
 
         # Each call to _hypothesize included a boost factor indicating
         # how heavily to weight that hypothesis. Rather than do anything
@@ -1153,10 +1155,10 @@ class TestQuery(DatabaseTest):
         # matches that are better to show up first.
         eq_(1, query._boosts['fuzzy string'])
 
-        # If fuzzy_string_query() or _query_with_field_matches()
+        # If fuzzy_string_query() or _parsed_query_matches()
         # returns None, then those hypotheses are not tested.
         query.fuzzy_string_query_returns_something = False
-        query._query_with_field_matches_returns_something = False
+        query._parsed_query_matches_returns_something = False
         result = query.query()
         eq_(
             ['simple', 'minimal stemming',
@@ -1296,11 +1298,11 @@ class TestQuery(DatabaseTest):
         
         # Search for material suitable for children between the
         # ages of 5 and 10.
-        qu = Query.make_target_age_query((5,10), boost=50)
+        qu = Query.make_target_age_query((5,10), boost=50.1)
 
         # We get a boosted boolean query.
         eq_("bool", qu.name)
-        eq_(50, qu.boost)
+        eq_(50.1, qu.boost)
 
         # To match the query, the material's target age must overlap
         # the 5-10 age range.
@@ -1330,6 +1332,20 @@ class TestQuery(DatabaseTest):
         # The default boost is 1.
         qu = Query.make_target_age_query((5,10))
         eq_(1, qu.boost)
+
+    def test__parsed_query_matches(self):
+        # _parsed_query_matches creates a QueryParser from 
+        # the query string and returns whatever it comes up with.
+        # 
+        # This is a basic test to verify that a QueryParser
+        # is in use. The QueryParser is tested in much greater detail 
+        # in TestQueryParser.
+
+        qu = Query._parsed_query_matches("nonfiction")
+        eq_('bool', qu.name)
+        eq_(190, qu.boost)
+        [must_match] = qu.must
+        eq_({'match': {'fiction': 'Nonfiction'}}, must_match.to_dict())
 
 class TestFilter(DatabaseTest):
 

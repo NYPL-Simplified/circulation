@@ -720,7 +720,7 @@ class Query(SearchBase):
         # The query string might contain some specific field matches
         # (e.g. a genre name or target age), with the remainder being
         # the "real" query string.
-        with_field_matches = self._query_with_field_matches(query_string)
+        with_field_matches = self._parsed_query_matches(query_string)
         if with_field_matches:
             self._hypothesize(hypotheses, with_field_matches)
 
@@ -807,6 +807,13 @@ class Query(SearchBase):
 
     @classmethod
     def make_target_age_query(cls, target_age, boost=1):
+        """Create an Elasticsearch query object for a boolean query that
+        matches works whose target ages overlap (partially or
+        entirely) the given age range.
+
+        :param target_age: A 2-tuple (lower limit, upper limit)
+        :param boost: A value for the boost parameter
+        """
         (lower, upper) = target_age[0], target_age[1]
         # There must be _some_ overlap with the provided range.
         must = [
@@ -814,80 +821,67 @@ class Query(SearchBase):
             cls._match_op("target_age.lower", "lte", upper)
         ]
 
-        # Results with ranges closer to the query are better
+        # Results with ranges contained within the query range are
+        # better.
         # e.g. for query 4-6, a result with 5-6 beats 6-7
         should = [
             cls._match_op("target_age.upper", "lte", upper),
             cls._match_op("target_age.lower", "gte", lower),
         ]
-        return Q("bool", must=must, should=should, boost=boost)
+        return Q("bool", must=must, should=should, boost=float(boost))
 
-    def _query_with_field_matches(self, query_string):
+    @classmethod
+    def _parsed_query_matches(cls, query_string):
         """Deal with a query string that contains information that should be
         exactly matched against a controlled vocabulary
         (e.g. "nonfiction" or "grade 5") along with information that
         is more search-like (such as a title or author).
 
-        The match information is pulled out of the query string
-        and used to make a series of match_phrase queries. The rest of
-        the information is used in a simple 
+        The match information is pulled out of the query string and
+        used to make a series of match_phrase queries. The rest of the
+        information is used in a simple query that matches basic
+        fields.
         """
-        original_query_string = query_string
+        return QueryParser(query_string).query
 
-        def without_match(query_string, match):
-            """Take the portion of a query string that matched a controlled
-            vocabulary, and remove it from the query string, so it
-            doesn't get reused in another part of this method.
-            """
-            # If the match was "children" and the query string was
-            # "children's", we want to remove the "'s" as well as
-            # the match. We want to remove everything up to the
-            # next word boundary that's not an apostrophe or a
-            # dash.
-            word_boundary_pattern = r"\b%s[\w'\-]*\b"
 
-            return re.compile(
-                word_boundary_pattern % match.strip(), re.IGNORECASE
-            ).sub("", query_string)
+class QueryParser(object):
+    """Attempt to parse filter information out of a query string.
+
+    This class is where we make sense of queries like the following:
+
+      asteroids nonfiction
+      grade 5 dogs
+      young adult romance
+      divorce age 10 and up
+
+    These queries contain information that can best be thought of in
+    terms of a filter against specific fields ("nonfiction", "grade
+    5", "romance"). Books either match these criteria or they don't.
+
+    These queries may also contain information that can be thought of
+    in terms of a search ("asteroids", "dogs") -- books may match
+    these criteria to a greater or lesser extent.
+    """
+
+    def __init__(self, query_string):
+        """Parse the query string and create a list of clauses
+        that will boost certain types of books.
+
+        Use .query to get an Elasticsearch Query object.
+        """
+        self.original_query_string = query_string
 
         # We start with no match queries.
-        match_queries = []
+        self.match_queries = []
 
-        def add_match_query(query, field, query_string, matched_portion):
-            """Create a match query that finds documents whose value for `field`
-            matches `query`.
-
-            Add it to `match_queries`, and remove the relevant portion
-            of `query_string` so it doesn't get reused.
-            """
-            if not query:
-                # This is not a relevant part of the query string.
-                return query_string
-            match_query = self._match(field, query)
-            match_queries.append(match_query)
-            return without_match(query_string, matched_portion)
-
-        def add_target_age_query(query, query_string, matched_portion):
-            """Create a query that finds documents whose value for `target_age`
-            matches `query`.
-
-            Add it to `match_queries`, and remove the relevant portion
-            of `query_string` so it doesn't get reused.
-            """
-            if not query:
-                # This is not a relevant part of the query string.
-                return query_string
-            match_query = self.make_target_age_query(query, 40)
-            match_queries.append(match_query)
-            return without_match(query_string, matched_portion)
-
-        # We handle genre first so that later matches don't see genre
-        # names like 'Science Fiction'.
+        # We handle genre first so that, e.g. 'Science Fiction' doesn't
+        # get chomped up by the search for 'fiction'.
 
         # Handle the 'romance' part of 'young adult romance'
         genre, genre_match = KeywordBasedClassifier.genre_match(query_string)
         if genre:
-            query_string = add_match_query(
+            query_string = self.add_match_query(
                 genre.name, 'genres.name', query_string, genre_match
             )
 
@@ -896,7 +890,7 @@ class Query(SearchBase):
             query_string
         )
         if audience:
-            query_string = add_match_query(
+            query_string = self.add_match_query(
                 audience.replace(" ", ""), 'audience', query_string,
                 audience_match
             )
@@ -907,15 +901,17 @@ class Query(SearchBase):
             fiction = "Nonfiction"
         elif re.compile(r"\bfiction\b", re.IGNORECASE).search(query_string):
             fiction = "Fiction"
-        query_string = add_match_query(
+        query_string = self.add_match_query(
             fiction, 'fiction', query_string, fiction
         )
 
-        # Handle the 'grade 5' part of 'dogs grade 5'
-        age_from_grade, grade_match = GradeLevelClassifier.target_age_match(query_string)
+        # Handle the 'grade 5' part of 'grade 5 dogs'
+        age_from_grade, grade_match = GradeLevelClassifier.target_age_match(
+            query_string
+        )
         if age_from_grade and age_from_grade[0] == None:
             age_from_grade = None
-        query_string = add_target_age_query(
+        query_string = self.add_target_age_query(
             age_from_grade, query_string, grade_match
         )
 
@@ -923,46 +919,105 @@ class Query(SearchBase):
         age, age_match = AgeClassifier.target_age_match(query_string)
         if age and age[0] == None:
             age = None
-        query_string = add_target_age_query(age, query_string, age_match)
+        query_string = self.add_target_age_query(age, query_string, age_match)
 
-        if query_string == original_query_string:
-            # We didn't find anything that indicates this is a search
-            # that includes a field match component. So this method should
-            # not try to modify the search document at all.
+        self.final_query_string = query_string
+
+        if len(query_string.strip()) == 0:
+            # Someone who searched for 'young adult romance' ended up
+            # with an empty query string -- they matched an audience
+            # and a genre, and now there's nothing else to match.
+            return
+
+        # Someone who searched for 'asteroids nonfiction' ended up
+        # with a query string of 'asteroids'. Their query string
+        # has a field match component and a query-type component.
+        #
+        # What is likely to be in this query-type component?
+        #
+        # In theory, it could be anything that would go into a
+        # regular query. So would be a really cool place to
+        # call Query() recursively.
+        #
+        # However, someone who does this kind of search is
+        # probably not looking for a specific book. They might be
+        # looking for an author (eg, 'science fiction iain
+        # banks'). But they're most likely searching for a _type_
+        # of book, which means a match against summary or subject
+        # ('asteroids') would be the most useful.
+        match_rest_of_query = Query.simple_query_string_query(
+            query_string.strip(),
+            ["author^4", "subtitle^3", "summary^5", "title^1", "series^1",
+            ]
+        )
+        self.match_queries.append(match_rest_of_query)
+
+    @property
+    def query(self):
+        """Create an ElasticSearch query object that will give a matching book
+        a very high score, assuming we have correctly interpreted the
+        query string.
+        """
+        if self.final_query_string == self.original_query_string:
+            # We didn't find anything that indicates the query string
+            # includes a field match component -- if we had, we would
+            # have removed it from final_query_string. Therefore, this
+            # object has nothing to contribute to the search process.
             return None
 
-        if len(query_string.strip()) > 0:
-            # Someone who searched for 'young adult romance'
-            # now has an empty query string -- they matched an audience
-            # and a genre, and now there's nothing else to match.
-            #
-            # Someone who searched for 'asteroids nonfiction'
-            # still has a query string of 'asteroids'. Their query string
-            # has a field match component and a query-type component.
-            #
-            # What is likely to be in this query-type component?
-            #
-            # In theory, it could be anything that would go into a
-            # regular query. So would be a really cool place to
-            # call build_query recursively.
-            #
-            # However, someone who searches by genre is probably
-            # not looking for a specific book. They might be
-            # looking for an author (eg, 'science fiction iain
-            # banks'). But they're most likely searching for a
-            # _type_ of book, which means a match against summary or
-            # subject ('asteroids')  would be the most useful.
-            match_rest_of_query = self.simple_query_string_query(
-                query_string.strip(),
-                ["author^4", "subtitle^3", "summary^5", "title^1", "series^1",
-                ]
-            )
-            match_queries.append(match_rest_of_query)
+        # If all of the match queries match, the result will be
+        # boosted slightly less than a result that matches the full
+        # query in one of the basic fields like title or author.
+        #
+        # This is so a query for "modern romance" clearly favors a
+        # book called "Modern Romance" over a book in the Romance
+        # genre with "Modern" in its title.
+        return Q('bool', must=self.match_queries, boost=190.0)
 
-        # If all of the match queries match, the result will have a
-        # higher score than results that match the full query in one
-        # of the main fields.
-        return Q('bool', must=match_queries, boost=200.0)
+    @classmethod
+    def _without_match(cls, query_string, match):
+        """Take the portion of a query string that matched a controlled
+        vocabulary, and remove it from the query string, so it
+        doesn't get reused later.
+        """
+        # If the match was "children" and the query string was
+        # "children's", we want to remove the "'s" as well as
+        # the match. We want to remove everything up to the
+        # next word boundary that's not an apostrophe or a
+        # dash.
+        word_boundary_pattern = r"\b%s[\w'\-]*\b"
+
+        return re.compile(
+            word_boundary_pattern % match.strip(), re.IGNORECASE
+        ).sub("", query_string)
+
+    def add_match_query(self, query, field, query_string, matched_portion):
+        """Create a match query that finds documents whose value for `field`
+        matches `query`.
+
+        Add it to `self.match_queries`, and remove the relevant portion
+        of `query_string` so it doesn't get reused.
+        """
+        if not query:
+            # This is not a relevant part of the query string.
+            return query_string
+        match_query = Query._match(field, query)
+        self.match_queries.append(match_query)
+        return self._without_match(query_string, matched_portion)
+
+    def add_target_age_query(self, query, query_string, matched_portion):
+        """Create a query that finds documents whose value for `target_age`
+        matches `query`.
+
+        Add it to `match_queries`, and remove the relevant portion
+        of `query_string` so it doesn't get reused.
+        """
+        if not query:
+            # This is not a relevant part of the query string.
+            return query_string
+        match_query = Query.make_target_age_query(query, 40)
+        self.match_queries.append(match_query)
+        return self._without_match(query_string, matched_portion)
 
 
 class Filter(SearchBase):
