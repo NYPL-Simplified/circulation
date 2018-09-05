@@ -1371,7 +1371,7 @@ class PatronController(AdminCirculationManagerController):
 
         identifier = flask.request.form.get("identifier")
         if not identifier:
-            return NO_SUCH_PATRON.detailed(_("No patron identifier provided"))
+            return NO_SUCH_PATRON.detailed(_("Please enter a patron identifier"))
 
         if not authenticator:
             authenticator = LibraryAuthenticator.from_config(
@@ -1394,7 +1394,7 @@ class PatronController(AdminCirculationManagerController):
         # If we get here, none of the providers succeeded.
         if not complete_patron_data:
             return NO_SUCH_PATRON.detailed(
-                _("Lookup failed for patron with identifier %(patron_identifier)s",
+                _("No patron with identifier %(patron_identifier)s was found at your library",
                   patron_identifier=identifier),
             )
 
