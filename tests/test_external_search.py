@@ -397,6 +397,36 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             eq_(self.sherlock, sherlock_2)
             eq_(2, len(self.sherlock.license_pools))
 
+    def _expect_results(self, works, *query_args, **kwargs):
+        """Helper function to call query() and verify that it
+        returns certain work IDs.
+
+
+        :param ordered: If this is True (the default), then the
+        assertion will only succeed if the search results come in in
+        the exact order specified in `works`. If this is False, then
+        those exact results must come up, but their order is not
+        what's being tested.
+        """
+        if isinstance(works, Work):
+            works = [works]
+
+        results = self.search.query_works(*query_args)
+        expect = [x.id for x in works]
+        expect_ids = ", ".join(map(str, expect))
+        expect_titles = ", ".join([x.title for x in works])
+        if not kwargs.pop('ordered', True):
+            expect = set(expect)
+            results = set(results)
+        eq_(
+            expect, results,
+            "Query args %r did not find %d works (%s/%s), instead found %d (%r)" % (
+                query_args, len(expect), expect_ids, expect_titles,
+                len(results), results
+            )
+        )
+
+
     def test_query_works(self):
         # An end-to-end test of the search functionality.
         #
@@ -418,38 +448,20 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         # Sleep to give the index time to catch up.
         time.sleep(2)
 
+        # Set up convenient aliases for methods we'll be calling a
+        # lot.
         query = self.search.query_works
-        def expect_ids(works, *query_args):
-            # Helper function to call query() and verify that it
-            # returns certain work IDs.
-            if isinstance(works, Work):
-                works = [works]
-
-            query_args = list(query_args)
-
-            results = query(*query_args)
-            expect = [x.id for x in works]
-            expect_ids = ", ".join(map(str, expect))
-            expect_titles = ", ".join([x.title for x in works])
-            eq_(
-                expect, results,
-                "Query args %r did not find %d works (%s/%s), instead found %d (%r)" % (
-                    query_args, len(expect), expect_ids, expect_titles,
-                    len(results), results
-                )
-            )
-
+        expect = self._expect_results
 
         # First, test pagination.
         first_item = Pagination(size=1, offset=0)
-
-        expect_ids(self.moby_dick, "moby dick", None, first_item)
+        expect(self.moby_dick, "moby dick", None, first_item)
 
         second_item = first_item.next_page
-        expect_ids(self.moby_duck, "moby dick", None, second_item)
+        expect(self.moby_duck, "moby dick", None, second_item)
 
         two_per_page = Pagination(size=2, offset=0)
-        expect_ids(
+        expect(
             [self.moby_dick, self.moby_duck],
             "moby dick", None, two_per_page
         )
@@ -460,29 +472,29 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         eq_(2, len(query("moby")))
 
         # Search in author name
-        expect_ids(self.moby_dick, "melville")
+        expect(self.moby_dick, "melville")
 
         # Search in subtitle
-        expect_ids(self.moby_dick, "whale")
+        expect(self.moby_dick, "whale")
 
         # Search in series.
-        expect_ids(self.moby_dick, "classics")
+        expect(self.moby_dick, "classics")
 
         # Search in summary.
-        expect_ids(self.moby_dick, "ishmael")
+        expect(self.moby_dick, "ishmael")
 
         # Search in publisher name.
-        expect_ids(self.moby_dick, "gutenberg")
+        expect(self.moby_dick, "gutenberg")
 
         # Title > subtitle > summary > publisher.
-        expect_ids(
+        expect(
             [self.title_match, self.subtitle_match,
              self.summary_match, self.publisher_match],
             "match"
         )
 
         # (title match + author match) > title match
-        expect_ids(
+        expect(
             [self.moby_dick, self.moby_duck],
             "moby melville"
         )
@@ -491,61 +503,52 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         # 'Moby-Dick' is the first result because it's an exact title
         # match. 'Moby Duck' is the second result because it's a fuzzy
         # match,
-        expect_ids(
-            [self.moby_dick, self.moby_duck],
-            '"moby dick"'
-        )
+        expect([self.moby_dick, self.moby_duck], '"moby dick"')
 
         # Match a stemmed word: 'running' is stemmed to 'run', and
         # so is 'runs'.
-        expect_ids(self.dodger, "runs")
+        expect(self.dodger, "runs")
 
         # Match a misspelled phrase: 'movy' -> 'moby'.
-        results = query("movy")
-        eq_(set([self.moby_dick.id, self.moby_duck.id]), set(results))
+        expect([self.moby_dick, self.moby_duck], "movy", ordered=False)
 
         # Match a misspelled author: 'mleville' -> 'melville'
-        expect_ids(self.moby_dick, "mleville")
+        expect(self.moby_dick, "mleville")
 
-        expect_ids(
-            [self.moby_dick, self.moby_duck], "mo by dick"
-        )
+        expect([self.moby_dick, self.moby_duck], "mo by dick")
 
         # A query without an apostrophe matches a word that contains one.
         # (NOTE: it's not clear whether this is a feature of the index or
         # done by the fuzzy match.)
-        expect_ids(self.tess, "durbervilles")
-        expect_ids(self.tiffany, "tiffanys")
+        expect(self.tess, "durbervilles")
+        expect(self.tiffany, "tiffanys")
 
         # A query with an 'e' matches a word that contains an
         # e-with-acute. (NOTE: it's not clear whether this is a
         # feature of the index or done by the fuzzy match.)
-        expect_ids(self.les_mis, "les miserables")
+        expect(self.les_mis, "les miserables")
 
         # Find results based on fiction status.
         #
         # Here, Moby-Dick (fiction) is privileged over Moby Duck
         # (nonfiction)
-        results = query("fiction moby")
-        eq_(self.moby_dick.id, results[0])
+        expect([self.moby_dick, self.moby_duck], "fiction moby")
 
-        # Gere, Moby Duck is privileged over Moby-Dick.
-        results = query("nonfiction moby")
-        eq_(self.moby_duck.id, results[0])
+        # Here, Moby Duck is privileged over Moby-Dick.
+        expect([self.moby_duck, self.moby_dick], "nonfiction moby")
 
         # Find results based on genre.
 
         # The name of the genre also shows up in the title of a book,
         # but the genre boost means the romance novel is the first
         # result.
-        expect_ids([self.ya_romance, self.modern_romance], "romance")
+        expect([self.ya_romance, self.modern_romance], "romance")
 
         # Find results based on audience.
-        expect_ids(self.children_work, "children's")
+        expect(self.children_work, "children's")
 
-        results = query("young adult")
-        eq_(set([self.ya_work.id, self.ya_romance.id]),
-            set(results)
+        expect(
+            [self.ya_work, self.ya_romance], "young adult", ordered=False
         )
 
         # Find results based on grade level or target age.
@@ -553,45 +556,34 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             # ages 9-10 is a better result because a book targeted
             # toward a narrow range is a better match than a book
             # targeted toward a wide range.
-            expect_ids([self.age_9_10, self.age_2_10], q)
+            expect([self.age_9_10, self.age_2_10], q)
 
         # TODO: I expected this to act like the other queries, but the
         # 2-10 book shows up above the 9-10 book. This might indicate
         # a bug.
-        results = query('age 10-12')
-        eq_(set([self.age_9_10.id, self.age_2_10.id]), set(results))
-        set_trace()
+        expect([self.age_9_10, self.age_2_10], "age 10-12", ordered=False)
 
         # Books whose target age are closer to the requested range
         # are ranked higher.
-        expect_ids(
-            [self.age_4_5, self.age_5_6, self.age_2_10],
-            "age 3-5"
-        )
+        expect([self.age_4_5, self.age_5_6, self.age_2_10], "age 3-5")
 
         # Search by a combination of genre and audience.
 
         # The book with 'Romance' in the title shows up, but it's
         # after the book whose audience matches 'young adult' and
         # whose genre matches 'romance'.
-        expect_ids(
-            [self.ya_romance, self.modern_romance],
-            "young adult romance"
-        )
+        expect([self.ya_romance, self.modern_romance], "young adult romance")
 
         # Search by a combination of target age and fiction
         #
         # Two books match the age range, but the one with a
         # tighter age range comes first.
-        expect_ids([self.age_4_5, self.age_2_10], "age 5 fiction")
+        expect([self.age_4_5, self.age_2_10], "age 5 fiction")
 
         # Search by a combination of genre and title
 
         # Two books match 'lincoln', but the biography comes first.
-        expect_ids(
-            [self.lincoln, self.lincoln_vampire],
-            "lincoln biography"
-        )
+        expect([self.lincoln, self.lincoln_vampire], "lincoln biography")
 
         # Search by age + genre + summary
         results = query("age 8 president biography")
@@ -603,155 +595,81 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Now we'll test filters.
 
-
-        # Filters on media
-
-        book_lane = self._lane("Books")
-        book_lane.media=[Edition.BOOK_MEDIUM]
-        audio_lane = self._lane("Audio")
-        audio_lane.media=[Edition.AUDIO_MEDIUM]
-
-        results = query("pride and prejudice", book_lane.media, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.pride.id), hits[0]["_id"])
-
-        results = query("pride and prejudice", audio_lane.media, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.pride_audio.id), hits[0]["_id"])
-
+        # Both self.pride and self.pride_audio match the search query,
+        # but the filters eliminate one or the other from
+        # consideration.
+        book_filter = Filter(media=Edition.BOOK_MEDIUM)
+        audio_filter = Filter(media=Edition.AUDIO_MEDIUM)
+        expect(self.pride, "pride and prejudice", book_filter)
+        expect(self.pride_audio, "pride and prejudice", audio_filter)
 
         # Filters on languages
+        english = Filter(languages="en")
+        spanish = Filter(languages="es")
+        both = Filter(languages=["en", "es"])
 
-        english_lane = self._lane("English", languages="en")
-        spanish_lane = self._lane("Spanish", languages="es")
-        both_lane = self._lane("Both", languages=["en", "es"])
+        expect(self.sherlock, "sherlock", english)
+        expect(self.sherlock_spanish, "sherlock", spanish)
+        expect(
+            [self.sherlock, self.sherlock_spanish], "sherlock", both,
+            ordered=False
+        )
 
-        results = query("sherlock", None, english_lane.languages, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.sherlock.id), hits[0]["_id"])
+        # Filters on fiction status
+        fiction = Filter(fiction=True)
+        nonfiction = Filter(fiction=False)
+        both = Filter(fiction=None)
 
-        results = query("sherlock", None, spanish_lane.languages, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.sherlock_spanish.id), hits[0]["_id"])
-
-        results = query("sherlock", None, both_lane.languages, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-
-        # Filters on fiction
-
-        fiction_lane = self._lane("fiction")
-        fiction_lane.fiction = True
-        nonfiction_lane = self._lane("nonfiction")
-        nonfiction_lane.fiction = False
-        both_lane = self._lane("both")
-
-        results = query("moby dick", None, None, fiction_lane.fiction, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.moby_dick.id), hits[0]["_id"])
-
-        results = query("moby dick", None, None, nonfiction_lane.fiction, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.moby_duck.id), hits[0]["_id"])
-
-        results = query("moby dick", None, None, both_lane.fiction, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-
+        expect(self.moby_dick, "moby dick", fiction)
+        expect(self.moby_duck, "moby dick", nonfiction)
+        expect(
+            [self.moby_dick, self.moby_duck], "moby dick", both,
+        )
 
         # Filters on audience
+        adult = Filter(audiences=Classifier.AUDIENCE_ADULT)
+        ya = Filter(audiences=Classifier.AUDIENCE_YOUNG_ADULT)
+        children = Filter(audiences=Classifier.AUDIENCE_CHILDREN)
+        ya_and_children = Filter(
+            audiences=[Classifier.AUDIENCE_CHILDREN,
+                       Classifier.AUDIENCE_YOUNG_ADULT]
+        )
 
-        adult_lane = self._lane("Adult")
-        adult_lane.audiences = [Classifier.AUDIENCE_ADULT]
-        ya_lane = self._lane("YA")
-        ya_lane.audiences = [Classifier.AUDIENCE_YOUNG_ADULT]
-        children_lane = self._lane("Children")
-        children_lane.audiences = [Classifier.AUDIENCE_CHILDREN]
-        ya_and_children_lane = self._lane("YA and Children")
-        ya_and_children_lane.audiences = [Classifier.AUDIENCE_CHILDREN,
-                                          Classifier.AUDIENCE_YOUNG_ADULT]
+        expect(self.adult_work, "alice", adult)
+        expect(self.ya_work, "alice", ya)
+        expect(self.children_work, "alice", children)
 
-        results = query("alice", None, None, None, adult_lane.audiences, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.adult_work.id), hits[0]["_id"])
-
-        results = query("alice", None, None, None, ya_lane.audiences, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.ya_work.id), hits[0]["_id"])
-
-        results = query("alice", None, None, None, children_lane.audiences, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.children_work.id), hits[0]["_id"])
-
-        results = query("alice", None, None, None, ya_and_children_lane.audiences, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-        work_ids = sorted([unicode(self.ya_work.id), unicode(self.children_work.id)])
-        result_ids = sorted([hit["_id"] for hit in hits])
-        eq_(work_ids, result_ids)
-
+        expect([self.children_work, self.ya_work], "alice", both, ordered=False)
 
         # Filters on age range
+        age_8 = Filter(target_age=8)
+        age_5_8 = Filter(target_age=(5,8))
+        age_5_10 = Filter(target_age=(5,10))
+        age_8_10 = Filter(target_age=(8,10))
 
-        age_8_lane = self._lane("Age 8")
-        age_8_lane.target_age = 8
+        # As the age filter changes, different books appear and
+        # disappear. no_age is always present since it has no age
+        # restrictions.
+        expect(
+            [self.no_age, self.obama, self.dodger],
+            "president", age_8, ordered=False
+        )
 
-        age_5_8_lane = self._lane("Age 5-8")
-        age_5_8_lane.target_age = (5,8)
+        expect(
+            [self.no_age, self.age_4_5, self.obama, self.dodger],
+            "president", age_5_8, ordered=False
+        )
 
-        age_5_10_lane = self._lane("Age 5-10")
-        age_5_10_lane.target_age = (5,10)
+        expect(
+            [self.no_age, self.age_4_5, self.obama, self.dodger,
+             self.age_9_10],
+            "president", age_5_10, ordered=False
+        )
 
-        age_8_10_lane = self._lane("Age 8-10")
-        age_8_10_lane.target_age = (8,10)
-
-        results = query("president", None, None, None, None, age_8_lane.target_age, None)
-        hits = results["hits"]["hits"]
-        eq_(3, len(hits))
-        work_ids = sorted([unicode(self.no_age.id), unicode(self.obama.id), unicode(self.dodger.id)])
-        result_ids = sorted([hit["_id"] for hit in hits])
-        eq_(work_ids, result_ids)
-
-        results = query("president", None, None, None, None, age_5_8_lane.target_age, None)
-        hits = results["hits"]["hits"]
-        eq_(4, len(hits))
-        work_ids = sorted([unicode(self.no_age.id),
-                           unicode(self.age_4_5.id),
-                           unicode(self.obama.id),
-                           unicode(self.dodger.id)])
-        result_ids = sorted([hit["_id"] for hit in hits])
-        eq_(work_ids, result_ids)
-
-        results = query("president", None, None, None, None, age_5_10_lane.target_age, None)
-        hits = results["hits"]["hits"]
-        eq_(5, len(hits))
-        work_ids = sorted([unicode(self.no_age.id),
-                           unicode(self.age_4_5.id),
-                           unicode(self.obama.id),
-                           unicode(self.dodger.id),
-                           unicode(self.age_9_10.id)])
-        result_ids = sorted([hit["_id"] for hit in hits])
-        eq_(work_ids, result_ids)
-
-        results = query("president", None, None, None, None, age_8_10_lane.target_age, None)
-        hits = results["hits"]["hits"]
-        eq_(4, len(hits))
-        work_ids = sorted([unicode(self.no_age.id),
-                           unicode(self.obama.id),
-                           unicode(self.dodger.id),
-                           unicode(self.age_9_10.id)])
-        result_ids = sorted([hit["_id"] for hit in hits])
-        eq_(work_ids, result_ids)
-
+        expect(
+            [self.no_age, self.obama, self.dodger, self.age_9_10],
+            "president", age_8_10, ordered=False
+        )
 
         # Filters on genre
 
@@ -907,38 +825,16 @@ class TestExactMatches(ExternalSearchTest):
         # Sleep to give the index time to catch up.
         time.sleep(2)
 
+
     def test_exact_matches(self):
         if not self.search:
             return
 
-        # Convenience method to query the default library.
-        def query(*args, **kwargs):
-            return self.search.query_works(
-                self._default_library, *args, **kwargs
-            )
-
-        def expect_ids(works, *query_args):
-            original_query_args = list(query_args)
-            query_args = list(original_query_args)
-            while len(query_args) < 8:
-                query_args.append(None)
-            results = query(*query_args)
-            hits = results["hits"]["hits"]
-            expect = [unicode(x.id) for x in works]
-            actual = [x['_id'] for x in hits]
-            expect_titles = ", ".join([x.title for x in works])
-            actual_titles = ", ".join([x['_source']['title'] for x in hits])
-            eq_(
-                expect, actual,
-                "Query args %r did not find %d works (%s), instead found %d (%s)" % (
-                    original_query_args, len(expect), expect_titles,
-                    len(actual), actual_titles
-                )
-            )
+        expect = self._expect_results
 
         # A full title match takes precedence over a match that's
         # split across genre and subtitle.
-        expect_ids(
+        expect(
             [
                 self.modern_romance, # "modern romance" in title
                 self.ya_romance      # "modern" in subtitle, genre "romance"
@@ -949,7 +845,7 @@ class TestExactMatches(ExternalSearchTest):
         # A full author match takes precedence over a partial author
         # match. A partial author match that matches the entire search
         # string takes precedence over a partial author match that doesn't.
-        expect_ids(
+        expect(
             [
                 self.modern_romance,      # "Aziz Ansari" in author
                 self.parent_book,         # "Aziz" in title, "Ansari" in author
@@ -960,7 +856,7 @@ class TestExactMatches(ExternalSearchTest):
 
         # When a string exactly matches both a title and an author,
         # the books that match exactly are promoted.
-        expect_ids(
+        expect(
             [self.biography_of_peter_graves, self.behind_the_scenes,
              self.book_by_peter_graves, self.book_by_someone_else],
             "peter graves"
@@ -973,7 +869,7 @@ class TestExactMatches(ExternalSearchTest):
         # match. But "The Making of..." still does better than
         # books that match 'peter graves' (or 'peter' and 'graves'),
         # but not 'biography'.
-        expect_ids(
+        expect(
             [self.biography_of_peter_graves, # title + genre 'biography'
              self.behind_the_scenes,         # all words match in title
              self.book_by_peter_graves,      # author (no 'biography')
