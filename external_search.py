@@ -275,7 +275,8 @@ class ExternalSearchIndex(object):
 
         return base_works_index
 
-    def query_works(self, query_string, filter, pagination, debug=False):
+    def query_works(self, query_string, filter=None, pagination=None,
+                    debug=False):
         """Run a search query.
 
         :param query_string: The string to search for.
@@ -292,9 +293,8 @@ class ExternalSearchIndex(object):
 
         query = Query(query_string, filter)
         search = Search(using=self.__client).query(query.build())
-        if fields:
-            search = search.fields(fields)
 
+        fields = None
         if debug:
             # Get some additional fields to make it easy to check whether
             # we got reasonable looking results.
@@ -304,6 +304,13 @@ class ExternalSearchIndex(object):
             # key into the database.
             fields = ["_id"]
 
+        # Change the Search object so it only retrieves the fields
+        # we're asking for.
+        search = search.fields(fields)
+
+        if not pagination:
+            from lane import Pagination
+            pagination = Pagination.default()
         start = pagination.offset
         stop = start + pagination.size
 
@@ -775,6 +782,8 @@ class Query(SearchBase):
     def fuzzy_string_query(cls, query_string):
         # If the query string contains any of the strings known to counfound
         # fuzzy search, don't do the fuzzy search.
+        if not query_string:
+            return None
         if cls.FUZZY_CIRCUIT_BREAKER.search(query_string):
             return None
 
