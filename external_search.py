@@ -1141,7 +1141,7 @@ class Filter(SearchBase):
         collection_ids = filter_ids(self.collection_ids)
         f = None
         if collection_ids:
-            f = chain(f, F(collection_id=filter_ids(collection_ids)))
+            f = chain(f, F('terms', collection_id=filter_ids(collection_ids)))
 
         if self.media:
             f = chain(f, F('terms', medium=scrub_list(self.media)))

@@ -1840,9 +1840,8 @@ class TestFilter(DatabaseTest):
         # scrub_list, which turns scalar values into lists, removes
         # spaces, and converts to lowercase.
         
-        # TODO: why is this a match_all?
         eq_(
-            {'match_all': {'collection_id': [self._default_collection.id]}},
+            {'terms': {'collection_id': [self._default_collection.id]}},
             collection.to_dict()
         )
 
@@ -2013,82 +2012,6 @@ class TestFilter(DatabaseTest):
         # The chained filter is the conjunction of the two input
         # filters.
         eq_(chained, f1 & f2)
-
-
-class TestSearchFilterFromLane(DatabaseTest):
-
-    """NOTE: This is old code, TestQuery is the new code. I need to make
-    sure TestQuery covers everything and then I'll be removing this.
-    """
-
-    def test_make_filter_handles_collection_id(self):
-        search = MockExternalSearchIndex()
-
-        lane = self._lane("anything")
-        collection_ids = [x.id for x in lane.library.collections]
-        filter = search.make_filter(
-            collection_ids,
-            lane.media, lane.languages,
-            lane.fiction, list(lane.audiences), lane.target_age,
-            lane.genre_ids, lane.customlist_ids,
-        )
-        [collection_filter] = filter['and']
-        expect = [
-            {'terms': {'collection_id': collection_ids}},
-            {'bool': {'must_not': {'exists': {'field': 'collection_id'}}}}
-        ]
-        eq_(expect, collection_filter['or'])
-
-    def test_query_works_from_lane_definition_handles_medium(self):
-        search = MockExternalSearchIndex()
-
-        lane = self._lane("Only Audio")
-        lane.media = [Edition.AUDIO_MEDIUM]
-        filter = search.make_filter(
-            [self._default_collection.id],
-            lane.media, lane.languages,
-            lane.fiction, lane.audiences, lane.target_age,
-            lane.genre_ids, lane.customlist_ids,
-        )
-        collection_filter, medium_filter = filter['and']
-        expect = dict(terms=dict(medium=[Edition.AUDIO_MEDIUM.lower()]))
-        eq_(expect, medium_filter)
-
-    def test_query_works_from_lane_definition_handles_age_range(self):
-        search = MockExternalSearchIndex()
-
-        lane = self._lane("For Ages 5-10")
-        lane.target_age = (5,10)
-        filter = search.make_filter(
-            [self._default_collection.id],
-            lane.media, lane.languages,
-            lane.fiction, list(lane.audiences), lane.target_age,
-            lane.genre_ids, lane.customlist_ids,
-        )
-
-        collection_filter, audience_filter, target_age_filter = filter['and']
-        upper_filter, lower_filter = target_age_filter['and']
-        expect_upper = {'or': [{'range': {'target_age.upper': {'gte': 5}}}, {'bool': {'must_not': {'exists': {'field': 'target_age.upper'}}}}]}
-        expect_lower = {'or': [{'range': {'target_age.lower': {'lte': 10}}}, {'bool': {'must_not': {'exists': {'field': 'target_age.lower'}}}}]}
-        eq_(expect_upper, upper_filter)
-        eq_(expect_lower, lower_filter)
-
-    def test_query_works_from_lane_definition_handles_languages(self):
-        search = MockExternalSearchIndex()
-
-        lane = self._lane("english or spanish", languages=['eng', 'spa'])
-        filter = search.make_filter(
-            [self._default_collection.id],
-            lane.media, lane.languages,
-            lane.fiction, lane.audiences, lane.target_age,
-            lane.genre_ids, lane.customlist_ids,
-        )
-
-        collection_filter, languages_filter = filter['and']
-        expect_languages = ['eng', 'spa']
-        assert 'terms' in languages_filter
-        assert 'language' in languages_filter['terms']
-        eq_(expect_languages, sorted(languages_filter['terms']['language']))
 
 
 class TestBulkUpdate(DatabaseTest):
