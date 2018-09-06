@@ -680,7 +680,9 @@ class Query(SearchBase):
 
         # Add the filter, if there is one.
         if self.filter:
-            query = Q("filtered", query=query, filter=self.filter.build())
+            built_filter = self.filter.build()
+            if built_filter:
+                query = Q("filtered", query=query, filter=built_filter)
 
         # There you go!
         return query

@@ -618,13 +618,11 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         # Filters on fiction status
         fiction = Filter(fiction=True)
         nonfiction = Filter(fiction=False)
-        both = Filter(fiction=None)
+        both = Filter()
 
         expect(self.moby_dick, "moby dick", fiction)
         expect(self.moby_duck, "moby dick", nonfiction)
-        expect(
-            [self.moby_dick, self.moby_duck], "moby dick", both,
-        )
+        expect([self.moby_dick, self.moby_duck], "moby dick", both)
 
         # Filters on audience
         adult = Filter(audiences=Classifier.AUDIENCE_ADULT)
@@ -639,7 +637,8 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         expect(self.ya_work, "alice", ya)
         expect(self.children_work, "alice", children)
 
-        expect([self.children_work, self.ya_work], "alice", both, ordered=False)
+        expect([self.children_work, self.ya_work], "alice", ya_and_children,
+               ordered=False)
 
         # Filters on age range
         age_8 = Filter(target_age=8)
@@ -673,88 +672,55 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Filters on genre
 
-        biography_lane = self._lane("Biography", genres=["Biography & Memoir"])
-        fantasy_lane = self._lane("Fantasy", genres=["Fantasy"])
-        both_lane = self._lane("Both", genres=["Biography & Memoir", "Fantasy"])
-        self._db.flush()
+        biography, ignore = Genre.lookup(self._db, "Biography & Memoir")
+        fantasy, ignore = Genre.lookup(self._db, "Fantasy")
+        biography_filter = Filter(genre_restriction_sets=[[biography]])
+        fantasy_filter = Filter(genre_restriction_sets=[[fantasy]])
+        both = Filter(genre_restriction_sets=[[fantasy, biography]])
 
-        results = query("lincoln", None, None, None, None, None, biography_lane.genre_ids)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.lincoln.id), hits[0]["_id"])
-
-        results = query("lincoln", None, None, None, None, None, fantasy_lane.genre_ids)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.lincoln_vampire.id), hits[0]["_id"])
-
-        results = query("lincoln", None, None, None, None, None, both_lane.genre_ids)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
+        expect(self.lincoln, "lincoln", biography_filter)
+        expect(self.lincoln_vampire, "lincoln", fantasy_filter)
+        expect([self.lincoln, self.lincoln_vampire], "lincoln", both,
+               ordered=False)
 
         # Filters on list membership.
+
         # This ignores 'Abraham Lincoln, Vampire Hunter' because that
-        # book isn't on the list.
-        results = query("lincoln", None, None, None, None, None, None, on_any_of_these_lists=[self.presidential.id])
-        hits = results['hits']['hits']
-        eq_(1, len(hits))
-        eq_(unicode(self.lincoln.id), hits[0]["_id"])
+        # book isn't on the self.presidential list.
+        on_presidential_list = Filter(
+            customlist_restriction_sets=[[self.presidential]]
+        )
+        expect(self.lincoln, "lincoln", on_presidential_list)
 
         # This filters everything, since the query is restricted to
         # an empty set of lists.
-        results = query("lincoln", None, None, None, None, None, None, on_any_of_these_lists=[])
-        hits = results['hits']['hits']
-        eq_(0, len(hits))
+        expect([], "lincoln", Filter(customlist_restriction_sets=[[]]))
 
-        # This query does not match anything because the book in
-        # question is not in a collection associated with the default
-        # library.
-        results = query("a tiny book", None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(0, len(hits))
 
-        # If we don't pass in a library to query_works, the entire index is
-        # searched and we can see everything regardless of which collection
-        # it's in.
-        results = self.search.query_works(
-            None, "book", None, None, None, None, None, None, None
+        # Filter based on collection ID.
+
+        # "A Tiny Book" isn't in the default collection.
+        default_collection_only = Filter(collections=self._default_collection)
+        expect([], "a tiny book", default_collection_only)
+
+        # It is in the tiny_collection.
+        other_collection_only = Filter(collections=self.tiny_collection)
+        expect(self.tiny_book, "a tiny book", other_collection_only)
+
+        # If a book is present in two different collections which are
+        # being searched, it only shows up in search results once.
+        english_in_default_library = Filter(
+            collections=[self._default_collection, self.tiny_collection],
+            languages="en"
         )
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        results = self.search.query_works(
-            None, "moby dick", None, None, None, None, None, None, None
-        )
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-
-        #
-        # Test searching across collections.
-        #
-
-        # If we add the missing collection to the default library, "A
-        # Tiny Book" starts showing up in searches against that
-        # library.
-        self._default_library.collections.append(self.tiny_collection)
-        results = query("a tiny book", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-
-        # Although the English edition of 'The Adventures of Sherlock
-        # Holmes' is available through two different collections
-        # associated with the default library, it only shows up once
-        # in search results.
-        results = query(
-            "sherlock holmes", None, ['en'], None, None,
-            None, None, None
-        )
-        hits = results['hits']['hits']
-        eq_(1, len(hits))
-        [doc] = hits
+        expect(self.sherlock, "sherlock holmes", english_in_default_library)
 
         # When the second English LicensePool for 'The Adventures of
         # Sherlock Holmes' was associated with its Work, the Work was
         # automatically reindexed to incorporate with a new set of
         # collection IDs.
+
+        # TODO: This is a tough test to port, needs some thought.
         collections = [x['collection_id'] for x in doc['_source']['collections']]
         expect_collections = [
             self.tiny_collection.id, self._default_collection.id
