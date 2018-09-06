@@ -33,6 +33,7 @@ from external_search import (
     MockExternalSearchIndex,
     Query,
     QueryParser,
+    SearchBase,
     SearchIndexCoverageProvider,
     SearchIndexMonitor,
 )
@@ -1026,6 +1027,19 @@ class TestExactMatches(ExternalSearchTest):
             "peter graves biography"
         )
 
+class TestSearchBase(object):
+
+    def test__match_range(self):
+        # Test the _match_range helper method.
+        # This is used to create an Elasticsearch query term
+        # that only matches if a value is in a given range.
+
+        # This only matches if field.name has a value >= 5.
+        r = SearchBase._match_range("field.name", "gte", 5)
+        set_trace()
+        eq_(r, {'range': {'field.name': {'gte': 5}}})
+
+
 class TestQuery(DatabaseTest):
 
     def test_constructor(self):
@@ -1399,7 +1413,7 @@ class TestQueryParser(DatabaseTest):
         )
 
         # Now that you see how it works, let's define a helper
-        # function that will let us rapidly verify that a certain
+        # function that will let us easily verify that a certain
         # query string becomes a certain set of field matches plus a
         # certain string left over.
         def assert_parses_as(query_string, *matches):
@@ -1480,6 +1494,7 @@ class TestQueryParser(DatabaseTest):
         query = QueryParser("nonfiction asteroids")
         nonfiction, asteroids = query.match_queries
 
+        # It creates real Elasticsearch-DSL query objects.
         eq_({'match': {'fiction': 'Nonfiction'}}, nonfiction.to_dict())
 
         eq_({'simple_query_string': 

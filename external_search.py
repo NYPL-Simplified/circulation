@@ -568,8 +568,13 @@ class ExternalSearchIndexVersions(object):
 class SearchBase(object):
 
     @classmethod
-    def _match_op(cls, field, operation, value):
-        """Match an operation on a field other than equality."""
+    def _match_range(cls, field, operation, value):
+        """Match a ranged value for a field, using an opration other than
+        equality.
+
+        e.g. _match_range("field.name", "gte", 5) will match
+        any value for field.name greater than 5.
+        """
         match = {field : {operation: value}}
         return dict(range=match)
 
@@ -817,16 +822,16 @@ class Query(SearchBase):
         (lower, upper) = target_age[0], target_age[1]
         # There must be _some_ overlap with the provided range.
         must = [
-            cls._match_op("target_age.upper", "gte", lower),
-            cls._match_op("target_age.lower", "lte", upper)
+            cls._match_range("target_age.upper", "gte", lower),
+            cls._match_range("target_age.lower", "lte", upper)
         ]
 
         # Results with ranges contained within the query range are
         # better.
         # e.g. for query 4-6, a result with 5-6 beats 6-7
         should = [
-            cls._match_op("target_age.upper", "lte", upper),
-            cls._match_op("target_age.lower", "gte", lower),
+            cls._match_range("target_age.upper", "lte", upper),
+            cls._match_range("target_age.lower", "gte", lower),
         ]
         return Q("bool", must=must, should=should, boost=float(boost))
 
@@ -1193,13 +1198,13 @@ class Filter(SearchBase):
 
         if upper is not None:
             lower_does_not_exist = does_not_exist("target_age.lower")
-            lower_in_range = self._match_op("target_age.lower", "lte", upper)
+            lower_in_range = self._match_range("target_age.lower", "lte", upper)
             lower_match = or_does_not_exist(lower_in_range, "target_age.lower")
             clauses.append(lower_match)
 
         if lower is not None:
             upper_does_not_exist = does_not_exist("target_age.upper")
-            upper_in_range = self._match_op("target_age.upper", "gte", lower)
+            upper_in_range = self._match_range("target_age.upper", "gte", lower)
             upper_match = or_does_not_exist(upper_in_range, "target_age.upper")
             clauses.append(upper_match)
         
