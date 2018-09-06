@@ -1036,7 +1036,6 @@ class TestSearchBase(object):
 
         # This only matches if field.name has a value >= 5.
         r = SearchBase._match_range("field.name", "gte", 5)
-        set_trace()
         eq_(r, {'range': {'field.name': {'gte': 5}}})
 
 
@@ -1861,16 +1860,16 @@ class TestFilter(DatabaseTest):
 
         # There are two different restrictions on genre, because
         # genre_restriction_sets was set to two lists of genres.
-        eq_({'terms': {'genres.term': [literary_fiction.id]}},
+        eq_({'terms': {'genres.term': [self.literary_fiction.id]}},
             literary_fiction_filter.to_dict())
-        eq_({'terms': {'genres.term': [fantasy.id, horror.id]}},
+        eq_({'terms': {'genres.term': [self.fantasy.id, self.horror.id]}},
             fantasy_or_horror_filter.to_dict())
 
         # Similarly, there are two different restrictions on custom
         # list membership.
-        eq_({'terms': {'list_id': [best_sellers.id]}},
+        eq_({'terms': {'list_id': [self.best_sellers.id]}},
             best_sellers_filter.to_dict())
-        eq_({'terms': {'list_id': [staff_picks.id]}},
+        eq_({'terms': {'list_id': [self.staff_picks.id]}},
             staff_picks_filter.to_dict())
 
         # We tried fiction; now try nonfiction.
@@ -2014,215 +2013,6 @@ class TestFilter(DatabaseTest):
         # The chained filter is the conjunction of the two input
         # filters.
         eq_(chained, f1 & f2)
-
-
-class TestSearchQuery(DatabaseTest):
-    """NOTE: This is old code, TestQuery is the new code. I need to make
-    sure TestQuery covers everything and then I'll be removing this.
-    """
-    def test_make_query(self):
-
-        search = MockExternalSearchIndex()
-
-        # Basic query
-        query = search.make_query("test")
-
-        # The query runs a number of matching techniques on a search
-        # result and picks the best one.
-        must = query['dis_max']['queries']
-
-        # Here are the matching techniques.
-        stemmed, minimal, standard_title, standard_author, fuzzy = must
-
-        # The search string is stemmed and matched against a number of
-        # fields such as title and publisher. Results from this
-        # subquery are boosted with respect to the fuzzy subquery,
-        # which will come later.
-        boosted = stemmed['bool']
-        eq_(1.5, boosted['boost'])
-        stemmed_query = boosted['must']['simple_query_string']
-        eq_("test", stemmed_query['query'])
-        assert "title^4" in stemmed_query['fields']
-        assert 'publisher' in stemmed_query['fields']
-
-        def assert_field_names(query, *expect):
-            """Validate that a query is set up to match the string 'test'
-            against one or more of a number of fields.
-            """
-            actual_keys = set()
-
-            # For this part of the query to be considered successful,
-            # it's sufficient for a single field to match.
-            eq_(1, query['bool']['minimum_should_match'])
-
-            for possibility in query['bool']['should']:
-                [(key, value)] = possibility['match_phrase'].items()
-                actual_keys.add(key)
-                eq_(value, 'test')
-            eq_(set(actual_keys), set(expect))
-
-        # The search string is matched against a number of
-        # minimally processed fields.
-        assert_field_names(
-            minimal,
-            'title.minimal', 'author', 'series.minimal'
-        )
-
-        # The search string is matched more or less as-is against
-        # the title alone...
-        assert_field_names(standard_title, 'title.standard')
-
-        # ... and the author alone.
-        assert_field_names(standard_author, 'author.standard')
-
-        # The search string is matched fuzzily against a number of
-        # minimally-processed fields such as title and publisher.
-        fuzzy_query = fuzzy['multi_match']
-        eq_('AUTO', fuzzy_query['fuzziness'])
-
-        fuzzy_fields = fuzzy_query['fields']
-        assert 'title.minimal^4' in fuzzy_fields
-        assert 'author^4' in fuzzy_fields
-        assert 'publisher' in fuzzy_fields
-
-        # Of those fields, the single one that best matches the search
-        # request is chosen to represent this match technique's score.
-        # https://www.elastic.co/guide/en/elasticsearch/guide/current/_best_fields.html
-        eq_('best_fields', fuzzy_query['type'])
-
-        # If we create a query using a fuzzy blacklist keyword...
-        query = search.make_query("basketball")
-        must = query['dis_max']['queries']
-
-        # ... the fuzzy match technique is not used because it's too
-        # unreliable.
-        eq_(4, len(must))
-
-        # Query with genre
-        query = search.make_query("test romance")
-
-        must = query['dis_max']['queries']
-
-        eq_(6, len(must))
-        full_query = must[0]['bool']['must']['simple_query_string']
-        eq_("test romance", full_query['query'])
-        assert "title^4" in full_query['fields']
-        assert 'publisher' in full_query['fields']
-
-        classification_query = must[5]['bool']['must']
-        eq_(2, len(classification_query))
-        genre_query = classification_query[0]['match']
-        assert 'genres.name' in genre_query
-        eq_('Romance', genre_query['genres.name'])
-        remaining_query = classification_query[1]['simple_query_string']
-        assert "test" in remaining_query['query']
-        assert "romance" not in remaining_query['query']
-        assert 'author^4' in remaining_query['fields']
-
-
-        # Query with fiction
-        query = search.make_query("test nonfiction")
-
-        must = query['dis_max']['queries']
-
-        eq_(6, len(must))
-
-        classification_query = must[5]['bool']['must']
-        eq_(2, len(classification_query))
-        fiction_query = classification_query[0]['match']
-        assert 'fiction' in fiction_query
-        eq_('Nonfiction', fiction_query['fiction'])
-        remaining_query = classification_query[1]['simple_query_string']
-        assert "test" in remaining_query['query']
-        assert "fiction" not in remaining_query['query']
-        assert 'author^4' in remaining_query['fields']
-
-
-        # Query with genre and fiction
-        query = search.make_query("test romance fiction")
-
-        must = query['dis_max']['queries']
-
-        eq_(6, len(must))
-
-        classification_query = must[5]['bool']['must']
-        eq_(3, len(classification_query))
-        genre_query = classification_query[0]['match']
-        assert 'genres.name' in genre_query
-        eq_('Romance', genre_query['genres.name'])
-        fiction_query = classification_query[1]['match']
-        assert 'fiction' in fiction_query
-        eq_('Fiction', fiction_query['fiction'])
-        remaining_query = classification_query[2]['simple_query_string']
-        assert "test" in remaining_query['query']
-        assert "romance" not in remaining_query['query']
-        assert "fiction" not in remaining_query['query']
-        assert 'author^4' in remaining_query['fields']
-
-        # Query with audience
-        query = search.make_query("test young adult")
-
-        must = query['dis_max']['queries']
-
-        eq_(6, len(must))
-        full_query = must[0]['bool']['must']['simple_query_string']
-        eq_("test young adult", full_query['query'])
-
-        classification_query = must[5]['bool']['must']
-        eq_(2, len(classification_query))
-        audience_query = classification_query[0]['match']
-        assert 'audience' in audience_query
-        eq_('YoungAdult', audience_query['audience'])
-        remaining_query = classification_query[1]['simple_query_string']
-        assert "test" in remaining_query['query']
-        assert "young" not in remaining_query['query']
-
-        # Query with grade
-        query = search.make_query("test grade 6")
-
-        must = query['dis_max']['queries']
-
-        eq_(6, len(must))
-        full_query = must[0]['bool']['must']['simple_query_string']
-        eq_("test grade 6", full_query['query'])
-
-        classification_query = must[5]['bool']['must']
-        eq_(2, len(classification_query))
-        grade_query = classification_query[0]['bool']
-        assert 'must' in grade_query
-        assert 'should' in grade_query
-        age_must = grade_query['must']
-        eq_(2, len(age_must))
-        eq_(11, age_must[0]['range']['target_age.upper']['gte'])
-        eq_(11, age_must[1]['range']['target_age.lower']['lte'])
-
-        remaining_query = classification_query[1]['simple_query_string']
-        assert "test" in remaining_query['query']
-        assert "grade" not in remaining_query['query']
-
-        # Query with age
-        query = search.make_query("test 5-10 years")
-
-        must = query['dis_max']['queries']
-
-        eq_(6, len(must))
-        full_query = must[0]['bool']['must']['simple_query_string']
-        eq_("test 5-10 years", full_query['query'])
-
-        classification_query = must[5]['bool']['must']
-        eq_(2, len(classification_query))
-        grade_query = classification_query[0]['bool']
-        assert 'must' in grade_query
-        assert 'should' in grade_query
-        age_must = grade_query['must']
-        eq_(2, len(age_must))
-        eq_(5, age_must[0]['range']['target_age.upper']['gte'])
-        eq_(10, age_must[1]['range']['target_age.lower']['lte'])
-
-        remaining_query = classification_query[1]['simple_query_string']
-        assert "test" in remaining_query['query']
-        assert "5" not in remaining_query['query']
-        assert "years" not in remaining_query['query']
 
 
 class TestSearchFilterFromLane(DatabaseTest):
