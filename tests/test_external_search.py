@@ -237,7 +237,42 @@ class TestExternalSearch(ExternalSearchTest):
             'banana-v10'
         )
 
-class TestExternalSearchWithWorks(ExternalSearchTest):
+class EndToEndExternalSearchTest(ExternalSearchTest):
+    """Subclasses of this class set up real works in a real
+    search index and run searches against it.
+    """
+
+    def _expect_results(self, works, *query_args, **kwargs):
+        """Helper function to call query() and verify that it
+        returns certain work IDs.
+
+
+        :param ordered: If this is True (the default), then the
+        assertion will only succeed if the search results come in in
+        the exact order specified in `works`. If this is False, then
+        those exact results must come up, but their order is not
+        what's being tested.
+        """
+        if isinstance(works, Work):
+            works = [works]
+
+        results = self.search.query_works(*query_args)
+        expect = [x.id for x in works]
+        expect_ids = ", ".join(map(str, expect))
+        expect_titles = ", ".join([x.title for x in works])
+        if not kwargs.pop('ordered', True):
+            expect = set(expect)
+            results = set(results)
+        eq_(
+            expect, results,
+            "Query args %r did not find %d works (%s/%s), instead found %d (%r)" % (
+                query_args, len(expect), expect_ids, expect_titles,
+                len(results), results
+            )
+        )
+
+
+class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
     """These tests run against a real search index with works in it.
     The setup is very slow, so all the tests are in the same method.
     Don't add new methods to this class - add more tests into test_query_works,
@@ -396,36 +431,6 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             sherlock_2, is_new = self.sherlock_pool_2.calculate_work()
             eq_(self.sherlock, sherlock_2)
             eq_(2, len(self.sherlock.license_pools))
-
-    def _expect_results(self, works, *query_args, **kwargs):
-        """Helper function to call query() and verify that it
-        returns certain work IDs.
-
-
-        :param ordered: If this is True (the default), then the
-        assertion will only succeed if the search results come in in
-        the exact order specified in `works`. If this is False, then
-        those exact results must come up, but their order is not
-        what's being tested.
-        """
-        if isinstance(works, Work):
-            works = [works]
-
-        results = self.search.query_works(*query_args)
-        expect = [x.id for x in works]
-        expect_ids = ", ".join(map(str, expect))
-        expect_titles = ", ".join([x.title for x in works])
-        if not kwargs.pop('ordered', True):
-            expect = set(expect)
-            results = set(results)
-        eq_(
-            expect, results,
-            "Query args %r did not find %d works (%s/%s), instead found %d (%r)" % (
-                query_args, len(expect), expect_ids, expect_titles,
-                len(results), results
-            )
-        )
-
 
     def test_query_works(self):
         # An end-to-end test of the search functionality.
@@ -727,7 +732,8 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         ]
         eq_(set(collections), set(expect_collections))
 
-class TestExactMatches(ExternalSearchTest):
+
+class TestExactMatches(EndToEndExternalSearchTest):
     """Verify that exact or near-exact title and author matches are
     privileged over matches that span fields.
     """
