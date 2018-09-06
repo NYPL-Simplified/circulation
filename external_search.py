@@ -1185,7 +1185,7 @@ class Filter(SearchBase):
     @property
     def target_age_filter(self):
         """Helper method to generate the target age subfilter.
-        
+
         It's complicated because it has to handle cases where the upper
         or lower bound on target age is missing (indicating there is no
         upper or lower bound).
@@ -1218,7 +1218,7 @@ class Filter(SearchBase):
             upper_in_range = self._match_range("target_age.upper", "gte", lower)
             upper_match = or_does_not_exist(upper_in_range, "target_age.upper")
             clauses.append(upper_match)
-        
+
         if not clauses:
             # Neither upper nor lower age must match.
             return None
@@ -1226,14 +1226,14 @@ class Filter(SearchBase):
         if len(clauses) == 1:
             # Upper or lower age must match, but not both.
             return clauses[0]
-    
+
         # Both upper and lower age must match.
         return F('and', clauses)
 
     @classmethod
     def _scrub(cls, s):
         """Modify a string for use in a filter match.
-        
+
         e.g. "Young Adult" becomes "youngadult"
 
         :param s: The string to modify.

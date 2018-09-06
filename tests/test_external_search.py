@@ -595,7 +595,7 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
 
         # There are a number of results, but the top one is a presidential
         # biography for 8-year-olds.
-        eq_(5, len(results))       
+        eq_(5, len(results))
         eq_(self.obama.id, results[0])
 
         # Now we'll test filters.
@@ -888,7 +888,7 @@ class TestQuery(DatabaseTest):
         eq_(filtered.query, m.query())
 
         # The 'filter' part came from Filter.build()
-        eq_(filtered.filter, filter.build())        
+        eq_(filtered.filter, filter.build())
 
         # If there's no filter, the return value of Query.query()
         # is used as-is.
@@ -1015,12 +1015,12 @@ class TestQuery(DatabaseTest):
 
         # If the boost is greater than 1, _boost() is called on the
         # query object.
-        Mock._hypothesize(hypotheses, "query object", 10)        
+        Mock._hypothesize(hypotheses, "query object", 10)
         eq_(["query object boosted by 10"], hypotheses)
 
         # If it's not greater than 1, _boost() is not called and the query
         # object is used as-is.
-        Mock._hypothesize(hypotheses, "another query object", 1)        
+        Mock._hypothesize(hypotheses, "another query object", 1)
         eq_(["query object boosted by 10", "another query object"], hypotheses)
 
     def test__combine_hypotheses(self):
@@ -1038,7 +1038,7 @@ class TestQuery(DatabaseTest):
         # into a boosted query.
         q1 = Q("simple_query_string", query="query 1")
         q2 = Q("simple_query_string", query="query 2")
-        
+
         boosted_one = Query._boost(10, q1)
         eq_("bool", boosted_one.name)
         eq_(10.0, boosted_one.boost)
@@ -1050,7 +1050,7 @@ class TestQuery(DatabaseTest):
         eq_(4.5, boosted_multiple.boost)
         eq_(1, boosted_multiple.minimum_should_match)
         eq_([q1, q2], boosted_multiple.should)
-        
+
     def test_simple_query_string_query(self):
         # Verify that simple_query_string_query() returns a
         # SimpleQueryString Elasticsearch object.
@@ -1132,7 +1132,7 @@ class TestQuery(DatabaseTest):
         )
 
     def test_make_target_age_query(self):
-        
+
         # Search for material suitable for children between the
         # ages of 5 and 10.
         qu = Query.make_target_age_query((5,10), boost=50.1)
@@ -1152,7 +1152,7 @@ class TestQuery(DatabaseTest):
             {'range': {'target_age.lower': {'lte': 10}}},
             ten_year_olds_not_too_young.to_dict()
         )
-        
+
         # To get the full boost, the target age must fit entirely within
         # the 5-10 age range. If a book would also work for older or younger
         # kids who aren't in this age range, it's not as good a match.
@@ -1171,11 +1171,11 @@ class TestQuery(DatabaseTest):
         eq_(1, qu.boost)
 
     def test__parsed_query_matches(self):
-        # _parsed_query_matches creates a QueryParser from 
+        # _parsed_query_matches creates a QueryParser from
         # the query string and returns whatever it comes up with.
-        # 
+        #
         # This is a basic test to verify that a QueryParser
-        # is in use. The QueryParser is tested in much greater detail 
+        # is in use. The QueryParser is tested in much greater detail
         # in TestQueryParser.
 
         qu = Query._parsed_query_matches("nonfiction")
@@ -1215,7 +1215,7 @@ class TestQueryParser(DatabaseTest):
 
         # The original query string is always stored as .original_query_string.
         eq_("science fiction about dogs", parser.original_query_string)
-        
+
         # The part of the query that couldn't be parsed is always stored
         # as final_query_string.
         eq_("about dogs", parser.final_query_string)
@@ -1293,13 +1293,13 @@ class TestQueryParser(DatabaseTest):
         )
 
         # Test target age.
-        
+
         assert_parses_as(
             "grade 5 science",
             ("genres.name", "Science"), ((10, 10), 40),
             ''
         )
-        
+
         assert_parses_as(
             'divorce ages 10 and up',
             ((10, 14), 40),
@@ -1319,7 +1319,7 @@ class TestQueryParser(DatabaseTest):
         # It creates real Elasticsearch-DSL query objects.
         eq_({'match': {'fiction': 'Nonfiction'}}, nonfiction.to_dict())
 
-        eq_({'simple_query_string': 
+        eq_({'simple_query_string':
              {'query': 'asteroids',
               'fields': QueryParser.SIMPLE_QUERY_STRING_FIELDS }
             },
@@ -1384,11 +1384,11 @@ class TestFilter(DatabaseTest):
         )
         self.fantasy, ignore = Genre.lookup(self._db, "Fantasy")
         self.horror, ignore = Genre.lookup(self._db, "Horror")
-        
+
         # Create two empty CustomLists which can be used to make filters.
         self.best_sellers, ignore = self._customlist(num_entries=0)
         self.staff_picks, ignore = self._customlist(num_entries=0)
-        
+
     def test_constructor(self):
         # Verify that the Filter constructor sets members with
         # minimal processing.
@@ -1454,7 +1454,7 @@ class TestFilter(DatabaseTest):
         # Test genre_restriction_sets
 
         # In these three cases, there are no restrictions on genre.
-        eq_([], empty_filter.genre_restriction_sets)        
+        eq_([], empty_filter.genre_restriction_sets)
         eq_([], Filter(genre_restriction_sets=[]).genre_restriction_sets)
         eq_([], Filter(genre_restriction_sets=None).genre_restriction_sets)
 
@@ -1498,7 +1498,7 @@ class TestFilter(DatabaseTest):
 
         # This is a restriction -- 'only books that are not on any lists'.
         eq_(
-            [[]], 
+            [[]],
             Filter(customlist_restriction_sets=[[]]).customlist_restriction_sets
         )
 
@@ -1637,7 +1637,7 @@ class TestFilter(DatabaseTest):
         filter.genre_restriction_sets = [
             [self.literary_fiction], [self.fantasy, self.horror]
         ]
-        
+
         # We want books that are on _both_ of the custom lists.
         filter.customlist_restriction_sets = [
             [self.best_sellers], [self.staff_picks]
@@ -1663,7 +1663,7 @@ class TestFilter(DatabaseTest):
         # Also, audience, medium, and language have been run through
         # scrub_list, which turns scalar values into lists, removes
         # spaces, and converts to lowercase.
-        
+
         eq_(
             {'terms': {'collection_id': [self._default_collection.id]}},
             collection.to_dict()
@@ -1676,7 +1676,7 @@ class TestFilter(DatabaseTest):
 
         eq_({'term': {'fiction': 'fiction'}}, fiction.to_dict())
         eq_({'terms': {'audience': ['children']}}, audience.to_dict())
-        
+
         # The contents of target_age_filter are tested below -- this
         # just tests that the target_age_filter is included.
         eq_(filter.target_age_filter, target_age)
@@ -1714,7 +1714,7 @@ class TestFilter(DatabaseTest):
         # match.
         eq_("and", filter.name)
 
-        # One filter matches against the lower age range; the other 
+        # One filter matches against the lower age range; the other
         # matches against the upper age range.
         lower_match, upper_match = filter.filters
 
