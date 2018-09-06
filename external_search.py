@@ -955,11 +955,13 @@ class QueryParser(object):
         # banks'). But they're most likely searching for a _type_
         # of book, which means a match against summary or subject
         # ('asteroids') would be the most useful.
-        match_rest_of_query = self.query_class.simple_query_string_query(
-            self.final_query_string,
-            self.SIMPLE_QUERY_STRING_FIELDS
-        )
-        self.match_queries.append(match_rest_of_query)
+        if (self.final_query_string
+            and self.final_query_string != self.original_query_string):
+            match_rest_of_query = self.query_class.simple_query_string_query(
+                self.final_query_string,
+                self.SIMPLE_QUERY_STRING_FIELDS
+            )
+            self.match_queries.append(match_rest_of_query)
 
     @property
     def query(self):
@@ -967,7 +969,7 @@ class QueryParser(object):
         a very high score, assuming we have correctly interpreted the
         query string.
         """
-        if self.final_query_string == self.original_query_string:
+        if not self.match_queries:
             # We didn't find anything that indicates the query string
             # includes a field match component -- if we had, we would
             # have removed it from final_query_string. Therefore, this

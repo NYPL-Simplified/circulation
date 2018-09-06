@@ -1356,8 +1356,8 @@ class TestQueryParser(DatabaseTest):
 
     def test_constructor(self):
         # The constructor parses the query string, creates any
-        # necessary query objects, and stores the remaining part of
-        # the query
+        # necessary query objects, and turns the remaining part of
+        # the query into a 'simple query string'-type query.
 
         class MockQuery(object):
             """Create 'query' objects that are easier to test than
@@ -1375,11 +1375,7 @@ class TestQueryParser(DatabaseTest):
             def make_target_age_query(cls, query, boost):
                 return (query, boost)
 
-        def parse(query):
-            # Convenience method to create a mocked QueryParser.
-            return QueryParser(query, MockQuery)
-
-        parser = parse("science fiction about dogs")
+        parser = QueryParser("science fiction about dogs", MockQuery)
 
         # The original query string is always stored as .original_query_string.
         eq_("science fiction about dogs", parser.original_query_string)
@@ -1408,24 +1404,136 @@ class TestQueryParser(DatabaseTest):
         # certain string left over.
         def assert_parses_as(query_string, *matches):
             matches = list(matches)
-            parser = parse(query_string)
+            parser = QueryParser(query_string, MockQuery)
             remainder = matches.pop(-1)
-            remainder_match = MockQuery.simple_query_string_query(
-                remainder, query_string_fields
-            )
-            eq_(matches + [remainder_match], parser.match_queries)
+            if remainder:
+                remainder_match = MockQuery.simple_query_string_query(
+                    remainder, query_string_fields
+                )
+                matches.append(remainder_match)
+            eq_(matches, parser.match_queries)
             eq_(query_string, parser.original_query_string)
             eq_(remainder, parser.final_query_string)
 
-        # Genres are parsed before fiction/nonfiction; otherwise
+        # Here's the same test from before, using the new
+        # helper function.
+        assert_parses_as(
+            "science fiction about dogs",
+            ("genres.name", "Science Fiction"),
+            "about dogs"
+        )
+
+        # Test audiences.
+
+        assert_parses_as(
+            "children's picture books",
+            ("audience", "Children"),
+            "picture books"
+        )
+
+        # (It's possible for the entire query string to be eaten up,
+        # such that there is no remainder match at all.)
+        assert_parses_as(
+            "young adult romance",
+            ("genres.name", "Romance"),
+            ("audience", "YoungAdult"),
+            ''
+        )
+
+        # Test fiction/nonfiction status.
+        assert_parses_as(
+            "fiction dinosaurs",
+            ("fiction", "Fiction"),
+            "dinosaurs"
+        )
+
+        # (Genres are parsed before fiction/nonfiction; otherwise
         # "science fiction" would be chomped by a search for "fiction"
-        # and "nonfiction" would not be picked up.
+        # and "nonfiction" would not be picked up.)
         assert_parses_as(
             "science fiction or nonfiction dinosaurs",
             ("genres.name", "Science Fiction"), ("fiction", "Nonfiction"),
-            "or dinosaurs"
+            "or  dinosaurs"
         )
 
+        # Test target age.
+        
+        assert_parses_as(
+            "grade 5 science",
+            ("genres.name", "Science"), ((10, 10), 40),
+            ''
+        )
+        
+        assert_parses_as(
+            'divorce ages 10 and up',
+            ((10, 14), 40),
+            'divorce  and up' # TODO: not ideal
+        )
+
+        # Nothing can be parsed out from this query--it's an author's name
+        # and will be handled by another query.
+        parser = QueryParser("octavia butler")
+        eq_([], parser.match_queries)
+        eq_("octavia butler", parser.final_query_string)
+
+        # Finally, try parsing a query without using MockQuery.
+        query = QueryParser("nonfiction asteroids")
+        nonfiction, asteroids = query.match_queries
+
+        eq_({'match': {'fiction': 'Nonfiction'}}, nonfiction.to_dict())
+
+        eq_({'simple_query_string': 
+             {'query': 'asteroids',
+              'fields': QueryParser.SIMPLE_QUERY_STRING_FIELDS }
+            },
+            asteroids.to_dict()
+        )
+
+    def test_query(self):
+        # Test the ability to create an ElasticSearch query
+        # out of a bunch of match_queries.
+
+        # This query can't be parsed, so it has no .match_queries, so
+        # its .query is none. It'll need to be handled some other way
+        # (in this case, by an author match).
+        parser = QueryParser("octavia butler")
+        eq_([], parser.match_queries)
+        eq_(None, parser.query)
+
+        # If the query can be parsed, then .match_queries is set
+        # and its .query is a Bool query.
+        parser = QueryParser("romance")
+        eq_(1, len(parser.match_queries))
+        query = parser.query
+        eq_("bool", query.name)
+
+        # All of the .match_queries must match for this book to count
+        # as 'matching' this query.
+        eq_(parser.match_queries, query.must)
+
+        # If the book does match, its score will be boosted pretty high.
+        eq_(190, query.boost)
+
+    def test_add_match_query(self):
+        # TODO: this method could use a standalone test, but it's
+        # already covered by the test_constructor.
+        pass
+
+    def test_add_target_age_query(self):
+        # TODO: this method could use a standalone test, but it's
+        # already covered by the test_constructor.
+        pass
+
+    def test__without_match(self):
+        # Test our ability to remove matched text from a string.
+        m = QueryParser._without_match
+        eq_(" fiction", m("young adult fiction", "young adult"))
+        eq_(" of dinosaurs", m("science of dinosaurs", "science"))
+
+        # If the match cuts off in the middle of a word, we remove
+        # everything up to the end of the word.
+        eq_(" books", m("children's books", "children"))
+        eq_("", m("adulting", "adult"))
 
 
 class TestFilter(DatabaseTest):
