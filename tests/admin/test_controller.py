@@ -1846,7 +1846,7 @@ class TestPatronController(AdminControllerTest):
             response = m(authenticator)
             eq_(404, response.status_code)
             eq_(NO_SUCH_PATRON.uri, response.uri)
-            eq_("No patron identifier provided", response.detail)
+            eq_("Please enter a patron identifier", response.detail)
 
         # AuthenticationProvider has no Authenticators.
         with self.request_context_with_library_and_admin("/"):
@@ -1867,7 +1867,7 @@ class TestPatronController(AdminControllerTest):
 
             eq_(404, response.status_code)
             eq_(NO_SUCH_PATRON.uri, response.uri)
-            eq_("Lookup failed for patron with identifier %s" % identifier,
+            eq_("No patron with identifier %s was found at your library" % identifier,
             response.detail)
 
     def test_lookup_patron(self):
