@@ -3674,6 +3674,9 @@ class SettingsController(AdminCirculationManagerController):
                     library = registration.library
                     library_info = dict(short_name=library.short_name)
                     status = registration.status_field.value
+                    stage_field = registration.stage_field.value
+                    if stage_field:
+                        library_info["stage"] = stage_field
                     if status:
                         library_info["status"] = status
                         libraries.append(library_info)
