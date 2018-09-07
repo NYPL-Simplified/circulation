@@ -1237,6 +1237,12 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
 
     def enforce_library_identifier_restriction(self, identifier, patrondata):
         """Does the given patron match the configured library identifier restriction?"""
+        if isinstance(patrondata, Patron):
+            if self.library_id == patrondata.library_id:
+                return patrondata
+            else:
+                return False
+
         if not self.library_identifier_restriction_type or self.library_identifier_restriction_type == self.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE:
             # No restriction to enforce.
             return patrondata
@@ -1340,6 +1346,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         """
         return None
 
+
     def remote_patron_lookup(self, patron_or_patrondata):
         """Ask the remote for detailed information about a patron's account.
 
@@ -1362,11 +1369,21 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
             return None
         if (isinstance(patron_or_patrondata, PatronData)
             or isinstance(patron_or_patrondata, Patron)):
+
+
+
             return patron_or_patrondata
         raise ValueError(
             "Unexpected object %r passed into remote_patron_lookup." %
             patron_or_patrondata
         )
+
+
+    # BasicAuthenticationProvider defines remote_patron_lookup to call this
+    # method and then do something additional; by default, we want the core
+    # lookup mechanism to work the same way as AuthenticationProvider.remote_patron_lookup.
+
+    _remote_patron_lookup = remote_patron_lookup
 
     def _authentication_flow_document(self, _db):
         """Create a Authentication Flow object for use in an Authentication for
@@ -1624,6 +1641,16 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             integration.setting(self.PASSWORD_LABEL).value
             or self.DEFAULT_PASSWORD_LABEL
         )
+
+    def remote_patron_lookup(self, patron_or_patrondata):
+        """Ask the remote for information about this patron, and then make sure
+        the patron belongs to the library associated with thie BasicAuthenticationProvider."""
+
+        patron_info = self._remote_patron_lookup(patron_or_patrondata)
+        if patron_info:
+            return self.enforce_library_identifier_restriction(patron_info.authorization_identifier, patron_info)
+        else:
+            return patron_info
 
     @property
     def collects_password(self):

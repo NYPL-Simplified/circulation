@@ -135,7 +135,7 @@ from api.overdrive import OverdriveAPI
 from api.odilo import OdiloAPI
 from api.bibliotheca import BibliothecaAPI
 from api.axis import Axis360API
-from api.oneclick import OneClickAPI
+from api.rbdigital import RBDigitalAPI
 from api.enki import EnkiAPI
 from api.odl import ODLWithConsolidatedCopiesAPI, SharedODLAPI
 
@@ -1371,7 +1371,7 @@ class PatronController(AdminCirculationManagerController):
 
         identifier = flask.request.form.get("identifier")
         if not identifier:
-            return NO_SUCH_PATRON.detailed(_("No patron identifier provided"))
+            return NO_SUCH_PATRON.detailed(_("Please enter a patron identifier"))
 
         if not authenticator:
             authenticator = LibraryAuthenticator.from_config(
@@ -1394,7 +1394,7 @@ class PatronController(AdminCirculationManagerController):
         # If we get here, none of the providers succeeded.
         if not complete_patron_data:
             return NO_SUCH_PATRON.detailed(
-                _("Lookup failed for patron with identifier %(patron_identifier)s",
+                _("No patron with identifier %(patron_identifier)s was found at your library",
                   patron_identifier=identifier),
             )
 
@@ -1419,7 +1419,6 @@ class PatronController(AdminCirculationManagerController):
         patrondata = self._load_patrondata(authenticator)
         if isinstance(patrondata, ProblemDetail):
             return patrondata
-
         # Turn the Identifier into a Patron object.
         try:
             patron, is_new = patrondata.get_or_create_patron(
@@ -1435,7 +1434,14 @@ class PatronController(AdminCirculationManagerController):
         # Wipe the Patron's 'identifier for Adobe ID purposes'.
         for credential in AuthdataUtility.adobe_relevant_credentials(patron):
             self._db.delete(credential)
-        return Response(unicode(_("Success")), 200)
+        if patron.username:
+            identifier = patron.username
+        else:
+            identifier = "with identifier " + patron.authorization_identifier
+        return Response(
+            unicode(_("Adobe ID for patron %(name_or_auth_id)s has been reset.", name_or_auth_id=identifier)),
+            200
+        )
 
 class FeedController(AdminCirculationManagerController):
 
@@ -2078,7 +2084,7 @@ class SettingsController(AdminCirculationManagerController):
                      OdiloAPI,
                      BibliothecaAPI,
                      Axis360API,
-                     OneClickAPI,
+                     RBDigitalAPI,
                      EnkiAPI,
                      ODLWithConsolidatedCopiesAPI,
                      SharedODLAPI,
@@ -2451,11 +2457,25 @@ class SettingsController(AdminCirculationManagerController):
         if collection.protocol == OPDSImportMonitor.PROTOCOL:
             protocol = OPDSImportMonitor
 
+        self_test_results = None
         if protocol in provider_apis and issubclass(protocol, HasSelfTests):
             if (collection.protocol == OPDSImportMonitor.PROTOCOL):
-                self_test_results = protocol.prior_test_results(self._db, protocol, self._db, collection, OPDSImporter)
+                extra_args = (OPDSImporter,)
             else:
-                self_test_results = protocol.prior_test_results(self._db, protocol, self._db, collection)
+                extra_args = ()
+            try:
+                self_test_results = protocol.prior_test_results(
+                    self._db, protocol, self._db, collection, *extra_args
+                )
+            except Exception, e:
+                # This is bad, but not so bad that we should short-circuit
+                # this whole process -- that might prevent an admin from
+                # making the configuration changes necessary to fix
+                # this problem.
+                message = _("Exception getting self-test results for collection %s: %s")
+                args = (collection.name, e.message)
+                logging.warn(message, *args, exc_info=e)
+                self_test_results = dict(exception=message % args)
 
         return self_test_results
 
@@ -3267,7 +3287,6 @@ class SettingsController(AdminCirculationManagerController):
             # We have a relative path. Create a full registration url.
             base_url = catalog.get('id')
             register_url = urlparse.urljoin(base_url, register_url)
-
         # Generate a public key for this website.
         if not key:
             key = RSA.generate(2048)
@@ -3655,6 +3674,9 @@ class SettingsController(AdminCirculationManagerController):
                     library = registration.library
                     library_info = dict(short_name=library.short_name)
                     status = registration.status_field.value
+                    stage_field = registration.stage_field.value
+                    if stage_field:
+                        library_info["stage"] = stage_field
                     if status:
                         library_info["status"] = status
                         libraries.append(library_info)

@@ -165,7 +165,7 @@ class TestCustomRootLane(DatabaseTest):
 
         # url_for was called with the expected arguments, and it
         # returned 'new-root', seen above.
-        eq_(("acquisition_groups", library.name, custom_root.lane_id, True),
+        eq_(("acquisition_groups", library.short_name, custom_root.lane_id, True),
             custom_root.url_for_called_with)
 
         # replace_link was called with the result of calling url_for.

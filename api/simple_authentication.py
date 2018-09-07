@@ -28,7 +28,12 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
 
     ADDITIONAL_TEST_IDENTIFIERS = 'additional_test_identifiers'
 
-    SETTINGS = BasicAuthenticationProvider.SETTINGS + [
+    basic_settings = list(BasicAuthenticationProvider.SETTINGS)
+    for setting in basic_settings:
+        if setting['key'] == BasicAuthenticationProvider.TEST_PASSWORD:
+            setting['optional'] = False
+
+    SETTINGS = basic_settings + [
         { "key": ADDITIONAL_TEST_IDENTIFIERS,
           "label": _("Additional test identifiers"),
           "type": "list",
@@ -100,7 +105,7 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
             password_match = (password in (None, ''))
         return password_match and username in self.test_identifiers
 
-    def remote_patron_lookup(self, patron_or_patrondata):
+    def _remote_patron_lookup(self, patron_or_patrondata):
         if not patron_or_patrondata:
             return None
         if ((isinstance(patron_or_patrondata, PatronData)

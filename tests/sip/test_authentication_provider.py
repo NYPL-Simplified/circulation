@@ -242,3 +242,24 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_(datetime(2011, 1, 2), parse("20110102"))
         eq_(datetime(2011, 1, 2, 10, 20, 30), parse("20110102    102030"))
         eq_(datetime(2011, 1, 2, 10, 20, 30), parse("20110102UTC102030"))
+
+    def test__remote_patron_lookup(self):
+        #When the SIP authentication provider needs to look up a patron,
+        #it calls patron_information on its SIP client and passes in None
+        #for the password.
+        patron = self._patron()
+        patron.authorization_identifier = "1234"
+        integration = self._external_integration(self._str)
+        class Mock(MockSIPClient):
+            def patron_information(self, identifier, password):
+                self.patron_information = identifier
+                self.password = password
+                return "Result"
+
+        client = Mock()
+        auth = SIP2AuthenticationProvider(
+            self._default_library, integration, client=client
+        )
+        eq_(auth._remote_patron_lookup(patron), "Result")
+        eq_(client.patron_information, patron.authorization_identifier)
+        eq_(client.password, None)

@@ -1846,7 +1846,7 @@ class TestPatronController(AdminControllerTest):
             response = m(authenticator)
             eq_(404, response.status_code)
             eq_(NO_SUCH_PATRON.uri, response.uri)
-            eq_("No patron identifier provided", response.detail)
+            eq_("Please enter a patron identifier", response.detail)
 
         # AuthenticationProvider has no Authenticators.
         with self.request_context_with_library_and_admin("/"):
@@ -1867,7 +1867,7 @@ class TestPatronController(AdminControllerTest):
 
             eq_(404, response.status_code)
             eq_(NO_SUCH_PATRON.uri, response.uri)
-            eq_("Lookup failed for patron with identifier %s" % identifier,
+            eq_("No patron with identifier %s was found at your library" % identifier,
             response.detail)
 
     def test_lookup_patron(self):
@@ -3028,7 +3028,7 @@ class SettingsControllerTest(AdminControllerTest):
         """Mock HTTP get/post method to replace HTTP.get_with_timeout or post_with_timeout."""
         self.requests.append((url, args, kwargs))
         response = self.responses.pop()
-        return HTTP.process_debuggable_response(response)
+        return HTTP.process_debuggable_response(url, response)
 
 
 class TestSettingsController(SettingsControllerTest):
@@ -3427,6 +3427,22 @@ class TestSettingsController(SettingsControllerTest):
         args = self.prior_test_results_called_with[0]
         eq_(args[1], OPDSImportMonitor)
         eq_(args[3], OPDSCollection)
+
+        # We don't crash if there's a problem getting the prior test
+        # results -- _get_prior_test_results just returns None.
+        @classmethod
+        def oops(cls, *args, **kwargs):
+            raise Exception("Test result disaster!")
+        HasSelfTests.prior_test_results = oops
+        self_test_results = controller._get_prior_test_results(
+            OPDSCollection, OPDSImporter
+        )
+        eq_(
+            "Exception getting self-test results for collection %s: Test result disaster!" % (
+                OPDSCollection.name
+            ),
+            self_test_results["exception"]
+        )
 
         HasSelfTests.prior_test_results = old_prior_test_results
 
@@ -6198,12 +6214,18 @@ class TestLibraryRegistration(SettingsControllerTest):
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, "library-registration-status", succeeded, discovery_service,
             ).value = "success"
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-registration-stage", succeeded, discovery_service,
+            ).value = "production"
         failed, ignore = create(
             self._db, Library, name="Library 2", short_name="L2",
         )
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, "library-registration-status", failed, discovery_service,
             ).value = "failure"
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-registration-stage", failed, discovery_service,
+            ).value = "testing"
         unregistered, ignore = create(
             self._db, Library, name="Library 3", short_name="L3",
         )
@@ -6218,8 +6240,8 @@ class TestLibraryRegistration(SettingsControllerTest):
 
             libraryInfo = serviceInfo[0].get("libraries")
             expected = [
-                dict(short_name=succeeded.short_name, status="success"),
-                dict(short_name=failed.short_name, status="failure"),
+                dict(short_name=succeeded.short_name, status="success", stage="production"),
+                dict(short_name=failed.short_name, status="failure", stage="testing"),
             ]
             eq_(expected, libraryInfo)
 
