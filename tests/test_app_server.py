@@ -25,6 +25,7 @@ from model import Identifier
 from lane import (
     Facets,
     Pagination,
+    SearchFacets,
     WorkList,
 )
 
@@ -299,6 +300,14 @@ class TestLoadMethods(DatabaseTest):
             facets = load_facets_from_request(worklist=worklist)
             eq_(EbooksEntryPoint, facets.entrypoint)
 
+        # Load a SearchFacets object that pulls information from an
+        # HTTP header.
+        with self.app.test_request_context(
+                '/', headers = {'Accept-Language' : 'ja' }
+        ):
+            flask.request.library = self._default_library
+            facets = load_facets_from_request(base_class=SearchFacets)
+            eq_(['jpn'], facets.languages)
 
     def test_load_facets_from_request_class_instantiation(self):
         """The caller of load_facets_from_request() can specify a class other

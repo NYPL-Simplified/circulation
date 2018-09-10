@@ -112,10 +112,11 @@ def load_facets_from_request(
     """
     kwargs = base_class_constructor_kwargs or dict()
     get_arg = flask.request.args.get
+    get_header = flask.request.headers.get
     library = flask.request.library
     facet_config = facet_config or library
     return base_class.from_request(
-        library, facet_config, get_arg, worklist, **kwargs
+        library, facet_config, get_arg, get_header, worklist, **kwargs
     )
 
 def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
