@@ -718,11 +718,11 @@ class Query(SearchBase):
         # author. Such a match would be boosted quite a lot.
         self._hypothesize(
             hypotheses,
-            self._match_phrase("title.minimal", query_string), 200
+            self._match_phrase("title.standard", query_string), 200
         )
         self._hypothesize(
             hypotheses,
-            self._match_phrase("author.minimal", query_string), 200
+            self._match_phrase("author.standard", query_string), 200
         )
 
         # The query string might be a fuzzy match against one of the
