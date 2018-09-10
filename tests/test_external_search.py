@@ -714,11 +714,11 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
 
         # If a book is present in two different collections which are
         # being searched, it only shows up in search results once.
-        english_in_default_library = Filter(
+        f = Filter(
             collections=[self._default_collection, self.tiny_collection],
             languages="en"
         )
-        expect(self.sherlock, "sherlock holmes", english_in_default_library)
+        expect(self.sherlock, "sherlock holmes", f)
 
 
 class TestExactMatches(EndToEndExternalSearchTest):
