@@ -509,7 +509,8 @@ class TestFacets(DatabaseTest):
             Facets.AVAILABILITY_FACET_GROUP_NAME
         )
         args = {}
-        facets = m(library, library, args.get, worklist)
+        headers = {}
+        facets = m(library, library, args.get, headers.get, worklist)
         eq_(default_order, facets.order)
         eq_(default_collection, facets.collection)
         eq_(default_availability, facets.availability)
@@ -523,7 +524,7 @@ class TestFacets(DatabaseTest):
             available=Facets.AVAILABLE_OPEN_ACCESS,
             entrypoint=EbooksEntryPoint.INTERNAL_NAME,
         )
-        facets = m(library, library, args.get, worklist)
+        facets = m(library, library, args.get, headers.get, worklist)
         eq_(Facets.ORDER_TITLE, facets.order)
         eq_(Facets.COLLECTION_FULL, facets.collection)
         eq_(Facets.AVAILABLE_OPEN_ACCESS, facets.availability)
@@ -532,21 +533,21 @@ class TestFacets(DatabaseTest):
 
         # Invalid order
         args = dict(order="no such order")
-        invalid_order = m(library, library, args.get, None)
+        invalid_order = m(library, library, args.get, headers.get, None)
         eq_(INVALID_INPUT.uri, invalid_order.uri)
         eq_("I don't know how to order a feed by 'no such order'",
             invalid_order.detail)
 
         # Invalid availability
         args = dict(available="no such availability")
-        invalid_availability = m(library, library, args.get, None)
+        invalid_availability = m(library, library, args.get, headers.get, None)
         eq_(INVALID_INPUT.uri, invalid_availability.uri)
         eq_("I don't understand the availability term 'no such availability'",
             invalid_availability.detail)
 
         # Invalid collection
         args = dict(collection="no such collection")
-        invalid_collection = m(library, library, args.get, None)
+        invalid_collection = m(library, library, args.get, headers.get, None)
         eq_(INVALID_INPUT.uri, invalid_collection.uri)
         eq_("I don't understand what 'no such collection' refers to.",
             invalid_collection.detail)
