@@ -2890,6 +2890,36 @@ class TestWork(DatabaseTest):
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
 
+    def test_reindex_when_work_gets_new_licensepool(self):
+        # When a work gets a new LicensePool, it is marked for
+        # reindexing by the search index.
+        op = WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+        w = self._work(with_license_pool=False)
+
+        # Since this work has no LicensePool, it has not been indexed.
+        eq_([], [x for x in w.coverage_records if x.operation == op])
+
+        # Now give it a LicensePool.
+        lp = self._licensepool(edition=None)
+        w.license_pools.append(lp)
+
+        # The work has now been scheduled for indexing.
+        def assert_reindexed_since(since):
+            [record] = [x for x in w.coverage_records if x.operation == op]
+            if since:
+                # The record must have been updated since `since`.
+                assert record.timestamp > since
+            else:
+                # There must be any kind of record at all.
+                assert record.timestamp is not since
+            return record.timestamp
+        # Return the timestamp for a future call to assert_reindexed_since.
+        date = assert_reindexed_since(None)
+
+        # Remove a LicensePool, and another indexing is scheduled.
+        w.license_pools.remove(lp)
+        assert_reindexed_since(date)
+
     def test_set_presentation_ready(self):
 
         work = self._work(with_license_pool=True)

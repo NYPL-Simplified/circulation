@@ -720,18 +720,6 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         )
         expect(self.sherlock, "sherlock holmes", english_in_default_library)
 
-        # When the second English LicensePool for 'The Adventures of
-        # Sherlock Holmes' was associated with its Work, the Work was
-        # automatically reindexed to incorporate with a new set of
-        # collection IDs.
-
-        # TODO: This is a tough test to port, needs some thought.
-        collections = [x['collection_id'] for x in doc['_source']['collections']]
-        expect_collections = [
-            self.tiny_collection.id, self._default_collection.id
-        ]
-        eq_(set(collections), set(expect_collections))
-
 
 class TestExactMatches(EndToEndExternalSearchTest):
     """Verify that exact or near-exact title and author matches are

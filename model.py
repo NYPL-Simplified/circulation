@@ -12205,6 +12205,11 @@ def directly_modified(obj):
 def configuration_relevant_collection_change(target, value, initiator):
     site_configuration_has_changed(target)
 
+@event.listens_for(Work.license_pools, 'append')
+@event.listens_for(Work.license_pools, 'remove')
+def indexing_relevant_change(target, value, initiator):
+    target.external_index_needs_updating()
+
 @event.listens_for(Library, 'after_insert')
 @event.listens_for(Library, 'after_delete')
 @event.listens_for(ExternalIntegration, 'after_insert')
