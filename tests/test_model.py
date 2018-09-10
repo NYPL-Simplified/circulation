@@ -101,7 +101,7 @@ from model import (
     tuple_to_numericrange,
 )
 from external_search import (
-    DummyExternalSearchIndex,
+    MockExternalSearchIndex,
 )
 
 import classifier
@@ -2779,7 +2779,7 @@ class TestWork(DatabaseTest):
 
         work.last_update_time = None
         work.presentation_ready = True
-        index = DummyExternalSearchIndex()
+        index = MockExternalSearchIndex()
 
         work.calculate_presentation(search_index_client=index)
 
@@ -2894,11 +2894,11 @@ class TestWork(DatabaseTest):
 
         work = self._work(with_license_pool=True)
 
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
         # This is how the work will be represented in the dummy search
         # index.
         index_key = (search.works_index,
-                     DummyExternalSearchIndex.work_document_type,
+                     MockExternalSearchIndex.work_document_type,
                      work.id)
 
         presentation = work.presentation_edition
@@ -3262,7 +3262,7 @@ class TestWork(DatabaseTest):
                 assert url in work.verbose_opds_entry
 
         # Suppressing the cover removes the cover from the work.
-        index = DummyExternalSearchIndex()
+        index = MockExternalSearchIndex()
         Work.reject_covers(self._db, [work], search_index_client=index)
         assert has_no_cover(work)
         reset_cover()
@@ -3614,7 +3614,7 @@ class TestWork(DatabaseTest):
             x for x in work.coverage_records
             if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
         ]
-        index = DummyExternalSearchIndex()
+        index = MockExternalSearchIndex()
         work.update_external_index(index)
 
         # A WorkCoverageRecord was created to register the work that
