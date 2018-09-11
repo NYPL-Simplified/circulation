@@ -762,10 +762,15 @@ class OPDSFeedController(CirculationManagerController):
 
         # Create a function that, when called, generates a URL to the
         # search controller.
+        #
+        # We'll call this one way if there is no query string in the
+        # request arguments, and another way if there is a query
+        # string.
+        make_url_kwargs = dict(facets.items())
         make_url = lambda: self.url_for(
             'lane_search', lane_identifier=lane_identifier,
             library_short_name=library_short_name,
-            q=query
+            **make_url_kwargs
         )
         if not query:
             # Send the search form
@@ -777,6 +782,10 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(pagination, ProblemDetail):
             return pagination
 
+        # We have a query -- add it to the keyword arguments used when
+        # generating a URL.
+        make_url_kwargs['q'] = query.encode("utf8")
+
         # Run a search.
         this_url = make_url()
 
@@ -786,7 +795,7 @@ class OPDSFeedController(CirculationManagerController):
             _db=self._db, title=info['name'],
             url=this_url, lane=lane, search_engine=self.manager.external_search,
             query=query, annotator=annotator, pagination=pagination,
-            facets=facets
+            facets=facets,
         )
 
         return feed_response(opds_feed)
