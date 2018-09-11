@@ -1371,7 +1371,7 @@ class PatronController(AdminCirculationManagerController):
 
         identifier = flask.request.form.get("identifier")
         if not identifier:
-            return NO_SUCH_PATRON.detailed(_("No patron identifier provided"))
+            return NO_SUCH_PATRON.detailed(_("Please enter a patron identifier"))
 
         if not authenticator:
             authenticator = LibraryAuthenticator.from_config(
@@ -1394,7 +1394,7 @@ class PatronController(AdminCirculationManagerController):
         # If we get here, none of the providers succeeded.
         if not complete_patron_data:
             return NO_SUCH_PATRON.detailed(
-                _("Lookup failed for patron with identifier %(patron_identifier)s",
+                _("No patron with identifier %(patron_identifier)s was found at your library",
                   patron_identifier=identifier),
             )
 
@@ -1419,7 +1419,6 @@ class PatronController(AdminCirculationManagerController):
         patrondata = self._load_patrondata(authenticator)
         if isinstance(patrondata, ProblemDetail):
             return patrondata
-
         # Turn the Identifier into a Patron object.
         try:
             patron, is_new = patrondata.get_or_create_patron(
@@ -1435,7 +1434,14 @@ class PatronController(AdminCirculationManagerController):
         # Wipe the Patron's 'identifier for Adobe ID purposes'.
         for credential in AuthdataUtility.adobe_relevant_credentials(patron):
             self._db.delete(credential)
-        return Response(unicode(_("Success")), 200)
+        if patron.username:
+            identifier = patron.username
+        else:
+            identifier = "with identifier " + patron.authorization_identifier
+        return Response(
+            unicode(_("Adobe ID for patron %(name_or_auth_id)s has been reset.", name_or_auth_id=identifier)),
+            200
+        )
 
 class FeedController(AdminCirculationManagerController):
 
@@ -2469,7 +2475,7 @@ class SettingsController(AdminCirculationManagerController):
                 message = _("Exception getting self-test results for collection %s: %s")
                 args = (collection.name, e.message)
                 logging.warn(message, *args, exc_info=e)
-                self_test_results = message % args
+                self_test_results = dict(exception=message % args)
 
         return self_test_results
 
@@ -3668,6 +3674,9 @@ class SettingsController(AdminCirculationManagerController):
                     library = registration.library
                     library_info = dict(short_name=library.short_name)
                     status = registration.status_field.value
+                    stage_field = registration.stage_field.value
+                    if stage_field:
+                        library_info["stage"] = stage_field
                     if status:
                         library_info["status"] = status
                         libraries.append(library_info)
