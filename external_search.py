@@ -293,9 +293,6 @@ class ExternalSearchIndex(object):
             return []
 
         query = Query(query_string, filter)
-        import pprint
-        foo = query.build().to_dict()['dis_max']['queries']
-        pprint.pprint(foo)
         search = Search(using=self.__client).query(query.build())
 
         fields = None
@@ -327,8 +324,9 @@ class ExternalSearchIndex(object):
             self.log.info("Elasticsearch query completed in %.2fsec", b-a)
             for i, result in enumerate(results):
                 self.log.info(
-                    '%02d "%s" (%s) work=%s',
-                    i, result.title, result.author, result.meta['id']
+                    '%02d "%s" (%s) work=%s score=%.3f',
+                    i, result.title, result.author, result.meta['id'],
+                    result.meta['score']
                 )
         return [int(result.meta['id']) for result in results]
 

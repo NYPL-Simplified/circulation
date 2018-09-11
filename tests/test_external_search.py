@@ -256,7 +256,7 @@ class EndToEndExternalSearchTest(ExternalSearchTest):
         if isinstance(works, Work):
             works = [works]
 
-        results = self.search.query_works(*query_args)
+        results = self.search.query_works(*query_args, debug=True)
         expect = [x.id for x in works]
         expect_ids = ", ".join(map(str, expect))
         expect_titles = ", ".join([x.title for x in works])
