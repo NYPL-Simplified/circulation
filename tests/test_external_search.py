@@ -1046,10 +1046,11 @@ class TestQuery(DatabaseTest):
 
         # A Bool query has its boost changed but is otherwise left alone.
         bool = Q("bool", boost=10)
-        boosted_bool = Query._boost(100, bool)
-        eq_(Q("bool", boost=100), boosted_bool)
+        boosted_bool = Query._boost(1, bool)
+        eq_(Q("bool", boost=1), boosted_bool)
 
-        # A query that's being given a "boost" of 1 is left alone.
+        # Some other kind of query that's being given a "boost" of 1
+        # is left alone.
         eq_(q1, Query._boost(1, q1))
 
     def test_simple_query_string_query(self):
