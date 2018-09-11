@@ -894,6 +894,7 @@ class TestQuery(DatabaseTest):
 
             _match_phrase_called_with = []
             _boosts = {}
+            _kwargs = {}
 
             fuzzy_string_query_returns_something = True
             _parsed_query_matches_returns_something = True
@@ -926,8 +927,12 @@ class TestQuery(DatabaseTest):
                 else:
                     return None
 
-            def _hypothesize(self, hypotheses, new_hypothesis, boost="default"):
+            def _hypothesize(
+                    self, hypotheses, new_hypothesis, boost="default",
+                    **kwargs
+            ):
                 self._boosts[new_hypothesis] = boost
+                self._kwargs[new_hypothesis] = kwargs
                 hypotheses.append(new_hypothesis)
                 return hypotheses
 
@@ -950,6 +955,12 @@ class TestQuery(DatabaseTest):
         eq_(['simple', 'minimal stemming',
              'title.standard match phrase', 'author.standard match phrase',
              'fuzzy string', 'parsed query matches'], result)
+
+        # For the parsed query matches, the extra all_must_match=True
+        # argument was passed into _boost() -- the boost only applies
+        # if every element of the parsed query is a hit.
+        eq_({'all_must_match': True},
+            query._kwargs['parsed query matches'])
 
         # In each case, the original query string was used as the
         # input into the mocked method.
@@ -980,6 +991,8 @@ class TestQuery(DatabaseTest):
         # matches that are better to show up first.
         eq_(1, query._boosts['fuzzy string'])
 
+        set_trace()
+
         # If fuzzy_string_query() or _parsed_query_matches()
         # returns None, then those hypotheses are not tested.
         query.fuzzy_string_query_returns_something = False
@@ -1000,6 +1013,11 @@ class TestQuery(DatabaseTest):
                 return "%s boosted by %d" % (query, boost)
 
         hypotheses = []
+
+        # _hypothesize() does nothing if it's not passed a real
+        # query.
+        Mock._hypothesize(hypotheses, None, 100)
+        eq_([], hypotheses)
 
         # If the boost is greater than 1, _boost() is called on the
         # query object.
@@ -1030,14 +1048,27 @@ class TestQuery(DatabaseTest):
         boosted_one = Query._boost(10, q1)
         eq_("bool", boosted_one.name)
         eq_(10.0, boosted_one.boost)
-        eq_(1, boosted_one.minimum_should_match)
-        eq_([q1], boosted_one.should)
+        eq_([q1], boosted_one.must)
 
+        # By default, if you pass in multiple queries, only one of them
+        # must match for the boost to apply.
         boosted_multiple = Query._boost(4.5, [q1, q2])
         eq_("bool", boosted_multiple.name)
         eq_(4.5, boosted_multiple.boost)
         eq_(1, boosted_multiple.minimum_should_match)
         eq_([q1, q2], boosted_multiple.should)
+
+        # Here, every query must match for the boost to apply.
+        boosted_multiple = Query._boost(4.5, [q1, q2], all_must_match=True)
+        eq_("bool", boosted_multiple.name)
+        eq_(4.5, boosted_multiple.boost)
+        eq_([q1, q2], boosted_multiple.must)
+
+        # A Bool query has its boost changed but is otherwise left alone.
+        bool = Q("bool", boost=10)
+        boosted_bool = Query._boost(100, bool)
+        eq_(Q("bool", boost=100), boosted_bool)
+
 
     def test_simple_query_string_query(self):
         # Verify that simple_query_string_query() returns a
@@ -1166,10 +1197,7 @@ class TestQuery(DatabaseTest):
         # is in use. The QueryParser is tested in much greater detail
         # in TestQueryParser.
 
-        qu = Query._parsed_query_matches("nonfiction")
-        eq_('bool', qu.name)
-        eq_(190, qu.boost)
-        [must_match] = qu.must
+        [must_match] = Query._parsed_query_matches("nonfiction")
         eq_({'match': {'fiction': 'Nonfiction'}}, must_match.to_dict())
 
 
@@ -1313,31 +1341,6 @@ class TestQueryParser(DatabaseTest):
             },
             asteroids.to_dict()
         )
-
-    def test_query(self):
-        # Test the ability to create an ElasticSearch query
-        # out of a bunch of match_queries.
-
-        # This query can't be parsed, so it has no .match_queries, so
-        # its .query is none. It'll need to be handled some other way
-        # (in this case, by an author match).
-        parser = QueryParser("octavia butler")
-        eq_([], parser.match_queries)
-        eq_(None, parser.query)
-
-        # If the query can be parsed, then .match_queries is set
-        # and its .query is a Bool query.
-        parser = QueryParser("romance")
-        eq_(1, len(parser.match_queries))
-        query = parser.query
-        eq_("bool", query.name)
-
-        # All of the .match_queries must match for this book to count
-        # as 'matching' this query.
-        eq_(parser.match_queries, query.must)
-
-        # If the book does match, its score will be boosted pretty high.
-        eq_(190, query.boost)
 
     def test_add_match_query(self):
         # TODO: this method could use a standalone test, but it's

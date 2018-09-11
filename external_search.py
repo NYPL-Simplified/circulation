@@ -739,9 +739,10 @@ class Query(SearchBase):
         # (e.g. a genre name or target age), with the remainder being
         # the "real" query string.
         with_field_matches = self._parsed_query_matches(query_string)
-        self._hypothesize(
-            hypotheses, with_field_matches, 20, all_must_match=True
-        )
+        if with_field_matches:
+            self._hypothesize(
+                hypotheses, with_field_matches, 20, all_must_match=True
+            )
 
         # For a given book, whichever one of these hypotheses gives
         # the highest score should be used.
