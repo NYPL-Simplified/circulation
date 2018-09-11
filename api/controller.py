@@ -34,7 +34,7 @@ from core.app_server import (
 )
 from core.external_search import (
     ExternalSearchIndex,
-    DummyExternalSearchIndex,
+    MockExternalSearchIndex,
 )
 from core.facets import FacetConfig
 from core.log import LogConfiguration
@@ -275,7 +275,7 @@ class CirculationManager(object):
     def setup_search(self):
         """Set up a search client."""
         if self.testing:
-            return DummyExternalSearchIndex()
+            return MockExternalSearchIndex()
         else:
             search = ExternalSearchIndex(self._db)
             if not search:

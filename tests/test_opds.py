@@ -40,7 +40,7 @@ from core.classifier import (
     Urban_Fantasy
 )
 
-from core.external_search import DummyExternalSearchIndex
+from core.external_search import MockExternalSearchIndex
 
 from core.util.opds_writer import (
     AtomFeed,
@@ -706,7 +706,7 @@ class TestLibraryAnnotator(VendorIDTest):
         work.presentation_edition.add_contributor(u'Oprah', Contributor.AUTHOR_ROLE)
         work.calculate_presentation(
             PresentationCalculationPolicy(regenerate_opds_entries=True),
-            DummyExternalSearchIndex()
+            MockExternalSearchIndex()
         )
         [entry] = self.get_parsed_feed([work]).entries
         contributor_links = [l for l in entry.links if l.rel == 'contributor']
@@ -724,7 +724,7 @@ class TestLibraryAnnotator(VendorIDTest):
         self._db.commit()
         work.calculate_presentation(
             PresentationCalculationPolicy(regenerate_opds_entries=True),
-            DummyExternalSearchIndex()
+            MockExternalSearchIndex()
         )
         feed = self.get_parsed_feed([work])
         [entry] = feed.entries

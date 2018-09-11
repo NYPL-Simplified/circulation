@@ -46,7 +46,7 @@ from core.app_server import (
 )
 from core.classifier import Classifier
 from core.config import CannotLoadConfiguration
-from core.external_search import DummyExternalSearchIndex
+from core.external_search import MockExternalSearchIndex
 from core.metadata_layer import Metadata
 from core import model
 from core.entrypoint import (
@@ -379,7 +379,7 @@ class TestCirculationManager(CirculationControllerTest):
         )
 
         # The ExternalSearch object has been reset.
-        assert isinstance(manager.external_search, DummyExternalSearchIndex)
+        assert isinstance(manager.external_search, MockExternalSearchIndex)
 
         # So has the lending policy.
         assert isinstance(manager.lending_policy, dict)
@@ -2259,7 +2259,7 @@ class TestWorkController(CirculationControllerTest):
         )
         self.work.calculate_presentation(
             PresentationCalculationPolicy(regenerate_opds_entries=True),
-            DummyExternalSearchIndex()
+            MockExternalSearchIndex()
         )
         SessionManager.refresh_materialized_views(self._db)
 
