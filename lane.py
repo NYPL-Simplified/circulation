@@ -675,6 +675,7 @@ class SearchFacets(FacetsWithEntryPoint):
             self.media = media
         else:
             self.media = self._ensure_list(media)
+        self.media_argument = media
 
         self.languages = self._ensure_list(languages)
 
@@ -751,6 +752,17 @@ class SearchFacets(FacetsWithEntryPoint):
         # is.
         if self.languages and not filter.languages:
             filter.languages = self.languages
+
+    def items(self):
+        """Yields a 2-tuple for every active facet setting.
+
+        This means the EntryPoint (handled by the superclass)
+        as well as a setting for 'media'.
+        """
+        for k, v in super(SearchFacets, self).items():
+            yield k, v
+        if self.media_argument:
+            yield ("media", self.media_argument)
 
 
 class Pagination(object):

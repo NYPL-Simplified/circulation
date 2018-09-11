@@ -990,6 +990,25 @@ class TestSearchFacets(DatabaseTest):
         worklist.entrypoints = [ep1, EverythingEntryPoint, ep2]
         eq_(worklist.entrypoints, m(worklist))
 
+    def test_items(self):
+        facets = SearchFacets(
+            entrypoint=EverythingEntryPoint,
+            media=Edition.BOOK_MEDIUM, languages=['eng']
+        )
+
+        # When we call items(), e.g. to create a query string that
+        # propagates the facet settings, both entrypoint and
+        # media are propagated if present.
+        #
+        # language is not propagated, because it's set through
+        # the Accept-Language header rather than through a query
+        # string.
+        eq_(
+            [('entrypoint', EverythingEntryPoint.INTERNAL_NAME),
+             ('media', Edition.BOOK_MEDIUM)],
+            list(facets.items())
+        )
+
     def test_navigation(self):
         """Navigating from one SearchFacets to another
         gives a new SearchFacets object, even though SearchFacets doesn't
