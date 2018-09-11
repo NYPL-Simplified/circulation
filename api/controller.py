@@ -765,7 +765,7 @@ class OPDSFeedController(CirculationManagerController):
         make_url = lambda: self.url_for(
             'lane_search', lane_identifier=lane_identifier,
             library_short_name=library_short_name,
-            **kwargs
+            q=query
         )
         if not query:
             # Send the search form
@@ -778,7 +778,6 @@ class OPDSFeedController(CirculationManagerController):
             return pagination
 
         # Run a search.
-        kwargs['q'] = query.encode("utf8")
         this_url = make_url()
 
         annotator = self.manager.annotator(lane, facets)
