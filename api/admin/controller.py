@@ -1540,7 +1540,7 @@ class CustomListsController(AdminCirculationManagerController):
         old_entries = [x for x in list.entries if x.edition]
         membership_change = False
         for entry in entries:
-            urn = entry.get("identifier_urn")
+            urn = entry.get("id")
 
             identifier, ignore = Identifier.parse_urn(self._db, urn)
             query = self._db.query(
@@ -1550,7 +1550,7 @@ class CustomListsController(AdminCirculationManagerController):
             ).join(
                 Collection, LicensePool.collection_id==Collection.id
             ).filter(
-                LicensePool.identifier_id==identifier.id
+                LicensePool.identifier_id==identifier
             ).filter(
                 Collection.id.in_([c.id for c in library.all_collections])
             )
@@ -1561,7 +1561,7 @@ class CustomListsController(AdminCirculationManagerController):
                 if entry_is_new:
                     membership_change = True
 
-        new_urns = [entry.get("identifier_urn") for entry in entries]
+        new_urns = [entry.get("id") for entry in entries]
         for entry in old_entries:
             if entry.edition.primary_identifier.urn not in new_urns:
                 list.remove_entry(entry.edition)
