@@ -867,7 +867,7 @@ class TestQuery(DatabaseTest):
             def query(self):
                 return Q("simple_query_string", query=self.query_string)
 
-        # If there's a filter, an ElasticSearch Filtered object is created.
+        # If there's a filter, an ElasticSearch query object is created.
         filter = Filter(fiction=True)
         m = Mock("query string", filter=filter)
         filtered = m.build()
@@ -981,6 +981,8 @@ class TestQuery(DatabaseTest):
         # The fuzzy match has a boost that's very low, to encourage any
         # matches that are better to show up first.
         eq_(1, query._boosts['fuzzy string'])
+
+        eq_(20, query._boosts['parsed query matches'])
 
     def test__hypothesize(self):
         # Verify that _hypothesize() adds a query to a list,
