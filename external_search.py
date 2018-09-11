@@ -866,6 +866,9 @@ class Query(SearchBase):
             cls, query_string,
             fields=MINIMAL_STEMMING_QUERY_FIELDS
     ):
+        """A clause that tries for a close match of the query string
+        against any of a number of fields.
+        """
         return [cls._match_phrase(field, query_string) for field in fields]
 
     @classmethod

@@ -896,9 +896,6 @@ class TestQuery(DatabaseTest):
             _boosts = {}
             _kwargs = {}
 
-            fuzzy_string_query_returns_something = True
-            _parsed_query_matches_returns_something = True
-
             def simple_query_string_query(self, query_string):
                 self.simple_query_string_called_with = query_string
                 return "simple"
@@ -915,17 +912,11 @@ class TestQuery(DatabaseTest):
 
             def fuzzy_string_query(self, query_string):
                 self.fuzzy_string_called_with = query_string
-                if self.fuzzy_string_query_returns_something:
-                    return "fuzzy string"
-                else:
-                    return None
+                return "fuzzy string"
 
             def _parsed_query_matches(self, query_string):
                 self._parsed_query_matches_called_with = query_string
-                if self._parsed_query_matches_returns_something:
-                    return "parsed query matches"
-                else:
-                    return None
+                return "parsed query matches"
 
             def _hypothesize(
                     self, hypotheses, new_hypothesis, boost="default",
