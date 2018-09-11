@@ -732,17 +732,15 @@ class Query(SearchBase):
         # The query string might be a fuzzy match against one of the
         # standard searchable fields.
         fuzzy = self.fuzzy_string_query(query_string)
-        if fuzzy:
-            self._hypothesize(hypotheses, fuzzy, 1)
+        self._hypothesize(hypotheses, fuzzy, 1)
 
         # The query string might contain some specific field matches
         # (e.g. a genre name or target age), with the remainder being
         # the "real" query string.
         with_field_matches = self._parsed_query_matches(query_string)
-        if with_field_matches:
-            self._hypothesize(
-                hypotheses, with_field_matches, 20, all_must_match=True
-            )
+        self._hypothesize(
+            hypotheses, with_field_matches, 20, all_must_match=True
+        )
 
         # For a given book, whichever one of these hypotheses gives
         # the highest score should be used.
@@ -752,6 +750,13 @@ class Query(SearchBase):
     @classmethod
     def _hypothesize(cls, hypotheses, query, boost=1.5, **kwargs):
         """Add a hypothesis to the ones to be tested for each book.
+
+        :param hypotheses: If a new hypothesis is generated, it will be
+        added to this list.
+
+        :param query: A Query object (or list of Query objects) to be
+        used as the basis for this hypothesis. If there's nothing here,
+        no new hypothesis will be generated.
 
         :param boost: Boost the overall weight of this hypothesis
         relative to other hypotheses being tested. The default of 1.5
