@@ -7,7 +7,10 @@ from elasticsearch_dsl import (
     Q,
     F,
 )
-from elasticsearch_dsl.query import Bool
+from elasticsearch_dsl.query import (
+    Bool,
+    Query as BaseQuery
+)
 
 from flask_babel import lazy_gettext as _
 from config import (
@@ -578,7 +581,7 @@ class SearchBase(object):
 
     @classmethod
     def _match_range(cls, field, operation, value):
-        """Match a ranged value for a field, using an opration other than
+        """Match a ranged value for a field, using an operation other than
         equality.
 
         e.g. _match_range("field.name", "gte", 5) will match
@@ -763,7 +766,7 @@ class Query(SearchBase):
 
         :param kwargs: Keyword arguments for the _boost method.
         """
-        if query and boost > 1:
+        if query:
             query = cls._boost(boost, query, **kwargs)
         if query:
             hypotheses.append(query)
@@ -797,8 +800,15 @@ class Query(SearchBase):
             # the boost.
             queries._params['boost'] = boost
             return queries
-        if not isinstance(queries, list):
-            queries = [queries]
+
+        if isinstance(queries, BaseQuery):
+            if boost == 1:
+                # We already have a Query and we don't actually need
+                # to boost it. Leave it alone to simplify the final
+                # query.
+                return queries
+            else:
+                queries = [queries]
 
         if all_must_match or len(queries) == 1:
             # Every one of the subqueries in `queries` must match.

@@ -1006,15 +1006,15 @@ class TestQuery(DatabaseTest):
         Mock._hypothesize(hypotheses, None, 100)
         eq_([], hypotheses)
 
-        # If the boost is greater than 1, _boost() is called on the
+        # If it is passed a real query, _boost() is called on the
         # query object.
         Mock._hypothesize(hypotheses, "query object", 10)
         eq_(["query object boosted by 10"], hypotheses)
 
-        # If it's not greater than 1, _boost() is not called and the query
-        # object is used as-is.
         Mock._hypothesize(hypotheses, "another query object", 1)
-        eq_(["query object boosted by 10", "another query object"], hypotheses)
+        eq_(["query object boosted by 10", "another query object boosted by 1"],
+            hypotheses)
+
 
     def test__combine_hypotheses(self):
         # Verify that _combine_hypotheses creates a DisMax query object
@@ -1056,6 +1056,8 @@ class TestQuery(DatabaseTest):
         boosted_bool = Query._boost(100, bool)
         eq_(Q("bool", boost=100), boosted_bool)
 
+        # A query that's being given a "boost" of 1 is left alone.
+        eq_(q1, Query._boost(1, q1))
 
     def test_simple_query_string_query(self):
         # Verify that simple_query_string_query() returns a
