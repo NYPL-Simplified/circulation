@@ -1506,9 +1506,10 @@ class CustomListsController(AdminCirculationManagerController):
             name = flask.request.form.get("name")
             entries = flask.request.form.get("entries")
             collections = flask.request.form.get("collections")
-            return self._create_or_update_list(library, name, entries, collections, id)
+            deletedEntries = flask.request.form.get("deletedEntries")
+            return self._create_or_update_list(library, name, entries, collections, deletedEntries, id)
 
-    def _create_or_update_list(self, library, name, entries, collections, id=None):
+    def _create_or_update_list(self, library, name, entries, collections, deletedEntries, id=None):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
 
         old_list_with_name = CustomList.find(self._db, name, library=library)
@@ -1537,8 +1538,14 @@ class CustomListsController(AdminCirculationManagerController):
         else:
             entries = []
 
+        if deletedEntries:
+            deletedEntries = json.loads(deletedEntries)
+        else:
+            deletedEntries = []
+
         old_entries = [x for x in list.entries if x.edition]
         membership_change = False
+
         for entry in entries:
             urn = entry.get("id")
 
@@ -1550,7 +1557,7 @@ class CustomListsController(AdminCirculationManagerController):
             ).join(
                 Collection, LicensePool.collection_id==Collection.id
             ).filter(
-                LicensePool.identifier_id==identifier
+                LicensePool.identifier_id==identifier.id
             ).filter(
                 Collection.id.in_([c.id for c in library.all_collections])
             )
@@ -1562,8 +1569,11 @@ class CustomListsController(AdminCirculationManagerController):
                     membership_change = True
 
         new_urns = [entry.get("id") for entry in entries]
+        deleted_urns = [deletedEntry.get("id") for deletedEntry in deletedEntries]
         for entry in old_entries:
-            if entry.edition.primary_identifier.urn not in new_urns:
+            in_new = entry.edition.primary_identifier.urn not in new_urns
+            in_deleted = entry.edition.primary_identifier.urn in deleted_urns
+            if in_new and in_deleted:
                 list.remove_entry(entry.edition)
                 membership_change = True
 
@@ -1638,7 +1648,8 @@ class CustomListsController(AdminCirculationManagerController):
             name = flask.request.form.get("name")
             entries = flask.request.form.get("entries")
             collections = flask.request.form.get("collections")
-            return self._create_or_update_list(library, name, entries, collections, list_id)
+            deletedEntries = flask.request.form.get("deletedEntries")
+            return self._create_or_update_list(library, name, entries, collections, deletedEntries, list_id)
 
         elif flask.request.method == "DELETE":
             # Deleting requires a library manager.
