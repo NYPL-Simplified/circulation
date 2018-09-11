@@ -7,6 +7,7 @@ from elasticsearch_dsl import (
     Q,
     F,
 )
+from elasticsearch_dsl.query import Bool
 
 from flask_babel import lazy_gettext as _
 from config import (
@@ -292,6 +293,9 @@ class ExternalSearchIndex(object):
             return []
 
         query = Query(query_string, filter)
+        import pprint
+        foo = query.build().to_dict()['dis_max']['queries']
+        pprint.pprint(foo)
         search = Search(using=self.__client).query(query.build())
 
         fields = None
@@ -735,8 +739,9 @@ class Query(SearchBase):
         # (e.g. a genre name or target age), with the remainder being
         # the "real" query string.
         with_field_matches = self._parsed_query_matches(query_string)
-        if with_field_matches:
-            self._hypothesize(hypotheses, with_field_matches)
+        self._hypothesize(
+            hypotheses, with_field_matches, 190, all_must_match=True
+        )
 
         # For a given book, whichever one of these hypotheses gives
         # the highest score should be used.
@@ -744,17 +749,20 @@ class Query(SearchBase):
         return qu
 
     @classmethod
-    def _hypothesize(cls, hypotheses, query, boost=1.5):
+    def _hypothesize(cls, hypotheses, query, boost=1.5, **kwargs):
         """Add a hypothesis to the ones to be tested for each book.
 
         :param boost: Boost the overall weight of this hypothesis
         relative to other hypotheses being tested. The default of 1.5
         allows most 'ordinary' hypotheses to rank higher than the
         fuzzy-search hypothesis.
+
+        :param kwargs: Keyword arguments for the _boost method.
         """
-        if boost > 1:
-            query = cls._boost(boost, query)
-        hypotheses.append(query)
+        if query and boost > 1:
+            query = cls._boost(boost, query, **kwargs)
+        if query:
+            hypotheses.append(query)
         return hypotheses
 
     @classmethod
@@ -765,14 +773,39 @@ class Query(SearchBase):
         return Q("dis_max", queries=hypotheses)
 
     @classmethod
-    def _boost(cls, boost, queries):
+    def _boost(cls, boost, queries, all_must_match=False):
         """Boost a query by a certain amount relative to its neighbors in a
         dis_max query.
+
+        :param boost: Numeric value to boost search results that
+           match `queries`.
+        :param queries: One or more Query objects. If more than one query
+           is provided, a new Bool-type query will be created with
+           the given boost. If this is a single Bool-type query, its
+           boost will be modified and no new query will be created.
+        :param all_must_match: If this is False (the default), then only
+           one of the `queries` must match for a search result to get
+           the boost. If this is True, then all `queries` must match,
+           or the boost will not apply.
         """
+        if isinstance(queries, Bool):
+            # This is already a boolean query; we just need to change
+            # the boost.
+            queries._params['boost'] = boost
+            return queries
         if not isinstance(queries, list):
             queries = [queries]
-        return Q("bool", boost=float(boost), minimum_should_match=1,
-                 should=queries)
+
+        if all_must_match or len(queries) == 1:
+            # Every one of the subqueries in `queries` must match.
+            # (If there's only one subquery, this simplifies the
+            # final query slightly.)
+            kwargs = dict(must=queries)
+        else:
+            # At least one of the queries in `queries` must match.
+            kwargs = dict(should=queries, minimum_should_match=1)
+
+        return Q("bool", boost=float(boost), **kwargs)
 
     @classmethod
     def simple_query_string_query(cls, query_string, fields=None):
@@ -858,7 +891,7 @@ class Query(SearchBase):
         information is used in a simple query that matches basic
         fields.
         """
-        return QueryParser(query_string).query
+        return QueryParser(query_string).match_queries
 
 
 class QueryParser(object):
@@ -978,28 +1011,6 @@ class QueryParser(object):
                 self.SIMPLE_QUERY_STRING_FIELDS
             )
             self.match_queries.append(match_rest_of_query)
-
-    @property
-    def query(self):
-        """Create an ElasticSearch query object that will give a matching book
-        a very high score, assuming we have correctly interpreted the
-        query string.
-        """
-        if not self.match_queries:
-            # We didn't find anything that indicates the query string
-            # includes a field match component -- if we had, we would
-            # have removed it from final_query_string. Therefore, this
-            # object has nothing to contribute to the search process.
-            return None
-
-        # If all of the match queries match, the result will be
-        # boosted slightly less than a result that matches the full
-        # query in one of the basic fields like title or author.
-        #
-        # This is so a query for "modern romance" clearly favors a
-        # book called "Modern Romance" over a book in the Romance
-        # genre with "Modern" in its title.
-        return Q('bool', must=self.match_queries, boost=190.0)
 
     def add_match_query(self, query, field, query_string, matched_portion):
         """Create a match query that finds documents whose value for `field`
