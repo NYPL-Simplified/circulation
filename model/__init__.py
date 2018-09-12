@@ -143,6 +143,8 @@ from sqlalchemy.dialects.postgresql import (
     INT4RANGE,
 )
 
+from media_type_constants import MediaTypes
+
 DEBUG = False
 
 def production_session():
@@ -6011,8 +6013,8 @@ class Resource(Base):
         :return: A lower number is better. None means it's not an
         image type or we don't care about it at all.
         """
-        if media_type in Representation.IMAGE_MEDIA_TYPES:
-            return Representation.IMAGE_MEDIA_TYPES.index(media_type)
+        if media_type in MediaTypes.IMAGE_MEDIA_TYPES:
+            return MediaTypes.IMAGE_MEDIA_TYPES.index(media_type)
         return None
 
     @classmethod
@@ -7780,7 +7782,7 @@ class LicensePool(Base):
                     [resource.representation and
                      resource.representation.media_type and
                      resource.representation.media_type.startswith(x)
-                     for x in Representation.SUPPORTED_BOOK_MEDIA_TYPES]):
+                     for x in MediaTypes.SUPPORTED_BOOK_MEDIA_TYPES]):
                 # This representation is not in a media type we
                 # support. We can't serve it, so we won't consider it.
                 continue
@@ -8357,7 +8359,7 @@ class Timestamp(Base):
     )
 
 
-class Representation(Base):
+class Representation(Base, MediaTypes):
     """A cached document obtained from (and possibly mirrored to) the Web
     at large.
 
@@ -8370,86 +8372,6 @@ class Representation(Base):
     Sometimes it's just a web page that we need a cached local copy
     of.
     """
-
-    EPUB_MEDIA_TYPE = u"application/epub+zip"
-    PDF_MEDIA_TYPE = u"application/pdf"
-    MOBI_MEDIA_TYPE = u"application/x-mobipocket-ebook"
-    AMAZON_KF8_MEDIA_TYPE = u"application/x-mobi8-ebook"
-    TEXT_XML_MEDIA_TYPE = u"text/xml"
-    TEXT_HTML_MEDIA_TYPE = u"text/html"
-    APPLICATION_XML_MEDIA_TYPE = u"application/xml"
-    JPEG_MEDIA_TYPE = u"image/jpeg"
-    PNG_MEDIA_TYPE = u"image/png"
-    GIF_MEDIA_TYPE = u"image/gif"
-    SVG_MEDIA_TYPE = u"image/svg+xml"
-    MP3_MEDIA_TYPE = u"audio/mpeg"
-    MP4_MEDIA_TYPE = u"video/mp4"
-    WMV_MEDIA_TYPE = u"video/x-ms-wmv"
-    SCORM_MEDIA_TYPE = u"application/vnd.librarysimplified.scorm+zip"
-    ZIP_MEDIA_TYPE = u"application/zip"
-    OCTET_STREAM_MEDIA_TYPE = u"application/octet-stream"
-    TEXT_PLAIN = u"text/plain"
-    AUDIOBOOK_MANIFEST_MEDIA_TYPE = u"application/audiobook+json"
-
-    BOOK_MEDIA_TYPES = [
-        EPUB_MEDIA_TYPE,
-        PDF_MEDIA_TYPE,
-        MOBI_MEDIA_TYPE,
-        MP3_MEDIA_TYPE,
-        AMAZON_KF8_MEDIA_TYPE,
-    ]
-
-    # These media types are in the order we would prefer to use them.
-    # e.g. all else being equal, we would prefer a PNG to a JPEG.
-    IMAGE_MEDIA_TYPES = [
-        PNG_MEDIA_TYPE,
-        JPEG_MEDIA_TYPE,
-        GIF_MEDIA_TYPE,
-        SVG_MEDIA_TYPE,
-    ]
-
-    SUPPORTED_BOOK_MEDIA_TYPES = [
-        EPUB_MEDIA_TYPE
-    ]
-
-    # Most of the time, if you believe a resource to be media type A,
-    # but then you make a request and get media type B, then the
-    # actual media type (B) takes precedence over what you thought it
-    # was (A). These media types are the exceptions: they are so
-    # generic that they don't tell you anything, so it's more useful
-    # to stick with A.
-    GENERIC_MEDIA_TYPES = [OCTET_STREAM_MEDIA_TYPE]
-
-    FILE_EXTENSIONS = {
-        EPUB_MEDIA_TYPE: "epub",
-        MOBI_MEDIA_TYPE: "mobi",
-        PDF_MEDIA_TYPE: "pdf",
-        MP3_MEDIA_TYPE: "mp3",
-        MP4_MEDIA_TYPE: "mp4",
-        WMV_MEDIA_TYPE: "wmv",
-        JPEG_MEDIA_TYPE: "jpg",
-        PNG_MEDIA_TYPE: "png",
-        SVG_MEDIA_TYPE: "svg",
-        GIF_MEDIA_TYPE: "gif",
-        ZIP_MEDIA_TYPE: "zip",
-        TEXT_PLAIN: "txt",
-        TEXT_HTML_MEDIA_TYPE: "html",
-        APPLICATION_XML_MEDIA_TYPE: "xml",
-        AUDIOBOOK_MANIFEST_MEDIA_TYPE: "audiobook-manifest",
-        SCORM_MEDIA_TYPE: "zip"
-    }
-
-    COMMON_EBOOK_EXTENSIONS = ['.epub', '.pdf']
-    COMMON_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif']
-
-    # Invert FILE_EXTENSIONS and add some extra guesses.
-    MEDIA_TYPE_FOR_EXTENSION = {
-        ".htm" : TEXT_HTML_MEDIA_TYPE,
-        ".jpeg" : JPEG_MEDIA_TYPE,
-    }
-    for media_type, extension in FILE_EXTENSIONS.items():
-        MEDIA_TYPE_FOR_EXTENSION['.' + extension] = media_type
-
     __tablename__ = 'representations'
     id = Column(Integer, primary_key=True)
 
@@ -8818,7 +8740,7 @@ class Representation(Base):
             return default
         headers_type = headers['content-type'].lower()
         clean = cls._clean_media_type(headers_type)
-        if clean in Representation.GENERIC_MEDIA_TYPES and default:
+        if clean in MediaTypes.GENERIC_MEDIA_TYPES and default:
             return default
         return headers_type
 
@@ -8856,8 +8778,8 @@ class Representation(Base):
         """
         return any(
             self.media_type in x for x in
-            (Representation.BOOK_MEDIA_TYPES,
-             Representation.IMAGE_MEDIA_TYPES)
+            (MediaTypes.BOOK_MEDIA_TYPES,
+             MediaTypes.IMAGE_MEDIA_TYPES)
         )
 
     def update_image_size(self):
@@ -9266,7 +9188,7 @@ class Representation(Base):
         self.image_width, self.image_height = image.size
 
         # If the image is already a thumbnail-size bitmap, don't bother.
-        if (self.clean_media_type != Representation.SVG_MEDIA_TYPE
+        if (self.clean_media_type != MediaTypes.SVG_MEDIA_TYPE
             and self.image_height <= max_height
             and self.image_width <= max_width):
             self.thumbnails = []
@@ -9435,7 +9357,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     STREAMING_PROFILE = ";profile=http://librarysimplified.org/terms/profiles/streaming-media"
     MEDIA_TYPES_FOR_STREAMING = {
-        STREAMING_TEXT_CONTENT_TYPE: Representation.TEXT_HTML_MEDIA_TYPE
+        STREAMING_TEXT_CONTENT_TYPE: MediaTypes.TEXT_HTML_MEDIA_TYPE
     }
 
     __tablename__ = 'deliverymechanisms'
@@ -9450,9 +9372,9 @@ class DeliveryMechanism(Base, HasFullTableCache):
     # These are the media type/DRM scheme combos known to be supported
     # by the default Library Simplified client.
     default_client_can_fulfill_lookup = set([
-        (Representation.EPUB_MEDIA_TYPE, NO_DRM),
-        (Representation.EPUB_MEDIA_TYPE, ADOBE_DRM),
-        (Representation.EPUB_MEDIA_TYPE, BEARER_TOKEN),
+        (MediaTypes.EPUB_MEDIA_TYPE, NO_DRM),
+        (MediaTypes.EPUB_MEDIA_TYPE, ADOBE_DRM),
+        (MediaTypes.EPUB_MEDIA_TYPE, BEARER_TOKEN),
     ])
 
     license_pool_delivery_mechanisms = relationship(
@@ -9500,8 +9422,8 @@ class DeliveryMechanism(Base, HasFullTableCache):
         available through this DeliveryMechanism?
         """
         if self.content_type in (
-                Representation.EPUB_MEDIA_TYPE,
-                Representation.PDF_MEDIA_TYPE,
+                MediaTypes.EPUB_MEDIA_TYPE,
+                MediaTypes.PDF_MEDIA_TYPE,
                 "Kindle via Amazon",
                 "Streaming Text"):
             return Edition.BOOK_MEDIUM
