@@ -563,9 +563,10 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             # targeted toward a wide range.
             expect([self.age_9_10, self.age_2_10], q)
 
-        # TODO: I expected this to act like the other queries, but the
-        # 2-10 book shows up above the 9-10 book. This might indicate
-        # a bug.
+        # TODO: The target age query only scores how big the overlap
+        # is, it doesn't look at how large the non-overlapping part of
+        # the range is. So the 2-10 book can show up before the 9-10
+        # book. This could be improved.
         expect([self.age_9_10, self.age_2_10], "age 10-12", ordered=False)
 
         # Books whose target age are closer to the requested range
@@ -816,9 +817,18 @@ class TestExactMatches(EndToEndExternalSearchTest):
 
         # When a string exactly matches both a title and an author,
         # the books that match exactly are promoted.
+        #
+        # A book by 'Peter Graves' is the top result. Titles with
+        # 'Peter Graves' in the title are next, based on how much
+        # other stuff is in the title. A partial match is the last
+        # result.
         expect(
-            [self.biography_of_peter_graves, self.behind_the_scenes,
-             self.book_by_peter_graves, self.book_by_someone_else],
+            [
+                self.book_by_peter_graves,
+                self.biography_of_peter_graves,
+                self.behind_the_scenes,
+                self.book_by_someone_else
+            ],
             "peter graves"
         )
 
@@ -944,7 +954,7 @@ class TestQuery(DatabaseTest):
         # once, except for _match_phrase, which was called once for title
         # and once for author.
         eq_(['simple', 'minimal stemming',
-             'title.standard match phrase', 'author.standard match phrase',
+             'title.standard match phrase', 'author match phrase',
              'fuzzy string', 'parsed query matches'], result)
 
         # For the parsed query matches, the extra all_must_match=True
@@ -958,7 +968,7 @@ class TestQuery(DatabaseTest):
         eq_(q, query.simple_query_string_called_with)
         eq_((q, "default fields"),
             query.minimal_stemming_called_with)
-        eq_([('title.standard', q), ('author.standard', q)],
+        eq_([('title.standard', q), ('author', q)],
             query._match_phrase_called_with)
         eq_(q, query.fuzzy_string_called_with)
         eq_(q, query._parsed_query_matches_called_with)
@@ -968,7 +978,7 @@ class TestQuery(DatabaseTest):
         # with this information, we just stored it in _boosts.
 
         # Exact title or author matches are valued quite highly.
-        for field in 'title.standard', 'author.standard':
+        for field in 'title.standard', 'author':
             key = field + " match phrase"
             eq_(200, query._boosts[key])
 
@@ -1091,18 +1101,18 @@ class TestQuery(DatabaseTest):
     def test__match(self):
         # match creates a Match Elasticsearch object which does a
         # match against a specific field.
-        qu = Query._match("author.standard", "flannery o'connor")
+        qu = Query._match("author", "flannery o'connor")
         eq_(
-            {'match': {'author.standard': "flannery o'connor"}},
+            {'match': {'author': "flannery o'connor"}},
             qu.to_dict()
         )
 
     def test__match_phrase(self):
         # match_phrase creates a MatchPhrase Elasticsearch
         # object which does a phrase match against a specific field.
-        qu = Query._match_phrase("author.standard", "flannery o'connor")
+        qu = Query._match_phrase("author", "flannery o'connor")
         eq_(
-            {'match_phrase': {'author.standard': "flannery o'connor"}},
+            {'match_phrase': {'author': "flannery o'connor"}},
             qu.to_dict()
         )
 

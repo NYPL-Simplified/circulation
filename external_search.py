@@ -668,7 +668,7 @@ class Query(SearchBase):
     #
     # TODO: Instead of this, avoid the fuzzy query or weigh it much
     # lower if there don't appear to be any misspelled words in the
-    # query string.
+    # query string. Or switch to a suggester.
     FUZZY_CIRCUIT_BREAKER = re.compile(
         r'\b(%s)\b' % "|".join(FUZZY_CONFOUNDERS), re.I
     )
@@ -732,7 +732,7 @@ class Query(SearchBase):
         )
         self._hypothesize(
             hypotheses,
-            self._match_phrase("author.standard", query_string), 200
+            self._match_phrase("author", query_string), 200
         )
 
         # The query string might be a fuzzy match against one of the
