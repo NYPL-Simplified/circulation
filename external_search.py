@@ -23,6 +23,7 @@ from classifier import (
     AgeClassifier,
 )
 from model import (
+    numericrange_to_tuple,
     ExternalIntegration,
     Library,
     Work,
@@ -1147,10 +1148,7 @@ class Filter(SearchBase):
                 self.target_age = target_age
             else:
                 # It's a SQLAlchemy range object. Convert it to a tuple.
-                #
-                # NOTE: This assumes that the range is inclusive
-                # on both sides.
-                self.target_age = (target_age.lower, target_age.upper)
+                self.target_age = numericrange_to_tuple(target_age)
         else:
             self.target_age = None
 

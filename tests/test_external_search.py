@@ -1438,7 +1438,7 @@ class TestFilter(DatabaseTest):
         year_range = Filter(target_age=(8,10))
         eq_((8,10), year_range.target_age)
 
-        year_range = Filter(target_age=NumericRange(4, 5, '[]'))
+        year_range = Filter(target_age=NumericRange(3, 6, '()'))
         eq_((4, 5), year_range.target_age)
 
         # Test genre_restriction_sets
