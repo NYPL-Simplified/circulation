@@ -113,7 +113,7 @@ from classifier import (
     Drama,
 )
 
-from . import (
+from .. import (
     DatabaseTest,
     DummyHTTPClient,
 )
@@ -3201,7 +3201,8 @@ class TestWork(DatabaseTest):
         edition, lp = self._edition(with_open_access_download=True)
 
         # Create a cover and thumbnail for the edition.
-        base_path = os.path.split(__file__)[0]
+        current_folder = os.path.split(__file__)[0]
+        base_path = os.path.dirname(current_folder)
         sample_cover_path = base_path + '/files/covers/test-book-cover.png'
         cover_href = 'http://cover.png'
         cover_link = lp.add_link(
