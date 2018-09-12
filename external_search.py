@@ -617,8 +617,13 @@ class Query(SearchBase):
     ]
 
     # When we look for a close match against title, author, or series,
-    # we apply minimal stemming, because we're handling the case where
-    # the user typed something in exactly as is.
+    # we apply minimal stemming (or no stemming, in the case of the
+    # author), because we're handling the case where the user typed
+    # something in exactly as is.
+    #
+    # TODO: If we're really serious about 'minimal stemming',
+    # we should use title.standard and series.standard instead of
+    # .minimal. Using .minimal gets rid of plurals and stop words.
     MINIMAL_STEMMING_QUERY_FIELDS = [
         'title.minimal', 'author', 'series.minimal'
     ]
