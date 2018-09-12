@@ -296,7 +296,9 @@ class ExternalSearchIndex(object):
             return []
 
         query = Query(query_string, filter)
-        search = Search(using=self.__client).query(query.build())
+        search = Search(
+            using=self.__client, index=self.works_alias
+        ).query(query.build())
 
         fields = None
         if debug:
