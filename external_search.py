@@ -1088,9 +1088,9 @@ class QueryParser(object):
 class Filter(SearchBase):
     """A filter for search results.
 
-    This covers every reason you might want to not show a search
-    result that matches the query string -- wrong media, wrong
-    language, not available in the patron's library, etc.
+    This covers every reason you might want to not exclude a search
+    result that would otherise match the query string -- wrong media,
+    wrong language, not available in the patron's library, etc.
     """
 
     @classmethod
@@ -1103,19 +1103,21 @@ class Filter(SearchBase):
         """
         library = worklist.get_library(_db)
 
-        v = worklist.inherited_value
-        media = v('media')
-        languages = v('languages')
-        fiction = v('fiction')
-        audiences = v('audiences')
-        target_age = v('target_age')
+        # For most configuration settings there is a single value --
+        # either defined on the WorkList or defined by its parent.
+        inherit_one = worklist.inherited_value
+        media = inherit_one('media')
+        languages = inherit_one('languages')
+        fiction = inherit_one('fiction')
+        audiences = inherit_one('audiences')
+        target_age = inherit_one('target_age')
 
         # For genre IDs and CustomList IDs, we might get a separate
         # set of restrictions from every item in the WorkList hierarchy.
         # _All_ restrictions must be met for a work to match the filter.
-        v = worklist.inherited_values
-        genre_id_restrictions = v('genre_ids')
-        customlist_id_restrictions = v('customlist_ids')
+        inherit_some = worklist.inherited_values
+        genre_id_restrictions = inherit_some('genre_ids')
+        customlist_id_restrictions = inherit_some('customlist_ids')
         return cls(
             library, media, languages, fiction, audiences,
             target_age, genre_id_restrictions, customlist_id_restrictions,
