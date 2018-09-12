@@ -15,6 +15,7 @@ from sqlalchemy import (
 )
 from . import (
     Base,
+    get_one_or_create,
 )
 
 class CirculationEvent(Base):
