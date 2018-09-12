@@ -1,7 +1,12 @@
 # encoding: utf-8
 from . import (
     Base,
+    Collection,
+    ConfigurationSetting,
+    Edition,
     HasFullTableCache,
+    LicensePool,
+    Work,
 )
 from collections import Counter
 from nose.tools import set_trace
@@ -11,11 +16,14 @@ from sqlalchemy import (
     Boolean,
     Column,
     Float,
+    ForeignKey,
     func,
     Index,
     Integer,
     String,
+    Table,
     Unicode,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import (
     backref,
@@ -32,9 +40,6 @@ from config import Configuration
 from entrypoint import EntryPoint
 from facets import FacetConstants
 from sqlalchemy.orm.session import Session
-
-from sqlalchemy.ext.declarative import declarative_base
-Base = declarative_base()
 
 class Library(Base, HasFullTableCache):
     """A library that uses this circulation manager to authenticate
@@ -403,3 +408,16 @@ class Library(Base, HasFullTableCache):
                 library._is_default = True
             else:
                 library._is_default = False
+
+externalintegrations_libraries = Table(
+    'externalintegrations_libraries', Base.metadata,
+     Column(
+         'externalintegration_id', Integer, ForeignKey('externalintegrations.id'),
+         index=True, nullable=False
+     ),
+     Column(
+         'library_id', Integer, ForeignKey('libraries.id'),
+         index=True, nullable=False
+     ),
+     UniqueConstraint('externalintegration_id', 'library_id'),
+ )

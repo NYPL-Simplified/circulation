@@ -10843,18 +10843,6 @@ collections_libraries = Table(
      UniqueConstraint('collection_id', 'library_id'),
  )
 
-externalintegrations_libraries = Table(
-    'externalintegrations_libraries', Base.metadata,
-     Column(
-         'externalintegration_id', Integer, ForeignKey('externalintegrations.id'),
-         index=True, nullable=False
-     ),
-     Column(
-         'library_id', Integer, ForeignKey('libraries.id'),
-         index=True, nullable=False
-     ),
-     UniqueConstraint('externalintegration_id', 'library_id'),
- )
 
 collections_identifiers = Table(
     'collections_identifiers', Base.metadata,
