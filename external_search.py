@@ -330,7 +330,6 @@ class ExternalSearchIndex(object):
         if debug:
             b = time.time()
             self.log.info("Elasticsearch query completed in %.2fsec", b-a)
-            shards = set()
             for i, result in enumerate(results):
                 self.log.info(
                     '%02d "%s" (%s) work=%s score=%.3f shard=%s',
