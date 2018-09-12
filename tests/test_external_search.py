@@ -529,8 +529,8 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         expect(self.tiffany, "tiffanys")
 
         # A query with an 'e' matches a word that contains an
-        # e-with-acute. (NOTE: it's not clear whether this is a
-        # feature of the index or done by the fuzzy match.)
+        # e-with-acute. (this is managed by the 'asciifolding' filter in
+        # the analyzers)
         expect(self.les_mis, "les miserables")
 
         # Find results based on fiction status.
