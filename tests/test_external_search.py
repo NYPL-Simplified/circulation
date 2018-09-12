@@ -1229,6 +1229,12 @@ class TestQueryParser(DatabaseTest):
         # as final_query_string.
         eq_("about dogs", parser.final_query_string)
 
+        # Leading and trailing whitespace is never regarded as
+        # significant and it is stripped from the query string
+        # immediately.
+        whitespace = QueryParser(" abc ", MockQuery)
+        eq_("abc", whitespace.original_query_string)
+
         # The query string becomes a series of Query objects
         # (simulated here by the tuples returned by the MockQuery
         # methods).

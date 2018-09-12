@@ -955,7 +955,7 @@ class QueryParser(object):
         :param query_class: Pass in a mock of Query here during testing
         to generate 'query' objects that are easier for you to test.
         """
-        self.original_query_string = query_string
+        self.original_query_string = query_string.strip()
         self.query_class = query_class
 
         # We start with no match queries.
