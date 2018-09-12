@@ -299,6 +299,8 @@ class ExternalSearchIndex(object):
         search = Search(
             using=self.__client, index=self.works_alias
         ).query(query.build())
+        if debug:
+            search = search.extra(explain=True)
 
         fields = None
         if debug:
@@ -327,11 +329,12 @@ class ExternalSearchIndex(object):
         if debug:
             b = time.time()
             self.log.info("Elasticsearch query completed in %.2fsec", b-a)
+            shards = set()
             for i, result in enumerate(results):
                 self.log.info(
-                    '%02d "%s" (%s) work=%s score=%.3f',
+                    '%02d "%s" (%s) work=%s score=%.3f shard=%s',
                     i, result.title, result.author, result.meta['id'],
-                    result.meta['score']
+                    result.meta['score'], result.meta['shard']
                 )
         return [int(result.meta['id']) for result in results]
 
@@ -742,7 +745,7 @@ class Query(SearchBase):
         # the "real" query string.
         with_field_matches = self._parsed_query_matches(query_string)
         self._hypothesize(
-            hypotheses, with_field_matches, 20, all_must_match=True
+            hypotheses, with_field_matches, 200, all_must_match=True
         )
 
         # For a given book, whichever one of these hypotheses gives

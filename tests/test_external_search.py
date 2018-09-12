@@ -982,7 +982,7 @@ class TestQuery(DatabaseTest):
         # matches that are better to show up first.
         eq_(1, query._boosts['fuzzy string'])
 
-        eq_(20, query._boosts['parsed query matches'])
+        eq_(200, query._boosts['parsed query matches'])
 
     def test__hypothesize(self):
         # Verify that _hypothesize() adds a query to a list,
