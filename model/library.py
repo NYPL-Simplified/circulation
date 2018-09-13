@@ -2,14 +2,11 @@
 # Library
 from . import (
     Base,
-    Collection,
-    Edition,
     HasFullTableCache,
-    LicensePool,
 )
-from works import (
-    Work,
-)
+from bibliographic_metadata import Edition
+from licensing import LicensePool
+from works import Work
 from helper_methods import (
     get_one,
 )
@@ -310,6 +307,7 @@ class Library(Base, HasFullTableCache):
         :param show_suppressed: Include titles that have nothing but
         suppressed LicensePools.
         """
+        from collection import Collection
         collection_ids = collection_ids or [x.id for x in self.all_collections]
         return Collection.restrict_to_ready_deliverable_works(
             query, work_model, collection_ids=collection_ids, show_suppressed=show_suppressed,
