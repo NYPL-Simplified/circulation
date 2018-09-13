@@ -1132,6 +1132,9 @@ class TestOPDS(DatabaseTest):
         query = self._db.query(Work).join(Work.custom_list_entries).filter(CustomListEntry.list_id==list.id)
         pagination = Pagination(size=1)
 
+        def url_fn(str, *args):
+            return str
+
         def from_query(pagination):
             return AcquisitionFeed.from_query(
                 query, self._db, self._default_library, list, "url", pagination, url_fn,
