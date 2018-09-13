@@ -27,6 +27,8 @@ from entrypoint import (
 from facets import FacetConstants
 import model
 from model import (
+    CustomList,
+    CustomListEntry,
     CachedFeed,
     ConfigurationSetting,
     Contributor,
