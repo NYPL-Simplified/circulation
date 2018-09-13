@@ -2,8 +2,6 @@
 # WorkGenre, Work
 from . import (
     Base,
-    Contribution,
-    Contributor,
     PresentationCalculationPolicy,
 )
 from background import (
@@ -14,6 +12,10 @@ from bibliographic_metadata import (
     DataSource,
     Edition,
     Identifier,
+)
+from contributions import (
+    Contribution,
+    Contributor,
 )
 from helper_methods import (
     flush,

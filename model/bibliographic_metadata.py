@@ -2,12 +2,15 @@
 # DataSource, Identifier, Equivalency, Edition
 from . import (
     Base,
-    Contribution,
-    Contributor,
     HasFullTableCache,
     PresentationCalculationPolicy,
 )
+from contributions import (
+    Contribution,
+    Contributor,
+)
 from helper_methods import (
+    create,
     get_one,
     get_one_or_create,
 )
