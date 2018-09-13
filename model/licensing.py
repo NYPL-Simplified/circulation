@@ -3,7 +3,6 @@
 from . import (
     Base,
     HasFullTableCache,
-    PolicyException,
 )
 from circulation_event import CirculationEvent
 from helper_methods import (
@@ -61,6 +60,9 @@ from sqlalchemy.sql.expression import (
     join,
 )
 from sqlalchemy.orm.session import Session
+
+class PolicyException(Exception):
+    pass
 
 class LicensePool(Base):
     """A pool of undifferentiated licenses for a work from a given source.
