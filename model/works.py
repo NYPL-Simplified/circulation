@@ -4,14 +4,16 @@ from . import (
     Base,
     Contribution,
     Contributor,
-    DataSource,
-    Edition,
-    Identifier,
     PresentationCalculationPolicy,
 )
 from background import (
     CoverageRecord,
     WorkCoverageRecord,
+)
+from bibliographic_metadata import (
+    DataSource,
+    Edition,
+    Identifier,
 )
 from helper_methods import (
     flush,

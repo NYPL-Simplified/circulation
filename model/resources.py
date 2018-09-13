@@ -2,8 +2,6 @@
 # Resource, ResourceTransformation, Hyperlink, Representation
 from . import (
     Base,
-    Edition,
-    Identifier,
 )
 from licensing import (
     LicensePool,
@@ -15,6 +13,7 @@ from helper_methods import (
 )
 from datasource_constants import DataSourceConstants
 from hyperlink_constants import HyperlinkConstants
+from identifier_constants import IdentifierConstants
 from media_type_constants import MediaTypes
 from nose.tools import set_trace
 from config import Configuration
@@ -45,6 +44,7 @@ from sqlalchemy import (
     Unicode,
     UniqueConstraint,
 )
+from bibliographic_metadata import Edition
 from sqlalchemy.orm import (
     backref,
     relationship,
@@ -63,7 +63,6 @@ class Resource(Base):
     """An external resource that may be mirrored locally.
     E.g: a cover image, an epub, a description.
     """
-    from works import Work
 
     __tablename__ = 'resources'
 
@@ -87,6 +86,7 @@ class Resource(Base):
 
     # Many Works may use this resource (as opposed to other resources
     # linked to them with rel="description") as their summary.
+    from works import Work
     summary_works = relationship("Work", backref="summary", foreign_keys=[Work.summary_id])
 
     # Many LicensePools (but probably one at most) may use this
@@ -421,6 +421,7 @@ class Hyperlink(Base, HyperlinkConstants):
         thumbnail was created of it. (We do cover the case where the thumbnail
         was created but not mirrored.)
         """
+        from bibliographic_metadata import Identifier
         _db = Session.object_session(collection)
         qu = _db.query(Hyperlink).join(
             Hyperlink.identifier
@@ -1396,7 +1397,7 @@ class Representation(Base, MediaTypes):
 
         # Penalize an image for deviation from the ideal aspect ratio.
         aspect_ratio = width / float(height)
-        ideal = Identifier.IDEAL_COVER_ASPECT_RATIO
+        ideal = IdentifierConstants.IDEAL_COVER_ASPECT_RATIO
         if aspect_ratio > ideal:
             deviation = ideal / aspect_ratio
         else:
@@ -1406,13 +1407,13 @@ class Representation(Base, MediaTypes):
 
         # Penalize an image for not being wide enough.
         width_shortfall = (
-            float(width - Identifier.IDEAL_IMAGE_WIDTH) / Identifier.IDEAL_IMAGE_WIDTH)
+            float(width - IdentifierConstants.IDEAL_IMAGE_WIDTH) / IdentifierConstants.IDEAL_IMAGE_WIDTH)
         if width_shortfall < 0:
             quotient *= (1+width_shortfall)
 
         # Penalize an image for not being tall enough.
         height_shortfall = (
-            float(height - Identifier.IDEAL_IMAGE_HEIGHT) / Identifier.IDEAL_IMAGE_HEIGHT)
+            float(height - IdentifierConstants.IDEAL_IMAGE_HEIGHT) / IdentifierConstants.IDEAL_IMAGE_HEIGHT)
         if height_shortfall < 0:
             quotient *= (1+height_shortfall)
         return quotient

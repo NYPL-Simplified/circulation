@@ -2,8 +2,6 @@
 # BaseCoverageRecord, Timestamp, CoverageRecord, WorkCoverageRecord
 from . import (
     Base,
-    Edition,
-    Identifier,
 )
 from helper_methods import (
     get_one,
@@ -222,6 +220,11 @@ class CoverageRecord(Base, BaseCoverageRecord):
     @classmethod
     def lookup(cls, edition_or_identifier, data_source, operation=None,
                collection=None):
+        from bibliographic_metadata import (
+            DataSource,
+            Edition,
+            Identifier,
+        )
         _db = Session.object_session(edition_or_identifier)
         if isinstance(edition_or_identifier, Identifier):
             identifier = edition_or_identifier
@@ -246,6 +249,10 @@ class CoverageRecord(Base, BaseCoverageRecord):
     @classmethod
     def add_for(self, edition, data_source, operation=None, timestamp=None,
                 status=BaseCoverageRecord.SUCCESS, collection=None):
+        from bibliographic_metadata import (
+            Edition,
+            Identifier,
+        )
         _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
             identifier = edition
@@ -275,6 +282,8 @@ class CoverageRecord(Base, BaseCoverageRecord):
         """Create and update CoverageRecords so that every Identifier in
         `identifiers` has an identical record.
         """
+        from bibliographic_metadata import Identifier
+        
         if not identifiers:
             # Nothing to do.
             return

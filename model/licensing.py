@@ -3,10 +3,7 @@
 from . import (
     Base,
     CollectionMissing,
-    DataSource,
-    Edition,
     HasFullTableCache,
-    Identifier,
     PolicyException,
 )
 from circulation_event import CirculationEvent
@@ -24,6 +21,7 @@ from patrons import (
 from datasource_constants import DataSourceConstants
 from media_type_constants import MediaTypes
 from hyperlink_constants import HyperlinkConstants
+from edition_constants import EditionConstants
 from nose.tools import set_trace
 import base64
 import datetime
@@ -158,7 +156,10 @@ class LicensePool(Base):
     def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id,
                        rights_status=None, collection=None, autocreate=True):
         """Find or create a LicensePool for the given foreign ID."""
-
+        from bibliographic_metadata import (
+            DataSource,
+            Identifier,
+        )
         if not collection:
             raise CollectionMissing()
 
@@ -365,6 +366,7 @@ class LicensePool(Base):
         :return: A boolean explaining whether any of the presentation
         information associated with this LicensePool actually changed.
         """
+        from bibliographic_metadata import Edition
         _db = Session.object_session(self)
         old_presentation_edition = self.presentation_edition
         changed = False
@@ -769,6 +771,7 @@ class LicensePool(Base):
     @classmethod
     def consolidate_works(cls, _db, batch_size=10):
         """Assign a (possibly new) Work to every unassigned LicensePool."""
+        from bibliographic_metadata import Edition
         a = 0
         lps = cls.with_no_work(_db)
         logging.info(
@@ -981,7 +984,7 @@ class LicensePool(Base):
     @property
     def open_access_links(self):
         """Yield all open-access Resources for this LicensePool."""
-
+        from bibliographic_metadata import Identifier
         open_access = HyperlinkConstants.OPEN_ACCESS_DOWNLOAD
         _db = Session.object_session(self)
         if not self.identifier:
@@ -1363,7 +1366,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     @property
     def implicit_medium(self):
-        """What would be a good setting for Edition.MEDIUM for an edition
+        """What would be a good setting for EditionConstants.MEDIUM for an edition
         available through this DeliveryMechanism?
         """
         if self.content_type in (
@@ -1371,11 +1374,11 @@ class DeliveryMechanism(Base, HasFullTableCache):
                 MediaTypes.PDF_MEDIA_TYPE,
                 "Kindle via Amazon",
                 "Streaming Text"):
-            return Edition.BOOK_MEDIUM
+            return EditionConstants.BOOK_MEDIUM
         elif self.content_type in (
                 "Streaming Video" or self.content_type.startswith('video/')
         ):
-            return Edition.VIDEO_MEDIUM
+            return EditionConstants.VIDEO_MEDIUM
         else:
             return None
 

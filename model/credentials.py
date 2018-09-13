@@ -3,7 +3,6 @@
 from nose.tools import set_trace
 from . import (
     Base,
-    DataSource,
 )
 from helper_methods import (
     get_one,
@@ -58,6 +57,7 @@ class Credential(Base):
     @classmethod
     def lookup(self, _db, data_source, type, patron, refresher_method,
                allow_persistent_token=False):
+        from bibliographic_metadata import DataSource
         if isinstance(data_source, basestring):
             data_source = DataSource.lookup(_db, data_source)
         credential, is_new = get_one_or_create(
