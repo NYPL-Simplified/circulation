@@ -20,7 +20,7 @@ from patrons import (
 )
 from datasource_constants import DataSourceConstants
 from media_type_constants import MediaTypes
-from hyperlink_constants import HyperlinkConstants
+from link_relations import LinkRelations
 from edition_constants import EditionConstants
 from nose.tools import set_trace
 import base64
@@ -985,7 +985,7 @@ class LicensePool(Base):
     def open_access_links(self):
         """Yield all open-access Resources for this LicensePool."""
         from bibliographic_metadata import Identifier
-        open_access = HyperlinkConstants.OPEN_ACCESS_DOWNLOAD
+        open_access = LinkRelations.OPEN_ACCESS_DOWNLOAD
         _db = Session.object_session(self)
         if not self.identifier:
             return

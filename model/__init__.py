@@ -145,7 +145,7 @@ from sqlalchemy.dialects.postgresql import (
 
 from media_type_constants import MediaTypes
 from datasource_constants import DataSourceConstants
-from hyperlink_constants import HyperlinkConstants
+from link_relations import LinkRelations
 from edition_constants import EditionConstants
 from helper_methods import (
     create,

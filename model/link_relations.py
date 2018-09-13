@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-class HyperlinkConstants(object):
+class LinkRelations(object):
     # Some common link relations.
     CANONICAL = u"canonical"
     GENERIC_OPDS_ACQUISITION = u"http://opds-spec.org/acquisition"

@@ -22,7 +22,7 @@ from helper_methods import (
     numericrange_to_tuple,
     tuple_to_numericrange,
 )
-from hyperlink_constants import HyperlinkConstants
+from link_relations import LinkRelations
 from measurement import Measurement
 from datasource_constants import DataSourceConstants
 from collections import Counter
@@ -743,7 +743,7 @@ class Work(Base):
     def all_cover_images(self):
         identifier_ids = self.all_identifier_ids()
         return Identifier.resources_for_identifier_ids(
-            _db, identifier_ids, HyperlinkConstants.IMAGE).join(
+            _db, identifier_ids, LinkRelations.IMAGE).join(
             Resource.representation).filter(
                 Representation.mirrored_at!=None).filter(
                 Representation.scaled_at!=None).order_by(
@@ -752,7 +752,7 @@ class Work(Base):
     def all_descriptions(self):
         identifier_ids = self.all_identifier_ids()
         return Identifier.resources_for_identifier_ids(
-            _db, identifier_ids, HyperlinkConstants.DESCRIPTION).filter(
+            _db, identifier_ids, LinkRelations.DESCRIPTION).filter(
                 Resource.content != None).order_by(
                 Resource.quality.desc())
 

@@ -12,7 +12,7 @@ from helper_methods import (
     get_one_or_create,
 )
 from datasource_constants import DataSourceConstants
-from hyperlink_constants import HyperlinkConstants
+from link_relations import LinkRelations
 from identifier_constants import IdentifierConstants
 from media_type_constants import MediaTypes
 from nose.tools import set_trace
@@ -391,7 +391,7 @@ class ResourceTransformation(Base):
     # The settings used for the transformation.
     settings = Column(MutableDict.as_mutable(JSON), default={})
 
-class Hyperlink(Base, HyperlinkConstants):
+class Hyperlink(Base, LinkRelations):
     """A link between an Identifier and a Resource."""
 
     __tablename__ = 'hyperlinks'

@@ -20,7 +20,7 @@ from licensing import (
 )
 from datasource_constants import DataSourceConstants
 from edition_constants import EditionConstants
-from hyperlink_constants import HyperlinkConstants
+from link_relations import LinkRelations
 from identifier_constants import IdentifierConstants
 from classification import (
     Classification,
@@ -884,7 +884,7 @@ class Identifier(Base, IdentifierConstants):
 
         # Find all rel="description" resources associated with any of
         # these records.
-        rels = [HyperlinkConstants.DESCRIPTION, HyperlinkConstants.SHORT_DESCRIPTION]
+        rels = [LinkRelations.DESCRIPTION, LinkRelations.SHORT_DESCRIPTION]
         descriptions = cls.resources_for_identifier_ids(
             _db, identifier_ids, rels, privileged_data_source).all()
 
@@ -968,7 +968,7 @@ class Identifier(Base, IdentifierConstants):
         timestamps = []
         for link in self.links:
             resource = link.resource
-            if link.rel == HyperlinkConstants.IMAGE:
+            if link.rel == LinkRelations.IMAGE:
                 if not cover_image or (
                         not cover_image.representation.thumbnails and
                         resource.representation.thumbnails):
@@ -980,7 +980,7 @@ class Identifier(Base, IdentifierConstants):
                         mirrored_at = cover_image.representation.mirrored_at
                         if mirrored_at:
                             timestamps.append(mirrored_at)
-            elif link.rel == HyperlinkConstants.DESCRIPTION:
+            elif link.rel == LinkRelations.DESCRIPTION:
                 if not description or resource.quality > description.quality:
                     description = resource
 
@@ -1749,7 +1749,7 @@ class Edition(Base, EditionConstants):
             # Identifier. Try to find a thumbnail the same way we'd
             # look for a cover.
             for distance in (0, 5):
-                best_thumbnail, thumbnails = self.best_cover_within_distance(distance, rel=HyperlinkConstants.THUMBNAIL_IMAGE)
+                best_thumbnail, thumbnails = self.best_cover_within_distance(distance, rel=LinkRelations.THUMBNAIL_IMAGE)
                 if best_thumbnail:
                     if not best_thumbnail.representation:
                         logging.warn(
