@@ -1129,7 +1129,7 @@ class TestOPDS(DatabaseTest):
         work = self._work(with_license_pool=True)
         list.add_entry(work)
 
-        query = self._db.query(Work).join(Work.custom_list_entries).filter(CustomListEntry.list_id==list_id)
+        query = self._db.query(Work).join(Work.custom_list_entries).filter(CustomListEntry.list_id==list.id)
         pagination = Pagination(size=1)
 
         def from_query(pagination):
