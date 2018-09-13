@@ -717,7 +717,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             href=href
         )
 
-    def annotate_feed(self, feed, lane):
+    def annotate_feed(self, feed, lane, list=None):
         if self.patron:
             # A patron is authenticated.
             self.add_patron(feed)
@@ -756,31 +756,25 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                 href=self.url_for('annotations', library_short_name=self.library.short_name, _external=True))
             feed.add_link_to_feed(feed.feed, **annotations_link)
 
-        if lane and lane.uses_customlists and (hasattr(lane, "customlists") and len(lane.customlists) == 1):
-            crawlable_url = self.url_for(
-                "crawlable_list_feed", list_name=lane.customlists[0].name,
-                library_short_name=self.library.short_name,
-                _external=True
-            )
-            crawlable_link = dict(
-                rel="http://opds-spec.org/crawlable",
-                type=OPDSFeed.ACQUISITION_FEED_TYPE,
-                href=crawlable_url,
-            )
-            feed.add_link_to_feed(feed.feed, **crawlable_link)
+        if lane and lane.uses_customlists:
+            name = None
+            if hasattr(lane, "customlists") and len(lane.customlists) == 1:
+                name = list.customlists[0].name
+            elif (hasattr(lane, "customlist_ids") and lane.customlist_ids) and list:
+                name = list.name
 
-        if lane and lane.uses_customlists and (hasattr(lane, "customlist_ids") and lane.customlist_ids):
-            crawlable_url = self.url_for(
-                "crawlable_list_feed", list_name="custom list",
-                library_short_name=self.library.short_name,
-                _external=True
-            )
-            crawlable_link = dict(
-                rel="http://opds-spec.org/crawlable",
-                type=OPDSFeed.ACQUISITION_FEED_TYPE,
-                href=crawlable_url,
-            )
-            feed.add_link_to_feed(feed.feed, **crawlable_link)
+            if name:
+                crawlable_url = self.url_for(
+                    "crawlable_list_feed", list_name=name,
+                    library_short_name=self.library.short_name,
+                    _external=True
+                )
+                crawlable_link = dict(
+                    rel="http://opds-spec.org/crawlable",
+                    type=OPDSFeed.ACQUISITION_FEED_TYPE,
+                    href=crawlable_url,
+                )
+                feed.add_link_to_feed(feed.feed, **crawlable_link)
 
         self.add_configuration_links(feed)
 

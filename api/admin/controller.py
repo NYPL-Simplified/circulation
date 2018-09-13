@@ -1618,30 +1618,16 @@ class CustomListsController(AdminCirculationManagerController):
             if isinstance(pagination, ProblemDetail):
                 return pagination
 
-            all_works = self._db.query(Work).join(Work.custom_list_entries).filter(CustomListEntry.list_id==list_id)
-            page_of_works = pagination.apply(all_works)
-
-            worklist = WorkList()
-            worklist.initialize(library, customlists=[list])
-
-            annotator = self.manager.annotator(worklist)
-
+            query = self._db.query(Work).join(Work.custom_list_entries).filter(CustomListEntry.list_id==list_id)
             url = self.cdn_url_for(
                 "crawlable_list_feed", list_name=list.name,
                 library_short_name=library.short_name,
             )
 
-            feed = AcquisitionFeed(self._db, list.name, url, page_of_works, annotator)
+            feed = AcquisitionFeed.from_query(
+                query, self._db, library, list, url, pagination, self.url_for, self.manager.annotator
+            )
 
-            if len(list.entries) > 50 and pagination.has_next_page:
-                OPDSFeed.add_link_to_feed(feed=feed.feed, rel="next", href=self.url_for("custom_list", after=pagination.next_page.offset, library_short_name=library.short_name, list_id=list_id))
-            if pagination.offset > 0:
-                OPDSFeed.add_link_to_feed(feed=feed.feed, rel="first", href=self.url_for("custom_list", after=pagination.first_page.offset, library_short_name=library.short_name, list_id=list_id))
-            if pagination.previous_page:
-                OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=self.url_for("custom_list", after=pagination.previous_page.offset, library_short_name=library.short_name, list_id=list_id))
-
-
-            annotator.annotate_feed(feed, worklist)
             return feed_response(unicode(feed))
 
         elif flask.request.method == "POST":

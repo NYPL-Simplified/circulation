@@ -2182,27 +2182,29 @@ class TestCustomListsController(AdminControllerTest):
         c2.display_name = self._str
         edition.add_contributor(c2, Contributor.AUTHOR_ROLE)
         list.add_entry(edition)
+        work = self._work(with_license_pool=True)
+        list.add_entry(work)
         collection = self._collection()
         collection.customlists = [list]
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
-            eq_(list.id, response.get("id"))
+            feed = feedparser.parse(response.get_data())
+            testlist = list
+
+            eq_(list.name, feed.feed.title)
+            eq_(list.id, feed.feed.id)
             eq_(list.name, response.get("name"))
-            eq_(1, response.get("entry_count"))
+            # no entries, collections, entry_count
+            eq_(1, feed.entries)
             eq_(1, len(response.get("entries")))
             [entry] = response.get("entries")
-            eq_(edition.primary_identifier.urn, entry.get("identifier_urn"))
-            eq_(edition.title, entry.get("title"))
+            eq_(work.primary_identifier.urn, entry.get("id"))
+            eq_(work.title, entry.get("title"))
             eq_(2, len(entry.get("authors")))
             eq_(Edition.medium_to_additional_type[Edition.BOOK_MEDIUM], entry.get("medium"))
-            eq_(edition.language, entry.get("language"))
-            eq_(set([c1.display_name, c2.display_name]),
-                set(entry.get("authors")))
-            eq_(1, len(response.get("collections")))
-            [c] = response.get("collections")
-            eq_(collection.name, c.get("name"))
-            eq_(collection.id, c.get("id"))
-            eq_(collection.protocol, c.get("protocol"))
+            eq_(work.language, entry.get("language"))
+            # eq_(set([c1.display_name, c2.display_name]),
+            #     set(entry.get("authors")))
 
     def test_custom_list_get_errors(self):
         with self.request_context_with_library_and_admin("/"):
