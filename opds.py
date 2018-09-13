@@ -748,6 +748,31 @@ class AcquisitionFeed(OPDSFeed):
         return content
 
     @classmethod
+    def from_query(cls, query, _db, library, list, url, pagination, url_fn, annotator):
+        """Build  a feed representing one page of a given list. Currently used for
+        creating an OPDS feed for a custom list and not cached.
+        """
+        page_of_works = pagination.apply(query)
+
+        worklist = WorkList()
+        worklist.initialize(library, customlists=[list])
+
+        annotator = annotator(worklist)
+
+        feed = cls(_db, list.name, url, page_of_works, annotator)
+
+        if len(list.entries) > 0 and pagination.has_next_page:
+            OPDSFeed.add_link_to_feed(feed=feed.feed, rel="next", href=url_fn("custom_list", after=pagination.next_page.offset, library_short_name=library.short_name, list_id=list.id))
+        if pagination.offset > 0:
+            OPDSFeed.add_link_to_feed(feed=feed.feed, rel="first", href=url_fn("custom_list", after=pagination.first_page.offset, library_short_name=library.short_name, list_id=list.id))
+        if pagination.previous_page:
+            OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=url_fn("custom_list", after=pagination.previous_page.offset, library_short_name=library.short_name, list_id=list.id))
+
+        annotator.annotate_feed(feed, worklist, list)
+
+        return feed
+
+    @classmethod
     def facet_link(cls, href, title, facet_group_name, is_active):
         """Build a set of attributes for a facet link.
 

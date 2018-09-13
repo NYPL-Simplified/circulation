@@ -1117,6 +1117,42 @@ class TestOPDS(DatabaseTest):
         # they were cached before.
         eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_page).entries))
 
+    def test_from_query(self):
+        """Test creating a feed from a custom list.
+        """
+
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        list, ignore = create(self._db, CustomList, name=self._str, library=self._default_library, data_source=staff_data_source)
+        work = self._work(with_license_pool=True)
+        list.add_entry(work)
+
+        query = self._db.query(Work).join(Work.custom_list_entries).filter(CustomListEntry.list_id==list_id)
+        pagination = Pagination(size=1)
+
+        def from_query(pagination):
+            return AcquisitionFeed.from_query(
+                query, self._db, self._default_library, list, "url", pagination, url_fn,
+                TestAnnotator,
+            )
+
+        works = from_query(pagination)
+        parsed = feedparser.parse(unicode(works))
+        eq_(work1.title, parsed['entries'][0]['title'])
+
+        [next_link] = self.links(parsed, 'next')
+        eq_(TestAnnotator.feed_url(lane, facets, pagination.next_page), next_link['href'])
+
+        # This was the first page, so no previous link.
+        eq_([], self.links(parsed, 'previous'))
+
+        # Now get the second page and make sure it has a 'previous' link.
+        works = from_query(pagination.next_page)
+        parsed = feedparser.parse(works)
+        [previous] = self.links(parsed, 'previous')
+        eq_(TestAnnotator.feed_url(lane, facets, pagination), previous['href'])
+        eq_(work2.title, parsed['entries'][0]['title'])
+
+
     def test_groups_feed(self):
         """Test the ability to create a grouped feed of recommended works for
         a given lane.
