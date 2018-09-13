@@ -4,12 +4,14 @@ from . import (
     Base,
     Contribution,
     Contributor,
-    CoverageRecord,
     DataSource,
     Edition,
     Hyperlink,
     Identifier,
     PresentationCalculationPolicy,
+)
+from background import (
+    CoverageRecord,
     WorkCoverageRecord,
 )
 from helper_methods import (
