@@ -222,8 +222,8 @@ class TestBaseAnnotator(DatabaseTest):
 class TestAnnotators(DatabaseTest):
 
     def test_all_subjects(self):
-        work = self._work(genre="Fiction", with_open_access_download=True)
-        edition = work.presentation_edition
+        self.work = self._work(genre="Fiction", with_open_access_download=True)
+        edition = self.work.presentation_edition
         identifier = edition.primary_identifier
         source1 = DataSource.lookup(self._db, DataSource.GUTENBERG)
         source2 = DataSource.lookup(self._db, DataSource.OCLC)
@@ -239,29 +239,26 @@ class TestAnnotators(DatabaseTest):
         for source, subject_type, subject, name, weight in subjects:
             identifier.classify(source, subject_type, subject, name, weight=weight)
 
-        old_ids = model.Identifier.recursively_equivalent_identifier_ids
+        # Mock Work.all_identifier_ids (called by VerboseAnnotator.categories)
+        # so we can track the value that was passed in for `cutoff`.
+        def mock_all_identifier_ids(recursion_level=3, cutoff=None):
+            self.work.called_with_cutoff = cutoff
+            # Do the actual work so that categories() gets the
+            # correct information.
+            return self.work.original_all_identifier_ids(
+                recursion_level, cutoff
+            )
+        self.work.original_all_identifier_ids = self.work.all_identifier_ids
+        self.work.all_identifier_ids = mock_all_identifier_ids
+        category_tags = VerboseAnnotator.categories(self.work)
 
-        class MockIdentifier(model.Identifier):
-            called_with_cutoff = None
-            @classmethod
-            def recursively_equivalent_identifier_ids(
-                    cls, _db, identifier_ids, levels=5, threshold=0.50,
-                    cutoff=None):
-                cls.called_with_cutoff = cutoff
-                return old_ids(_db, identifier_ids, levels, threshold)
-        old_identifier = model.Identifier
-        model.Identifier = MockIdentifier
-
-        category_tags = VerboseAnnotator.categories(work)
-        model.Identifier = old_identifier
-
-        # Although the default 'cutoff' for
-        # recursively_equivalent_identifier_ids is null, when we are
-        # generating subjects as part of an OPDS feed, the cutoff is
-        # set to 100. This gives us reasonable worst-case performance
-        # at the cost of not showing every single random subject under
-        # which an extremely popular book is filed.
-        eq_(100, MockIdentifier.called_with_cutoff)
+        # Although the default 'cutoff' for all_identifier_ids is
+        # None, when we are generating subjects as part of an OPDS
+        # feed, the cutoff is set to 100. This gives us reasonable
+        # worst-case performance at the cost of not showing every
+        # single random subject under which an extremely popular book
+        # is filed.
+        eq_(100, self.work.called_with_cutoff)
 
         ddc_uri = Subject.uri_lookup[Subject.DDC]
         rating_value = '{http://schema.org/}ratingValue'
