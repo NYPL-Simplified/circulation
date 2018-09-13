@@ -40,6 +40,7 @@ from model import (
     Subject,
     Work,
     get_one,
+    create,
 )
 
 from facets import FacetConstants
