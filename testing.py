@@ -15,6 +15,7 @@ from config import Configuration
 from lane import (
     Lane,
 )
+from model.media_type_constants import MediaTypes
 from model import (
     Base,
     Classification,
@@ -477,7 +478,7 @@ class DatabaseTest(object):
         if with_open_access_download:
             pool.open_access = True
             url = "http://foo.com/" + self._str
-            media_type = Representation.EPUB_MEDIA_TYPE
+            media_type = MediaTypes.EPUB_MEDIA_TYPE
             link, new = pool.identifier.add_link(
                 Hyperlink.OPEN_ACCESS_DOWNLOAD, url,
                 source, media_type
@@ -498,7 +499,7 @@ class DatabaseTest(object):
 
             # Add a DeliveryMechanism for this licensepool
             pool.set_delivery_mechanism(
-                Representation.EPUB_MEDIA_TYPE,
+                MediaTypes.EPUB_MEDIA_TYPE,
                 DeliveryMechanism.ADOBE_DRM,
                 RightsStatus.UNKNOWN,
                 None

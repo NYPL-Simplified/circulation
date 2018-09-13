@@ -6,7 +6,6 @@ from . import (
     DataSource,
     Edition,
     HasFullTableCache,
-    Hyperlink,
     Identifier,
     PolicyException,
 )
@@ -14,6 +13,7 @@ from circulation_event import CirculationEvent
 from helper_methods import (
     create,
     flush,
+    get_one,
     get_one_or_create,
 )
 from patrons import (
@@ -23,6 +23,7 @@ from patrons import (
 )
 from datasource_constants import DataSourceConstants
 from media_type_constants import MediaTypes
+from hyperlink_constants import HyperlinkConstants
 from nose.tools import set_trace
 import base64
 import datetime
@@ -981,7 +982,7 @@ class LicensePool(Base):
     def open_access_links(self):
         """Yield all open-access Resources for this LicensePool."""
 
-        open_access = Hyperlink.OPEN_ACCESS_DOWNLOAD
+        open_access = HyperlinkConstants.OPEN_ACCESS_DOWNLOAD
         _db = Session.object_session(self)
         if not self.identifier:
             return

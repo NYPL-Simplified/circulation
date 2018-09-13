@@ -6,7 +6,6 @@ from . import (
     Contributor,
     DataSource,
     Edition,
-    Hyperlink,
     Identifier,
     PresentationCalculationPolicy,
 )
@@ -21,6 +20,7 @@ from helper_methods import (
     numericrange_to_tuple,
     tuple_to_numericrange,
 )
+from hyperlink_constants import HyperlinkConstants
 from measurement import Measurement
 from datasource_constants import DataSourceConstants
 from collections import Counter
@@ -624,9 +624,10 @@ class Work(Base):
     def reject_covers(cls, _db, works_or_identifiers,
                         search_index_client=None):
         """Suppresses the currently visible covers of a number of Works"""
-        from . import (
-            LicensePool,
+        from licensing import LicensePool
+        from resources import (
             Resource,
+            Hyperlink,
         )
 
         works = list(set(works_or_identifiers))
@@ -740,7 +741,7 @@ class Work(Base):
     def all_cover_images(self):
         identifier_ids = self.all_identifier_ids()
         return Identifier.resources_for_identifier_ids(
-            _db, identifier_ids, Hyperlink.IMAGE).join(
+            _db, identifier_ids, HyperlinkConstants.IMAGE).join(
             Resource.representation).filter(
                 Representation.mirrored_at!=None).filter(
                 Representation.scaled_at!=None).order_by(
@@ -749,7 +750,7 @@ class Work(Base):
     def all_descriptions(self):
         identifier_ids = self.all_identifier_ids()
         return Identifier.resources_for_identifier_ids(
-            _db, identifier_ids, Hyperlink.DESCRIPTION).filter(
+            _db, identifier_ids, HyperlinkConstants.DESCRIPTION).filter(
                 Resource.content != None).order_by(
                 Resource.quality.desc())
 
