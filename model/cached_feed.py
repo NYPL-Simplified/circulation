@@ -1,4 +1,5 @@
 # encoding: utf-8
+# CachedFeed, WillNotGenerateExpensiveFeed
 from nose.tools import set_trace
 import datetime
 import logging
@@ -18,6 +19,8 @@ from sqlalchemy import (
 )
 from . import (
     Base,
+)
+from helper_methods import (
     flush,
     get_one_or_create,
 )

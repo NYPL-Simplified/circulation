@@ -1,4 +1,5 @@
 # encoding: utf-8
+# WorkGenre, Work
 from . import (
     Base,
     Contribution,
@@ -6,12 +7,17 @@ from . import (
     CoverageRecord,
     DataSource,
     Edition,
-    flush,
-    get_one_or_create,
     Hyperlink,
     Identifier,
     PresentationCalculationPolicy,
     WorkCoverageRecord,
+)
+from helper_methods import (
+    flush,
+    get_one_or_create,
+    numericrange_to_string,
+    numericrange_to_tuple,
+    tuple_to_numericrange,
 )
 from measurement import Measurement
 from datasource_constants import DataSourceConstants
@@ -288,7 +294,6 @@ class Work(Base):
 
     @property
     def target_age_string(self):
-        from . import numericrange_to_string
         return numericrange_to_string(self.target_age)
 
     @property
@@ -1125,11 +1130,6 @@ class Work(Base):
         :return: A boolean explaining whether or not any data actually
         changed.
         """
-        from . import (
-            tuple_to_numericrange,
-            numericrange_to_tuple
-        )
-
         classifier = WorkClassifier(self)
 
         old_fiction = self.fiction

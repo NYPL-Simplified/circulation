@@ -1,8 +1,11 @@
 # encoding: utf-8
+# Credential, DRMDeviceIdentifier, DelegatedPatronIdentifier
 from nose.tools import set_trace
 from . import (
     Base,
     DataSource,
+)
+from helper_methods import (
     get_one,
     get_one_or_create,
 )

@@ -1,4 +1,5 @@
 # encoding: utf-8
+# CirculationEvent
 from nose.tools import set_trace
 import datetime
 import logging
@@ -15,6 +16,8 @@ from sqlalchemy import (
 )
 from . import (
     Base,
+)
+from helper_methods import (
     get_one_or_create,
 )
 

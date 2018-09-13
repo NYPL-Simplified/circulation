@@ -1,4 +1,5 @@
 # encoding: utf-8
+# Library
 from . import (
     Base,
     Collection,
@@ -7,6 +8,9 @@ from . import (
     HasFullTableCache,
     LicensePool,
     Work,
+)
+from helper_methods import (
+    get_one,
 )
 from collections import Counter
 from nose.tools import set_trace
