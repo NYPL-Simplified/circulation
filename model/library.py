@@ -3,10 +3,11 @@
 from . import (
     Base,
     Collection,
-    ConfigurationSetting,
     Edition,
     HasFullTableCache,
     LicensePool,
+)
+from works import (
     Work,
 )
 from helper_methods import (
@@ -197,6 +198,7 @@ class Library(Base, HasFullTableCache):
         :param key: Name of the setting.
         :return: A ConfigurationSetting
         """
+        from configuration import ConfigurationSetting
         return ConfigurationSetting.for_library(
             key, self
         )
