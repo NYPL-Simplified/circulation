@@ -1,5 +1,5 @@
 # encoding: utf-8
-# Collection, CollectionIdentifier
+# Collection, CollectionIdentifier, CollectionMissing
 from nose.tools import set_trace
 from . import (
     Base,
@@ -716,6 +716,12 @@ collections_identifiers = Table(
 # so it can be used in a bulk_insert_mappings call.
 class CollectionIdentifier(object):
     pass
+
+
+class CollectionMissing(Exception):
+    """An operation was attempted that can only happen within the context
+    of a Collection, but there was no Collection available.
+    """
 
 mapper(
     CollectionIdentifier, collections_identifiers,

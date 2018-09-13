@@ -2,7 +2,6 @@
 # LicensePool, LicensePoolDeliveryMechanism, DeliveryMechanism, RightsStatus
 from . import (
     Base,
-    CollectionMissing,
     HasFullTableCache,
     PolicyException,
 )
@@ -160,6 +159,7 @@ class LicensePool(Base):
             DataSource,
             Identifier,
         )
+        from collection import CollectionMissing
         if not collection:
             raise CollectionMissing()
 

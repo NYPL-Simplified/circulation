@@ -180,13 +180,6 @@ def production_session():
 class PolicyException(Exception):
     pass
 
-
-class CollectionMissing(Exception):
-    """An operation was attempted that can only happen within the context
-    of a Collection, but there was no Collection available.
-    """
-
-
 class BaseMaterializedWork(object):
     """A mixin class for materialized views that incorporate Work and Edition."""
     pass
@@ -862,6 +855,7 @@ from classification import (
 from collection import (
     Collection,
     CollectionIdentifier,
+    CollectionMissing,
 )
 from configuration import (
     ExternalIntegration,
