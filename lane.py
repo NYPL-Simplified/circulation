@@ -315,7 +315,8 @@ class Facets(FacetsWithEntryPoint):
         )
         order = order or library.default_facet(self.ORDER_FACET_GROUP_NAME)
 
-        if (availability == self.AVAILABLE_ALL and (library and not library.allow_holds)):
+        if (availability == self.AVAILABLE_ALL and (library and not library.allow_holds)
+            and (self.AVAILABLE_NOW in library.enabled_facets(self.AVAILABILITY_FACET_GROUP_NAME))):
             # Under normal circumstances we would show all works, but
             # library configuration says to hide books that aren't
             # available.
