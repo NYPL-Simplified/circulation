@@ -5,8 +5,8 @@ from sqlalchemy import (
     event,
     text,
 )
+from sqlalchemy.orm.base import NO_VALUE
 from sqlalchemy.orm.session import Session
-
 from . import (
     Base,
 )
