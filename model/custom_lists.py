@@ -1,17 +1,16 @@
 # encoding: utf-8
 # CustomList, CustomListEntry
-from . import (
-    Base,
-    DataSource,
-    Identifier,
-    LicensePool,
-)
+from . import Base
+from bibliographic_metadata import Identifier
+from datasource import DataSource
 from helper_methods import (
     get_one_or_create,
 )
+from licensing import LicensePool
 from works import (
     Work,
 )
+
 from lxml import etree
 import datetime
 import logging

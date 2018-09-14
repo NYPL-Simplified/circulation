@@ -8,14 +8,12 @@ from background import (
     CoverageRecord,
     WorkCoverageRecord,
 )
-from bibliographic_metadata import (
-    DataSource,
-    Identifier,
-)
+from bibliographic_metadata import Identifier
 from contributions import (
     Contribution,
     Contributor,
 )
+from datasource import DataSource
 from edition import Edition
 from helper_methods import (
     flush,

@@ -14,7 +14,7 @@ from admins import (
     Admin,
     AdminRole,
 )
-from bibliographic_metadata import DataSource
+from datasource import DataSource
 from classification import Genre
 from collection import Collection
 from configuration import (

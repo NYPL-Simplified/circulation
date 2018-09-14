@@ -136,7 +136,6 @@ from background import (
     WorkCoverageRecord,
 )
 from bibliographic_metadata import (
-    DataSource,
     Identifier,
     Equivalency,
 )
@@ -174,6 +173,7 @@ from custom_lists import (
     CustomList,
     CustomListEntry,
 )
+from datasource import DataSource
 from edition import Edition
 from integration_client import IntegrationClient
 from library import Library

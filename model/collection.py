@@ -14,14 +14,12 @@ from background import (
     CoverageRecord,
     WorkCoverageRecord,
 )
-from bibliographic_metadata import (
-    DataSource,
-    Identifier,
-)
+from bibliographic_metadata import Identifier
 from configuration import (
     ConfigurationSetting,
     ExternalIntegration,
 )
+from datasource import DataSource
 from integration_client import IntegrationClient
 from edition_constants import EditionConstants
 from library import Library

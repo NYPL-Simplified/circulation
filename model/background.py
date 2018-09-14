@@ -216,7 +216,6 @@ class CoverageRecord(Base, BaseCoverageRecord):
             exception=exception,
         )
 
-
     @classmethod
     def lookup(cls, edition_or_identifier, data_source, operation=None,
                collection=None):

@@ -205,7 +205,7 @@ class SessionManager(object):
     @classmethod
     def initialize_data(cls, session, set_site_configuration=True):
         # Create initial data sources.
-        from bibliographic_metadata import DataSource
+        from datasource import DataSource
         from classification import Genre
         from licensing import DeliveryMechanism
         list(DataSource.well_known_sources(session))

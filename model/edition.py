@@ -7,14 +7,12 @@ from . import (
     PresentationCalculationPolicy,
 )
 from background import CoverageRecord
-from bibliographic_metadata import (
-    DataSource,
-    Identifier,
-)
+from bibliographic_metadata import Identifier
 from contributions import (
     Contributor,
     Contribution,
 )
+from datasource import DataSource
 from datasource_constants import DataSourceConstants
 from edition_constants import EditionConstants
 from helper_methods import get_one_or_create
