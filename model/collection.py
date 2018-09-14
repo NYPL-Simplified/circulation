@@ -4,7 +4,6 @@ from nose.tools import set_trace
 from . import (
     Base,
     HasFullTableCache,
-    IntegrationClient,
 )
 from helper_methods import (
     create,
@@ -23,6 +22,7 @@ from configuration import (
     ConfigurationSetting,
     ExternalIntegration,
 )
+from integration_client import IntegrationClient
 from edition_constants import EditionConstants
 from library import Library
 from licensing import (

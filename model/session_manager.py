@@ -21,6 +21,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Table,
+    text,
 )
 from sqlalchemy.orm import (
     relationship,
