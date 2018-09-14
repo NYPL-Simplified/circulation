@@ -161,30 +161,10 @@ from helper_methods import (
 )
 from session_manager import (
     BaseMaterializedWork,
+    production_session,
     SessionManager,
+    site_configuration_has_changed,
 )
-DEBUG = False
-
-def production_session():
-    url = Configuration.database_url()
-    if url.startswith('"'):
-        url = url[1:]
-    logging.debug("Database url: %s", url)
-    _db = SessionManager.session(url)
-
-    # The first thing to do after getting a database connection is to
-    # set up the logging configuration.
-    #
-    # If called during a unit test, this will configure logging
-    # incorrectly, but 1) this method isn't normally called during
-    # unit tests, and 2) package_setup() will call initialize() again
-    # with the right arguments.
-    from log import LogConfiguration
-    LogConfiguration.initialize(_db)
-    return _db
-
-
-
 
 
 
@@ -303,65 +283,6 @@ def dump_query(query):
             v = v.encode(enc)
         params[k] = sqlescape(v)
     return (comp.string.encode(enc) % params).decode(enc)
-
-site_configuration_has_changed_lock = RLock()
-def site_configuration_has_changed(_db, timeout=1):
-    """Call this whenever you want to indicate that the site configuration
-    has changed and needs to be reloaded.
-
-    This is automatically triggered on relevant changes to the data
-    model, but you also should call it whenever you change an aspect
-    of what you consider "site configuration", just to be safe.
-
-    :param _db: Either a Session or (to save time in a common case) an
-    ORM object that can turned into a Session.
-
-    :param timeout: Nothing will happen if it's been fewer than this
-    number of seconds since the last site configuration change was
-    recorded.
-    """
-    has_lock = site_configuration_has_changed_lock.acquire(blocking=False)
-    if not has_lock:
-        # Another thread is updating site configuration right now.
-        # There is no need to do anything--the timestamp will still be
-        # accurate.
-        return
-
-    try:
-        _site_configuration_has_changed(_db, timeout)
-    finally:
-        site_configuration_has_changed_lock.release()
-
-def _site_configuration_has_changed(_db, timeout=1):
-    """Actually changes the timestamp on the site configuration."""
-    now = datetime.datetime.utcnow()
-    last_update = Configuration._site_configuration_last_update()
-    if not last_update or (now - last_update).total_seconds() > timeout:
-        # The configuration last changed more than `timeout` ago, which
-        # means it's time to reset the Timestamp that says when the
-        # configuration last changed.
-
-        # Convert something that might not be a Connection object into
-        # a Connection object.
-        if isinstance(_db, Base):
-            _db = Session.object_session(_db)
-
-        # Update the timestamp.
-        now = datetime.datetime.utcnow()
-        earlier = now-datetime.timedelta(seconds=timeout)
-        sql = "UPDATE timestamps SET timestamp=:timestamp WHERE service=:service AND collection_id IS NULL AND timestamp<=:earlier;"
-        _db.execute(
-            text(sql),
-            dict(service=Configuration.SITE_CONFIGURATION_CHANGED,
-                 timestamp=now, earlier=earlier)
-        )
-
-        # Update the Configuration's record of when the configuration
-        # was updated. This will update our local record immediately
-        # without requiring a trip to the database.
-        Configuration.site_configuration_last_update(
-            _db, known_value=now
-        )
 
 # Certain ORM events, however they occur, indicate that a work's
 # external index needs updating.
