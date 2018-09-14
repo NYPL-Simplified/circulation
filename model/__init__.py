@@ -5,7 +5,6 @@ import log # Make sure logging is set up properly.
 import logging
 from sqlalchemy import event
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm.base import NO_VALUE
 from sqlalchemy.orm.session import Session
 
 Base = declarative_base()
@@ -106,31 +105,6 @@ from licensing import (
     DeliveryMechanism,
     RightsStatus,
 )
-
-@event.listens_for(LicensePool.work_id, 'set')
-@event.listens_for(Work.presentation_edition_id, 'set')
-
-def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initiator):
-    if isinstance(pool_or_work, LicensePool):
-        work = pool_or_work.work
-        pools = [pool_or_work]
-    else:
-        work = pool_or_work
-        pools = work.license_pools
-
-    if (not oldvalue or oldvalue is NO_VALUE) and value and work and work.presentation_edition:
-        for pool in pools:
-            if not pool.collection:
-                # This shouldn't happen, but don't crash if it does --
-                # the correct behavior is that the work not be added to
-                # any CustomLists.
-                continue
-            for list in pool.collection.customlists:
-                # Since the work was just created, we can assume that
-                # there's already a pending registration for updating the
-                # work's internal index, and decide not to create a
-                # second one.
-                list.add_entry(work, featured=True, update_external_index=False)
 
 
 

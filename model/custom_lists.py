@@ -1,5 +1,5 @@
 # encoding: utf-8
-# CustomList, CustomListEntry
+# CustomList, CustomListEntry, add_work_to_customlists_for_collection
 from . import (
     Base,
     DataSource,
@@ -19,6 +19,7 @@ from sqlalchemy.orm import (
     backref,
     relationship,
 )
+from sqlalchemy.orm.base import NO_VALUE
 from sqlalchemy.sql.expression import (
     or_,
     join,
@@ -28,6 +29,7 @@ from sqlalchemy import (
     Column,
     Date,
     DateTime,
+    event,
     ForeignKey,
     Index,
     Integer,
@@ -379,3 +381,28 @@ class CustomListEntry(Base):
 # view that use custom list membership as a way to cut down on the
 # number of entries returned.
 Index("ix_customlistentries_work_id_list_id", CustomListEntry.work_id, CustomListEntry.list_id)
+
+
+@event.listens_for(LicensePool.work_id, 'set')
+@event.listens_for(Work.presentation_edition_id, 'set')
+def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initiator):
+    if isinstance(pool_or_work, LicensePool):
+        work = pool_or_work.work
+        pools = [pool_or_work]
+    else:
+        work = pool_or_work
+        pools = work.license_pools
+
+    if (not oldvalue or oldvalue is NO_VALUE) and value and work and work.presentation_edition:
+        for pool in pools:
+            if not pool.collection:
+                # This shouldn't happen, but don't crash if it does --
+                # the correct behavior is that the work not be added to
+                # any CustomLists.
+                continue
+            for list in pool.collection.customlists:
+                # Since the work was just created, we can assume that
+                # there's already a pending registration for updating the
+                # work's internal index, and decide not to create a
+                # second one.
+                list.add_entry(work, featured=True, update_external_index=False)
