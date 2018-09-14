@@ -236,3 +236,60 @@ def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initia
                 # work's internal index, and decide not to create a
                 # second one.
                 list.add_entry(work, featured=True, update_external_index=False)
+
+# Certain ORM events, however they occur, indicate that a work's
+# external index needs updating.
+
+@event.listens_for(LicensePool, 'after_delete')
+def licensepool_deleted(mapper, connection, target):
+    """A LicensePool should never be deleted, but if it is, we need to
+    keep the search index up to date.
+    """
+    work = target.work
+    if work:
+        record = work.external_index_needs_updating()
+
+@event.listens_for(LicensePool.collection_id, 'set')
+def licensepool_collection_change(target, value, oldvalue, initiator):
+    """A LicensePool should never change collections, but if it is,
+    we need to keep the search index up to date.
+    """
+    work = target.work
+    if not work:
+        return
+    if value == oldvalue:
+        return
+    work.external_index_needs_updating()
+
+
+@event.listens_for(LicensePool.licenses_owned, 'set')
+def licenses_owned_change(target, value, oldvalue, initiator):
+    """A Work may need to have its search document re-indexed if one of
+    its LicensePools changes the number of licenses_owned to or from zero.
+    """
+    work = target.work
+    if not work:
+        return
+    if target.open_access:
+        # For open-access works, the licenses_owned value doesn't
+        # matter.
+        return
+    if (value == oldvalue) or (value > 0 and oldvalue > 0):
+        # The availability of this LicensePool has not changed. No need
+        # to reindex anything.
+        return
+    work.external_index_needs_updating()
+
+@event.listens_for(LicensePool.open_access, 'set')
+def licensepool_open_access_change(target, value, oldvalue, initiator):
+    """A Work may need to have its search document re-indexed if one of
+    its LicensePools changes its open-access status.
+
+    This shouldn't ever happen.
+    """
+    work = target.work
+    if not work:
+        return
+    if value == oldvalue:
+        return
+    work.external_index_needs_updating()
