@@ -8,7 +8,6 @@ from sqlalchemy import (
 from sqlalchemy.orm.session import Session
 
 from . import (
-    directly_modified,
     Base,
 )
 from bibliographic_metadata import DataSource
@@ -88,6 +87,15 @@ def _site_configuration_has_changed(_db, timeout=1):
         Configuration.site_configuration_last_update(
             _db, known_value=now
         )
+
+def directly_modified(obj):
+    """Return True only if `obj` has itself been modified, as opposed to
+    having an object added or removed to one of its associated
+    collections.
+    """
+    return Session.object_session(obj).is_modified(
+        obj, include_collections=False
+    )
 
 # Most of the time, we can know whether a change to the database is
 # likely to require that the application reload the portion of the

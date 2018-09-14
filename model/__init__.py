@@ -180,17 +180,9 @@ def licensepool_open_access_change(target, value, oldvalue, initiator):
         return
     work.external_index_needs_updating()
 
-def directly_modified(obj):
-    """Return True only if `obj` has itself been modified, as opposed to
-    having an object added or removed to one of its associated
-    collections.
-    """
-    return Session.object_session(obj).is_modified(
-        obj, include_collections=False
-    )
-
 from listeners import (
     site_configuration_has_changed,
+    directly_modified,
 )
 
 from background import (
