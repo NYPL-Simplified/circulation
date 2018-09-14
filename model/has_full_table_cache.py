@@ -1,6 +1,10 @@
 # encoding: utf-8
 # HasFullTableCache
 from nose.tools import set_trace
+from helper_methods import (
+    get_one,
+)
+import logging
 
 class HasFullTableCache(object):
     """A mixin class for ORM classes that maintain an in-memory cache of
