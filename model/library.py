@@ -3,7 +3,7 @@
 from . import (
     Base,
 )
-from bibliographic_metadata import Edition
+from edition import Edition
 from licensing import LicensePool
 from works import Work
 from has_full_table_cache import HasFullTableCache

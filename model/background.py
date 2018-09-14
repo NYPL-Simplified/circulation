@@ -222,9 +222,9 @@ class CoverageRecord(Base, BaseCoverageRecord):
                collection=None):
         from bibliographic_metadata import (
             DataSource,
-            Edition,
             Identifier,
         )
+        from edition import Edition
         _db = Session.object_session(edition_or_identifier)
         if isinstance(edition_or_identifier, Identifier):
             identifier = edition_or_identifier
@@ -249,10 +249,8 @@ class CoverageRecord(Base, BaseCoverageRecord):
     @classmethod
     def add_for(self, edition, data_source, operation=None, timestamp=None,
                 status=BaseCoverageRecord.SUCCESS, collection=None):
-        from bibliographic_metadata import (
-            Edition,
-            Identifier,
-        )
+        from bibliographic_metadata import Identifier
+        from edition import Edition
         _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
             identifier = edition
@@ -283,7 +281,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
         `identifiers` has an identical record.
         """
         from bibliographic_metadata import Identifier
-        
+
         if not identifiers:
             # Nothing to do.
             return

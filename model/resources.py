@@ -44,7 +44,7 @@ from sqlalchemy import (
     Unicode,
     UniqueConstraint,
 )
-from bibliographic_metadata import Edition
+from edition import Edition
 from sqlalchemy.orm import (
     backref,
     relationship,

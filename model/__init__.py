@@ -139,7 +139,6 @@ from bibliographic_metadata import (
     DataSource,
     Identifier,
     Equivalency,
-    Edition,
 )
 from cached_feed import (
     WillNotGenerateExpensiveFeed,
@@ -175,6 +174,7 @@ from custom_lists import (
     CustomList,
     CustomListEntry,
 )
+from edition import Edition
 from integration_client import IntegrationClient
 from library import Library
 from measurement import Measurement

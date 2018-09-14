@@ -10,13 +10,13 @@ from background import (
 )
 from bibliographic_metadata import (
     DataSource,
-    Edition,
     Identifier,
 )
 from contributions import (
     Contribution,
     Contributor,
 )
+from edition import Edition
 from helper_methods import (
     flush,
     get_one_or_create,

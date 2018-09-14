@@ -368,7 +368,7 @@ class LicensePool(Base):
         :return: A boolean explaining whether any of the presentation
         information associated with this LicensePool actually changed.
         """
-        from bibliographic_metadata import Edition
+        from edition import Edition
         _db = Session.object_session(self)
         old_presentation_edition = self.presentation_edition
         changed = False
