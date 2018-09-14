@@ -30,7 +30,6 @@ from session_manager import (
     BaseMaterializedWork,
     production_session,
     SessionManager,
-    site_configuration_has_changed,
 )
 
 class PresentationCalculationPolicy(object):
@@ -189,6 +188,10 @@ def directly_modified(obj):
     return Session.object_session(obj).is_modified(
         obj, include_collections=False
     )
+
+from listeners import (
+    site_configuration_has_changed,
+)
 
 from background import (
     BaseCoverageRecord,

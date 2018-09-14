@@ -1,14 +1,23 @@
 # encoding: utf-8
 from nose.tools import set_trace
-from sqlalchemy import event
+import datetime
+from sqlalchemy import (
+    event,
+    text,
+)
+from sqlalchemy.orm.session import Session
 
-from . import directly_modified
+from . import (
+    directly_modified,
+    Base,
+)
 from bibliographic_metadata import DataSource
 from classification import Genre
 from collection import Collection
 from configuration import (
     Admin,
     AdminRole,
+    Configuration,
     ConfigurationSetting,
     ExternalIntegration,
 )
@@ -17,8 +26,68 @@ from licensing import (
     DeliveryMechanism,
     LicensePool,
 )
-from session_manager import site_configuration_has_changed
 from works import Work
+
+from threading import RLock
+
+site_configuration_has_changed_lock = RLock()
+def site_configuration_has_changed(_db, timeout=1):
+    """Call this whenever you want to indicate that the site configuration
+    has changed and needs to be reloaded.
+
+    This is automatically triggered on relevant changes to the data
+    model, but you also should call it whenever you change an aspect
+    of what you consider "site configuration", just to be safe.
+
+    :param _db: Either a Session or (to save time in a common case) an
+    ORM object that can turned into a Session.
+
+    :param timeout: Nothing will happen if it's been fewer than this
+    number of seconds since the last site configuration change was
+    recorded.
+    """
+    has_lock = site_configuration_has_changed_lock.acquire(blocking=False)
+    if not has_lock:
+        # Another thread is updating site configuration right now.
+        # There is no need to do anything--the timestamp will still be
+        # accurate.
+        return
+
+    try:
+        _site_configuration_has_changed(_db, timeout)
+    finally:
+        site_configuration_has_changed_lock.release()
+
+def _site_configuration_has_changed(_db, timeout=1):
+    """Actually changes the timestamp on the site configuration."""
+    now = datetime.datetime.utcnow()
+    last_update = Configuration._site_configuration_last_update()
+    if not last_update or (now - last_update).total_seconds() > timeout:
+        # The configuration last changed more than `timeout` ago, which
+        # means it's time to reset the Timestamp that says when the
+        # configuration last changed.
+
+        # Convert something that might not be a Connection object into
+        # a Connection object.
+        if isinstance(_db, Base):
+            _db = Session.object_session(_db)
+
+        # Update the timestamp.
+        now = datetime.datetime.utcnow()
+        earlier = now-datetime.timedelta(seconds=timeout)
+        sql = "UPDATE timestamps SET timestamp=:timestamp WHERE service=:service AND collection_id IS NULL AND timestamp<=:earlier;"
+        _db.execute(
+            text(sql),
+            dict(service=Configuration.SITE_CONFIGURATION_CHANGED,
+                 timestamp=now, earlier=earlier)
+        )
+
+        # Update the Configuration's record of when the configuration
+        # was updated. This will update our local record immediately
+        # without requiring a trip to the database.
+        Configuration.site_configuration_last_update(
+            _db, known_value=now
+        )
 
 # Most of the time, we can know whether a change to the database is
 # likely to require that the application reload the portion of the

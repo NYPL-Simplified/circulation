@@ -8259,14 +8259,14 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         super(TestSiteConfigurationHasChanged, self).setup()
 
         # Mock model.site_configuration_has_changed
-        self.old_site_configuration_has_changed = model.session_manager.site_configuration_has_changed
+        self.old_site_configuration_has_changed = model.listeners.site_configuration_has_changed
         self.mock = self.MockSiteConfigurationHasChanged()
-        for module in model.session_manager, lane:
+        for module in model.listeners, lane:
             module.site_configuration_has_changed = self.mock.run
 
     def teardown(self):
         super(TestSiteConfigurationHasChanged, self).teardown()
-        for module in model, lane:
+        for module in model.listeners, lane:
             module.site_configuration_has_changed = self.old_site_configuration_has_changed
 
     def test_site_configuration_has_changed(self):
