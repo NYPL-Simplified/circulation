@@ -737,7 +737,7 @@ class Query(SearchBase):
         )
         self._hypothesize(
             hypotheses,
-            self._match_phrase("author", query_string), 200
+            self._match_phrase("author", query_string), 50
         )
 
         # The query string might be a fuzzy match against one of the
