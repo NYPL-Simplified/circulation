@@ -1,22 +1,13 @@
 # encoding: utf-8
 from nose.tools import set_trace
 
-import log # Make sure logging is set up properly.
-import logging
-from psycopg2.extensions import adapt as sqlescape
-from sqlalchemy import event
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm.session import Session
 from sqlalchemy.sql import compiler
 
 Base = declarative_base()
 
 from datasource_constants import DataSourceConstants
 from edition_constants import EditionConstants
-from link_relations import LinkRelations
-from media_type_constants import MediaTypes
-
-from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     create,
     flush,
@@ -26,11 +17,8 @@ from helper_methods import (
     numericrange_to_tuple,
     tuple_to_numericrange,
 )
-from session_manager import (
-    BaseMaterializedWork,
-    production_session,
-    SessionManager,
-)
+from link_relations import LinkRelations
+from media_type_constants import MediaTypes
 
 class PresentationCalculationPolicy(object):
     """Which parts of the Work or Edition's presentation
@@ -90,23 +78,6 @@ class PresentationCalculationPolicy(object):
             calculate_quality=False
         )
 
-# When a pool gets a work and a presentation edition for the first time,
-# the work should be added to any custom lists associated with the pool's
-# collection.
-# In some cases, the work may be generated before the presentation edition.
-# Then we need to add it when the work gets a presentation edition.
-from works import (
-    WorkGenre,
-    Work,
-)
-from licensing import (
-    PolicyException,
-    LicensePool,
-    LicensePoolDeliveryMechanism,
-    DeliveryMechanism,
-    RightsStatus,
-)
-
 def dump_query(query):
     dialect = query.session.bind.dialect
     statement = query.statement
@@ -120,34 +91,29 @@ def dump_query(query):
         params[k] = sqlescape(v)
     return (comp.string.encode(enc) % params).decode(enc)
 
-from listeners import (
-    site_configuration_has_changed,
-    directly_modified,
-)
-
 from admins import (
     Admin,
     AdminRole,
 )
 from background import (
     BaseCoverageRecord,
-    Timestamp,
     CoverageRecord,
+    Timestamp,
     WorkCoverageRecord,
 )
 from bibliographic_metadata import (
-    Identifier,
     Equivalency,
+    Identifier,
 )
 from cached_feed import (
-    WillNotGenerateExpensiveFeed,
     CachedFeed,
+    WillNotGenerateExpensiveFeed,
 )
 from circulation_event import CirculationEvent
 from classification import (
-    Subject,
     Classification,
     Genre,
+    Subject,
 )
 from collection import (
     Collection,
@@ -155,8 +121,8 @@ from collection import (
     CollectionMissing,
 )
 from configuration import (
-    ExternalIntegration,
     ConfigurationSetting,
+    ExternalIntegration,
 )
 from complaint import Complaint
 from contributions import (
@@ -175,22 +141,39 @@ from custom_lists import (
 )
 from datasource import DataSource
 from edition import Edition
+from has_full_table_cache import HasFullTableCache
 from integration_client import IntegrationClient
 from library import Library
+from licensing import (
+    DeliveryMechanism,
+    LicensePool,
+    LicensePoolDeliveryMechanism,
+    PolicyException,
+    RightsStatus,
+)
 from measurement import Measurement
 from patrons import (
+    Annotation,
+    Hold,
+    Loan,
     LoanAndHoldMixin,
     Patron,
-    Loan,
-    Hold,
-    Annotation,
     PatronProfileStorage,
 )
 import listeners
 from listeners import *
 from resources import (
-    Resource,
-    ResourceTransformation,
     Hyperlink,
     Representation,
+    Resource,
+    ResourceTransformation,
+)
+from session_manager import (
+    BaseMaterializedWork,
+    production_session,
+    SessionManager,
+)
+from works import (
+    Work,
+    WorkGenre,
 )

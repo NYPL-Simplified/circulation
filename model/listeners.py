@@ -215,6 +215,11 @@ def refresh_library_cache(mapper, connection, target):
     # the cache will be repopulated.
     Library.reset_cache()
 
+# When a pool gets a work and a presentation edition for the first time,
+# the work should be added to any custom lists associated with the pool's
+# collection.
+# In some cases, the work may be generated before the presentation edition.
+# Then we need to add it when the work gets a presentation edition.
 @event.listens_for(LicensePool.work_id, 'set')
 @event.listens_for(Work.presentation_edition_id, 'set')
 def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initiator):
