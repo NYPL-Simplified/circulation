@@ -1,154 +1,20 @@
 # encoding: utf-8
-from cStringIO import StringIO
-from collections import (
-    Counter,
-    defaultdict,
-)
-from lxml import etree
 from nose.tools import set_trace
-import base64
-import bisect
-import datetime
-import isbnlib
-import json
-import logging
-import md5
-import operator
-import os
-import random
-import re
-import requests
-from threading import RLock
-import time
-import traceback
-import urllib
-import urlparse
-import uuid
-import warnings
-import bcrypt
-
-from PIL import (
-    Image,
-)
-
-from psycopg2.extras import NumericRange
-from sqlalchemy.engine.base import Connection
-from sqlalchemy import exc as sa_exc
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import (
-    event,
-    exists,
-    func,
-    MetaData,
-    Table,
-    text,
-)
-from sqlalchemy.sql import select
-from sqlalchemy.orm import (
-    backref,
-    contains_eager,
-    joinedload,
-    lazyload,
-    mapper,
-    relationship,
-    sessionmaker,
-    synonym,
-)
-from sqlalchemy.orm.base import NO_VALUE
-from sqlalchemy.orm.exc import (
-    NoResultFound,
-    MultipleResultsFound,
-)
-from sqlalchemy.ext.mutable import (
-    MutableDict,
-)
-from sqlalchemy.ext.associationproxy import (
-    association_proxy,
-)
-from sqlalchemy.ext.hybrid import (
-    hybrid_property,
-)
-from sqlalchemy.sql.functions import func
-from sqlalchemy.sql.expression import (
-    cast,
-    and_,
-    or_,
-    select,
-    join,
-    literal,
-    literal_column,
-    case,
-    table,
-)
-from sqlalchemy.exc import (
-    IntegrityError
-)
-from sqlalchemy import (
-    create_engine,
-    func,
-    Binary,
-    Boolean,
-    Column,
-    Date,
-    DateTime,
-    Enum,
-    Float,
-    ForeignKey,
-    Integer,
-    Index,
-    Numeric,
-    String,
-    Table,
-    Unicode,
-    UniqueConstraint,
-)
 
 import log # Make sure logging is set up properly.
-from config import (
-    Configuration,
-    CannotLoadConfiguration,
-)
-import classifier
-from classifier import (
-    Classifier,
-    Erotica,
-    COMICS_AND_GRAPHIC_NOVELS,
-    GenreData,
-    WorkClassifier,
-)
-from entrypoint import EntryPoint
-from facets import FacetConstants
-from user_profile import ProfileStorage
-from util import (
-    fast_query_count,
-    LanguageCodes,
-    MetadataSimilarity,
-    TitleProcessor,
-)
-from mirror import MirrorUploader
-from util.http import (
-    HTTP,
-    RemoteIntegrationException,
-)
-from util.permanent_work_id import WorkIDCalculator
-from util.personal_names import display_name_to_sort_name
-from util.summary import SummaryEvaluator
-
+import logging
+from sqlalchemy import event
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm.base import NO_VALUE
 from sqlalchemy.orm.session import Session
-
-from sqlalchemy.dialects.postgresql import (
-    ARRAY,
-    HSTORE,
-    JSON,
-    INT4RANGE,
-)
 
 Base = declarative_base()
 
-from media_type_constants import MediaTypes
 from datasource_constants import DataSourceConstants
-from link_relations import LinkRelations
 from edition_constants import EditionConstants
+from link_relations import LinkRelations
+from media_type_constants import MediaTypes
+
 from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     create,
@@ -165,8 +31,6 @@ from session_manager import (
     SessionManager,
     site_configuration_has_changed,
 )
-
-
 
 class PresentationCalculationPolicy(object):
     """Which parts of the Work or Edition's presentation
@@ -242,8 +106,10 @@ from licensing import (
     DeliveryMechanism,
     RightsStatus,
 )
+
 @event.listens_for(LicensePool.work_id, 'set')
 @event.listens_for(Work.presentation_edition_id, 'set')
+
 def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initiator):
     if isinstance(pool_or_work, LicensePool):
         work = pool_or_work.work
