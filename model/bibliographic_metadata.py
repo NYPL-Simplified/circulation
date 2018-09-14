@@ -42,6 +42,7 @@ from sqlalchemy import (
     Column,
     Date,
     Enum,
+    event,
     Float,
     ForeignKey,
     func,

@@ -8259,9 +8259,9 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         super(TestSiteConfigurationHasChanged, self).setup()
 
         # Mock model.site_configuration_has_changed
-        self.old_site_configuration_has_changed = model.site_configuration_has_changed
+        self.old_site_configuration_has_changed = model.session_manager.site_configuration_has_changed
         self.mock = self.MockSiteConfigurationHasChanged()
-        for module in model, lane:
+        for module in model.session_manager, lane:
             module.site_configuration_has_changed = self.mock.run
 
     def teardown(self):

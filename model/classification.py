@@ -29,6 +29,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     Enum,
+    event,
     ForeignKey,
     func,
     Integer,

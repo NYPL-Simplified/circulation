@@ -17,6 +17,7 @@ import uuid
 from sqlalchemy import (
     Boolean,
     Column,
+    event,
     Float,
     ForeignKey,
     func,
