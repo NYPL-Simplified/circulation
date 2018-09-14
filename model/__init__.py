@@ -124,6 +124,11 @@ from listeners import (
     site_configuration_has_changed,
     directly_modified,
 )
+
+from admins import (
+    Admin,
+    AdminRole,
+)
 from background import (
     BaseCoverageRecord,
     Timestamp,
@@ -154,8 +159,6 @@ from collection import (
 from configuration import (
     ExternalIntegration,
     ConfigurationSetting,
-    Admin,
-    AdminRole
 )
 from complaint import Complaint
 from contributions import (

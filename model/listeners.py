@@ -10,12 +10,14 @@ from sqlalchemy.orm.session import Session
 from . import (
     Base,
 )
+from admins import (
+    Admin,
+    AdminRole,
+)
 from bibliographic_metadata import DataSource
 from classification import Genre
 from collection import Collection
 from configuration import (
-    Admin,
-    AdminRole,
     Configuration,
     ConfigurationSetting,
     ExternalIntegration,
