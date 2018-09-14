@@ -2,11 +2,11 @@
 # Library
 from . import (
     Base,
-    HasFullTableCache,
 )
 from bibliographic_metadata import Edition
 from licensing import LicensePool
 from works import Work
+from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     get_one,
 )

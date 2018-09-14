@@ -2,9 +2,9 @@
 # LicensePool, LicensePoolDeliveryMechanism, DeliveryMechanism, RightsStatus
 from . import (
     Base,
-    HasFullTableCache,
 )
 from circulation_event import CirculationEvent
+from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     create,
     flush,

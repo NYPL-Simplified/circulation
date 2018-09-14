@@ -3,8 +3,8 @@
 from nose.tools import set_trace
 from . import (
     Base,
-    HasFullTableCache,
 )
+from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     create,
     get_one,

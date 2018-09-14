@@ -2,13 +2,13 @@
 # DataSource, Identifier, Equivalency, Edition
 from . import (
     Base,
-    HasFullTableCache,
     PresentationCalculationPolicy,
 )
 from contributions import (
     Contribution,
     Contributor,
 )
+from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     create,
     get_one,

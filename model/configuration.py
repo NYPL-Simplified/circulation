@@ -8,13 +8,13 @@ import os
 from mirror import MirrorUploader
 from . import (
     Base,
-    HasFullTableCache,
 )
 from datasource_constants import DataSourceConstants
 from config import (
     Configuration,
     CannotLoadConfiguration,
 )
+from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     get_one,
     get_one_or_create,
