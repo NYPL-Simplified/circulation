@@ -10,6 +10,7 @@ from nose.tools import (
 )
 
 import datetime
+from decimal import Decimal
 import json
 import os
 from money import Money
@@ -220,6 +221,12 @@ class TestPatronData(AuthenticatorTest):
         self.data.fines = PatronData.NO_VALUE
         data = self.data.to_dict
         expect['fines'] = None
+        eq_(data, expect)
+
+        # Test with a zeroed-out fines field
+        self.data.fines = Decimal(0.0)
+        data = self.data.to_dict
+        expect['fines'] = '0'
         eq_(data, expect)
 
         # Test with an empty expiration time
