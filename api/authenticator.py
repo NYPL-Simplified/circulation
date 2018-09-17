@@ -60,6 +60,9 @@ from werkzeug.datastructures import Headers
 from flask_babel import lazy_gettext as _
 import importlib
 
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+
 
 class CannotCreateLocalPatron(Exception):
     """A remote system provided information about a patron, but we could
@@ -837,7 +840,7 @@ class LibraryAuthenticator(object):
         a request comes in with no authentication.
         """
         links = []
-        library = Library.by_id(self._db, self.library_id)
+        library = self.library
 
         # Add the same links that we would show in an OPDS feed, plus
         # some extra like 'registration' that are specific to Authentication
@@ -935,11 +938,8 @@ class LibraryAuthenticator(object):
         if service_area:
             doc['service_area'] = service_area
 
-        # Add the library's public key, if it has one.
-        public_key = ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, library).value
-        if public_key:
-            doc["public_key"] = dict(type="RSA", value=public_key)
+        # Add the library's public key, generating one if necessary.
+        doc["public_key"] = dict(type="RSA", value=self.public_key)
 
         # Add feature flags to signal to clients what features they should
         # offer.
@@ -958,6 +958,32 @@ class LibraryAuthenticator(object):
             )
 
         return json.dumps(doc)
+
+    @property
+    def public_key(self):
+        """Look up or create a public key for use by this library.
+        """
+        public_key_setting = ConfigurationSetting.for_library(
+            Configuration.PUBLIC_KEY, self.library
+        )
+        return self._public_key(public_key_setting)
+
+    @classmethod
+    def _public_key(cls, setting):
+        """If `setting` contains a value, return that value.
+
+        Otherwise, create a new RSA public key, store it in the setting,
+        and return that.
+        
+        TODO: This could go into ConfigurationSetting.
+        :param setting: A ConfigurationSetting.
+        """
+        if not setting.value:
+            key = RSA.generate(2048)
+            encryptor = PKCS1_OAEP.new(key)
+            public_key = key.publickey().exportKey()
+            setting.value = public_key
+        return setting.value
 
     @classmethod
     def _geographic_areas(cls, library):

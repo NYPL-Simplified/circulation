@@ -202,6 +202,9 @@ class CirculationManager(object):
         # Potentially load a CustomIndexView for each library
         new_custom_index_views = {}
 
+        # Make sure there's a site-wide public key.
+        self.setup_public_key(None)
+
         new_adobe_device_management = None
         for library in self._db.query(Library):
             lanes = load_lanes(self._db, library)
@@ -215,6 +218,10 @@ class CirculationManager(object):
             new_circulation_apis[library.id] = self.setup_circulation(
                 library, self.analytics
             )
+
+            # Make sure the library has a public key.
+            self.setup_public_key(library)
+
             authdata = self.setup_adobe_vendor_id(self._db, library)
             if authdata and not new_adobe_device_management:
                 # There's at least one library on this system that
@@ -418,15 +425,21 @@ class CirculationManager(object):
         return self.authentication_for_opds_documents[name]
 
     @property
+    def sitewide_public_key(self):
+        """Look up or create the sitewide public key."""
+        setting = ConfigurationSetting.sitewide(
+            self._db, Configuration.PUBLIC_KEY
+        )
+        return Authenticator._public_key(setting)
+
+    @property
     def public_key_integration_document(self):
+        """Serve a document with the sitewide public key, creating it
+        if necessary.
+        """
         site_id = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
         document = dict(id=site_id)
 
-        public_key_dict = dict()
-        public_key = ConfigurationSetting.sitewide(self._db, Configuration.PUBLIC_KEY).value
-        if public_key:
-            public_key_dict['type'] = 'RSA'
-            public_key_dict['value'] = public_key
 
         document['public_key'] = public_key_dict
         return json.dumps(document)

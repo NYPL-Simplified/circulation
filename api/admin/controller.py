@@ -21,8 +21,6 @@ from sqlalchemy.exc import ProgrammingError
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 from StringIO import StringIO
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
 from api.authenticator import (
     CannotCreateLocalPatron,
     PatronData,
@@ -3168,8 +3166,7 @@ class SettingsController(AdminCirculationManagerController):
         )
 
     def metadata_services(
-            self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
-            key=None
+        self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
     ):
         self.require_system_admin()
         provider_apis = [NYTBestSellerAPI,
@@ -3224,7 +3221,7 @@ class SettingsController(AdminCirculationManagerController):
             service.protocol == ExternalIntegration.METADATA_WRANGLER):
 
             problem_detail = self.sitewide_registration(
-                service, do_get=do_get, do_post=do_post, key=key
+                service, do_get=do_get, do_post=do_post
             )
             if problem_detail:
                 self._db.rollback()
@@ -3241,7 +3238,7 @@ class SettingsController(AdminCirculationManagerController):
         )
 
     def sitewide_registration(self, integration, do_get=HTTP.debuggable_get,
-                              do_post=HTTP.debuggable_post, key=None
+                              do_post=HTTP.debuggable_post
     ):
         """Performs a sitewide registration for a particular service, currently
         only the Metadata Wrangler.
@@ -3287,16 +3284,6 @@ class SettingsController(AdminCirculationManagerController):
             # We have a relative path. Create a full registration url.
             base_url = catalog.get('id')
             register_url = urlparse.urljoin(base_url, register_url)
-        # Generate a public key for this website.
-        if not key:
-            key = RSA.generate(2048)
-        encryptor = PKCS1_OAEP.new(key)
-        public_key = key.publickey().exportKey()
-
-        # Save the public key to the database before generating the public key document.
-        public_key_setting = ConfigurationSetting.sitewide(self._db, Configuration.PUBLIC_KEY)
-        public_key_setting.value = public_key
-        self._db.commit()
 
         # If the integration has an existing shared_secret, use it to access the
         # server and update it.
@@ -3308,9 +3295,9 @@ class SettingsController(AdminCirculationManagerController):
             token = base64.b64encode(integration.password.encode('utf-8'))
             headers['Authorization'] = 'Bearer ' + token
 
-        # Get the public key document URL and register this server.
+        # Register this server using the sitewide registration document
         try:
-            body = self.sitewide_registration_document(key.exportKey())
+            body = self.sitewide_registration_document()
             response = do_post(
                 register_url, body, allowed_response_codes=['2xx'],
                 headers=headers
@@ -3334,7 +3321,7 @@ class SettingsController(AdminCirculationManagerController):
         shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
         integration.password = unicode(shared_secret)
 
-    def sitewide_registration_document(self, private_key):
+    def sitewide_registration_document(self):
         """Generate the document to be sent as part of a sitewide registration
         request.
 
@@ -3344,6 +3331,12 @@ class SettingsController(AdminCirculationManagerController):
             this site's public key document, and 'jwt' is a JSON Web Token
             proving control over that URL.
         """
+
+        public_key = self.circulation_manager.sitewide_public_key
+        public_key_dict = dict(
+            type='RSA',
+            value=public_key
+        )
         public_key_url = self.url_for('public_key_document')
         in_one_minute = datetime.utcnow() + timedelta(seconds=60)
         payload = {'exp': in_one_minute}

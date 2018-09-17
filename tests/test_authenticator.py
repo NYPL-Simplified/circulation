@@ -1176,8 +1176,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             Configuration.HELP_URI, library).value = "custom:uri"
 
         # Set up a public key.
-        ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, library).value = "public key"
+        public_key_setting = ConfigurationSetting.for_library(
+            Configuration.PUBLIC_KEY, library)
+        public_key_setting.value = "public key"
 
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
         base_url.value = u'http://circulation-manager/'
@@ -1303,6 +1304,16 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             for key in ('focus_area', 'service_area'):
                 assert key not in doc
 
+            # If the library has no public key, a key is created and
+            # stored as a per-library setting.
+            public_key_setting.value = None
+            doc = json.loads(authenticator.create_authentication_document())
+            key = doc['public_key']
+            expect = authenticator.public_key
+            assert 'BEGIN PUBLIC KEY' in expect
+            eq_(expect, key['value'])
+            eq_(expect, public_key_setting.value)
+
             # The annotator's annotate_authentication_document method
             # was called and successfully modified the authentication
             # document.
@@ -1338,6 +1349,36 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             )
             headers = authenticator.create_authentication_headers()
             assert 'WWW-Authenticate' not in headers
+
+    def test_public_key(self):
+        """Test the public_key property."""
+
+        library = self._default_library
+
+        # Initially, the PUBLIC_KEY setting is not set.
+        setting = ConfigurationSetting.for_library(
+            Configuration.PUBLIC_KEY, library
+        )
+        eq_(None, setting.value)
+
+        # Accessing LibraryAuthenticator.public_key when there is
+        # no public key causes one to be generated.
+        auth = LibraryAuthenticator.from_config(self._db, library)
+        key = auth.public_key
+        assert 'BEGIN PUBLIC KEY' in key
+
+        # The public key is stored in the PUBLIC_KEY setting.
+        eq_(key, setting.value)
+
+        # An existing value for the PUBLIC_KEY setting is reused.
+        setting.value = "A value"
+        eq_("A value", auth.public_key)
+
+        # Each library has its own public key.
+        library2 = self._library()
+        auth2 = LibraryAuthenticator.from_config(self._db, library2)
+        key2 = auth.public_key
+        assert key != key2
 
     def test__geographic_areas(self):
         """Test the _geographic_areas helper method."""
