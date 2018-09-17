@@ -1,38 +1,32 @@
 # encoding: utf-8
 # Resource, ResourceTransformation, Hyperlink, Representation
-from . import (
-    Base,
-)
-from licensing import (
-    LicensePool,
-    LicensePoolDeliveryMechanism,
-)
+from nose.tools import set_trace
+
+from . import Base
+from config import Configuration
+from datasource_constants import DataSourceConstants
+from edition import Edition
 from helper_methods import (
     get_one,
     get_one_or_create,
 )
-from datasource_constants import DataSourceConstants
-from link_relations import LinkRelations
 from identifier_constants import IdentifierConstants
+from licensing import (
+    LicensePool,
+    LicensePoolDeliveryMechanism,
+)
+from link_relations import LinkRelations
 from media_type_constants import MediaTypes
-from nose.tools import set_trace
-from config import Configuration
+
 from cStringIO import StringIO
 import datetime
 import json
 import logging
 import md5
 import os
+from PIL import Image
 import re
 import requests
-import time
-import traceback
-import urllib
-import urlparse
-from PIL import (
-    Image,
-)
-from util.http import HTTP
 from sqlalchemy import (
     Binary,
     Column,
@@ -44,20 +38,22 @@ from sqlalchemy import (
     Unicode,
     UniqueConstraint,
 )
-from edition import Edition
+from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import (
     backref,
     relationship,
 )
-from sqlalchemy.ext.mutable import (
-    MutableDict,
-)
+from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import (
     or_,
     join,
 )
-from sqlalchemy.orm.session import Session
-from sqlalchemy.dialects.postgresql import JSON
+import time
+import traceback
+import urllib
+import urlparse
+from util.http import HTTP
 
 class Resource(Base):
     """An external resource that may be mirrored locally.

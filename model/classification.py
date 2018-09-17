@@ -1,9 +1,8 @@
 # encoding: utf-8
 # Subject, Classification, Genre
 from nose.tools import set_trace
-from . import (
-    Base,
-)
+
+from . import Base
 from datasource_constants import DataSourceConstants
 from has_full_table_cache import HasFullTableCache
 from helper_methods import (
@@ -12,19 +11,18 @@ from helper_methods import (
     numericrange_to_tuple,
     tuple_to_numericrange,
 )
-import logging
+
 import classifier
 from classifier import (
     Classifier,
-    Erotica,
     COMICS_AND_GRAPHIC_NOVELS,
+    Erotica,
     GenreData,
     WorkClassifier,
 )
-from sqlalchemy.orm import (
-    backref,
-    relationship,
-)
+
+import logging
+
 from sqlalchemy import (
     Boolean,
     Column,
@@ -37,13 +35,15 @@ from sqlalchemy import (
     Unicode,
     UniqueConstraint,
 )
-from sqlalchemy.ext.associationproxy import (
-    association_proxy,
-)
-from sqlalchemy.sql.functions import func
-from sqlalchemy.sql.expression import join
-from sqlalchemy.orm.session import Session
 from sqlalchemy.dialects.postgresql import INT4RANGE
+from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.orm import (
+    backref,
+    relationship,
+)
+from sqlalchemy.orm.session import Session
+from sqlalchemy.sql.expression import join
+from sqlalchemy.sql.functions import func
 
 class Subject(Base):
     """A subject under which books might be classified."""

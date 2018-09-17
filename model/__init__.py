@@ -1,6 +1,7 @@
 # encoding: utf-8
 from nose.tools import set_trace
 
+from psycopg2.extensions import adapt as sqlescape
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import compiler
 

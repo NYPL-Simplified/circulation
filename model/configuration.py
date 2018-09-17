@@ -1,35 +1,52 @@
 # encoding: utf-8
 # ExternalIntegration, ConfigurationSetting
 from nose.tools import set_trace
-import bcrypt
-import json
-import logging
-import os
-from mirror import MirrorUploader
-from . import (
-    Base,
-)
-from datasource_constants import DataSourceConstants
+
+from . import Base
 from config import (
     Configuration,
     CannotLoadConfiguration,
 )
+from datasource_constants import DataSourceConstants
 from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     get_one,
     get_one_or_create,
 )
 from library import Library
+
+import bcrypt
+import json
+import logging
+from mirror import MirrorUploader
+import os
 from sqlalchemy import (
+    Binary,
+    Boolean,
+    Column,
+    create_engine,
+    Date,
+    DateTime,
+    Enum,
     event,
     exists,
+    Float,
+    ForeignKey,
     func,
     Index,
+    Integer,
     MetaData,
+    Numeric,
+    String,
     Table,
     text,
+    Unicode,
+    UniqueConstraint,
 )
-from sqlalchemy.sql import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (
     backref,
     contains_eager,
@@ -46,49 +63,19 @@ from sqlalchemy.orm.exc import (
     MultipleResultsFound,
 )
 from sqlalchemy.orm.session import Session
-from sqlalchemy.ext.mutable import (
-    MutableDict,
-)
-from sqlalchemy.ext.associationproxy import (
-    association_proxy,
-)
-from sqlalchemy.ext.hybrid import (
-    hybrid_property,
-)
-from sqlalchemy.sql.functions import func
+from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import (
-    cast,
     and_,
-    or_,
-    select,
+    case,
+    cast,
     join,
     literal,
     literal_column,
-    case,
+    or_,
+    select,
     table,
 )
-from sqlalchemy.exc import (
-    IntegrityError
-)
-from sqlalchemy import (
-    create_engine,
-    func,
-    Binary,
-    Boolean,
-    Column,
-    Date,
-    DateTime,
-    Enum,
-    Float,
-    ForeignKey,
-    Integer,
-    Index,
-    Numeric,
-    String,
-    Table,
-    Unicode,
-    UniqueConstraint,
-)
+from sqlalchemy.sql.functions import func
 
 class ExternalIntegration(Base, HasFullTableCache):
 

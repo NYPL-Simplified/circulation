@@ -4,15 +4,12 @@
 # production_session
 from nose.tools import set_trace
 
-from . import (
-    Base,
-)
+from . import Base
 from background import Timestamp
 import classifier
 from config import Configuration
-from helper_methods import (
-    get_one_or_create,
-)
+from helper_methods import get_one_or_create
+
 import datetime
 import logging
 import os

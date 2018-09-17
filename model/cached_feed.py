@@ -1,12 +1,16 @@
 # encoding: utf-8
 # CachedFeed, WillNotGenerateExpensiveFeed
 from nose.tools import set_trace
+
+from . import Base
+from helper_methods import (
+    flush,
+    get_one_or_create,
+)
+
 import datetime
 import logging
 import time
-from sqlalchemy.sql.expression import (
-    and_,
-)
 from sqlalchemy import (
     Column,
     Date,
@@ -17,12 +21,8 @@ from sqlalchemy import (
     Unicode,
     UniqueConstraint,
 )
-from . import (
-    Base,
-)
-from helper_methods import (
-    flush,
-    get_one_or_create,
+from sqlalchemy.sql.expression import (
+    and_,
 )
 
 class CachedFeed(Base):

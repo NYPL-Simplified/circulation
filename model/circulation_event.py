@@ -1,9 +1,12 @@
 # encoding: utf-8
 # CirculationEvent
 from nose.tools import set_trace
+
+from . import Base
+from helper_methods import get_one_or_create
+
 import datetime
 import logging
-import time
 from sqlalchemy import (
     Column,
     Date,
@@ -14,12 +17,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
 )
-from . import (
-    Base,
-)
-from helper_methods import (
-    get_one_or_create,
-)
+import time
 
 class CirculationEvent(Base):
 

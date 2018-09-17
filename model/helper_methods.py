@@ -2,16 +2,14 @@
 
 # flush, create, get_one, get_one_or_create, numericrange_to_string,
 # numericrange_to_tuple, tuple_to_numericrange,
-
 from nose.tools import set_trace
+
+from psycopg2.extras import NumericRange
 from sqlalchemy.orm.exc import (
     NoResultFound,
     MultipleResultsFound,
 )
-from sqlalchemy.exc import (
-    IntegrityError
-)
-from psycopg2.extras import NumericRange
+from sqlalchemy.exc import IntegrityError
 
 def flush(db):
     """Flush the database connection unless it's known to already be flushing."""

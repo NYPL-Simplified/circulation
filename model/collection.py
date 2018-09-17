@@ -1,15 +1,8 @@
 # encoding: utf-8
 # Collection, CollectionIdentifier, CollectionMissing
 from nose.tools import set_trace
-from . import (
-    Base,
-)
-from has_full_table_cache import HasFullTableCache
-from helper_methods import (
-    create,
-    get_one,
-    get_one_or_create,
-)
+
+from . import Base
 from background import (
     CoverageRecord,
     WorkCoverageRecord,
@@ -20,18 +13,25 @@ from configuration import (
     ExternalIntegration,
 )
 from datasource import DataSource
-from integration_client import IntegrationClient
 from edition_constants import EditionConstants
+from has_full_table_cache import HasFullTableCache
+from helper_methods import (
+    create,
+    get_one,
+    get_one_or_create,
+)
+from integration_client import IntegrationClient
 from library import Library
 from licensing import (
     LicensePool,
     LicensePoolDeliveryMechanism,
 )
 from works import Work
+
 import base64
 from sqlalchemy import (
-    exists,
     Column,
+    exists,
     ForeignKey,
     func,
     Integer,
@@ -39,6 +39,7 @@ from sqlalchemy import (
     Unicode,
     UniqueConstraint,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (
     backref,
     joinedload,
@@ -50,9 +51,6 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import (
     and_,
     or_,
-)
-from sqlalchemy.ext.hybrid import (
-    hybrid_property,
 )
 
 class Collection(Base, HasFullTableCache):

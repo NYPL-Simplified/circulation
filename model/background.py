@@ -1,20 +1,14 @@
 # encoding: utf-8
 # BaseCoverageRecord, Timestamp, CoverageRecord, WorkCoverageRecord
-from . import (
-    Base,
-)
+from nose.tools import set_trace
+
+from . import Base
 from helper_methods import (
     get_one,
     get_one_or_create,
 )
-from nose.tools import set_trace
+
 import datetime
-from sqlalchemy.sql.expression import (
-    and_,
-    or_,
-    literal,
-    literal_column,
-)
 from sqlalchemy import (
     Column,
     Date,
@@ -28,6 +22,12 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.orm.session import Session
+from sqlalchemy.sql.expression import (
+    and_,
+    or_,
+    literal,
+    literal_column,
+)
 
 class BaseCoverageRecord(object):
     """Contains useful constants used by both CoverageRecord and
@@ -219,11 +219,10 @@ class CoverageRecord(Base, BaseCoverageRecord):
     @classmethod
     def lookup(cls, edition_or_identifier, data_source, operation=None,
                collection=None):
-        from bibliographic_metadata import (
-            DataSource,
-            Identifier,
-        )
+        from bibliographic_metadata import Identifier
+        from datasource import DataSource
         from edition import Edition
+
         _db = Session.object_session(edition_or_identifier)
         if isinstance(edition_or_identifier, Identifier):
             identifier = edition_or_identifier
@@ -250,6 +249,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
                 status=BaseCoverageRecord.SUCCESS, collection=None):
         from bibliographic_metadata import Identifier
         from edition import Edition
+
         _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
             identifier = edition
@@ -447,6 +447,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
         `works` has an identical record.
         """
         from works import Work
+
         if not works:
             # Nothing to do.
             return

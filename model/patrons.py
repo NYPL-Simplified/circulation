@@ -1,24 +1,12 @@
 # encoding: utf-8
 # LoanAndHoldMixin, Patron, Loan, Hold, Annotation, PatronProfileStorage
-from . import (
-    Base,
-)
-from helper_methods import (
-    get_one_or_create,
-)
-from credentials import (
-    Credential,
-)
 from nose.tools import set_trace
+
+from . import Base
+from credentials import Credential
+from helper_methods import get_one_or_create
+
 import datetime
-import uuid
-from sqlalchemy.orm import (
-    backref,
-    relationship,
-)
-from sqlalchemy.ext.hybrid import (
-    hybrid_property,
-)
 from sqlalchemy import (
     Boolean,
     Column,
@@ -31,8 +19,14 @@ from sqlalchemy import (
     Unicode,
     UniqueConstraint,
 )
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import (
+    backref,
+    relationship,
+)
 from sqlalchemy.orm.session import Session
 from user_profile import ProfileStorage
+import uuid
 
 class LoanAndHoldMixin(object):
 

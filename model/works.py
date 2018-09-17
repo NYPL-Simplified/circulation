@@ -1,5 +1,7 @@
 # encoding: utf-8
 # WorkGenre, Work
+from nose.tools import set_trace
+
 from . import (
     Base,
     PresentationCalculationPolicy,
@@ -13,7 +15,16 @@ from contributions import (
     Contribution,
     Contributor,
 )
+import classifier
+from classifier import (
+    Classifier,
+    COMICS_AND_GRAPHIC_NOVELS,
+    Erotica,
+    GenreData,
+    WorkClassifier,
+)
 from datasource import DataSource
+from datasource_constants import DataSourceConstants
 from edition import Edition
 from helper_methods import (
     flush,
@@ -24,9 +35,8 @@ from helper_methods import (
 )
 from link_relations import LinkRelations
 from measurement import Measurement
-from datasource_constants import DataSourceConstants
+
 from collections import Counter
-from nose.tools import set_trace
 import datetime
 import logging
 import random
@@ -44,16 +54,16 @@ from sqlalchemy import (
     Numeric,
     Unicode,
 )
-from sqlalchemy.sql import select
+from sqlalchemy.dialects.postgresql import INT4RANGE
+from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.sql.functions import func
 from sqlalchemy.orm import (
     backref,
     contains_eager,
     relationship,
 )
-from sqlalchemy.ext.associationproxy import (
-    association_proxy,
-)
-from sqlalchemy.sql.functions import func
+from sqlalchemy.orm.session import Session
+from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import (
     and_,
     or_,
@@ -62,17 +72,7 @@ from sqlalchemy.sql.expression import (
     literal_column,
     case,
 )
-import classifier
-from classifier import (
-    Classifier,
-    Erotica,
-    COMICS_AND_GRAPHIC_NOVELS,
-    GenreData,
-    WorkClassifier,
-)
 from util import LanguageCodes
-from sqlalchemy.orm.session import Session
-from sqlalchemy.dialects.postgresql import INT4RANGE
 
 class WorkGenre(Base):
     """An assignment of a genre to a work."""
@@ -336,11 +336,11 @@ class Work(Base):
 
     @classmethod
     def for_unchecked_subjects(cls, _db):
-        from . import (
+        from classification import (
             Classification,
-            LicensePool,
             Subject,
         )
+        from licensing import LicensePool
         """Find all Works whose LicensePools have an Identifier that
         is classified under an unchecked Subject.
         This is a good indicator that the Work needs to be
@@ -364,7 +364,7 @@ class Work(Base):
         Counter tallying the number of affected LicensePools
         associated with a given work.
         """
-        from . import LicensePool
+        from licensing import LicensePool
         qu = _db.query(LicensePool).join(
             LicensePool.presentation_edition).filter(
                 LicensePool.open_access==True
@@ -584,7 +584,7 @@ class Work(Base):
     @classmethod
     def with_genre(cls, _db, genre):
         """Find all Works classified under the given genre."""
-        from . import Genre
+        from classification import Genre
         if isinstance(genre, basestring):
             genre, ignore = Genre.lookup(_db, genre)
         return _db.query(Work).join(WorkGenre).filter(WorkGenre.genre==genre)
@@ -1168,7 +1168,7 @@ class Work(Base):
 
     def assign_genres_from_weights(self, genre_weights):
         # Assign WorkGenre objects to the remainder.
-        from . import Genre
+        from classification import Genre
         changed = False
         _db = Session.object_session(self)
         total_genre_weight = float(sum(genre_weights.values()))
@@ -1307,12 +1307,13 @@ class Work(Base):
 
         # This subquery gets Collection IDs for collections
         # that own more than zero licenses for this book.
-        from . import (
-            CustomListEntry,
+        from classification import (
             Genre,
-            LicensePool,
             Subject,
         )
+        from custom_lists import CustomListEntry
+        from licensing import LicensePool
+
         collections = select(
             [LicensePool.collection_id]
         ).where(
@@ -1365,7 +1366,7 @@ class Work(Base):
         term_column = func.replace(case([(Subject.name != None, Subject.name)], else_=Subject.identifier), "/", " ")
 
         # Normalize by dividing each weight by the sum of the weights for that Identifier's Classifications.
-        from . import Classification
+        from classification import Classification
         weight_column = func.sum(Classification.weight) / func.sum(func.sum(Classification.weight)).over()
 
         # The subquery for Subjects, with those three columns. The labels will become keys in json objects.
@@ -1524,7 +1525,7 @@ class Work(Base):
         return qu
 
     def classifications_with_genre(self):
-        from . import (
+        from classification import (
             Classification,
             Subject,
         )
@@ -1537,7 +1538,7 @@ class Work(Base):
             .order_by(Classification.weight.desc())
 
     def top_genre(self):
-        from . import Genre
+        from classification import Genre
         _db = Session.object_session(self)
         genre = _db.query(Genre) \
             .join(WorkGenre) \

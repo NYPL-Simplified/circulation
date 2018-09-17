@@ -1,5 +1,7 @@
 # encoding: utf-8
 # CustomList, CustomListEntry
+from nose.tools import set_trace
+
 from . import Base
 from bibliographic_metadata import Identifier
 from datasource import DataSource
@@ -7,22 +9,11 @@ from helper_methods import (
     get_one_or_create,
 )
 from licensing import LicensePool
-from works import (
-    Work,
-)
+from works import Work
 
-from lxml import etree
 import datetime
 import logging
-from sqlalchemy.orm import (
-    backref,
-    relationship,
-)
-from sqlalchemy.orm.base import NO_VALUE
-from sqlalchemy.sql.expression import (
-    or_,
-    join,
-)
+from lxml import etree
 from sqlalchemy import (
     Boolean,
     Column,
@@ -34,6 +25,15 @@ from sqlalchemy import (
     Integer,
     Unicode,
     UniqueConstraint,
+)
+from sqlalchemy.orm import (
+    backref,
+    relationship,
+)
+from sqlalchemy.orm.base import NO_VALUE
+from sqlalchemy.sql.expression import (
+    join,
+    or_,
 )
 from sqlalchemy.orm.session import Session
 

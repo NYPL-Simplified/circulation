@@ -1,9 +1,12 @@
 # encoding: utf-8
-# LicensePool, LicensePoolDeliveryMechanism, DeliveryMechanism, RightsStatus
-from . import (
-    Base,
-)
+# PolicyException LicensePool, LicensePoolDeliveryMechanism, DeliveryMechanism, RightsStatus
+from nose.tools import set_trace
+
+from . import Base
 from circulation_event import CirculationEvent
+from complaint import Complaint
+from datasource_constants import DataSourceConstants
+from edition_constants import EditionConstants
 from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     create,
@@ -11,16 +14,14 @@ from helper_methods import (
     get_one,
     get_one_or_create,
 )
+from link_relations import LinkRelations
+from media_type_constants import MediaTypes
 from patrons import (
     Patron,
     Loan,
     Hold,
 )
-from datasource_constants import DataSourceConstants
-from media_type_constants import MediaTypes
-from link_relations import LinkRelations
-from edition_constants import EditionConstants
-from nose.tools import set_trace
+
 import base64
 import datetime
 import logging
@@ -41,7 +42,7 @@ from sqlalchemy import (
     Unicode,
     UniqueConstraint,
 )
-from sqlalchemy.sql import select
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import (
     backref,
     joinedload,
@@ -50,16 +51,14 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.orm.base import NO_VALUE
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.ext.hybrid import (
-    hybrid_property,
-)
-from sqlalchemy.sql.functions import func
+from sqlalchemy.orm.session import Session
+from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import (
     and_,
     or_,
     join,
 )
-from sqlalchemy.orm.session import Session
+from sqlalchemy.sql.functions import func
 
 class PolicyException(Exception):
     pass
@@ -157,11 +156,9 @@ class LicensePool(Base):
     def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id,
                        rights_status=None, collection=None, autocreate=True):
         """Find or create a LicensePool for the given foreign ID."""
-        from bibliographic_metadata import (
-            DataSource,
-            Identifier,
-        )
+        from bibliographic_metadata import Identifier
         from collection import CollectionMissing
+        from datasource import DataSource
         if not collection:
             raise CollectionMissing()
 
@@ -237,10 +234,7 @@ class LicensePool(Base):
     @classmethod
     def with_complaint(cls, library, resolved=False):
         """Return query for LicensePools that have at least one Complaint."""
-        from . import (
-            Collection,
-            Complaint,
-        )
+        from collection import Collection
         from library import Library
         _db = Session.object_session(library)
         subquery = _db.query(
@@ -773,7 +767,7 @@ class LicensePool(Base):
     @classmethod
     def consolidate_works(cls, _db, batch_size=10):
         """Assign a (possibly new) Work to every unassigned LicensePool."""
-        from bibliographic_metadata import Edition
+        from edition import Edition
         a = 0
         lps = cls.with_no_work(_db)
         logging.info(

@@ -1,13 +1,15 @@
 # encoding: utf-8
 # Contributor, Contribution, WorkContribution
 from nose.tools import set_trace
-from . import (
-    Base,
-)
+
+from . import Base
 from helper_methods import (
     flush,
     get_one_or_create,
 )
+
+import logging
+import re
 from sqlalchemy import (
     Column,
     ForeignKey,
@@ -19,21 +21,15 @@ from sqlalchemy.dialects.postgresql import (
     ARRAY,
     JSON,
 )
-from sqlalchemy.ext.mutable import (
-    MutableDict,
-)
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import (
     backref,
     relationship,
     synonym,
 )
-from util.personal_names import display_name_to_sort_name
-from sqlalchemy.exc import (
-    IntegrityError
-)
 from sqlalchemy.orm.session import Session
-import logging
-import re
+from util.personal_names import display_name_to_sort_name
 
 class Contributor(Base):
 

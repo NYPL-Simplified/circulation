@@ -1,19 +1,19 @@
 # encoding: utf-8
 # Library
-from . import (
-    Base,
-)
+from nose.tools import set_trace
+
+from . import Base
 from edition import Edition
+from has_full_table_cache import HasFullTableCache
+from helper_methods import get_one
 from licensing import LicensePool
 from works import Work
-from has_full_table_cache import HasFullTableCache
-from helper_methods import (
-    get_one,
-)
+
 from collections import Counter
-from nose.tools import set_trace
+from config import Configuration
+from entrypoint import EntryPoint
+from facets import FacetConstants
 import logging
-import uuid
 from sqlalchemy import (
     Boolean,
     Column,
@@ -32,17 +32,11 @@ from sqlalchemy.orm import (
     backref,
     relationship,
 )
-from sqlalchemy.ext.hybrid import (
-    hybrid_property,
-)
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql.functions import func
-from sqlalchemy.sql.expression import (
-    join,
-)
-from config import Configuration
-from entrypoint import EntryPoint
-from facets import FacetConstants
+from sqlalchemy.sql.expression import join
 from sqlalchemy.orm.session import Session
+import uuid
 
 class Library(Base, HasFullTableCache):
     """A library that uses this circulation manager to authenticate

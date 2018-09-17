@@ -1,13 +1,13 @@
 # encoding: utf-8
 # Complaint
 from nose.tools import set_trace
-from . import (
-    Base,
-)
+
+from . import Base
 from helper_methods import (
     create,
     get_one_or_create,
 )
+
 import datetime
 from sqlalchemy import (
     Column,

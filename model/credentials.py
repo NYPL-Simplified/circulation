@@ -1,19 +1,14 @@
 # encoding: utf-8
 # Credential, DRMDeviceIdentifier, DelegatedPatronIdentifier
 from nose.tools import set_trace
-from . import (
-    Base,
-)
+
+from . import Base
 from helper_methods import (
     get_one,
     get_one_or_create,
 )
+
 import datetime
-import time
-from sqlalchemy.orm import (
-    backref,
-    relationship,
-)
 from sqlalchemy import (
     Column,
     Date,
@@ -24,8 +19,13 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
 )
-import uuid
+from sqlalchemy.orm import (
+    backref,
+    relationship,
+)
 from sqlalchemy.orm.session import Session
+import time
+import uuid
 
 class Credential(Base):
     """A place to store credentials for external services."""
@@ -57,7 +57,7 @@ class Credential(Base):
     @classmethod
     def lookup(self, _db, data_source, type, patron, refresher_method,
                allow_persistent_token=False):
-        from bibliographic_metadata import DataSource
+        from datasource import DataSource
         if isinstance(data_source, basestring):
             data_source = DataSource.lookup(_db, data_source)
         credential, is_new = get_one_or_create(

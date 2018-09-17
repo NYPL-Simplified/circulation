@@ -1,10 +1,10 @@
 # encoding: utf-8
 # Measurement
-from . import (
-    Base,
-)
-from datasource_constants import DataSourceConstants
 from nose.tools import set_trace
+
+from . import Base
+from datasource_constants import DataSourceConstants
+
 import bisect
 import logging
 from sqlalchemy import (

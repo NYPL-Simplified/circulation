@@ -1,42 +1,43 @@
 # encoding: utf-8
 # Identifier, Equivalency
+from nose.tools import set_trace
+
 from . import (
     Base,
     PresentationCalculationPolicy,
+)
+from background import CoverageRecord
+from classification import (
+    Classification,
+    Subject,
 )
 from contributions import (
     Contribution,
     Contributor,
 )
+from datasource import DataSource
+from datasource_constants import DataSourceConstants
 from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     create,
     get_one,
     get_one_or_create,
 )
-from background import CoverageRecord
-from measurement import Measurement
+from identifier_constants import IdentifierConstants
 from licensing import (
     LicensePool,
     LicensePoolDeliveryMechanism,
     RightsStatus,
 )
-from datasource import DataSource
-from datasource_constants import DataSourceConstants
 from link_relations import LinkRelations
-from identifier_constants import IdentifierConstants
-from classification import (
-    Classification,
-    Subject,
-)
+from measurement import Measurement
+
 from collections import defaultdict
-from nose.tools import set_trace
 import datetime
 import isbnlib
 import logging
 import random
 import re
-import urllib
 from sqlalchemy import (
     Boolean,
     Column,
@@ -52,21 +53,22 @@ from sqlalchemy import (
     Unicode,
     UniqueConstraint,
 )
-from sqlalchemy.sql import select
-from sqlalchemy.sql.expression import (
-    and_,
-    or_,
+from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.ext.mutable import (
+    MutableDict,
 )
 from sqlalchemy.orm import (
     backref,
     joinedload,
     relationship,
 )
-from sqlalchemy.ext.mutable import (
-    MutableDict,
-)
-from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm.session import Session
+from sqlalchemy.sql import select
+from sqlalchemy.sql.expression import (
+    and_,
+    or_,
+)
+import urllib
 from util import (
     LanguageCodes,
     TitleProcessor,
