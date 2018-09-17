@@ -317,6 +317,16 @@ class CirculationControllerTest(ControllerTest):
 class TestCirculationManager(CirculationControllerTest):
     """Test the CirculationManager object itself."""
 
+    def test_initialization(self):
+        # As soon as the CirculationManager object is created,
+        # it sets a public/private key pair for the site.
+        public, private = [
+            ConfigurationSetting.sitewide(self._db, x).value
+            for x in Configuration.PUBLIC_KEY, Configuration.PRIVATE_KEY
+        ]
+        assert 'BEGIN PUBLIC KEY' in public
+        assert 'BEGIN RSA PRIVATE KEY' in private
+
     def test_load_settings(self):
         # Here's a CirculationManager which we've been using for a while.
         manager = self.manager
@@ -455,6 +465,29 @@ class TestCirculationManager(CirculationControllerTest):
         # the presence of another library that doesn't have a Vendor
         # ID configuration.
         eq_(obj, self.manager.adobe_vendor_id)
+
+    def test_sitewide_key_pair(self):
+        # A public/private key pair was created when the
+        # CirculationManager was initialized. Clear it out.
+        public, private = [
+            ConfigurationSetting.sitewide(self._db, x)
+            for x in Configuration.PUBLIC_KEY, Configuration.PRIVATE_KEY
+        ]
+        public.value = None
+        private.value = None
+
+        # Calling sitewide_key_pair will create a new pair of keys.
+        new_public, new_private = self.manager.sitewide_key_pair
+        assert 'BEGIN PUBLIC KEY' in new_public
+        assert 'BEGIN RSA PRIVATE KEY' in new_private
+
+        # The new values are stored in the appropriate
+        # ConfigurationSettings.
+        eq_(public.value, new_public)
+        eq_(private.value, new_private)
+
+        # Calling it again will do nothing.
+        eq_((new_public, new_private), self.manager.sitewide_key_pair)
 
 
 class TestBaseController(CirculationControllerTest):
@@ -916,21 +949,11 @@ class TestIndexController(CirculationControllerTest):
     def test_public_key_integration_document(self):
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
 
-        # Without a sitewide public key, only the id and an empty dictionary are
-        # returned. Library-specific public keys are ignored.
-        ConfigurationSetting.for_library(Configuration.PUBLIC_KEY, self.library).value = u'banana'
-        with self.app.test_request_context('/'):
-            response = self.manager.index_controller.public_key_document()
-
-        eq_(200, response.status_code)
-        eq_('application/opds+json', response.headers.get('Content-Type'))
-
-        data = json.loads(response.data)
-        eq_('http://test-circulation-manager/', data.get('id'))
-        eq_({}, data.get('public_key'))
-
-        # When a sitewide public key exists, all of its data is included.
-        ConfigurationSetting.sitewide(self._db, Configuration.PUBLIC_KEY).value = u'weird'
+        # When a sitewide public key exists (which should be all the
+        # time), all of its data is included.
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.PUBLIC_KEY
+        ).value = u'weird'
         with self.app.test_request_context('/'):
             response = self.manager.index_controller.public_key_document()
 
@@ -940,6 +963,24 @@ class TestIndexController(CirculationControllerTest):
         data = json.loads(response.data)
         eq_('RSA', data.get('public_key', {}).get('type'))
         eq_('weird', data.get('public_key', {}).get('value'))
+
+        # If there is no sitewide public key (which should never
+        # happen), a new one is created. Library-specific public keys
+        # are ignored.
+        for x in (Configuration.PUBLIC_KEY, Configuration.PRIVATE_KEY):
+            ConfigurationSetting.sitewide(self._db, x).value = None
+            ConfigurationSetting.for_library(x, self.library).value = u'banana'
+        with self.app.test_request_context('/'):
+            response = self.manager.index_controller.public_key_document()
+
+        eq_(200, response.status_code)
+        eq_('application/opds+json', response.headers.get('Content-Type'))
+
+        data = json.loads(response.data)
+        eq_('http://test-circulation-manager/', data.get('id'))
+        key = data.get('public_key')
+        eq_('RSA', key['type'])
+        assert 'BEGIN PUBLIC KEY' in key['value']
 
 
 class TestMultipleLibraries(CirculationControllerTest):

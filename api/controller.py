@@ -203,9 +203,7 @@ class CirculationManager(object):
         new_custom_index_views = {}
 
         # Make sure there's a site-wide public/private key pair.
-        # Store the public key here for convenience; leave the private
-        # key in the database.
-        self.public_key, ignore = self.sitewide_key_pair
+        self.sitewide_key_pair
 
         new_adobe_device_management = None
         for library in self._db.query(Library):
@@ -434,14 +432,12 @@ class CirculationManager(object):
 
     @property
     def public_key_integration_document(self):
-        """Serve a document with the sitewide public key, creating it
-        if necessary.
-        """
+        """Serve a document with the sitewide public key."""
         site_id = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
         document = dict(id=site_id)
 
-
-        document['public_key'] = public_key_dict
+        public, private = self.sitewide_key_pair
+        document['public_key'] = dict(type='RSA', value=public)
         return json.dumps(document)
 
 
