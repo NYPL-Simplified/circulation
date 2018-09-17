@@ -17,26 +17,17 @@ import logging
 from sqlalchemy import (
     Boolean,
     Column,
-    event,
-    Float,
     ForeignKey,
     func,
-    Index,
     Integer,
-    String,
     Table,
     Unicode,
     UniqueConstraint,
 )
-from sqlalchemy.orm import (
-    backref,
-    relationship,
-)
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql.functions import func
-from sqlalchemy.sql.expression import join
 from sqlalchemy.orm.session import Session
-import uuid
 
 class Library(Base, HasFullTableCache):
     """A library that uses this circulation manager to authenticate

@@ -10,16 +10,13 @@ from helper_methods import (
 
 import datetime
 import logging
-import time
 from sqlalchemy import (
     Column,
-    Date,
     DateTime,
     ForeignKey,
     Index,
     Integer,
     Unicode,
-    UniqueConstraint,
 )
 from sqlalchemy.sql.expression import (
     and_,

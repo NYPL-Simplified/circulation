@@ -24,7 +24,6 @@ from sqlalchemy.dialects.postgresql import (
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import (
-    backref,
     relationship,
     synonym,
 )

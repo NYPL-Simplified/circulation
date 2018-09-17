@@ -2,33 +2,23 @@
 # Identifier, Equivalency
 from nose.tools import set_trace
 
-from . import (
-    Base,
-    PresentationCalculationPolicy,
-)
+from . import Base
 from background import CoverageRecord
 from classification import (
     Classification,
     Subject,
 )
 from constants import (
-    DataSourceConstants,
     IdentifierConstants,
     LinkRelations,
 )
-from contributor import (
-    Contribution,
-    Contributor,
-)
 from datasource import DataSource
-from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     create,
     get_one,
     get_one_or_create,
 )
 from licensing import (
-    LicensePool,
     LicensePoolDeliveryMechanism,
     RightsStatus,
 )
@@ -39,28 +29,16 @@ import datetime
 import isbnlib
 import logging
 import random
-import re
 from sqlalchemy import (
-    Boolean,
     Column,
-    Date,
-    Enum,
-    event,
     Float,
     ForeignKey,
     func,
-    Index,
     Integer,
     String,
-    Unicode,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import JSON
-from sqlalchemy.ext.mutable import (
-    MutableDict,
-)
 from sqlalchemy.orm import (
-    backref,
     joinedload,
     relationship,
 )
@@ -71,12 +49,6 @@ from sqlalchemy.sql.expression import (
     or_,
 )
 import urllib
-from util import (
-    LanguageCodes,
-    TitleProcessor,
-)
-from util.permanent_work_id import WorkIDCalculator
-from util.personal_names import display_name_to_sort_name
 from util.summary import SummaryEvaluator
 
 class Identifier(Base, IdentifierConstants):

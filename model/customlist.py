@@ -13,28 +13,18 @@ from work import Work
 
 import datetime
 import logging
-from lxml import etree
 from sqlalchemy import (
     Boolean,
     Column,
-    Date,
     DateTime,
-    event,
     ForeignKey,
     Index,
     Integer,
     Unicode,
     UniqueConstraint,
 )
-from sqlalchemy.orm import (
-    backref,
-    relationship,
-)
-from sqlalchemy.orm.base import NO_VALUE
-from sqlalchemy.sql.expression import (
-    join,
-    or_,
-)
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql.expression import or_
 from sqlalchemy.orm.session import Session
 
 class CustomList(Base):

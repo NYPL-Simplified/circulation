@@ -33,7 +33,6 @@ from sqlalchemy import (
     Binary,
     Column,
     DateTime,
-    exists,
     Float,
     ForeignKey,
     Integer,
@@ -47,10 +46,7 @@ from sqlalchemy.orm import (
     relationship,
 )
 from sqlalchemy.orm.session import Session
-from sqlalchemy.sql.expression import (
-    or_,
-    join,
-)
+from sqlalchemy.sql.expression import or_
 import time
 import traceback
 import urllib

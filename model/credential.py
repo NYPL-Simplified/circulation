@@ -11,7 +11,6 @@ from helper_methods import (
 import datetime
 from sqlalchemy import (
     Column,
-    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -24,7 +23,6 @@ from sqlalchemy.orm import (
     relationship,
 )
 from sqlalchemy.orm.session import Session
-import time
 import uuid
 
 class Credential(Base):

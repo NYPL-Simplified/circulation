@@ -3,10 +3,7 @@
 from nose.tools import set_trace
 
 from . import Base
-from config import (
-    Configuration,
-    CannotLoadConfiguration,
-)
+from config import CannotLoadConfiguration
 from constants import DataSourceConstants
 from has_full_table_cache import HasFullTableCache
 from helper_methods import (
@@ -15,66 +12,21 @@ from helper_methods import (
 )
 from library import Library
 
-import bcrypt
 import json
 import logging
 from mirror import MirrorUploader
 import os
 from sqlalchemy import (
-    Binary,
-    Boolean,
     Column,
-    create_engine,
-    Date,
-    DateTime,
-    Enum,
-    event,
-    exists,
-    Float,
     ForeignKey,
-    func,
-    Index,
     Integer,
-    MetaData,
-    Numeric,
-    String,
-    Table,
-    text,
     Unicode,
     UniqueConstraint,
 )
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.mutable import MutableDict
-from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import (
-    backref,
-    contains_eager,
-    joinedload,
-    lazyload,
-    mapper,
-    relationship,
-    sessionmaker,
-    synonym,
-)
-from sqlalchemy.orm.base import NO_VALUE
-from sqlalchemy.orm.exc import (
-    NoResultFound,
-    MultipleResultsFound,
-)
+from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql import select
-from sqlalchemy.sql.expression import (
-    and_,
-    case,
-    cast,
-    join,
-    literal,
-    literal_column,
-    or_,
-    select,
-    table,
-)
 from sqlalchemy.sql.functions import func
 
 class ExternalIntegration(Base, HasFullTableCache):

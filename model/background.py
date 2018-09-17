@@ -11,7 +11,6 @@ from helper_methods import (
 import datetime
 from sqlalchemy import (
     Column,
-    Date,
     DateTime,
     Enum,
     ForeignKey,

@@ -17,8 +17,8 @@ from admin import (
 from datasource import DataSource
 from classification import Genre
 from collection import Collection
+from config import Configuration
 from configuration import (
-    Configuration,
     ConfigurationSetting,
     ExternalIntegration,
 )

@@ -14,12 +14,8 @@ from contributor import (
     Contribution,
     Contributor,
 )
-import classifier
 from classifier import (
     Classifier,
-    COMICS_AND_GRAPHIC_NOVELS,
-    Erotica,
-    GenreData,
     WorkClassifier,
 )
 from constants import (
@@ -43,7 +39,6 @@ import datetime
 import logging
 import random
 from sqlalchemy import (
-    Binary,
     Boolean,
     Column,
     DateTime,
@@ -60,7 +55,6 @@ from sqlalchemy.dialects.postgresql import INT4RANGE
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.sql.functions import func
 from sqlalchemy.orm import (
-    backref,
     contains_eager,
     relationship,
 )

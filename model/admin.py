@@ -19,10 +19,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import (
-    backref,
-    relationship,
-)
+from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
 
 class Admin(Base, HasFullTableCache):

@@ -9,7 +9,6 @@ import datetime
 import logging
 from sqlalchemy import (
     Column,
-    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -17,7 +16,6 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
 )
-import time
 
 class CirculationEvent(Base):
 

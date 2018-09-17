@@ -18,7 +18,6 @@ from classifier import (
     COMICS_AND_GRAPHIC_NOVELS,
     Erotica,
     GenreData,
-    WorkClassifier,
 )
 
 import logging
@@ -27,22 +26,16 @@ from sqlalchemy import (
     Boolean,
     Column,
     Enum,
-    event,
     ForeignKey,
     func,
     Integer,
-    Index,
     Unicode,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import INT4RANGE
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy.orm import (
-    backref,
-    relationship,
-)
+from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
-from sqlalchemy.sql.expression import join
 from sqlalchemy.sql.functions import func
 
 class Subject(Base):
