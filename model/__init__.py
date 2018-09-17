@@ -7,8 +7,13 @@ from sqlalchemy.sql import compiler
 
 Base = declarative_base()
 
-from datasource_constants import DataSourceConstants
-from edition_constants import EditionConstants
+from constants import (
+    DataSourceConstants,
+    EditionConstants,
+    IdentifierConstants,
+    LinkRelations,
+    MediaTypes,
+)
 from helper_methods import (
     create,
     flush,
@@ -18,8 +23,6 @@ from helper_methods import (
     numericrange_to_tuple,
     tuple_to_numericrange,
 )
-from link_relations import LinkRelations
-from media_type_constants import MediaTypes
 
 class PresentationCalculationPolicy(object):
     """Which parts of the Work or Edition's presentation

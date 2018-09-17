@@ -1,12 +1,17 @@
 # encoding: utf-8
-# PolicyException LicensePool, LicensePoolDeliveryMechanism, DeliveryMechanism, RightsStatus
+# PolicyException LicensePool, LicensePoolDeliveryMechanism, DeliveryMechanism,
+# RightsStatus
 from nose.tools import set_trace
 
 from . import Base
 from circulation_event import CirculationEvent
 from complaint import Complaint
-from datasource_constants import DataSourceConstants
-from edition_constants import EditionConstants
+from constants import (
+    DataSourceConstants,
+    EditionConstants,
+    LinkRelations,
+    MediaTypes,
+)
 from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     create,
@@ -14,8 +19,6 @@ from helper_methods import (
     get_one,
     get_one_or_create,
 )
-from link_relations import LinkRelations
-from media_type_constants import MediaTypes
 from patrons import (
     Patron,
     Loan,

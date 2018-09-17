@@ -23,8 +23,11 @@ from classifier import (
     GenreData,
     WorkClassifier,
 )
+from constants import (
+    DataSourceConstants,
+    LinkRelations,
+)
 from datasource import DataSource
-from datasource_constants import DataSourceConstants
 from edition import Edition
 from helper_methods import (
     flush,
@@ -33,7 +36,6 @@ from helper_methods import (
     numericrange_to_tuple,
     tuple_to_numericrange,
 )
-from link_relations import LinkRelations
 from measurement import Measurement
 
 from collections import Counter

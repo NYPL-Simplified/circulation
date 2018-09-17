@@ -3,7 +3,7 @@
 from nose.tools import set_trace
 
 from . import Base
-from datasource_constants import DataSourceConstants
+from constants import DataSourceConstants
 from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     get_one,

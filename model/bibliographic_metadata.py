@@ -11,25 +11,27 @@ from classification import (
     Classification,
     Subject,
 )
+from constants import (
+    DataSourceConstants,
+    IdentifierConstants,
+    LinkRelations,
+)
 from contributions import (
     Contribution,
     Contributor,
 )
 from datasource import DataSource
-from datasource_constants import DataSourceConstants
 from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     create,
     get_one,
     get_one_or_create,
 )
-from identifier_constants import IdentifierConstants
 from licensing import (
     LicensePool,
     LicensePoolDeliveryMechanism,
     RightsStatus,
 )
-from link_relations import LinkRelations
 from measurement import Measurement
 
 from collections import defaultdict

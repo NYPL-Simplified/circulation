@@ -8,16 +8,18 @@ from . import (
 )
 from background import CoverageRecord
 from bibliographic_metadata import Identifier
+from constants import (
+    DataSourceConstants,
+    EditionConstants,
+    LinkRelations,
+)
 from contributions import (
     Contributor,
     Contribution,
 )
 from datasource import DataSource
-from datasource_constants import DataSourceConstants
-from edition_constants import EditionConstants
 from helper_methods import get_one_or_create
 from licensing import LicensePool
-from link_relations import LinkRelations
 
 from collections import defaultdict
 import logging

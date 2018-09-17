@@ -7,7 +7,7 @@ from config import (
     Configuration,
     CannotLoadConfiguration,
 )
-from datasource_constants import DataSourceConstants
+from constants import DataSourceConstants
 from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     get_one,

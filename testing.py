@@ -15,7 +15,7 @@ from config import Configuration
 from lane import (
     Lane,
 )
-from model.media_type_constants import MediaTypes
+from model.constants import MediaTypes
 from model import (
     Base,
     Classification,

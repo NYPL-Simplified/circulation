@@ -12,8 +12,8 @@ from configuration import (
     ConfigurationSetting,
     ExternalIntegration,
 )
+from constants import EditionConstants
 from datasource import DataSource
-from edition_constants import EditionConstants
 from has_full_table_cache import HasFullTableCache
 from helper_methods import (
     create,

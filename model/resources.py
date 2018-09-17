@@ -4,19 +4,21 @@ from nose.tools import set_trace
 
 from . import Base
 from config import Configuration
-from datasource_constants import DataSourceConstants
+from constants import (
+    DataSourceConstants,
+    IdentifierConstants,
+    LinkRelations,
+    MediaTypes,
+)
 from edition import Edition
 from helper_methods import (
     get_one,
     get_one_or_create,
 )
-from identifier_constants import IdentifierConstants
 from licensing import (
     LicensePool,
     LicensePoolDeliveryMechanism,
 )
-from link_relations import LinkRelations
-from media_type_constants import MediaTypes
 
 from cStringIO import StringIO
 import datetime
