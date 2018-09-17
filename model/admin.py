@@ -5,7 +5,7 @@ from nose.tools import set_trace
 from . import (
     Base,
     get_one,
-    get_one_or_create,
+    get_one_or_create
 )
 from hasfulltablecache import HasFullTableCache
 
