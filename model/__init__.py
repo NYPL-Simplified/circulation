@@ -1,6 +1,7 @@
 # encoding: utf-8
 from nose.tools import set_trace
 
+import logging
 import os
 from psycopg2.extensions import adapt as sqlescape
 from psycopg2.extras import NumericRange
