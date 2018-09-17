@@ -7,7 +7,7 @@ from edition import Edition
 from has_full_table_cache import HasFullTableCache
 from helper_methods import get_one
 from licensing import LicensePool
-from works import Work
+from work import Work
 
 from collections import Counter
 from config import Configuration

@@ -3,7 +3,7 @@
 from nose.tools import set_trace
 
 from . import Base
-from credentials import Credential
+from credential import Credential
 from helper_methods import get_one_or_create
 
 import datetime

@@ -446,7 +446,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
         """Create and update WorkCoverageRecords so that every Work in
         `works` has an identical record.
         """
-        from works import Work
+        from work import Work
 
         if not works:
             # Nothing to do.

@@ -9,7 +9,7 @@ from helper_methods import (
 )
 from identifier import Identifier
 from licensing import LicensePool
-from works import Work
+from work import Work
 
 import datetime
 import logging

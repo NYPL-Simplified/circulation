@@ -19,7 +19,7 @@ from helper_methods import (
     get_one,
     get_one_or_create,
 )
-from patrons import (
+from patron import (
     Patron,
     Loan,
     Hold,
@@ -218,7 +218,7 @@ class LicensePool(Base):
     @classmethod
     def with_no_work(cls, _db):
         """Find LicensePools that have no corresponding Work."""
-        from works import Work
+        from work import Work
         return _db.query(LicensePool).outerjoin(Work).filter(
             Work.id==None).all()
 
@@ -810,7 +810,7 @@ class LicensePool(Base):
         from calling set_presentation_edition() and assumes we've
         already done that work.
         """
-        from works import Work
+        from work import Work
 
         if not self.identifier:
             # A LicensePool with no Identifier should never have a Work.

@@ -95,7 +95,7 @@ def dump_query(query):
         params[k] = sqlescape(v)
     return (comp.string.encode(enc) % params).decode(enc)
 
-from admins import (
+from admin import (
     Admin,
     AdminRole,
 )
@@ -105,7 +105,7 @@ from background import (
     Timestamp,
     WorkCoverageRecord,
 )
-from cached_feed import (
+from cachedfeed import (
     CachedFeed,
     WillNotGenerateExpensiveFeed,
 )
@@ -125,17 +125,17 @@ from configuration import (
     ExternalIntegration,
 )
 from complaint import Complaint
-from contributions import (
+from contributor import (
     Contribution,
     Contributor,
     WorkContribution,
 )
-from credentials import (
+from credential import (
     Credential,
     DelegatedPatronIdentifier,
     DRMDeviceIdentifier,
 )
-from custom_lists import (
+from customlist import (
     CustomList,
     CustomListEntry,
 )
@@ -156,7 +156,7 @@ from licensing import (
     RightsStatus,
 )
 from measurement import Measurement
-from patrons import (
+from patron import (
     Annotation,
     Hold,
     Loan,
@@ -166,7 +166,7 @@ from patrons import (
 )
 import listeners
 from listeners import *
-from resources import (
+from resource import (
     Hyperlink,
     Representation,
     Resource,
@@ -177,7 +177,7 @@ from session_manager import (
     production_session,
     SessionManager,
 )
-from works import (
+from work import (
     Work,
     WorkGenre,
 )

@@ -16,7 +16,7 @@ from constants import (
     IdentifierConstants,
     LinkRelations,
 )
-from contributions import (
+from contributor import (
     Contribution,
     Contributor,
 )
@@ -484,7 +484,7 @@ class Identifier(Base, IdentifierConstants):
         fetching, mirroring and scaling Representations as links are
         created. It might be good to move that code into here.
         """
-        from resources import (
+        from resource import (
             Resource,
             Hyperlink,
             Representation,
@@ -611,7 +611,7 @@ class Identifier(Base, IdentifierConstants):
     @classmethod
     def resources_for_identifier_ids(self, _db, identifier_ids, rel=None,
                                      data_source=None):
-        from resources import (
+        from resource import (
             Resource,
             Hyperlink,
         )
@@ -639,7 +639,7 @@ class Identifier(Base, IdentifierConstants):
     def best_cover_for(cls, _db, identifier_ids, rel=None):
         # Find all image resources associated with any of
         # these identifiers.
-        from resources import (
+        from resource import (
             Resource,
             Hyperlink,
         )

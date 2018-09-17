@@ -12,7 +12,7 @@ from constants import (
     EditionConstants,
     LinkRelations,
 )
-from contributions import (
+from contributor import (
     Contributor,
     Contribution,
 )

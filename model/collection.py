@@ -26,7 +26,7 @@ from licensing import (
     LicensePool,
     LicensePoolDeliveryMechanism,
 )
-from works import Work
+from work import Work
 
 import base64
 from sqlalchemy import (

@@ -10,7 +10,7 @@ from sqlalchemy.orm.session import Session
 from . import (
     Base,
 )
-from admins import (
+from admin import (
     Admin,
     AdminRole,
 )
@@ -27,7 +27,7 @@ from licensing import (
     DeliveryMechanism,
     LicensePool,
 )
-from works import Work
+from work import Work
 
 from threading import RLock
 

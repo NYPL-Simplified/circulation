@@ -84,7 +84,7 @@ class Resource(Base):
 
     # Many Works may use this resource (as opposed to other resources
     # linked to them with rel="description") as their summary.
-    from works import Work
+    from work import Work
     summary_works = relationship("Work", backref="summary", foreign_keys=[Work.summary_id])
 
     # Many LicensePools (but probably one at most) may use this

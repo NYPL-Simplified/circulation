@@ -10,7 +10,7 @@ from background import (
     CoverageRecord,
     WorkCoverageRecord,
 )
-from contributions import (
+from contributor import (
     Contribution,
     Contributor,
 )
@@ -629,7 +629,7 @@ class Work(Base):
                         search_index_client=None):
         """Suppresses the currently visible covers of a number of Works"""
         from licensing import LicensePool
-        from resources import (
+        from resource import (
             Resource,
             Hyperlink,
         )
@@ -1313,7 +1313,7 @@ class Work(Base):
             Genre,
             Subject,
         )
-        from custom_lists import CustomListEntry
+        from customlist import CustomListEntry
         from licensing import LicensePool
 
         collections = select(
