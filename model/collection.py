@@ -18,9 +18,9 @@ from configuration import (
 )
 from constants import EditionConstants
 from datasource import DataSource
-from has_full_table_cache import HasFullTableCache
+from hasfulltablecache import HasFullTableCache
 from identifier import Identifier
-from integration_client import IntegrationClient
+from integrationclient import IntegrationClient
 from library import Library
 from licensing import (
     LicensePool,

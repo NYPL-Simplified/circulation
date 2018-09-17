@@ -11,7 +11,7 @@ from constants import (
     DataSourceConstants,
     IdentifierConstants,
 )
-from has_full_table_cache import HasFullTableCache
+from hasfulltablecache import HasFullTableCache
 from licensing import LicensePoolDeliveryMechanism
 
 from collections import defaultdict

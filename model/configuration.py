@@ -9,7 +9,7 @@ from . import (
 )
 from config import CannotLoadConfiguration
 from constants import DataSourceConstants
-from has_full_table_cache import HasFullTableCache
+from hasfulltablecache import HasFullTableCache
 from library import Library
 
 import json

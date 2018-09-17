@@ -7,7 +7,7 @@ from . import (
     get_one,
 )
 from edition import Edition
-from has_full_table_cache import HasFullTableCache
+from hasfulltablecache import HasFullTableCache
 from licensing import LicensePool
 from work import Work
 

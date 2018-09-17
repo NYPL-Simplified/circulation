@@ -7,7 +7,7 @@ from . import (
     get_one,
     get_one_or_create,
 )
-from has_full_table_cache import HasFullTableCache
+from hasfulltablecache import HasFullTableCache
 
 import bcrypt
 from sqlalchemy import (

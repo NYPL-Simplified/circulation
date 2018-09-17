@@ -11,7 +11,7 @@ from . import (
     tuple_to_numericrange,
 )
 from constants import DataSourceConstants
-from has_full_table_cache import HasFullTableCache
+from hasfulltablecache import HasFullTableCache
 
 import classifier
 from classifier import (

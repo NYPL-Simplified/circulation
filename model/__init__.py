@@ -472,7 +472,7 @@ from cachedfeed import (
     CachedFeed,
     WillNotGenerateExpensiveFeed,
 )
-from circulation_event import CirculationEvent
+from circulationevent import CirculationEvent
 from classification import (
     Classification,
     Genre,
@@ -504,12 +504,12 @@ from customlist import (
 )
 from datasource import DataSource
 from edition import Edition
-from has_full_table_cache import HasFullTableCache
+from hasfulltablecache import HasFullTableCache
 from identifier import (
     Equivalency,
     Identifier,
 )
-from integration_client import IntegrationClient
+from integrationclient import IntegrationClient
 from library import Library
 from licensing import (
     DeliveryMechanism,
