@@ -168,7 +168,7 @@ class Annotator(object):
             entry.extend([AtomFeed.updated(AtomFeed._strftime(updated))])
 
     @classmethod
-    def annotate_feed(cls, feed, lane):
+    def annotate_feed(cls, feed, lane, list=None):
         """Make any custom modifications necessary to integrate this
         OPDS feed into the application's workflow.
         """
@@ -748,16 +748,11 @@ class AcquisitionFeed(OPDSFeed):
         return content
 
     @classmethod
-    def from_query(cls, query, _db, library, list, url, pagination, url_fn, annotator):
+    def from_query(cls, query, _db, library, lane, list, url, pagination, url_fn, annotator):
         """Build  a feed representing one page of a given list. Currently used for
         creating an OPDS feed for a custom list and not cached.
         """
         page_of_works = pagination.apply(query)
-
-        worklist = WorkList()
-        worklist.initialize(library, customlists=[list])
-
-        annotator = annotator(worklist)
 
         feed = cls(_db, list.name, url, page_of_works, annotator)
 
@@ -768,7 +763,7 @@ class AcquisitionFeed(OPDSFeed):
         if pagination.previous_page:
             OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=url_fn("custom_list", after=pagination.previous_page.offset, library_short_name=library.short_name, list_id=list.id))
 
-        annotator.annotate_feed(feed, worklist, list)
+        annotator.annotate_feed(feed, lane, list)
 
         return feed
 

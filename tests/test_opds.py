@@ -1127,36 +1127,48 @@ class TestOPDS(DatabaseTest):
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, library=self._default_library, data_source=staff_data_source)
         work = self._work(with_license_pool=True)
+        work2 = self._work(with_license_pool=True)
         list.add_entry(work)
+        list.add_entry(work2)
 
+        # get all the entries from a custom list
         query = self._db.query(Work).join(Work.custom_list_entries).filter(CustomListEntry.list_id==list.id)
-        pagination = Pagination(size=1)
 
-        def url_fn(str, *args):
-            return str
+        pagination = Pagination(size=2)
+        worklist = WorkList()
+        worklist.initialize(self._default_library, customlists=[list], display_name="custom_list")
+
+        def url_fn(str, *args, **kwargs):
+            pagination_after = kwargs["after"]
+            base = "http://%s/" % str
+            if pagination_after:
+                base += "?after=%s&size=2" % pagination_after
+
+            return base
 
         def from_query(pagination):
             return AcquisitionFeed.from_query(
-                query, self._db, self._default_library, list, "url", pagination, url_fn,
-                TestAnnotator,
+                query, self._db, self._default_library, worklist,
+                list, "url", pagination, url_fn, TestAnnotator,
             )
 
         works = from_query(pagination)
         parsed = feedparser.parse(unicode(works))
-        eq_(work1.title, parsed['entries'][0]['title'])
+        eq_(2, len(parsed['entries']))
+        eq_(list.name, parsed['feed'].title)
 
         [next_link] = self.links(parsed, 'next')
-        eq_(TestAnnotator.feed_url(lane, facets, pagination.next_page), next_link['href'])
+        eq_(TestAnnotator.feed_url(worklist, pagination=pagination.next_page), next_link['href'])
 
         # This was the first page, so no previous link.
         eq_([], self.links(parsed, 'previous'))
 
         # Now get the second page and make sure it has a 'previous' link.
         works = from_query(pagination.next_page)
-        parsed = feedparser.parse(works)
-        [previous] = self.links(parsed, 'previous')
-        eq_(TestAnnotator.feed_url(lane, facets, pagination), previous['href'])
-        eq_(work2.title, parsed['entries'][0]['title'])
+        parsed = feedparser.parse(unicode(works))
+        [previous_link] = self.links(parsed, 'previous')
+        eq_(TestAnnotator.feed_url(worklist, pagination=pagination.previous_page), previous_link['href'])
+        eq_(0, len(parsed['entries']))
 
 
     def test_groups_feed(self):
