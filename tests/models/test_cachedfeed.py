@@ -1,15 +1,12 @@
 # encoding: utf-8
 from nose.tools import (
-    assert_raises,
-    assert_raises_regexp,
-    assert_not_equal,
     eq_,
     set_trace,
 )
-import classifier
-from classifier import Classifier
 import datetime
 from .. import DatabaseTest
+import classifier
+from classifier import Classifier
 from lane import (
     Facets,
     Pagination,

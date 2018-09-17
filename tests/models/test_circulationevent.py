@@ -1,13 +1,10 @@
 # encoding: utf-8
 from nose.tools import (
-    assert_raises,
-    assert_raises_regexp,
-    assert_not_equal,
     eq_,
     set_trace,
 )
-from .. import DatabaseTest
 import datetime
+from .. import DatabaseTest
 from model import get_one_or_create
 from model.circulationevent import CirculationEvent
 from model.datasource import DataSource

@@ -1,126 +1,33 @@
 # encoding: utf-8
-from StringIO import StringIO
-import base64
-import datetime
-import feedparser
-import os
-import sys
-import site
-import random
-import re
-import tempfile
-
 from nose.tools import (
     assert_raises,
-    assert_raises_regexp,
-    assert_not_equal,
     eq_,
     set_trace,
 )
-
+import datetime
 from psycopg2.extras import NumericRange
-
 from sqlalchemy import not_
+from sqlalchemy.orm.exc import MultipleResultsFound
 
-from sqlalchemy.exc import (
-    IntegrityError,
-)
-
-from sqlalchemy.orm.exc import (
-    NoResultFound,
-    MultipleResultsFound
-)
-from sqlalchemy.orm.session import Session
-
-from lxml import etree
-
-from config import (
-    CannotLoadConfiguration,
-    Configuration,
-    temp_config,
-)
-
-from entrypoint import AudiobooksEntryPoint
-
+from .. import DatabaseTest
+import classifier
+from classifier import Fantasy
+from config import Configuration
 import lane
-from lane import (
-    Facets,
-    Pagination,
-    WorkList,
-)
 import model
 from model import (
-    Admin,
-    AdminRole,
-    Annotation,
-    BaseCoverageRecord,
     CachedFeed,
-    CirculationEvent,
-    Classification,
-    Collection,
-    CollectionMissing,
-    Complaint,
     ConfigurationSetting,
-    Contributor,
-    CoverageRecord,
-    Credential,
-    CustomList,
-    CustomListEntry,
-    DataSource,
-    DelegatedPatronIdentifier,
-    DeliveryMechanism,
-    DRMDeviceIdentifier,
-    ExternalIntegration,
-    Genre,
-    HasFullTableCache,
-    Hold,
-    Hyperlink,
-    IntegrationClient,
-    Library,
-    LicensePool,
-    LicensePoolDeliveryMechanism,
-    Measurement,
-    Patron,
-    PatronProfileStorage,
-    PolicyException,
-    Representation,
-    Resource,
-    RightsStatus,
-    SessionManager,
-    Subject,
-    Timestamp,
-    Work,
-    WorkCoverageRecord,
-    WorkGenre,
-    Identifier,
-    Edition,
     create,
+    DataSource,
+    Edition,
+    Genre,
     get_one,
-    get_one_or_create,
+    SessionManager,
     site_configuration_has_changed,
+    Timestamp,
     tuple_to_numericrange,
 )
-from external_search import (
-    DummyExternalSearchIndex,
-)
-
-import classifier
-from classifier import (
-    Classifier,
-    Fantasy,
-    Romance,
-    Science_Fiction,
-    Drama,
-)
-
-from .. import (
-    DatabaseTest,
-    DummyHTTPClient,
-)
-
-from testing import MockRequestsResponse
-
-from mock_analytics_provider import MockAnalyticsProvider
 
 class TestSessionManager(DatabaseTest):
 
@@ -150,7 +57,6 @@ class TestSessionManager(DatabaseTest):
         # Both lanes have had .size set to the correct value.
         eq_(1, fiction.size)
         eq_(0, nonfiction.size)
-
 
 class TestDatabaseInterface(DatabaseTest):
 
@@ -197,21 +103,6 @@ class TestDatabaseInterface(DatabaseTest):
         old_timestamp = timestamp.timestamp
         SessionManager.initialize_data(self._db)
         eq_(old_timestamp, timestamp.timestamp)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 # class TestWorkQuality(DatabaseTest):
 
@@ -273,11 +164,6 @@ class TestDatabaseInterface(DatabaseTest):
 #         work2.calculate_presentation()
 
 #         assert work1.quality > work2.quality
-
-
-
-
-
 
 class TestSiteConfigurationHasChanged(DatabaseTest):
 
@@ -380,7 +266,6 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         )
         assert even_newer_update > newer_update
 
-
         # If ConfigurationSettings are updated twice within the
         # timeout period (default 1 second), the last update time is
         # only set once, to avoid spamming the Timestamp with updates.
@@ -443,9 +328,6 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
                facets='', library=library)
         self._db.commit()
         self.mock.assert_was_not_called()
-
-
-
 
 class TestMaterializedViews(DatabaseTest):
 

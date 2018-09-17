@@ -1,8 +1,5 @@
 # encoding: utf-8
 from nose.tools import (
-    assert_raises,
-    assert_raises_regexp,
-    assert_not_equal,
     eq_,
     set_trace,
 )
@@ -27,7 +24,7 @@ class MockHasTableCache(HasFullTableCache):
 
     def cache_key(self):
         return self.KEY
-        
+
 class TestHasFullTableCache(DatabaseTest):
 
     def setup(self):

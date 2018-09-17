@@ -1,17 +1,15 @@
 # encoding: utf-8
 from nose.tools import (
     assert_raises,
-    assert_raises_regexp,
-    assert_not_equal,
     eq_,
     set_trace,
 )
+from .. import DatabaseTest
 from model import create
 from model.admin import (
     Admin,
     AdminRole,
 )
-from .. import DatabaseTest
 
 class TestAdmin(DatabaseTest):
     def setup(self):
