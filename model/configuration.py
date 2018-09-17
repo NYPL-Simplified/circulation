@@ -2,14 +2,14 @@
 # ExternalIntegration, ConfigurationSetting
 from nose.tools import set_trace
 
-from . import Base
-from config import CannotLoadConfiguration
-from constants import DataSourceConstants
-from has_full_table_cache import HasFullTableCache
-from helper_methods import (
+from . import (
+    Base,
     get_one,
     get_one_or_create,
 )
+from config import CannotLoadConfiguration
+from constants import DataSourceConstants
+from has_full_table_cache import HasFullTableCache
 from library import Library
 
 import json

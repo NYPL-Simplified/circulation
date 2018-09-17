@@ -3,7 +3,13 @@
 # RightsStatus
 from nose.tools import set_trace
 
-from . import Base
+from . import (
+    Base,
+    create,
+    flush,
+    get_one,
+    get_one_or_create,
+)
 from circulation_event import CirculationEvent
 from complaint import Complaint
 from constants import (
@@ -13,12 +19,6 @@ from constants import (
     MediaTypes,
 )
 from has_full_table_cache import HasFullTableCache
-from helper_methods import (
-    create,
-    flush,
-    get_one,
-    get_one_or_create,
-)
 from patron import (
     Patron,
     Loan,

@@ -2,7 +2,12 @@
 # Collection, CollectionIdentifier, CollectionMissing
 from nose.tools import set_trace
 
-from . import Base
+from . import (
+    Base,
+    create,
+    get_one,
+    get_one_or_create,
+)
 from background import (
     CoverageRecord,
     WorkCoverageRecord,
@@ -14,11 +19,6 @@ from configuration import (
 from constants import EditionConstants
 from datasource import DataSource
 from has_full_table_cache import HasFullTableCache
-from helper_methods import (
-    create,
-    get_one,
-    get_one_or_create,
-)
 from identifier import Identifier
 from integration_client import IntegrationClient
 from library import Library

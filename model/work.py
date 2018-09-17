@@ -4,7 +4,12 @@ from nose.tools import set_trace
 
 from . import (
     Base,
+    flush,
+    get_one_or_create,
+    numericrange_to_string,
+    numericrange_to_tuple,
     PresentationCalculationPolicy,
+    tuple_to_numericrange,
 )
 from background import (
     CoverageRecord,
@@ -24,13 +29,6 @@ from constants import (
 )
 from datasource import DataSource
 from edition import Edition
-from helper_methods import (
-    flush,
-    get_one_or_create,
-    numericrange_to_string,
-    numericrange_to_tuple,
-    tuple_to_numericrange,
-)
 from identifier import Identifier
 from measurement import Measurement
 

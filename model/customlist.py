@@ -2,11 +2,11 @@
 # CustomList, CustomListEntry
 from nose.tools import set_trace
 
-from . import Base
-from datasource import DataSource
-from helper_methods import (
+from . import (
+    Base,
     get_one_or_create,
 )
+from datasource import DataSource
 from identifier import Identifier
 from licensing import LicensePool
 from work import Work

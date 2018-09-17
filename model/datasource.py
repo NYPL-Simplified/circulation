@@ -2,16 +2,16 @@
 # DataSource
 from nose.tools import set_trace
 
-from . import Base
+from . import (
+    Base,
+    get_one,
+    get_one_or_create,
+)
 from constants import (
     DataSourceConstants,
     IdentifierConstants,
 )
 from has_full_table_cache import HasFullTableCache
-from helper_methods import (
-    get_one,
-    get_one_or_create,
-)
 from licensing import LicensePoolDeliveryMechanism
 
 from collections import defaultdict

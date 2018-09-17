@@ -2,8 +2,8 @@
 # Complaint
 from nose.tools import set_trace
 
-from . import Base
-from helper_methods import (
+from . import (
+    Base,
     create,
     get_one_or_create,
 )

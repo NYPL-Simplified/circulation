@@ -2,9 +2,11 @@
 # LoanAndHoldMixin, Patron, Loan, Hold, Annotation, PatronProfileStorage
 from nose.tools import set_trace
 
-from . import Base
+from . import (
+    Base,
+    get_one_or_create,
+)
 from credential import Credential
-from helper_methods import get_one_or_create
 
 import datetime
 from sqlalchemy import (

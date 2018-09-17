@@ -2,10 +2,12 @@
 # Library
 from nose.tools import set_trace
 
-from . import Base
+from . import (
+    Base,
+    get_one,
+)
 from edition import Edition
 from has_full_table_cache import HasFullTableCache
-from helper_methods import get_one
 from licensing import LicensePool
 from work import Work
 

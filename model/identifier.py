@@ -2,7 +2,12 @@
 # Identifier, Equivalency
 from nose.tools import set_trace
 
-from . import Base
+from . import (
+    Base,
+    create,
+    get_one,
+    get_one_or_create,
+)
 from background import CoverageRecord
 from classification import (
     Classification,
@@ -13,11 +18,6 @@ from constants import (
     LinkRelations,
 )
 from datasource import DataSource
-from helper_methods import (
-    create,
-    get_one,
-    get_one_or_create,
-)
 from licensing import (
     LicensePoolDeliveryMechanism,
     RightsStatus,

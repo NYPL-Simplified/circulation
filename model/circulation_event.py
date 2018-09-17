@@ -2,8 +2,10 @@
 # CirculationEvent
 from nose.tools import set_trace
 
-from . import Base
-from helper_methods import get_one_or_create
+from . import (
+    Base,
+    get_one_or_create,
+)
 
 import datetime
 import logging

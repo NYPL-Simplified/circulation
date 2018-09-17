@@ -2,7 +2,11 @@
 # Resource, ResourceTransformation, Hyperlink, Representation
 from nose.tools import set_trace
 
-from . import Base
+from . import (
+    Base,
+    get_one,
+    get_one_or_create,
+)
 from config import Configuration
 from constants import (
     DataSourceConstants,
@@ -11,10 +15,6 @@ from constants import (
     MediaTypes,
 )
 from edition import Edition
-from helper_methods import (
-    get_one,
-    get_one_or_create,
-)
 from licensing import (
     LicensePool,
     LicensePoolDeliveryMechanism,

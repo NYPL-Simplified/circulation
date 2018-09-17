@@ -2,15 +2,16 @@
 # Subject, Classification, Genre
 from nose.tools import set_trace
 
-from . import Base
-from constants import DataSourceConstants
-from has_full_table_cache import HasFullTableCache
-from helper_methods import (
+from . import (
+    Base,
     get_one,
     get_one_or_create,
+    numericrange_to_string,
     numericrange_to_tuple,
     tuple_to_numericrange,
 )
+from constants import DataSourceConstants
+from has_full_table_cache import HasFullTableCache
 
 import classifier
 from classifier import (
