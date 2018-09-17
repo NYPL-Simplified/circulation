@@ -1,3 +1,6 @@
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+
 from collections import Counter
 from nose.tools import (
     assert_raises_regexp,
@@ -60,6 +63,25 @@ class TestConfiguration(DatabaseTest):
             Configuration.key_pair, public, irrelevant
         )
 
+    def test_cipher(self):
+        """Test the cipher() helper method."""
+
+        # Generate a public/private key pair.
+        key = RSA.generate(2048)
+        cipher = PKCS1_OAEP.new(key)
+        public = key.publickey().exportKey()
+        private = key.exportKey()
+
+        # Pass the public key into cipher() to get something that can
+        # encrypt.
+        encryptor = Configuration.cipher(public)
+        encrypted = encryptor.encrypt("some text")
+
+        # Pass the private key into cipher() to get something that can
+        # decrypt.
+        decryptor = Configuration.cipher(private)
+        decrypted = decryptor.decrypt(encrypted)
+        eq_("some text", decrypted)
 
     def test_collection_language_method_performs_estimate(self):
         C = Configuration
