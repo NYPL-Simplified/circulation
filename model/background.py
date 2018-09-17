@@ -219,9 +219,9 @@ class CoverageRecord(Base, BaseCoverageRecord):
     @classmethod
     def lookup(cls, edition_or_identifier, data_source, operation=None,
                collection=None):
-        from bibliographic_metadata import Identifier
         from datasource import DataSource
         from edition import Edition
+        from identifier import Identifier
 
         _db = Session.object_session(edition_or_identifier)
         if isinstance(edition_or_identifier, Identifier):
@@ -247,8 +247,8 @@ class CoverageRecord(Base, BaseCoverageRecord):
     @classmethod
     def add_for(self, edition, data_source, operation=None, timestamp=None,
                 status=BaseCoverageRecord.SUCCESS, collection=None):
-        from bibliographic_metadata import Identifier
         from edition import Edition
+        from identifier import Identifier
 
         _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
@@ -279,7 +279,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
         """Create and update CoverageRecords so that every Identifier in
         `identifiers` has an identical record.
         """
-        from bibliographic_metadata import Identifier
+        from identifier import Identifier
 
         if not identifiers:
             # Nothing to do.

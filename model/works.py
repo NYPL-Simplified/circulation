@@ -10,7 +10,6 @@ from background import (
     CoverageRecord,
     WorkCoverageRecord,
 )
-from bibliographic_metadata import Identifier
 from contributions import (
     Contribution,
     Contributor,
@@ -36,6 +35,7 @@ from helper_methods import (
     numericrange_to_tuple,
     tuple_to_numericrange,
 )
+from identifier import Identifier
 from measurement import Measurement
 
 from collections import Counter

@@ -159,9 +159,9 @@ class LicensePool(Base):
     def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id,
                        rights_status=None, collection=None, autocreate=True):
         """Find or create a LicensePool for the given foreign ID."""
-        from bibliographic_metadata import Identifier
         from collection import CollectionMissing
         from datasource import DataSource
+        from identifier import Identifier
         if not collection:
             raise CollectionMissing()
 
@@ -983,7 +983,7 @@ class LicensePool(Base):
     @property
     def open_access_links(self):
         """Yield all open-access Resources for this LicensePool."""
-        from bibliographic_metadata import Identifier
+        from identifier import Identifier
         open_access = LinkRelations.OPEN_ACCESS_DOWNLOAD
         _db = Session.object_session(self)
         if not self.identifier:

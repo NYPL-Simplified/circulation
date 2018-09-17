@@ -7,7 +7,6 @@ from . import (
     PresentationCalculationPolicy,
 )
 from background import CoverageRecord
-from bibliographic_metadata import Identifier
 from constants import (
     DataSourceConstants,
     EditionConstants,
@@ -19,6 +18,7 @@ from contributions import (
 )
 from datasource import DataSource
 from helper_methods import get_one_or_create
+from identifier import Identifier
 from licensing import LicensePool
 
 from collections import defaultdict

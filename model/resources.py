@@ -419,7 +419,7 @@ class Hyperlink(Base, LinkRelations):
         thumbnail was created of it. (We do cover the case where the thumbnail
         was created but not mirrored.)
         """
-        from bibliographic_metadata import Identifier
+        from identifier import Identifier
         _db = Session.object_session(collection)
         qu = _db.query(Hyperlink).join(
             Hyperlink.identifier

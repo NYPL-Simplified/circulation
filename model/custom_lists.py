@@ -3,11 +3,11 @@
 from nose.tools import set_trace
 
 from . import Base
-from bibliographic_metadata import Identifier
 from datasource import DataSource
 from helper_methods import (
     get_one_or_create,
 )
+from identifier import Identifier
 from licensing import LicensePool
 from works import Work
 

@@ -7,7 +7,6 @@ from background import (
     CoverageRecord,
     WorkCoverageRecord,
 )
-from bibliographic_metadata import Identifier
 from configuration import (
     ConfigurationSetting,
     ExternalIntegration,
@@ -20,6 +19,7 @@ from helper_methods import (
     get_one,
     get_one_or_create,
 )
+from identifier import Identifier
 from integration_client import IntegrationClient
 from library import Library
 from licensing import (

@@ -105,10 +105,6 @@ from background import (
     Timestamp,
     WorkCoverageRecord,
 )
-from bibliographic_metadata import (
-    Equivalency,
-    Identifier,
-)
 from cached_feed import (
     CachedFeed,
     WillNotGenerateExpensiveFeed,
@@ -146,6 +142,10 @@ from custom_lists import (
 from datasource import DataSource
 from edition import Edition
 from has_full_table_cache import HasFullTableCache
+from identifier import (
+    Equivalency,
+    Identifier,
+)
 from integration_client import IntegrationClient
 from library import Library
 from licensing import (
