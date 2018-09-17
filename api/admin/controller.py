@@ -3303,7 +3303,6 @@ class SettingsController(AdminCirculationManagerController):
                 headers=headers
             )
         except Exception as e:
-            public_key_setting.value = None
             return REMOTE_INTEGRATION_FAILED.detailed(e.message)
 
         if isinstance(response, ProblemDetail):
@@ -3312,13 +3311,13 @@ class SettingsController(AdminCirculationManagerController):
         shared_secret = registration_info.get('metadata', {}).get('shared_secret')
 
         if not shared_secret:
-            public_key_setting.value = None
             return REMOTE_INTEGRATION_FAILED.detailed(
                 _('The service did not provide registration information.')
             )
 
-        public_key_setting.value = None
-        shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
+        ignore, private_key = self.circulation_manager.sitewide_key_pair
+        decryptor = Configuration.cipher(private_key)
+        shared_secret = decryptor.decrypt(base64.b64decode(shared_secret))
         integration.password = unicode(shared_secret)
 
     def sitewide_registration_document(self):
@@ -3332,7 +3331,7 @@ class SettingsController(AdminCirculationManagerController):
             proving control over that URL.
         """
 
-        public_key = self.circulation_manager.sitewide_public_key
+        public_key, ignore = self.circulation_manager.sitewide_key_pair
         public_key_dict = dict(
             type='RSA',
             value=public_key

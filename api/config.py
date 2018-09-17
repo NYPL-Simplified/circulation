@@ -3,7 +3,12 @@ import re
 from nose.tools import set_trace
 import contextlib
 from copy import deepcopy
+
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+
 from flask_babel import lazy_gettext as _
+
 from core.config import (
     Configuration as CoreConfiguration,
     CannotLoadConfiguration,
@@ -507,6 +512,19 @@ class Configuration(CoreConfiguration):
             private_setting.value = key.exportKey()
 
         return public_setting.value, private_setting.value
+
+    @classmethod
+    def cipher(cls, key):
+        """Create a Cipher for a public or private key.
+
+        This just wraps some hard-to-remember Crypto code.
+
+        :param key: A string containing the key.
+
+        :return: A Cipher object which will support either
+        encrypt() (public key) or decrypt() (private key).
+        """
+        return PKCS1_OAEP.new(RSA.import_key(key))
 
 
 @contextlib.contextmanager

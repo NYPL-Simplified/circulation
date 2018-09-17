@@ -1,7 +1,5 @@
 from nose.tools import set_trace
 import base64
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
 import feedparser
 from flask_babel import lazy_gettext as _
 import json
@@ -293,23 +291,13 @@ class Registration(object):
         the library's Authentication For OPDS document, allowing the
         remote registry to sign a shared secret for it.
 
-        NOTE: This method commits to the database.
-
         :return: A Crypto.Cipher object that can be used to decrypt
         data encrypted with the public key.
         """
-        if not key:
-            key = RSA.generate(2048)
-        public_key = key.publickey().exportKey()
-        encryptor = PKCS1_OAEP.new(key)
-
-        ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, self.library
-        ).value = public_key
-        # Commit so the public key will be there when the registry gets the
-        # OPDS Authentication document.
-        self._db.commit()
-        return encryptor
+        private_key = ConfigurationSetting.for_library(
+            self.library, Configuration.PRIVATE_KEY
+        )
+        return Configuration.cipher(private_key)
 
     def _create_registration_payload(self, url_for, stage):
         """Collect the key-value pairs to be sent when kicking off the

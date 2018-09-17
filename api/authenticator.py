@@ -60,9 +60,6 @@ from werkzeug.datastructures import Headers
 from flask_babel import lazy_gettext as _
 import importlib
 
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
-
 
 class CannotCreateLocalPatron(Exception):
     """A remote system provided information about a patron, but we could
