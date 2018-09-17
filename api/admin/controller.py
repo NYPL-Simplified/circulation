@@ -1604,6 +1604,11 @@ class CustomListsController(AdminCirculationManagerController):
         else:
             return Response(unicode(list.id), 200)
 
+    def url_for_custom_list(self, library, list):
+        def url_fn(after):
+            return self.url_for("custom_list", after=after, library_short_name=library.short_name, list_id=list.id)
+        return url_fn
+
     def custom_list(self, list_id):
         library = flask.request.library
         self.require_librarian(library)
@@ -1628,11 +1633,13 @@ class CustomListsController(AdminCirculationManagerController):
             worklist.initialize(library, customlists=[list])
 
             annotator = self.manager.annotator(worklist)
+            url_fn = self.url_for_custom_list(library, list)
 
             feed = AcquisitionFeed.from_query(
-                query, self._db, library, worklist, list,
-                url, pagination, self.url_for, annotator
+                query, self._db, list.name,
+                url, pagination, url_fn, annotator
             )
+            annotator.annotate_feed(feed, worklist, list)
 
             return feed_response(unicode(feed))
 
