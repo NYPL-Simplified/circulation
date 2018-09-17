@@ -2154,7 +2154,7 @@ class TestCustomListsController(AdminControllerTest):
         with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "List"),
-                ("entries", json.dumps([dict(identifier_urn=work.presentation_edition.primary_identifier.urn)])),
+                ("entries", json.dumps([dict(id=work.presentation_edition.primary_identifier.urn)])),
                 ("collections", json.dumps([collection.id])),
             ])
 
@@ -2241,9 +2241,12 @@ class TestCustomListsController(AdminControllerTest):
         list.add_entry(w2)
         self.add_to_materialized_view([w1, w2, w3])
 
-        new_entries = [dict(identifier_urn=work.presentation_edition.primary_identifier.urn,
+        new_entries = [dict(id=work.presentation_edition.primary_identifier.urn,
                             medium=Edition.medium_to_additional_type[work.presentation_edition.medium])
                        for work in [w2, w3]]
+        deletedEntries = [dict(id=work.presentation_edition.primary_identifier.urn,
+                            medium=Edition.medium_to_additional_type[work.presentation_edition.medium])
+                       for work in [w1]]
 
         c1 = self._collection()
         c1.libraries = [self._default_library]
@@ -2257,6 +2260,7 @@ class TestCustomListsController(AdminControllerTest):
                 ("id", str(list.id)),
                 ("name", "new name"),
                 ("entries", json.dumps(new_entries)),
+                ("deletedEntries", json.dumps(deletedEntries)),
                 ("collections", json.dumps([c.id for c in new_collections])),
             ])
 

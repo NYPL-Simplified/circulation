@@ -1624,8 +1624,14 @@ class CustomListsController(AdminCirculationManagerController):
                 library_short_name=library.short_name,
             )
 
+            worklist = WorkList()
+            worklist.initialize(library, customlists=[list])
+
+            annotator = self.manager.annotator(worklist)
+
             feed = AcquisitionFeed.from_query(
-                query, self._db, library, list, url, pagination, self.url_for, self.manager.annotator
+                query, self._db, library, worklist, list,
+                url, pagination, self.url_for, annotator
             )
 
             return feed_response(unicode(feed))
