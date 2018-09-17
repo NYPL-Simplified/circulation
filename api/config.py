@@ -499,9 +499,9 @@ class Configuration(CoreConfiguration):
                 'Invalid setting "%s" passed in as public key!' %
                 public_setting.key
             )
-        if 'private' not in private_setting.key.lower()
+        if 'private' not in private_setting.key.lower():
             raise ValueError(
-                'Invalid setting "%s" passed in as private key!' %
+                'Incorrect ConfigurationSetting "%s" passed in as private key!' %
                 private_setting.key
             )
 
