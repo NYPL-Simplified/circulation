@@ -584,6 +584,13 @@ class LibraryAuthenticator(object):
         self.oauth_providers_by_name = dict()
         self.bearer_token_signing_secret = bearer_token_signing_secret
         self.initialization_exceptions = dict()
+
+
+        # Make sure there's a public/private key pair for this library.
+        # Store the public key here for convenience; leave the private
+        # key in the database.
+        self.public_key, ignore = self.key_pair
+
         if oauth_providers:
             for provider in oauth_providers:
                 self.oauth_providers_by_name[provider.NAME] = provider
@@ -938,8 +945,8 @@ class LibraryAuthenticator(object):
         if service_area:
             doc['service_area'] = service_area
 
-        # Add the library's public key, generating one if necessary.
-        doc["public_key"] = dict(type="RSA", value=self.public_key)
+        # Add the library's public key.
+        doc["public_key"] = dict(type="RSA", value=self.public_key.value)
 
         # Add feature flags to signal to clients what features they should
         # offer.
@@ -960,30 +967,14 @@ class LibraryAuthenticator(object):
         return json.dumps(doc)
 
     @property
-    def public_key(self):
-        """Look up or create a public key for use by this library.
+    def key_pair(self):
+        """Look up or create a public/private key pair for use by this library.
         """
-        public_key_setting = ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, self.library
-        )
-        return self._public_key(public_key_setting)
-
-    @classmethod
-    def _public_key(cls, setting):
-        """If `setting` contains a value, return that value.
-
-        Otherwise, create a new RSA public key, store it in the setting,
-        and return that.
-        
-        TODO: This could go into ConfigurationSetting.
-        :param setting: A ConfigurationSetting.
-        """
-        if not setting.value:
-            key = RSA.generate(2048)
-            encryptor = PKCS1_OAEP.new(key)
-            public_key = key.publickey().exportKey()
-            setting.value = public_key
-        return setting.value
+        public, private = [
+            ConfigurationSetting.for_library(x, self.library)
+            for x in Configuration.PUBLIC_KEY, Configuration.PRIVATE_KEY
+        ]
+        return Configuration.key_pair(public, private)
 
     @classmethod
     def _geographic_areas(cls, library):

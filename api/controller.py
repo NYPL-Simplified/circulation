@@ -202,8 +202,10 @@ class CirculationManager(object):
         # Potentially load a CustomIndexView for each library
         new_custom_index_views = {}
 
-        # Make sure there's a site-wide public key.
-        self.setup_public_key(None)
+        # Make sure there's a site-wide public/private key pair.
+        # Store the public key here for convenience; leave the private
+        # key in the database.
+        self.public_key, ignore = self.sitewide_key_pair
 
         new_adobe_device_management = None
         for library in self._db.query(Library):
@@ -218,9 +220,6 @@ class CirculationManager(object):
             new_circulation_apis[library.id] = self.setup_circulation(
                 library, self.analytics
             )
-
-            # Make sure the library has a public key.
-            self.setup_public_key(library)
 
             authdata = self.setup_adobe_vendor_id(self._db, library)
             if authdata and not new_adobe_device_management:
@@ -425,12 +424,13 @@ class CirculationManager(object):
         return self.authentication_for_opds_documents[name]
 
     @property
-    def sitewide_public_key(self):
-        """Look up or create the sitewide public key."""
-        setting = ConfigurationSetting.sitewide(
-            self._db, Configuration.PUBLIC_KEY
-        )
-        return Authenticator._public_key(setting)
+    def sitewide_key_pair(self):
+        """Look up or create the sitewide public/private key pair."""
+        public, private = [
+            ConfigurationSetting.sitewide(self._db, x)
+            for x in Configuration.PUBLIC_KEY, Configuration.PRIVATE_KEY
+        ]
+        return Configuration.key_pair(public, private)
 
     @property
     def public_key_integration_document(self):
