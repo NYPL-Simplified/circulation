@@ -748,22 +748,21 @@ class AcquisitionFeed(OPDSFeed):
         return content
 
     @classmethod
-    def from_query(cls, query, _db, library, lane, list, url, pagination, url_fn, annotator):
+    def from_query(cls, query, _db, list_name, url, pagination, url_fn, annotator):
         """Build  a feed representing one page of a given list. Currently used for
         creating an OPDS feed for a custom list and not cached.
         """
         page_of_works = pagination.apply(query)
+        pagination.total_size = int(query.count())
 
-        feed = cls(_db, list.name, url, page_of_works, annotator)
+        feed = cls(_db, list_name, url, page_of_works, annotator)
 
-        if len(list.entries) > 0 and pagination.has_next_page:
-            OPDSFeed.add_link_to_feed(feed=feed.feed, rel="next", href=url_fn("custom_list", after=pagination.next_page.offset, library_short_name=library.short_name, list_id=list.id))
+        if pagination.total_size > 0 and pagination.has_next_page:
+            OPDSFeed.add_link_to_feed(feed=feed.feed, rel="next", href=url_fn(pagination.next_page.offset))
         if pagination.offset > 0:
-            OPDSFeed.add_link_to_feed(feed=feed.feed, rel="first", href=url_fn("custom_list", after=pagination.first_page.offset, library_short_name=library.short_name, list_id=list.id))
+            OPDSFeed.add_link_to_feed(feed=feed.feed, rel="first", href=url_fn(pagination.first_page.offset))
         if pagination.previous_page:
-            OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=url_fn("custom_list", after=pagination.previous_page.offset, library_short_name=library.short_name, list_id=list.id))
-
-        annotator.annotate_feed(feed, lane, list)
+            OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=url_fn(pagination.previous_page.offset))
 
         return feed
 
