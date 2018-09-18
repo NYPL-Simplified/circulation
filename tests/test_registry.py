@@ -266,7 +266,7 @@ class TestRegistration(DatabaseTest):
         ConfigurationSetting.for_library(
             Configuration.PRIVATE_KEY, library).value = key.exportKey()
         result = registration.push(
-            stage, url_for, catalog_url, registration.mock_do_get, do_post, key
+            stage, url_for, catalog_url, registration.mock_do_get, do_post
         )
         eq_("all done!", result)
 
@@ -321,7 +321,7 @@ class TestRegistration(DatabaseTest):
         # If a nonexistent stage is provided a ProblemDetail is the result.
         result = registration.push(
             "no such stage", url_for, catalog_url, registration.mock_do_get,
-            do_post, key
+            do_post
         )
         eq_(INVALID_INPUT.uri, result.uri)
         eq_("'no such stage' is not a valid registration stage",
@@ -331,14 +331,9 @@ class TestRegistration(DatabaseTest):
         # that they return ProblemDetail documents. This tests that if
         # there is a failure at any stage, the ProblemDetail is
         # propagated.
-        def cause_problem():
-            """Try the same method call that worked before; it won't work
-            anymore.
-            """
-            return registration.push(
-                stage, url_for, catalog_url, registration.mock_do_get, do_post,
-                key
-            )
+
+        # The push() function will no longer push anything, so rename it.
+        cause_problem = push
 
         def fail(*args, **kwargs):
             return INVALID_REGISTRATION.detailed(
