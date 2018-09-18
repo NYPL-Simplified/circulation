@@ -162,7 +162,7 @@ class Registration(object):
         return setting
 
     def push(self, stage, url_for, catalog_url=None, do_get=HTTP.debuggable_get,
-             do_post=HTTP.debuggable_post, key=None):
+             do_post=HTTP.debuggable_post):
         """Attempt to register a library with a RemoteRegistry.
 
         NOTE: This method is designed to be used in a
@@ -179,8 +179,6 @@ class Registration(object):
             for the application server.
         :param do_get: Mockable method to make a GET request.
         :param do_post: Mockable method to make a POST request.
-        :param key: Pass in an RsaKey object to use a specific public key
-            rather than using the one for this library.
 
         :return: A ProblemDetail if there was a problem; otherwise True.
         """

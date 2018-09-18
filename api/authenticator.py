@@ -582,10 +582,10 @@ class LibraryAuthenticator(object):
         self.bearer_token_signing_secret = bearer_token_signing_secret
         self.initialization_exceptions = dict()
 
-
-        # Make sure there's a public/private key pair for this library.
-        # Store the public key here for convenience; leave the private
-        # key in the database.
+        # Make sure there's a public/private key pair for this
+        # library. This makes it possible to register the library with
+        # discovery services. Store the public key here for
+        # convenience; leave the private key in the database.
         self.public_key, ignore = self.key_pair
 
         if oauth_providers:

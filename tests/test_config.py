@@ -18,6 +18,9 @@ from api.config import Configuration
 class TestConfiguration(DatabaseTest):
 
     def test_key_pair(self):
+        # Test the ability to create, replace, or look up a
+        # public/private key pair in a pair of ConfigurationSetting
+        # objects.
         public = ConfigurationSetting.sitewide(
             self._db, Configuration.PUBLIC_KEY
         )
@@ -30,8 +33,8 @@ class TestConfiguration(DatabaseTest):
         )
         irrelevant.value = "blue"
 
-        # If you pass in a public-private key pair, and at least one of the
-        # key pair is missing, a new key pair is created.
+        # If you pass in a pair of ConfigurationSettings, and at least
+        # one of them is missing its value, a new key pair is created.
         public_key, private_key = Configuration.key_pair(public, private)
         assert 'BEGIN PUBLIC KEY' in public_key
         assert 'BEGIN RSA PRIVATE KEY' in private_key
