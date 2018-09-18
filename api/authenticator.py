@@ -394,7 +394,7 @@ class PatronData(object):
 
         # A Money
         fines = scrub(self.fines)
-        if fines:
+        if fines is not None:
             fines = str(fines)
         data['fines'] = fines
 
