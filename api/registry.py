@@ -197,17 +197,28 @@ class Registration(object):
                 _("%r is not a valid registration stage") % stage
             )
 
-        private_key = ConfigurationSetting.for_library(
-            self.library, Configuration.PRIVATE_KEY
-        )
-        if not private_key.value:
-            # This shouldn't happen because these settings are set on
-            # app server startup.
+        # Verify that a public/private key pair exists for this library.
+        # This key pair is created during initialization of the
+        # LibraryAuthenticator, so this should always be present.
+        #
+        # We can't just create the key pair here because the process
+        # of pushing a registration involves the other site making a
+        # request to the circulation manager. This means the key pair
+        # needs to be committed to the database _before_ the push
+        # attempt starts.
+        public_key, private_key = [
+            ConfigurationSetting.for_library(x self.library).value
+            for x in (Configuration.PUBLIC_KEY, Configuration.PRIVATE_KEY)
+        ]
+        if not public_key or not private_key:
+            # TODO: We could create the key pair _here_. The database
+            # session will be committed at the end of this request,
+            # so the push attempt would succeed if repeated.
             return SHARED_SECRET_DECRYPTION_ERROR.detailed(
-                "Library %s has no private key set." %
+                "Library %s has no key pair set." %
                 self.library.short_name
             )
-        cipher = Configuration.cipher(private_key.value)
+        cipher = Configuration.cipher(private_key)
 
         # Before we can start the registration protocol, we must fetch
         # the remote catalog's URL and extract the link to the

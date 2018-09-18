@@ -238,13 +238,22 @@ class TestRegistration(DatabaseTest):
                 self.do_get_called_with = url
                 return "A fake catalog"
 
-        # First of all, test success.
+        # If there is no preexisting key pair set up for the library,
+        # registration fails. (This normally won't happen because the
+        # key pair is set up when the LibraryAuthenticator is
+        # initialized.
         registration = Mock(self.registry, self._default_library)
         stage = Registration.TESTING_STAGE
         url_for = object()
         catalog_url = "http://catalog/"
         do_post = object()
         key = object()
+        result = registration.push(
+            stage, url_for, catalog_url, registration.mock_do_get, do_post, key
+        )
+        set_trace()
+
+        # First of all, test success.
         result = registration.push(
             stage, url_for, catalog_url, registration.mock_do_get, do_post, key
         )
@@ -409,35 +418,6 @@ class TestRegistration(DatabaseTest):
         eq_(REMOTE_INTEGRATION_FAILED.uri, result.uri)
         eq_("The service at http://url/ did not return OPDS.",
             result.detail)
-
-    def test__set_public_key(self):
-        """Test that _set_public_key creates a public key for a library."""
-
-        # First try with a specific key.
-        key = RSA.generate(1024)
-        public_key = key.publickey().exportKey()
-
-        # The return value is a PKCS1_OAEP encryptor made from the keypair.
-        encryptor = self.registration._set_public_key(key)
-        assert isinstance(encryptor, type(PKCS1_OAEP.new(key)))
-        eq_(key, encryptor._key)
-
-        # The key is stored in a setting on the library.
-        setting = ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, self.registration.library
-        )
-        eq_(key.publickey().exportKey(), setting.value)
-
-        # Now try again without specifying a key - a new one will
-        # be generated. This is what will happen outside of tests.
-        encryptor = self.registration._set_public_key()
-        assert encryptor._key != key
-        setting = ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, self.registration.library
-        )
-
-        # The library setting has been changed.
-        eq_(encryptor._key.publickey().exportKey(), setting.value)
 
     def test__create_registration_payload(self):
         m = self.registration._create_registration_payload
