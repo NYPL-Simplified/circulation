@@ -244,11 +244,9 @@ class TestRegistration(DatabaseTest):
         url_for = object()
         catalog_url = "http://catalog/"
         do_post = object()
-        key = object()
         def push():
             return registration.push(
-                stage, url_for, catalog_url, registration.mock_do_get, do_post,
-                key
+                stage, url_for, catalog_url, registration.mock_do_get, do_post
             )
 
         result = push()
