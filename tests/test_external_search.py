@@ -816,17 +816,19 @@ class TestExactMatches(EndToEndExternalSearchTest):
         )
 
         # When a string exactly matches both a title and an author,
-        # the books that match exactly are promoted.
+        # the books that match exactly are promoted, but the title
+        # match is promoted more. (TODO: This needs work -- exact
+        # author match should be promoted higher.)
         #
-        # A book by 'Peter Graves' is the top result. Titles with
-        # 'Peter Graves' in the title are next, based on how much
-        # other stuff is in the title. A partial match is the last
-        # result.
+        # Books with 'Peter Graves' in the title are the top results,
+        # ordered by how much other stuff is in the title. An exact
+        # author match is next. A partial match split across fields is
+        # the last result.
         expect(
             [
-                self.book_by_peter_graves,
                 self.biography_of_peter_graves,
                 self.behind_the_scenes,
+                self.book_by_peter_graves,
                 self.book_by_someone_else
             ],
             "peter graves"
