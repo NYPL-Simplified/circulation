@@ -748,14 +748,14 @@ class AcquisitionFeed(OPDSFeed):
         return content
 
     @classmethod
-    def from_query(cls, query, _db, list_name, url, pagination, url_fn, annotator):
+    def from_query(cls, query, _db, feed_name, url, pagination, url_fn, annotator):
         """Build  a feed representing one page of a given list. Currently used for
         creating an OPDS feed for a custom list and not cached.
         """
         page_of_works = pagination.apply(query)
         pagination.total_size = int(query.count())
 
-        feed = cls(_db, list_name, url, page_of_works, annotator)
+        feed = cls(_db, feed_name, url, page_of_works, annotator)
 
         if pagination.total_size > 0 and pagination.has_next_page:
             OPDSFeed.add_link_to_feed(feed=feed.feed, rel="next", href=url_fn(pagination.next_page.offset))
