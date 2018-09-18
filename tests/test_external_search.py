@@ -978,9 +978,8 @@ class TestQuery(DatabaseTest):
         # with this information, we just stored it in _boosts.
 
         # Exact title or author matches are valued quite highly.
-        for field in 'title.standard', 'author':
-            key = field + " match phrase"
-            eq_(200, query._boosts[key])
+        eq_(200, query._boosts['title.standard match phrase'])
+        eq_(50, query._boosts['author match phrase'])
 
         # A near-exact match is also valued highly.
         eq_(100, query._boosts['minimal stemming'])

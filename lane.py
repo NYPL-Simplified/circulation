@@ -1112,13 +1112,6 @@ class WorkList(object):
         return values
 
     @property
-    def customlist_ids(self):
-        """WorkLists per se are not associated with custom lists, although
-        Lanes might be.
-        """
-        return None
-
-    @property
     def full_identifier(self):
         """A human-readable identifier for this WorkList that
         captures its position within the heirarchy.

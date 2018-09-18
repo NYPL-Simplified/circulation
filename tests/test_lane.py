@@ -2014,15 +2014,16 @@ class TestWorkList(DatabaseTest):
             self._default_library, customlists = [gutenberg_list_2]
         )
 
-        # These two lines don't do anything, because these are
-        # WorkLists, not Lanes, but they show the scenario in which
-        # this would actually happen. When determining which works
-        # belong in the child lane, Lane.customlist_filter_clauses()
-        # will be called on the parent lane and then on the child. In
-        # this case, only want books that are on _both_ works_on_list
-        # and gutenberg_list_2.
-        gutenberg_list_2_wl.parent = works_on_list
-        gutenberg_list_2_wl.inherit_parent_restrictions = True
+        # These two lines won't work, because these are WorkLists, not
+        # Lanes, but they show the scenario in which this would
+        # actually happen. When determining which works belong in the
+        # child lane, Lane.customlist_filter_clauses() will be called
+        # on the parent lane and then on the child. In this case, only
+        # want books that are on _both_ works_on_list and
+        # gutenberg_list_2.
+        #
+        # gutenberg_list_2_wl.parent = works_on_list
+        # gutenberg_list_2_wl.inherit_parent_restrictions = True
 
         qu = self._db.query(work_model)
         list_1_qu, list_1_clauses = works_on_list.customlist_filter_clauses(qu)
