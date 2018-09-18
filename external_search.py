@@ -5,8 +5,13 @@ from elasticsearch.exceptions import ElasticsearchException
 from elasticsearch_dsl import (
     Search,
     Q,
-    F,
 )
+try:
+    from elasticsearch_dsl import F
+    MAJOR_VERSION = 1
+except ImportError, e:
+    from elasticsearch_dsl import Q as F
+    MAJOR_VERSION = 6
 from elasticsearch_dsl.query import (
     Bool,
     Query as BaseQuery
@@ -315,7 +320,10 @@ class ExternalSearchIndex(object):
 
         # Change the Search object so it only retrieves the fields
         # we're asking for.
-        search = search.fields(fields)
+        if MAJOR_VERSION == 1:
+            search = search.fields(fields)
+        else:
+            search = search.source(fields)
 
         if not pagination:
             from lane import Pagination
@@ -462,6 +470,12 @@ class ExternalSearchIndexVersions(object):
         '.standard' version of fields, analyzed using the standard
         analyzer for near-exact matches.
         """
+        if MAJOR_VERSION == 1:
+            string_type = 'string'
+        else:
+            string_type = 'text'
+
+
         settings = {
             "analysis": {
                 "filter": {
@@ -498,14 +512,14 @@ class ExternalSearchIndexVersions(object):
         mapping = cls.map_fields(
             fields=["title", "series", "subtitle", "summary", "classifications.term"],
             field_description={
-                "type": "string",
+                "type": string_type,
                 "analyzer": "en_analyzer",
                 "fields": {
                     "minimal": {
-                        "type": "string",
+                        "type": string_type,
                         "analyzer": "en_minimal_analyzer"},
                     "standard": {
-                        "type": "string",
+                        "type": string_type,
                         "analyzer": "standard"
                     }
                 }}
@@ -697,7 +711,10 @@ class Query(SearchBase):
         if self.filter:
             built_filter = self.filter.build()
             if built_filter:
-                query = Q("filtered", query=query, filter=built_filter)
+                if MAJOR_VERSION == 1:
+                    query = Q("filtered", query=query, filter=built_filter)
+                else:
+                    query = Q("bool", must=query, filter=built_filter)
 
         # There you go!
         return query
@@ -1240,7 +1257,11 @@ class Filter(SearchBase):
             """Either the given `clause` matches or the given field
             does not exist.
             """
-            return F('or', [clause, does_not_exist(field)])
+            if MAJOR_VERSION == 1:
+                return F('or', [clause, does_not_exist(field)])
+            else:
+                return Q('bool', should=[clause, does_not_exist(field)],
+                         minimum_should_match=1)
 
         clauses = []
 
@@ -1265,7 +1286,10 @@ class Filter(SearchBase):
             return clauses[0]
 
         # Both upper and lower age must match.
-        return F('and', clauses)
+        if MAJOR_VERSION == 1:
+            return F('and', clauses)
+        else:
+            return Q('bool', must=clauses)
 
     @classmethod
     def _scrub(cls, s):

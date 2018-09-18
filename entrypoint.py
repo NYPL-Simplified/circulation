@@ -1,5 +1,4 @@
 from nose.tools import set_trace
-from elasticsearch_dsl import F
 
 class EntryPoint(object):
 
