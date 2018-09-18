@@ -1570,14 +1570,12 @@ class CustomListsController(AdminCirculationManagerController):
                 if entry_is_new:
                     membership_change = True
 
-        deletedEntriesList, is_new = create(self._db, CustomList, name="deletedEntriesList", data_source=data_source)
         for entry in deletedEntries:
             urn = entry.get("id")
             work = self._get_work_from_urn(library, urn)
 
             if work:
-                entry, entry_is_new = deletedEntriesList.add_entry(work, featured=True)
-                list.remove_entry(entry.edition)
+                list.remove_entry(work.presentation_edition)
                 membership_change = True
 
         if membership_change:
