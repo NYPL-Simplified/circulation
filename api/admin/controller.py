@@ -1509,6 +1509,22 @@ class CustomListsController(AdminCirculationManagerController):
             deletedEntries = flask.request.form.get("deletedEntries")
             return self._create_or_update_list(library, name, entries, collections, deletedEntries, id)
 
+    def _get_work_from_urn(self, library, urn):
+        identifier, ignore = Identifier.parse_urn(self._db, urn)
+        query = self._db.query(
+            Work
+        ).join(
+            LicensePool, LicensePool.work_id==Work.id
+        ).join(
+            Collection, LicensePool.collection_id==Collection.id
+        ).filter(
+            LicensePool.identifier_id==identifier.id
+        ).filter(
+            Collection.id.in_([c.id for c in library.all_collections])
+        )
+        work = query.one()
+        return work
+
     def _create_or_update_list(self, library, name, entries, collections, deletedEntries, id=None):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
 
@@ -1543,37 +1559,24 @@ class CustomListsController(AdminCirculationManagerController):
         else:
             deletedEntries = []
 
-        old_entries = [x for x in list.entries if x.edition]
         membership_change = False
 
         for entry in entries:
             urn = entry.get("id")
-
-            identifier, ignore = Identifier.parse_urn(self._db, urn)
-            query = self._db.query(
-                Work
-            ).join(
-                LicensePool, LicensePool.work_id==Work.id
-            ).join(
-                Collection, LicensePool.collection_id==Collection.id
-            ).filter(
-                LicensePool.identifier_id==identifier.id
-            ).filter(
-                Collection.id.in_([c.id for c in library.all_collections])
-            )
-            work = query.one()
+            work = self._get_work_from_urn(library, urn)
 
             if work:
                 entry, entry_is_new = list.add_entry(work, featured=True)
                 if entry_is_new:
                     membership_change = True
 
-        new_urns = [entry.get("id") for entry in entries]
-        deleted_urns = [deletedEntry.get("id") for deletedEntry in deletedEntries]
-        for entry in old_entries:
-            in_new = entry.edition.primary_identifier.urn not in new_urns
-            in_deleted = entry.edition.primary_identifier.urn in deleted_urns
-            if in_new and in_deleted:
+        deletedEntriesList, is_new = create(self._db, CustomList, name="deletedEntriesList", data_source=data_source)
+        for entry in deletedEntries:
+            urn = entry.get("id")
+            work = self._get_work_from_urn(library, urn)
+
+            if work:
+                entry, entry_is_new = deletedEntriesList.add_entry(work, featured=True)
                 list.remove_entry(entry.edition)
                 membership_change = True
 
