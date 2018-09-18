@@ -379,7 +379,7 @@ class SessionManager(object):
             _db.commit()
         # Immediately update the number of works associated with each
         # lane.
-        from lane import Lane
+        from core.lane import Lane
         for lane in _db.query(Lane):
             lane.update_size(_db)
 
@@ -454,7 +454,7 @@ def production_session():
     # incorrectly, but 1) this method isn't normally called during
     # unit tests, and 2) package_setup() will call initialize() again
     # with the right arguments.
-    from log import LogConfiguration
+    from core.log import LogConfiguration
     LogConfiguration.initialize(_db)
     return _db
 

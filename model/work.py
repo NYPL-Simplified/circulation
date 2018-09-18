@@ -1036,7 +1036,7 @@ class Work(Base):
         return u"\n".join(l)
 
     def calculate_opds_entries(self, verbose=True):
-        from opds import (
+        from core.opds import (
             AcquisitionFeed,
             Annotator,
             VerboseAnnotator,
