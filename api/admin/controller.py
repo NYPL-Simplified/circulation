@@ -3315,7 +3315,7 @@ class SettingsController(AdminCirculationManagerController):
                 _('The service did not provide registration information.')
             )
 
-        ignore, private_key = self.circulation_manager.sitewide_key_pair
+        ignore, private_key = self.manager.sitewide_key_pair
         decryptor = Configuration.cipher(private_key)
         shared_secret = decryptor.decrypt(base64.b64decode(shared_secret))
         integration.password = unicode(shared_secret)
@@ -3324,21 +3324,19 @@ class SettingsController(AdminCirculationManagerController):
         """Generate the document to be sent as part of a sitewide registration
         request.
 
-        :param private_key: An string containing an RSA private key,
-            e.g. the output of RsaKey.exportKey()
         :return: A dictionary with keys 'url' and 'jwt'. 'url' is the URL to
             this site's public key document, and 'jwt' is a JSON Web Token
             proving control over that URL.
         """
 
-        public_key, ignore = self.circulation_manager.sitewide_key_pair
-        public_key_dict = dict(
-            type='RSA',
-            value=public_key
-        )
+        public_key, private_key = self.manager.sitewide_key_pair
+        # Advertise the public key so that the foreign site can encrypt
+        # things for us.
+        public_key_dict = dict(type='RSA', value=public_key)
         public_key_url = self.url_for('public_key_document')
         in_one_minute = datetime.utcnow() + timedelta(seconds=60)
         payload = {'exp': in_one_minute}
+        # Sign a JWT with the private key to prove ownership of the site.
         token = jwt.encode(payload, private_key, algorithm='RS256')
         return dict(url=public_key_url, jwt=token)
 
