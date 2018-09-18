@@ -204,7 +204,6 @@ class CirculationManager(object):
 
         # Make sure there's a site-wide public/private key pair.
         self.sitewide_key_pair
-        set_trace()
 
         new_adobe_device_management = None
         for library in self._db.query(Library):
