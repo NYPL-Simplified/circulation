@@ -215,8 +215,8 @@ class Registration(object):
             # session will be committed at the end of this request,
             # so the push attempt would succeed if repeated.
             return SHARED_SECRET_DECRYPTION_ERROR.detailed(
-                "Library %s has no key pair set." %
-                self.library.short_name
+                _("Library %(library)s has no key pair set.",
+                  library=self.library.short_name)
             )
         cipher = Configuration.cipher(private_key)
 
@@ -259,7 +259,7 @@ class Registration(object):
         catalog = json.loads(response.content)
 
         # Process the result.
-        return self._process_registration_result(catalog, self.cipher, stage)
+        return self._process_registration_result(catalog, cipher, stage)
 
     OPDS_1_PREFIX = "application/atom+xml;profile=opds-catalog"
     OPDS_2_TYPE = "application/opds+json"

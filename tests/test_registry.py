@@ -206,10 +206,6 @@ class TestRegistration(DatabaseTest):
                 self.initial_catalog_response = response
                 return "register_url", "vendor_id"
 
-            def _set_public_key(self, key):
-                self._set_public_key_called_with = key
-                return "an encryptor"
-
             def _create_registration_payload(self, url_for, stage):
                 self.payload_ingredients = (url_for, stage)
                 return dict(payload="this is it")
@@ -262,7 +258,8 @@ class TestRegistration(DatabaseTest):
         key = RSA.generate(2048)
 
         ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, library).value = key.publickey().exportKey()
+            Configuration.PUBLIC_KEY, library
+        ).value = key.publickey().exportKey()
         result = push()
         eq_(expect, result.detail)
 
@@ -295,11 +292,6 @@ class TestRegistration(DatabaseTest):
             ).value
         )
 
-        # _set_public_key() was called to create an encryptor object.
-        # It returned an encryptor (here mocked as the string "an encryptor")
-        # to be used later.
-        eq_(key, registration._set_public_key_called_with)
-
         # _create_registration_payload was called to create the body
         # of the registration request.
         eq_((url_for, stage), registration.payload_ingredients)
@@ -319,9 +311,14 @@ class TestRegistration(DatabaseTest):
 
         # Finally, the return value of that method was loaded as JSON
         # and passed into _process_registration_result, along with
-        # the encryptor obtained from _set_public_key()
+        # a cipher created from the private key. (That cipher would be used
+        # to decrypt anything the foreign site signed using this site's
+        # public key.)
         results = registration._process_registration_result_called_with
-        eq_(("you did it!", "an encryptor", stage), results)
+        message, cipher, actual_stage = results
+        eq_("you did it!", message)
+        eq_(cipher._key, key)
+        eq_(actual_stage, stage)
 
         # If a nonexistent stage is provided a ProblemDetail is the result.
         result = registration.push(
@@ -368,14 +365,6 @@ class TestRegistration(DatabaseTest):
         registration._create_registration_payload = fail
         problem = cause_problem()
         eq_("could not create registration payload", problem.detail)
-
-        def fail(*args, **kwargs):
-            return INVALID_REGISTRATION.detailed(
-                "could not set public key"
-            )
-        registration._set_public_key = fail
-        problem = cause_problem()
-        eq_("could not set public key", problem.detail)
 
         def fail(*args, **kwargs):
             return INVALID_REGISTRATION.detailed(
