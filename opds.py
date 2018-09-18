@@ -28,7 +28,7 @@ import requests
 from lxml import builder, etree
 
 from cdn import cdnify
-from config import Configuration
+from core.config import Configuration
 from classifier import Classifier
 from entrypoint import EntryPoint
 from facets import FacetConstants

@@ -27,7 +27,7 @@ from s3 import (
     MockS3Client,
 )
 from mirror import MirrorUploader
-from config import CannotLoadConfiguration
+from core.config import CannotLoadConfiguration
 
 class S3UploaderTest(DatabaseTest):
 

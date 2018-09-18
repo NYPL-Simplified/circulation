@@ -3,7 +3,7 @@ from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk
 from elasticsearch.exceptions import ElasticsearchException
 from flask_babel import lazy_gettext as _
-from config import (
+from core.config import (
     Configuration,
     CannotLoadConfiguration,
 )

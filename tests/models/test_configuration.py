@@ -7,7 +7,7 @@ from nose.tools import (
 )
 from sqlalchemy.exc import IntegrityError
 from .. import DatabaseTest
-from config import CannotLoadConfiguration
+from core.config import CannotLoadConfiguration
 from model import create
 from model.collection import Collection
 from model.configuration import (

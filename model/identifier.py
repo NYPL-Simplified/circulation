@@ -49,7 +49,7 @@ from sqlalchemy.sql.expression import (
     or_,
 )
 import urllib
-from ..util.summary import SummaryEvaluator
+from core.util.summary import SummaryEvaluator
 
 class Identifier(Base, IdentifierConstants):
     """A way of uniquely referring to a particular edition.

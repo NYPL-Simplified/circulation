@@ -5,7 +5,7 @@ from nose.tools import (
     set_trace,
 )
 
-from config import (
+from core.config import (
     Configuration,
     temp_config,
 )

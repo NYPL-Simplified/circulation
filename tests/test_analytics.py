@@ -2,7 +2,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
-from config import (
+from core.config import (
     Configuration,
     temp_config,
 )

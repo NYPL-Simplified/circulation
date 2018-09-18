@@ -20,7 +20,7 @@ from coverage import (
     CoverageFailure,
 )
 
-from config import CannotLoadConfiguration
+from core.config import CannotLoadConfiguration
 
 from model import (
     Collection,

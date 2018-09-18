@@ -19,7 +19,7 @@ from contributor import (
     Contribution,
     Contributor,
 )
-from ..classifier import (
+from core.classifier import (
     Classifier,
     WorkClassifier,
 )
@@ -31,7 +31,7 @@ from datasource import DataSource
 from edition import Edition
 from identifier import Identifier
 from measurement import Measurement
-from ..util import LanguageCodes
+from core.util import LanguageCodes
 
 from collections import Counter
 import datetime

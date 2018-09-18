@@ -11,7 +11,7 @@ from sqlalchemy.sql.expression import (
 )
 
 import log # This sets the appropriate log format and level.
-from config import Configuration
+from core.config import Configuration
 from coverage import CoverageFailure
 from model import (
     get_one,

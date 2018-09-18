@@ -17,7 +17,7 @@ from admin import (
 from datasource import DataSource
 from classification import Genre
 from collection import Collection
-from ..config import Configuration
+from core.config import Configuration
 from configuration import (
     ConfigurationSetting,
     ExternalIntegration,

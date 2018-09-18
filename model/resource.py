@@ -7,7 +7,7 @@ from . import (
     get_one,
     get_one_or_create,
 )
-from ..config import Configuration
+from core.config import Configuration
 from constants import (
     DataSourceConstants,
     IdentifierConstants,
@@ -19,7 +19,7 @@ from licensing import (
     LicensePool,
     LicensePoolDeliveryMechanism,
 )
-from ..util.http import HTTP
+from core.util.http import HTTP
 
 from cStringIO import StringIO
 import datetime

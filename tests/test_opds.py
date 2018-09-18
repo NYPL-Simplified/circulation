@@ -14,7 +14,7 @@ from . import (
 )
 
 from psycopg2.extras import NumericRange
-from config import (
+from core.config import (
     Configuration,
     temp_config,
 )

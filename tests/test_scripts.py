@@ -18,7 +18,7 @@ from . import (
 )
 from classifier import Classifier
 
-from config import (
+from core.config import (
     Configuration,
     temp_config,
 )

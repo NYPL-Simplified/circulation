@@ -5,7 +5,7 @@ import json
 import os
 import socket
 from flask_babel import lazy_gettext as _
-from config import Configuration
+from core.config import Configuration
 from StringIO import StringIO
 from loggly.handlers import HTTPSHandler as LogglyHandler
 

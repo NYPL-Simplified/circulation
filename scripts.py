@@ -41,7 +41,7 @@ from sqlalchemy.orm import Session
 
 from app_server import ComplaintController
 # from axis import Axis360BibliographicCoverageProvider
-from config import Configuration, CannotLoadConfiguration
+from core.config import Configuration, CannotLoadConfiguration
 from coverage import CollectionCoverageProviderJob
 from lane import Lane
 from metadata_layer import (

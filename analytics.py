@@ -4,7 +4,7 @@ import contextlib
 import datetime
 from collections import defaultdict
 from model import ExternalIntegration
-from config import CannotLoadConfiguration
+from core.config import CannotLoadConfiguration
 from sqlalchemy.orm.session import Session
 
 class Analytics(object):

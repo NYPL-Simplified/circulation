@@ -1,6 +1,6 @@
 from nose.tools import set_trace
 import datetime
-from config import CannotLoadConfiguration
+from core.config import CannotLoadConfiguration
 
 class MirrorUploader(object):
 

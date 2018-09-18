@@ -40,7 +40,7 @@ from constants import (
     LinkRelations,
     MediaTypes,
 )
-from .. import classifier
+from core import classifier
 
 def flush(db):
     """Flush the database connection unless it's known to already be flushing."""
@@ -365,9 +365,9 @@ class SessionManager(object):
                     primaryjoin="LicensePool.id==MaterializedWorkWithGenre.license_pool_id",
                     foreign_keys=LicensePool.id, lazy='joined', uselist=False)
 
-            import model
             globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
-            model.MaterializedWorkWithGenre = MaterializedWorkWithGenre
+            import core.model
+            core.model.MaterializedWorkWithGenre = MaterializedWorkWithGenre
 
         cls.engine_for_url[url] = engine
         return engine, engine.connect()

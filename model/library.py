@@ -6,10 +6,10 @@ from . import (
     Base,
     get_one,
 )
-from ..config import Configuration
+from core.config import Configuration
 from edition import Edition
-from ..entrypoint import EntryPoint
-from ..facets import FacetConstants
+from core.entrypoint import EntryPoint
+from core.facets import FacetConstants
 from hasfulltablecache import HasFullTableCache
 from licensing import LicensePool
 from work import Work

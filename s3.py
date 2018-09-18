@@ -12,7 +12,7 @@ from sqlalchemy.orm.session import Session
 from urlparse import urlsplit
 from mirror import MirrorUploader
 
-from config import CannotLoadConfiguration
+from core.config import CannotLoadConfiguration
 from model import ExternalIntegration
 from requests.exceptions import (
     ConnectionError,
