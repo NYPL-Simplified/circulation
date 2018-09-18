@@ -943,7 +943,7 @@ class LibraryAuthenticator(object):
             doc['service_area'] = service_area
 
         # Add the library's public key.
-        doc["public_key"] = dict(type="RSA", value=self.public_key.value)
+        doc["public_key"] = dict(type="RSA", value=self.public_key)
 
         # Add feature flags to signal to clients what features they should
         # offer.

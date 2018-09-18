@@ -1175,11 +1175,6 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         ConfigurationSetting.for_library(
             Configuration.HELP_URI, library).value = "custom:uri"
 
-        # Set up a public key.
-        public_key_setting = ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, library)
-        public_key_setting.value = "public key"
-
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
         base_url.value = u'http://circulation-manager/'
 
@@ -1271,7 +1266,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("mailto:help@library", copyright_agent['href'])
 
             # The public key is correct.
-            eq_("public key", doc['public_key']['value'])
+            eq_(authenticator.public_key, doc['public_key']['value'])
             eq_("RSA", doc['public_key']['type'])
 
 
@@ -1303,16 +1298,6 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             doc = json.loads(authenticator.create_authentication_document())
             for key in ('focus_area', 'service_area'):
                 assert key not in doc
-
-            # If the library has no public/private key pair, a key
-            # pair is created and stored as a set of per-library settings.
-            public_key_setting.value = None
-            doc = json.loads(authenticator.create_authentication_document())
-            key = doc['public_key']
-            expect = authenticator.public_key
-            assert 'BEGIN PUBLIC KEY' in expect
-            eq_(expect, key['value'])
-            eq_(expect, public_key_setting.value)
 
             # The annotator's annotate_authentication_document method
             # was called and successfully modified the authentication
