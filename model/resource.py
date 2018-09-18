@@ -7,7 +7,7 @@ from . import (
     get_one,
     get_one_or_create,
 )
-from config import Configuration
+from ..config import Configuration
 from constants import (
     DataSourceConstants,
     IdentifierConstants,
@@ -19,6 +19,7 @@ from licensing import (
     LicensePool,
     LicensePoolDeliveryMechanism,
 )
+from ..util.http import HTTP
 
 from cStringIO import StringIO
 import datetime
@@ -51,7 +52,6 @@ import time
 import traceback
 import urllib
 import urlparse
-from util.http import HTTP
 
 class Resource(Base):
     """An external resource that may be mirrored locally.

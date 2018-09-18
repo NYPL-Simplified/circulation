@@ -40,7 +40,7 @@ from constants import (
     LinkRelations,
     MediaTypes,
 )
-import classifier
+from .. import classifier
 
 def flush(db):
     """Flush the database connection unless it's known to already be flushing."""

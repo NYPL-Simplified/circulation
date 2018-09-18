@@ -19,7 +19,7 @@ from contributor import (
     Contribution,
     Contributor,
 )
-from classifier import (
+from ..classifier import (
     Classifier,
     WorkClassifier,
 )
@@ -31,6 +31,7 @@ from datasource import DataSource
 from edition import Edition
 from identifier import Identifier
 from measurement import Measurement
+from ..util import LanguageCodes
 
 from collections import Counter
 import datetime
@@ -66,7 +67,6 @@ from sqlalchemy.sql.expression import (
     literal_column,
     case,
 )
-from util import LanguageCodes
 
 class WorkGenre(Base):
     """An assignment of a genre to a work."""
