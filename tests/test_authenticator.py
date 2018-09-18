@@ -1304,8 +1304,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             for key in ('focus_area', 'service_area'):
                 assert key not in doc
 
-            # If the library has no public key, a key is created and
-            # stored as a per-library setting.
+            # If the library has no public/private key pair, a key
+            # pair is created and stored as a set of per-library settings.
             public_key_setting.value = None
             doc = json.loads(authenticator.create_authentication_document())
             key = doc['public_key']
@@ -1350,35 +1350,40 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             headers = authenticator.create_authentication_headers()
             assert 'WWW-Authenticate' not in headers
 
-    def test_public_key(self):
-        """Test the public_key property."""
+    def test_key_pair(self):
+        """Test the public/private key pair associated with a library."""
 
         library = self._default_library
 
-        # Initially, the PUBLIC_KEY setting is not set.
-        setting = ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, library
-        )
-        eq_(None, setting.value)
+        # Initially, the PUBLIC_KEY and PRIVATE_KEY settings are not set.
+        def keys():
+            return [
+                ConfigurationSetting.for_library(v, library).value
+                for v in [Configuration.PUBLIC_KEY, Configuration.PRIVATE_KEY]
+            ]
+        eq_([None, None], keys())
 
-        # Accessing LibraryAuthenticator.public_key when there is
-        # no public key causes one to be generated.
+        # Instantiating a LibraryAuthenticator for a library automatically
+        # generates a public/private key pair.
         auth = LibraryAuthenticator.from_config(self._db, library)
-        key = auth.public_key
-        assert 'BEGIN PUBLIC KEY' in key
+        public, private = keys()
+        assert 'BEGIN PUBLIC KEY' in public
+        assert 'BEGIN RSA PRIVATE KEY' in private
 
-        # The public key is stored in the PUBLIC_KEY setting.
-        eq_(key, setting.value)
+        # The public key is stored in the
+        # LibraryAuthenticator.public_key property.
+        eq_(public, auth.public_key)
 
-        # An existing value for the PUBLIC_KEY setting is reused.
-        setting.value = "A value"
-        eq_("A value", auth.public_key)
+        # The private key is not stored in the LibraryAuthenticator
+        # object, but it can be obtained from the database by
+        # using the key_pair property.
+        assert not hasattr(auth, 'private_key')
+        eq_((public, private), auth.key_pair)
 
-        # Each library has its own public key.
+        # Each library has its own key pair.
         library2 = self._library()
         auth2 = LibraryAuthenticator.from_config(self._db, library2)
-        key2 = auth.public_key
-        assert key != key2
+        assert auth.public_key != auth2.public_key
 
     def test__geographic_areas(self):
         """Test the _geographic_areas helper method."""
