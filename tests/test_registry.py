@@ -242,23 +242,37 @@ class TestRegistration(DatabaseTest):
         # registration fails. (This normally won't happen because the
         # key pair is set up when the LibraryAuthenticator is
         # initialized.
-        registration = Mock(self.registry, self._default_library)
+        library = self._default_library
+        registration = Mock(self.registry, library)
         stage = Registration.TESTING_STAGE
         url_for = object()
         catalog_url = "http://catalog/"
         do_post = object()
         key = object()
+        def push():
+            return registration.push(
+                stage, url_for, catalog_url, registration.mock_do_get, do_post,
+                key
+            )
+
+        result = push()
+        expect = "Library %s has no key pair set." % library.short_name
+        eq_(expect, result.detail)
+
+        key = RSA.generate(2048)
+
+        ConfigurationSetting.for_library(
+            Configuration.PUBLIC_KEY, library).value = key.publickey().exportKey()
+        result = push()
+        eq_(expect, result.detail)
+
+        # When both parts of the key pair are present, registration 
+        # is kicked off, and in this case it succeeds.
+        ConfigurationSetting.for_library(
+            Configuration.PRIVATE_KEY, library).value = key.exportKey()
         result = registration.push(
             stage, url_for, catalog_url, registration.mock_do_get, do_post, key
         )
-        set_trace()
-
-        # First of all, test success.
-        result = registration.push(
-            stage, url_for, catalog_url, registration.mock_do_get, do_post, key
-        )
-
-        # Ultimately the push succeeded.
         eq_("all done!", result)
 
         # But there were many steps towards this result.

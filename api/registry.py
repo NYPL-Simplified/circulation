@@ -207,7 +207,7 @@ class Registration(object):
         # needs to be committed to the database _before_ the push
         # attempt starts.
         public_key, private_key = [
-            ConfigurationSetting.for_library(x self.library).value
+            ConfigurationSetting.for_library(x, self.library).value
             for x in (Configuration.PUBLIC_KEY, Configuration.PRIVATE_KEY)
         ]
         if not public_key or not private_key:
