@@ -21,8 +21,6 @@ from sqlalchemy.exc import ProgrammingError
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 from StringIO import StringIO
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
 from api.authenticator import (
     CannotCreateLocalPatron,
     PatronData,
@@ -1375,7 +1373,7 @@ class PatronController(AdminCirculationManagerController):
 
         identifier = flask.request.form.get("identifier")
         if not identifier:
-            return NO_SUCH_PATRON.detailed(_("No patron identifier provided"))
+            return NO_SUCH_PATRON.detailed(_("Please enter a patron identifier"))
 
         if not authenticator:
             authenticator = LibraryAuthenticator.from_config(
@@ -1398,7 +1396,7 @@ class PatronController(AdminCirculationManagerController):
         # If we get here, none of the providers succeeded.
         if not complete_patron_data:
             return NO_SUCH_PATRON.detailed(
-                _("Lookup failed for patron with identifier %(patron_identifier)s",
+                _("No patron with identifier %(patron_identifier)s was found at your library",
                   patron_identifier=identifier),
             )
 
@@ -1423,7 +1421,6 @@ class PatronController(AdminCirculationManagerController):
         patrondata = self._load_patrondata(authenticator)
         if isinstance(patrondata, ProblemDetail):
             return patrondata
-
         # Turn the Identifier into a Patron object.
         try:
             patron, is_new = patrondata.get_or_create_patron(
@@ -1439,7 +1436,14 @@ class PatronController(AdminCirculationManagerController):
         # Wipe the Patron's 'identifier for Adobe ID purposes'.
         for credential in AuthdataUtility.adobe_relevant_credentials(patron):
             self._db.delete(credential)
-        return Response(unicode(_("Success")), 200)
+        if patron.username:
+            identifier = patron.username
+        else:
+            identifier = "with identifier " + patron.authorization_identifier
+        return Response(
+            unicode(_("Adobe ID for patron %(name_or_auth_id)s has been reset.", name_or_auth_id=identifier)),
+            200
+        )
 
 class FeedController(AdminCirculationManagerController):
 
@@ -2493,7 +2497,7 @@ class SettingsController(AdminCirculationManagerController):
                 message = _("Exception getting self-test results for collection %s: %s")
                 args = (collection.name, e.message)
                 logging.warn(message, *args, exc_info=e)
-                self_test_results = message % args
+                self_test_results = dict(exception=message % args)
 
         return self_test_results
 
@@ -3186,8 +3190,7 @@ class SettingsController(AdminCirculationManagerController):
         )
 
     def metadata_services(
-            self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
-            key=None
+        self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
     ):
         self.require_system_admin()
         provider_apis = [NYTBestSellerAPI,
@@ -3242,7 +3245,7 @@ class SettingsController(AdminCirculationManagerController):
             service.protocol == ExternalIntegration.METADATA_WRANGLER):
 
             problem_detail = self.sitewide_registration(
-                service, do_get=do_get, do_post=do_post, key=key
+                service, do_get=do_get, do_post=do_post
             )
             if problem_detail:
                 self._db.rollback()
@@ -3259,7 +3262,7 @@ class SettingsController(AdminCirculationManagerController):
         )
 
     def sitewide_registration(self, integration, do_get=HTTP.debuggable_get,
-                              do_post=HTTP.debuggable_post, key=None
+                              do_post=HTTP.debuggable_post
     ):
         """Performs a sitewide registration for a particular service, currently
         only the Metadata Wrangler.
@@ -3305,16 +3308,6 @@ class SettingsController(AdminCirculationManagerController):
             # We have a relative path. Create a full registration url.
             base_url = catalog.get('id')
             register_url = urlparse.urljoin(base_url, register_url)
-        # Generate a public key for this website.
-        if not key:
-            key = RSA.generate(2048)
-        encryptor = PKCS1_OAEP.new(key)
-        public_key = key.publickey().exportKey()
-
-        # Save the public key to the database before generating the public key document.
-        public_key_setting = ConfigurationSetting.sitewide(self._db, Configuration.PUBLIC_KEY)
-        public_key_setting.value = public_key
-        self._db.commit()
 
         # If the integration has an existing shared_secret, use it to access the
         # server and update it.
@@ -3326,15 +3319,14 @@ class SettingsController(AdminCirculationManagerController):
             token = base64.b64encode(integration.password.encode('utf-8'))
             headers['Authorization'] = 'Bearer ' + token
 
-        # Get the public key document URL and register this server.
+        # Register this server using the sitewide registration document
         try:
-            body = self.sitewide_registration_document(key.exportKey())
+            body = self.sitewide_registration_document()
             response = do_post(
                 register_url, body, allowed_response_codes=['2xx'],
                 headers=headers
             )
         except Exception as e:
-            public_key_setting.value = None
             return REMOTE_INTEGRATION_FAILED.detailed(e.message)
 
         if isinstance(response, ProblemDetail):
@@ -3343,28 +3335,32 @@ class SettingsController(AdminCirculationManagerController):
         shared_secret = registration_info.get('metadata', {}).get('shared_secret')
 
         if not shared_secret:
-            public_key_setting.value = None
             return REMOTE_INTEGRATION_FAILED.detailed(
                 _('The service did not provide registration information.')
             )
 
-        public_key_setting.value = None
-        shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
+        ignore, private_key = self.manager.sitewide_key_pair
+        decryptor = Configuration.cipher(private_key)
+        shared_secret = decryptor.decrypt(base64.b64decode(shared_secret))
         integration.password = unicode(shared_secret)
 
-    def sitewide_registration_document(self, private_key):
+    def sitewide_registration_document(self):
         """Generate the document to be sent as part of a sitewide registration
         request.
 
-        :param private_key: An string containing an RSA private key,
-            e.g. the output of RsaKey.exportKey()
         :return: A dictionary with keys 'url' and 'jwt'. 'url' is the URL to
             this site's public key document, and 'jwt' is a JSON Web Token
             proving control over that URL.
         """
+
+        public_key, private_key = self.manager.sitewide_key_pair
+        # Advertise the public key so that the foreign site can encrypt
+        # things for us.
+        public_key_dict = dict(type='RSA', value=public_key)
         public_key_url = self.url_for('public_key_document')
         in_one_minute = datetime.utcnow() + timedelta(seconds=60)
         payload = {'exp': in_one_minute}
+        # Sign a JWT with the private key to prove ownership of the site.
         token = jwt.encode(payload, private_key, algorithm='RS256')
         return dict(url=public_key_url, jwt=token)
 
@@ -3692,6 +3688,9 @@ class SettingsController(AdminCirculationManagerController):
                     library = registration.library
                     library_info = dict(short_name=library.short_name)
                     status = registration.status_field.value
+                    stage_field = registration.stage_field.value
+                    if stage_field:
+                        library_info["stage"] = stage_field
                     if status:
                         library_info["status"] = status
                         libraries.append(library_info)

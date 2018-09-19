@@ -1846,7 +1846,7 @@ class TestPatronController(AdminControllerTest):
             response = m(authenticator)
             eq_(404, response.status_code)
             eq_(NO_SUCH_PATRON.uri, response.uri)
-            eq_("No patron identifier provided", response.detail)
+            eq_("Please enter a patron identifier", response.detail)
 
         # AuthenticationProvider has no Authenticators.
         with self.request_context_with_library_and_admin("/"):
@@ -1867,7 +1867,7 @@ class TestPatronController(AdminControllerTest):
 
             eq_(404, response.status_code)
             eq_(NO_SUCH_PATRON.uri, response.uri)
-            eq_("Lookup failed for patron with identifier %s" % identifier,
+            eq_("No patron with identifier %s was found at your library" % identifier,
             response.detail)
 
     def test_lookup_patron(self):
@@ -3438,7 +3438,7 @@ class TestSettingsController(SettingsControllerTest):
             "Exception getting self-test results for collection %s: Test result disaster!" % (
                 OPDSCollection.name
             ),
-            self_test_results
+            self_test_results["exception"]
         )
 
         HasSelfTests.prior_test_results = old_prior_test_results
@@ -6211,12 +6211,18 @@ class TestLibraryRegistration(SettingsControllerTest):
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, "library-registration-status", succeeded, discovery_service,
             ).value = "success"
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-registration-stage", succeeded, discovery_service,
+            ).value = "production"
         failed, ignore = create(
             self._db, Library, name="Library 2", short_name="L2",
         )
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, "library-registration-status", failed, discovery_service,
             ).value = "failure"
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-registration-stage", failed, discovery_service,
+            ).value = "testing"
         unregistered, ignore = create(
             self._db, Library, name="Library 3", short_name="L3",
         )
@@ -6231,8 +6237,8 @@ class TestLibraryRegistration(SettingsControllerTest):
 
             libraryInfo = serviceInfo[0].get("libraries")
             expected = [
-                dict(short_name=succeeded.short_name, status="success"),
-                dict(short_name=failed.short_name, status="failure"),
+                dict(short_name=succeeded.short_name, status="success", stage="production"),
+                dict(short_name=failed.short_name, status="failure", stage="testing"),
             ]
             eq_(expected, libraryInfo)
 
@@ -6581,9 +6587,10 @@ class TestCollectionRegistration(SettingsControllerTest):
             goal=ExternalIntegration.METADATA_GOAL, url=self._url
         )
 
-        # An RSA key for testing purposes
-        key = RSA.generate(2048)
-        encryptor = PKCS1_OAEP.new(key)
+        # The service knows this site's public key, and is going
+        # to use it to encrypt a shared secret.
+        public_key, private_key = self.manager.sitewide_key_pair
+        encryptor = Configuration.cipher(public_key)
 
         # A catalog with registration url
         register_link_type = self.manager.admin_settings_controller.METADATA_SERVICE_URI_TYPE
@@ -6601,7 +6608,7 @@ class TestCollectionRegistration(SettingsControllerTest):
             MockRequestsResponse(200, content=json.dumps(catalog), headers=headers)
         )
 
-        # A registration document with secrets
+        # A registration document with an encrypted secret
         shared_secret = os.urandom(24).encode('hex')
         encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
         registration = dict(
@@ -6616,7 +6623,7 @@ class TestCollectionRegistration(SettingsControllerTest):
             ])
             response = self.manager.admin_settings_controller.sitewide_registration(
                 metadata_wrangler_service, do_get=self.do_request,
-                do_post=self.do_request, key=key
+                do_post=self.do_request
             )
         eq_(None, response)
 
@@ -6634,23 +6641,20 @@ class TestCollectionRegistration(SettingsControllerTest):
             assert k in document
 
         # The end result is that our ExternalIntegration for the metadata
-        # wrangler has been updated with a shared secret.
+        # wrangler has been updated with a (decrypted) shared secret.
         eq_(shared_secret, metadata_wrangler_service.password)
 
     def test_sitewide_registration_document(self):
         """Test the document sent along to sitewide registration."""
-        key = RSA.generate(2048)
         controller = self.manager.admin_settings_controller
         with self.request_context_with_admin('/'):
-            doc = controller.sitewide_registration_document(
-                key.exportKey()
-            )
+            doc = controller.sitewide_registration_document()
 
             # The registrar knows where to go to get our public key.
             eq_(doc['url'], controller.url_for('public_key_document'))
 
             # The JWT proves that we control the public/private key pair.
-            public_key = key.publickey().exportKey()
+            public_key, private_key = self.manager.sitewide_key_pair
             parsed = jwt.decode(
                 doc['jwt'], public_key, algorithm='RS256'
             )

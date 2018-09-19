@@ -731,6 +731,7 @@ class EnkiImport(CollectionMonitor):
                     self.process_book(metadata)
 
     def process_book(self, bibliographic):
+
         """Make the local database reflect the state of the remote Enki
         collection for the given book.
 

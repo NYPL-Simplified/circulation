@@ -1,5 +1,9 @@
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+
 from collections import Counter
 from nose.tools import (
+    assert_raises_regexp,
     eq_,
     set_trace,
 )
@@ -12,6 +16,75 @@ from . import DatabaseTest
 from api.config import Configuration
 
 class TestConfiguration(DatabaseTest):
+
+    def test_key_pair(self):
+        # Test the ability to create, replace, or look up a
+        # public/private key pair in a pair of ConfigurationSetting
+        # objects.
+        public = ConfigurationSetting.sitewide(
+            self._db, Configuration.PUBLIC_KEY
+        )
+        public.value = "old value"
+        private = ConfigurationSetting.sitewide(
+            self._db, Configuration.PRIVATE_KEY
+        )
+        irrelevant = ConfigurationSetting.sitewide(
+            self._db, "irrelevant"
+        )
+        irrelevant.value = "blue"
+
+        # If you pass in a pair of ConfigurationSettings, and at least
+        # one of them is missing its value, a new key pair is created.
+        public_key, private_key = Configuration.key_pair(public, private)
+        assert 'BEGIN PUBLIC KEY' in public_key
+        assert 'BEGIN RSA PRIVATE KEY' in private_key
+        eq_(public_key, public.value)
+        eq_(private_key, private.value)
+
+        # If the key pair is intact, it is returned as is.
+        public.value = "public 1"
+        private.value = "private 2"
+        eq_(("public 1", "private 2"), Configuration.key_pair(public, private))
+
+        # If you mistake public for private, or pass in a clearly
+        # irrelevant setting, you get a ValueError.
+        assert_raises_regexp(
+            ValueError,
+            'Incorrect ConfigurationSetting "public-key" passed in as private key!',
+            Configuration.key_pair, public, public
+        )
+
+        assert_raises_regexp(
+            ValueError,
+            '"private-key" passed in as public key!',
+            Configuration.key_pair, private, private
+        )
+
+        assert_raises_regexp(
+            ValueError,
+            '"irrelevant" passed in as private key!',
+            Configuration.key_pair, public, irrelevant
+        )
+
+    def test_cipher(self):
+        """Test the cipher() helper method."""
+
+        # Generate a public/private key pair.
+        key = RSA.generate(2048)
+        cipher = PKCS1_OAEP.new(key)
+        public = key.publickey().exportKey()
+        private = key.exportKey()
+
+        # Pass the public key into cipher() to get something that can
+        # encrypt.
+        encryptor = Configuration.cipher(public)
+        encrypted = encryptor.encrypt("some text")
+
+        # Pass the private key into cipher() to get something that can
+        # decrypt.
+        decryptor = Configuration.cipher(private)
+        decrypted = decryptor.decrypt(encrypted)
+        eq_("some text", decrypted)
 
     def test_collection_language_method_performs_estimate(self):
         C = Configuration

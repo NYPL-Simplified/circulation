@@ -3,7 +3,12 @@ import re
 from nose.tools import set_trace
 import contextlib
 from copy import deepcopy
+
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+
 from flask_babel import lazy_gettext as _
+
 from core.config import (
     Configuration as CoreConfiguration,
     CannotLoadConfiguration,
@@ -121,6 +126,11 @@ class Configuration(CoreConfiguration):
     # a shared secret with a library registry. The setting is automatically generated
     # and not editable by admins.
     PUBLIC_KEY = "public-key"
+
+    # Name of the library-wide private key configuration setting for
+    # decrypting a shared secret provided by a library registry. The
+    # setting is automatically generated and not editable by admins.
+    PRIVATE_KEY = "private-key"
 
     SITEWIDE_SETTINGS = CoreConfiguration.SITEWIDE_SETTINGS + [
         {
@@ -468,6 +478,53 @@ class Configuration(CoreConfiguration):
         return cls._email_uri_with_fallback(
             library, Configuration.CONFIGURATION_CONTACT_EMAIL
         )
+
+    @classmethod
+    def key_pair(cls, public_setting, private_setting):
+        """Look up a public-private key pair in two ConfigurationSettings.
+
+        If either setting is unset, a new key pair is created and
+        stored.
+
+        TODO: This could go into ConfigurationSetting or core Configuration.
+
+        :param public_setting: A ConfigurationSetting for the public key.
+        :param private_setting: A ConfigurationSetting for the private key.
+
+        :return: A 2-tuple (public key, private key)
+        """
+        # Prevent bad code where public and private key are mixed up.
+        if 'public' not in public_setting.key.lower():
+            raise ValueError(
+                'Invalid setting "%s" passed in as public key!' %
+                public_setting.key
+            )
+        if 'private' not in private_setting.key.lower():
+            raise ValueError(
+                'Incorrect ConfigurationSetting "%s" passed in as private key!' %
+                private_setting.key
+            )
+
+        if not public_setting.value or not private_setting.value:
+            key = RSA.generate(2048)
+            encryptor = PKCS1_OAEP.new(key)
+            public_setting.value = key.publickey().exportKey()
+            private_setting.value = key.exportKey()
+
+        return public_setting.value, private_setting.value
+
+    @classmethod
+    def cipher(cls, key):
+        """Create a Cipher for a public or private key.
+
+        This just wraps some hard-to-remember Crypto code.
+
+        :param key: A string containing the key.
+
+        :return: A Cipher object which will support either
+        encrypt() (public key) or decrypt() (private key).
+        """
+        return PKCS1_OAEP.new(RSA.import_key(key))
 
 
 @contextlib.contextmanager
