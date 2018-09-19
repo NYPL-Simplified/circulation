@@ -198,21 +198,27 @@ class ExternalSearchIndex(object):
         the works_index directly for search queries.
         """
         alias_name = self.works_alias_name(_db)
-        exists = self.indices.exists_alias(name=alias_name)
+        alias_is_set = self.indices.exists_alias(name=alias_name)
 
-        def _set_works_alias(name):
+        def _use_as_works_alias(name):
             self.works_alias = self.__client.works_alias = name
 
-        if exists:
+        if alias_is_set:
+            # The alias exists on the Elasticsearch server, so it must
+            # point _somewhere.
             exists_on_works_index = self.indices.exists_alias(
                 index=self.works_index, name=alias_name
             )
             if exists_on_works_index:
-                _set_works_alias(alias_name)
+                # It points to the index we were expecting it to point to.
+                # Use it.
+                _use_as_works_alias(alias_name)
             else:
-                # The current alias is already set on a different index.
-                # Don't overwrite it. Instead, just use the given index.
-                _set_works_alias(self.works_index)
+                # The alias exists but it points somewhere we didn't
+                # expect. Rather than changing how the alias works and
+                # then using the alias, use the index directly instead
+                # of going through the alias.
+                _use_as_works_alias(self.works_index)
             return
 
         # Create the alias and search against it.
@@ -224,7 +230,7 @@ class ExternalSearchIndex(object):
             # Work against the index instead of an alias.
             _set_works_alias(self.works_index)
             return
-        _set_works_alias(alias_name)
+        _use_as_works_alias(alias_name)
 
     def setup_index(self, new_index=None):
         """Create the search index with appropriate mapping.

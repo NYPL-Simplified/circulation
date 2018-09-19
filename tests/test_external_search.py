@@ -77,8 +77,12 @@ class ExternalSearchTest(DatabaseTest):
         if self.search:
             if self.search.works_index:
                 self.search.indices.delete(self.search.works_index, ignore=[404])
+            self.search.indices.delete_alias(
+                'test_index-v9999', 'test_index-current', ignore=[404]
+            )
             self.search.indices.delete('the_other_index', ignore=[404])
             self.search.indices.delete('test_index-v100', ignore=[404])
+            self.search.indices.delete('test_index-v9999', ignore=[404])
             ExternalSearchIndex.reset()
         super(ExternalSearchTest, self).teardown()
 
@@ -189,6 +193,9 @@ class TestExternalSearch(ExternalSearchTest):
         eq_('my-app-%s' % version, self.search.works_index)
         eq_('my-app-' + self.search.CURRENT_ALIAS_SUFFIX, self.search.works_alias)
 
+
+class TestTransferCurrentAlias(ExternalSearchTest):
+
     def test_transfer_current_alias(self):
         if not self.search:
             return
@@ -238,6 +245,7 @@ class TestExternalSearch(ExternalSearchTest):
             ValueError, self.search.transfer_current_alias, self._db,
             'banana-v10'
         )
+
 
 class EndToEndExternalSearchTest(ExternalSearchTest):
     """Subclasses of this class set up real works in a real
