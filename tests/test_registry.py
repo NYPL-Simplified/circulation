@@ -253,18 +253,12 @@ class TestRegistration(DatabaseTest):
         expect = "Library %s has no key pair set." % library.short_name
         eq_(expect, result.detail)
 
-        key = RSA.generate(2048)
-
-        ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, library
-        ).value = key.publickey().exportKey()
-        result = push()
-        eq_(expect, result.detail)
-
-        # When both parts of the key pair are present, registration 
-        # is kicked off, and in this case it succeeds.
-        ConfigurationSetting.for_library(
-            Configuration.PRIVATE_KEY, library).value = key.exportKey()
+        # When a key pair is present, registration is kicked off, and
+        # in this case it succeeds.
+        key_pair_setting = ConfigurationSetting.for_library(
+            Configuration.KEY_PAIR, library
+        )
+        public_key, private_key = Configuration.key_pair(key_pair_setting)
         result = registration.push(
             stage, url_for, catalog_url, registration.mock_do_get, do_post
         )
@@ -315,7 +309,7 @@ class TestRegistration(DatabaseTest):
         results = registration._process_registration_result_called_with
         message, cipher, actual_stage = results
         eq_("you did it!", message)
-        eq_(cipher._key, key)
+        eq_(cipher._key.exportKey(), private_key)
         eq_(actual_stage, stage)
 
         # If a nonexistent stage is provided a ProblemDetail is the result.
@@ -538,21 +532,10 @@ class TestRegistration(DatabaseTest):
         reg = self.registration
         m = reg._process_registration_result
 
-        # Set up a public key just so it can be removed once
-        # registration is successful.
-        public_key = ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, reg.library
-        )
-        public_key.value = "a key"
-
         # Result must be a dictionary.
         result = m("not a dictionary", None, None)
         eq_(INTEGRATION_ERROR.uri, result.uri)
         eq_("Remote service served 'not a dictionary', which I can't make sense of as an OPDS document.", result.detail)
-
-        # Since there was an immediate failure, the public key has not been
-        # wiped.
-        eq_("a key", public_key.value)
 
         # When the result is empty, the registration is marked as successful.
         new_stage = "new stage"
@@ -560,9 +543,6 @@ class TestRegistration(DatabaseTest):
         result = m(dict(), encryptor, new_stage)
         eq_(True, result)
         eq_(reg.SUCCESS_STATUS, reg.status_field.value)
-
-        # The library's public key has been removed.
-        eq_(None, public_key.value)
 
         # The stage field has been set to the requested value.
         eq_(new_stage, reg.stage_field.value)
