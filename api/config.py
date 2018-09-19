@@ -122,15 +122,11 @@ class Configuration(CoreConfiguration):
     # disable.
     RESERVATIONS_FEATURE = "https://librarysimplified.org/rel/policy/reservations"
 
-    # Name of the library-wide public key configuration setting for negotiating
-    # a shared secret with a library registry. The setting is automatically generated
-    # and not editable by admins.
-    PUBLIC_KEY = "public-key"
-
-    # Name of the library-wide private key configuration setting for
-    # decrypting a shared secret provided by a library registry. The
-    # setting is automatically generated and not editable by admins.
-    PRIVATE_KEY = "private-key"
+    # Name of the library-wide public key configuration setting for
+    # negotiating a shared secret with a library registry. The setting
+    # is automatically generated and not editable by admins.
+    #
+    KEY_PAIR = "key-pair"
 
     SITEWIDE_SETTINGS = CoreConfiguration.SITEWIDE_SETTINGS + [
         {
@@ -480,11 +476,11 @@ class Configuration(CoreConfiguration):
         )
 
     @classmethod
-    def key_pair(cls, public_setting, private_setting):
-        """Look up a public-private key pair in two ConfigurationSettings.
+    def key_pair(cls, setting):
+        """Look up a public-private key pair in a ConfigurationSetting.
 
-        If either setting is unset, a new key pair is created and
-        stored.
+        If the value is missing or incorrect, a new key pair is
+        created and stored.
 
         TODO: This could go into ConfigurationSetting or core Configuration.
 
@@ -493,25 +489,21 @@ class Configuration(CoreConfiguration):
 
         :return: A 2-tuple (public key, private key)
         """
-        # Prevent bad code where public and private key are mixed up.
-        if 'public' not in public_setting.key.lower():
-            raise ValueError(
-                'Invalid setting "%s" passed in as public key!' %
-                public_setting.key
-            )
-        if 'private' not in private_setting.key.lower():
-            raise ValueError(
-                'Incorrect ConfigurationSetting "%s" passed in as private key!' %
-                private_setting.key
-            )
+        public = None
+        private = None
 
-        if not public_setting.value or not private_setting.value:
+        try:
+            public, private = setting.json_value
+        except Exception, e:
+            pass
+
+        if not public or not private:
             key = RSA.generate(2048)
             encryptor = PKCS1_OAEP.new(key)
-            public_setting.value = key.publickey().exportKey()
-            private_setting.value = key.exportKey()
-
-        return public_setting.value, private_setting.value
+            public = key.publickey().exportKey()
+            private = key.exportKey()
+            setting.value = json.dumps([public, private])
+        return public, private
 
     @classmethod
     def cipher(cls, key):
