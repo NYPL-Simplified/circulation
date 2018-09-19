@@ -31,7 +31,6 @@ from core.model import (
     get_one_or_create,
     Admin,
     AdminRole,
-    CachedFeed,
     CirculationEvent,
     Classification,
     Collection,
@@ -99,7 +98,6 @@ from core.app_server import (
     entry_response,
     feed_response,
     load_pagination_from_request,
-    load_facets_from_request
 )
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
