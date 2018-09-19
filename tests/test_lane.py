@@ -261,6 +261,42 @@ class TestFacets(DatabaseTest):
         expect = [['order', 'title', True], ['order', 'work_id', False]]
         eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
 
+    def test_default_availability(self):
+
+        # Normally, the availability will be the library's default availability
+        # facet.
+        test_enabled_facets = {
+            Facets.ORDER_FACET_GROUP_NAME : [Facets.ORDER_WORK_ID],
+            Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_FULL],
+            Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_ALL, Facets.AVAILABLE_NOW],
+        }
+        test_default_facets = {
+            Facets.ORDER_FACET_GROUP_NAME : Facets.ORDER_TITLE,
+            Facets.COLLECTION_FACET_GROUP_NAME : Facets.COLLECTION_FULL,
+            Facets.AVAILABILITY_FACET_GROUP_NAME : Facets.AVAILABLE_ALL,
+        }
+        library = self._default_library
+        self._configure_facets(
+            library, test_enabled_facets, test_default_facets
+        )
+        facets = Facets(library, None, None, None)
+        eq_(Facets.AVAILABLE_ALL, facets.availability)
+
+        # However, if the library does not allow holds, we only show
+        # books that are currently available.
+        library.setting(Library.ALLOW_HOLDS).value = False
+        facets = Facets(library, None, None, None)
+        eq_(Facets.AVAILABLE_NOW, facets.availability)
+
+        # Unless 'now' is not one of the enabled facets - then we keep
+        # using the library's default.
+        test_enabled_facets[Facets.AVAILABILITY_FACET_GROUP_NAME] = [Facets.AVAILABLE_ALL]
+        self._configure_facets(
+            library, test_enabled_facets, test_default_facets
+        )
+        facets = Facets(library, None, None, None)
+        eq_(Facets.AVAILABLE_ALL, facets.availability)
+
     def test_facets_can_be_enabled_at_initialization(self):
         enabled_facets = {
             Facets.ORDER_FACET_GROUP_NAME : [
