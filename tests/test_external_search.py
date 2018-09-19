@@ -1721,7 +1721,7 @@ class TestFilter(DatabaseTest):
         # spaces, and converts to lowercase.
 
         eq_(
-            {'terms': {'collection_id': [self._default_collection.id]}},
+            {'terms': {self.collections_field: [self._default_collection.id]}},
             collection.to_dict()
         )
 
@@ -1768,16 +1768,25 @@ class TestFilter(DatabaseTest):
 
         # The result is the combination of two filters -- both must
         # match.
-        eq_("and", filter.name)
-
+        #
         # One filter matches against the lower age range; the other
         # matches against the upper age range.
-        lower_match, upper_match = filter.filters
+        if MAJOR_VERSION == 1:
+            eq_("and", filter.name)
+            lower_match, upper_match = filter.filters
+        else:
+            eq_("bool", filter.name)
+            lower_match, upper_match = filter.must
 
         # We must establish that two-year-olds are not too old
         # for the book.
-        eq_("or", upper_match.name)
-        more_than_two, no_upper_limit = upper_match.filters
+        if MAJOR_VERSION == 1:
+            eq_("or", upper_match.name)
+            more_than_two, no_upper_limit = upper_match.filters
+        else:
+            eq_("bool", upper_match.name)
+            more_than_two, no_upper_limit = upper_match.should
+            eq_(1, upper_match.minimum_should_match)
 
         # Either the upper age limit must be greater than two...
         eq_(
@@ -1798,8 +1807,13 @@ class TestFilter(DatabaseTest):
 
         # We must also establish that five-year-olds are not too young
         # for the book. Again, there are two ways of doing this.
-        eq_("or", lower_match.name)
-        less_than_five, no_lower_limit = lower_match.filters
+        if MAJOR_VERSION == 1:
+            eq_("or", lower_match.name)
+            less_than_five, no_lower_limit = lower_match.filters
+        else:
+            eq_("bool", upper_match.name)
+            less_than_five, no_lower_limit = lower_match.should
+            eq_(1, lower_match.minimum_should_match)
 
         # Either the lower age limit must be less than five...
         eq_(
@@ -1815,8 +1829,13 @@ class TestFilter(DatabaseTest):
         filter = ten_and_under.target_age_filter
 
         # There are two clauses, and one of the two must match.
-        eq_('or', filter.name)
-        less_than_ten, no_lower_limit = filter.filters
+        if MAJOR_VERSION == 1:
+            eq_('or', filter.name)
+            less_than_ten, no_lower_limit = filter.filters
+        else:
+            eq_("bool", upper_match.name)
+            less_than_ten, no_lower_limit = filter.should
+            eq_(1, filter.minimum_should_match)
 
         # Either the lower part of the age range must be <= ten, or
         # there must be no lower age limit. If neither of these are
@@ -1830,8 +1849,13 @@ class TestFilter(DatabaseTest):
         filter = twelve_and_up.target_age_filter
 
         # There are two clauses, and one of the two must match.
-        eq_('or', filter.name)
-        more_than_twelve, no_upper_limit = filter.filters
+        if MAJOR_VERSION == 1:
+            eq_('or', filter.name)
+            more_than_twelve, no_upper_limit = filter.filters
+        else:
+            eq_('bool', filter.name)
+            more_than_twelve, no_upper_limit = filter.should
+            eq_(1, filter.minimum_should_match)
 
         # Either the upper part of the age range must be >= twelve, or
         # there must be no upper age limit. If neither of these are true,
