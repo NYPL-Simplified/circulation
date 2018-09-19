@@ -1436,6 +1436,15 @@ class TestFilter(DatabaseTest):
         self.best_sellers, ignore = self._customlist(num_entries=0)
         self.staff_picks, ignore = self._customlist(num_entries=0)
 
+        # Elasticsearch 1 and Elasticsearch 6 use slightly different
+        # terms to refer to nested field names.
+        if MAJOR_VERSION == 1:
+            self.collections_field = 'collection_id'
+            self.lists_field = 'list_id'
+        else:
+            self.collections_field = 'collections.collection_id'
+            self.lists_field = 'customlists.list_id'
+
     def test_constructor(self):
         # Verify that the Filter constructor sets members with
         # minimal processing.
@@ -1629,7 +1638,7 @@ class TestFilter(DatabaseTest):
         # restriction imposed by the fact that does_not_inherit
         # is, itself, associated with a specific library.
         filter = Filter.from_worklist(self._db, does_not_inherit, facets)
-        eq_({'terms': {'collection_id': [self._default_collection.id]}},
+        eq_({'terms': {self.collections_field: [self._default_collection.id]}},
             filter.build().to_dict())
 
     def test_build(self):
@@ -1737,9 +1746,9 @@ class TestFilter(DatabaseTest):
 
         # Similarly, there are two different restrictions on custom
         # list membership.
-        eq_({'terms': {'list_id': [self.best_sellers.id]}},
+        eq_({'terms': {self.lists_field: [self.best_sellers.id]}},
             best_sellers_filter.to_dict())
-        eq_({'terms': {'list_id': [self.staff_picks.id]}},
+        eq_({'terms': {self.lists_field: [self.staff_picks.id]}},
             staff_picks_filter.to_dict())
 
         # We tried fiction; now try nonfiction.
