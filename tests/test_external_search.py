@@ -941,10 +941,13 @@ class TestQuery(DatabaseTest):
         filtered = m.build()
 
         # The 'query' part came from calling Query.query()
-        eq_(filtered.query, m.query())
-
         # The 'filter' part came from Filter.build()
-        eq_(filtered.filter, filter.build())
+        if MAJOR_VERSION == 1:
+            eq_(filtered.query, m.query())
+            eq_(filtered.filter, filter.build())
+        else:
+            eq_(filtered.must, [m.query()])
+            eq_(filtered.filter, [filter.build()])
 
         # If there's no filter, the return value of Query.query()
         # is used as-is.
