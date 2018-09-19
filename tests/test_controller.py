@@ -320,10 +320,9 @@ class TestCirculationManager(CirculationControllerTest):
     def test_initialization(self):
         # As soon as the CirculationManager object is created,
         # it sets a public/private key pair for the site.
-        public, private = [
-            ConfigurationSetting.sitewide(self._db, x).value
-            for x in Configuration.PUBLIC_KEY, Configuration.PRIVATE_KEY
-        ]
+        public, private = ConfigurationSetting.sitewide(
+            self._db, Configuration.KEY_PAIR
+        ).json_value
         assert 'BEGIN PUBLIC KEY' in public
         assert 'BEGIN RSA PRIVATE KEY' in private
 
@@ -469,12 +468,8 @@ class TestCirculationManager(CirculationControllerTest):
     def test_sitewide_key_pair(self):
         # A public/private key pair was created when the
         # CirculationManager was initialized. Clear it out.
-        public, private = [
-            ConfigurationSetting.sitewide(self._db, x)
-            for x in Configuration.PUBLIC_KEY, Configuration.PRIVATE_KEY
-        ]
-        public.value = None
-        private.value = None
+        pair = ConfigurationSetting.sitewide(self._db, Configuration.KEY_PAIR)
+        pair.value = None
 
         # Calling sitewide_key_pair will create a new pair of keys.
         new_public, new_private = self.manager.sitewide_key_pair
@@ -482,9 +477,8 @@ class TestCirculationManager(CirculationControllerTest):
         assert 'BEGIN RSA PRIVATE KEY' in new_private
 
         # The new values are stored in the appropriate
-        # ConfigurationSettings.
-        eq_(public.value, new_public)
-        eq_(private.value, new_private)
+        # ConfigurationSetting.
+        eq_([new_public, new_private], pair.json_value)
 
         # Calling it again will do nothing.
         eq_((new_public, new_private), self.manager.sitewide_key_pair)
@@ -949,11 +943,12 @@ class TestIndexController(CirculationControllerTest):
     def test_public_key_integration_document(self):
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
 
-        # When a sitewide public key exists (which should be all the
+        # When a sitewide key pair exists (which should be all the
         # time), all of its data is included.
-        ConfigurationSetting.sitewide(
-            self._db, Configuration.PUBLIC_KEY
-        ).value = u'weird'
+        key_setting = ConfigurationSetting.sitewide(
+            self._db, Configuration.KEY_PAIR
+        )
+        key_setting.value = json.dumps(['public key', 'private key'])
         with self.app.test_request_context('/'):
             response = self.manager.index_controller.public_key_document()
 
@@ -962,14 +957,16 @@ class TestIndexController(CirculationControllerTest):
 
         data = json.loads(response.data)
         eq_('RSA', data.get('public_key', {}).get('type'))
-        eq_('weird', data.get('public_key', {}).get('value'))
+        eq_('public key', data.get('public_key', {}).get('value'))
 
-        # If there is no sitewide public key (which should never
+        # If there is no sitewide key pair (which should never
         # happen), a new one is created. Library-specific public keys
         # are ignored.
-        for x in (Configuration.PUBLIC_KEY, Configuration.PRIVATE_KEY):
-            ConfigurationSetting.sitewide(self._db, x).value = None
-            ConfigurationSetting.for_library(x, self.library).value = u'banana'
+        key_setting.value = None
+        ConfigurationSetting.for_library(
+            Configuration.KEY_PAIR, self.library
+        ).value = u'ignore me'
+            
         with self.app.test_request_context('/'):
             response = self.manager.index_controller.public_key_document()
 
