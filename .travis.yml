@@ -7,9 +7,11 @@ addons:
     packages:
       - postgresql-contrib-9.3
 
+env:
+  - ES_VERSION="6.3.2" ES_DOWNLOAD="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz"
+
 services:
   - postgresql
-  - elasticsearch
 
 language: python
 
@@ -27,6 +29,12 @@ install:
   - python -m textblob.download_corpora
   - cp config.json.sample config.json
   - export SIMPLIFIED_CONFIGURATION_FILE="${TRAVIS_BUILD_DIR}/config.json"
+  - wget ${ES_DOWNLOAD}
+  - export ES_PATH=elasticsearch-${ES_VERSION}
+  - tar -xzf ${ES_PATH}.tar.gz
+  - cp elasticsearch.yml.testing ./${ES_PATH}/config/elasticsearch.yml
+  - ./${ES_PATH}/bin/elasticsearch &
+
 
 before_script:
   - psql -c 'create user simplified_test;' -U postgres

@@ -1,5 +1,0 @@
-# Scores for search results are calculated on a per-shard basis.
-# Keeping everything in one shard while running unit testsensures that
-# we have complete control over how the scores are calculated.
-index.number_of_shards: 1
-index.number_of_replicas: 0
