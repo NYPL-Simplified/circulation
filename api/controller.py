@@ -424,11 +424,10 @@ class CirculationManager(object):
     @property
     def sitewide_key_pair(self):
         """Look up or create the sitewide public/private key pair."""
-        public, private = [
-            ConfigurationSetting.sitewide(self._db, x)
-            for x in Configuration.PUBLIC_KEY, Configuration.PRIVATE_KEY
-        ]
-        return Configuration.key_pair(public, private)
+        setting = ConfigurationSetting.sitewide(
+            self._db, Configuration.KEY_PAIR
+        )
+        return Configuration.key_pair(setting)
 
     @property
     def public_key_integration_document(self):
