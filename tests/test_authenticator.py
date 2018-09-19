@@ -1340,13 +1340,12 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         library = self._default_library
 
-        # Initially, the PUBLIC_KEY and PRIVATE_KEY settings are not set.
+        # Initially, the KEY_PAIR setting is not set.
         def keys():
-            return [
-                ConfigurationSetting.for_library(v, library).value
-                for v in [Configuration.PUBLIC_KEY, Configuration.PRIVATE_KEY]
-            ]
-        eq_([None, None], keys())
+            return ConfigurationSetting.for_library(
+                Configuration.KEY_PAIR, library
+            ).json_value
+        eq_(None, keys())
 
         # Instantiating a LibraryAuthenticator for a library automatically
         # generates a public/private key pair.
