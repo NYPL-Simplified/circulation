@@ -759,7 +759,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         if lane and lane.uses_customlists:
             name = None
             if hasattr(lane, "customlists") and len(lane.customlists) == 1:
-                name = list.customlists[0].name
+                name = lane.customlists[0].name
             elif (hasattr(lane, "customlist_ids") and lane.customlist_ids) and list:
                 name = list.name
 
