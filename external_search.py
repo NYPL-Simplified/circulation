@@ -168,6 +168,8 @@ class ExternalSearchIndex(object):
                     repr(e)
                 )
 
+        self.search = Search(using=self.__client, index=self.works_alias)
+
         def bulk(docs, **kwargs):
             return elasticsearch_bulk(self.__client, docs, **kwargs)
         self.bulk = bulk
@@ -302,17 +304,17 @@ class ExternalSearchIndex(object):
             return []
 
         query = Query(query_string, filter)
-        search = Search(
-            using=self.__client, index=self.works_alias
-        ).query(query.build())
+        query_without_filter = Query(query_string)
+        search = self.search.query(query.build())
         if debug:
             search = search.extra(explain=True)
 
         fields = None
         if debug:
-            # Get some additional fields to make it easy to check whether
-            # we got reasonable looking results.
-            fields = ["_id", "title", "author", "license_pool_id"]
+            # Don't restrict the fields at all -- get everything.
+            # This makes it easy to investigate everything about the
+            # results we do get.
+            fields = None
         else:
             # All we absolutely need is the document ID, which is a
             # key into the database.
@@ -320,10 +322,11 @@ class ExternalSearchIndex(object):
 
         # Change the Search object so it only retrieves the fields
         # we're asking for.
-        if MAJOR_VERSION == 1:
-            search = search.fields(fields)
-        else:
-            search = search.source(fields)
+        if fields:
+            if MAJOR_VERSION == 1:
+                search = search.fields(fields)
+            else:
+                search = search.source(fields)
 
         if not pagination:
             from lane import Pagination
@@ -1206,7 +1209,12 @@ class Filter(SearchBase):
         collection_ids = filter_ids(self.collection_ids)
         f = None
         if collection_ids:
-            f = chain(f, F('terms', collection_id=filter_ids(collection_ids)))
+            ids = filter_ids(collection_ids)
+            if MAJOR_VERSION == 1:
+                f = chain(f, F('terms', list_id=ids))
+            else:
+                f = chain(f, F('terms', **{'collections.collection_id' : ids}))
+
 
         if self.media:
             f = chain(f, F('terms', medium=scrub_list(self.media)))
@@ -1232,7 +1240,12 @@ class Filter(SearchBase):
             f = chain(f, F('terms', **{'genres.term' : filter_ids(genre_ids)}))
 
         for customlist_ids in self.customlist_restriction_sets:
-            f = chain(f, F('terms', list_id=filter_ids(customlist_ids)))
+            ids = filter_ids(customlist_ids)
+            if MAJOR_VERSION == 1:
+                f = chain(f, F('terms', list_id=filter_ids(ids)))
+            else:
+                f = chain(f, F('terms', **{'customlists.list_id' : ids}))
+
 
         return f
 
