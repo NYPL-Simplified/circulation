@@ -193,9 +193,6 @@ class TestExternalSearch(ExternalSearchTest):
         eq_('my-app-%s' % version, self.search.works_index)
         eq_('my-app-' + self.search.CURRENT_ALIAS_SUFFIX, self.search.works_alias)
 
-
-class TestTransferCurrentAlias(ExternalSearchTest):
-
     def test_transfer_current_alias(self):
         if not self.search:
             return
@@ -212,7 +209,7 @@ class TestTransferCurrentAlias(ExternalSearchTest):
         # If the -current alias doesn't exist, it's created
         # and everything is updated accordingly.
         self.search.indices.delete_alias(
-            index=original_index, name='test_index-current'
+            index=original_index, name='test_index-current', ignore=[404]
         )
         self.search.setup_index(new_index='test_index-v9999')
         self.search.transfer_current_alias(self._db, 'test_index-v9999')

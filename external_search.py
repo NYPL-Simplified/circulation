@@ -268,15 +268,25 @@ class ExternalSearchIndex(object):
 
         exists = self.indices.exists_alias(name=alias_name)
         if not exists:
+            # The alias doesn't already exist. Set it.
             self.setup_current_alias(_db)
             return
 
-        exists_on_works_index = self.indices.get_alias(
-            index=self.works_index, name=alias_name
-        )
-        if not exists_on_works_index:
-            # The alias exists on one or more other indices.
-            # Remove it from them.
+        # We know the alias already exists. Before we set it to point
+        # to self.works_index, we may need to remove it from some
+        # other indices.
+        other_indices = self.indices.get_alias(name=alias_name).keys()
+
+        if self.works_index in other_indices:
+            # If the alias already points to the works index,
+            # that's fine -- we want to see if it points to any
+            # _other_ indices.
+            other_indices.remove(self.works_index)
+
+        if other_indices:
+            # The alias exists on one or more other indices.  Remove
+            # the alias altogether, then put it back on the works
+            # index.
             self.indices.delete_alias(index='_all', name=alias_name)
             self.indices.put_alias(
                 index=self.works_index, name=alias_name
