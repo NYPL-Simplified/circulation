@@ -594,10 +594,15 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
 
         # Find results based on genre.
 
-        # The name of the genre also shows up in the title of a book,
-        # but the genre boost means the romance novel is the first
-        # result.
-        expect([self.modern_romance, self.ya_romance], "romance")
+        if MAJOR_VERSION == 1:
+            # The name of the genre also shows up in the title of a
+            # book, but the genre boost means the romance novel is the
+            # first result.
+            expect([self.ya_romance, self.modern_romance], "romance")
+        else:
+            # In ES6, the title boost is higher (TODO: how?) so
+            # the book with 'romance' in the title is the first result.
+            expect([self.modern_romance, self.ya_romance], "romance")
 
         # Find results based on audience.
         expect(self.children_work, "children's")
