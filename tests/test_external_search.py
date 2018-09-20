@@ -91,9 +91,6 @@ class ExternalSearchTest(DatabaseTest):
         if self.search:
             if self.search.works_index:
                 self.search.indices.delete(self.search.works_index, ignore=[404])
-            self.search.indices.delete_alias(
-                'test_index-v9999', 'test_index-current', ignore=[404]
-            )
             self.search.indices.delete('the_other_index', ignore=[404])
             self.search.indices.delete('test_index-v100', ignore=[404])
             self.search.indices.delete('test_index-v9999', ignore=[404])
