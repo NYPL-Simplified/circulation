@@ -748,8 +748,8 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         on_presidential_list = Filter(
             customlist_restriction_sets=[[self.presidential]]
         )
-        # TODO: broken
-        # expect(self.lincoln, "lincoln", on_presidential_list)
+
+        expect(self.lincoln, "lincoln", on_presidential_list)
 
         # This filters everything, since the query is restricted to
         # an empty set of lists.
