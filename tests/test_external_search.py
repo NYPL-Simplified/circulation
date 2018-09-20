@@ -1782,9 +1782,20 @@ class TestFilter(DatabaseTest):
 
         # We must establish that two-year-olds are not too old
         # for the book.
-        eq_("bool", upper_match.name)
-        more_than_two, no_upper_limit = upper_match.should
-        eq_(1, upper_match.minimum_should_match)
+        def dichotomy(filter):
+            """Verify that `filter` is a boolean filter that
+            matches one of a number of possibilities. Return those
+            possibilities.
+            """
+            if MAJOR_VERSION == 1:
+                eq_("or", filter.name)
+                return filter.filters
+            else:
+                eq_("bool", filter.name)
+                eq_(1, filter.minimum_should_match)
+                return filter.should
+        more_than_two, no_upper_limit = dichotomy(upper_match)
+
 
         # Either the upper age limit must be greater than two...
         eq_(
@@ -1805,9 +1816,7 @@ class TestFilter(DatabaseTest):
 
         # We must also establish that five-year-olds are not too young
         # for the book. Again, there are two ways of doing this.
-        eq_("bool", lower_match.name)
-        less_than_five, no_lower_limit = lower_match.should
-        eq_(1, lower_match.minimum_should_match)
+        less_than_five, no_lower_limit = dichotomy(lower_match)
 
         # Either the lower age limit must be less than five...
         eq_(
@@ -1823,9 +1832,7 @@ class TestFilter(DatabaseTest):
         filter = ten_and_under.target_age_filter
 
         # There are two clauses, and one of the two must match.
-        eq_("bool", filter.name)
-        less_than_ten, no_lower_limit = filter.should
-        eq_(1, filter.minimum_should_match)
+        less_than_ten, no_lower_limit = dichotomy(filter)
 
         # Either the lower part of the age range must be <= ten, or
         # there must be no lower age limit. If neither of these are
@@ -1839,9 +1846,7 @@ class TestFilter(DatabaseTest):
         filter = twelve_and_up.target_age_filter
 
         # There are two clauses, and one of the two must match.
-        eq_('bool', filter.name)
-        more_than_twelve, no_upper_limit = filter.should
-        eq_(1, filter.minimum_should_match)
+        more_than_twelve, no_upper_limit = dichotomy(filter)
 
         # Either the upper part of the age range must be >= twelve, or
         # there must be no upper age limit. If neither of these are true,

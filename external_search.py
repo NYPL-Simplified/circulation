@@ -1282,8 +1282,11 @@ class Filter(SearchBase):
             """Either the given `clause` matches or the given field
             does not exist.
             """
-            return F('bool', should=[clause, does_not_exist(field)],
-                     minimum_should_match=1)
+            if MAJOR_VERSION==1:
+                return F('or', [clause, does_not_exist(field)])
+            else:
+                return F('bool', should=[clause, does_not_exist(field)],
+                         minimum_should_match=1)
 
         clauses = []
 
