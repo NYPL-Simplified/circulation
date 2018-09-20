@@ -12,11 +12,6 @@ from . import (
     DatabaseTest,
 )
 
-from elasticsearch_dsl import Q
-try:
-    from elasticsearch_dsl import F
-except ImportError, e:
-    from elasticsearch_dsl import Q as F
 from elasticsearch.exceptions import ElasticsearchException
 
 from config import CannotLoadConfiguration
@@ -43,6 +38,16 @@ from external_search import (
     SearchIndexCoverageProvider,
     SearchIndexMonitor,
 )
+
+# NOTE: external_search took care of handling the differences between
+# Elasticsearch versions and making sure 'Q' and 'F' are set
+# appropriately.  That's why we import them from external_search
+# instead of elasticsearch_dsl.
+from external_search import (
+    Q,
+    F,
+)
+
 from classifier import Classifier
 
 
@@ -85,7 +90,6 @@ class ExternalSearchTest(DatabaseTest):
             self.search = None
             print "Unable to set up elasticsearch index, search tests will be skipped."
             print e
-            set_trace()
 
     def teardown(self):
         if self.search:
@@ -900,14 +904,14 @@ class TestExactMatches(EndToEndExternalSearchTest):
                 self.book_by_someone_else,      # match across fields (no 'biography')
             ]
         else:
-            # In Elasticsearch 6, a book which matches all the words
-            # in its title is ranked below a work that matches only
-            # two of the words across fields. I don't understand why.
+            # In Elasticsearch 6, the exact author match that doesn't
+            # mention 'biography' is boosted above a book that
+            # mentions all three words in its title.
             order = [
                 self.biography_of_peter_graves, # title + genre 'biography'
                 self.book_by_peter_graves,      # author (no 'biography')
-                self.book_by_someone_else,      # match across fields (no 'biography')
                 self.behind_the_scenes,         # all words match in title
+                self.book_by_someone_else,      # match across fields (no 'biography')
             ]
 
         expect(order, "peter graves biography")
