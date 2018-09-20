@@ -19,52 +19,31 @@ class TestConfiguration(DatabaseTest):
 
     def test_key_pair(self):
         # Test the ability to create, replace, or look up a
-        # public/private key pair in a pair of ConfigurationSetting
-        # objects.
-        public = ConfigurationSetting.sitewide(
-            self._db, Configuration.PUBLIC_KEY
+        # public/private key pair in a ConfigurationSetting.
+        setting = ConfigurationSetting.sitewide(
+            self._db, Configuration.KEY_PAIR
         )
-        public.value = "old value"
-        private = ConfigurationSetting.sitewide(
-            self._db, Configuration.PRIVATE_KEY
-        )
-        irrelevant = ConfigurationSetting.sitewide(
-            self._db, "irrelevant"
-        )
-        irrelevant.value = "blue"
+        setting.value = "nonsense"
 
-        # If you pass in a pair of ConfigurationSettings, and at least
-        # one of them is missing its value, a new key pair is created.
-        public_key, private_key = Configuration.key_pair(public, private)
+        # If you pass in a ConfigurationSetting that is missing its
+        # value, or whose value is not a public key pair, a new key
+        # pair is created.
+        public_key, private_key = Configuration.key_pair(setting)
         assert 'BEGIN PUBLIC KEY' in public_key
         assert 'BEGIN RSA PRIVATE KEY' in private_key
-        eq_(public_key, public.value)
-        eq_(private_key, private.value)
+        eq_([public_key, private_key], setting.json_value)
 
-        # If the key pair is intact, it is returned as is.
-        public.value = "public 1"
-        private.value = "private 2"
-        eq_(("public 1", "private 2"), Configuration.key_pair(public, private))
+        setting.value = None
+        public_key, private_key = Configuration.key_pair(setting)
+        assert 'BEGIN PUBLIC KEY' in public_key
+        assert 'BEGIN RSA PRIVATE KEY' in private_key
+        eq_([public_key, private_key], setting.json_value)
 
-        # If you mistake public for private, or pass in a clearly
-        # irrelevant setting, you get a ValueError.
-        assert_raises_regexp(
-            ValueError,
-            'Incorrect ConfigurationSetting "public-key" passed in as private key!',
-            Configuration.key_pair, public, public
-        )
-
-        assert_raises_regexp(
-            ValueError,
-            '"private-key" passed in as public key!',
-            Configuration.key_pair, private, private
-        )
-
-        assert_raises_regexp(
-            ValueError,
-            '"irrelevant" passed in as private key!',
-            Configuration.key_pair, public, irrelevant
-        )
+        # If the setting has a good value already, the key pair is
+        # returned as is.
+        new_public, new_private = Configuration.key_pair(setting)
+        eq_(new_public, public_key)
+        eq_(new_private, private_key)
 
     def test_cipher(self):
         """Test the cipher() helper method."""

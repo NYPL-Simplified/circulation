@@ -967,11 +967,10 @@ class LibraryAuthenticator(object):
     def key_pair(self):
         """Look up or create a public/private key pair for use by this library.
         """
-        public, private = [
-            ConfigurationSetting.for_library(x, self.library)
-            for x in Configuration.PUBLIC_KEY, Configuration.PRIVATE_KEY
-        ]
-        return Configuration.key_pair(public, private)
+        setting = ConfigurationSetting.for_library(
+            Configuration.KEY_PAIR, self.library
+        )
+        return Configuration.key_pair(setting)
 
     @classmethod
     def _geographic_areas(cls, library):
