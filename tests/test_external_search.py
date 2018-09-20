@@ -597,9 +597,6 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         # The name of the genre also shows up in the title of a book,
         # but the genre boost means the romance novel is the first
         # result.
-
-        # TODO: ES6 flips this but it might be a Leonard's-laptop thing
-        # because so does ES1.
         expect([self.modern_romance, self.ya_romance], "romance")
 
         # Find results based on audience.
@@ -749,7 +746,6 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         on_presidential_list = Filter(
             customlist_restriction_sets=[[self.presidential]]
         )
-
         expect(self.lincoln, "lincoln", on_presidential_list)
 
         # This filters everything, since the query is restricted to
@@ -1450,9 +1446,6 @@ class TestFilter(DatabaseTest):
         self.best_sellers, ignore = self._customlist(num_entries=0)
         self.staff_picks, ignore = self._customlist(num_entries=0)
 
-        self.lists_field = 'customlists.list_id'
-        self.collections_field = 'collections.collection_id'
-
     def test_constructor(self):
         # Verify that the Filter constructor sets members with
         # minimal processing.
@@ -1646,7 +1639,7 @@ class TestFilter(DatabaseTest):
         # restriction imposed by the fact that does_not_inherit
         # is, itself, associated with a specific library.
         filter = Filter.from_worklist(self._db, does_not_inherit, facets)
-        eq_({'terms': {self.collections_field: [self._default_collection.id]}},
+        eq_({'terms': {'collections.collection_id': [self._default_collection.id]}},
             filter.build().to_dict())
 
     def test_build(self):
@@ -1729,7 +1722,7 @@ class TestFilter(DatabaseTest):
         # spaces, and converts to lowercase.
 
         eq_(
-            {'terms': {self.collections_field: [self._default_collection.id]}},
+            {'terms': {'collections.collection_id': [self._default_collection.id]}},
             collection.to_dict()
         )
 
@@ -1754,9 +1747,9 @@ class TestFilter(DatabaseTest):
 
         # Similarly, there are two different restrictions on custom
         # list membership.
-        eq_({'terms': {self.lists_field: [self.best_sellers.id]}},
+        eq_({'terms': {'customlists.list_id': [self.best_sellers.id]}},
             best_sellers_filter.to_dict())
-        eq_({'terms': {self.lists_field: [self.staff_picks.id]}},
+        eq_({'terms': {'customlists.list_id': [self.staff_picks.id]}},
             staff_picks_filter.to_dict())
 
         # We tried fiction; now try nonfiction.
