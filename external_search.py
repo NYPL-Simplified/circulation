@@ -3,6 +3,7 @@ from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk
 from elasticsearch.exceptions import ElasticsearchException
 from elasticsearch_dsl import (
+    Index,
     Search,
     Q,
 )
@@ -240,14 +241,15 @@ class ExternalSearchIndex(object):
         existing index. Use it to create a new index, then change the
         alias to point to the new index.
         """
-        index = new_index or self.works_index
-        if self.indices.exists(index):
-            self.indices.delete(index)
+        index_name = new_index or self.works_index
+        if self.indices.exists(index_name):
+            self.indices.delete(index_name)
 
-        self.log.info("Creating index %s", index)
+        self.log.info("Creating index %s", index_name)
         body = ExternalSearchIndexVersions.latest_body()
+        body.setdefault('settings', {}).update(index_settings)
         index = self.indices.create(
-            index=index, body=body, settings=index_settings
+            index=index_name, body=body
         )
 
     def transfer_current_alias(self, _db, new_index):

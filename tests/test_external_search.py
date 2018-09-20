@@ -544,7 +544,7 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
                 self.publisher_match,
                 self.summary_match,
             ]
-        expect("match", order)
+        expect(order, "match")
 
         # (title match + author match) > title match
         expect(
