@@ -535,12 +535,12 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
                 self.publisher_match,
             ]
         else:
-            # TODO: This is incorrect.
+            # TODO: This is incorrect -- summary is boosted way too much.
             order = [
                 self.title_match,
+                self.summary_match,
                 self.subtitle_match,
                 self.publisher_match,
-                self.summary_match,
             ]
         expect(order, "match")
 
@@ -872,29 +872,16 @@ class TestExactMatches(EndToEndExternalSearchTest):
         # 'peter graves' is a string that has exact matches in both
         # title and author.
 
-        if MAJOR_VERSION == 1:
-            # Under Elasticsearch 1, books with 'Peter Graves' in the
-            # title are the top results, ordered by how much other
-            # stuff is in the title. An exact author match is next.
-            order = [
-                self.biography_of_peter_graves,
-                self.behind_the_scenes,
-                self.book_by_peter_graves,
-            ]
-        else:
-            # Under Elasticsearch 6, an exact author match is the
-            # first result, and then title matches are the top
-            # results. (It's not clear to me why the title matches
-            # happen in the opposite order from Elasticsearch 1.)
-            order = [
-                self.book_by_peter_graves,
-                self.behind_the_scenes,
-                self.biography_of_peter_graves,
-            ]
-
-        # In both cases, a partial match split across fields ("peter"
-        # in author, "graves" in title) is the last result.
-        order.append(self.book_by_someone_else)
+        # Books with 'Peter Graves' in the title are the top results,
+        # ordered by how much other stuff is in the title. An exact
+        # author match is next.  A partial match split across fields
+        # ("peter" in author, "graves" in title) is the last result.
+        order = [
+            self.biography_of_peter_graves,
+            self.behind_the_scenes,
+            self.book_by_peter_graves,
+            self.book_by_someone_else,
+        ]
         expect(order, "peter graves")
 
         if MAJOR_VERSION == 1:
