@@ -33,7 +33,6 @@ install:
   - wget ${ES_DOWNLOAD}
   - export ES_PATH=elasticsearch-${ES_VERSION}
   - tar -xzf ${ES_PATH}.tar.gz
-  - cp elasticsearch.yml.testing ./${ES_PATH}/config/elasticsearch.yml
   - ./${ES_PATH}/bin/elasticsearch &
 
 
