@@ -498,7 +498,6 @@ class ExternalSearchIndexVersions(object):
         else:
             string_type = 'text'
 
-
         settings = {
             "analysis": {
                 "filter": {
@@ -1230,11 +1229,7 @@ class Filter(SearchBase):
         f = None
         if collection_ids:
             ids = filter_ids(collection_ids)
-            if MAJOR_VERSION == 1:
-                f = chain(f, F('terms', collection_id=ids))
-            else:
-                f = chain(f, F('terms', **{'collections.collection_id' : ids}))
-
+            f = chain(f, F('terms', **{'collections.collection_id' : ids}))
 
         if self.media:
             f = chain(f, F('terms', medium=scrub_list(self.media)))
@@ -1261,10 +1256,7 @@ class Filter(SearchBase):
 
         for customlist_ids in self.customlist_restriction_sets:
             ids = filter_ids(customlist_ids)
-            if MAJOR_VERSION == 1:
-                f = chain(f, F('terms', list_id=filter_ids(ids)))
-            else:
-                f = chain(f, F('terms', **{'customlists.list_id' : ids}))
+            f = chain(f, F('terms', **{'customlists.list_id' : ids}))
 
 
         return f
@@ -1290,11 +1282,11 @@ class Filter(SearchBase):
             """Either the given `clause` matches or the given field
             does not exist.
             """
-            if MAJOR_VERSION == 1:
-                return F('or', [clause, does_not_exist(field)])
-            else:
-                return Q('bool', should=[clause, does_not_exist(field)],
-                         minimum_should_match=1)
+            #if MAJOR_VERSION == 1:
+            #    return F('or', [clause, does_not_exist(field)])
+            #else:
+            return F('bool', should=[clause, does_not_exist(field)],
+                     minimum_should_match=1)
 
         clauses = []
 
