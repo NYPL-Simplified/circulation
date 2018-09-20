@@ -232,7 +232,7 @@ class ExternalSearchIndex(object):
             return
         _use_as_works_alias(alias_name)
 
-    def setup_index(self, new_index=None):
+    def setup_index(self, new_index=None, **index_settings):
         """Create the search index with appropriate mapping.
 
         This will destroy the search index, and all works will need
@@ -246,7 +246,9 @@ class ExternalSearchIndex(object):
 
         self.log.info("Creating index %s", index)
         body = ExternalSearchIndexVersions.latest_body()
-        self.indices.create(index=index, body=body)
+        index = self.indices.create(
+            index=index, body=body, settings=index_settings
+        )
 
     def transfer_current_alias(self, _db, new_index):
         """Force -current alias onto a new index"""
@@ -1227,7 +1229,7 @@ class Filter(SearchBase):
         if collection_ids:
             ids = filter_ids(collection_ids)
             if MAJOR_VERSION == 1:
-                f = chain(f, F('terms', list_id=ids))
+                f = chain(f, F('terms', collection_id=ids))
             else:
                 f = chain(f, F('terms', **{'collections.collection_id' : ids}))
 

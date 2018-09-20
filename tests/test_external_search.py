@@ -46,6 +46,19 @@ from external_search import (
 from classifier import Classifier
 
 
+class TestingClient(ExternalSearchIndex):
+    """When creating an index, limit it to a single shard and disable
+    replicas.
+
+    This makes search results more predictable.
+    """
+
+    def setup_index(self, new_index=None):
+        return super(TestingClient, self).setup_index(
+            new_index, number_of_shards=1, number_of_replicas=0
+        )
+
+
 class ExternalSearchTest(DatabaseTest):
     """
     These tests require elasticsearch to be running locally. If it's not, or there's
@@ -67,7 +80,7 @@ class ExternalSearchTest(DatabaseTest):
         )
 
         try:
-            self.search = ExternalSearchIndex(self._db)
+            self.search = TestingClient(self._db)
         except Exception as e:
             self.search = None
             print "Unable to set up elasticsearch index, search tests will be skipped."
@@ -464,7 +477,7 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         # search index and verify that the work IDs returned
         # are the ones we expect.
         if not self.search:
-            self.logging.error(
+            logging.error(
                 "Search is not configured, skipping test_query_works."
             )
             return
@@ -516,13 +529,22 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         expect(self.moby_dick, "gutenberg")
 
         # Title > subtitle > summary > publisher.
-
-        # TODO: ES6 puts publisher before summary. Mysterious!
-        expect(
-            [self.title_match, self.subtitle_match,
-             self.publisher_match, self.summary_match],
-            "match"
-        )
+        if MAJOR_VERSION == 1:
+            order = [
+                self.title_match,
+                self.subtitle_match,
+                self.summary_match,
+                self.publisher_match,
+            ]
+        else:
+            # TODO: This is incorrect.
+            order = [
+                self.title_match,
+                self.subtitle_match,
+                self.publisher_match,
+                self.summary_match,
+            ]
+        expect("match", order)
 
         # (title match + author match) > title match
         expect(

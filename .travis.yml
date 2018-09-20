@@ -9,6 +9,7 @@ addons:
 
 env:
   - ES_VERSION="6.3.2" ES_DOWNLOAD="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz"
+#  - ES_VERSION="1.7.0" ES_DOWNLOAD="https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz"
 
 services:
   - postgresql
