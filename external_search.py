@@ -1282,9 +1282,6 @@ class Filter(SearchBase):
             """Either the given `clause` matches or the given field
             does not exist.
             """
-            #if MAJOR_VERSION == 1:
-            #    return F('or', [clause, does_not_exist(field)])
-            #else:
             return F('bool', should=[clause, does_not_exist(field)],
                      minimum_should_match=1)
 
@@ -1311,10 +1308,7 @@ class Filter(SearchBase):
             return clauses[0]
 
         # Both upper and lower age must match.
-        if MAJOR_VERSION == 1:
-            return F('and', clauses)
-        else:
-            return Q('bool', must=clauses)
+        return F('bool', must=clauses)
 
     @classmethod
     def _scrub(cls, s):

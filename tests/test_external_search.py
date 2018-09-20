@@ -1791,19 +1791,12 @@ class TestFilter(DatabaseTest):
         #
         # One filter matches against the lower age range; the other
         # matches against the upper age range.
-        if MAJOR_VERSION == 1:
-            eq_("and", filter.name)
-            lower_match, upper_match = filter.filters
-        else:
-            eq_("bool", filter.name)
-            lower_match, upper_match = filter.must
+        eq_("bool", filter.name)
+        lower_match, upper_match = filter.must
 
         # We must establish that two-year-olds are not too old
         # for the book.
-        if MAJOR_VERSION == 1 and False:
-            eq_("or", upper_match.name)
-        else:
-            eq_("bool", upper_match.name)
+        eq_("bool", upper_match.name)
         more_than_two, no_upper_limit = upper_match.should
         eq_(1, upper_match.minimum_should_match)
 
