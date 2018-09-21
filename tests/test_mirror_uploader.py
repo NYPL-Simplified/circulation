@@ -4,7 +4,7 @@ from nose.tools import (
     assert_raises_regexp,
 )
 from . import DatabaseTest
-from core.config import CannotLoadConfiguration
+from config import CannotLoadConfiguration
 from mirror import MirrorUploader
 from model import ExternalIntegration
 

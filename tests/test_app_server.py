@@ -37,7 +37,7 @@ from app_server import (
     load_pagination_from_request,
 )
 
-from core.config import Configuration
+from config import Configuration
 
 from entrypoint import (
     AudiobooksEntryPoint,

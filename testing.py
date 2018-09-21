@@ -10,7 +10,7 @@ import tempfile
 import uuid
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
-from core.config import Configuration
+from config import Configuration
 
 from lane import (
     Lane,

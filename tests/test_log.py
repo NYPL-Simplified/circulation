@@ -22,7 +22,7 @@ from model import (
     ExternalIntegration,
     ConfigurationSetting
 )
-from core.config import Configuration
+from config import Configuration
 
 class TestJSONFormatter(object):
 

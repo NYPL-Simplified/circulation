@@ -40,7 +40,7 @@ from constants import (
     LinkRelations,
     MediaTypes,
 )
-from core import classifier
+import classifier
 
 def flush(db):
     """Flush the database connection unless it's known to already be flushing."""
@@ -366,8 +366,8 @@ class SessionManager(object):
                     foreign_keys=LicensePool.id, lazy='joined', uselist=False)
 
             globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
-            import core.model
-            core.model.MaterializedWorkWithGenre = MaterializedWorkWithGenre
+            import model
+            model.MaterializedWorkWithGenre = MaterializedWorkWithGenre
 
         cls.engine_for_url[url] = engine
         return engine, engine.connect()
@@ -379,7 +379,7 @@ class SessionManager(object):
             _db.commit()
         # Immediately update the number of works associated with each
         # lane.
-        from core.lane import Lane
+        from lane import Lane
         for lane in _db.query(Lane):
             lane.update_size(_db)
 
@@ -454,7 +454,7 @@ def production_session():
     # incorrectly, but 1) this method isn't normally called during
     # unit tests, and 2) package_setup() will call initialize() again
     # with the right arguments.
-    from core.log import LogConfiguration
+    from log import LogConfiguration
     LogConfiguration.initialize(_db)
     return _db
 

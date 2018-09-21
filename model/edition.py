@@ -37,11 +37,11 @@ from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.session import Session
-from core.util import (
+from util import (
     LanguageCodes,
     TitleProcessor
 )
-from core.util.permanent_work_id import WorkIDCalculator
+from util.permanent_work_id import WorkIDCalculator
 
 class Edition(Base, EditionConstants):
 

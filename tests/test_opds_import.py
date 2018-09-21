@@ -19,7 +19,7 @@ from . import (
     DatabaseTest,
 )
 
-from core.config import (
+from config import (
     CannotLoadConfiguration,
     IntegrationException,
 )

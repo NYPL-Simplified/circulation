@@ -3,7 +3,7 @@ from nose.tools import eq_, set_trace
 
 from testing import DatabaseTest
 
-from core.config import Configuration as BaseConfiguration
+from config import Configuration as BaseConfiguration
 from model import ConfigurationSetting
 
 

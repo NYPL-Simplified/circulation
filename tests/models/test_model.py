@@ -11,7 +11,7 @@ from sqlalchemy.orm.exc import MultipleResultsFound
 
 from .. import DatabaseTest
 import classifier
-from core.config import Configuration
+from config import Configuration
 import model
 from model import (
     DataSource,

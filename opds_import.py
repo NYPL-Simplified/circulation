@@ -21,7 +21,7 @@ from lxml import builder, etree
 from monitor import CollectionMonitor
 from util import LanguageCodes
 from util.xmlparser import XMLParser
-from core.config import (
+from config import (
     CannotLoadConfiguration,
     Configuration,
     IntegrationException,

@@ -28,7 +28,7 @@ from sqlalchemy.orm import (
     synonym,
 )
 from sqlalchemy.orm.session import Session
-from core.util.personal_names import display_name_to_sort_name
+from util.personal_names import display_name_to_sort_name
 
 class Contributor(Base):
 

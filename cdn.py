@@ -4,7 +4,7 @@ import urllib
 import urlparse
 from nose.tools import set_trace
 
-from core.config import Configuration, CannotLoadConfiguration
+from config import Configuration, CannotLoadConfiguration
 from s3 import S3Uploader
 
 def cdnify(url, cdns=None):

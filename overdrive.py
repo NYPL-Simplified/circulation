@@ -14,7 +14,7 @@ from sqlalchemy.orm.exc import (
 )
 from sqlalchemy.orm.session import Session
 
-from core.config import (
+from config import (
     temp_config,
     CannotLoadConfiguration,
     Configuration,

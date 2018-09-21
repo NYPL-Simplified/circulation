@@ -6,7 +6,7 @@ from nose.tools import (
 import datetime
 
 from .. import DatabaseTest
-from core.config import Configuration
+from config import Configuration
 import lane
 import model
 from model import (

@@ -10,7 +10,7 @@ from psycopg2.extras import NumericRange
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import Select
 
-from core.config import Configuration
+from config import Configuration
 from flask_babel import lazy_gettext as _
 
 import classifier
