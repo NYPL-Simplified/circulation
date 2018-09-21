@@ -14,9 +14,6 @@ from model.licensing import PolicyException
 from model.patron import (
     Annotation,
     Hold,
-    Loan,
-    LoanAndHoldMixin,
-    Patron,
     PatronProfileStorage,
 )
 

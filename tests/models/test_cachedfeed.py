@@ -5,7 +5,6 @@ from nose.tools import (
 )
 import datetime
 from .. import DatabaseTest
-import classifier
 from classifier import Classifier
 from lane import (
     Facets,

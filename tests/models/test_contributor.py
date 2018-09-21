@@ -5,11 +5,7 @@ from nose.tools import (
 )
 from .. import DatabaseTest
 from model import get_one_or_create
-from model.contributor import (
-    Contribution,
-    Contributor,
-    WorkContribution,
-)
+from model.contributor import Contributor
 from model.datasource import DataSource
 from model.edition import Edition
 from model.identifier import Identifier

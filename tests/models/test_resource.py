@@ -18,7 +18,6 @@ from model.resource import (
     Hyperlink,
     Representation,
     Resource,
-    ResourceTransformation,
 )
 from testing import MockRequestsResponse
 

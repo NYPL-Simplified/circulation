@@ -22,7 +22,6 @@ from model.licensing import (
     DeliveryMechanism,
     LicensePool,
     LicensePoolDeliveryMechanism,
-    PolicyException,
     RightsStatus,
 )
 from model.resource import (

@@ -11,7 +11,6 @@ from sqlalchemy.orm.exc import MultipleResultsFound
 
 from .. import DatabaseTest
 import classifier
-from classifier import Fantasy
 from core.config import Configuration
 import lane
 import model
