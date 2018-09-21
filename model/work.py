@@ -48,6 +48,7 @@ from sqlalchemy import (
     Index,
     Integer,
     Numeric,
+    Table,
     Unicode,
 )
 from sqlalchemy.dialects.postgresql import INT4RANGE
@@ -1545,3 +1546,29 @@ class Work(Base):
 # Used for quality filter queries.
 Index("ix_works_audience_target_age_quality_random", Work.audience, Work.target_age, Work.quality, Work.random)
 Index("ix_works_audience_fiction_quality_random", Work.audience, Work.fiction, Work.quality, Work.random)
+
+
+class BaseMaterializedWork(object):
+    """A mixin class for materialized views that incorporate Work and Edition."""
+    pass
+
+class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
+    p = dict(primary_key=True)
+    __table__ = Table(
+        'mv_works_for_lanes',
+        Base.metadata,
+        Column('works_id', Integer, **p),
+        Column('workgenres_id', Integer, **p),
+        Column('list_id', Integer, ForeignKey('customlists.id'), **p),
+        Column('list_edition_id', Integer, ForeignKey('editions.id'), **p),
+        Column('genre_id', Integer, ForeignKey('genres.id')),
+        Column('editions_id', Integer, ForeignKey('editions.id')),
+        Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
+        Column('simple_opds_entry', Unicode, default=None),
+        Column('collection_id', Integer, ForeignKey('collections.id')),
+        Column('fiction', Boolean)
+    )
+    license_pool = relationship(
+        'LicensePool',
+        primaryjoin="LicensePool.id==MaterializedWorkWithGenre.license_pool_id",
+        foreign_keys="LicensePool.id", lazy='joined', uselist=False)

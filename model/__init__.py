@@ -232,10 +232,6 @@ def dump_query(query):
 
 DEBUG = False
 
-class BaseMaterializedWork(object):
-    """A mixin class for materialized views that incorporate Work and Edition."""
-    pass
-
 class SessionManager(object):
 
     # Materialized views need to be created and indexed from SQL
@@ -338,37 +334,6 @@ class SessionManager(object):
         if connection:
             connection.close()
 
-        if create_materialized_work_class:
-            from licensing import LicensePool
-            class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
-                __table__ = Table(
-                    cls.MATERIALIZED_VIEW_LANES,
-                    Base.metadata,
-                    Column('works_id', Integer, primary_key=True, index=True),
-                    Column('workgenres_id', Integer, primary_key=True, index=True),
-                    Column('list_id', Integer, ForeignKey('customlists.id'),
-                           primary_key=True, index=True),
-                    Column(
-                        'list_edition_id', Integer, ForeignKey('editions.id'),
-                        primary_key=True, index=True
-                    ),
-                    Column(
-                        'license_pool_id', Integer,
-                        ForeignKey('licensepools.id'), primary_key=True,
-                        index=True
-                    ),
-                    autoload=True,
-                    autoload_with=engine
-                )
-                license_pool = relationship(
-                    LicensePool,
-                    primaryjoin="LicensePool.id==MaterializedWorkWithGenre.license_pool_id",
-                    foreign_keys=LicensePool.id, lazy='joined', uselist=False)
-
-            globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
-            import model
-            model.MaterializedWorkWithGenre = MaterializedWorkWithGenre
-
         cls.engine_for_url[url] = engine
         return engine, engine.connect()
 
@@ -454,7 +419,7 @@ def production_session():
     # incorrectly, but 1) this method isn't normally called during
     # unit tests, and 2) package_setup() will call initialize() again
     # with the right arguments.
-    from log import LogConfiguration
+    from core.log import LogConfiguration
     LogConfiguration.initialize(_db)
     return _db
 
@@ -536,6 +501,8 @@ from resource import (
     ResourceTransformation,
 )
 from work import (
+    BaseMaterializedWork,
+    MaterializedWorkWithGenre,
     Work,
     WorkGenre,
 )
