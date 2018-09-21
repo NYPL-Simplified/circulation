@@ -8,8 +8,7 @@ addons:
       - postgresql-contrib-9.3
 
 env:
-  - ES_VERSION="1.7.0" ES_DOWNLOAD="https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz"
-  - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_core_test"
+  - ES_VERSION="1.7.0" ES_DOWNLOAD="https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz" SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_core_test"
 
 services:
   - postgresql
