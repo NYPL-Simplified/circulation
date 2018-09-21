@@ -29,7 +29,7 @@ class TestConfiguration(DatabaseTest):
             f.write(content)
 
     def test_app_version(self):
-        self.Conf.instance = dict()
+        self.Conf._instance = dict()
 
         # Without a .version file, the key is set to a null object.
         result = self.Conf.app_version()
@@ -41,7 +41,7 @@ class TestConfiguration(DatabaseTest):
         )
 
         # An empty .version file yields the same results.
-        self.Conf.instance = dict()
+        self.Conf._instance = dict()
         self.create_version_file(' \n')
         result = self.Conf.app_version()
         eq_(self.Conf.NO_APP_VERSION_FOUND, result)
@@ -51,7 +51,7 @@ class TestConfiguration(DatabaseTest):
         )
 
         # A .version file with content loads the content.
-        self.Conf.instance = dict()
+        self.Conf._instance = dict()
         self.create_version_file('ba.na.na')
         result = self.Conf.app_version()
         eq_('ba.na.na', result)

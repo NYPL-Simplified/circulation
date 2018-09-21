@@ -5,7 +5,9 @@ import os
 import json
 import logging
 import copy
+from sqlalchemy import create_engine
 from sqlalchemy.engine.url import make_url
+from sqlalchemy.orm.session import Session
 from flask_babel import lazy_gettext as _
 
 from facets import FacetConstants
@@ -40,11 +42,11 @@ def temp_config(new_config=None, replacement_classes=None):
         new_config = copy.deepcopy(old_config)
     try:
         for c in replacement_classes:
-            c.instance = new_config
+            c._instance = new_config
         yield new_config
     finally:
         for c in replacement_classes:
-            c.instance = old_config
+            c._instance = old_config
 
 @contextlib.contextmanager
 def empty_config(replacement_classes=None):
@@ -55,8 +57,6 @@ def empty_config(replacement_classes=None):
 class Configuration(object):
 
     log = logging.getLogger("Configuration file loader")
-
-    instance = None
 
     # Environment variables that contain URLs to the database
     DATABASE_TEST_ENVIRONMENT_VARIABLE = 'SIMPLIFIED_TEST_DATABASE'
@@ -262,6 +262,27 @@ class Configuration(object):
     # the Configuration object.
     LOADED_FROM_DATABASE = 'loaded_from_database'
 
+    _instance = None
+
+    class __metaclass__(type):
+        @property
+        def instance(cls):
+            if not cls._instance:
+                # Load the Configuration object.
+                url = cls.database_url()
+                engine = create_engine(url)
+                connection = engine.connect()
+                _db = Session(connection)
+                cls._instance = cls.load_from_file(_db)
+                cls.load_cdns(_db)
+                cls._instance[cls.LOADED_FROM_DATABASE] = True
+                cls.app_version()
+                for parent in cls.__bases__:
+                    if parent.__name__.endswith('Configuration'):
+                        parent.load(_db)
+
+            return cls._instance
+
     @classmethod
     def loaded_from_database(cls):
         """Has the site configuration been loaded from the database yet?"""
@@ -273,13 +294,11 @@ class Configuration(object):
 
     @classmethod
     def get(cls, key, default=None):
-        if cls.instance is None:
-            raise ValueError("No configuration object loaded!")
         return cls.instance.get(key, default)
 
     @classmethod
     def required(cls, key):
-        if cls.instance:
+        if cls._instance:
             value = cls.get(key)
             if value is not None:
                 return value
@@ -343,6 +362,8 @@ class Configuration(object):
         If it's not there, we will look in the appropriate environment
         variable.
         """
+        test = os.environ.get('TESTING', False)
+
         # To avoid expensive mistakes, test and production databases
         # are always configured with separate keys.
         if test:
@@ -352,19 +373,10 @@ class Configuration(object):
             config_key = cls.DATABASE_PRODUCTION_URL
             environment_variable = cls.DATABASE_PRODUCTION_ENVIRONMENT_VARIABLE
 
-        # Check the legacy location (the config file) first.
-        url = None
-        database_integration = cls.integration(cls.DATABASE_INTEGRATION)
-        if database_integration:
-            url = database_integration.get(config_key)
-
-        # If that didn't work, check the new location (the environment
-        # variable).
-        if not url:
-            url = os.environ.get(environment_variable)
+        url = os.environ.get(environment_variable)
         if not url:
             raise CannotLoadConfiguration(
-                "Database URL was not defined in environment variable (%s) or configuration file." % environment_variable
+                "Database URL was not defined in environment variable (%s)." % environment_variable
             )
 
         url_obj = None
@@ -385,7 +397,7 @@ class Configuration(object):
     @classmethod
     def app_version(cls):
         """Returns the git version of the app, if a .version file exists."""
-        if cls.instance == None:
+        if cls._instance == None:
             return
 
         version = cls.get(cls.APP_VERSION, None)
@@ -401,7 +413,7 @@ class Configuration(object):
             with open(version_file) as f:
                 version = f.readline().strip() or version
 
-        cls.instance[cls.APP_VERSION] = version
+        cls._instance[cls.APP_VERSION] = version
         return version
 
     @classmethod
@@ -416,7 +428,7 @@ class Configuration(object):
         for cdn in cdns:
             cdn_integration[cdn.setting(cls.CDN_MIRRORED_DOMAIN_KEY).value] = cdn.url
 
-        config_instance = config_instance or cls.instance
+        config_instance = config_instance or cls._instance
         integrations = config_instance.setdefault(cls.INTEGRATIONS, {})
         integrations[EI.CDN] = cdn_integration
 
@@ -521,6 +533,11 @@ class Configuration(object):
 
     @classmethod
     def load(cls, _db=None):
+        # Do nothing
+        pass
+
+    @classmethod
+    def load_from_file(cls, _db=None):
         """Load additional site configuration from a config file.
 
         This is being phased out in favor of taking all configuration from a
@@ -539,19 +556,6 @@ class Configuration(object):
                 )
         else:
             configuration = cls._load('{}')
-        cls.instance = configuration
-
-        cls.app_version()
-        if _db:
-            cls.load_cdns(_db)
-            cls.instance[cls.LOADED_FROM_DATABASE] = True
-            for parent in cls.__bases__:
-                if parent.__name__.endswith('Configuration'):
-                    parent.load(_db)
-        else:
-            if not cls.integration('CDN'):
-                cls.instance.setdefault(cls.INTEGRATIONS, {})[
-                    'CDN'] = cls.UNINITIALIZED_CDNS
 
         return configuration
 
