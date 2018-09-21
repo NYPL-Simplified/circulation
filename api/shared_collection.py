@@ -5,9 +5,6 @@ import base64
 import json
 from flask_babel import lazy_gettext as _
 
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
-
 from core.model import (
     Collection,
     ConfigurationSetting,
@@ -15,6 +12,7 @@ from core.model import (
     get_one,
 )
 from circulation_exceptions import *
+from config import Configuration
 from core.config import CannotLoadConfiguration
 from core.util.http import HTTP
 
@@ -133,8 +131,7 @@ class SharedCollectionAPI(object):
                 _("Remote authentication document"))
 
         public_key = public_key.get("value")
-        public_key = RSA.importKey(public_key)
-        encryptor = PKCS1_OAEP.new(public_key)
+        encryptor = Configuration.cipher(public_key)
 
         normalized_url = IntegrationClient.normalize_url(start_url)
         client = get_one(self._db, IntegrationClient, url=normalized_url)
