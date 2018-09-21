@@ -347,6 +347,13 @@ def library(library_uuid):
 def collections():
     return app.manager.admin_settings_controller.collections()
 
+@app.route("/admin/collection_self_tests/<identifier>", methods=["GET", "POST"])
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def collection_self_tests(identifier):
+    return app.manager.admin_settings_controller.collection_self_tests(identifier)
+
 @app.route("/admin/collection/<collection_id>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
@@ -403,6 +410,22 @@ def patron_auth_services():
 @requires_csrf_token
 def patron_auth_service(service_id):
     return app.manager.admin_settings_controller.patron_auth_service(service_id)
+
+@library_route("/admin/manage_patrons", methods=['POST'])
+@has_library
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def lookup_patron():
+    return app.manager.admin_patron_controller.lookup_patron()
+
+@library_route("/admin/manage_patrons/reset_adobe_id", methods=['POST'])
+@has_library
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def reset_adobe_id():
+    return app.manager.admin_patron_controller.reset_adobe_id()
 
 @app.route("/admin/metadata_services", methods=['GET', 'POST'])
 @returns_json_or_response_or_problem_detail

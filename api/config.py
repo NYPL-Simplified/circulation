@@ -3,7 +3,12 @@ import re
 from nose.tools import set_trace
 import contextlib
 from copy import deepcopy
+
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+
 from flask_babel import lazy_gettext as _
+
 from core.config import (
     Configuration as CoreConfiguration,
     CannotLoadConfiguration,
@@ -33,7 +38,7 @@ class Configuration(CoreConfiguration):
     # A short description of the library, used in its Authentication
     # for OPDS document.
     LIBRARY_DESCRIPTION = 'library_description'
-    
+
     # The name of the per-library setting that sets the maximum amount
     # of fines a patron can have before losing lending privileges.
     MAX_OUTSTANDING_FINES = u"max_outstanding_fines"
@@ -72,7 +77,7 @@ class Configuration(CoreConfiguration):
     SMALL_COLLECTION_LANGUAGES = "small_collections"
     TINY_COLLECTION_LANGUAGES = "tiny_collections"
 
-    LANGUAGE_DESCRIPTION = _('Each value must be an <a href="https://www.loc.gov/standards/iso639-2/php/code_list.php">ISO-639-2</a> language code.')
+    LANGUAGE_DESCRIPTION = _('Each value must be an <a href="https://www.loc.gov/standards/iso639-2/php/code_list.php" target="_blank">ISO-639-2</a> language code.')
 
     # The client-side color scheme to use for this library.
     COLOR_SCHEME = "color_scheme"
@@ -84,7 +89,7 @@ class Configuration(CoreConfiguration):
     # Settings for geographic areas associated with the library.
     LIBRARY_FOCUS_AREA = "focus_area"
     LIBRARY_SERVICE_AREA = "service_area"
-   
+
     # Names of the library-wide link settings.
     TERMS_OF_SERVICE = 'terms-of-service'
     PRIVACY_POLICY = 'privacy-policy'
@@ -105,7 +110,7 @@ class Configuration(CoreConfiguration):
     # These are link relations that are valid in Authentication for
     # OPDS documents but are not registered with IANA.
     AUTHENTICATION_FOR_OPDS_LINKS = ['register']
-    
+
     # We support three different ways of integrating help processes.
     # All three of these will be sent out as links with rel='help'
     HELP_EMAIL = 'help-email'
@@ -117,11 +122,12 @@ class Configuration(CoreConfiguration):
     # disable.
     RESERVATIONS_FEATURE = "https://librarysimplified.org/rel/policy/reservations"
 
-    # Name of the library-wide public key configuration setting for negotiating
-    # a shared secret with a library registry. The setting is automatically generated
-    # and not editable by admins.
-    PUBLIC_KEY = "public-key"
-    
+    # Name of the library-wide public key configuration setting for
+    # negotiating a shared secret with a library registry. The setting
+    # is automatically generated and not editable by admins.
+    #
+    KEY_PAIR = "key-pair"
+
     SITEWIDE_SETTINGS = CoreConfiguration.SITEWIDE_SETTINGS + [
         {
             "key": BEARER_TOKEN_SIGNING_SECRET,
@@ -291,15 +297,15 @@ class Configuration(CoreConfiguration):
             "label": _("Other major languages represented in this library's collection"),
             "type": "list",
             "description": LANGUAGE_DESCRIPTION,
-        },        
+        },
         {
             "key": TINY_COLLECTION_LANGUAGES,
             "label": _("Other languages in this library's collection"),
             "type": "list",
             "description": LANGUAGE_DESCRIPTION,
-        },        
+        },
     ]
-    
+
     @classmethod
     def lending_policy(cls):
         return cls.policy(cls.LENDING_POLICY)
@@ -325,7 +331,7 @@ class Configuration(CoreConfiguration):
             cls.estimate_language_collections_for_library(library)
             value = setting.json_value
         return value
-    
+
     @classmethod
     def large_collection_languages(cls, library):
         return cls._collection_languages(
@@ -350,13 +356,13 @@ class Configuration(CoreConfiguration):
             cls.MAX_OUTSTANDING_FINES, library
         ).value
         return MoneyUtility.parse(max_fines)
-    
+
     @classmethod
     def load(cls, _db=None):
         CoreConfiguration.load(_db)
         cls.instance = CoreConfiguration.instance
         return cls.instance
-        
+
     @classmethod
     def estimate_language_collections_for_library(cls, library):
         """Guess at appropriate values for the given library for
@@ -396,7 +402,7 @@ class Configuration(CoreConfiguration):
             # English collection and nothing else.
             large.append('eng')
             return result
-        
+
         # The single most common language always gets a large
         # collection.
         #
@@ -412,9 +418,9 @@ class Configuration(CoreConfiguration):
             else:
                 bucket = tiny
             bucket.append(language)
-            
-        return result        
-        
+
+        return result
+
     @classmethod
     def _as_mailto(cls, value):
         """Turn an email address into a mailto: URI."""
@@ -469,7 +475,50 @@ class Configuration(CoreConfiguration):
             library, Configuration.CONFIGURATION_CONTACT_EMAIL
         )
 
-        
+    @classmethod
+    def key_pair(cls, setting):
+        """Look up a public-private key pair in a ConfigurationSetting.
+
+        If the value is missing or incorrect, a new key pair is
+        created and stored.
+
+        TODO: This could go into ConfigurationSetting or core Configuration.
+
+        :param public_setting: A ConfigurationSetting for the public key.
+        :param private_setting: A ConfigurationSetting for the private key.
+
+        :return: A 2-tuple (public key, private key)
+        """
+        public = None
+        private = None
+
+        try:
+            public, private = setting.json_value
+        except Exception, e:
+            pass
+
+        if not public or not private:
+            key = RSA.generate(2048)
+            encryptor = PKCS1_OAEP.new(key)
+            public = key.publickey().exportKey()
+            private = key.exportKey()
+            setting.value = json.dumps([public, private])
+        return public, private
+
+    @classmethod
+    def cipher(cls, key):
+        """Create a Cipher for a public or private key.
+
+        This just wraps some hard-to-remember Crypto code.
+
+        :param key: A string containing the key.
+
+        :return: A Cipher object which will support either
+        encrypt() (public key) or decrypt() (private key).
+        """
+        return PKCS1_OAEP.new(RSA.import_key(key))
+
+
 @contextlib.contextmanager
 def empty_config():
     with core_empty_config({}, [CoreConfiguration, Configuration]) as i:

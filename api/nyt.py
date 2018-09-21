@@ -50,7 +50,7 @@ class NYTAPI(object):
 
 
 class NYTBestSellerAPI(NYTAPI, HasSelfTests):
-    
+
     PROTOCOL = ExternalIntegration.NYT
     GOAL = ExternalIntegration.METADATA_GOAL
     NAME = _("NYT Best Seller API")
@@ -67,7 +67,7 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTests):
 
     LIST_NAMES_URL = BASE_URL + "/names.json"
     LIST_URL = BASE_URL + ".json?list=%s"
-    
+
     LIST_OF_LISTS_MAX_AGE = timedelta(days=1)
     LIST_MAX_AGE = timedelta(days=1)
     HISTORICAL_LIST_MAX_AGE = timedelta(days=365)
@@ -210,7 +210,7 @@ class NYTBestSellerList(list):
         while date >= end:
             yield date
             old_date = date
-            date = date - self.frequency  
+            date = date - self.frequency
             if old_date > end and date < end:
                 # We overshot the end date.
                 yield end
@@ -235,14 +235,14 @@ class NYTBestSellerList(list):
                 # should never happen.
                 self.log.error("No identifier for %r", li_data)
                 item = None
-                continue              
+                continue
 
             # This is the date the *best-seller list* was published,
             # not the date the book was published.
             list_date = NYTAPI.parse_date(li_data['published_date'])
             if not item.first_appearance or list_date < item.first_appearance:
-                item.first_appearance = list_date 
-            if (not item.most_recent_appearance 
+                item.first_appearance = list_date
+            if (not item.most_recent_appearance
                 or list_date > item.most_recent_appearance):
                 item.most_recent_appearance = list_date
 
@@ -250,7 +250,7 @@ class NYTBestSellerList(list):
         """Turn this NYTBestSeller list into a CustomList object."""
         data_source = DataSource.lookup(_db, DataSource.NYT)
         l, was_new = get_one_or_create(
-            _db, 
+            _db,
             CustomList,
             data_source=data_source,
             foreign_identifier=self.foreign_identifier,
@@ -268,7 +268,7 @@ class NYTBestSellerList(list):
         the current state of the NYTBestSeller list.
         """
         db = Session.object_session(custom_list)
-    
+
         # Add new items to the list.
         for i in self:
             list_item, was_new = i.to_custom_list_entry(
@@ -312,11 +312,11 @@ class NYTBestSellerListTitle(TitleFromExternalList):
             # other books in the same series, as well as ISBNs that
             # are just wrong. Assign these equivalencies at a low
             # level of confidence.
-            for isbn in d.get('isbns', []): 
+            for isbn in d.get('isbns', []):
                 isbn13 = isbn.get('isbn13', None)
                 if isbn13:
-                    other_isbns.append( 
-                        IdentifierData(Identifier.ISBN, isbn13, 0.50) 
+                    other_isbns.append(
+                        IdentifierData(Identifier.ISBN, isbn13, 0.50)
                     )
 
 
@@ -332,7 +332,7 @@ class NYTBestSellerListTitle(TitleFromExternalList):
 
         metadata = Metadata(
             data_source=DataSource.NYT,
-            title=title, 
+            title=title,
             language='eng',
             published=published_date,
             publisher=publisher,

@@ -233,7 +233,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY : "http://css/"
         }
 
-        # The very first request made is going to be to the 
+        # The very first request made is going to be to the
         # REPLACEMENT_CSS_KEY URL.
         self.http.queue_response(
             200, content="Some new CSS", media_type="text/css",
@@ -269,9 +269,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             content=feed
         )
 
-        [edition], [pool], [work], failures = importer.import_from_feed(
-            feed, immediately_presentation_ready=True,
-        )
+        [edition], [pool], [work], failures = importer.import_from_feed(feed)
 
         eq_({}, failures)
 
@@ -331,13 +329,9 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             content=feed
         )
 
-        response = self.importer.import_from_feed(
-            feed, immediately_presentation_ready=True,
-        )
+        response = self.importer.import_from_feed(feed)
 
-        [edition], [pool], [work], failures = self.importer.import_from_feed(
-            feed, immediately_presentation_ready=True,
-        )
+        [edition], [pool], [work], failures = self.importer.import_from_feed(feed)
 
         # The work has been created and has metadata.
         eq_("Discourse on the Method", work.title)

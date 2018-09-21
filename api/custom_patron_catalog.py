@@ -11,7 +11,6 @@ from flask_babel import lazy_gettext as _
 from sqlalchemy.orm.session import Session
 
 from config import CannotLoadConfiguration
-from core.app_server import cdn_url_for
 from core.model import (
     get_one,
 )
@@ -144,8 +143,8 @@ class CustomRootLane(CustomPatronCatalog):
     def annotate_authentication_document(self, library, doc, url_for):
         """Replace the 'start' link with a link to the configured Lane."""
         root_url = url_for(
-            "acquisition_groups", library_short_name=library.name,
-            lane_identifier=self.lane_id
+            "acquisition_groups", library_short_name=library.short_name,
+            lane_identifier=self.lane_id, _external=True
         )
         self.replace_link(
             doc, 'start', href=root_url, type=OPDSFeed.ACQUISITION_FEED_TYPE
@@ -196,13 +195,13 @@ class COPPAGate(CustomPatronCatalog):
         # A lane for grown-ups.
         yes_url = url_for(
             'acquisition_groups', library_short_name=library.short_name,
-            lane_identifier=self.yes_lane_id
+            lane_identifier=self.yes_lane_id, _external=True
         )
 
         # A lane for children.
         no_url = url_for(
             'acquisition_groups', library_short_name=library.short_name,
-            lane_identifier=self.no_lane_id
+            lane_identifier=self.no_lane_id, _external=True
         )
 
         # Replace the 'start' link with the childrens link. Any client

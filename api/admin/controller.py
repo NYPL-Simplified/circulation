@@ -21,9 +21,10 @@ from sqlalchemy.exc import ProgrammingError
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 from StringIO import StringIO
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
-
+from api.authenticator import (
+    CannotCreateLocalPatron,
+    PatronData,
+)
 from core.model import (
     create,
     get_one,
@@ -114,21 +115,25 @@ from sqlalchemy.orm import lazyload
 
 from templates import admin as admin_template
 
-from api.authenticator import AuthenticationProvider
+from api.authenticator import (
+    AuthenticationProvider,
+    LibraryAuthenticator
+)
+
 from api.simple_authentication import SimpleAuthenticationProvider
 from api.millenium_patron import MilleniumPatronAPI
 from api.sip import SIP2AuthenticationProvider
 from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
 
-from core.opds_import import OPDSImporter
+from core.opds_import import (OPDSImporter, OPDSImportMonitor)
 from api.feedbooks import FeedbooksOPDSImporter
 from api.opds_for_distributors import OPDSForDistributorsAPI
 from api.overdrive import OverdriveAPI
 from api.odilo import OdiloAPI
 from api.bibliotheca import BibliothecaAPI
 from api.axis import Axis360API
-from api.oneclick import OneClickAPI
+from api.rbdigital import RBDigitalAPI
 from api.enki import EnkiAPI
 from api.odl import ODLWithConsolidatedCopiesAPI, SharedODLAPI
 
@@ -142,6 +147,8 @@ from core.local_analytics_provider import LocalAnalyticsProvider
 from api.adobe_vendor_id import AuthdataUtility
 
 from core.external_search import ExternalSearchIndex
+
+from core.selftest import HasSelfTests
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
@@ -160,6 +167,7 @@ def setup_admin_controllers(manager):
     manager.admin_lanes_controller = LanesController(manager)
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
+    manager.admin_patron_controller = PatronController(manager)
 
 class AdminController(object):
 
@@ -1347,6 +1355,91 @@ class WorkController(AdminCirculationManagerController):
 
             return Response(unicode(_("Success")), 200)
 
+class PatronController(AdminCirculationManagerController):
+
+    def _load_patrondata(self, authenticator=None):
+        """Extract a patron identifier from an incoming form submission,
+        and ask the library's LibraryAuthenticator to turn it into a
+        PatronData by doing a remote lookup in the ILS.
+
+        :param authenticator: A LibraryAuthenticator. This is for mocking
+        during tests; it's not necessary to provide it normally.
+        """
+        self.require_librarian(flask.request.library)
+
+        identifier = flask.request.form.get("identifier")
+        if not identifier:
+            return NO_SUCH_PATRON.detailed(_("Please enter a patron identifier"))
+
+        if not authenticator:
+            authenticator = LibraryAuthenticator.from_config(
+                self._db, flask.request.library
+            )
+
+        patron_data = PatronData(authorization_identifier=identifier)
+        complete_patron_data = None
+
+        if not authenticator.providers:
+            return NO_SUCH_PATRON.detailed(
+                _("This library has no authentication providers, so it has no patrons.")
+            )
+
+        for provider in authenticator.providers:
+            complete_patron_data = provider.remote_patron_lookup(patron_data)
+            if complete_patron_data:
+                return complete_patron_data
+
+        # If we get here, none of the providers succeeded.
+        if not complete_patron_data:
+            return NO_SUCH_PATRON.detailed(
+                _("No patron with identifier %(patron_identifier)s was found at your library",
+                  patron_identifier=identifier),
+            )
+
+    def lookup_patron(self, authenticator=None):
+        """Look up personal information about a patron via the ILS.
+
+        :param authenticator: A LibraryAuthenticator. This is for mocking
+        during tests; it's not necessary to provide it normally.
+        """
+        patrondata = self._load_patrondata(authenticator)
+        if isinstance(patrondata, ProblemDetail):
+            return patrondata
+        return patrondata.to_dict
+
+    def reset_adobe_id(self, authenticator=None):
+        """Delete all Credentials for a patron that are relevant
+        to the patron's Adobe Account ID.
+
+        :param authenticator: A LibraryAuthenticator. This is for mocking
+        during tests; it's not necessary to provide it normal
+        """
+        patrondata = self._load_patrondata(authenticator)
+        if isinstance(patrondata, ProblemDetail):
+            return patrondata
+        # Turn the Identifier into a Patron object.
+        try:
+            patron, is_new = patrondata.get_or_create_patron(
+                self._db, flask.request.library.id
+            )
+        except CannotCreateLocalPatron, e:
+            return NO_SUCH_PATRON.detailed(
+                _("Could not create local patron object for %(patron_identifier)s",
+                  patron_identifier=patrondata.authorization_identifier
+                )
+            )
+
+        # Wipe the Patron's 'identifier for Adobe ID purposes'.
+        for credential in AuthdataUtility.adobe_relevant_credentials(patron):
+            self._db.delete(credential)
+        if patron.username:
+            identifier = patron.username
+        else:
+            identifier = "with identifier " + patron.authorization_identifier
+        return Response(
+            unicode(_("Adobe ID for patron %(name_or_auth_id)s has been reset.", name_or_auth_id=identifier)),
+            200
+        )
 
 class FeedController(AdminCirculationManagerController):
 
@@ -1756,7 +1849,7 @@ class DashboardController(AdminCirculationManagerController):
                 available_licenses=available_license_count,
             )
 
-        
+
         for library in self._db.query(Library):
             # Only include libraries this admin has librarian access to.
             if not flask.request.admin or not flask.request.admin.is_librarian(library):
@@ -1982,6 +2075,19 @@ class SettingsController(AdminCirculationManagerController):
     METADATA_SERVICE_URI_TYPE = 'application/opds+json;profile=https://librarysimplified.org/rel/profile/metadata-service'
 
     NO_MIRROR_INTEGRATION = u"NO_MIRROR"
+
+    PROVIDER_APIS = [OPDSImporter,
+                     OPDSForDistributorsAPI,
+                     OverdriveAPI,
+                     OdiloAPI,
+                     BibliothecaAPI,
+                     Axis360API,
+                     RBDigitalAPI,
+                     EnkiAPI,
+                     ODLWithConsolidatedCopiesAPI,
+                     SharedODLAPI,
+                     FeedbooksOPDSImporter,
+                    ]
 
     def libraries(self):
         if flask.request.method == 'GET':
@@ -2323,25 +2429,108 @@ class SettingsController(AdminCirculationManagerController):
         setting.value = value
         return Response(unicode(setting.key), 200)
 
-    def collections(self):
-        provider_apis = [OPDSImporter,
-                         OPDSForDistributorsAPI,
-                         OverdriveAPI,
-                         OdiloAPI,
-                         BibliothecaAPI,
-                         Axis360API,
-                         OneClickAPI,
-                         EnkiAPI,
-                         ODLWithConsolidatedCopiesAPI,
-                         SharedODLAPI,
-                         FeedbooksOPDSImporter,
-                        ]
+    def _get_collection_protocols(self, provider_apis):
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
         protocols.append(dict(name=ExternalIntegration.MANUAL,
                               label=_("Manual import"),
                               description=_("Books will be manually added to the circulation manager, not imported automatically through a protocol."),
                               settings=[],
                               ))
+
+        return protocols
+
+    def _get_prior_test_results(self, collection, protocolClass):
+        """This helper function returns previous self test results for a given
+        collection if it has a protocol.
+        """
+        provider_apis = list(self.PROVIDER_APIS)
+        provider_apis.append(OPDSImportMonitor)
+
+        self_test_results = None
+        protocol = protocolClass
+
+        if not collection or not collection.protocol:
+            return None
+
+        if collection.protocol == OPDSImportMonitor.PROTOCOL:
+            protocol = OPDSImportMonitor
+
+        self_test_results = None
+        if protocol in provider_apis and issubclass(protocol, HasSelfTests):
+            if (collection.protocol == OPDSImportMonitor.PROTOCOL):
+                extra_args = (OPDSImporter,)
+            else:
+                extra_args = ()
+            try:
+                self_test_results = protocol.prior_test_results(
+                    self._db, protocol, self._db, collection, *extra_args
+                )
+            except Exception, e:
+                # This is bad, but not so bad that we should short-circuit
+                # this whole process -- that might prevent an admin from
+                # making the configuration changes necessary to fix
+                # this problem.
+                message = _("Exception getting self-test results for collection %s: %s")
+                args = (collection.name, e.message)
+                logging.warn(message, *args, exc_info=e)
+                self_test_results = dict(exception=message % args)
+
+        return self_test_results
+
+    def collection_self_tests(self, identifier):
+        protocols = self._get_collection_protocols(self.PROVIDER_APIS)
+
+        if not identifier:
+            return MISSING_COLLECTION_IDENTIFIER
+
+        if flask.request.method == 'GET':
+            collection = dict()
+            protocolClass = None
+            for col in self._db.query(Collection).filter(Collection.id==int(identifier)):
+                collection = dict(
+                    id=col.id,
+                    name=col.name,
+                    protocol=col.protocol,
+                    parent_id=col.parent_id,
+                    settings=dict(external_account_id=col.external_account_id),
+                )
+
+                if col.protocol in [p.get("name") for p in protocols]:
+                    protocolClassFound = [p for p in self.PROVIDER_APIS if p.NAME == col.protocol]
+                    if len(protocolClassFound) == 1:
+                        [protocolClass] = protocolClassFound
+
+                collection["self_test_results"] = self._get_prior_test_results(col, protocolClass)
+            return dict(collection=collection)
+
+        if flask.request.method == "POST":
+            collection = dict()
+            collectionProtocol = None
+            protocolClass = None
+            for col in self._db.query(Collection).filter(Collection.id==int(identifier)):
+                collection = col
+                collectionProtocol = col.protocol
+
+                if collectionProtocol in [p.get("name") for p in protocols]:
+                    protocolClassFound = [p for p in self.PROVIDER_APIS if p.NAME == col.protocol]
+                    if len(protocolClassFound) == 1:
+                        [protocolClass] = protocolClassFound
+
+            if protocolClass:
+                value = None
+                if (collectionProtocol == OPDSImportMonitor.PROTOCOL):
+                    protocolClass = OPDSImportMonitor
+                    value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, collection, OPDSImporter)
+                elif issubclass(protocolClass, HasSelfTests):
+                    value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, collection)
+
+                if (value):
+                    return Response(_("Successfully ran new self tests"), 200)
+
+            return FAILED_TO_RUN_SELF_TESTS
+
+    def collections(self):
+        protocols = self._get_collection_protocols(self.PROVIDER_APIS)
 
         # If there are storage integrations, add a mirror integration
         # setting to every protocol's 'settings' block.
@@ -2352,6 +2541,7 @@ class SettingsController(AdminCirculationManagerController):
 
         if flask.request.method == 'GET':
             collections = []
+            protocolClass = None
             for c in self._db.query(Collection).order_by(Collection.name).all():
                 if not flask.request.admin or not flask.request.admin.can_see_collection(c):
                     continue
@@ -2363,6 +2553,7 @@ class SettingsController(AdminCirculationManagerController):
                     parent_id=c.parent_id,
                     settings=dict(external_account_id=c.external_account_id),
                 )
+
                 if c.protocol in [p.get("name") for p in protocols]:
                     [protocol] = [p for p in protocols if p.get("name") == c.protocol]
                     libraries = []
@@ -2384,6 +2575,11 @@ class SettingsController(AdminCirculationManagerController):
                                 value = c.external_integration.setting(key).value
                             collection["settings"][key] = value
 
+                    protocolClassFound = [p for p in self.PROVIDER_APIS if p.NAME == c.protocol]
+                    if len(protocolClassFound) == 1:
+                        [protocolClass] = protocolClassFound
+
+                collection["self_test_results"] = self._get_prior_test_results(c, protocolClass)
                 collections.append(collection)
 
             return dict(
@@ -2970,8 +3166,7 @@ class SettingsController(AdminCirculationManagerController):
         )
 
     def metadata_services(
-            self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
-            key=None
+        self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
     ):
         self.require_system_admin()
         provider_apis = [NYTBestSellerAPI,
@@ -3026,7 +3221,7 @@ class SettingsController(AdminCirculationManagerController):
             service.protocol == ExternalIntegration.METADATA_WRANGLER):
 
             problem_detail = self.sitewide_registration(
-                service, do_get=do_get, do_post=do_post, key=key
+                service, do_get=do_get, do_post=do_post
             )
             if problem_detail:
                 self._db.rollback()
@@ -3043,7 +3238,7 @@ class SettingsController(AdminCirculationManagerController):
         )
 
     def sitewide_registration(self, integration, do_get=HTTP.debuggable_get,
-                              do_post=HTTP.debuggable_post, key=None
+                              do_post=HTTP.debuggable_post
     ):
         """Performs a sitewide registration for a particular service, currently
         only the Metadata Wrangler.
@@ -3090,17 +3285,6 @@ class SettingsController(AdminCirculationManagerController):
             base_url = catalog.get('id')
             register_url = urlparse.urljoin(base_url, register_url)
 
-        # Generate a public key for this website.
-        if not key:
-            key = RSA.generate(2048)
-        encryptor = PKCS1_OAEP.new(key)
-        public_key = key.publickey().exportKey()
-
-        # Save the public key to the database before generating the public key document.
-        public_key_setting = ConfigurationSetting.sitewide(self._db, Configuration.PUBLIC_KEY)
-        public_key_setting.value = public_key
-        self._db.commit()
-
         # If the integration has an existing shared_secret, use it to access the
         # server and update it.
         #
@@ -3111,15 +3295,14 @@ class SettingsController(AdminCirculationManagerController):
             token = base64.b64encode(integration.password.encode('utf-8'))
             headers['Authorization'] = 'Bearer ' + token
 
-        # Get the public key document URL and register this server.
+        # Register this server using the sitewide registration document
         try:
-            body = self.sitewide_registration_document(key.exportKey())
+            body = self.sitewide_registration_document()
             response = do_post(
                 register_url, body, allowed_response_codes=['2xx'],
                 headers=headers
             )
         except Exception as e:
-            public_key_setting.value = None
             return REMOTE_INTEGRATION_FAILED.detailed(e.message)
 
         if isinstance(response, ProblemDetail):
@@ -3128,28 +3311,32 @@ class SettingsController(AdminCirculationManagerController):
         shared_secret = registration_info.get('metadata', {}).get('shared_secret')
 
         if not shared_secret:
-            public_key_setting.value = None
             return REMOTE_INTEGRATION_FAILED.detailed(
                 _('The service did not provide registration information.')
             )
 
-        public_key_setting.value = None
-        shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
+        ignore, private_key = self.manager.sitewide_key_pair
+        decryptor = Configuration.cipher(private_key)
+        shared_secret = decryptor.decrypt(base64.b64decode(shared_secret))
         integration.password = unicode(shared_secret)
 
-    def sitewide_registration_document(self, private_key):
+    def sitewide_registration_document(self):
         """Generate the document to be sent as part of a sitewide registration
         request.
 
-        :param private_key: An string containing an RSA private key,
-            e.g. the output of RsaKey.exportKey()
         :return: A dictionary with keys 'url' and 'jwt'. 'url' is the URL to
             this site's public key document, and 'jwt' is a JSON Web Token
             proving control over that URL.
         """
+
+        public_key, private_key = self.manager.sitewide_key_pair
+        # Advertise the public key so that the foreign site can encrypt
+        # things for us.
+        public_key_dict = dict(type='RSA', value=public_key)
         public_key_url = self.url_for('public_key_document')
         in_one_minute = datetime.utcnow() + timedelta(seconds=60)
         payload = {'exp': in_one_minute}
+        # Sign a JWT with the private key to prove ownership of the site.
         token = jwt.encode(payload, private_key, algorithm='RS256')
         return dict(url=public_key_url, jwt=token)
 
@@ -3451,7 +3638,7 @@ class SettingsController(AdminCirculationManagerController):
 
     def discovery_service_library_registrations(
             self, do_get=HTTP.debuggable_get,
-            do_post=HTTP.debuggable_post, key=None,
+            do_post=HTTP.debuggable_post,
             registration_class=None
     ):
         """List the libraries that have been registered with a specific
@@ -3461,6 +3648,7 @@ class SettingsController(AdminCirculationManagerController):
         :param registration_class: Mock class to use instead of Registration.
         """
 
+        registration_class = registration_class or Registration
         self.require_system_admin()
         goal = ExternalIntegration.DISCOVERY_GOAL
         if flask.request.method == "GET":
@@ -3476,6 +3664,9 @@ class SettingsController(AdminCirculationManagerController):
                     library = registration.library
                     library_info = dict(short_name=library.short_name)
                     status = registration.status_field.value
+                    stage_field = registration.stage_field.value
+                    if stage_field:
+                        library_info["stage"] = stage_field
                     if status:
                         library_info["status"] = status
                         libraries.append(library_info)
@@ -3506,7 +3697,7 @@ class SettingsController(AdminCirculationManagerController):
 
             registration = registration_class(registry, library)
             registered = registration.push(
-                stage, self.url_for, do_get=do_get, do_post=do_post, key=key
+                stage, self.url_for, do_get=do_get, do_post=do_post
             )
             if isinstance(registered, ProblemDetail):
                 return registered

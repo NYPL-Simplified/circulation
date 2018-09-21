@@ -28,7 +28,7 @@ class MockAPI(MilleniumPatronAPI):
         super(MockAPI, self).__init__(library_id, integration)
         self.queue = []
         self.requests_made = []
-        
+
     def sample_data(self, filename):
         return sample_data(filename, 'millenium_patron')
 
@@ -66,7 +66,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
             ).value = library_identifier_field
 
         return MockAPI(self._default_library, integration)
-    
+
     def setup(self):
         super(TestMilleniumPatronAPI, self).setup()
         self.api = self.mock_api("http://url/")
@@ -75,16 +75,16 @@ class TestMilleniumPatronAPI(DatabaseTest):
         api = self.mock_api("http://example.com/", ["a", "b"])
         eq_("http://example.com/", api.root)
         eq_(["a", "b"], [x.pattern for x in api.blacklist])
-        
-    def test_remote_patron_lookup_no_such_patron(self):
+
+    def test__remote_patron_lookup_no_such_patron(self):
         self.api.enqueue("dump.no such barcode.html")
         patrondata = PatronData(authorization_identifier="bad barcode")
-        eq_(None, self.api.remote_patron_lookup(patrondata))
+        eq_(None, self.api._remote_patron_lookup(patrondata))
 
-    def test_remote_patron_lookup_success(self):
+    def test__remote_patron_lookup_success(self):
         self.api.enqueue("dump.success.html")
         patrondata = PatronData(authorization_identifier="good barcode")
-        patrondata = self.api.remote_patron_lookup(patrondata)
+        patrondata = self.api._remote_patron_lookup(patrondata)
 
         # Although "good barcode" was successful in lookup this patron
         # up, it didn't show up in their patron dump as a barcode, so
@@ -99,14 +99,21 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("alice@sheldon.com", patrondata.email_address)
         eq_(PatronData.NO_VALUE, patrondata.block_reason)
 
-    def test_remote_patron_lookup_block_rules(self):
+    def test__remote_patron_lookup_barcode_spaces(self):
+        self.api.enqueue("dump.success_barcode_spaces.html")
+        patrondata = PatronData(authorization_identifier="44444444444447")
+        patrondata = self.api._remote_patron_lookup(patrondata)
+        eq_("44444444444447", patrondata.authorization_identifier)
+        eq_(["44444444444447", "4 444 4444 44444 7"], patrondata.authorization_identifiers)
+
+    def test__remote_patron_lookup_block_rules(self):
         """This patron has a value of "m" in MBLOCK[56], which generally
         means they are blocked.
         """
         # Default behavior -- anything other than '-' means blocked.
         self.api.enqueue("dump.blocked.html")
         patrondata = PatronData(authorization_identifier="good barcode")
-        patrondata = self.api.remote_patron_lookup(patrondata)
+        patrondata = self.api._remote_patron_lookup(patrondata)
         eq_(PatronData.UNKNOWN_BLOCK, patrondata.block_reason)
 
         # If we set custom block types that say 'm' doesn't really
@@ -114,7 +121,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         api = self.mock_api(block_types='abcde')
         api.enqueue("dump.blocked.html")
         patrondata = PatronData(authorization_identifier="good barcode")
-        patrondata = api.remote_patron_lookup(patrondata)
+        patrondata = api._remote_patron_lookup(patrondata)
         eq_(PatronData.NO_VALUE, patrondata.block_reason)
 
         # If we set custom block types that include 'm', the patron
@@ -122,16 +129,16 @@ class TestMilleniumPatronAPI(DatabaseTest):
         api = self.mock_api(block_types='lmn')
         api.enqueue("dump.blocked.html")
         patrondata = PatronData(authorization_identifier="good barcode")
-        patrondata = api.remote_patron_lookup(patrondata)
+        patrondata = api._remote_patron_lookup(patrondata)
         eq_(PatronData.UNKNOWN_BLOCK, patrondata.block_reason)
-        
+
     def test_parse_poorly_behaved_dump(self):
         """The HTML parser is able to handle HTML embedded in
         field values.
         """
         self.api.enqueue("dump.embedded_html.html")
         patrondata = PatronData(authorization_identifier="good barcode")
-        patrondata = self.api.remote_patron_lookup(patrondata)
+        patrondata = self.api._remote_patron_lookup(patrondata)
         eq_("abcd", patrondata.authorization_identifier)
 
     def test_incoming_authorization_identifier_retained(self):
@@ -158,7 +165,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         # authorization identifier, because it's likely to be the most
         # recently added one.
         eq_("SECOND-barcode", patrondata.authorization_identifier)
-        
+
     def test_remote_authenticate_no_such_barcode(self):
         self.api.enqueue("pintest.no such barcode.html")
         eq_(False, self.api.remote_authenticate("wrong barcode", "pin"))
@@ -175,7 +182,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         # The return value includes everything we know about the
         # authenticated patron, which isn't much.
         eq_("barcode1234567", patrondata.authorization_identifier)
-        
+
     def test_authentication_updates_patron_authorization_identifier(self):
         """Verify that Patron.authorization_identifier is updated when
         necessary and left alone when not necessary.
@@ -187,7 +194,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         """
         p = self._patron()
         p.external_identifier = "6666666"
-        
+
         # If the patron is new, and logged in with a username, we'll
         # use the last barcode in the list as their authorization
         # identifier.
@@ -347,7 +354,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         p2 = self.api.authenticated_patron(self._db, auth)
         eq_(p2, p)
         eq_(None, p.authorization_expires)
-        
+
     def test_authentication_patron_invalid_fine_amount(self):
         p = self._patron()
         p.authorization_identifier = "44444444444447"
@@ -357,7 +364,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         p2 = self.api.authenticated_patron(self._db, auth)
         eq_(p2, p)
         eq_(0, p.fines)
-        
+
     def test_patron_dump_to_patrondata(self):
         content = self.api.sample_data("dump.success.html")
         patrondata = self.api.patron_dump_to_patrondata('alice', content)
@@ -374,7 +381,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         content = api.sample_data("dump.success.html")
         patrondata = api.patron_dump_to_patrondata('alice', content)
         eq_("10", patrondata.library_identifier)
-        
+
     def test_authorization_identifier_blacklist(self):
         """A patron has two authorization identifiers. Ordinarily the second
         one (which would normally be preferred), but it contains a
@@ -387,7 +394,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         api = self.mock_api(blacklist=["second"])
         patrondata = api.patron_dump_to_patrondata('alice', content)
         eq_("FIRST-barcode", patrondata.authorization_identifier)
-        
+
     def test_blacklist_may_remove_every_authorization_identifier(self):
         """A patron may end up with no authorization identifier whatsoever
         because they're all blacklisted.
@@ -429,15 +436,15 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_(unblocked, m(None, None))
         eq_(unblocked, m(None, "-"))
         eq_(unblocked, m(None, " "))
-        
+
         # Behavior with custom block values.
         eq_(blocked, m("abcd", "b"))
         eq_(unblocked, m("abcd", "e"))
         eq_(unblocked, m("", "-"))
-        
+
         # This is unwise but allowed.
         eq_(blocked, m("ab-c", "-"))
-        
+
     def test_family_name_match(self):
         m = MilleniumPatronAPI.family_name_match
         eq_(False, m(None, None))
@@ -492,9 +499,9 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("44444444444447", patrondata.authorization_identifier)
 
         # Since we got a full patron dump, the PatronData we get back
-        # is complete. 
+        # is complete.
         eq_(True, patrondata.complete)
-        
+
     def test_authorization_family_name_failure(self):
         """Test authenticating against the patron's family name, given the
         incorrect name
@@ -504,7 +511,7 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_(False, self.api.remote_authenticate("44444444444447", "wrong name"))
 
     def test_authorization_family_name_no_such_patron(self):
-        """If no patron is found, authorization based on family name cannot 
+        """If no patron is found, authorization based on family name cannot
         proceed.
         """
         self.api = self.mock_api(auth_mode = "family_name")

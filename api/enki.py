@@ -731,6 +731,7 @@ class EnkiImport(CollectionMonitor):
                     self.process_book(metadata)
 
     def process_book(self, bibliographic):
+
         """Make the local database reflect the state of the remote Enki
         collection for the given book.
 
@@ -760,9 +761,7 @@ class EnkiImport(CollectionMonitor):
         )
         bibliographic.apply(edition, self.collection, replace=policy)
         if not license_pool.work:
-            work, is_new = license_pool.calculate_work(
-                even_if_no_author=True
-            )
+            work, is_new = license_pool.calculate_work()
             if work:
                 work.set_presentation_ready()
 

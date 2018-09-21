@@ -20,7 +20,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     PORT = "port"
     LOCATION_CODE = "location code"
     FIELD_SEPARATOR = "field separator"
-    
+
     SETTINGS = [
         { "key": ExternalIntegration.URL, "label": _("Server") },
         { "key": PORT, "label": _("Port") },
@@ -31,7 +31,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
           "default": "|",
         },
     ] + BasicAuthenticationProvider.SETTINGS
-    
+
     # Map the reasons why SIP2 might report a patron is blocked to the
     # protocol-independent block reason used by PatronData.
     SPECIFIC_BLOCK_REASONS = {
@@ -109,6 +109,11 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                 server or 'unknown server', e.message
             )
         self.client = client
+
+    def _remote_patron_lookup(self, patron_or_patrondata):
+        return self.client.patron_information(
+            patron_or_patrondata.authorization_identifier, None
+        )
 
     def remote_authenticate(self, username, password):
         """Authenticate a patron with the SIP2 server.
@@ -201,7 +206,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             fee_limit = MoneyUtility.parse(info['fee_limit']).amount
             if fee_limit and patrondata.fines > fee_limit:
                 patrondata.block_reason = PatronData.EXCESSIVE_FINES
-        
+
         return patrondata
 
     @classmethod
@@ -215,7 +220,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             except ValueError, e:
                 continue
         return date_value
-        
+
     # NOTE: It's not necessary to implement remote_patron_lookup
     # because authentication gets patron data as a side effect.
 

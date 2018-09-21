@@ -70,7 +70,6 @@ from core.model import (
     Loan,
     LicensePoolDeliveryMechanism,
     Patron,
-    PatronProfileStorage,
     Representation,
     Session,
     Work,
@@ -112,6 +111,7 @@ from problem_details import *
 
 from authenticator import (
     Authenticator,
+    CirculationPatronProfileStorage,
     OAuthController,
 )
 from config import (
@@ -145,7 +145,6 @@ from novelist import (
 )
 from base_controller import BaseCirculationManagerController
 from testing import MockCirculationAPI, MockSharedCollectionAPI
-from services import ServiceStatus
 from core.analytics import Analytics
 from accept_types import parse_header
 
@@ -203,6 +202,9 @@ class CirculationManager(object):
         # Potentially load a CustomIndexView for each library
         new_custom_index_views = {}
 
+        # Make sure there's a site-wide public/private key pair.
+        self.sitewide_key_pair
+
         new_adobe_device_management = None
         for library in self._db.query(Library):
             lanes = load_lanes(self._db, library)
@@ -216,6 +218,7 @@ class CirculationManager(object):
             new_circulation_apis[library.id] = self.setup_circulation(
                 library, self.analytics
             )
+
             authdata = self.setup_adobe_vendor_id(self._db, library)
             if authdata and not new_adobe_device_management:
                 # There's at least one library on this system that
@@ -316,7 +319,6 @@ class CirculationManager(object):
         self.analytics_controller = AnalyticsController(self)
         self.profiles = ProfileController(self)
         self.heartbeat = HeartbeatController()
-        self.service_status = ServiceStatusController(self)
         self.odl_notification_controller = ODLNotificationController(self)
         self.shared_collection_controller = SharedCollectionController(self)
 
@@ -420,17 +422,21 @@ class CirculationManager(object):
         return self.authentication_for_opds_documents[name]
 
     @property
+    def sitewide_key_pair(self):
+        """Look up or create the sitewide public/private key pair."""
+        setting = ConfigurationSetting.sitewide(
+            self._db, Configuration.KEY_PAIR
+        )
+        return Configuration.key_pair(setting)
+
+    @property
     def public_key_integration_document(self):
+        """Serve a document with the sitewide public key."""
         site_id = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
         document = dict(id=site_id)
 
-        public_key_dict = dict()
-        public_key = ConfigurationSetting.sitewide(self._db, Configuration.PUBLIC_KEY).value
-        if public_key:
-            public_key_dict['type'] = 'RSA'
-            public_key_dict['value'] = public_key
-
-        document['public_key'] = public_key_dict
+        public, private = self.sitewide_key_pair
+        document['public_key'] = dict(type='RSA', value=public)
         return json.dumps(document)
 
 
@@ -786,7 +792,9 @@ class OPDSFeedController(CirculationManagerController):
         )
         if not query:
             # Send the search form
-            return OpenSearchDocument.for_lane(lane, make_url())
+            open_search_doc = OpenSearchDocument.for_lane(lane, make_url())
+            headers = { "Content-Type" : "application/opensearchdescription+xml" }
+            return Response(open_search_doc, 200, headers)
 
         pagination = load_pagination_from_request(default_size=Pagination.DEFAULT_SEARCH_SIZE)
         if isinstance(pagination, ProblemDetail):
@@ -804,6 +812,7 @@ class OPDSFeedController(CirculationManagerController):
             query=query, annotator=annotator, pagination=pagination,
             languages=languages, facets=facets
         )
+
         return feed_response(opds_feed)
 
 
@@ -1552,7 +1561,6 @@ class WorkController(CirculationManagerController):
         )
         return feed_response(unicode(feed))
 
-
 class ProfileController(CirculationManagerController):
     """Implement the User Profile Management Protocol."""
 
@@ -1561,7 +1569,7 @@ class ProfileController(CirculationManagerController):
         """Instantiate a CoreProfileController that actually does the work.
         """
         patron = self.authenticated_patron_from_request()
-        storage = PatronProfileStorage(patron)
+        storage = CirculationPatronProfileStorage(patron)
         return CoreProfileController(storage)
 
     def protocol(self):
@@ -1592,33 +1600,6 @@ class AnalyticsController(CirculationManagerController):
         else:
             return INVALID_ANALYTICS_EVENT_TYPE
 
-
-class ServiceStatusController(CirculationManagerController):
-
-    template = """<!DOCTYPE HTML>
-<html lang="en" class="">
-<head>
-<meta charset="utf8">
-</head>
-<body>
-<ul>
-%(statuses)s
-</ul>
-</body>
-</html>
-"""
-
-    def __call__(self):
-        library = flask.request.library
-        circulation = self.manager.circulation_apis[library.id]
-        service_status = ServiceStatus(circulation)
-        timings = service_status.loans_status(response=True)
-        statuses = []
-        for k, v in sorted(timings.items()):
-            statuses.append(" <li><b>%s</b>: %s</li>" % (k, v))
-
-        doc = self.template % dict(statuses="\n".join(statuses))
-        return Response(doc, 200, {"Content-Type": "text/html"})
 
 class ODLNotificationController(CirculationManagerController):
     """Receive notifications from an ODL distributor when the

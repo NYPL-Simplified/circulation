@@ -156,7 +156,7 @@ class ONIXExtractor(object):
         'Z02': Contributor.UNKNOWN_ROLE, # 'Honored/dedicated to'
         'Z99': Contributor.UNKNOWN_ROLE, # Other creative responsibility
     }
-    
+
     @classmethod
     def parse(cls, file, data_source_name):
         metadata_records = []
@@ -183,7 +183,7 @@ class ONIXExtractor(object):
             imprint = parser.text_of_optional_subtag(record, 'publishingdetail/imprint/b079')
             if imprint == publisher:
                 imprint = None
-           
+
             publishing_date = parser.text_of_optional_subtag(record, 'publishingdetail/publishingdate/b306')
             issued = None
             if publishing_date:
@@ -205,7 +205,7 @@ class ONIXExtractor(object):
                 if type in cls.SUBJECT_TYPES:
                     subjects.append(SubjectData(cls.SUBJECT_TYPES[type],
                                                 parser.text_of_subtag(tag, 'b069')))
-                    
+
             audience_tags = parser._xpath(record, 'descriptivedetail/audience/b204')
             audiences = []
             for tag in audience_tags:

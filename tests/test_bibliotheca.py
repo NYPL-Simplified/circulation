@@ -1,10 +1,12 @@
 # encoding: utf-8
 from nose.tools import (
-    set_trace, 
+    set_trace,
     eq_,
     assert_raises,
+    assert_raises_regexp,
+
 )
-import datetime
+from datetime import datetime, timedelta
 import json
 import os
 import pkgutil
@@ -25,18 +27,23 @@ from core.model import (
     Edition,
     ExternalIntegration,
     Hold,
+    Hyperlink,
     Identifier,
     LicensePool,
     Loan,
+    Measurement,
     Resource,
     Representation,
+    Subject,
     Timestamp,
+    Work,
     create,
 )
 from core.util.http import (
     BadResponseException,
 )
 from core.util.web_publication_manifest import AudiobookManifest
+from core.scripts import RunCollectionCoverageProviderScript
 
 from api.authenticator import BasicAuthenticationProvider
 from api.circulation import (
@@ -57,6 +64,8 @@ from api.bibliotheca import (
     BibliothecaAPI,
     BibliothecaEventMonitor,
     BibliothecaParser,
+    ItemListParser,
+    BibliothecaBibliographicCoverageProvider,
 )
 
 
@@ -67,11 +76,20 @@ class BibliothecaAPITest(DatabaseTest):
         self.collection = MockBibliothecaAPI.mock_collection(self._db)
         self.api = MockBibliothecaAPI(self._db, self.collection)
 
+    base_path = os.path.split(__file__)[0]
+    resource_path = os.path.join(base_path, "files", "bibliotheca")
+
     @classmethod
     def sample_data(self, filename):
         return sample_data(filename, 'bibliotheca')
 
-class TestBibliothecaAPI(BibliothecaAPITest):      
+class TestBibliothecaAPI(BibliothecaAPITest):
+
+    def setup(self):
+        super(TestBibliothecaAPI, self).setup()
+        self.collection = MockBibliothecaAPI.mock_collection(self._db)
+        self.api = MockBibliothecaAPI(self._db, self.collection)
+
 
     def test_external_integration(self):
         eq_(
@@ -116,7 +134,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
 
         # Now that everything is set up, run the self-test.
         api = Mock(self._db, self.collection)
-        now = datetime.datetime.utcnow()
+        now = datetime.utcnow()
         [no_patron_credential, recent_circulation_events, patron_activity] = sorted(
             api._run_self_tests(self._db), key=lambda x: x.name
         )
@@ -144,19 +162,92 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         eq_("username1", patron.authorization_identifier)
         eq_("password1", pin)
 
+    def test_full_path(self):
+        id = self.api.library_id
+        eq_("/cirrus/library/%s/foo" % id, self.api.full_path("foo"))
+        eq_("/cirrus/library/%s/foo" % id, self.api.full_path("/foo"))
+        eq_("/cirrus/library/%s/foo" % id,
+            self.api.full_path("/cirrus/library/%s/foo" % id)
+        )
+
+    def test_full_url(self):
+        id = self.api.library_id
+        eq_("http://bibliotheca.test/cirrus/library/%s/foo" % id,
+            self.api.full_url("foo"))
+        eq_("http://bibliotheca.test/cirrus/library/%s/foo" % id,
+            self.api.full_url("/foo"))
+
+    def test_request_signing(self):
+        """Confirm a known correct result for the 3M request signing
+        algorithm.
+        """
+        self.api.queue_response(200)
+        response = self.api.request("some_url")
+        [request] = self.api.requests
+        headers = request[-1]['headers']
+        eq_('Fri, 01 Jan 2016 00:00:00 GMT', headers['3mcl-Datetime'])
+        eq_('2.0', headers['3mcl-Version'])
+        expect = '3MCLAUTH a:HZHNGfn6WVceakGrwXaJQ9zIY0Ai5opGct38j9/bHrE='
+        eq_(expect, headers['3mcl-Authorization'])
+
+        # Tweak one of the variables that go into the signature, and
+        # the signature changes.
+        self.api.library_id = self.api.library_id + "1"
+        self.api.queue_response(200)
+        response = self.api.request("some_url")
+        request = self.api.requests[-1]
+        headers = request[-1]['headers']
+        assert headers['3mcl-Authorization'] != expect
+
+    def test_bibliographic_lookup(self):
+        data = self.sample_data("item_metadata_single.xml")
+        metadata = []
+        self.api.queue_response(200, content=data)
+        identifier = self._identifier()
+        metadata = self.api.bibliographic_lookup(identifier)
+        eq_("The Incense Game", metadata.title)
+
+    def test_bad_response_raises_exception(self):
+        self.api.queue_response(500, content="oops")
+        identifier = self._identifier()
+        assert_raises_regexp(
+            BadResponseException,
+            ".*Got status code 500.*",
+            self.api.bibliographic_lookup, identifier
+        )
+
+    def test_put_request(self):
+        """This is a basic test to make sure the method calls line up
+        right--there are more thorough tests in the circulation
+        manager, which actually uses this functionality.
+        """
+        self.api.queue_response(200, content="ok, you put something")
+        response = self.api.request('checkout', "put this!", method="PUT")
+
+        # The PUT request went through to the correct URL and the right
+        # payload was sent.
+        [[method, url, args, kwargs]] = self.api.requests
+        eq_("PUT", method)
+        eq_(self.api.full_url("checkout"), url)
+        eq_('put this!', kwargs['data'])
+
+        # The response is what we'd expect.
+        eq_(200, response.status_code)
+        eq_("ok, you put something", response.content)
+
     def test_get_events_between_success(self):
         data = self.sample_data("empty_end_date_event.xml")
         self.api.queue_response(200, content=data)
-        now = datetime.datetime.now()
-        an_hour_ago = now - datetime.timedelta(minutes=3600)
+        now = datetime.now()
+        an_hour_ago = now - timedelta(minutes=3600)
         response = self.api.get_events_between(an_hour_ago, now)
         [event] = list(response)
         eq_('d5rf89', event[0])
 
     def test_get_events_between_failure(self):
         self.api.queue_response(500)
-        now = datetime.datetime.now()
-        an_hour_ago = now - datetime.timedelta(minutes=3600)
+        now = datetime.now()
+        an_hour_ago = now - timedelta(minutes=3600)
         assert_raises(
             BadResponseException,
             self.api.get_events_between, an_hour_ago, now
@@ -266,26 +357,26 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         l1, l2 = patron.loans
         h1, h2 = patron.holds
 
-        eq_(datetime.datetime(2015, 3, 20, 18, 50, 22), l1.start)
-        eq_(datetime.datetime(2015, 4, 10, 18, 50, 22), l1.end)
+        eq_(datetime(2015, 3, 20, 18, 50, 22), l1.start)
+        eq_(datetime(2015, 4, 10, 18, 50, 22), l1.end)
 
-        eq_(datetime.datetime(2015, 3, 13, 13, 38, 19), l2.start)
-        eq_(datetime.datetime(2015, 4, 3, 13, 38, 19), l2.end)
+        eq_(datetime(2015, 3, 13, 13, 38, 19), l2.start)
+        eq_(datetime(2015, 4, 3, 13, 38, 19), l2.end)
 
         # The patron is fourth in line. The end date is an estimate
         # of when the hold will be available to check out.
-        eq_(datetime.datetime(2015, 3, 24, 15, 6, 56), h1.start)
-        eq_(datetime.datetime(2015, 3, 24, 15, 7, 51), h1.end)
+        eq_(datetime(2015, 3, 24, 15, 6, 56), h1.start)
+        eq_(datetime(2015, 3, 24, 15, 7, 51), h1.end)
         eq_(4, h1.position)
 
         # The hold has an end date. It's time for the patron to decide
         # whether or not to check out this book.
-        eq_(datetime.datetime(2015, 5, 25, 17, 5, 34), h2.start)
-        eq_(datetime.datetime(2015, 5, 27, 17, 5, 34), h2.end)
+        eq_(datetime(2015, 5, 25, 17, 5, 34), h2.start)
+        eq_(datetime(2015, 5, 27, 17, 5, 34), h2.end)
         eq_(0, h2.position)
 
     def test_place_hold(self):
-        patron = self._patron()        
+        patron = self._patron()
         edition, pool = self._edition(with_license_pool=True)
         self.api.queue_response(200, content=self.sample_data("successful_hold.xml"))
         response = self.api.place_hold(patron, 'pin', pool)
@@ -293,7 +384,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         eq_(pool.identifier.identifier, response.identifier)
 
     def test_place_hold_fails_if_exceeded_hold_limit(self):
-        patron = self._patron()        
+        patron = self._patron()
         edition, pool = self._edition(with_license_pool=True)
         self.api.queue_response(400, content=self.sample_data("error_exceeded_hold_limit.xml"))
         assert_raises(PatronHoldLimitReached, self.api.place_hold,
@@ -425,28 +516,28 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         eq_(u'1234567890987654321ababa', encrypted[u'findaway:licenseId'])
         eq_(u'3M', encrypted[u'findaway:accountId'])
         eq_(u'123456', encrypted[u'findaway:fulfillmentId'])
-        eq_(u'aaaaaaaa-4444-cccc-dddd-666666666666', 
+        eq_(u'aaaaaaaa-4444-cccc-dddd-666666666666',
             encrypted[u'findaway:sessionKey'])
 
         # Every entry in the license document's 'items' list has
-        # become a spine item in the manifest.
-        spine = manifest['spine']
-        eq_(79, len(spine))
+        # become a readingOrder item in the manifest.
+        reading_order = manifest['readingOrder']
+        eq_(79, len(reading_order))
 
-        # The duration of each spine item has been converted to
+        # The duration of each readingOrder item has been converted to
         # seconds.
-        first = spine[0]
+        first = reading_order[0]
         eq_(16.201, first['duration'])
         eq_("Track 1", first['title'])
 
-        # There is no 'href' value for the spine items because the
+        # There is no 'href' value for the readingOrder items because the
         # files must be obtained through the Findaway SDK rather than
         # through regular HTTP requests.
         #
         # Since this is a relatively small book, it only has one part,
         # part #0. Within that part, the items have been sorted by
         # their sequence.
-        for i, item in enumerate(spine):
+        for i, item in enumerate(reading_order):
             eq_(None, item['href'])
             eq_(Representation.MP3_MEDIA_TYPE, item['type'])
             eq_(0, item['findaway:part'])
@@ -486,13 +577,13 @@ class TestBibliothecaCirculationSweep(BibliothecaAPITest):
             self._db, self.collection, api_class=self.api
         )
         monitor.process_items([identifier])
-        
+
         # A LicensePool has been created for the previously mysterious
         # identifier.
         [pool] = identifier.licensed_through
         eq_(self.collection, pool.collection)
         eq_(False, pool.open_access)
-        
+
         # Three circulation events were created for this license pool,
         # marking the creation of the license pool, the addition of
         # licenses owned, and the making of those licenses available.
@@ -514,7 +605,7 @@ class TestBibliothecaParser(BibliothecaAPITest):
     def test_parse_date(self):
         parser = BibliothecaParser()
         v = parser.parse_date("2016-01-02T12:34:56")
-        eq_(datetime.datetime(2016, 1, 2, 12, 34, 56), v)
+        eq_(datetime(2016, 1, 2, 12, 34, 56), v)
 
         eq_(None, parser.parse_date(None))
         eq_(None, parser.parse_date("Some weird value"))
@@ -530,7 +621,7 @@ class TestEventParser(BibliothecaAPITest):
         eq_('d5rf89', threem_id)
         eq_(u'9781101190623', isbn)
         eq_(None, patron_id)
-        eq_(datetime.datetime(2016, 4, 28, 11, 4, 6), start_time)
+        eq_(datetime(2016, 4, 28, 11, 4, 6), start_time)
         eq_(None, end_time)
         eq_('distributor_license_add', internal_event_type)
 
@@ -548,8 +639,8 @@ class TestPatronCirculationParser(BibliothecaAPITest):
         [l1, l2] = sorted(loans, key=lambda x: x.identifier)
         eq_("1ad589", l1.identifier)
         eq_("cgaxr9", l2.identifier)
-        expect_loan_start = datetime.datetime(2015, 3, 20, 18, 50, 22)
-        expect_loan_end = datetime.datetime(2015, 4, 10, 18, 50, 22)
+        expect_loan_start = datetime(2015, 3, 20, 18, 50, 22)
+        expect_loan_end = datetime(2015, 4, 10, 18, 50, 22)
         eq_(expect_loan_start, l1.start_date)
         eq_(expect_loan_end, l1.end_date)
 
@@ -559,8 +650,8 @@ class TestPatronCirculationParser(BibliothecaAPITest):
         eq_(collection.id, h1.collection_id)
         eq_(DataSource.BIBLIOTHECA, h1.data_source_name)
         eq_("9wd8", h1.identifier)
-        expect_hold_start = datetime.datetime(2015, 5, 25, 17, 5, 34)
-        expect_hold_end = datetime.datetime(2015, 5, 27, 17, 5, 34)
+        expect_hold_start = datetime(2015, 5, 25, 17, 5, 34)
+        expect_hold_end = datetime(2015, 5, 27, 17, 5, 34)
         eq_(expect_hold_start, h1.start_date)
         eq_(expect_hold_end, h1.end_date)
         eq_(0, h1.hold_position)
@@ -569,8 +660,8 @@ class TestPatronCirculationParser(BibliothecaAPITest):
         eq_("d4o8r9", h2.identifier)
         eq_(collection.id, h2.collection_id)
         eq_(DataSource.BIBLIOTHECA, h2.data_source_name)
-        expect_hold_start = datetime.datetime(2015, 3, 24, 15, 6, 56)
-        expect_hold_end = datetime.datetime(2015, 3, 24, 15, 7, 51)
+        expect_hold_start = datetime(2015, 3, 24, 15, 6, 56)
+        expect_hold_end = datetime(2015, 3, 24, 15, 7, 51)
         eq_(expect_hold_start, h2.start_date)
         eq_(expect_hold_end, h2.end_date)
         eq_(4, h2.hold_position)
@@ -580,7 +671,7 @@ class TestCheckoutResponseParser(BibliothecaAPITest):
     def test_parse(self):
         data = self.sample_data("successful_checkout.xml")
         due_date = CheckoutResponseParser().process_all(data)
-        eq_(datetime.datetime(2015, 4, 16, 0, 32, 36), due_date)
+        eq_(datetime(2015, 4, 16, 0, 32, 36), due_date)
 
 
 class TestErrorParser(BibliothecaAPITest):
@@ -608,7 +699,7 @@ class TestErrorParser(BibliothecaAPITest):
             u'the patron document status was CAN_WISH and not one of CAN_LOAN,RESERVATION',
             error.message
         )
-        
+
         problem = error.as_problem_detail_document()
         eq_("The library currently has no licenses for this book.",
             problem.detail)
@@ -714,8 +805,8 @@ class Test3MEventParser(object):
         eq_(CirculationEvent.DISTRIBUTOR_CHECKOUT, internal_event_type)
 
         # Verify that start and end time were parsed correctly.
-        correct_start = datetime.datetime(2014, 4, 3, 0, 0, 34)
-        correct_end = datetime.datetime(2014, 4, 2, 23, 57, 37)
+        correct_start = datetime(2014, 4, 3, 0, 0, 34)
+        correct_end = datetime(2014, 4, 2, 23, 57, 37)
         eq_(correct_start, start_time)
         eq_(correct_end, end_time)
 
@@ -851,7 +942,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         monitor = BibliothecaEventMonitor(
             self._db, self.collection, api_class=MockBibliothecaAPI
         )
-        expected = datetime.datetime.utcnow() - monitor.DEFAULT_START_TIME
+        expected = datetime.utcnow() - monitor.DEFAULT_START_TIME
 
         # When the monitor has never been run before, the default
         # start time is a date long in the past.
@@ -865,7 +956,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
             self._db, self.collection, api_class=MockBibliothecaAPI,
             cli_date="2011-01-01"
         )
-        expected = datetime.datetime(year=2011, month=1, day=1)
+        expected = datetime(year=2011, month=1, day=1)
         eq_(expected, monitor.default_start_time)
         for cli_date in ('2011-01-01', ['2011-01-01']):
             default_start_time = monitor.create_default_start_time(
@@ -885,14 +976,14 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         too_many_args = ['2013', '04', '02']
         for args in [not_date_args, too_many_args]:
             actual_default_start_time = monitor.create_default_start_time(self._db, args)
-            eq_(True, isinstance(actual_default_start_time, datetime.datetime))
+            eq_(True, isinstance(actual_default_start_time, datetime))
             assert (default_start_time - actual_default_start_time).total_seconds() <= 1
 
         # Returns an appropriate date if command line arguments are passed
         # as expected
         proper_args = ['2013-04-02']
         default_start_time = monitor.create_default_start_time(self._db, proper_args)
-        eq_(datetime.datetime(2013, 4, 2), default_start_time)
+        eq_(datetime(2013, 4, 2), default_start_time)
 
     def test_run_once(self):
         api = MockBibliothecaAPI(self._db, self.collection)
@@ -905,8 +996,8 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         monitor = BibliothecaEventMonitor(
             self._db, self.collection, api_class=api
         )
-        now = datetime.datetime.utcnow() 
-        yesterday = now - datetime.timedelta(days=1)
+        now = datetime.utcnow()
+        yesterday = now - timedelta(days=1)
 
         new_timestamp = monitor.run_once(yesterday, now)
 
@@ -950,7 +1041,7 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
             analytics=analytics
         )
 
-        now = datetime.datetime.utcnow()
+        now = datetime.utcnow()
         monitor.handle_event("ddf4gr9", "9781250015280", None, now, None,
                              CirculationEvent.DISTRIBUTOR_LICENSE_ADD)
 
@@ -977,3 +1068,198 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         # LicensePool.
         eq_(3, analytics.count)
 
+
+class TestItemListParser(BibliothecaAPITest):
+
+    def test_contributors_for_string(cls):
+        authors = list(ItemListParser.contributors_from_string(
+            "Walsh, Jill Paton; Sayers, Dorothy L."))
+        eq_([x.sort_name for x in authors],
+            ["Walsh, Jill Paton", "Sayers, Dorothy L."]
+        )
+        eq_([x.roles for x in authors],
+            [[Contributor.AUTHOR_ROLE], [Contributor.AUTHOR_ROLE]]
+        )
+
+        # Parentheticals are stripped.
+        [author] = ItemListParser.contributors_from_string(
+            "Baum, Frank L. (Frank Lyell)")
+        eq_("Baum, Frank L.", author.sort_name)
+
+        # It's possible to specify some role other than AUTHOR_ROLE.
+        narrators = list(
+            ItemListParser.contributors_from_string(
+                "Callow, Simon; Mann, Bruce; Hagon, Garrick",
+                Contributor.NARRATOR_ROLE
+            )
+        )
+        for narrator in narrators:
+            eq_([Contributor.NARRATOR_ROLE], narrator.roles)
+        eq_(["Callow, Simon", "Mann, Bruce", "Hagon, Garrick"],
+            [narrator.sort_name for narrator in narrators])
+
+    def test_parse_genre_string(self):
+        def f(genre_string):
+            genres = ItemListParser.parse_genre_string(genre_string)
+            assert all([x.type == Subject.BISAC for x in genres])
+            return [x.name for x in genres]
+
+        eq_(["Children's Health", "Health"],
+            f("Children&amp;#39;s Health,Health,"))
+
+        eq_(["Action & Adventure", "Science Fiction", "Fantasy", "Magic",
+             "Renaissance"],
+            f("Action &amp;amp; Adventure,Science Fiction, Fantasy, Magic,Renaissance,"))
+
+    def test_item_list(cls):
+        data = cls.sample_data("item_metadata_list_mini.xml")
+        data = list(ItemListParser().parse(data))
+
+        # There should be 2 items in the list.
+        eq_(2, len(data))
+
+        cooked = data[0]
+
+        eq_("The Incense Game", cooked.title)
+        eq_("A Novel of Feudal Japan", cooked.subtitle)
+        eq_("eng", cooked.language)
+        eq_("St. Martin's Press", cooked.publisher)
+        eq_(datetime(year=2012, month=9, day=17),
+            cooked.published
+        )
+
+        primary = cooked.primary_identifier
+        eq_("ddf4gr9", primary.identifier)
+        eq_(Identifier.THREEM_ID, primary.type)
+
+        identifiers = sorted(
+            cooked.identifiers, key=lambda x: x.identifier
+        )
+        eq_([u'9781250015280', u'9781250031112', u'ddf4gr9'],
+            [x.identifier for x in identifiers])
+
+        [author] = cooked.contributors
+        eq_("Rowland, Laura Joh", author.sort_name)
+        eq_([Contributor.AUTHOR_ROLE], author.roles)
+
+        subjects = [x.name for x in cooked.subjects]
+        eq_(["Children's Health", "Mystery & Detective"], sorted(subjects))
+
+        [pages] = cooked.measurements
+        eq_(Measurement.PAGE_COUNT, pages.quantity_measured)
+        eq_(304, pages.value)
+
+        [alternate, image, description] = sorted(
+            cooked.links, key = lambda x: x.rel)
+        eq_("alternate", alternate.rel)
+        assert alternate.href.startswith("http://ebook.3m.com/library")
+
+        eq_(Hyperlink.IMAGE, image.rel)
+        assert image.href.startswith("http://ebook.3m.com/delivery")
+
+        eq_(Hyperlink.DESCRIPTION, description.rel)
+        assert description.content.startswith("<b>Winner")
+
+    def test_multiple_contributor_roles(self):
+        data = self.sample_data("item_metadata_audio.xml")
+        [data] = list(ItemListParser().parse(data))
+        names_and_roles = []
+        for c in data.contributors:
+            [role] = c.roles
+            names_and_roles.append((c.sort_name, role))
+
+        # We found one author and three narrators.
+        eq_(
+            sorted([(u'Riggs, Ransom', u'Author'),
+                    (u'Callow, Simon', u'Narrator'),
+                    (u'Mann, Bruce', u'Narrator'),
+                    (u'Hagon, Garrick', u'Narrator')]),
+            sorted(names_and_roles)
+        )
+
+class TestBibliographicCoverageProvider(TestBibliothecaAPI):
+
+    """Test the code that looks up bibliographic information from 3M."""
+
+    def test_script_instantiation(self):
+        """Test that RunCollectionCoverageProviderScript can instantiate
+        this coverage provider.
+        """
+        script = RunCollectionCoverageProviderScript(
+            BibliothecaBibliographicCoverageProvider, self._db,
+            api_class=MockBibliothecaAPI
+        )
+        [provider] = script.providers
+        assert isinstance(provider,
+                          BibliothecaBibliographicCoverageProvider)
+        assert isinstance(provider.api, MockBibliothecaAPI)
+
+    def test_process_item_creates_presentation_ready_work(self):
+        """Test the normal workflow where we ask 3M for data,
+        3M provides it, and we create a presentation-ready work.
+        """
+        identifier = self._identifier(identifier_type=Identifier.BIBLIOTHECA_ID)
+        identifier.identifier = 'ddf4gr9'
+
+        # This book has no LicensePools.
+        eq_([], identifier.licensed_through)
+
+        # Run it through the BibliothecaBibliographicCoverageProvider
+        provider = BibliothecaBibliographicCoverageProvider(
+            self.collection, api_class=MockBibliothecaAPI
+        )
+        data = self.sample_data("item_metadata_single.xml")
+
+        # We can't use self.api because that's not the same object
+        # as the one created by the coverage provider.
+        provider.api.queue_response(200, content=data)
+
+        [result] = provider.process_batch([identifier])
+        eq_(identifier, result)
+
+        # A LicensePool was created, not because we know anything
+        # about how we've licensed this book, but to have a place to
+        # store the information about what formats the book is
+        # available in.
+        [pool] = identifier.licensed_through
+        eq_(0, pool.licenses_owned)
+        [lpdm] = pool.delivery_mechanisms
+        eq_(
+            'application/epub+zip (application/vnd.adobe.adept+xml)',
+            lpdm.delivery_mechanism.name
+        )
+
+        # A Work was created and made presentation ready.
+        eq_("The Incense Game", pool.work.title)
+        eq_(True, pool.work.presentation_ready)
+
+    def test_internal_formats(self):
+
+        m = ItemListParser.internal_formats
+        def _check_format(input, expect_medium, expect_format, expect_drm):
+            medium, formats = m(input)
+            eq_(medium, expect_medium)
+            [format] = formats
+            eq_(expect_format, format.content_type)
+            eq_(expect_drm, format.drm_scheme)
+
+        rep = Representation
+        adobe = DeliveryMechanism.ADOBE_DRM
+        findaway = DeliveryMechanism.FINDAWAY_DRM
+        book = Edition.BOOK_MEDIUM
+
+        # Verify that we handle the known strings from Bibliotheca
+        # appropriately.
+        _check_format("EPUB", book, rep.EPUB_MEDIA_TYPE, adobe)
+        _check_format("EPUB3", book, rep.EPUB_MEDIA_TYPE, adobe)
+        _check_format("PDF", book, rep.PDF_MEDIA_TYPE, adobe)
+        _check_format("MP3", Edition.AUDIO_MEDIUM, rep.MP3_MEDIA_TYPE, findaway)
+
+        # Now Try a string we don't recognize from Bibliotheca.
+        medium, formats = m("Unknown")
+
+        # We assume it's a book.
+        eq_(Edition.BOOK_MEDIUM, medium)
+
+        # But we don't know which format.
+        eq_([], formats)

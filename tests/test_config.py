@@ -1,5 +1,9 @@
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+
 from collections import Counter
 from nose.tools import (
+    assert_raises_regexp,
     eq_,
     set_trace,
 )
@@ -12,6 +16,54 @@ from . import DatabaseTest
 from api.config import Configuration
 
 class TestConfiguration(DatabaseTest):
+
+    def test_key_pair(self):
+        # Test the ability to create, replace, or look up a
+        # public/private key pair in a ConfigurationSetting.
+        setting = ConfigurationSetting.sitewide(
+            self._db, Configuration.KEY_PAIR
+        )
+        setting.value = "nonsense"
+
+        # If you pass in a ConfigurationSetting that is missing its
+        # value, or whose value is not a public key pair, a new key
+        # pair is created.
+        public_key, private_key = Configuration.key_pair(setting)
+        assert 'BEGIN PUBLIC KEY' in public_key
+        assert 'BEGIN RSA PRIVATE KEY' in private_key
+        eq_([public_key, private_key], setting.json_value)
+
+        setting.value = None
+        public_key, private_key = Configuration.key_pair(setting)
+        assert 'BEGIN PUBLIC KEY' in public_key
+        assert 'BEGIN RSA PRIVATE KEY' in private_key
+        eq_([public_key, private_key], setting.json_value)
+
+        # If the setting has a good value already, the key pair is
+        # returned as is.
+        new_public, new_private = Configuration.key_pair(setting)
+        eq_(new_public, public_key)
+        eq_(new_private, private_key)
+
+    def test_cipher(self):
+        """Test the cipher() helper method."""
+
+        # Generate a public/private key pair.
+        key = RSA.generate(2048)
+        cipher = PKCS1_OAEP.new(key)
+        public = key.publickey().exportKey()
+        private = key.exportKey()
+
+        # Pass the public key into cipher() to get something that can
+        # encrypt.
+        encryptor = Configuration.cipher(public)
+        encrypted = encryptor.encrypt("some text")
+
+        # Pass the private key into cipher() to get something that can
+        # decrypt.
+        decryptor = Configuration.cipher(private)
+        decrypted = decryptor.decrypt(encrypted)
+        eq_("some text", decrypted)
 
     def test_collection_language_method_performs_estimate(self):
         C = Configuration
@@ -34,7 +86,7 @@ class TestConfiguration(DatabaseTest):
         # holdings.
         large_setting = ConfigurationSetting.for_library(
             C.LARGE_COLLECTION_LANGUAGES, library
-        ) 
+        )
         eq_(["eng"], large_setting.json_value)
         eq_([], ConfigurationSetting.for_library(
             C.SMALL_COLLECTION_LANGUAGES, library).json_value)
@@ -44,7 +96,7 @@ class TestConfiguration(DatabaseTest):
         # We can change these values.
         large_setting.value = json.dumps(["spa", "jpn"])
         eq_(["spa", "jpn"], C.large_collection_languages(library))
-        
+
         # If we enter an invalid value, or a value that's not a list,
         # the estimate is re-calculated the next time we look.
         large_setting.value = "this isn't json"
@@ -52,7 +104,7 @@ class TestConfiguration(DatabaseTest):
 
         large_setting.value = '"this is json but it\'s not a list"'
         eq_(["eng"], C.large_collection_languages(library))
-        
+
     def test_estimate_language_collection_for_library(self):
 
         library = self._default_library
@@ -76,11 +128,11 @@ class TestConfiguration(DatabaseTest):
         eq_(["eng"], ConfigurationSetting.for_library(
             Configuration.LARGE_COLLECTION_LANGUAGES, library
         ).json_value)
-        
+
         eq_([], ConfigurationSetting.for_library(
             Configuration.SMALL_COLLECTION_LANGUAGES, library
         ).json_value)
-            
+
         eq_([], ConfigurationSetting.for_library(
             Configuration.TINY_COLLECTION_LANGUAGES, library
         ).json_value)
@@ -88,7 +140,7 @@ class TestConfiguration(DatabaseTest):
     def test_classify_holdings(self):
 
         m = Configuration.classify_holdings
-        
+
         # If there are no titles in the collection at all, we assume
         # there will eventually be a large English collection.
         eq_([["eng"], [], []], m(Counter()))
@@ -105,4 +157,4 @@ class TestConfiguration(DatabaseTest):
                                   nav=6, ukr=4000, ira=1500)
         eq_([['fre', 'jpn'], ['spa', 'ukr', 'ira'], ['nav']],
             m(different_sizes))
-        
+
