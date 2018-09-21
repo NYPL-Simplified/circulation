@@ -1554,6 +1554,8 @@ class BaseMaterializedWork(object):
 
 class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
     p = dict(primary_key=True)
+    # TODO: I think we need to specify every single field here,
+    # because we can't vacuum it up from an existing database schema.
     __table__ = Table(
         'mv_works_for_lanes',
         Base.metadata,
@@ -1566,7 +1568,19 @@ class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
         Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
         Column('simple_opds_entry', Unicode, default=None),
         Column('collection_id', Integer, ForeignKey('collections.id')),
-        Column('fiction', Boolean)
+        Column('sort_title', Unicode, default=None),
+        Column('sort_author', Unicode, default=None),
+        Column('series_position', Integer),
+        Column('medium', Edition.MEDIUM_ENUM),
+        Column('language', Unicode),
+
+        Column('random', Numeric(4,3)),
+        Column('quality', Numeric(4,3)),
+        Column('audience', Unicode),
+        Column('target_age', INT4RANGE),
+        Column('fiction', Boolean),
+        Column('availability_time', DateTime),
+        Column('last_update_time', DateTime),
     )
     license_pool = relationship(
         'LicensePool',

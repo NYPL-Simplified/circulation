@@ -109,16 +109,19 @@ class Edition(Base, EditionConstants):
     # A Project Gutenberg text was likely `published` long before being `issued`.
     published = Column(Date)
 
+    MEDIUM_ENUM = Enum(EditionConstants.BOOK_MEDIUM,
+                       EditionConstants.PERIODICAL_MEDIUM,
+                       EditionConstants.AUDIO_MEDIUM,
+                       EditionConstants.MUSIC_MEDIUM,
+                       EditionConstants.VIDEO_MEDIUM,
+                       EditionConstants.IMAGE_MEDIUM,
+                       EditionConstants.COURSEWARE_MEDIUM,
+                       name="medium"
+    )
+
+
     medium = Column(
-        Enum(EditionConstants.BOOK_MEDIUM,
-            EditionConstants.PERIODICAL_MEDIUM,
-            EditionConstants.AUDIO_MEDIUM,
-            EditionConstants.MUSIC_MEDIUM,
-            EditionConstants.VIDEO_MEDIUM,
-            EditionConstants.IMAGE_MEDIUM,
-            EditionConstants.COURSEWARE_MEDIUM,
-             name="medium"),
-        default=EditionConstants.BOOK_MEDIUM, index=True
+        MEDIUM_ENUM, default=EditionConstants.BOOK_MEDIUM, index=True
     )
 
     cover_id = Column(

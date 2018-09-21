@@ -1491,8 +1491,6 @@ class WorkList(object):
         items. There may be more or less; this controls the size of
         the window and the LIMIT on the query.
         """
-        work_model = MaterializedWorkWithGenre
-
         lane_query = self.works(_db, facets=facets)
 
         # Make sure this query finds a number of works proportinal
