@@ -2191,7 +2191,7 @@ class TestCustomListsController(AdminControllerTest):
                               if x['rel'] == "self"]
             eq_(self_custom_list_link, feed.feed.id)
 
-            [entry2, entry1] = feed.entries
+            [entry1, entry2] = feed.entries
             eq_(work1.title, entry1.get("title"))
             eq_(work2.title, entry2.get("title"))
 
