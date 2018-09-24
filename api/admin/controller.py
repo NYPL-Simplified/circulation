@@ -3654,7 +3654,7 @@ class SettingsController(AdminCirculationManagerController):
 
     def discovery_service_library_registrations(
             self, do_get=HTTP.debuggable_get,
-            do_post=HTTP.debuggable_post, key=None,
+            do_post=HTTP.debuggable_post,
             registration_class=None
     ):
         """List the libraries that have been registered with a specific
@@ -3713,7 +3713,7 @@ class SettingsController(AdminCirculationManagerController):
 
             registration = registration_class(registry, library)
             registered = registration.push(
-                stage, self.url_for, do_get=do_get, do_post=do_post, key=key
+                stage, self.url_for, do_get=do_get, do_post=do_post
             )
             if isinstance(registered, ProblemDetail):
                 return registered

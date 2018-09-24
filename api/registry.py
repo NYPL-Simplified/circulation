@@ -204,11 +204,9 @@ class Registration(object):
         # request to the circulation manager. This means the key pair
         # needs to be committed to the database _before_ the push
         # attempt starts.
-        public_key, private_key = [
-            ConfigurationSetting.for_library(x, self.library).value
-            for x in (Configuration.PUBLIC_KEY, Configuration.PRIVATE_KEY)
-        ]
-        if not public_key or not private_key:
+        key_pair = ConfigurationSetting.for_library(
+            Configuration.KEY_PAIR, self.library).json_value
+        if not key_pair:
             # TODO: We could create the key pair _here_. The database
             # session will be committed at the end of this request,
             # so the push attempt would succeed if repeated.
@@ -216,6 +214,7 @@ class Registration(object):
                 _("Library %(library)s has no key pair set.",
                   library=self.library.short_name)
             )
+        public_key, private_key = key_pair
         cipher = Configuration.cipher(private_key)
 
         # Before we can start the registration protocol, we must fetch
@@ -240,6 +239,7 @@ class Registration(object):
 
         # Build the document we'll be sending to the registration URL.
         payload = self._create_registration_payload(url_for, stage)
+
         if isinstance(payload, ProblemDetail):
             return payload
 
@@ -402,12 +402,6 @@ class Registration(object):
 
         # We have successfully completed the registration.
         self.status_field.value = self.SUCCESS_STATUS
-
-        # We're done with the library's public key, so remove the
-        # setting.
-        ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, self.library
-        ).value = None
 
         # Our opinion about the proper stage of this library was succesfully
         # communicated to the registry.

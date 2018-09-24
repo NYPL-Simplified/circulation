@@ -6332,12 +6332,11 @@ class TestLibraryRegistration(SettingsControllerTest):
             eq_((Registration.TESTING_STAGE, self.manager.url_for), args)
 
             # We would have made real HTTP requests.
-            eq_(HTTP.debuggable_post, kwargs['do_post'])
-            eq_(HTTP.debuggable_get, kwargs['do_get'])
+            eq_(HTTP.debuggable_post, kwargs.pop('do_post'))
+            eq_(HTTP.debuggable_get, kwargs.pop('do_get'))
 
-            # We would have generated a fresh public key just for this
-            # transaction.
-            eq_(None, kwargs['key'])
+            # No other keyword arguments were passed in.
+            eq_({}, kwargs)
 
 
 class TestCollectionRegistration(SettingsControllerTest):
