@@ -345,7 +345,6 @@ class SessionManager(object):
         session = Session(connection)
         cls.initialize_data(session)
 
-
         if connection:
             connection.close()
 
@@ -378,7 +377,8 @@ class SessionManager(object):
     def initialize_data(cls, session, set_site_configuration=True):
         # Make sure the Configuration object is initialized. This
         # will make site_configuration_has_changed work correctly.
-        Configuration.load_from_database(session)
+        if Configuration._instance is None:
+            Configuration.load_from_database(session)
 
         # Create initial data sources.
         from datasource import DataSource
