@@ -552,8 +552,8 @@ class VerboseAnnotator(Annotator):
 class AcquisitionFeed(OPDSFeed):
 
     FACET_REL = "http://opds-spec.org/facet"
-    FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
     NO_CACHE = object()
+    DEFAULT_FEED_CACHE_TIME = 600
 
     @classmethod
     def groups(cls, _db, title, url, lane, annotator,

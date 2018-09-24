@@ -3,6 +3,7 @@ from nose.tools import set_trace
 
 import logging
 import os
+import warnings
 from psycopg2.extensions import adapt as sqlescape
 from psycopg2.extras import NumericRange
 from sqlalchemy import (
@@ -12,7 +13,10 @@ from sqlalchemy import (
     Integer,
     Table,
 )
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import (
+    IntegrityError,
+    SAWarning,
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import (
     relationship,
@@ -338,6 +342,10 @@ class SessionManager(object):
             sql = open(resource_file).read()
             connection.execute(sql)
 
+        session = Session(connection)
+        cls.initialize_data(session)
+
+
         if connection:
             connection.close()
 
@@ -359,7 +367,7 @@ class SessionManager(object):
     def session(cls, url, initialize_data=True):
         engine = connection = 0
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=sa_exc.SAWarning)
+            warnings.simplefilter("ignore", category=SAWarning)
             engine, connection = cls.initialize(url)
         session = Session(connection)
         if initialize_data:
@@ -368,6 +376,10 @@ class SessionManager(object):
 
     @classmethod
     def initialize_data(cls, session, set_site_configuration=True):
+        # Make sure the Configuration object is initialized. This
+        # will make site_configuration_has_changed work correctly.
+        Configuration.load_from_database(session)
+
         # Create initial data sources.
         from datasource import DataSource
         from classification import Genre

@@ -14,7 +14,6 @@ from facets import FacetConstants
 from entrypoint import EntryPoint
 
 from sqlalchemy.exc import ArgumentError
-
 from util import LanguageCodes
 
 # It's convenient for other modules import IntegrationException
@@ -269,25 +268,28 @@ class Configuration(object):
         def instance(cls):
             if not cls._instance:
                 # Load the Configuration object.
+                from model import SessionManager
                 url = cls.database_url()
-                engine = create_engine(url)
-                logging.error("IN CONFIGURATION, connecting to database %s", url)
-                connection = engine.connect()
-                _db = Session(connection)
-                cls._instance = cls.load_from_file(_db)
-                cls.load_cdns(_db)
-                cls._instance[cls.LOADED_FROM_DATABASE] = True
-                cls.app_version()
-                for parent in cls.__bases__:
-                    if parent.__name__.endswith('Configuration'):
-                        parent.load(_db)
+                _db = SessionManager.session(url)
+                cls.load_from_database(_db)
 
             return cls._instance
 
     @classmethod
+    def load_from_database(cls, _db):
+        """Load _instance from the database."""
+        cls._instance = cls.load_from_file(_db)
+        cls.load_cdns(_db)
+        cls._instance[cls.LOADED_FROM_DATABASE] = True
+        cls.app_version()
+        for parent in cls.__bases__:
+            if parent.__name__.endswith('Configuration'):
+                parent.load_from_database(_db)
+
+    @classmethod
     def loaded_from_database(cls):
         """Has the site configuration been loaded from the database yet?"""
-        return cls.instance and cls.instance.get(
+        return cls._instance and cls._instance.get(
             cls.LOADED_FROM_DATABASE, False
         )
 
@@ -531,11 +533,6 @@ class Configuration(object):
         without any attempt to find a fresher value from the database.
         """
         return cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE, None)
-
-    @classmethod
-    def load(cls, _db=None):
-        # Do nothing
-        pass
 
     @classmethod
     def load_from_file(cls, _db=None):
