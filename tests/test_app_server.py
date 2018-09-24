@@ -77,7 +77,7 @@ class TestHeartbeatController(object):
 
         # Create a mock configuration object to test with.
         class MockConfiguration(Configuration):
-            _instance = dict()
+            instance = dict()
 
         with app.test_request_context('/'):
             response = controller.heartbeat(conf_class=MockConfiguration)
