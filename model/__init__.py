@@ -280,11 +280,9 @@ class SessionManager(object):
             return engine, engine.connect()
 
         engine = cls.engine(url)
-        Base.metadata.create_all(engine)
 
         base_path = os.path.split(__file__)[0]
         resource_path = os.path.join(base_path, "files")
-
         connection = None
         for view_name, filename in cls.MATERIALIZED_VIEWS.items():
             if engine.has_table(view_name):
@@ -308,6 +306,8 @@ class SessionManager(object):
             result = connection.execute(
                 "REFRESH MATERIALIZED VIEW %s;" % view_name
             )
+
+        Base.metadata.create_all(engine)
 
         if not connection:
             connection = engine.connect()
