@@ -274,7 +274,7 @@ class SessionManager(object):
         return sessionmaker(bind=bind_obj)
 
     @classmethod
-    def initialize(cls, url, create_materialized_work_class=True):
+    def initialize(cls, url):
         if url in cls.engine_for_url:
             engine = cls.engine_for_url[url]
             return engine, engine.connect()
@@ -360,9 +360,7 @@ class SessionManager(object):
         engine = connection = 0
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=sa_exc.SAWarning)
-            engine, connection = cls.initialize(
-                url, create_materialized_work_class=initialize_data
-            )
+            engine, connection = cls.initialize(url)
         session = Session(connection)
         if initialize_data:
             session = cls.initialize_data(session)
