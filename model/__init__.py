@@ -282,7 +282,7 @@ class SessionManager(object):
         """Initialize the database.
 
         This includes the schema, the materialized views, the custom
-        functions, and the content.
+        functions, and the initial content.
         """
         if url in cls.engine_for_url:
             engine = cls.engine_for_url[url]
@@ -389,7 +389,7 @@ class SessionManager(object):
         if Configuration._instance is None:
             Configuration.load_from_database(session)
 
-        # Create initial data sources.
+        # Create initial content.
         from datasource import DataSource
         from classification import Genre
         from licensing import DeliveryMechanism
