@@ -10,6 +10,7 @@ import tempfile
 import uuid
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
+from sqlalchemy.exc import ProgrammingError
 from config import Configuration
 
 from lane import (
@@ -74,8 +75,7 @@ def package_setup():
 
     # Ensure that the log configuration starts in a known state.
     LogConfiguration.initialize(None, testing=True)
-
-    engine, connection = DatabaseTest.get_database_connection()
+    engine = SessionManager.engine()
 
     # First, drop any existing schema.
     #
@@ -84,12 +84,21 @@ def package_setup():
     # views.
     for table in reversed(Base.metadata.sorted_tables):
         if not table.name.startswith('mv_'):
-            engine.execute(table.delete())
+            try:
+                engine.execute(table.delete())
+            except ProgrammingError, e:
+                if 'does not exist' in e.message:
+                    # This is the first time running these tests
+                    # on this server, and the tables don't exist yet.
+                    pass
+                else:
+                    raise e
 
     # Recreate the schema.
     SessionManager.initialize_schema(engine)
 
     # Initialize basic database data needed by the application.
+    connection = engine.connect()
     _db = Session(connection)
     SessionManager.initialize_data(_db)
     _db.commit()
