@@ -5,9 +5,7 @@ import os
 import json
 import logging
 import copy
-from sqlalchemy import create_engine
 from sqlalchemy.engine.url import make_url
-from sqlalchemy.orm.session import Session
 from flask_babel import lazy_gettext as _
 
 from facets import FacetConstants
@@ -56,6 +54,11 @@ def empty_config(replacement_classes=None):
 class Configuration(object):
 
     log = logging.getLogger("Configuration file loader")
+
+    # This is a dictionary containing information loaded from the
+    # configuration file. It will be populated immediately after
+    # this class is defined.
+    instance = None
 
     # Environment variables that contain URLs to the database
     DATABASE_TEST_ENVIRONMENT_VARIABLE = 'SIMPLIFIED_TEST_DATABASE'
@@ -260,11 +263,6 @@ class Configuration(object):
     # This is set once CDN data is loaded from the database and
     # inserted into the Configuration object.
     CDNS_LOADED_FROM_DATABASE = 'loaded_from_database'
-
-    # This is a dictionary containing information loaded from the
-    # configuration file. It will be populated immediately after
-    # this class is defined.
-    instance = None
 
     @classmethod
     def load(cls, _db=None):
