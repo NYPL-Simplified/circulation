@@ -386,8 +386,8 @@ class SessionManager(object):
     def initialize_data(cls, session, set_site_configuration=True):
         # Make sure the Configuration object is initialized. This
         # will make site_configuration_has_changed work correctly.
-        if Configuration._instance is None:
-            Configuration.load_from_database(session)
+        if Configuration.instance is None:
+            Configuration.load(session)
 
         # Create initial content.
         from datasource import DataSource

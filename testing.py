@@ -69,6 +69,7 @@ def package_setup():
     """Make sure the database schema is initialized and initial
     data is in place.
     """
+    # This will make sure we always connect to the test database.
     os.environ['TESTING'] = 'true'
 
     # Ensure that the log configuration starts in a known state.
@@ -100,7 +101,6 @@ def package_teardown():
     if 'TESTING' in os.environ:
         del os.environ['TESTING']
 
-
 class DatabaseTest(object):
 
     engine = None
@@ -108,7 +108,7 @@ class DatabaseTest(object):
 
     @classmethod
     def get_database_connection(cls):
-        url = Configuration.database_url(test=True)
+        url = Configuration.database_url()
         engine, connection = SessionManager.initialize(url)
 
         return engine, connection

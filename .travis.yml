@@ -27,7 +27,6 @@ before_install:
 install:
   - pip install -r requirements.txt
   - python -m textblob.download_corpora
-  - cp config.json.sample config.json
   - wget ${ES_DOWNLOAD}
   - export ES_PATH=elasticsearch-${ES_VERSION}
   - tar -xzf ${ES_PATH}.tar.gz
