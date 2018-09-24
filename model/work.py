@@ -1552,35 +1552,50 @@ class BaseMaterializedWork(object):
     """A mixin class for materialized views that incorporate Work and Edition."""
     pass
 
+
 class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
     p = dict(primary_key=True)
-    # TODO: I think we need to specify every single field here,
-    # because we can't vacuum it up from an existing database schema.
+    # Every field in the materialized view is specified here, in the
+    # same order as the SQL file which creates the view.
     __table__ = Table(
         'mv_works_for_lanes',
         Base.metadata,
         Column('works_id', Integer, **p),
-        Column('workgenres_id', Integer, **p),
-        Column('list_id', Integer, ForeignKey('customlists.id'), **p),
-        Column('list_edition_id', Integer, ForeignKey('editions.id'), **p),
-        Column('genre_id', Integer, ForeignKey('genres.id')),
         Column('editions_id', Integer, ForeignKey('editions.id')),
-        Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
-        Column('simple_opds_entry', Unicode, default=None),
-        Column('collection_id', Integer, ForeignKey('collections.id')),
-        Column('sort_title', Unicode, default=None),
-        Column('sort_author', Unicode, default=None),
-        Column('series_position', Integer),
+        Column('data_source_id', Integer, ForeignKey('datasources.id')),
+        Column('identifier_id', Integer, ForeignKey('identifiers.id')),
+        Column('sort_title', Unicode),
+        Column('permanent_work_id', Unicode),
+        Column('sort_author', Unicode),
         Column('medium', Edition.MEDIUM_ENUM),
         Column('language', Unicode),
-
-        Column('random', Numeric(4,3)),
-        Column('quality', Numeric(4,3)),
+        Column('cover_full_url', Unicode),
+        Column('cover_thumbnail_url', Unicode),
+        Column('series', Unicode),
+        Column('series_position', Integer),
+        Column('name', Unicode), # datasources.name
+        Column('type', Unicode), # identifiers.type
+        Column('identifier', Unicode),
+        Column('workgenres_id', Integer, **p),
+        Column('genre_id', Integer, ForeignKey('genres.id')),
+        Column('affinity', Unicode),
         Column('audience', Unicode),
         Column('target_age', INT4RANGE),
         Column('fiction', Boolean),
-        Column('availability_time', DateTime),
+        Column('quality', Numeric(4,3)),
+        Column('rating', Float),
+        Column('popularity', Float),
+        Column('random', Numeric(4,3)),
         Column('last_update_time', DateTime),
+        Column('simple_opds_entry', Unicode),
+        Column('verbose_opds_entry', Unicode),
+        Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
+        Column('open_access_download_url', Unicode),
+        Column('availability_time', DateTime),
+        Column('collection_id', Integer, ForeignKey('collections.id')),
+        Column('list_id', Integer, ForeignKey('customlists.id'), **p),
+        Column('list_edition_id', Integer, ForeignKey('editions.id'), **p),
+        Column('first_appearance', DateTime),
     )
     license_pool = relationship(
         'LicensePool',
