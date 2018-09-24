@@ -271,6 +271,7 @@ class Configuration(object):
                 # Load the Configuration object.
                 url = cls.database_url()
                 engine = create_engine(url)
+                logging.error("IN CONFIGURATION, connecting to database %s", url)
                 connection = engine.connect()
                 _db = Session(connection)
                 cls._instance = cls.load_from_file(_db)
