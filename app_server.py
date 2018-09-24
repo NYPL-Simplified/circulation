@@ -62,14 +62,14 @@ def load_lending_policy(policy):
                         audience)
     return policy
 
-def feed_response(feed, acquisition=True, cache_for=AcquisitionFeed.DEFAULT_FEED_CACHE_TIME):
+def feed_response(feed, acquisition=True, cache_for=AcquisitionFeed.FEED_CACHE_TIME):
     if acquisition:
         content_type = OPDSFeed.ACQUISITION_FEED_TYPE
     else:
         content_type = OPDSFeed.NAVIGATION_FEED_TYPE
     return _make_response(feed, content_type, cache_for)
 
-def entry_response(entry, cache_for=AcquisitionFeed.DEFAULT_FEED_CACHE_TIME):
+def entry_response(entry, cache_for=AcquisitionFeed.FEED_CACHE_TIME):
     content_type = OPDSFeed.ENTRY_TYPE
     return _make_response(entry, content_type, cache_for)
 
