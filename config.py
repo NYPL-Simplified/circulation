@@ -257,9 +257,9 @@ class Configuration(object):
         } for group, display_name in FacetConstants.GROUP_DISPLAY_TITLES.iteritems()
     ]
 
-    # This is set once data is loaded from the database and inserted into
-    # the Configuration object.
-    LOADED_FROM_DATABASE = 'loaded_from_database'
+    # This is set once CDN data is loaded from the database and
+    # inserted into the Configuration object.
+    CDNS_LOADED_FROM_DATABASE = 'loaded_from_database'
 
     # This is a dictionary containing information loaded from the
     # configuration file. It will be populated immediately after
@@ -276,17 +276,16 @@ class Configuration(object):
             # Only do the database portion of the work if
             # a database connection was provided.
             cls.load_cdns(_db)
-            cls.instance[cls.LOADED_FROM_DATABASE] = True
         cls.app_version()
         for parent in cls.__bases__:
             if parent.__name__.endswith('Configuration'):
                 parent.load(_db)
 
     @classmethod
-    def loaded_from_database(cls):
+    def cdns_loaded_from_database(cls):
         """Has the site configuration been loaded from the database yet?"""
         return cls.instance and cls.instance.get(
-            cls.LOADED_FROM_DATABASE, False
+            cls.CDNS_LOADED_FROM_DATABASE, False
         )
 
     # General getters
@@ -340,7 +339,7 @@ class Configuration(object):
         """Get CDN configuration, loading it from the database
         if necessary.
         """
-        if cls.cdns == cls.UNINITIALIZED_CDNS:
+        if not cls.cdns_loaded_from_database():
             # The CDNs were never initialized from the database.
             # Create a new database connection and find that
             # information now.
@@ -444,6 +443,7 @@ class Configuration(object):
         config_instance = config_instance or cls.instance
         integrations = config_instance.setdefault(cls.INTEGRATIONS, {})
         integrations[EI.CDN] = cdn_integration
+        config_instance[cls.CDNS_LOADED_FROM_DATABASE] = True
 
     @classmethod
     def localization_languages(cls):
