@@ -12,7 +12,6 @@ from facets import FacetConstants
 from entrypoint import EntryPoint
 
 from sqlalchemy.exc import ArgumentError
-
 from util import LanguageCodes
 
 # It's convenient for other modules import IntegrationException
@@ -56,6 +55,9 @@ class Configuration(object):
 
     log = logging.getLogger("Configuration file loader")
 
+    # This is a dictionary containing information loaded from the
+    # configuration file. It will be populated immediately after
+    # this class is defined.
     instance = None
 
     # Environment variables that contain URLs to the database
@@ -114,8 +116,6 @@ class Configuration(object):
 
     # ConfigurationSetting key for a CDN's mirror domain
     CDN_MIRRORED_DOMAIN_KEY = u'mirrored_domain'
-
-    UNINITIALIZED_CDNS = object()
 
     # The names of the site-wide configuration settings that determine
     # feed cache time.
@@ -258,15 +258,30 @@ class Configuration(object):
         } for group, display_name in FacetConstants.GROUP_DISPLAY_TITLES.iteritems()
     ]
 
-    # This is set once data is loaded from the database and inserted into
-    # the Configuration object.
-    LOADED_FROM_DATABASE = 'loaded_from_database'
+    # This is set once CDN data is loaded from the database and
+    # inserted into the Configuration object.
+    CDNS_LOADED_FROM_DATABASE = 'loaded_from_database'
 
     @classmethod
-    def loaded_from_database(cls):
+    def load(cls, _db=None):
+        """Load configuration information from the filesystem, and
+        (optionally) from the database.
+        """
+        cls.instance = cls.load_from_file(_db)
+        if _db:
+            # Only do the database portion of the work if
+            # a database connection was provided.
+            cls.load_cdns(_db)
+        cls.app_version()
+        for parent in cls.__bases__:
+            if parent.__name__.endswith('Configuration'):
+                parent.load(_db)
+
+    @classmethod
+    def cdns_loaded_from_database(cls):
         """Has the site configuration been loaded from the database yet?"""
         return cls.instance and cls.instance.get(
-            cls.LOADED_FROM_DATABASE, False
+            cls.CDNS_LOADED_FROM_DATABASE, False
         )
 
     # General getters
@@ -279,10 +294,14 @@ class Configuration(object):
 
     @classmethod
     def required(cls, key):
-        if cls.instance:
+        if cls.instance is not None:
             value = cls.get(key)
             if value is not None:
                 return value
+
+        value = cls.get(key)
+        if value is not None:
+            return value
         raise ValueError(
             "Required configuration variable %s was not defined!" % key
         )
@@ -313,13 +332,20 @@ class Configuration(object):
 
     @classmethod
     def cdns(cls):
+        """Get CDN configuration, loading it from the database
+        if necessary.
+        """
+        if not cls.cdns_loaded_from_database():
+            # The CDNs were never initialized from the database.
+            # Create a new database connection and find that
+            # information now.
+            from model import SessionManager
+            url = cls.database_url()
+            _db = SessionManager.session(url)
+            cls.load_cdns(_db)
+
         from model import ExternalIntegration
-        cdns = cls.integration(ExternalIntegration.CDN)
-        if cdns == cls.UNINITIALIZED_CDNS:
-            raise CannotLoadConfiguration(
-                'CDN configuration has not been loaded from the database'
-            )
-        return cdns
+        return cls.integration(ExternalIntegration.CDN)
 
     @classmethod
     def policy(cls, name, default=None, required=False):
@@ -334,7 +360,7 @@ class Configuration(object):
     # More specific getters.
 
     @classmethod
-    def database_url(cls, test=False):
+    def database_url(cls):
         """Find the database URL configured for this site.
 
         For compatibility with old configurations, we will look in the
@@ -344,7 +370,12 @@ class Configuration(object):
         variable.
         """
         # To avoid expensive mistakes, test and production databases
-        # are always configured with separate keys.
+        # are always configured with separate keys. The TESTING variable
+        # controls which database is used, and it's set by the
+        # package_setup() function called in every component's
+        # tests/__init__.py.
+        test = os.environ.get('TESTING', False)
+
         if test:
             config_key = cls.DATABASE_TEST_URL
             environment_variable = cls.DATABASE_TEST_ENVIRONMENT_VARIABLE
@@ -352,19 +383,10 @@ class Configuration(object):
             config_key = cls.DATABASE_PRODUCTION_URL
             environment_variable = cls.DATABASE_PRODUCTION_ENVIRONMENT_VARIABLE
 
-        # Check the legacy location (the config file) first.
-        url = None
-        database_integration = cls.integration(cls.DATABASE_INTEGRATION)
-        if database_integration:
-            url = database_integration.get(config_key)
-
-        # If that didn't work, check the new location (the environment
-        # variable).
-        if not url:
-            url = os.environ.get(environment_variable)
+        url = os.environ.get(environment_variable)
         if not url:
             raise CannotLoadConfiguration(
-                "Database URL was not defined in environment variable (%s) or configuration file." % environment_variable
+                "Database URL was not defined in environment variable (%s)." % environment_variable
             )
 
         url_obj = None
@@ -385,14 +407,12 @@ class Configuration(object):
     @classmethod
     def app_version(cls):
         """Returns the git version of the app, if a .version file exists."""
-        if cls.instance == None:
-            return
-
         version = cls.get(cls.APP_VERSION, None)
         if version:
             # The version has been set in Configuration before.
             return version
 
+        # Look in the parent directory, e.g. circulation/ or metadata/
         root_dir = os.path.join(os.path.split(__file__)[0], "..")
         version_file = os.path.join(root_dir, cls.VERSION_FILENAME)
 
@@ -419,6 +439,7 @@ class Configuration(object):
         config_instance = config_instance or cls.instance
         integrations = config_instance.setdefault(cls.INTEGRATIONS, {})
         integrations[EI.CDN] = cdn_integration
+        config_instance[cls.CDNS_LOADED_FROM_DATABASE] = True
 
     @classmethod
     def localization_languages(cls):
@@ -520,7 +541,7 @@ class Configuration(object):
         return cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE, None)
 
     @classmethod
-    def load(cls, _db=None):
+    def load_from_file(cls):
         """Load additional site configuration from a config file.
 
         This is being phased out in favor of taking all configuration from a
@@ -539,19 +560,6 @@ class Configuration(object):
                 )
         else:
             configuration = cls._load('{}')
-        cls.instance = configuration
-
-        cls.app_version()
-        if _db:
-            cls.load_cdns(_db)
-            cls.instance[cls.LOADED_FROM_DATABASE] = True
-            for parent in cls.__bases__:
-                if parent.__name__.endswith('Configuration'):
-                    parent.load(_db)
-        else:
-            if not cls.integration('CDN'):
-                cls.instance.setdefault(cls.INTEGRATIONS, {})[
-                    'CDN'] = cls.UNINITIALIZED_CDNS
 
         return configuration
 
@@ -560,3 +568,6 @@ class Configuration(object):
         lines = [x for x in str.split("\n")
                  if not (x.strip().startswith("#") or x.strip().startswith("//"))]
         return json.loads("\n".join(lines))
+
+# Immediately load the configuration file (if any).
+Configuration.instance = Configuration.load_from_file()
