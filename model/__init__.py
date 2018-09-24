@@ -281,6 +281,15 @@ class SessionManager(object):
 
         engine = cls.engine(url)
 
+        # Use SQLAlchemy to create all the tables, but not the
+        # materialized view.
+        to_create = [
+            table_obj for name, table_obj in Base.metadata.tables.items()
+            if not name.startswith('mv_')
+        ]
+        Base.metadata.create_all(engine, tables=to_create)
+
+        # Create the materialized view with raw SQL.
         base_path = os.path.split(__file__)[0]
         resource_path = os.path.join(base_path, "files")
         connection = None
@@ -306,8 +315,6 @@ class SessionManager(object):
             result = connection.execute(
                 "REFRESH MATERIALIZED VIEW %s;" % view_name
             )
-
-        Base.metadata.create_all(engine)
 
         if not connection:
             connection = engine.connect()
