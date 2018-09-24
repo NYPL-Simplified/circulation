@@ -1506,10 +1506,18 @@ class CustomListsController(AdminCirculationManagerController):
         if flask.request.method == "POST":
             id = flask.request.form.get("id")
             name = flask.request.form.get("name")
-            entries = flask.request.form.get("entries")
-            collections = flask.request.form.get("collections")
-            deletedEntries = flask.request.form.get("deletedEntries")
+            entries = self._getJSONFromRequest(flask.request.form.get("entries"))
+            collections = self._getJSONFromRequest(flask.request.form.get("collections"))
+            deletedEntries = self._getJSONFromRequest(flask.request.form.get("deletedEntries"))
             return self._create_or_update_list(library, name, entries, collections, deletedEntries, id)
+
+    def _getJSONFromRequest(self, values):
+        if values:
+            values = json.loads(values)
+        else:
+            values = []
+
+        return values
 
     def _get_work_from_urn(self, library, urn):
         identifier, ignore = Identifier.parse_urn(self._db, urn)
@@ -1550,17 +1558,6 @@ class CustomListsController(AdminCirculationManagerController):
 
         list.updated = datetime.now()
         list.name = name
-
-        if entries:
-            entries = json.loads(entries)
-        else:
-            entries = []
-
-        if deletedEntries:
-            deletedEntries = json.loads(deletedEntries)
-        else:
-            deletedEntries = []
-
         membership_change = False
 
         for entry in entries:
@@ -1577,7 +1574,7 @@ class CustomListsController(AdminCirculationManagerController):
             work = self._get_work_from_urn(library, urn)
 
             if work:
-                list.remove_entry(work.presentation_edition)
+                list.remove_entry(work)
                 membership_change = True
 
         if membership_change:
@@ -1586,10 +1583,6 @@ class CustomListsController(AdminCirculationManagerController):
             for lane in Lane.affected_by_customlist(list):
                 lane.update_size(self._db)
 
-        if collections:
-            collections = json.loads(collections)
-        else:
-            collections = []
         new_collections = []
         for collection_id in collections:
             collection = get_one(self._db, Collection, id=collection_id)
@@ -1627,9 +1620,10 @@ class CustomListsController(AdminCirculationManagerController):
                 return pagination
 
             query = self._db.query(Work).join(Work.custom_list_entries).filter(CustomListEntry.list_id==list_id)
-            url = self.cdn_url_for(
-                "crawlable_list_feed", list_name=list.name,
+            url = self.url_for(
+                "custom_list", list_name=list.name,
                 library_short_name=library.short_name,
+                list_id=list_id,
             )
 
             worklist = WorkList()
@@ -1648,9 +1642,9 @@ class CustomListsController(AdminCirculationManagerController):
 
         elif flask.request.method == "POST":
             name = flask.request.form.get("name")
-            entries = flask.request.form.get("entries")
-            collections = flask.request.form.get("collections")
-            deletedEntries = flask.request.form.get("deletedEntries")
+            entries = self._getJSONFromRequest(flask.request.form.get("entries"))
+            collections = self._getJSONFromRequest(flask.request.form.get("collections"))
+            deletedEntries = self._getJSONFromRequest(flask.request.form.get("deletedEntries"))
             return self._create_or_update_list(library, name, entries, collections, deletedEntries, list_id)
 
         elif flask.request.method == "DELETE":
