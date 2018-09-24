@@ -76,7 +76,7 @@ def package_setup():
 
     engine, connection = DatabaseTest.get_database_connection()
 
-    # First, recreate the schema.
+    # First, drop any existing schema.
     #
     # Base.metadata.drop_all(connection) doesn't work here, so we
     # approximate by dropping everything except the materialized
@@ -85,7 +85,8 @@ def package_setup():
         if not table.name.startswith('mv_'):
             engine.execute(table.delete())
 
-    Base.metadata.create_all(connection)
+    # Recreate the schema.
+    SessionManager.initialize_schema(engine)
 
     # Initialize basic database data needed by the application.
     _db = Session(connection)

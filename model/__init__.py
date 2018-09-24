@@ -279,19 +279,17 @@ class SessionManager(object):
 
     @classmethod
     def initialize(cls, url):
+        """Initialize the database.
+
+        This includes the schema, the materialized views, the custom
+        functions, and the content.
+        """
         if url in cls.engine_for_url:
             engine = cls.engine_for_url[url]
             return engine, engine.connect()
 
         engine = cls.engine(url)
-
-        # Use SQLAlchemy to create all the tables, but not the
-        # materialized view.
-        to_create = [
-            table_obj for name, table_obj in Base.metadata.tables.items()
-            if not name.startswith('mv_')
-        ]
-        Base.metadata.create_all(engine, tables=to_create)
+        cls.initialize_schema(engine)
 
         # Create the materialized view with raw SQL.
         base_path = os.path.split(__file__)[0]
@@ -352,6 +350,17 @@ class SessionManager(object):
         return engine, engine.connect()
 
     @classmethod
+    def initialize_schema(cls, engine):
+        """Initialize the database schema."""
+        # Use SQLAlchemy to create all the tables, but not the
+        # materialized view. (That is created in initialize.)
+        to_create = [
+            table_obj for name, table_obj in Base.metadata.tables.items()
+            if not name.startswith('mv_')
+        ]
+        Base.metadata.create_all(engine, tables=to_create)
+
+    @classmethod
     def refresh_materialized_views(self, _db):
         for view_name in self.MATERIALIZED_VIEWS.keys():
             _db.execute("refresh materialized view %s;" % view_name)
@@ -384,6 +393,13 @@ class SessionManager(object):
         from datasource import DataSource
         from classification import Genre
         from licensing import DeliveryMechanism
+
+        # Reset the full-table caches, in case initialize_data was
+        # called previously, e.g. during a test, before the database
+        # schema was reset.
+        for cached in (DataSource, Genre, DeliveryMechanism):
+            cached.reset_cache()
+
         list(DataSource.well_known_sources(session))
 
         # Load all existing Genre objects.
