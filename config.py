@@ -117,8 +117,6 @@ class Configuration(object):
     # ConfigurationSetting key for a CDN's mirror domain
     CDN_MIRRORED_DOMAIN_KEY = u'mirrored_domain'
 
-    UNINITIALIZED_CDNS = object()
-
     # The names of the site-wide configuration settings that determine
     # feed cache time.
     NONGROUPED_MAX_AGE_POLICY = "default_nongrouped_feed_max_age"

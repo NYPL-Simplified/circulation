@@ -61,6 +61,22 @@ class TestConfiguration(DatabaseTest):
         eq_('ba.na.na', result)
         eq_('ba.na.na', self.Conf.get(self.Conf.APP_VERSION))
 
+    def test_load_cdns(self):
+        """Test our ability to load CDN configuration from the database.
+        """
+        self._external_integration(
+            protocol=ExternalIntegration.CDN,
+            goal=ExternalIntegration.CDN_GOAL,
+            settings = { self.Conf.CDN_MIRRORED_DOMAIN_KEY : "site.com",
+                         ExternalIntegration.URL : "http://cdn/" }
+        )
+
+        self.Conf.load_cdns(self._db)
+
+        integrations = self.Conf.instance[self.Conf.INTEGRATIONS]
+        eq_({'site.com' : 'http://cdn/'}, integrations[ExternalIntegration.CDN])
+        eq_(True, self.Conf.instance[self.Conf.CDNS_LOADED_FROM_DATABASE])
+
     def test_cdns_loaded_dynamically(self):
         # When you call cdns() on a Configuration object that was
         # never initialized, it creates a new database connection and
