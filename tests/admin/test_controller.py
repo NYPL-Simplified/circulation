@@ -2186,11 +2186,12 @@ class TestCustomListsController(AdminControllerTest):
 
             eq_(list.name, feed.feed.title)
             eq_(2, len(feed.entries))
-            [crawlable_link] = [x['href'] for x in feed.feed['links']
-                              if x['rel'] == "http://opds-spec.org/crawlable"]
-            eq_(crawlable_link, "http://localhost/default/lists/%s/crawlable" % list.name)
 
-            [entry1, entry2] = feed.entries
+            [self_custom_list_link] = [x['href'] for x in feed.feed['links']
+                              if x['rel'] == "self"]
+            eq_(self_custom_list_link, feed.feed.id)
+
+            [entry2, entry1] = feed.entries
             eq_(work1.title, entry1.get("title"))
             eq_(work2.title, entry2.get("title"))
 
