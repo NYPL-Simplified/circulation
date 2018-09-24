@@ -99,7 +99,7 @@ class DatabaseTest(object):
 
     @classmethod
     def get_database_connection(cls):
-        url = Configuration.database_url(test=True)
+        url = Configuration.database_url()
         engine, connection = SessionManager.initialize(url)
 
         return engine, connection
