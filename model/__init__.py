@@ -387,22 +387,10 @@ class SessionManager(object):
 
     @classmethod
     def initialize_data(cls, session, set_site_configuration=True):
-        # Make sure the Configuration object is initialized. This
-        # will make site_configuration_has_changed work correctly.
-        if Configuration.instance is None:
-            Configuration.load(session)
-
         # Create initial content.
         from datasource import DataSource
         from classification import Genre
         from licensing import DeliveryMechanism
-
-        # Reset the full-table caches, in case initialize_data was
-        # called once before and then the database schema was reset.
-        # (This would only happen during a test.)
-        for cached in (DataSource, Genre, DeliveryMechanism):
-            cached.reset_cache()
-
         list(DataSource.well_known_sources(session))
 
         # Load all existing Genre objects.

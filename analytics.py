@@ -31,7 +31,7 @@ class Analytics(object):
                     provider_module = importlib.import_module(
                         integration.protocol
                     )
-                except ImportException, e:
+                except ImportError, e:
                     # Import the module relative to the package this
                     # module is in.
                     provider_module = importlib.import_module(
