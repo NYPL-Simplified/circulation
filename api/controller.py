@@ -114,7 +114,7 @@ from authenticator import (
     CirculationPatronProfileStorage,
     OAuthController,
 )
-from .config import (
+from config import (
     Configuration,
     CannotLoadConfiguration,
 )
