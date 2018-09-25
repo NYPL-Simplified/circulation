@@ -345,7 +345,7 @@ class SessionManager(object):
                 continue
             if not connection:
                 connection = engine.connect()
-            resource_file = os.path.join(self.resource_directory(), filename)
+            resource_file = os.path.join(cls.resource_directory(), filename)
             if not os.path.exists(resource_file):
                 raise IOError("Could not load materialized view from %s: file does not exist." % resource_file)
             logging.info(
