@@ -4,6 +4,7 @@ from nose.tools import set_trace
 
 from . import (
     Base,
+    get_one,
     get_one_or_create,
     PresentationCalculationPolicy,
 )
