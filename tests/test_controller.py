@@ -165,7 +165,7 @@ class ControllerTest(VendorIDTest):
         # were created in the test setup.
         app.config['PRESERVE_CONTEXT_ON_EXCEPTION'] = False
 
-        Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {
+        Configuration.instance.setdefault(Configuration.INTEGRATIONS, {})[ExternalIntegration.CDN] = {
             "" : "http://cdn"
         }
         base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY)

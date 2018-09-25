@@ -469,6 +469,8 @@ class Configuration(CoreConfiguration):
             library, Configuration.CONFIGURATION_CONTACT_EMAIL
         )
 
+# Immediately load the configuration file (if any).
+Configuration.instance = Configuration.load_from_file()
 
 @contextlib.contextmanager
 def empty_config():
