@@ -518,10 +518,6 @@ class Configuration(CoreConfiguration):
         """
         return PKCS1_OAEP.new(RSA.import_key(key))
 
-# Immediately load the configuration file (if any).
-Configuration.instance = Configuration.load_from_file()
-
-
 @contextlib.contextmanager
 def empty_config():
     with core_empty_config({}, [CoreConfiguration, Configuration]) as i:
