@@ -392,8 +392,8 @@ class SessionManager(object):
         from licensing import DeliveryMechanism
 
         # Reset the full-table caches, in case initialize_data was
-        # called previously, e.g. during a test, before the database
-        # schema was reset.
+        # called once before and then the database schema was reset.
+        # (This would only happen during a test.)
         for cached in (DataSource, Genre, DeliveryMechanism):
             cached.reset_cache()
 
