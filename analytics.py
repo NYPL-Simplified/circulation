@@ -34,9 +34,7 @@ class Analytics(object):
                 # This is an absolute import. Trust sys.path to find it.
                 pass
             try:
-                provider_module = importlib.import_module(
-                    integration.protocol, **kwargs
-                )
+                provider_module = importlib.import_module(module, **kwargs)
                 provider_class = getattr(provider_module, "Provider", None)
                 if provider_class:
                     if not integration.libraries:
@@ -49,7 +47,7 @@ class Analytics(object):
                             self.library_providers[library.id].append(provider)
                             Analytics.LIBRARY_ENABLED.add(library.id)
                 else:
-                    self.initialization_exceptions[integration.id] = "Module %s does not have Provider defined." % integration.protocol
+                    self.initialization_exceptions[integration.id] = "Module %s does not have Provider defined." % module
             except (ImportError, CannotLoadConfiguration), e:
                 self.initialization_exceptions[integration.id] = e
 
