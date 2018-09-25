@@ -25,11 +25,18 @@ class Analytics(object):
         # Turn each integration into an analytics provider.
         for integration in integrations:
             try:
-                # Import the module relative to the package this
-                # module is in.
-                provider_module = importlib.import_module(
-                    ".." + integration.protocol, package=__name__
-                )
+                try:
+                    # Import the module name as-is, relying on sys.path
+                    # to find it.
+                    provider_module = importlib.import_module(
+                        integration.protocol
+                    )
+                except ImportException, e:
+                    # Import the module relative to the package this
+                    # module is in.
+                    provider_module = importlib.import_module(
+                        '..' + integration.protocol, package=__name__
+                    )
                 provider_class = getattr(provider_module, "Provider", None)
                 if provider_class:
                     if not integration.libraries:
