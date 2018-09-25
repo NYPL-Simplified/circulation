@@ -11015,6 +11015,26 @@ class ConfigurationSetting(Base, HasFullTableCache):
             _db.commit()
         return secret.value
 
+    AUDIO_EXCLUSIONS_KEY = 'excluded_audio_data_sources'
+    AUDIO_EXCLUSIONS_DEFAULT = [
+        DataSource.OVERDRIVE,
+        DataSource.AXIS_360,
+        DataSource.RB_DIGITAL
+    ]
+
+    @classmethod
+    def excluded_audio_data_sources(cls, _db):
+        """List the data sources whose audiobooks should not be published in
+        feeds, either because this server can't fulfill them or the
+        expected client can't play them.
+        """
+        value = ConfigurationSetting.sitewide(
+            _db, cls.AUDIO_EXCLUSIONS_KEY
+        ).json_value
+        if value is None:
+            value = cls.AUDIO_EXCLUSIONS_DEFAULT
+        return value
+
     @classmethod
     def explain(cls, _db, include_secrets=False):
         """Explain all site-wide ConfigurationSettings."""
@@ -11808,6 +11828,18 @@ class Collection(Base, HasFullTableCache):
                 LicensePool.identifier_id==LPDM.identifier_id)
         )
         query = query.filter(exists_clause)
+
+        # Some sources of audiobooks may be excluded because the
+        # server can't fulfill them or the expected client can't play
+        # them.
+        _db = query.session
+        excluded = ConfigurationSetting.excluded_audio_data_sources(_db)
+        if excluded:
+            excluded_ids = [DataSource.lookup(_db, x).id for x in excluded]
+            query = query.filter(
+                or_(work_model.medium != Edition.AUDIO_MEDIUM,
+                    not LicensePool.data_source_id.in_(excluded_ids))
+            )
 
         # Only find books with unsuppressed LicensePools.
         if not show_suppressed:
