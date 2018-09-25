@@ -49,9 +49,9 @@ def cdn_url_for(*args, **kwargs):
 
 def load_lending_policy(policy):
     if not policy:
-        logging.info("No lending policy.")
         return {}
     if isinstance(policy, basestring):
+        logging.info("Lending policy: %s", policy)
         policy = json.loads(policy)
     for external_type, p in policy.items():
         if Patron.AUDIENCE_RESTRICTION_POLICY in p:

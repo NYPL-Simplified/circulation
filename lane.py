@@ -315,7 +315,8 @@ class Facets(FacetsWithEntryPoint):
         )
         order = order or library.default_facet(self.ORDER_FACET_GROUP_NAME)
 
-        if (availability == self.AVAILABLE_ALL and (library and not library.allow_holds)):
+        if (availability == self.AVAILABLE_ALL and (library and not library.allow_holds)
+            and (self.AVAILABLE_NOW in library.enabled_facets(self.AVAILABILITY_FACET_GROUP_NAME))):
             # Under normal circumstances we would show all works, but
             # library configuration says to hide books that aren't
             # available.
@@ -785,7 +786,10 @@ class WorkList(object):
 
     def initialize(self, library, display_name=None, genres=None,
                    audiences=None, languages=None, media=None,
-                   children=None, priority=None, entrypoints=None):
+                   customlists=None, list_datasource=None,
+                   list_seen_in_previous_days=None,
+                   children=None, priority=None, entrypoints=None,
+    ):
         """Initialize with basic data.
 
         This is not a constructor, to avoid conflicts with `Lane`, an
@@ -810,6 +814,18 @@ class WorkList(object):
         :param media: Only Works in one of these media will be included
         in lists.
 
+        :param customlists: Only Works included on one of these CustomLists
+        will be included in lists.
+
+        :param list_datasource: Only Works included on a CustomList
+        associated with this DataSource will be included in
+        lists. This overrides any specific CustomLists provided in
+        `customlists`.
+
+        :param list_seen_in_previous_days: Only Works that were added
+        to a matching CustomList within this number of days will be
+        included in lists.
+
         :param children: This WorkList has children, which are also
         WorkLists.
 
@@ -819,6 +835,7 @@ class WorkList(object):
 
         :param entrypoints: A list of EntryPoint classes representing
         different ways of slicing up this WorkList.
+
         """
         self.library_id = None
         self.collection_ids = []
@@ -836,6 +853,30 @@ class WorkList(object):
         self.languages = languages
         self.media = media
 
+        # If a specific set of CustomLists was passed in, store their IDs.
+        #
+        # If a custom list DataSource was passed in, gather the IDs for
+        # every CustomList associated with that DataSource, and store
+        # those IDs.
+        #
+        # Either way, WorkList starts out with a specific list of IDs,
+        # which simplifies the WorkList code in a way that isn't
+        # available to Lane.
+        self._customlist_ids = None
+        self.list_datasource_id = None
+        if list_datasource:
+            customlists = list_datasource.custom_lists
+
+            # We do also store the CustomList ID, which is used as an
+            # optimization in customlist_filter_clauses().
+            self.list_datasource_id = list_datasource.id
+
+        # The custom list IDs are stored in _customlist_ids, for
+        # compatibility with Lane.
+        if customlists:
+            self._customlist_ids = [x.id for x in customlists]
+        self.list_seen_in_previous_days = list_seen_in_previous_days
+
         # By default, a WorkList doesn't have a fiction status or target age.
         # Set them to None so they can be ignored in search on a WorkList, but
         # used when calling search on a Lane.
@@ -849,6 +890,20 @@ class WorkList(object):
             self.entrypoints = list(entrypoints)
         else:
             self.entrypoints = []
+
+    @property
+    def customlist_ids(self):
+        """Return the custom list IDs."""
+        return self._customlist_ids
+
+    @property
+    def uses_customlists(self):
+        """Does the works() implementation for this WorkList look for works on
+        CustomLists?
+        """
+        if self._customlist_ids or self.list_datasource_id:
+            return True
+        return False
 
     def get_library(self, _db):
         """Find the Library object associated with this WorkList."""
@@ -884,13 +939,6 @@ class WorkList(object):
         with Lane.
         """
         return []
-
-    @property
-    def customlist_ids(self):
-        """WorkLists per se are not associated with custom lists, although
-        Lanes might be.
-        """
-        return None
 
     @property
     def full_identifier(self):
@@ -1164,7 +1212,7 @@ class WorkList(object):
 
         return qu
 
-    def bibliographic_filter_clause(self, _db, qu, featured=False):
+    def bibliographic_filter_clause(self, _db, qu, featured=False, outer_join=False):
         """Create a SQLAlchemy filter that excludes books whose bibliographic
         metadata doesn't match what we're looking for.
 
@@ -1195,6 +1243,13 @@ class WorkList(object):
                 qu.genre_id_filtered = True
                 field = work_model.genre_id
             clauses.append(field.in_(self.genre_ids))
+
+        if self.customlist_ids:
+            qu, customlist_clauses = self.customlist_filter_clauses(
+                qu, featured, outer_join
+            )
+            clauses.extend(customlist_clauses)
+
         if not clauses:
             clause = None
         else:
@@ -1222,6 +1277,95 @@ class WorkList(object):
             gutenberg = DataSource.lookup(_db, DataSource.GUTENBERG)
             clauses.append(LicensePool.data_source_id != gutenberg.id)
         return clauses
+
+    def customlist_filter_clauses(
+            self, qu, must_be_featured=False, outer_join=False
+    ):
+        """Create a filter clause that only books that are on one of the
+        CustomLists allowed by Lane configuration.
+
+        :param must_be_featured: It's not enough for the book to be on
+        an appropriate list; it must be _featured_ on an appropriate list.
+
+        :return: A 3-tuple (query, clauses).
+
+        `query` is the same query as `qu`, possibly extended with
+        additional table joins.
+
+        `clauses` is a list of SQLAlchemy statements for use in a
+        filter() or case() statement.
+        """
+        from model import MaterializedWorkWithGenre as work_model
+        if not self.uses_customlists:
+            # This lane does not require that books be on any particular
+            # CustomList.
+            return qu, []
+
+        already_filtered_customlist_on_materialized_view = getattr(
+            qu, 'customlist_id_filtered', False
+        )
+
+        # We will be joining against CustomListEntry at least once, to
+        # run filters on fields like `featured` not found in the
+        # materialized view. For a lane derived from the intersection
+        # of two or more custom lists, we may be joining
+        # CustomListEntry multiple times. To avoid confusion, we make
+        # a new alias for the table every time except the first time.
+        if already_filtered_customlist_on_materialized_view:
+            a_entry = aliased(CustomListEntry)
+        else:
+            a_entry = CustomListEntry
+
+        clause = a_entry.work_id==work_model.works_id
+        if not already_filtered_customlist_on_materialized_view:
+            # Since this is the first join, we're treating
+            # work_model.list_id as a stand-in for CustomListEntry.list_id,
+            # which means we should force them to be the same when joining
+            # the view to the table.
+            #
+            # For subsequent joins, this won't apply -- we want to
+            # match a _different_ list's entry for the same work.
+            clause = and_(clause, a_entry.list_id==work_model.list_id)
+        if outer_join:
+            qu = qu.outerjoin(a_entry, clause)
+        else:
+            qu = qu.join(a_entry, clause)
+
+        # Actually build the restriction clauses.
+        clauses = []
+        customlist_ids = None
+        if self.list_datasource_id:
+            # Use a subquery to obtain the CustomList IDs of all
+            # CustomLists from this DataSource. This is significantly
+            # simpler than adding a join against CustomList.
+            customlist_ids = Select(
+                [CustomList.id],
+                CustomList.data_source_id==self.list_datasource_id
+            )
+        else:
+            customlist_ids = self.customlist_ids
+        if customlist_ids is not None:
+            clauses.append(a_entry.list_id.in_(customlist_ids))
+            if not already_filtered_customlist_on_materialized_view:
+                clauses.append(work_model.list_id.in_(customlist_ids))
+                # Now that we've put a restriction on the materialized
+                # view's list_id, we need to signal that no future
+                # call to this method should put a restriction on the
+                # same field.
+                #
+                # Future calls will apply their restrictions
+                # solely by restricting CustomListEntry.list_id,
+                # as above.
+                qu.customlist_id_filtered = True
+        if must_be_featured:
+            clauses.append(a_entry.featured==True)
+        if self.list_seen_in_previous_days:
+            cutoff = datetime.datetime.utcnow() - datetime.timedelta(
+                self.list_seen_in_previous_days
+            )
+            clauses.append(a_entry.most_recent_appearance >=cutoff)
+
+        return qu, clauses
 
     def only_show_ready_deliverable_works(
             self, _db, query, show_suppressed=False
@@ -1760,6 +1904,10 @@ class Lane(Base, WorkList):
         return self.library
 
     @property
+    def list_datasource_id(self):
+        return self._list_datasource_id
+
+    @property
     def collection_ids(self):
         return [x.id for x in self.library.collections]
 
@@ -1892,8 +2040,21 @@ class Lane(Base, WorkList):
         """
         if value:
             self.customlists = []
-            value = value.id
-        self._list_datasource_id = value
+            if hasattr(self, '_customlist_ids'):
+                # The next time someone asks for .customlist_ids,
+                # the list will be refreshed.
+                del self._customlist_ids
+
+        # TODO: It's not clear to me why it's necessary to set these two
+        # values separately.
+        self._list_datasource = value
+        self._list_datasource_id = value.id
+
+    @property
+    def list_datasource_id(self):
+        if self._list_datasource_id:
+            return self._list_datasource_id
+        return None
 
     @property
     def uses_customlists(self):
@@ -2163,7 +2324,7 @@ class Lane(Base, WorkList):
         qu, superclass_clause = super(
             Lane, self
         ).bibliographic_filter_clause(
-            _db, qu, featured
+            _db, qu, featured, outer_join
         )
         clauses = []
         if superclass_clause is not None:
@@ -2186,14 +2347,7 @@ class Lane(Base, WorkList):
         if self.fiction is not None:
             clauses.append(work_model.fiction==self.fiction)
 
-        if self.media:
-            clauses.append(work_model.medium.in_(self.media))
-
         clauses.extend(self.age_range_filter_clauses())
-        qu, customlist_clauses = self.customlist_filter_clauses(
-            qu, featured, outer_join
-        )
-        clauses.extend(customlist_clauses)
 
         if clauses:
             clause = and_(*clauses)
@@ -2226,95 +2380,6 @@ class Lane(Base, WorkList):
                 audience_has_no_target_age
             )
         ]
-
-    def customlist_filter_clauses(
-            self, qu, must_be_featured=False, outer_join=False
-    ):
-        """Create a filter clause that only books that are on one of the
-        CustomLists allowed by Lane configuration.
-
-        :param must_be_featured: It's not enough for the book to be on
-        an appropriate list; it must be _featured_ on an appropriate list.
-
-        :return: A 3-tuple (query, clauses).
-
-        `query` is the same query as `qu`, possibly extended with
-        additional table joins.
-
-        `clauses` is a list of SQLAlchemy statements for use in a
-        filter() or case() statement.
-        """
-        from model import MaterializedWorkWithGenre as work_model
-        if not self.customlists and not self.list_datasource:
-            # This lane does not require that books be on any particular
-            # CustomList.
-            return qu, []
-
-        already_filtered_customlist_on_materialized_view = getattr(
-            qu, 'customlist_id_filtered', False
-        )
-
-        # We will be joining against CustomListEntry at least once, to
-        # run filters on fields like `featured` not found in the
-        # materialized view. For a lane derived from the intersection
-        # of two or more custom lists, we may be joining
-        # CustomListEntry multiple times. To avoid confusion, we make
-        # a new alias for the table every time except the first time.
-        if already_filtered_customlist_on_materialized_view:
-            a_entry = aliased(CustomListEntry)
-        else:
-            a_entry = CustomListEntry
-
-        clause = a_entry.work_id==work_model.works_id
-        if not already_filtered_customlist_on_materialized_view:
-            # Since this is the first join, we're treating
-            # work_model.list_id as a stand-in for CustomListEntry.list_id,
-            # which means we should force them to be the same when joining
-            # the view to the table.
-            #
-            # For subsequent joins, this won't apply -- we want to
-            # match a _different_ list's entry for the same work.
-            clause = and_(clause, a_entry.list_id==work_model.list_id)
-        if outer_join:
-            qu = qu.outerjoin(a_entry, clause)
-        else:
-            qu = qu.join(a_entry, clause)
-
-        # Actually build the restriction clauses.
-        clauses = []
-        customlist_ids = None
-        if self.list_datasource:
-            # Use a subquery to obtain the CustomList IDs of all
-            # CustomLists from this DataSource. This is significantly
-            # simpler than adding a join against CustomList.
-            customlist_ids = Select(
-                [CustomList.id],
-                CustomList.data_source_id==self.list_datasource.id
-            )
-        else:
-            customlist_ids = self.customlist_ids
-        if customlist_ids is not None:
-            clauses.append(a_entry.list_id.in_(customlist_ids))
-            if not already_filtered_customlist_on_materialized_view:
-                clauses.append(work_model.list_id.in_(customlist_ids))
-                # Now that we've put a restriction on the materialized
-                # view's list_id, we need to signal that no future
-                # call to this method should put a restriction on the
-                # same field.
-                #
-                # Future calls will apply their restrictions
-                # solely by restricting CustomListEntry.list_id,
-                # as above.
-                qu.customlist_id_filtered = True
-        if must_be_featured:
-            clauses.append(a_entry.featured==True)
-        if self.list_seen_in_previous_days:
-            cutoff = datetime.datetime.utcnow() - datetime.timedelta(
-                self.list_seen_in_previous_days
-            )
-            clauses.append(a_entry.most_recent_appearance >=cutoff)
-
-        return qu, clauses
 
     def explain(self):
         """Create a series of human-readable strings to explain a lane's settings."""

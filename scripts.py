@@ -173,7 +173,7 @@ class Script(object):
             raise e
 
     def load_configuration(self):
-        if not Configuration.loaded_from_database():
+        if not Configuration.cdns_loaded_from_database():
             Configuration.load(self._db)
 
 

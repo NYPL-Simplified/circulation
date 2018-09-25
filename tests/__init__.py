@@ -17,7 +17,13 @@ from testing import (
     DatabaseTest,
     DummyMetadataClient,
     DummyHTTPClient,
-    package_setup
+    package_setup,
+    package_teardown,
 )
 
-package_setup()
+def setup_package():
+    package_setup()
+
+def teardown_package():
+    package_teardown()
+

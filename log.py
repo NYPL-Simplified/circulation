@@ -9,7 +9,7 @@ from core.config import Configuration
 from StringIO import StringIO
 from loggly.handlers import HTTPSHandler as LogglyHandler
 
-if not Configuration.instance:
+if Configuration.instance is None:
     Configuration.load()
 
 class JSONFormatter(logging.Formatter):
