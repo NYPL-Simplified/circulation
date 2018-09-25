@@ -278,6 +278,12 @@ class SessionManager(object):
         return sessionmaker(bind=bind_obj)
 
     @classmethod
+    def resource_directory(cls):
+        """The directory containing SQL files used in database setup."""
+        base_path = os.path.split(__file__)[0]
+        return os.path.join(base_path, "files")
+
+    @classmethod
     def initialize(cls, url):
         """Initialize the database.
 
@@ -305,7 +311,9 @@ class SessionManager(object):
 
         # If it doesn't, create it.
         if not result:
-            resource_file = os.path.join(resource_path, cls.RECURSIVE_EQUIVALENTS_FUNCTION)
+            resource_file = os.path.join(
+                cls.resource_directory(), cls.RECURSIVE_EQUIVALENTS_FUNCTION
+            )
             if not os.path.exists(resource_file):
                 raise IOError("Could not load recursive equivalents function from %s: file does not exist." % resource_file)
             sql = open(resource_file).read()
@@ -331,15 +339,13 @@ class SessionManager(object):
         Base.metadata.create_all(engine, tables=to_create)
 
         # Create the materialized view with raw SQL.
-        base_path = os.path.split(__file__)[0]
-        resource_path = os.path.join(base_path, "files")
         connection = None
         for view_name, filename in cls.MATERIALIZED_VIEWS.items():
             if engine.has_table(view_name):
                 continue
             if not connection:
                 connection = engine.connect()
-            resource_file = os.path.join(resource_path, filename)
+            resource_file = os.path.join(self.resource_directory(), filename)
             if not os.path.exists(resource_file):
                 raise IOError("Could not load materialized view from %s: file does not exist." % resource_file)
             logging.info(
