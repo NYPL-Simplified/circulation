@@ -2888,7 +2888,7 @@ class TestFeedController(CirculationControllerTest):
             (s, args) = self.called_with
             facets = args['facets']
             assert isinstance(facets, SearchFacets)
-            eq_(AudiobooksEntryPoint.URI, facets.entrypoint.URI)
+            eq_(AudiobooksEntryPoint, facets.entrypoint)
             pass
 
         AcquisitionFeed.search = old_search
