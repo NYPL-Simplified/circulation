@@ -1,7 +1,5 @@
 from nose.tools import set_trace
 import base64
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
 import feedparser
 from flask_babel import lazy_gettext as _
 import json
@@ -164,13 +162,8 @@ class Registration(object):
         return setting
 
     def push(self, stage, url_for, catalog_url=None, do_get=HTTP.debuggable_get,
-             do_post=HTTP.debuggable_post, key=None):
+             do_post=HTTP.debuggable_post):
         """Attempt to register a library with a RemoteRegistry.
-
-        NOTE: this method does a database commit (by calling
-        _set_public_key) so that when the remote registry asks for the
-        library's Authentication For OPDS document, the public key is
-        found and included in that document.
 
         NOTE: This method is designed to be used in a
         controller. Other callers may use this method, but they must be
@@ -186,8 +179,6 @@ class Registration(object):
             for the application server.
         :param do_get: Mockable method to make a GET request.
         :param do_post: Mockable method to make a POST request.
-        :param key: Pass in an RsaKey object to use a specific public key
-            rather than generating a new one.
 
         :return: A ProblemDetail if there was a problem; otherwise True.
         """
@@ -203,6 +194,28 @@ class Registration(object):
             return INVALID_INPUT.detailed(
                 _("%r is not a valid registration stage") % stage
             )
+
+        # Verify that a public/private key pair exists for this library.
+        # This key pair is created during initialization of the
+        # LibraryAuthenticator, so this should always be present.
+        #
+        # We can't just create the key pair here because the process
+        # of pushing a registration involves the other site making a
+        # request to the circulation manager. This means the key pair
+        # needs to be committed to the database _before_ the push
+        # attempt starts.
+        key_pair = ConfigurationSetting.for_library(
+            Configuration.KEY_PAIR, self.library).json_value
+        if not key_pair:
+            # TODO: We could create the key pair _here_. The database
+            # session will be committed at the end of this request,
+            # so the push attempt would succeed if repeated.
+            return SHARED_SECRET_DECRYPTION_ERROR.detailed(
+                _("Library %(library)s has no key pair set.",
+                  library=self.library.short_name)
+            )
+        public_key, private_key = key_pair
+        cipher = Configuration.cipher(private_key)
 
         # Before we can start the registration protocol, we must fetch
         # the remote catalog's URL and extract the link to the
@@ -224,13 +237,9 @@ class Registration(object):
                 AuthdataUtility.VENDOR_ID_KEY, self.integration
             ).value = vendor_id
 
-        # Set a public key for the library.
-        encryptor = self._set_public_key(key)
-        if isinstance(encryptor, ProblemDetail):
-            return encryptor
-
         # Build the document we'll be sending to the registration URL.
         payload = self._create_registration_payload(url_for, stage)
+
         if isinstance(payload, ProblemDetail):
             return payload
 
@@ -248,7 +257,7 @@ class Registration(object):
         catalog = json.loads(response.content)
 
         # Process the result.
-        return self._process_registration_result(catalog, encryptor, stage)
+        return self._process_registration_result(catalog, cipher, stage)
 
     OPDS_1_PREFIX = "application/atom+xml;profile=opds-catalog"
     OPDS_2_TYPE = "application/opds+json"
@@ -287,29 +296,6 @@ class Registration(object):
         if not register_url:
             return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not provide a register link.", url=response.url))
         return register_url, vendor_id
-
-    def _set_public_key(self, key=None):
-        """Set the public key for this library. This key will be published in
-        the library's Authentication For OPDS document, allowing the
-        remote registry to sign a shared secret for it.
-
-        NOTE: This method commits to the database.
-
-        :return: A Crypto.Cipher object that can be used to decrypt
-        data encrypted with the public key.
-        """
-        if not key:
-            key = RSA.generate(2048)
-        public_key = key.publickey().exportKey()
-        encryptor = PKCS1_OAEP.new(key)
-
-        ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, self.library
-        ).value = public_key
-        # Commit so the public key will be there when the registry gets the
-        # OPDS Authentication document.
-        self._db.commit()
-        return encryptor
 
     def _create_registration_payload(self, url_for, stage):
         """Collect the key-value pairs to be sent when kicking off the
@@ -363,25 +349,33 @@ class Registration(object):
         return response
 
     @classmethod
-    def _decrypt_shared_secret(cls, encryptor, shared_secret):
+    def _decrypt_shared_secret(cls, cipher, shared_secret):
         """Attempt to decrypt an encrypted shared secret.
+
+        :param cipher: A Cipher object.
 
         :return: The decrypted shared secret, or a ProblemDetail if
         it could not be decrypted.
         """
         try:
-            shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
+            shared_secret = cipher.decrypt(base64.b64decode(shared_secret))
         except ValueError, e:
             return SHARED_SECRET_DECRYPTION_ERROR.detailed(
                 _("Could not decrypt shared secret %s") % shared_secret
             )
         return shared_secret
 
-    def _process_registration_result(self, catalog, encryptor, desired_stage):
+    def _process_registration_result(self, catalog, cipher, desired_stage):
         """We just sent out a registration request and got an OPDS catalog
         in return. Process that catalog.
+
+        :param catalog: A dictionary derived from an OPDS 2 catalog.
+        :param cipher: A Cipher object.
+        :param desired_stage: Our opinion, as communicated to the
+            server, about whether this library is ready to go into
+            production.
         """
-        # Since we generated a public key, the catalog should have provided
+        # Since every library has a public key, the catalog should have provided
         # credentials for future authenticated communication,
         # e.g. through Short Client Tokens or authenticated API
         # requests.
@@ -398,7 +392,7 @@ class Registration(object):
              setting.value = short_name
         if shared_secret:
             shared_secret = self._decrypt_shared_secret(
-                encryptor, shared_secret
+                cipher, shared_secret
             )
             if isinstance(shared_secret, ProblemDetail):
                 return shared_secret
@@ -408,12 +402,6 @@ class Registration(object):
 
         # We have successfully completed the registration.
         self.status_field.value = self.SUCCESS_STATUS
-
-        # We're done with the library's public key, so remove the
-        # setting.
-        ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, self.library
-        ).value = None
 
         # Our opinion about the proper stage of this library was succesfully
         # communicated to the registry.
