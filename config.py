@@ -269,7 +269,7 @@ class Configuration(object):
         """Load configuration information from the filesystem, and
         (optionally) from the database.
         """
-        cls.instance = cls.load_from_file(_db)
+        cls.instance = cls.load_from_file()
         if _db:
             # Only do the database portion of the work if
             # a database connection was provided.
