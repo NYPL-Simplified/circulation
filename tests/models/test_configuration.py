@@ -7,14 +7,14 @@ from nose.tools import (
 )
 from sqlalchemy.exc import IntegrityError
 from .. import DatabaseTest
-from config import CannotLoadConfiguration
-from model import create
-from model.collection import Collection
-from model.configuration import (
+from ...config import CannotLoadConfiguration
+from ...model import create
+from ...model.collection import Collection
+from ...model.configuration import (
     ConfigurationSetting,
     ExternalIntegration,
 )
-from model.datasource import DataSource
+from ...model.datasource import DataSource
 
 class TestConfigurationSetting(DatabaseTest):
 

@@ -13,8 +13,8 @@ from . import (
 from constants import DataSourceConstants
 from hasfulltablecache import HasFullTableCache
 
-import classifier
-from classifier import (
+from .. import classifier
+from ..classifier import (
     Classifier,
     COMICS_AND_GRAPHIC_NOVELS,
     Erotica,

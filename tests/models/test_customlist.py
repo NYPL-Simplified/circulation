@@ -6,13 +6,13 @@ from nose.tools import (
 )
 import datetime
 from .. import DatabaseTest
-from model import get_one_or_create
-from model.background import WorkCoverageRecord
-from model.customlist import (
+from ...model import get_one_or_create
+from ...model.background import WorkCoverageRecord
+from ...model.customlist import (
     CustomList,
     CustomListEntry,
 )
-from model.datasource import DataSource
+from ...model.datasource import DataSource
 
 class TestCustomList(DatabaseTest):
 

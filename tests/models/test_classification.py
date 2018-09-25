@@ -8,13 +8,13 @@ from nose.tools import (
 from psycopg2.extras import NumericRange
 from sqlalchemy.exc import IntegrityError
 from .. import DatabaseTest
-from classifier import Classifier
-from model import (
+from ...classifier import Classifier
+from ...model import (
     create,
     get_one,
     get_one_or_create,
 )
-from model.classification import (
+from ...model.classification import (
     Subject,
     Genre,
 )

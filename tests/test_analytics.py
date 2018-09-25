@@ -2,15 +2,15 @@ from nose.tools import (
     eq_,
     set_trace,
 )
-from config import (
+from ..config import (
     Configuration,
     temp_config,
 )
-from analytics import Analytics
-from mock_analytics_provider import MockAnalyticsProvider
-from local_analytics_provider import LocalAnalyticsProvider
+from ..analytics import Analytics
+from ..mock_analytics_provider import MockAnalyticsProvider
+from ..local_analytics_provider import LocalAnalyticsProvider
 from . import DatabaseTest
-from model import (
+from ..model import (
     CirculationEvent,
     ExternalIntegration,
     Library,

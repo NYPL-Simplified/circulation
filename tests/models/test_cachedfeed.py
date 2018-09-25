@@ -5,13 +5,13 @@ from nose.tools import (
 )
 import datetime
 from .. import DatabaseTest
-from classifier import Classifier
-from lane import (
+from ...classifier import Classifier
+from ...lane import (
     Facets,
     Pagination,
     WorkList,
 )
-from model.cachedfeed import CachedFeed
+from ...model.cachedfeed import CachedFeed
 
 class TestCachedFeed(DatabaseTest):
 

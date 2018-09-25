@@ -6,9 +6,9 @@ from nose.tools import (
 )
 from sqlalchemy.orm.exc import NoResultFound
 from .. import DatabaseTest
-from model.datasource import DataSource
-from model.hasfulltablecache import HasFullTableCache
-from model.identifier import Identifier
+from ...model.datasource import DataSource
+from ...model.hasfulltablecache import HasFullTableCache
+from ...model.identifier import Identifier
 
 class TestDataSource(DatabaseTest):
 

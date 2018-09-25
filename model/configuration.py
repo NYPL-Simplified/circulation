@@ -7,11 +7,11 @@ from . import (
     get_one,
     get_one_or_create,
 )
-from config import CannotLoadConfiguration
+from ..config import CannotLoadConfiguration
 from constants import DataSourceConstants
 from hasfulltablecache import HasFullTableCache
 from library import Library
-from mirror import MirrorUploader
+from ..mirror import MirrorUploader
 
 import json
 import logging

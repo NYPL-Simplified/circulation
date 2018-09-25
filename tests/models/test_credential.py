@@ -5,12 +5,12 @@ from nose.tools import (
 )
 import datetime
 from .. import DatabaseTest
-from model.credential import (
+from ...model.credential import (
     Credential,
     DelegatedPatronIdentifier,
     DRMDeviceIdentifier,
 )
-from model.datasource import DataSource
+from ...model.datasource import DataSource
 
 class TestCredentials(DatabaseTest):
 

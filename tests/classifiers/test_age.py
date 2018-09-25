@@ -2,13 +2,13 @@ from nose.tools import (
     eq_,
     set_trace,
 )
-from classifier import (
+from ...classifier import (
     Classifier,
     AgeOrGradeClassifier,
     LCSHClassifier as LCSH,
 )
 
-from classifier.age import (
+from ...classifier.age import (
     GradeLevelClassifier,
     InterestLevelClassifier,
     AgeClassifier,

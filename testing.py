@@ -19,37 +19,39 @@ from lane import (
 from model.constants import MediaTypes
 from model import (
     Base,
-    Classification,
-    IntegrationClient,
-    Collection,
-    Complaint,
-    ConfigurationSetting,
-    Contributor,
-    CoverageRecord,
-    Credential,
-    CustomList,
-    DataSource,
-    DeliveryMechanism,
-    DelegatedPatronIdentifier,
-    Edition,
-    ExternalIntegration,
-    Genre,
-    Hyperlink,
-    Identifier,
-    Library,
-    LicensePool,
-    LicensePoolDeliveryMechanism,
-    Patron,
     PresentationCalculationPolicy,
-    Representation,
-    Resource,
-    RightsStatus,
     SessionManager,
-    Subject,
-    Work,
-    WorkCoverageRecord,
     get_one_or_create,
 )
+
+from model.background import CoverageRecord
+from model.classification import Classification
+from model.classification import Genre
+from model.classification import Subject
+from model.collection import Collection
+from model.complaint import Complaint
+from model.configuration import ConfigurationSetting
+from model.configuration import ExternalIntegration
+from model.contributor import Contributor
+from model.credential import Credential
+from model.credential import DelegatedPatronIdentifier
+from model.customlist import CustomList
+from model.datasource import DataSource
+from model.edition import Edition
+from model.identifier import Identifier
+from model.integrationclient import IntegrationClient
+from model.library import Library
+from model.licensing import DeliveryMechanism
+from model.licensing import LicensePool
+from model.licensing import LicensePoolDeliveryMechanism
+from model.licensing import RightsStatus
+from model.patron import Patron
+from model.resource import Hyperlink
+from model.resource import Representation
+from model.resource import Resource
+from model.work import Work
+from model.work import WorkCoverageRecord
+
 from classifier import Classifier
 from coverage import (
     BibliographicCoverageProvider,

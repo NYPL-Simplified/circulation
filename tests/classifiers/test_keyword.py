@@ -1,7 +1,7 @@
 from nose.tools import eq_, set_trace
-import classifier
-from classifier import *
-from classifier.keyword import (
+from ... import classifier
+from ...classifier import *
+from ...classifier.keyword import (
     KeywordBasedClassifier as Keyword,
     LCSHClassifier as LCSH,
     FASTClassifier as FAST,

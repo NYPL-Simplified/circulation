@@ -4,15 +4,15 @@ from nose.tools import eq_, set_trace
 from .. import DatabaseTest
 from collections import Counter
 from psycopg2.extras import NumericRange
-from model import (
+from ...model import (
     Genre,
     DataSource,
     Subject,
     Classification,
 )
 
-import classifier
-from classifier import (
+from ... import classifier
+from ...classifier import (
         Classifier,
         Lowercased,
         WorkClassifier,
@@ -22,18 +22,18 @@ from classifier import (
         GenreData,
     )
 
-from classifier.age import (
+from ...classifier.age import (
     AgeClassifier,
     GradeLevelClassifier,
     InterestLevelClassifier,
 )
-from classifier.ddc import DeweyDecimalClassifier as DDC
-from classifier.keyword import (
+from ...classifier.ddc import DeweyDecimalClassifier as DDC
+from ...classifier.keyword import (
     LCSHClassifier as LCSH,
     FASTClassifier as FAST,
 )
-from classifier.lcc import LCCClassifier as LCC
-from classifier.simplified import SimplifiedGenreClassifier
+from ...classifier.lcc import LCCClassifier as LCC
+from ...classifier.simplified import SimplifiedGenreClassifier
 
 genres = dict()
 GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)

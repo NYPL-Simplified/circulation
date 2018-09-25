@@ -7,7 +7,7 @@ from nose.tools import (
     set_trace,
 )
 
-from util.problem_detail import (
+from ..util.problem_detail import (
     ProblemDetail,
 )
 

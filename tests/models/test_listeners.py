@@ -6,10 +6,10 @@ from nose.tools import (
 import datetime
 
 from .. import DatabaseTest
-from config import Configuration
-import lane
-import model
-from model import (
+from ...config import Configuration
+from ... import lane
+from ... import model
+from ...model import (
     CachedFeed,
     ConfigurationSetting,
     create,

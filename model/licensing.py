@@ -357,7 +357,7 @@ class LicensePool(Base):
 
         # Note: We can do a cleaner solution, if we refactor to not use metadata's
         # methods to update editions.  For now, we're choosing to go with the below approach.
-        from metadata_layer import (
+        from ..metadata_layer import (
             Metadata,
             IdentifierData,
             ReplacementPolicy,

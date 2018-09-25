@@ -2,6 +2,7 @@ from nose.tools import set_trace
 import importlib
 import contextlib
 import datetime
+import os
 from collections import defaultdict
 from model import ExternalIntegration
 from config import CannotLoadConfiguration
@@ -24,7 +25,11 @@ class Analytics(object):
         # Turn each integration into an analytics provider.
         for integration in integrations:
             try:
-                provider_module = importlib.import_module(integration.protocol)
+                # Import the module relative to the package this
+                # module is in.
+                provider_module = importlib.import_module(
+                    ".." + integration.protocol, package=__name__
+                )
                 provider_class = getattr(provider_module, "Provider", None)
                 if provider_class:
                     if not integration.libraries:

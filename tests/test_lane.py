@@ -17,20 +17,20 @@ from sqlalchemy import (
 
 from elasticsearch.exceptions import ElasticsearchException
 
-from classifier import Classifier
+from ..classifier import Classifier
 
-from entrypoint import (
+from ..entrypoint import (
     AudiobooksEntryPoint,
     EbooksEntryPoint,
     EverythingEntryPoint,
     EntryPoint,
 )
 
-from external_search import (
+from ..external_search import (
     DummyExternalSearchIndex,
 )
 
-from lane import (
+from ..lane import (
     Facets,
     FacetsWithEntryPoint,
     FeaturedFacets,
@@ -40,7 +40,7 @@ from lane import (
     Lane,
 )
 
-from model import (
+from ..model import (
     dump_query,
     get_one_or_create,
     tuple_to_numericrange,
@@ -55,7 +55,7 @@ from model import (
     Work,
     WorkGenre,
 )
-from problem_details import INVALID_INPUT
+from ..problem_details import INVALID_INPUT
 
 
 class TestFacetsWithEntryPoint(DatabaseTest):
@@ -341,7 +341,7 @@ class TestFacets(DatabaseTest):
         )
 
     def test_order_facet_to_database_field(self):
-        from model import MaterializedWorkWithGenre as mwg
+        from ..model import MaterializedWorkWithGenre as mwg
         def fields(facet):
             return [
                 Facets.order_facet_to_database_field(facet)
@@ -372,7 +372,7 @@ class TestFacets(DatabaseTest):
             fields(Facets.ORDER_RANDOM))
 
     def test_order_by(self):
-        from model import MaterializedWorkWithGenre as m
+        from ..model import MaterializedWorkWithGenre as m
 
         def order(facet, ascending=None):
             f = Facets(
@@ -555,7 +555,7 @@ class TestFacetsApply(DatabaseTest):
         self.add_to_materialized_view([open_access_high, open_access_low,
                                        licensed_high, licensed_low])
 
-        from model import MaterializedWorkWithGenre as mwg
+        from ..model import MaterializedWorkWithGenre as mwg
         qu = self._db.query(mwg).join(
             LicensePool, mwg.license_pool_id==LicensePool.id
         )
@@ -701,7 +701,7 @@ class TestFeaturedFacets(DatabaseTest):
         quality_field = facets.quality_tier_field().label("tier")
 
         # Test it out by using it in a SELECT statement.
-        from model import MaterializedWorkWithGenre as work_model
+        from ..model import MaterializedWorkWithGenre as work_model
         qu = self._db.query(
             work_model, quality_field
         ).join(
@@ -785,7 +785,7 @@ class TestFeaturedFacets(DatabaseTest):
         )
 
         facets = FeaturedFacets(0.5, False)
-        from model import MaterializedWorkWithGenre as work_model
+        from ..model import MaterializedWorkWithGenre as work_model
         base_query = self._db.query(work_model).join(work_model.license_pool)
 
         def expect(works, qu):
@@ -1266,7 +1266,7 @@ class TestWorkList(DatabaseTest):
             only finds copies of 'Oliver Twist'.
             """
             def apply_filters(self, _db, qu, *args, **kwargs):
-                from model import MaterializedWorkWithGenre as mwg
+                from ..model import MaterializedWorkWithGenre as mwg
                 return qu.filter(mwg.sort_title=='Oliver Twist')
 
         # A normal WorkList will use the default apply_filters()
@@ -1376,7 +1376,7 @@ class TestWorkList(DatabaseTest):
                 called['pagination.apply'] = True
                 return query
 
-        from model import MaterializedWorkWithGenre as work_model
+        from ..model import MaterializedWorkWithGenre as work_model
         original_qu = self._db.query(work_model)
         wl = MockWorkList()
         final_qu = wl.apply_filters(
@@ -1430,7 +1430,7 @@ class TestWorkList(DatabaseTest):
 
         wl = MockWorkList()
         wl.initialize(self._default_library)
-        from model import MaterializedWorkWithGenre as mwg
+        from ..model import MaterializedWorkWithGenre as mwg
         qu = self._db.query(mwg)
         eq_(None, wl.apply_filters(self._db, qu, None, None))
 
@@ -1452,7 +1452,7 @@ class TestWorkList(DatabaseTest):
                 return []
 
         wl = MockWorkList()
-        from model import MaterializedWorkWithGenre as wg
+        from ..model import MaterializedWorkWithGenre as wg
         original_qu = self._db.query(wg)
 
         # If no languages or genre IDs are specified, and the hook
@@ -1552,7 +1552,7 @@ class TestWorkList(DatabaseTest):
             """
             wl = WorkList()
             wl.audiences = audiences
-            from model import MaterializedWorkWithGenre as work_model
+            from ..model import MaterializedWorkWithGenre as work_model
             qu = self._db.query(work_model).join(work_model.license_pool)
             clauses = wl.audience_filter_clauses(self._db, qu)
             if clauses:
@@ -1697,7 +1697,7 @@ class TestWorkList(DatabaseTest):
 
         # The single search result was converted to a MaterializedWorkWithGenre.
         [result] = results
-        from model import MaterializedWorkWithGenre as mwg
+        from ..model import MaterializedWorkWithGenre as mwg
         assert isinstance(result, mwg)
         eq_(work.id, result.works_id)
 
@@ -2150,7 +2150,7 @@ class TestLane(DatabaseTest):
 
         # The single search result was converted to a MaterializedWorkWithGenre.
         [result] = results
-        from model import MaterializedWorkWithGenre as mwg
+        from ..model import MaterializedWorkWithGenre as mwg
         assert isinstance(result, mwg)
         eq_(work.id, result.works_id)
 
@@ -2210,7 +2210,7 @@ class TestLane(DatabaseTest):
             """Verify that calling apply_bibliographic_filters to the given
             lane yields the given list of works.
             """
-            from model import MaterializedWorkWithGenre as mwg
+            from ..model import MaterializedWorkWithGenre as mwg
             base_query = self._db.query(mwg).join(
                 LicensePool, mwg.license_pool_id==LicensePool.id
             )
@@ -2342,7 +2342,7 @@ class TestLane(DatabaseTest):
         sf_short = self._work(with_license_pool=True)
         sf_short.genres.append(sf)
         self.add_to_materialized_view(sf_short)
-        from model import MaterializedWorkWithGenre as work_model
+        from ..model import MaterializedWorkWithGenre as work_model
         match_works(sf_lane, [sf_short])
 
         # With the parent restriction in place, a book must be classified
@@ -2357,7 +2357,7 @@ class TestLane(DatabaseTest):
         filter clause.
         """
         lane = self._lane()
-        from model import MaterializedWorkWithGenre as work_model
+        from ..model import MaterializedWorkWithGenre as work_model
         qu = self._db.query(work_model)
         eq_(
             (qu, None),
@@ -2370,7 +2370,7 @@ class TestLane(DatabaseTest):
         lane = self._lane()
         self.add_to_materialized_view([book])
 
-        from model import MaterializedWorkWithGenre as work_model
+        from ..model import MaterializedWorkWithGenre as work_model
         def matches(lane):
             qu = self._db.query(work_model)
             new_qu, bib_filter = lane.bibliographic_filter_clause(
@@ -2394,7 +2394,7 @@ class TestLane(DatabaseTest):
             """Build a query that applies the given lane's age filter to the
             works table.
             """
-            from model import MaterializedWorkWithGenre as work_model
+            from ..model import MaterializedWorkWithGenre as work_model
             qu = self._db.query(work_model)
             clauses = lane.age_range_filter_clauses()
             if clauses:
@@ -2465,7 +2465,7 @@ class TestLane(DatabaseTest):
         gutenberg_lists_lane.list_datasource = gutenberg
         self.add_to_materialized_view([work])
 
-        from model import MaterializedWorkWithGenre as work_model
+        from ..model import MaterializedWorkWithGenre as work_model
         def _run(qu, clauses):
             # Run a query with certain clauses and pick out the
             # work IDs returned.
@@ -2875,7 +2875,7 @@ class TestWorkListGroups(DatabaseTest):
         class LQRomanceEntryPoint(object):
             @classmethod
             def apply(cls, qu):
-                from model import MaterializedWorkWithGenre as mv
+                from ..model import MaterializedWorkWithGenre as mv
                 return qu.filter(mv.sort_title=='LQ Romance')
         facets = FeaturedFacets(0, entrypoint=LQRomanceEntryPoint)
         assert_contents(
@@ -3092,7 +3092,7 @@ class TestWorkListGroups(DatabaseTest):
     def test_restrict_query_to_window(self):
         lane = self._lane()
 
-        from model import MaterializedWorkWithGenre as work_model
+        from ..model import MaterializedWorkWithGenre as work_model
         query = self._db.query(work_model).filter(work_model.fiction==True)
         target_size = 10
 

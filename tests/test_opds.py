@@ -14,19 +14,18 @@ from . import (
 )
 
 from psycopg2.extras import NumericRange
-from config import (
+from ..config import (
     Configuration,
     temp_config,
 )
-from entrypoint import (
+from ..entrypoint import (
     AudiobooksEntryPoint,
     EbooksEntryPoint,
     EntryPoint,
     EverythingEntryPoint,
 )
-from facets import FacetConstants
-import model
-from model import (
+from ..facets import FacetConstants
+from ..model import (
     CachedFeed,
     ConfigurationSetting,
     Contributor,
@@ -34,6 +33,7 @@ from model import (
     DeliveryMechanism,
     ExternalIntegration,
     Genre,
+    MaterializedWorkWithGenre,
     Measurement,
     Representation,
     SessionManager,
@@ -41,10 +41,9 @@ from model import (
     Work,
     get_one,
 )
+from ..facets import FacetConstants
 
-from facets import FacetConstants
-
-from lane import (
+from ..lane import (
     Facets,
     FeaturedFacets,
     Lane,
@@ -53,7 +52,7 @@ from lane import (
     WorkList,
 )
 
-from opds import (
+from ..opds import (
     AcquisitionFeed,
     Annotator,
     LookupAcquisitionFeed,
@@ -65,14 +64,14 @@ from opds import (
     TestUnfulfillableAnnotator
 )
 
-from util.opds_writer import (
+from ..util.opds_writer import (
     AtomFeed,
     OPDSFeed,
     OPDSMessage,
 )
-from opds_import import OPDSXMLParser
+from ..opds_import import OPDSXMLParser
 
-from classifier import (
+from ..classifier import (
     Classifier,
     Contemporary_Romance,
     Epic_Fantasy,
@@ -82,7 +81,7 @@ from classifier import (
     Mystery,
 )
 
-from external_search import DummyExternalSearchIndex
+from ..external_search import DummyExternalSearchIndex
 import xml.etree.ElementTree as ET
 from flask_babel import lazy_gettext as _
 
@@ -543,7 +542,6 @@ class TestOPDS(DatabaseTest):
         # Verify that the same group_uri is created whether a Work or
         # a MaterializedWorkWithGenre is passed in.
         self.add_to_materialized_view([work])
-        from model import MaterializedWorkWithGenre
         [mw] = self._db.query(MaterializedWorkWithGenre).all()
 
         mw_uri, mw_title = annotator.group_uri(mw, lp, lp.identifier)
@@ -943,6 +941,7 @@ class TestOPDS(DatabaseTest):
                 'thumbnail.com' : 'http://foo/',
                 'full.com' : 'http://bar/'
             }
+            config[Configuration.CDNS_LOADED_FROM_DATABASE] = True
             work.calculate_opds_entries(verbose=False)
 
         feed = feedparser.parse(work.simple_opds_entry)

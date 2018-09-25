@@ -13,7 +13,7 @@ from . import (
     DatabaseTest,
 )
 
-from model import (
+from ..model import (
     Work,
 )
 

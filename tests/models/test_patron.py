@@ -7,11 +7,11 @@ from nose.tools import (
 )
 import datetime
 from .. import DatabaseTest
-from model import create
-from model.datasource import DataSource
-from model.library import Library
-from model.licensing import PolicyException
-from model.patron import (
+from ...model import create
+from ...model.datasource import DataSource
+from ...model.library import Library
+from ...model.licensing import PolicyException
+from ...model.patron import (
     Annotation,
     Hold,
     PatronProfileStorage,

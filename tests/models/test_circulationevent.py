@@ -5,11 +5,11 @@ from nose.tools import (
 )
 import datetime
 from .. import DatabaseTest
-from model import get_one_or_create
-from model.circulationevent import CirculationEvent
-from model.datasource import DataSource
-from model.identifier import Identifier
-from model.licensing import LicensePool
+from ...model import get_one_or_create
+from ...model.circulationevent import CirculationEvent
+from ...model.datasource import DataSource
+from ...model.identifier import Identifier
+from ...model.licensing import LicensePool
 
 class TestCirculationEvent(DatabaseTest):
 

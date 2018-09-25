@@ -14,21 +14,21 @@ from . import (
 
 from elasticsearch.exceptions import ElasticsearchException
 
-from config import CannotLoadConfiguration
-from lane import Lane
-from model import (
+from ..config import CannotLoadConfiguration
+from ..lane import Lane
+from ..model import (
     Edition,
     ExternalIntegration,
     WorkCoverageRecord,
 )
-from external_search import (
+from ..external_search import (
     ExternalSearchIndex,
     ExternalSearchIndexVersions,
     DummyExternalSearchIndex,
     SearchIndexCoverageProvider,
     SearchIndexMonitor,
 )
-from classifier import Classifier
+from ..classifier import Classifier
 
 
 class ExternalSearchTest(DatabaseTest):

@@ -4,9 +4,9 @@ from nose.tools import (
     assert_raises_regexp,
 )
 from . import DatabaseTest
-from config import CannotLoadConfiguration
-from mirror import MirrorUploader
-from model import ExternalIntegration
+from ..config import CannotLoadConfiguration
+from ..mirror import MirrorUploader
+from ..model import ExternalIntegration
 
 class DummySuccessUploader(MirrorUploader):
 

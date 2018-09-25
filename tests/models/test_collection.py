@@ -8,21 +8,21 @@ from nose.tools import (
 import base64
 import datetime
 from .. import DatabaseTest
-from model import (
+from ...model import (
     create,
     get_one_or_create,
 )
-from model.background import (
+from ...model.background import (
     CoverageRecord,
     WorkCoverageRecord,
 )
-from model.collection import Collection
-from model.configuration import ExternalIntegration
-from model.customlist import CustomList
-from model.datasource import DataSource
-from model.edition import Edition
-from model.hasfulltablecache import HasFullTableCache
-from model.identifier import Identifier
+from ...model.collection import Collection
+from ...model.configuration import ExternalIntegration
+from ...model.customlist import CustomList
+from ...model.datasource import DataSource
+from ...model.edition import Edition
+from ...model.hasfulltablecache import HasFullTableCache
+from ...model.identifier import Identifier
 
 class TestCollection(DatabaseTest):
 

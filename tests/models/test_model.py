@@ -10,10 +10,9 @@ from sqlalchemy import not_
 from sqlalchemy.orm.exc import MultipleResultsFound
 
 from .. import DatabaseTest
-import classifier
-from config import Configuration
-import model
-from model import (
+from ... import classifier
+from ...config import Configuration
+from ...model import (
     DataSource,
     Edition,
     Genre,
@@ -33,7 +32,7 @@ class TestSessionManager(DatabaseTest):
         fiction = self._lane(display_name="Fiction", fiction=True)
         nonfiction = self._lane(display_name="Nonfiction", fiction=False)
 
-        from model import MaterializedWorkWithGenre as mwg
+        from ...model import MaterializedWorkWithGenre as mwg
 
         # There are no items in the materialized views.
         eq_([], self._db.query(mwg).all())
@@ -118,7 +117,7 @@ class TestMaterializedViews(DatabaseTest):
         # Make sure the Work shows up in the materialized view.
         SessionManager.refresh_materialized_views(self._db)
 
-        from model import MaterializedWorkWithGenre as mwgc
+        from ...model import MaterializedWorkWithGenre as mwgc
         [mwg] = self._db.query(mwgc).all()
 
         eq_(pool1.id, mwg.license_pool_id)
@@ -173,7 +172,7 @@ class TestMaterializedViews(DatabaseTest):
 
         SessionManager.refresh_materialized_views(self._db)
 
-        from model import MaterializedWorkWithGenre as mwgc
+        from ...model import MaterializedWorkWithGenre as mwgc
         [mwg] = self._db.query(mwgc).all()
 
         # We would expect the data source to be Gutenberg, since
@@ -215,7 +214,7 @@ class TestMaterializedViews(DatabaseTest):
         # The materialized view can handle this revelation
         # and stores the two list entries in different rows.
         SessionManager.refresh_materialized_views(self._db)
-        from model import MaterializedWorkWithGenre as mw
+        from ...model import MaterializedWorkWithGenre as mw
         [o1, o2] = self._db.query(mw).order_by(mw.list_edition_id)
 
         # Both MaterializedWorkWithGenre objects are on the same

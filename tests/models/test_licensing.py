@@ -7,24 +7,24 @@ from nose.tools import (
     set_trace,
 )
 import datetime
-from mock_analytics_provider import MockAnalyticsProvider
+from ...mock_analytics_provider import MockAnalyticsProvider
 from sqlalchemy.exc import IntegrityError
 from .. import DatabaseTest
-from model import create
-from model.circulationevent import CirculationEvent
-from model.collection import CollectionMissing
-from model.complaint import Complaint
-from model.contributor import Contributor
-from model.datasource import DataSource
-from model.edition import Edition
-from model.identifier import Identifier
-from model.licensing import (
+from ...model import create
+from ...model.circulationevent import CirculationEvent
+from ...model.collection import CollectionMissing
+from ...model.complaint import Complaint
+from ...model.contributor import Contributor
+from ...model.datasource import DataSource
+from ...model.edition import Edition
+from ...model.identifier import Identifier
+from ...model.licensing import (
     DeliveryMechanism,
     LicensePool,
     LicensePoolDeliveryMechanism,
     RightsStatus,
 )
-from model.resource import (
+from ...model.resource import (
     Hyperlink,
     Representation,
 )

@@ -6,9 +6,9 @@ from nose.tools import (
     set_trace,
 )
 from .. import DatabaseTest
-from model.configuration import ConfigurationSetting
-from model.hasfulltablecache import HasFullTableCache
-from model.library import Library
+from ...model.configuration import ConfigurationSetting
+from ...model.hasfulltablecache import HasFullTableCache
+from ...model.library import Library
 
 class TestLibrary(DatabaseTest):
 

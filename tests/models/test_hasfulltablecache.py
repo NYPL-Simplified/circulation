@@ -4,7 +4,7 @@ from nose.tools import (
     set_trace,
 )
 from .. import DatabaseTest
-from model.hasfulltablecache import HasFullTableCache
+from ...model.hasfulltablecache import HasFullTableCache
 
 class MockHasTableCache(HasFullTableCache):
 

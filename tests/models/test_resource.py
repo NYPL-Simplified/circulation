@@ -9,17 +9,17 @@ from .. import (
     DatabaseTest,
     DummyHTTPClient,
 )
-from model import create
-from model.datasource import DataSource
-from model.edition import Edition
-from model.identifier import Identifier
-from model.licensing import RightsStatus
-from model.resource import (
+from ...model import create
+from ...model.datasource import DataSource
+from ...model.edition import Edition
+from ...model.identifier import Identifier
+from ...model.licensing import RightsStatus
+from ...model.resource import (
     Hyperlink,
     Representation,
     Resource,
 )
-from testing import MockRequestsResponse
+from ...testing import MockRequestsResponse
 
 class TestHyperlink(DatabaseTest):
 

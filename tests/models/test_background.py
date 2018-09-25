@@ -5,13 +5,13 @@ from nose.tools import (
 )
 import datetime
 from .. import DatabaseTest
-from model.background import (
+from ...model.background import (
     BaseCoverageRecord,
     CoverageRecord,
     WorkCoverageRecord,
 )
-from model.datasource import DataSource
-from model.identifier import Identifier
+from ...model.datasource import DataSource
+from ...model.identifier import Identifier
 
 class TestBaseCoverageRecord(DatabaseTest):
 

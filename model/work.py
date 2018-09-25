@@ -19,7 +19,7 @@ from contributor import (
     Contribution,
     Contributor,
 )
-from classifier import (
+from ..classifier import (
     Classifier,
     WorkClassifier,
 )
@@ -31,7 +31,7 @@ from datasource import DataSource
 from edition import Edition
 from identifier import Identifier
 from measurement import Measurement
-from util import LanguageCodes
+from ..util import LanguageCodes
 
 from collections import Counter
 import datetime
@@ -1037,7 +1037,7 @@ class Work(Base):
         return u"\n".join(l)
 
     def calculate_opds_entries(self, verbose=True):
-        from opds import (
+        from ..opds import (
             AcquisitionFeed,
             Annotator,
             VerboseAnnotator,

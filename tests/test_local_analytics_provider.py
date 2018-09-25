@@ -2,9 +2,9 @@ from nose.tools import (
     assert_raises_regexp,
     eq_,
 )
-from local_analytics_provider import LocalAnalyticsProvider
 from . import DatabaseTest
-from model import (
+from ..local_analytics_provider import LocalAnalyticsProvider
+from ..model import (
     CirculationEvent,
     ExternalIntegration,
     create,

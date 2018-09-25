@@ -539,7 +539,7 @@ class Configuration(object):
 
     @classmethod
     def load_from_file(cls, _db=None):
-        """Load additional site configuration from a config file.
+        """Load additional site configuration from config file.
 
         This is being phased out in favor of taking all configuration from a
         database.

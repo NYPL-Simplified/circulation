@@ -245,7 +245,7 @@ class CustomListEntry(Base):
 
         new_work = None
         if not metadata:
-            from metadata_layer import Metadata
+            from ..metadata_layer import Metadata
             metadata = Metadata.from_edition(edition)
 
         # Try to guess based on metadata, if we can get a high-quality

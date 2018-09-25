@@ -6,7 +6,7 @@ from nose.tools import (
 )
 import datetime
 from .. import DatabaseTest
-from model.integrationclient import IntegrationClient
+from ...model.integrationclient import IntegrationClient
 
 class TestIntegrationClient(DatabaseTest):
 

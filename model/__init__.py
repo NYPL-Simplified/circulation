@@ -44,7 +44,7 @@ from constants import (
     LinkRelations,
     MediaTypes,
 )
-import classifier
+from .. import classifier
 
 def flush(db):
     """Flush the database connection unless it's known to already be flushing."""
@@ -370,7 +370,7 @@ class SessionManager(object):
             _db.commit()
         # Immediately update the number of works associated with each
         # lane.
-        from lane import Lane
+        from ..lane import Lane
         for lane in _db.query(Lane):
             lane.update_size(_db)
 

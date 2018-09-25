@@ -516,7 +516,6 @@ class MetaToModelUtility(object):
 
         The model_object can be either a pool or an edition.
         """
-
         if link_obj.rel not in Hyperlink.MIRRORED:
             # we only host locally open-source epubs and cover images
             if link.href:

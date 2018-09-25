@@ -49,7 +49,7 @@ from sqlalchemy.sql.expression import (
     or_,
 )
 import urllib
-from util.summary import SummaryEvaluator
+from ..util.summary import SummaryEvaluator
 
 class Identifier(Base, IdentifierConstants):
     """A way of uniquely referring to a particular edition.
@@ -764,7 +764,7 @@ class Identifier(Base, IdentifierConstants):
             most_recent_update = max(timestamps)
 
         quality = Measurement.overall_quality(self.measurements)
-        from opds import AcquisitionFeed
+        from ..opds import AcquisitionFeed
         return AcquisitionFeed.minimal_opds_entry(
             identifier=self, cover=cover_image, description=description,
             quality=quality, most_recent_update=most_recent_update
