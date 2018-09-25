@@ -518,6 +518,7 @@ class Configuration(CoreConfiguration):
         """
         return PKCS1_OAEP.new(RSA.import_key(key))
 
+
 @contextlib.contextmanager
 def empty_config():
     with core_empty_config({}, [CoreConfiguration, Configuration]) as i:

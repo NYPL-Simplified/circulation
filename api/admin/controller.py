@@ -2207,6 +2207,7 @@ class SettingsController(AdminCirculationManagerController):
             # Now that the configuration settings are in place, create
             # a default set of lanes.
             create_default_lanes(self._db, library)
+
         if is_new:
             return Response(unicode(library.uuid), 201)
         else:
