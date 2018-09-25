@@ -290,36 +290,7 @@ class SessionManager(object):
 
         engine = cls.engine(url)
         cls.initialize_schema(engine)
-
-        # Create the materialized view with raw SQL.
-        base_path = os.path.split(__file__)[0]
-        resource_path = os.path.join(base_path, "files")
-        connection = None
-        for view_name, filename in cls.MATERIALIZED_VIEWS.items():
-            if engine.has_table(view_name):
-                continue
-            if not connection:
-                connection = engine.connect()
-            resource_file = os.path.join(resource_path, filename)
-            if not os.path.exists(resource_file):
-                raise IOError("Could not load materialized view from %s: file does not exist." % resource_file)
-            logging.info(
-                "Loading materialized view %s from %s.",
-                view_name, resource_file)
-            sql = open(resource_file).read()
-            connection.execution_options(isolation_level='AUTOCOMMIT')\
-                .execute(text(sql))
-
-            # NOTE: This is apparently necessary for the creation of
-            # the materialized view to be finalized in all cases. As
-            # such, materialized views should be created WITH NO DATA,
-            # since they will be refreshed immediately after creation.
-            result = connection.execute(
-                "REFRESH MATERIALIZED VIEW %s;" % view_name
-            )
-
-        if not connection:
-            connection = engine.connect()
+        connection = engine.connect()
 
         # Check if the recursive equivalents function exists already.
         query = select(
@@ -350,15 +321,41 @@ class SessionManager(object):
         return engine, engine.connect()
 
     @classmethod
-    def initialize_schema(cls, engine):
+    def initialize_schema(cls, engine, create_materialized_view=True):
         """Initialize the database schema."""
-        # Use SQLAlchemy to create all the tables, but not the
-        # materialized view. (That is created in initialize.)
+        # Use SQLAlchemy to create all the tables.
         to_create = [
             table_obj for name, table_obj in Base.metadata.tables.items()
             if not name.startswith('mv_')
         ]
         Base.metadata.create_all(engine, tables=to_create)
+
+        # Create the materialized view with raw SQL.
+        base_path = os.path.split(__file__)[0]
+        resource_path = os.path.join(base_path, "files")
+        connection = None
+        for view_name, filename in cls.MATERIALIZED_VIEWS.items():
+            if engine.has_table(view_name):
+                continue
+            if not connection:
+                connection = engine.connect()
+            resource_file = os.path.join(resource_path, filename)
+            if not os.path.exists(resource_file):
+                raise IOError("Could not load materialized view from %s: file does not exist." % resource_file)
+            logging.info(
+                "Loading materialized view %s from %s.",
+                view_name, resource_file)
+            sql = open(resource_file).read()
+            connection.execution_options(isolation_level='AUTOCOMMIT')\
+                      .execute(text(sql))
+
+            # NOTE: This is apparently necessary for the creation of
+            # the materialized view to be finalized in all cases. As
+            # such, materialized views should be created WITH NO DATA,
+            # since they will be refreshed immediately after creation.
+            result = connection.execute(
+                "REFRESH MATERIALIZED VIEW %s;" % view_name
+            )
 
     @classmethod
     def refresh_materialized_views(self, _db):

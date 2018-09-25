@@ -67,43 +67,33 @@ import inspect
 
 
 def package_setup():
-    """Make sure the database schema is initialized and initial
-    data is in place.
+    """Make sure the application starts in a pristine state.
     """
     # This will make sure we always connect to the test database.
     os.environ['TESTING'] = 'true'
 
     # Ensure that the log configuration starts in a known state.
     LogConfiguration.initialize(None, testing=True)
-    engine = SessionManager.engine()
 
-    # First, drop any existing schema.
+    # Drop any existing schema. It will be recreated when
+    # SessionManager.initialize() runs.
     #
     # Base.metadata.drop_all(connection) doesn't work here, so we
-    # approximate by dropping everything except the materialized
-    # views.
+    # approximate by dropping every item individually.
+    engine = SessionManager.engine()
     for table in reversed(Base.metadata.sorted_tables):
-        if not table.name.startswith('mv_'):
-            try:
-                engine.execute(table.delete())
-            except ProgrammingError, e:
-                if 'does not exist' in e.message:
-                    # This is the first time running these tests
-                    # on this server, and the tables don't exist yet.
-                    pass
-                else:
-                    raise e
+        if table.name.startswith('mv_'):
+            statement = "drop materialized view %s" % table.name
+        else:
+            statement = table.delete()
 
-    # Recreate the schema.
-    SessionManager.initialize_schema(engine)
-
-    # Initialize basic database data needed by the application.
-    connection = engine.connect()
-    _db = Session(connection)
-    SessionManager.initialize_data(_db)
-    _db.commit()
-    connection.close()
-    engine.dispose()
+        try:
+            engine.execute(statement)
+        except ProgrammingError, e:
+            if 'does not exist' in e.message:
+                # This is the first time running these tests
+                # on this server, and the tables don't exist yet.
+                pass
 
 
 def package_teardown():
