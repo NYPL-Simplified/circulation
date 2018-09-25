@@ -443,7 +443,7 @@ def production_session():
     # incorrectly, but 1) this method isn't normally called during
     # unit tests, and 2) package_setup() will call initialize() again
     # with the right arguments.
-    from log import LogConfiguration
+    from ..log import LogConfiguration
     LogConfiguration.initialize(_db)
     return _db
 

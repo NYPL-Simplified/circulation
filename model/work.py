@@ -599,7 +599,7 @@ class Work(Base):
         associated with either an identifier in the given list or an
         identifier considered equivalent to one of those listed
         """
-        from . import LicensePool
+        from licensing import LicensePool
         identifier_ids = [identifier.id for identifier in identifiers]
         if not identifier_ids:
             return None
@@ -699,7 +699,7 @@ class Work(Base):
         `recursion_level` controls how far to go when looking for equivalent
         Identifiers.
         """
-        from . import LicensePool
+        from licensing import LicensePool
         _db = Session.object_session(self)
         identifier_ids_subquery = Identifier.recursively_equivalent_identifier_ids_query(
             LicensePool.identifier_id, levels=recursion_level)
