@@ -24,19 +24,19 @@ class Analytics(object):
         integrations = _db.query(ExternalIntegration).filter(ExternalIntegration.goal==ExternalIntegration.ANALYTICS_GOAL)
         # Turn each integration into an analytics provider.
         for integration in integrations:
+            kwargs = {}
+            module = integration.protocol
+            if module.startswith('.'):
+                # This is a relative import. Import it relative to
+                # this module. This should only happen during tests.
+                kwargs['package'] =__name__
+            else:
+                # This is an absolute import. Trust sys.path to find it.
+                pass
             try:
-                try:
-                    # Import the module name as-is, relying on sys.path
-                    # to find it.
-                    provider_module = importlib.import_module(
-                        integration.protocol
-                    )
-                except ImportError, e:
-                    # Import the module relative to the package this
-                    # module is in.
-                    provider_module = importlib.import_module(
-                        '..' + integration.protocol, package=__name__
-                    )
+                provider_module = importlib.import_module(
+                    integration.protocol, **kwargs
+                )
                 provider_class = getattr(provider_module, "Provider", None)
                 if provider_class:
                     if not integration.libraries:
