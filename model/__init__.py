@@ -321,7 +321,7 @@ class SessionManager(object):
         return engine, engine.connect()
 
     @classmethod
-    def initialize_schema(cls, engine, create_materialized_view=True):
+    def initialize_schema(cls, engine):
         """Initialize the database schema."""
         # Use SQLAlchemy to create all the tables.
         to_create = [
