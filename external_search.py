@@ -229,7 +229,7 @@ class ExternalSearchIndex(object):
         if not response.get('acknowledged'):
             self.log.error("Alias '%s' could not be created", alias_name)
             # Work against the index instead of an alias.
-            _set_works_alias(self.works_index)
+            _use_as_works_alias(self.works_index)
             return
         _use_as_works_alias(alias_name)
 
