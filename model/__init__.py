@@ -471,6 +471,7 @@ from collection import (
     Collection,
     CollectionIdentifier,
     CollectionMissing,
+    collections_identifiers,
 )
 from configuration import (
     ConfigurationSetting,
