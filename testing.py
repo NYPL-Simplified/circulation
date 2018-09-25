@@ -76,6 +76,9 @@ def package_setup():
     # This will make sure we always connect to the test database.
     os.environ['TESTING'] = 'true'
 
+    # This will make sure we always connect to the test database.
+    os.environ['TESTING'] = 'true'
+
     # Ensure that the log configuration starts in a known state.
     LogConfiguration.initialize(None, testing=True)
 
@@ -129,7 +132,6 @@ class DatabaseTest(object):
             Configuration.INTEGRATIONS, {}
         )
         Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {}
-
 
     @classmethod
     def teardown_class(cls):

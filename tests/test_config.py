@@ -10,7 +10,6 @@ from ..model import (
     ExternalIntegration,
 )
 
-
 # Create a configuration object that the tests can run against without
 # impacting the real configuration object.
 class MockConfiguration(BaseConfiguration):

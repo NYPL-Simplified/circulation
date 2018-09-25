@@ -51,6 +51,7 @@ from ..model import (
     Identifier,
     Library,
     LicensePool,
+    MaterializedWorkWithGenre as work_model,
     SessionManager,
     Work,
     WorkGenre,
@@ -261,6 +262,42 @@ class TestFacets(DatabaseTest):
         expect = [['order', 'title', True], ['order', 'work_id', False]]
         eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
 
+    def test_default_availability(self):
+
+        # Normally, the availability will be the library's default availability
+        # facet.
+        test_enabled_facets = {
+            Facets.ORDER_FACET_GROUP_NAME : [Facets.ORDER_WORK_ID],
+            Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_FULL],
+            Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_ALL, Facets.AVAILABLE_NOW],
+        }
+        test_default_facets = {
+            Facets.ORDER_FACET_GROUP_NAME : Facets.ORDER_TITLE,
+            Facets.COLLECTION_FACET_GROUP_NAME : Facets.COLLECTION_FULL,
+            Facets.AVAILABILITY_FACET_GROUP_NAME : Facets.AVAILABLE_ALL,
+        }
+        library = self._default_library
+        self._configure_facets(
+            library, test_enabled_facets, test_default_facets
+        )
+        facets = Facets(library, None, None, None)
+        eq_(Facets.AVAILABLE_ALL, facets.availability)
+
+        # However, if the library does not allow holds, we only show
+        # books that are currently available.
+        library.setting(Library.ALLOW_HOLDS).value = False
+        facets = Facets(library, None, None, None)
+        eq_(Facets.AVAILABLE_NOW, facets.availability)
+
+        # Unless 'now' is not one of the enabled facets - then we keep
+        # using the library's default.
+        test_enabled_facets[Facets.AVAILABILITY_FACET_GROUP_NAME] = [Facets.AVAILABLE_ALL]
+        self._configure_facets(
+            library, test_enabled_facets, test_default_facets
+        )
+        facets = Facets(library, None, None, None)
+        eq_(Facets.AVAILABLE_ALL, facets.availability)
+
     def test_facets_can_be_enabled_at_initialization(self):
         enabled_facets = {
             Facets.ORDER_FACET_GROUP_NAME : [
@@ -341,34 +378,33 @@ class TestFacets(DatabaseTest):
         )
 
     def test_order_facet_to_database_field(self):
-        from ..model import MaterializedWorkWithGenre as mwg
         def fields(facet):
             return [
                 Facets.order_facet_to_database_field(facet)
             ]
 
         # You can sort by title...
-        eq_([mwg.sort_title],
+        eq_([work_model.sort_title],
             fields(Facets.ORDER_TITLE))
 
         # ...by author...
-        eq_([mwg.sort_author],
+        eq_([work_model.sort_author],
             fields(Facets.ORDER_AUTHOR))
 
         # ...by work ID...
-        eq_([mwg.works_id],
+        eq_([work_model.works_id],
             fields(Facets.ORDER_WORK_ID))
 
         # ...by last update time...
-        eq_([mwg.last_update_time],
+        eq_([work_model.last_update_time],
             fields(Facets.ORDER_LAST_UPDATE))
 
         # ...by most recently added...
-        eq_([mwg.availability_time],
+        eq_([work_model.availability_time],
             fields(Facets.ORDER_ADDED_TO_COLLECTION))
 
         # ...or randomly.
-        eq_([mwg.random],
+        eq_([work_model.random],
             fields(Facets.ORDER_RANDOM))
 
     def test_order_by(self):
@@ -555,9 +591,8 @@ class TestFacetsApply(DatabaseTest):
         self.add_to_materialized_view([open_access_high, open_access_low,
                                        licensed_high, licensed_low])
 
-        from ..model import MaterializedWorkWithGenre as mwg
-        qu = self._db.query(mwg).join(
-            LicensePool, mwg.license_pool_id==LicensePool.id
+        qu = self._db.query(work_model).join(
+            LicensePool, work_model.license_pool_id==LicensePool.id
         )
         def facetify(collection=Facets.COLLECTION_FULL,
                      available=Facets.AVAILABLE_ALL,
@@ -701,7 +736,6 @@ class TestFeaturedFacets(DatabaseTest):
         quality_field = facets.quality_tier_field().label("tier")
 
         # Test it out by using it in a SELECT statement.
-        from ..model import MaterializedWorkWithGenre as work_model
         qu = self._db.query(
             work_model, quality_field
         ).join(
@@ -785,7 +819,6 @@ class TestFeaturedFacets(DatabaseTest):
         )
 
         facets = FeaturedFacets(0.5, False)
-        from ..model import MaterializedWorkWithGenre as work_model
         base_query = self._db.query(work_model).join(work_model.license_pool)
 
         def expect(works, qu):
@@ -1022,6 +1055,35 @@ class TestWorkList(DatabaseTest):
         # to the constructor.
         eq_([1,2,3], wl.entrypoints)
 
+    def test_initialize_with_customlists(self):
+
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+
+        customlist1, ignore = self._customlist(
+            data_source_name=gutenberg.name, num_entries=0
+        )
+        customlist2, ignore = self._customlist(
+            data_source_name=gutenberg.name, num_entries=0
+        )
+        customlist3, ignore = self._customlist(
+            data_source_name=DataSource.OVERDRIVE, num_entries=0
+        )
+
+        # Make a WorkList based on specific CustomLists.
+        worklist = WorkList()
+        worklist.initialize(self._default_library,
+                            customlists=[customlist1, customlist3])
+        eq_([customlist1.id, customlist3.id], worklist.customlist_ids)
+        eq_(None, worklist.list_datasource_id)
+
+        # Make a WorkList based on a DataSource, as a shorthand for
+        # 'all the CustomLists from that DataSource'.
+        worklist = WorkList()
+        worklist.initialize(self._default_library,
+                            list_datasource=gutenberg)
+        eq_([customlist1.id, customlist2.id], worklist.customlist_ids)
+        eq_(gutenberg.id, worklist.list_datasource_id)
+
     def test_initialize_without_library(self):
         wl = WorkList()
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
@@ -1135,6 +1197,20 @@ class TestWorkList(DatabaseTest):
         wl_child.priority = 0
         eq_([wl_child, lane_child], wl.visible_children)
 
+    def test_uses_customlists(self):
+        """A WorkList is said to use CustomLists if either ._customlist_ids
+        or .list_datasource_id is set.
+        """
+        wl = WorkList()
+        wl.initialize(self._default_library)
+        eq_(False, wl.uses_customlists)
+
+        wl._customlist_ids = object()
+        eq_(True, wl.uses_customlists)
+
+        wl._customlist_ids = None
+        wl.list_datasource_id = object()
+        eq_(True, wl.uses_customlists)
 
     def test_groups(self):
         w1 = MockWork(1)
@@ -1266,8 +1342,7 @@ class TestWorkList(DatabaseTest):
             only finds copies of 'Oliver Twist'.
             """
             def apply_filters(self, _db, qu, *args, **kwargs):
-                from ..model import MaterializedWorkWithGenre as mwg
-                return qu.filter(mwg.sort_title=='Oliver Twist')
+                return qu.filter(work_model.sort_title=='Oliver Twist')
 
         # A normal WorkList will use the default apply_filters()
         # implementation and find both books.
@@ -1376,7 +1451,6 @@ class TestWorkList(DatabaseTest):
                 called['pagination.apply'] = True
                 return query
 
-        from ..model import MaterializedWorkWithGenre as work_model
         original_qu = self._db.query(work_model)
         wl = MockWorkList()
         final_qu = wl.apply_filters(
@@ -1430,8 +1504,7 @@ class TestWorkList(DatabaseTest):
 
         wl = MockWorkList()
         wl.initialize(self._default_library)
-        from ..model import MaterializedWorkWithGenre as mwg
-        qu = self._db.query(mwg)
+        qu = self._db.query(work_model)
         eq_(None, wl.apply_filters(self._db, qu, None, None))
 
     def test_bibliographic_filter_clause(self):
@@ -1442,14 +1515,28 @@ class TestWorkList(DatabaseTest):
             bibliographic_filter_clause() calls various hook methods.
             """
 
-            def __init__(self, languages=None, genre_ids=None, media=None):
+            def __init__(self, languages=None, genre_ids=None, media=None,
+                         customlists=[], list_datasource=None,
+                         list_seen_in_previous_days=None):
                 self.languages = languages
                 self.genre_ids = genre_ids
                 self.media = media
+                self._customlist_ids=[x.id for x in customlists]
+                if list_datasource:
+                    self.list_datasource_id = list_datasource.id
+                else:
+                    self.list_datasource_id = None
+                self.list_seen_in_previous_days = list_seen_in_previous_days
 
             def audience_filter_clauses(self, _db, qu):
-                called['apply_audience_filter'] = True
+                called['apply_audience_filter'] = (_db, qu)
                 return []
+
+            def customlist_filter_clauses(self, *args, **kwargs):
+                called['customlist_filter_clauses'] = (args, kwargs)
+                return super(MockWorkList, self).customlist_filter_clauses(
+                    *args, **kwargs
+                )
 
         wl = MockWorkList()
         from ..model import MaterializedWorkWithGenre as wg
@@ -1465,9 +1552,15 @@ class TestWorkList(DatabaseTest):
         eq_(original_qu, final_qu)
         eq_(None, bibliographic_filter)
 
-        # But at least the hook methods were called with the correct
+        # But at least the apply_audience_filter was called with the correct
         # arguments.
-        eq_(True, called['apply_audience_filter'])
+        _db, qu = called['apply_audience_filter']
+        eq_(self._db, _db)
+        eq_(original_qu, qu)
+
+        # customlist_filter_clauses was not called because the WorkList
+        # doesn't do anything relating to custom lists.
+        assert 'customlist_filter_clauses' not in called
 
         # If languages, media, and genre IDs are specified, then they are
         # incorporated into the query.
@@ -1482,14 +1575,16 @@ class TestWorkList(DatabaseTest):
         # Create a WorkList that will find the MaterializedWorkWithGenre
         # for the English SF book.
         def worklist_has_books(
-                expect_books, **worklist_constructor_args
+                expect_books, featured=False, outer_join=False,
+                **worklist_constructor_args
         ):
             """Apply bibliographic filters to a query and verify
             that it finds only the given books.
             """
             worklist = MockWorkList(**worklist_constructor_args)
             qu, clause = worklist.bibliographic_filter_clause(
-                self._db, original_qu, False
+                self._db, original_qu, featured=featured,
+                outer_join=outer_join
             )
             qu = qu.filter(clause)
             expect_titles = sorted([x.sort_title for x in expect_books])
@@ -1509,6 +1604,29 @@ class TestWorkList(DatabaseTest):
             [],
             languages=["eng"], genre_ids=[sf.id], media=[Edition.AUDIO_MEDIUM]
         )
+
+        # If the WorkList has custom list IDs, then works will only show up if
+        # they're on one of the matching CustomLists.
+
+        sf_list, ignore = self._customlist(num_entries=0)
+        sf_list.add_entry(english_sf)
+        empty_list, ignore = self._customlist(num_entries=0)
+        self.add_to_materialized_view(english_sf)
+
+        worklist_has_books([], featured="featured value",
+                           outer_join="outer_join value",
+                           customlists=[empty_list])
+        # There were no results, but customlist_filter_clauses was
+        # called, with the arguments we passed in for `featured`
+        # and `outer_join` (plus an intermediary query that we can't
+        # really test).
+        args, kwargs= called['customlist_filter_clauses']
+        untestable, featured, outer_join = args
+        eq_(outer_join, "outer_join value")
+        eq_(featured, "featured value")
+
+        worklist_has_books([english_sf], customlists=[sf_list])
+
 
     def test_audience_filter_clauses(self):
 
@@ -1552,7 +1670,6 @@ class TestWorkList(DatabaseTest):
             """
             wl = WorkList()
             wl.audiences = audiences
-            from ..model import MaterializedWorkWithGenre as work_model
             qu = self._db.query(work_model).join(work_model.license_pool)
             clauses = wl.audience_filter_clauses(self._db, qu)
             if clauses:
@@ -1576,6 +1693,150 @@ class TestWorkList(DatabaseTest):
         eq_(set([gutenberg_adult.id, gutenberg_children.id,
                  non_gutenberg_children.id]),
             set(for_audiences()))
+
+    def test_customlist_filter_clauses(self):
+        """Standalone test of customlist_filter_clauses
+
+        Some of this code is also tested by test_apply_custom_filters.
+        """
+
+        # If a lane has nothing to do with CustomLists,
+        # apply_customlist_filter does nothing.
+        no_lists = self._lane()
+        qu = self._db.query(Work)
+        new_qu, clauses = no_lists.customlist_filter_clauses(qu)
+        eq_(qu, new_qu)
+        eq_([], clauses)
+
+        # Now set up a Work and a CustomList that contains the work.
+        work = self._work(with_license_pool=True)
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        eq_(gutenberg, work.license_pools[0].data_source)
+        gutenberg_list, ignore = self._customlist(num_entries=0)
+        gutenberg_list.data_source = gutenberg
+        gutenberg_list_entry, ignore = gutenberg_list.add_entry(work)
+
+        # This WorkList gets every work on a specific list.
+        works_on_list = WorkList()
+        works_on_list.initialize(
+            self._default_library, customlists=[gutenberg_list]
+        )
+
+        # This lane gets every work on every list associated with Project
+        # Gutenberg.
+        works_on_gutenberg_lists = WorkList()
+        works_on_gutenberg_lists.initialize(
+            self._default_library, list_datasource=gutenberg
+        )
+        self.add_to_materialized_view([work])
+
+        def _run(qu, clauses):
+            # Run a query with certain clauses and pick out the
+            # work IDs returned.
+            modified = qu.filter(and_(*clauses))
+            return [x.works_id for x in modified]
+
+        def results(wl=works_on_gutenberg_lists, must_be_featured=False):
+            qu = self._db.query(work_model)
+            new_qu, clauses = wl.customlist_filter_clauses(
+                qu, must_be_featured=must_be_featured
+            )
+
+            if must_be_featured or wl.list_seen_in_previous_days:
+                # The query comes out different than it goes in -- there's a
+                # new join against CustomListEntry.
+                assert new_qu != qu
+            return _run(new_qu, clauses)
+
+        # Both lanes contain the work.
+        eq_([work.id], results(works_on_list))
+        eq_([work.id], results(works_on_gutenberg_lists))
+
+        # If there's another list with the same work on it, the
+        # work only shows up once.
+        gutenberg_list_2, ignore = self._customlist(num_entries=0)
+        gutenberg_list_2_entry, ignore = gutenberg_list_2.add_entry(work)
+        works_on_list._customlist_ids.append(gutenberg_list.id)
+        eq_([work.id], results(works_on_list))
+
+        # This WorkList gets every work on a list associated with Overdrive.
+        # There are no such lists, so the lane is empty.
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        works_on_overdrive_lists = WorkList()
+        works_on_overdrive_lists.initialize(
+            self._default_library, list_datasource=overdrive
+        )
+        eq_([], results(works_on_overdrive_lists))
+
+        # It's possible to restrict a WorkList so that only works that
+        # are _featured_ on a list show up. The work isn't featured,
+        # so it doesn't show up.
+        eq_([], results(must_be_featured=True))
+
+        # Now it's featured, and it shows up.
+        gutenberg_list_entry.featured = True
+        eq_([work.id], results(must_be_featured=True))
+
+        # It's possible to restrict a WorkList to works that were seen on
+        # a certain list recently.
+        now = datetime.datetime.utcnow()
+        two_days_ago = now - datetime.timedelta(days=2)
+        gutenberg_list_entry.most_recent_appearance = two_days_ago
+
+        # The lane will only show works that were seen within the last
+        # day. There are no such works.
+        works_on_gutenberg_lists.list_seen_in_previous_days = 1
+        eq_([], results())
+
+        # Now it's been loosened to three days, and the work shows up.
+        works_on_gutenberg_lists.list_seen_in_previous_days = 3
+        eq_([work.id], results())
+
+        # Now let's test what happens when we chain calls to this
+        # method.
+        gutenberg_list_2_wl = WorkList()
+        gutenberg_list_2_wl.initialize(
+            self._default_library, customlists = [gutenberg_list_2]
+        )
+
+        # These two lines don't do anything, because these are
+        # WorkLists, not Lanes, but they show the scenario in which
+        # this would actually happen. When determining which works
+        # belong in the child lane, Lane.customlist_filter_clauses()
+        # will be called on the parent lane and then on the child. In
+        # this case, only want books that are on _both_ works_on_list
+        # and gutenberg_list_2.
+        gutenberg_list_2_wl.parent = works_on_list
+        gutenberg_list_2_wl.inherit_parent_restrictions = True
+
+        qu = self._db.query(work_model)
+        list_1_qu, list_1_clauses = works_on_list.customlist_filter_clauses(qu)
+
+        # The query has been modified to indicate that we are filtering
+        # on the materialized view's customlist_id field.
+        eq_(True, list_1_qu.customlist_id_filtered)
+        eq_([work.id], [x.works_id for x in list_1_qu])
+
+        # Now call customlist_filter_clauses again so that the query
+        # must only match books on _both_ lists. This simulates
+        # what happens when the second lane is a child of the first,
+        # and inherits its restrictions.
+        both_lists_qu, list_2_clauses = gutenberg_list_2_wl.customlist_filter_clauses(
+            list_1_qu,
+        )
+        both_lists_clauses = list_1_clauses + list_2_clauses
+
+        # The combined query matches the work that shows up on
+        # both lists.
+        eq_([work.id], _run(both_lists_qu, both_lists_clauses))
+
+        # If we remove `work` from either list, the combined query
+        # matches nothing. This works even though the materialized
+        # view has not been refreshed.
+        for l in [gutenberg_list, gutenberg_list_2]:
+            l.remove_entry(work)
+            eq_([], _run(both_lists_qu, both_lists_clauses))
+            l.add_entry(work)
 
     def test_random_sample(self):
         # This lets me test which items are chosen in a random sample,
@@ -1697,8 +1958,7 @@ class TestWorkList(DatabaseTest):
 
         # The single search result was converted to a MaterializedWorkWithGenre.
         [result] = results
-        from ..model import MaterializedWorkWithGenre as mwg
-        assert isinstance(result, mwg)
+        assert isinstance(result, work_model)
         eq_(work.id, result.works_id)
 
         # Test that language and media are passed in
@@ -1762,6 +2022,30 @@ class TestLane(DatabaseTest):
     def test_get_library(self):
         lane = self._lane()
         eq_(self._default_library, lane.get_library(self._db))
+
+    def test_list_datasource(self):
+        """Test setting and retrieving the DataSource object and
+        the underlying ID.
+        """
+        lane = self._lane()
+
+        # This lane is based on a specific CustomList.
+        customlist1, ignore = self._customlist(num_entries=0)
+        customlist2, ignore = self._customlist(num_entries=0)
+        lane.customlists.append(customlist1)
+        eq_(None, lane.list_datasource)
+        eq_(None, lane.list_datasource_id)
+        eq_([customlist1.id], lane.customlist_ids)
+
+        # Now change it so it's based on all CustomLists from a given
+        # DataSource.
+        source = customlist1.data_source
+        lane.list_datasource = source
+        eq_(source, lane.list_datasource)
+        eq_(source.id, lane.list_datasource_id)
+
+        # The lane is now based on two CustomLists instead of one.
+        eq_(set([customlist1.id, customlist2.id]), set(lane.customlist_ids))
 
     def test_set_audiences(self):
         """Setting Lane.audiences to a single value will
@@ -2150,8 +2434,7 @@ class TestLane(DatabaseTest):
 
         # The single search result was converted to a MaterializedWorkWithGenre.
         [result] = results
-        from ..model import MaterializedWorkWithGenre as mwg
-        assert isinstance(result, mwg)
+        assert isinstance(result, work_model)
         eq_(work.id, result.works_id)
 
         # This still works if the lane is its own search_target.
@@ -2210,9 +2493,8 @@ class TestLane(DatabaseTest):
             """Verify that calling apply_bibliographic_filters to the given
             lane yields the given list of works.
             """
-            from ..model import MaterializedWorkWithGenre as mwg
-            base_query = self._db.query(mwg).join(
-                LicensePool, mwg.license_pool_id==LicensePool.id
+            base_query = self._db.query(work_model).join(
+                LicensePool, work_model.license_pool_id==LicensePool.id
             )
             new_query, bibliographic_clause = lane.bibliographic_filter_clause(
                 self._db, base_query, featured
@@ -2342,7 +2624,6 @@ class TestLane(DatabaseTest):
         sf_short = self._work(with_license_pool=True)
         sf_short.genres.append(sf)
         self.add_to_materialized_view(sf_short)
-        from ..model import MaterializedWorkWithGenre as work_model
         match_works(sf_lane, [sf_short])
 
         # With the parent restriction in place, a book must be classified
@@ -2357,7 +2638,6 @@ class TestLane(DatabaseTest):
         filter clause.
         """
         lane = self._lane()
-        from ..model import MaterializedWorkWithGenre as work_model
         qu = self._db.query(work_model)
         eq_(
             (qu, None),
@@ -2370,7 +2650,6 @@ class TestLane(DatabaseTest):
         lane = self._lane()
         self.add_to_materialized_view([book])
 
-        from ..model import MaterializedWorkWithGenre as work_model
         def matches(lane):
             qu = self._db.query(work_model)
             new_qu, bib_filter = lane.bibliographic_filter_clause(
@@ -2394,7 +2673,6 @@ class TestLane(DatabaseTest):
             """Build a query that applies the given lane's age filter to the
             works table.
             """
-            from ..model import MaterializedWorkWithGenre as work_model
             qu = self._db.query(work_model)
             clauses = lane.age_range_filter_clauses()
             if clauses:
@@ -2432,142 +2710,6 @@ class TestLane(DatabaseTest):
         # shows up despite having no target age at all.
         older_ya.target_age = (16,18)
         eq_([adult.id], filtered(older_ya))
-
-    def test_customlist_filter_clauses(self):
-        """Standalone test of apply_customlist_filter.
-
-        Some of this code is also tested by test_apply_custom_filters.
-        """
-
-        # If a lane has nothing to do with CustomLists,
-        # apply_customlist_filter does nothing.
-        no_lists = self._lane()
-        qu = self._db.query(Work)
-        new_qu, clauses = no_lists.customlist_filter_clauses(qu)
-        eq_(qu, new_qu)
-        eq_([], clauses)
-
-        # Now set up a Work and a CustomList that contains the work.
-        work = self._work(with_license_pool=True)
-        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        eq_(gutenberg, work.license_pools[0].data_source)
-        gutenberg_list, ignore = self._customlist(num_entries=0)
-        gutenberg_list.data_source = gutenberg
-        gutenberg_list_entry, ignore = gutenberg_list.add_entry(work)
-
-        # This lane gets every work on a specific list.
-        gutenberg_list_lane = self._lane()
-        gutenberg_list_lane.customlists.append(gutenberg_list)
-
-        # This lane gets every work on every list associated with Project
-        # Gutenberg.
-        gutenberg_lists_lane = self._lane()
-        gutenberg_lists_lane.list_datasource = gutenberg
-        self.add_to_materialized_view([work])
-
-        from ..model import MaterializedWorkWithGenre as work_model
-        def _run(qu, clauses):
-            # Run a query with certain clauses and pick out the
-            # work IDs returned.
-            modified = qu.filter(and_(*clauses))
-            return [x.works_id for x in modified]
-
-        def results(lane=gutenberg_lists_lane, must_be_featured=False):
-            qu = self._db.query(work_model)
-            new_qu, clauses = lane.customlist_filter_clauses(
-                qu, must_be_featured=must_be_featured
-            )
-
-            if must_be_featured or lane.list_seen_in_previous_days:
-                # The query comes out different than it goes in -- there's a
-                # new join against CustomListEntry.
-                assert new_qu != qu
-            return _run(new_qu, clauses)
-
-        # Both lanes contain the work.
-        eq_([work.id], results(gutenberg_list_lane))
-        eq_([work.id], results(gutenberg_lists_lane))
-
-        # If there's another list with the same work on it, the
-        # work only shows up once.
-        gutenberg_list_2, ignore = self._customlist(num_entries=0)
-        gutenberg_list_2_entry, ignore = gutenberg_list_2.add_entry(work)
-        gutenberg_list_lane.customlists.append(gutenberg_list)
-        eq_([work.id], results(gutenberg_list_lane))
-
-        # This lane gets every work on a list associated with Overdrive.
-        # There are no such lists, so the lane is empty.
-        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        overdrive_lists_lane = self._lane()
-        overdrive_lists_lane.list_datasource = overdrive
-        eq_([], results(overdrive_lists_lane))
-
-        # It's possible to restrict a lane so that only works that are
-        # _featured_ on a list show up. The work isn't featured, so it
-        # doesn't show up.
-        eq_([], results(must_be_featured=True))
-
-        # Now it's featured, and it shows up.
-        gutenberg_list_entry.featured = True
-        eq_([work.id], results(must_be_featured=True))
-
-        # It's possible to restrict a lane to works that were seen on
-        # a certain list in a given timeframe.
-        now = datetime.datetime.utcnow()
-        two_days_ago = now - datetime.timedelta(days=2)
-        gutenberg_list_entry.most_recent_appearance = two_days_ago
-
-        # The lane will only show works that were seen within the last
-        # day. There are no such works.
-        gutenberg_lists_lane.list_seen_in_previous_days = 1
-        eq_([], results())
-
-        # Now it's been loosened to three days, and the work shows up.
-        gutenberg_lists_lane.list_seen_in_previous_days = 3
-        eq_([work.id], results())
-
-        # Now let's test what happens when we chain calls to this
-        # method.
-        gutenberg_list_2_lane = self._lane()
-        gutenberg_list_2_lane.customlists.append(gutenberg_list_2)
-
-        # These two lines aren't necessary for the test but they
-        # illustrate how this would happen in a real scenario -- When
-        # determining which works belong in the child lane,
-        # customlist_filter_clauses() will be called on the parent
-        # lane and then on the child. We only want books that are
-        # on _both_ gutenberg_list and gutenberg_list_2.
-        gutenberg_list_2_lane.parent = gutenberg_list_lane
-        gutenberg_list_2_lane.inherit_parent_restrictions = True
-
-        qu = self._db.query(work_model)
-        list_1_qu, list_1_clauses = gutenberg_list_lane.customlist_filter_clauses(qu)
-
-        # The query has been modified to indicate that we are filtering
-        # on the materialized view's customlist_id field.
-        eq_(True, list_1_qu.customlist_id_filtered)
-        eq_([work.id], [x.works_id for x in list_1_qu])
-
-        # Now call customlist_filter_clauses again so that the query
-        # must only match books on _both_ lists. This simulates
-        # what happens when the second lane is a child of the first,
-        # and inherits its restrictions.
-        both_lists_qu, list_2_clauses = gutenberg_list_2_lane.customlist_filter_clauses(
-            list_1_qu,
-        )
-        both_lists_clauses = list_1_clauses + list_2_clauses
-
-        # The combined query matches the work that shows up on
-        # both lists.
-        eq_([work.id], _run(both_lists_qu, both_lists_clauses))
-
-        # If we remove `work` from either list, the combined query
-        # matches nothing. This works even though the materialized
-        # view has not been refreshed.
-        for l in [gutenberg_list, gutenberg_list_2]:
-            l.remove_entry(work)
-            eq_([], _run(both_lists_qu, both_lists_clauses))
-            l.add_entry(work)
 
     def test_explain(self):
         parent = self._lane(display_name="Parent")
@@ -2875,8 +3017,7 @@ class TestWorkListGroups(DatabaseTest):
         class LQRomanceEntryPoint(object):
             @classmethod
             def apply(cls, qu):
-                from ..model import MaterializedWorkWithGenre as mv
-                return qu.filter(mv.sort_title=='LQ Romance')
+                return qu.filter(work_model.sort_title=='LQ Romance')
         facets = FeaturedFacets(0, entrypoint=LQRomanceEntryPoint)
         assert_contents(
             fiction.groups(self._db, facets=facets),
@@ -3092,7 +3233,6 @@ class TestWorkListGroups(DatabaseTest):
     def test_restrict_query_to_window(self):
         lane = self._lane()
 
-        from ..model import MaterializedWorkWithGenre as work_model
         query = self._db.query(work_model).filter(work_model.fiction==True)
         target_size = 10
 

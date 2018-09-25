@@ -51,7 +51,7 @@ def load_lending_policy(policy):
     if not policy:
         return {}
     if isinstance(policy, basestring):
-        logging.info("Lending policy: %s" % policy)
+        logging.info("Lending policy: %s", policy)
         policy = json.loads(policy)
     for external_type, p in policy.items():
         if Patron.AUDIENCE_RESTRICTION_POLICY in p:

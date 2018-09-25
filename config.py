@@ -260,8 +260,8 @@ class Configuration(object):
         } for group, display_name in FacetConstants.GROUP_DISPLAY_TITLES.iteritems()
     ]
 
-    # This is set once data is loaded from the database and inserted into
-    # the Configuration object.
+    # This is set once CDN data is loaded from the database and
+    # inserted into the Configuration object.
     CDNS_LOADED_FROM_DATABASE = 'loaded_from_database'
 
     @classmethod
@@ -298,6 +298,10 @@ class Configuration(object):
             value = cls.get(key)
             if value is not None:
                 return value
+
+        value = cls.get(key)
+        if value is not None:
+            return value
         raise ValueError(
             "Required configuration variable %s was not defined!" % key
         )
@@ -331,17 +335,16 @@ class Configuration(object):
         """Get CDN configuration, loading it from the database
         if necessary.
         """
-        from model import (
-            ExternalIntegration,
-            SessionManager,
-        )
         if not cls.cdns_loaded_from_database():
             # The CDNs were never initialized from the database.
             # Create a new database connection and find that
             # information now.
+            from model import SessionManager
             url = cls.database_url()
             _db = SessionManager.session(url)
             cls.load_cdns(_db)
+
+        from model import ExternalIntegration
         return cls.integration(ExternalIntegration.CDN)
 
     @classmethod
@@ -366,13 +369,13 @@ class Configuration(object):
         If it's not there, we will look in the appropriate environment
         variable.
         """
-        test = os.environ.get('TESTING', False)
 
         # To avoid expensive mistakes, test and production databases
         # are always configured with separate keys. The TESTING variable
         # controls which database is used, and it's set by the
         # package_setup() function called in every component's
         # tests/__init__.py.
+        test = os.environ.get('TESTING', False)
         if test:
             config_key = cls.DATABASE_TEST_URL
             environment_variable = cls.DATABASE_TEST_ENVIRONMENT_VARIABLE
@@ -538,8 +541,8 @@ class Configuration(object):
         return cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE, None)
 
     @classmethod
-    def load_from_file(cls, _db=None):
-        """Load additional site configuration from config file.
+    def load_from_file(cls):
+        """Load additional site configuration from a config file.
 
         This is being phased out in favor of taking all configuration from a
         database.
