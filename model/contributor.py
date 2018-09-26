@@ -31,8 +31,8 @@ from sqlalchemy.orm.session import Session
 from ..util.personal_names import display_name_to_sort_name
 
 class Contributor(Base):
-
     """Someone (usually human) who contributes to books."""
+
     __tablename__ = 'contributors'
     id = Column(Integer, primary_key=True)
 
