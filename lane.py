@@ -875,7 +875,6 @@ class WorkList(object):
         # compatibility with Lane.
         if customlists:
             self._customlist_ids = [x.id for x in customlists]
-        self.customlists = customlists
         self.list_seen_in_previous_days = list_seen_in_previous_days
 
         # By default, a WorkList doesn't have a fiction status or target age.
@@ -909,6 +908,10 @@ class WorkList(object):
     def get_library(self, _db):
         """Find the Library object associated with this WorkList."""
         return Library.by_id(_db, self.library_id)
+
+    def get_customlists(self, _db):
+        """Get customlists associated with the Worklist."""
+        return [get_one(_db, CustomList, id=id) for id in self.customlist_ids]
 
     @property
     def display_name_for_all(self):
