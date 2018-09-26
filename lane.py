@@ -875,6 +875,7 @@ class WorkList(object):
         # compatibility with Lane.
         if customlists:
             self._customlist_ids = [x.id for x in customlists]
+        self.customlists = customlists
         self.list_seen_in_previous_days = list_seen_in_previous_days
 
         # By default, a WorkList doesn't have a fiction status or target age.
