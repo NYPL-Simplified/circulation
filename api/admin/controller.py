@@ -1636,9 +1636,9 @@ class CustomListsController(AdminCirculationManagerController):
                 query, self._db, list.name,
                 url, pagination, url_fn, annotator
             )
-            annotator.annotate_feed(feed, worklist, list)
+            annotator.annotate_feed(feed, worklist)
 
-            return feed_response(unicode(feed))
+            return feed_response(unicode(feed), cache_for=0)
 
         elif flask.request.method == "POST":
             name = flask.request.form.get("name")

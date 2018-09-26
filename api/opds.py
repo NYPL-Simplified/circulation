@@ -760,8 +760,6 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             name = None
             if hasattr(lane, "customlists") and len(lane.customlists) == 1:
                 name = lane.customlists[0].name
-            elif (hasattr(lane, "customlist_ids") and lane.customlist_ids) and list:
-                name = list.name
 
             if name:
                 crawlable_url = self.url_for(
