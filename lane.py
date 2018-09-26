@@ -911,7 +911,7 @@ class WorkList(object):
 
     def get_customlists(self, _db):
         """Get customlists associated with the Worklist."""
-        return [get_one(_db, CustomList, id=id) for id in self.customlist_ids]
+        return [cl for cl in _db.query(CustomList).filter(CustomList.id.in_(self._customlist_ids))]
 
     @property
     def display_name_for_all(self):
