@@ -8959,11 +8959,11 @@ class TestCollection(DatabaseTest):
     def test_restrict_to_ready_deliverable_works(self):
         """A partial test of restrict_to_ready_deliverable_works.
 
-        This only covers the bit that excludes audiobooks from certain
-        data sources. The other parts are tested indirectly in lane.py,
-        but could use a more explicit test here.
+        This only covers the bit that excludes audiobooks that come
+        from certain data sources. The other parts are tested
+        indirectly in lane.py, but could use a more explicit test
+        here.
         """
-
         # Create two audiobooks and one ebook.
         overdrive_audiobook = self._work(
             data_source_name=DataSource.OVERDRIVE, with_license_pool=True,
@@ -8987,7 +8987,7 @@ class TestCollection(DatabaseTest):
 
         def expect(qu, works):
             """Modify the query `qu` by calling
-            restrict_to_ready_deliverable_works(), then validate that
+            restrict_to_ready_deliverable_works(), then verify that
             the query returns the works expected by `works`.
             """
             from model import MaterializedWorkWithGenre as work_model
