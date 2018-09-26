@@ -8,7 +8,7 @@ from . import (
     get_one_or_create,
     PresentationCalculationPolicy,
 )
-from background import CoverageRecord
+from coverage import CoverageRecord
 from constants import (
     DataSourceConstants,
     EditionConstants,

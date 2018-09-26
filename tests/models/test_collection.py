@@ -12,7 +12,7 @@ from ...model import (
     create,
     get_one_or_create,
 )
-from ...model.background import (
+from ...model.coverage import (
     CoverageRecord,
     WorkCoverageRecord,
 )

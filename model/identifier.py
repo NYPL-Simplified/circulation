@@ -8,7 +8,7 @@ from . import (
     get_one,
     get_one_or_create,
 )
-from background import CoverageRecord
+from coverage import CoverageRecord
 from classification import (
     Classification,
     Subject,

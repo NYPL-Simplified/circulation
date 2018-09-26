@@ -7,7 +7,7 @@ from nose.tools import (
 import datetime
 from .. import DatabaseTest
 from ...model import get_one_or_create
-from ...model.background import CoverageRecord
+from ...model.coverage import CoverageRecord
 from ...model.contributor import Contributor
 from ...model.datasource import DataSource
 from ...model.edition import Edition

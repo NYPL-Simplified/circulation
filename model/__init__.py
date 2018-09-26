@@ -421,7 +421,6 @@ class SessionManager(object):
             create_method_kwargs=dict(timestamp=datetime.datetime.utcnow())
         )
         if is_new:
-            from listeners import site_configuration_has_changed
             site_configuration_has_changed(session)
         session.commit()
 
@@ -451,7 +450,7 @@ from admin import (
     Admin,
     AdminRole,
 )
-from background import (
+from coverage import (
     BaseCoverageRecord,
     CoverageRecord,
     Timestamp,
@@ -517,7 +516,6 @@ from patron import (
     Patron,
     PatronProfileStorage,
 )
-import listeners
 from listeners import *
 from resource import (
     Hyperlink,

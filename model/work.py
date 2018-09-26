@@ -11,7 +11,7 @@ from . import (
     PresentationCalculationPolicy,
     tuple_to_numericrange,
 )
-from background import (
+from coverage import (
     CoverageRecord,
     WorkCoverageRecord,
 )

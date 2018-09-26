@@ -17,7 +17,7 @@ from ...classifier import (
     Science_Fiction,
 )
 from ...model import get_one_or_create
-from ...model.background import WorkCoverageRecord
+from ...model.coverage import WorkCoverageRecord
 from ...model.classification import (
     Genre,
     Subject,

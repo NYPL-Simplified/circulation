@@ -5,7 +5,7 @@ from nose.tools import (
 )
 import datetime
 from .. import DatabaseTest
-from ...model.background import (
+from ...model.coverage import (
     BaseCoverageRecord,
     CoverageRecord,
     WorkCoverageRecord,
