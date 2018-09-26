@@ -167,6 +167,8 @@ class Configuration(object):
         { "key": ERROR, "label": _("Error") },
     ]
 
+    EXCLUDED_AUDIO_DATA_SOURCES = 'excluded_audio_data_sources'
+
     SITEWIDE_SETTINGS = [
         {
             "key": NONGROUPED_MAX_AGE_POLICY,
@@ -194,6 +196,11 @@ class Configuration(object):
             "type": "select", "options": LOG_LEVEL_UI,
             "description": _("Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages."),
             "default": WARN,
+        },
+        {
+            "key": EXCLUDED_AUDIO_DATA_SOURCES,
+            "description": _("Audiobooks from these data sources will be hidden from the collection, even if they would otherwise show up as available."),
+            "default": None,
         },
     ]
 

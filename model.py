@@ -11015,26 +11015,6 @@ class ConfigurationSetting(Base, HasFullTableCache):
             _db.commit()
         return secret.value
 
-    AUDIO_EXCLUSIONS_KEY = 'excluded_audio_data_sources'
-    AUDIO_EXCLUSIONS_DEFAULT = [
-        DataSource.OVERDRIVE,
-        DataSource.AXIS_360,
-        DataSource.RB_DIGITAL
-    ]
-
-    @classmethod
-    def excluded_audio_data_sources(cls, _db):
-        """List the data sources whose audiobooks should not be published in
-        feeds, either because this server can't fulfill them or the
-        expected client can't play them.
-        """
-        value = ConfigurationSetting.sitewide(
-            _db, cls.AUDIO_EXCLUSIONS_KEY
-        ).json_value
-        if value is None:
-            value = cls.AUDIO_EXCLUSIONS_DEFAULT
-        return value
-
     @classmethod
     def explain(cls, _db, include_secrets=False):
         """Explain all site-wide ConfigurationSettings."""
@@ -11221,6 +11201,28 @@ class ConfigurationSetting(Base, HasFullTableCache):
         if self.value:
             return json.loads(self.value)
         return None
+
+    @classmethod
+    def excluded_audio_data_sources(cls, _db):
+        """List the data sources whose audiobooks should not be published in
+        feeds, either because this server can't fulfill them or the
+        expected client can't play them.
+
+        Most methods like this go into Configuration, but this one needs
+        to reference data model objects for its default value.
+        """
+        AUDIO_EXCLUSIONS_DEFAULT = [
+            DataSource.OVERDRIVE,
+            DataSource.AXIS_360,
+            DataSource.RB_DIGITAL
+        ]
+
+        value = cls.sitewide(
+            _db, Configuration.EXCLUDED_AUDIO_DATA_SOURCES
+        ).json_value
+        if value is None:
+            value = cls.EXCLUDED_AUDIO_DATA_SOURCES_DEFAULT
+        return value
 
 
 class Collection(Base, HasFullTableCache):
@@ -11835,10 +11837,12 @@ class Collection(Base, HasFullTableCache):
         _db = query.session
         excluded = ConfigurationSetting.excluded_audio_data_sources(_db)
         if excluded:
-            excluded_ids = [DataSource.lookup(_db, x).id for x in excluded]
+            audio_excluded_ids = [
+                DataSource.lookup(_db, x).id for x in excluded
+            ]
             query = query.filter(
                 or_(work_model.medium != Edition.AUDIO_MEDIUM,
-                    not LicensePool.data_source_id.in_(excluded_ids))
+                    ~LicensePool.data_source_id.in_(audio_excluded_ids))
             )
 
         # Only find books with unsuppressed LicensePools.
@@ -11850,10 +11854,11 @@ class Collection(Base, HasFullTableCache):
                 or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
         )
 
-        # Only find books in an appropriate collection.
-        query = query.filter(
-            LicensePool.collection_id.in_(collection_ids)
-        )
+        if collection_ids is not None:
+            # Only find books in an appropriate collection.
+            query = query.filter(
+                LicensePool.collection_id.in_(collection_ids)
+            )
 
         # If we don't allow holds, hide any books with no available copies.
         if not allow_holds:
