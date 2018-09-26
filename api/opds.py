@@ -717,7 +717,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             href=href
         )
 
-    def annotate_feed(self, feed, lane, list=None):
+    def annotate_feed(self, feed, lane):
         if self.patron:
             # A patron is authenticated.
             self.add_patron(feed)
@@ -760,6 +760,10 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             name = None
             if hasattr(lane, "customlists") and len(lane.customlists) == 1:
                 name = lane.customlists[0].name
+            else:
+                _db = Session.object_session(self.library)
+                customlist = lane.get_customlists(_db)[0]
+                name = customlist.name
 
             if name:
                 crawlable_url = self.url_for(
