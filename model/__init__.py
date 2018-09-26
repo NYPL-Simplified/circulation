@@ -659,13 +659,13 @@ class Patron(Base):
     _synchronize_annotations = Column(Boolean, default=None,
                                       name="synchronize_annotations")
 
-    loans = relationship('Loan', backref='patron')
-    holds = relationship('Hold', backref='patron')
+    loans = relationship('Loan', backref='patron', cascade='delete')
+    holds = relationship('Hold', backref='patron', cascade='delete')
 
-    annotations = relationship('Annotation', backref='patron', order_by="desc(Annotation.timestamp)")
+    annotations = relationship('Annotation', backref='patron', order_by="desc(Annotation.timestamp)", cascade='delete')
 
     # One Patron can have many associated Credentials.
-    credentials = relationship("Credential", backref="patron")
+    credentials = relationship("Credential", backref="patron", cascade="delete")
 
     __table_args__ = (
         UniqueConstraint('library_id', 'username'),
