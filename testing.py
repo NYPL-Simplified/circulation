@@ -69,6 +69,9 @@ def package_setup():
     data is in place.
     """
 
+    # This will make sure we always connect to the test database.
+    os.environ['TESTING'] = 'true'
+
     # Ensure that the log configuration starts in a known state.
     LogConfiguration.initialize(None, testing=True)
 
@@ -92,6 +95,10 @@ def package_setup():
     connection.close()
     engine.dispose()
 
+def package_teardown():
+    if 'TESTING' in os.environ:
+        del os.environ['TESTING']
+
 class DatabaseTest(object):
 
     engine = None
@@ -99,7 +106,7 @@ class DatabaseTest(object):
 
     @classmethod
     def get_database_connection(cls):
-        url = Configuration.database_url(test=True)
+        url = Configuration.database_url()
         engine, connection = SessionManager.initialize(url)
 
         return engine, connection
@@ -118,8 +125,6 @@ class DatabaseTest(object):
         )
         Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {}
 
-        os.environ['TESTING'] = 'true'
-
     @classmethod
     def teardown_class(cls):
         # Destroy the database connection and engine.
@@ -134,8 +139,6 @@ class DatabaseTest(object):
             logging.warn("Cowardly refusing to remove 'temporary' directory %s" % cls.tmp_data_dir)
 
         Configuration.instance[Configuration.DATA_DIRECTORY] = cls.old_data_dir
-        if 'TESTING' in os.environ:
-            del os.environ['TESTING']
 
     def setup(self, mock_search=True):
         # Create a new connection to the database.
