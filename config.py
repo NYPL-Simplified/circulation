@@ -199,6 +199,7 @@ class Configuration(object):
         },
         {
             "key": EXCLUDED_AUDIO_DATA_SOURCES,
+            "label": _("Excluded audiobook sources"),
             "description": _("Audiobooks from these data sources will be hidden from the collection, even if they would otherwise show up as available."),
             "default": None,
         },
@@ -274,7 +275,7 @@ class Configuration(object):
         """Load configuration information from the filesystem, and
         (optionally) from the database.
         """
-        cls.instance = cls.load_from_file(_db)
+        cls.instance = cls.load_from_file()
         if _db:
             # Only do the database portion of the work if
             # a database connection was provided.
