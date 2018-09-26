@@ -10280,7 +10280,8 @@ class Library(Base, HasFullTableCache):
         return self.setting(key)
 
     def restrict_to_ready_deliverable_works(
-        self, query, work_model, collection_ids=None, show_suppressed=False,
+        self, query, work_model, edition_model=None, collection_ids=None,
+            show_suppressed=False,
     ):
         """Restrict a query to show only presentation-ready works present in
         an appropriate collection which the default client can
@@ -10302,7 +10303,8 @@ class Library(Base, HasFullTableCache):
         """
         collection_ids = collection_ids or [x.id for x in self.all_collections]
         return Collection.restrict_to_ready_deliverable_works(
-            query, work_model, collection_ids=collection_ids, show_suppressed=show_suppressed,
+            query, work_model, edition_model, collection_ids=collection_ids,
+            show_suppressed=show_suppressed,
             allow_holds=self.allow_holds)
 
     def estimated_holdings_by_language(self, include_open_access=True):
@@ -10320,7 +10322,7 @@ class Library(Base, HasFullTableCache):
         ).select_from(Work).join(Work.license_pools).join(
             Work.presentation_edition
         ).filter(Edition.language != None).group_by(Edition.language)
-        qu = self.restrict_to_ready_deliverable_works(qu, Work)
+        qu = self.restrict_to_ready_deliverable_works(qu, Work, Edition)
         if not include_open_access:
             qu = qu.filter(LicensePool.open_access==False)
         counter = Counter()
@@ -11793,8 +11795,8 @@ class Collection(Base, HasFullTableCache):
 
     @classmethod
     def restrict_to_ready_deliverable_works(
-        cls, query, work_model, collection_ids=None, show_suppressed=False,
-        allow_holds=True,
+        cls, query, work_model, edition_model=None, collection_ids=None,
+            show_suppressed=False, allow_holds=True,
     ):
         """Restrict a query to show only presentation-ready works present in
         an appropriate collection which the default client can
@@ -11805,8 +11807,9 @@ class Collection(Base, HasFullTableCache):
 
         :param query: The query to restrict.
 
-        :param work_model: Either Work or one of the MaterializedWork
-        materialized view classes.
+        :param work_model: Either Work or MaterializedWorkWithGenre
+
+        :param edition_model: Either Edition or MaterializedWorkWithGenre
 
         :param show_suppressed: Include titles that have nothing but
         suppressed LicensePools.
@@ -11817,6 +11820,8 @@ class Collection(Base, HasFullTableCache):
         :param allow_holds: If false, pools with no available copies
         will be hidden.
         """
+        edition_model = edition_model or work_model
+
         # Only find presentation-ready works.
         #
         # Such works are automatically filtered out of
@@ -11844,7 +11849,7 @@ class Collection(Base, HasFullTableCache):
                 DataSource.lookup(_db, x).id for x in excluded
             ]
             query = query.filter(
-                or_(work_model.medium != Edition.AUDIO_MEDIUM,
+                or_(edition_model.medium != Edition.AUDIO_MEDIUM,
                     ~LicensePool.data_source_id.in_(audio_excluded_ids))
             )
 

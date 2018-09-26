@@ -9005,12 +9005,12 @@ class TestCollection(DatabaseTest):
             [overdrive_audiobook, overdrive_ebook, rbdigital_audiobook]
         )
 
+        from model import MaterializedWorkWithGenre as work_model
         def expect(qu, works):
             """Modify the query `qu` by calling
             restrict_to_ready_deliverable_works(), then verify that
             the query returns the works expected by `works`.
             """
-            from model import MaterializedWorkWithGenre as work_model
             restricted_query = Collection.restrict_to_ready_deliverable_works(
                 qu, work_model
             )
@@ -9023,6 +9023,8 @@ class TestCollection(DatabaseTest):
         setting = ConfigurationSetting.sitewide(
             self._db, Configuration.EXCLUDED_AUDIO_DATA_SOURCES
         )
+
+        qu = self._db.query(work_model).join(work_model.license_pool)
 
         # When its value is set to the empty list, every work shows
         # up.
