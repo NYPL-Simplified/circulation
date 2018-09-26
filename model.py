@@ -11202,6 +11202,15 @@ class ConfigurationSetting(Base, HasFullTableCache):
             return json.loads(self.value)
         return None
 
+    # As of this release of the software, this is our best guess as to
+    # which data sources should have their audiobooks excluded from
+    # lanes.
+    EXCLUDED_AUDIO_DATA_SOURCES_DEFAULT = [
+        DataSource.OVERDRIVE,
+        DataSource.AXIS_360,
+        DataSource.RB_DIGITAL
+    ]
+
     @classmethod
     def excluded_audio_data_sources(cls, _db):
         """List the data sources whose audiobooks should not be published in
@@ -11211,12 +11220,6 @@ class ConfigurationSetting(Base, HasFullTableCache):
         Most methods like this go into Configuration, but this one needs
         to reference data model objects for its default value.
         """
-        AUDIO_EXCLUSIONS_DEFAULT = [
-            DataSource.OVERDRIVE,
-            DataSource.AXIS_360,
-            DataSource.RB_DIGITAL
-        ]
-
         value = cls.sitewide(
             _db, Configuration.EXCLUDED_AUDIO_DATA_SOURCES
         ).json_value

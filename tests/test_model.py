@@ -8209,6 +8209,26 @@ class TestConfigurationSetting(DatabaseTest):
         jsondata.value = "tra la la"
         assert_raises(ValueError, lambda: jsondata.json_value)
 
+    def test_excluded_audio_data_sources(self):
+        # Get a handle on the underlying ConfigurationSetting
+        setting = ConfigurationSetting.sitewide(
+            self._db, Configuration.EXCLUDED_AUDIO_DATA_SOURCES
+        )
+
+        m = ConfigurationSetting.excluded_audio_data_sources
+
+        # When no explicit value is set for the ConfigurationSetting,
+        # the return value of the method is AUDIO_EXCLUSIONS -- whatever
+        # the default is for the current version of the circulation manager.
+        eq_(None, setting.value)
+        eq_(ConfigurationSetting.EXCLUDED_AUDIO_DATA_SOURCES_DEFAULT,
+            m(self._db))
+
+        # When an explicit value for the ConfigurationSetting, is set, that
+        # value is interpreted as JSON and returned.
+        setting.value = "[]"
+        eq_([], m(self._db))
+
     def test_explain(self):
         """Test that ConfigurationSetting.explain gives information
         about all site-wide configuration settings.
