@@ -762,8 +762,9 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                 name = lane.customlists[0].name
             else:
                 _db = Session.object_session(self.library)
-                customlist = lane.get_customlists(_db)[0]
-                name = customlist.name
+                customlist = lane.get_customlists(_db)
+                if customlist:
+                    name = customlist[0].name
 
             if name:
                 crawlable_url = self.url_for(
