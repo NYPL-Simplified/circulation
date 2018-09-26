@@ -10280,7 +10280,8 @@ class Library(Base, HasFullTableCache):
         return self.setting(key)
 
     def restrict_to_ready_deliverable_works(
-        self, query, work_model, collection_ids=None, show_suppressed=False,
+        self, query, work_model, edition_model=None, collection_ids=None,
+            show_suppressed=False,
     ):
         """Restrict a query to show only presentation-ready works present in
         an appropriate collection which the default client can
@@ -10302,7 +10303,8 @@ class Library(Base, HasFullTableCache):
         """
         collection_ids = collection_ids or [x.id for x in self.all_collections]
         return Collection.restrict_to_ready_deliverable_works(
-            query, work_model, collection_ids=collection_ids, show_suppressed=show_suppressed,
+            query, work_model, edition_model, collection_ids=collection_ids,
+            show_suppressed=show_suppressed,
             allow_holds=self.allow_holds)
 
     def estimated_holdings_by_language(self, include_open_access=True):
@@ -10320,7 +10322,7 @@ class Library(Base, HasFullTableCache):
         ).select_from(Work).join(Work.license_pools).join(
             Work.presentation_edition
         ).filter(Edition.language != None).group_by(Edition.language)
-        qu = self.restrict_to_ready_deliverable_works(qu, Work)
+        qu = self.restrict_to_ready_deliverable_works(qu, Work, Edition)
         if not include_open_access:
             qu = qu.filter(LicensePool.open_access==False)
         counter = Counter()
@@ -11202,6 +11204,31 @@ class ConfigurationSetting(Base, HasFullTableCache):
             return json.loads(self.value)
         return None
 
+    # As of this release of the software, this is our best guess as to
+    # which data sources should have their audiobooks excluded from
+    # lanes.
+    EXCLUDED_AUDIO_DATA_SOURCES_DEFAULT = [
+        DataSource.OVERDRIVE,
+        DataSource.AXIS_360,
+        DataSource.RB_DIGITAL
+    ]
+
+    @classmethod
+    def excluded_audio_data_sources(cls, _db):
+        """List the data sources whose audiobooks should not be published in
+        feeds, either because this server can't fulfill them or the
+        expected client can't play them.
+
+        Most methods like this go into Configuration, but this one needs
+        to reference data model objects for its default value.
+        """
+        value = cls.sitewide(
+            _db, Configuration.EXCLUDED_AUDIO_DATA_SOURCES
+        ).json_value
+        if value is None:
+            value = cls.EXCLUDED_AUDIO_DATA_SOURCES_DEFAULT
+        return value
+
 
 class Collection(Base, HasFullTableCache):
 
@@ -11768,8 +11795,8 @@ class Collection(Base, HasFullTableCache):
 
     @classmethod
     def restrict_to_ready_deliverable_works(
-        cls, query, work_model, collection_ids=None, show_suppressed=False,
-        allow_holds=True,
+        cls, query, work_model, edition_model=None, collection_ids=None,
+            show_suppressed=False, allow_holds=True,
     ):
         """Restrict a query to show only presentation-ready works present in
         an appropriate collection which the default client can
@@ -11780,8 +11807,9 @@ class Collection(Base, HasFullTableCache):
 
         :param query: The query to restrict.
 
-        :param work_model: Either Work or one of the MaterializedWork
-        materialized view classes.
+        :param work_model: Either Work or MaterializedWorkWithGenre
+
+        :param edition_model: Either Edition or MaterializedWorkWithGenre
 
         :param show_suppressed: Include titles that have nothing but
         suppressed LicensePools.
@@ -11792,6 +11820,8 @@ class Collection(Base, HasFullTableCache):
         :param allow_holds: If false, pools with no available copies
         will be hidden.
         """
+        edition_model = edition_model or work_model
+
         # Only find presentation-ready works.
         #
         # Such works are automatically filtered out of
@@ -11809,6 +11839,20 @@ class Collection(Base, HasFullTableCache):
         )
         query = query.filter(exists_clause)
 
+        # Some sources of audiobooks may be excluded because the
+        # server can't fulfill them or the expected client can't play
+        # them.
+        _db = query.session
+        excluded = ConfigurationSetting.excluded_audio_data_sources(_db)
+        if excluded:
+            audio_excluded_ids = [
+                DataSource.lookup(_db, x).id for x in excluded
+            ]
+            query = query.filter(
+                or_(edition_model.medium != Edition.AUDIO_MEDIUM,
+                    ~LicensePool.data_source_id.in_(audio_excluded_ids))
+            )
+
         # Only find books with unsuppressed LicensePools.
         if not show_suppressed:
             query = query.filter(LicensePool.suppressed==False)
@@ -11818,10 +11862,11 @@ class Collection(Base, HasFullTableCache):
                 or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
         )
 
-        # Only find books in an appropriate collection.
-        query = query.filter(
-            LicensePool.collection_id.in_(collection_ids)
-        )
+        if collection_ids is not None:
+            # Only find books in an appropriate collection.
+            query = query.filter(
+                LicensePool.collection_id.in_(collection_ids)
+            )
 
         # If we don't allow holds, hide any books with no available copies.
         if not allow_holds:

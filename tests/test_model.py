@@ -4,6 +4,7 @@ import base64
 import datetime
 import feedparser
 import os
+import json
 import sys
 import site
 import random
@@ -8208,6 +8209,26 @@ class TestConfigurationSetting(DatabaseTest):
         jsondata.value = "tra la la"
         assert_raises(ValueError, lambda: jsondata.json_value)
 
+    def test_excluded_audio_data_sources(self):
+        # Get a handle on the underlying ConfigurationSetting
+        setting = ConfigurationSetting.sitewide(
+            self._db, Configuration.EXCLUDED_AUDIO_DATA_SOURCES
+        )
+
+        m = ConfigurationSetting.excluded_audio_data_sources
+
+        # When no explicit value is set for the ConfigurationSetting,
+        # the return value of the method is AUDIO_EXCLUSIONS -- whatever
+        # the default is for the current version of the circulation manager.
+        eq_(None, setting.value)
+        eq_(ConfigurationSetting.EXCLUDED_AUDIO_DATA_SOURCES_DEFAULT,
+            m(self._db))
+
+        # When an explicit value for the ConfigurationSetting, is set, that
+        # value is interpreted as JSON and returned.
+        setting.value = "[]"
+        eq_([], m(self._db))
+
     def test_explain(self):
         """Test that ConfigurationSetting.explain gives information
         about all site-wide configuration settings.
@@ -8954,6 +8975,71 @@ class TestCollection(DatabaseTest):
         pool.work = new_work
         eq_(0, len(list1.entries))
         eq_(1, len(list2.entries))
+
+    def test_restrict_to_ready_deliverable_works(self):
+        """A partial test of restrict_to_ready_deliverable_works.
+
+        This only covers the bit that excludes audiobooks that come
+        from certain data sources. The other parts are tested
+        indirectly in lane.py, but could use a more explicit test
+        here.
+        """
+        # Create two audiobooks and one ebook.
+        overdrive_audiobook = self._work(
+            data_source_name=DataSource.OVERDRIVE, with_license_pool=True,
+            title="Overdrive Audiobook"
+        )
+        overdrive_audiobook.presentation_edition.medium = Edition.AUDIO_MEDIUM
+        overdrive_ebook = self._work(
+            data_source_name=DataSource.OVERDRIVE, with_license_pool=True,
+            title="Overdrive Ebook",
+        )
+        rbdigital_audiobook = self._work(
+            data_source_name=DataSource.RB_DIGITAL, with_license_pool=True,
+            title="RBDigital Audiobook"
+        )
+        rbdigital_audiobook.presentation_edition.medium = Edition.AUDIO_MEDIUM
+
+        # Add them to the materialized view.
+        self.add_to_materialized_view(
+            [overdrive_audiobook, overdrive_ebook, rbdigital_audiobook]
+        )
+
+        from model import MaterializedWorkWithGenre as work_model
+        def expect(qu, works):
+            """Modify the query `qu` by calling
+            restrict_to_ready_deliverable_works(), then verify that
+            the query returns the works expected by `works`.
+            """
+            restricted_query = Collection.restrict_to_ready_deliverable_works(
+                qu, work_model
+            )
+            expect_ids = [x.id for x in works]
+            actual_ids = [x.works_id for x in restricted_query]
+            eq_(set(expect_ids), set(actual_ids))
+
+        # Here's the setting which controls which data sources should
+        # have their audiobooks excluded.
+        setting = ConfigurationSetting.sitewide(
+            self._db, Configuration.EXCLUDED_AUDIO_DATA_SOURCES
+        )
+
+        qu = self._db.query(work_model).join(work_model.license_pool)
+
+        # When its value is set to the empty list, every work shows
+        # up.
+        setting.value = json.dumps([])
+        expect(qu, [overdrive_ebook, overdrive_audiobook, rbdigital_audiobook])
+
+        # Putting a data source in the list excludes its audiobooks, but
+        # not its ebooks.
+        setting.value = json.dumps([DataSource.OVERDRIVE])
+        expect(qu, [overdrive_ebook, rbdigital_audiobook])
+
+        setting.value = json.dumps(
+            [DataSource.OVERDRIVE, DataSource.RB_DIGITAL]
+        )
+        expect(qu, [overdrive_ebook])
 
 
 class TestCollectionForMetadataWrangler(DatabaseTest):
