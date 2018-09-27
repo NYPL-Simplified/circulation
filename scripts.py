@@ -26,6 +26,7 @@ from psycopg2.extras import NumericRange
 
 from core import log
 from core.cdn import cdnify
+from core.entrypoint import EntryPoint
 from core.lane import Lane
 from core.classifier import Classifier
 from core.metadata_layer import (
@@ -420,21 +421,21 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         """
         a = time.time()
 
+        cached_feeds = []
         for facets in self.facets(lane):
-            cached_feeds = []
             for pagination in self.pagination(lane):
                 extra_description = ""
                 if facets:
                     extra_description += " Facets: %s." % facets.query_string
                 if pagination:
                     extra_description += " Pagination: %s." % pagination.query_string
-                    self.log.info(
-                        "Generating feed(s) for %s.%s", lane.full_identifier,
-                        extra_description
-                    )
-                    feed = self.do_generate(lane, facets, pagination)
-                    if feed:
-                        cached_feeds.append(feed)
+                self.log.info(
+                    "Generating feed for %s.%s", lane.full_identifier,
+                    extra_description
+                )
+                feed = self.do_generate(lane, facets, pagination)
+                if feed:
+                    cached_feeds.append(feed)
             b = time.time()
             total_size = sum(len(x) for x in cached_feeds)
             self.log.info(
@@ -507,8 +508,8 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             default=[],
         )
 
-        available = [x.internal_name for x in EntryPoint.ENTRY_POINTS]
-        collection_help = 'Generate feeds for this entry point within each lane. Possible values: %s.' % (
+        available = [x.INTERNAL_NAME for x in EntryPoint.ENTRY_POINTS]
+        entrypoint_help = 'Generate feeds for this entry point within each lane. Possible values: %s.' % (
             ", ".join(available)
         )
         parser.add_argument(
@@ -553,7 +554,9 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         allowed_orders = library.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
         chosen_orders = self.orders or [default_order]
 
-        chosen_entrypoints = self.entrypoints or library.entrypoints
+        chosen_entrypoints = self.entrypoints or [
+            x.INTERNAL_NAME for x in library.entrypoints
+        ]
 
         default_availability = library.default_facet(
             Facets.AVAILABILITY_FACET_GROUP_NAME
@@ -571,7 +574,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         )
         chosen_collections = self.collections or [default_collection]
 
-        for entrypoint_name in library.entrypoints:
+        for entrypoint_name in chosen_entrypoints:
             entrypoint = EntryPoint.BY_INTERNAL_NAME.get(entrypoint_name)
             if not entrypoint:
                 logging.warn("Ignoring unknown entry point %s" % entrypoint)
@@ -601,7 +604,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         pagination = Pagination.default()
         yield pagination
         for pagenum in range(0, self.pages):
-            yield pagination.next_page()
+            yield pagination.next_page
 
     def do_generate(self, lane, facets, pagination):
         feeds = []
@@ -655,7 +658,13 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         # If the WorkList has explicitly defined EntryPoints, we want to
         # create a grouped feed for each EntryPoint. Otherwise, we want
         # to create a single grouped feed with no particular EntryPoint.
-        entrypoints = lane.entrypoints or [None]
+        #
+        # We use library.entrypoints instead of lane.entrypoints
+        # because WorkList.entrypoints controls which entry points you
+        # can *switch to* from a given WorkList. We're handling the
+        # case where you switched further up the hierarchy and now
+        # you're navigating downwards.
+        entrypoints = library.entrypoints or [None]
         for entrypoint in entrypoints:
             facets = FeaturedFacets(
                 minimum_featured_quality=library.minimum_featured_quality,
