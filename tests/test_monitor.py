@@ -729,7 +729,7 @@ class TestReaperMonitor(DatabaseTest):
         eq_(Credential.expires, CredentialReaper(self._db).timestamp_field)
         eq_(1, CredentialReaper.MAX_AGE)
         eq_(Patron.authorization_expires, PatronReaper(self._db).timestamp_field)
-        eq_(30, PatronReaper.MAX_AGE)
+        eq_(60, PatronReaper.MAX_AGE)
 
     def test_where_clause(self):
         m = CachedFeedReaper(self._db)

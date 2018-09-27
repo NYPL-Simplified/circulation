@@ -707,5 +707,5 @@ class PatronReaper(ReaperMonitor):
     """Remove patron records that expired more than 30 days ago"""
     MODEL_CLASS = Patron
     TIMESTAMP_FIELD = 'authorization_expires'
-    MAX_AGE = 30
+    MAX_AGE = 60
 ReaperMonitor.REGISTRY.append(PatronReaper)
