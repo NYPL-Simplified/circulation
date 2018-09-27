@@ -16,15 +16,15 @@ from nose.tools import (
 from . import (
     DatabaseTest,
 )
-from classifier import Classifier
+from ..classifier import Classifier
 
-from config import (
+from ..config import (
     Configuration,
     temp_config,
 )
-from external_search import DummyExternalSearchIndex
-from mirror import MirrorUploader
-from model import (
+from ..external_search import DummyExternalSearchIndex
+from ..mirror import MirrorUploader
+from ..model import (
     create,
     dump_query,
     get_one,
@@ -42,14 +42,15 @@ from model import (
     Identifier,
     Library,
     LicensePool,
+    MaterializedWorkWithGenre as work_model,
     RightsStatus,
     Timestamp,
     Work,
 )
-from lane import Lane
-from metadata_layer import LinkData
+from ..lane import Lane
+from ..metadata_layer import LinkData
 
-from scripts import (
+from ..scripts import (
     AddClassificationScript,
     CheckContributorNamesInDB,
     CollectionInputScript,
@@ -87,21 +88,21 @@ from scripts import (
     WorkClassificationScript,
     WorkProcessingScript,
 )
-from testing import(
+from ..testing import(
     AlwaysSuccessfulBibliographicCoverageProvider,
     BrokenBibliographicCoverageProvider,
     AlwaysSuccessfulCollectionCoverageProvider,
     AlwaysSuccessfulWorkCoverageProvider,
 )
-from monitor import (
+from ..monitor import (
     Monitor,
     CollectionMonitor,
     ReaperMonitor,
 )
-from util.opds_writer import (
+from ..util.opds_writer import (
     OPDSFeed,
 )
-from util.worker_pools import (
+from ..util.worker_pools import (
     DatabasePool,
 )
 
@@ -2193,7 +2194,6 @@ Here's your problem: your works aren't open access and have no licenses owned.
         work.presentation_ready = False
 
         # It's not in the materialized view.
-        from model import MaterializedWorkWithGenre as work_model
         mw_query = self._db.query(work_model)
         eq_(0, mw_query.count())
 
@@ -2263,7 +2263,6 @@ I would now expect you to be able to find 1 works.
         work.presentation_ready = False
 
         # It's not in the materialized view.
-        from model import MaterializedWorkWithGenre as work_model
         mw_query = self._db.query(work_model)
         eq_(0, mw_query.count())
 

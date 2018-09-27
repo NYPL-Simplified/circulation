@@ -5,7 +5,9 @@ import os
 import json
 import logging
 import copy
+from sqlalchemy import create_engine
 from sqlalchemy.engine.url import make_url
+from sqlalchemy.orm.session import Session
 from flask_babel import lazy_gettext as _
 
 from facets import FacetConstants
@@ -377,13 +379,13 @@ class Configuration(object):
         If it's not there, we will look in the appropriate environment
         variable.
         """
+
         # To avoid expensive mistakes, test and production databases
         # are always configured with separate keys. The TESTING variable
         # controls which database is used, and it's set by the
         # package_setup() function called in every component's
         # tests/__init__.py.
         test = os.environ.get('TESTING', False)
-
         if test:
             config_key = cls.DATABASE_TEST_URL
             environment_variable = cls.DATABASE_TEST_ENVIRONMENT_VARIABLE

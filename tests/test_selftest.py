@@ -13,12 +13,12 @@ import datetime
 
 from . import DatabaseTest
 
-from selftest import (
+from ..selftest import (
     SelfTestResult,
     HasSelfTests,
 )
 
-from util.http import IntegrationException
+from ..util.http import IntegrationException
 
 class TestSelfTestResult(object):
 

@@ -15,7 +15,7 @@ from nose.tools import (
     set_trace,
 )
 
-from model import (
+from ..model import (
     Contributor,
     DataSource,
     Work,
@@ -31,10 +31,10 @@ from . import (
     DummyHTTPClient,
 )
 
-from util.personal_names import (
+from ..util.personal_names import (
     display_name_to_sort_name,
 )
-from mock_analytics_provider import MockAnalyticsProvider
+from ..mock_analytics_provider import MockAnalyticsProvider
 
 
 

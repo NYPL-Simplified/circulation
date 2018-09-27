@@ -1,7 +1,7 @@
 from nose.tools import eq_, set_trace
-from classifier.ddc import DeweyDecimalClassifier as DDC
-from classifier import *
-import classifier
+from ...classifier.ddc import DeweyDecimalClassifier as DDC
+from ...classifier import *
+from ... import classifier
 
 class TestDewey(object):
 

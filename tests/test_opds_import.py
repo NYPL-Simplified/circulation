@@ -19,11 +19,11 @@ from . import (
     DatabaseTest,
 )
 
-from config import (
+from ..config import (
     CannotLoadConfiguration,
     IntegrationException,
 )
-from opds_import import (
+from ..opds_import import (
     AccessNotAuthenticated,
     MetadataWranglerOPDSLookup,
     OPDSImporter,
@@ -31,17 +31,17 @@ from opds_import import (
     OPDSXMLParser,
     SimplifiedOPDSLookup,
 )
-from util.opds_writer import (
+from ..util.opds_writer import (
     AtomFeed,
     OPDSFeed,
     OPDSMessage,
 )
-from metadata_layer import (
+from ..metadata_layer import (
     LinkData,
     CirculationData,
     Metadata,
 )
-from model import (
+from ..model import (
     Collection,
     Contributor,
     CoverageRecord,
@@ -57,14 +57,14 @@ from model import (
     Subject,
     Work,
 )
-from coverage import CoverageFailure
+from ..coverage import CoverageFailure
 
-from s3 import (
+from ..s3 import (
     S3Uploader,
     MockS3Uploader,
 )
-from testing import DummyHTTPClient
-from util.http import BadResponseException
+from ..testing import DummyHTTPClient
+from ..util.http import BadResponseException
 
 
 class DoomedOPDSImporter(OPDSImporter):
@@ -787,7 +787,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_('7', seven.subject.identifier)
         eq_(100, seven.weight)
         eq_(Subject.AGE_RANGE, seven.subject.type)
-        from classifier import Classifier
+        from ..classifier import Classifier
         classifier = Classifier.classifiers.get(seven.subject.type, None)
         classifier.classify(seven.subject)
 
