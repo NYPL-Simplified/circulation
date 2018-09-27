@@ -91,6 +91,10 @@ class EditionConstants(object):
     ELECTRONIC_FORMAT = u"Electronic"
     CODEX_FORMAT = u"Codex"
 
+    # These are all media known to the system.
+    KNOWN_MEDIA = (BOOK_MEDIUM, PERIODICAL_MEDIUM, AUDIO_MEDIUM, MUSIC_MEDIUM,
+                   VIDEO_MEDIUM, IMAGE_MEDIUM, COURSEWARE_MEDIUM)
+
     # These are the media types currently fulfillable by the default
     # client.
     FULFILLABLE_MEDIA = [BOOK_MEDIUM, AUDIO_MEDIUM]

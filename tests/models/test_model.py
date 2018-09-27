@@ -19,6 +19,7 @@ from ...model import (
     get_one,
     SessionManager,
     Timestamp,
+    numericrange_to_tuple,
     tuple_to_numericrange,
 )
 
@@ -230,8 +231,10 @@ class TestMaterializedViews(DatabaseTest):
         eq_(edition1.id, o1.list_edition_id)
         eq_(edition2.id, o2.list_edition_id)
 
-class TestTupleToNumericrange(object):
-    """Test the tuple_to_numericrange helper function."""
+class TestNumericRangeConversion(object):
+    """Test the helper functions that convert between tuples and NumericRange
+    objects.
+    """
 
     def test_tuple_to_numericrange(self):
         f = tuple_to_numericrange
@@ -254,3 +257,10 @@ class TestTupleToNumericrange(object):
         eq_(10, ten_and_up.lower)
         eq_(None, ten_and_up.upper)
         eq_(False, ten_and_up.upper_inc)
+
+    def test_numericrange_to_tuple(self):
+        m = numericrange_to_tuple
+        two_to_six_inclusive = NumericRange(2,6, '[]')
+        eq_((2,6), m(two_to_six_inclusive))
+        two_to_six_exclusive = NumericRange(2,6, '()')
+        eq_((3,5), m(two_to_six_exclusive))

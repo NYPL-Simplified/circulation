@@ -152,7 +152,7 @@ def numericrange_to_tuple(r):
     lower = r.lower
     upper = r.upper
     if lower and not r.lower_inc:
-        lower -= 1
+        lower += 1
     if upper and not r.upper_inc:
         upper -= 1
     return lower, upper

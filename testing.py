@@ -63,7 +63,7 @@ from coverage import (
     WorkCoverageProvider,
 )
 
-from external_search import DummyExternalSearchIndex
+from external_search import MockExternalSearchIndex
 from log import LogConfiguration
 import external_search
 import mock
@@ -161,7 +161,7 @@ class DatabaseTest(object):
             "9780674368279", "0636920028468", "9781936460236", "9780316075978"
         ]
         if mock_search:
-            self.search_mock = mock.patch(external_search.__name__ + ".ExternalSearchIndex", DummyExternalSearchIndex)
+            self.search_mock = mock.patch(external_search.__name__ + ".ExternalSearchIndex", MockExternalSearchIndex)
             self.search_mock.start()
         else:
             self.search_mock = None

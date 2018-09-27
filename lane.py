@@ -10,6 +10,8 @@ from psycopg2.extras import NumericRange
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import Select
 
+from accept_types import parse_header
+
 from config import Configuration
 from flask_babel import lazy_gettext as _
 
@@ -49,6 +51,10 @@ from entrypoint import (
     EntryPoint,
     EverythingEntryPoint,
 )
+from external_search import (
+    Filter,
+    Query,
+)
 from model import (
     directly_modified,
     get_one_or_create,
@@ -73,6 +79,7 @@ from model import (
     Work,
     WorkGenre,
 )
+from model.constants import EditionConstants
 from facets import FacetConstants
 from problem_details import *
 from util import (
@@ -120,7 +127,8 @@ class FacetsWithEntryPoint(FacetConstants):
 
     @classmethod
     def from_request(
-            cls, library, facet_config, get_argument, worklist, **extra_kwargs
+            cls, library, facet_config, get_argument, get_header, worklist,
+            **extra_kwargs
     ):
         """Load a faceting object from an HTTP request.
 
@@ -130,6 +138,10 @@ class FacetsWithEntryPoint(FacetConstants):
         :param get_argument: A callable that takes one argument and
            retrieves (or pretends to retrieve) a query string
            parameter of that name from an incoming HTTP request.
+
+        :param get_header: A callable that takes one argument and
+           retrieves (or pretends to retrieve) an HTTP header
+           of that name from an incoming HTTP request.
 
         :param worklist: A WorkList associated with the current request,
            if any.
@@ -141,12 +153,13 @@ class FacetsWithEntryPoint(FacetConstants):
             a problem with the input from the request.
         """
         return cls._from_request(
-            facet_config, get_argument, worklist, **extra_kwargs
+            facet_config, get_argument, get_header, worklist, **extra_kwargs
         )
 
     @classmethod
     def _from_request(
-            cls, facet_config, get_argument, worklist, **extra_kwargs
+            cls, facet_config, get_argument, get_header, worklist,
+            **extra_kwargs
     ):
         """Load a faceting object from an HTTP request.
 
@@ -228,6 +241,14 @@ class FacetsWithEntryPoint(FacetConstants):
             qu = self.entrypoint.apply(qu)
         return qu
 
+    def modify_search_filter(self, filter):
+        """Modify the given external_search.Filter object
+        so that it reflects this set of facets.
+        """
+        if self.entrypoint:
+            self.entrypoint.modify_search_filter(filter)
+        return filter
+
 
 class Facets(FacetsWithEntryPoint):
     """A full-fledged facet class that supports complex navigation between
@@ -246,7 +267,8 @@ class Facets(FacetsWithEntryPoint):
         )
 
     @classmethod
-    def from_request(cls, library, config, get_argument, worklist, **extra):
+    def from_request(cls, library, config, get_argument, get_header, worklist, 
+                     **extra):
         """Load a faceting object from an HTTP request."""
         g = Facets.ORDER_FACET_GROUP_NAME
         order = get_argument(g, config.default_facet(g))
@@ -289,7 +311,8 @@ class Facets(FacetsWithEntryPoint):
         }
         extra['library'] = library
 
-        return cls._from_request(config, get_argument, worklist, **extra)
+        return cls._from_request(config, get_argument, get_header, worklist,
+                                 **extra)
 
     def __init__(self, library, collection, availability, order,
                  order_ascending=None, enabled_facets=None, entrypoint=None):
@@ -637,6 +660,59 @@ class FeaturedFacets(FacetsWithEntryPoint):
 
 
 class SearchFacets(FacetsWithEntryPoint):
+    """A Facets object designed to filter search results.
+
+    Most search result filtering is handled by WorkList, but this
+    allows someone to, e.g., search a multi-lingual WorkList in their
+    preferred language.
+    """
+    
+    def __init__(self, entrypoint=None, media=None, languages=None, **kwargs):
+        super(SearchFacets, self).__init__(entrypoint, **kwargs)
+        if media == Edition.ALL_MEDIUM:
+            self.media = media
+        else:
+            self.media = self._ensure_list(media)
+        self.media_argument = media
+
+        self.languages = self._ensure_list(languages)
+
+    def _ensure_list(self, x):
+        """Make sure x is a list of values, if there is a value at all."""
+        if x is None:
+            return None
+        if isinstance(x, list):
+            return x
+        return [x]
+
+    @classmethod
+    def from_request(cls, library, config, get_argument, get_header, worklist,
+                     **extra):
+
+        # Searches against a WorkList that has no particular language
+        # restrictions will use the languages defined in the
+        # Accept-Language header used by the client.
+        language_header = get_header("Accept-Language")
+        languages = None
+        if language_header:
+            languages = parse_header(language_header)
+            languages = map(str, languages)
+            languages = map(LanguageCodes.iso_639_2_for_locale, languages)
+            languages = [l for l in languages if l]
+        languages = languages or None
+
+        # The client can request an additional restriction on 
+        # the media types to be returned by searches.
+
+        media = get_argument("media", None)
+        if media not in EditionConstants.KNOWN_MEDIA:
+            media = None
+        extra['media'] = media
+        extra['languages'] = languages
+
+        return cls._from_request(
+            config, get_argument, get_header, worklist, **extra
+        )
 
     @classmethod
     def selectable_entrypoints(cls, worklist):
@@ -651,6 +727,40 @@ class SearchFacets(FacetsWithEntryPoint):
         if EverythingEntryPoint not in entrypoints:
             entrypoints.insert(0, EverythingEntryPoint)
         return entrypoints
+
+    def modify_search_filter(self, filter):
+        """Modify the given external_search.Filter object
+        so that it reflects this SearchFacets object.
+        """
+        super(SearchFacets, self).modify_search_filter(filter)
+
+        # The incoming 'media' argument takes precedence over any
+        # media restriction defined by the WorkList or the EntryPoint.
+        if self.media == Edition.ALL_MEDIUM:
+            # Clear any preexisting media restrictions.
+            filter.media = None
+        elif self.media:
+            filter.media = self.media
+
+        # A language restriction already set by the WorkList or
+        # EntryPoint takes precedence over any language restriction
+        # defined by this SearchFacets object.  That's because
+        # clients always send the Accept-Language header passively --
+        # it's not an explicitly expressed preference the way `media`
+        # is.
+        if self.languages and not filter.languages:
+            filter.languages = self.languages
+
+    def items(self):
+        """Yields a 2-tuple for every active facet setting.
+
+        This means the EntryPoint (handled by the superclass)
+        as well as a setting for 'media'.
+        """
+        for k, v in super(SearchFacets, self).items():
+            yield k, v
+        if self.media_argument:
+            yield ("media", self.media_argument)
 
 
 class Pagination(object):
@@ -932,6 +1042,13 @@ class WorkList(object):
         return False
 
     @property
+    def parent(self):
+        """A WorkList has no parent. This method is defined for compatibility
+        with Lane.
+        """
+        return None
+
+    @property
     def parentage(self):
         """WorkLists have no parentage. This method is defined for compatibility
         with Lane.
@@ -939,12 +1056,66 @@ class WorkList(object):
         return []
 
     @property
+    def inherit_parent_restrictions(self):
+        """Since a WorkList has no parent, it cannot inherit any restrictions
+        from its parent. This method is defined for compatibility
+        with Lane.
+        """
+        return False
+
+    @property
+    def hierarchy(self):
+        """The portion of the WorkList hierarchy that culminates in this
+        WorkList.
+        """
+        return list(reversed(list(self.parentage))) + [self]
+
+    def inherited_value(self, k):
+        """Try to find this WorkList's value for the given key (e.g. 'fiction'
+        or 'audiences').
+
+        If it's not set, try to inherit a value from the WorkList's
+        parent. This only works if this WorkList has a parent and is
+        configured to inherit values from its parent.
+
+        Note that inheritance works differently for genre_ids and
+        customlist_ids -- use inherited_values() for that.
+        """
+        value = getattr(self, k)
+        if value not in (None, []):
+            return value
+        else:
+            if not self.parent or not self.inherit_parent_restrictions:
+                return None
+            parent = self.parent
+            return parent.inherited_value(k)
+
+    def inherited_values(self, k):
+        """Find the values for the given key (e.g. 'genre_ids' or
+        'customlist_ids') imposed by this WorkList and its parentage.
+
+        This is for values like .genre_ids and .customlist_ids, where
+        each member of the WorkList hierarchy can impose a restriction
+        on query results, and the effects of the restrictions are
+        additive.
+        """
+        values = []
+        if not self.inherit_parent_restrictions:
+            hierarchy = [self]
+        else:
+            hierarchy = self.hierarchy
+        for wl in hierarchy:
+            value = getattr(wl, k)
+            if value not in (None, []):
+                values.append(value)
+        return values
+
+    @property
     def full_identifier(self):
         """A human-readable identifier for this WorkList that
         captures its position within the heirarchy.
         """
-        lane_parentage = list(reversed(list(self.parentage))) + [self]
-        full_parentage = [unicode(x.display_name) for x in lane_parentage]
+        full_parentage = [unicode(x.display_name) for x in self.hierarchy]
         if getattr(self, 'library', None):
             # This WorkList is associated with a specific library.
             # incorporate the library's name to distinguish between it
@@ -1444,80 +1615,41 @@ class WorkList(object):
         """By default, a WorkList is searchable."""
         return self
 
-    def search(self, _db, query, search_client, media=None, pagination=None, languages=None, facets=None):
+    def search(self, _db, query, search_client, pagination=None, facets=None,
+               debug=False):
         """Find works in this WorkList that match a search query.
 
+        :param _db: A database connection.
+        :param query: Search for this string.
+        :param search_client: An ExternalSearchIndex object.
+        :param pagination: A Pagination object.
         :param facets: A faceting object, probably a SearchFacets.
+        :param debug: Pass in True to see a summary of results returned
+            from the search index.
         """
+        results = []
+        work_ids = None
+        if not search_client:
+            # We have no way of actually doing a search. Return nothing.
+            return results
+
         if not pagination:
             pagination = Pagination(
                 offset=0, size=Pagination.DEFAULT_SEARCH_SIZE
             )
 
-        # Get the search results from Elasticsearch.
-        results = []
-
-        if not media:
-            media = self.media
-        elif media is Edition.ALL_MEDIUM:
-            media = None
-        if isinstance(media, basestring):
-            media = [media]
-
-        default_languages = languages
-        if self.languages:
-            default_languages = self.languages
-
-        if self.target_age:
-            target_age = numericrange_to_tuple(self.target_age)
-        else:
-            target_age = None
-
-        if search_client:
-            docs = None
-            a = time.time()
-
-            # These arguments to query_works might be modified by
-            # the facets in play.
-            kwargs = dict(
-                media=media,
-                languages=default_languages,
-                fiction=self.fiction,
-                audiences=self.audiences,
-                target_age=target_age,
-                in_any_of_these_genres=self.genre_ids,
-                on_any_of_these_lists=self.customlist_ids,
+        filter = Filter.from_worklist(_db, self, facets)
+        try:
+            work_ids = search_client.query_works(
+                query, filter, pagination, debug
             )
-            if facets and facets.entrypoint:
-                kwargs = facets.entrypoint.modified_search_arguments(**kwargs)
-
-            # These arguments to query_works cannot be modified by
-            # the facets in play.
-            kwargs.update(
-                dict(
-                    library=self.get_library(_db),
-                    query_string=query,
-                    fields=["_id", "title", "author", "license_pool_id"],
-                    size=pagination.size,
-                    offset=pagination.offset,
-                )
+        except elasticsearch.exceptions.ElasticsearchException, e:
+            logging.error(
+                "Problem communicating with ElasticSearch. Returning empty list of search results.",
+                exc_info=e
             )
-
-            try:
-                docs = search_client.query_works(**kwargs)
-            except elasticsearch.exceptions.ElasticsearchException, e:
-                logging.error(
-                    "Problem communicating with ElasticSearch. Returning empty list of search results.",
-                    exc_info=e
-                )
-            b = time.time()
-            logging.debug("Elasticsearch query completed in %.2fsec", b-a)
-            if docs:
-                doc_ids = [
-                    int(x['_id']) for x in docs['hits']['hits']
-                ]
-                if doc_ids:
-                    results = self.works_for_specific_ids(_db, doc_ids)
+        if work_ids:
+            results = self.works_for_specific_ids(_db, work_ids)
 
         return results
 
@@ -2277,17 +2409,28 @@ class Lane(Base, WorkList):
             _db, relevant_lanes, queryable_lanes, facets=facets
         )
 
-    def search(self, _db, query, search_client, media=None, pagination=None, languages=None, facets=None):
+    def search(self, _db, query_string, search_client, pagination=None,
+               facets=None):
         """Find works in this lane that also match a search query.
 
-        :param facets: A SearchFacets object.
+        :param _db: A database connection.
+        :param query_string: Search for this string.
+        :param search_client: An ExternalSearchIndex object.
+        :param pagination: A Pagination object.
+        :param facets: A faceting object, probably a SearchFacets.
         """
-        target = self.search_target
+        search_target = self.search_target
 
-        if target == self:
-            return super(Lane, self).search(_db, query, search_client, media, pagination, languages, facets=facets)
+        if search_target == self:
+            # The actual implementation happens in WorkList.
+            m = super(Lane, self).search
         else:
-            return target.search(_db, query, search_client, media, pagination, languages, facets=facets)
+            # Searches in this Lane actually go against some other WorkList.
+            # Tell that object to run the search.
+            m = search_target.search
+
+        return m(_db, query_string, search_client, pagination,
+                 facets=facets)
 
     def bibliographic_filter_clause(self, _db, qu, featured, outer_join=False):
         """Create an AND clause that restricts a query to find

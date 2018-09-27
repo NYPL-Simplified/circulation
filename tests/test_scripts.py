@@ -22,7 +22,7 @@ from ..config import (
     Configuration,
     temp_config,
 )
-from ..external_search import DummyExternalSearchIndex
+from ..external_search import MockExternalSearchIndex
 from ..mirror import MirrorUploader
 from ..model import (
     create,
@@ -2102,7 +2102,7 @@ class TestFixInvisibleWorksScript(DatabaseTest):
 
     def test_no_presentation_ready_works(self):
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         self.MockScript(self._db, output, search=search).do_run()
         eq_("""0 presentation-ready works.
@@ -2112,7 +2112,7 @@ Here's your problem: there are no presentation-ready works.
 
     def test_no_materialized_view(self):
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         # This work is marked as presentation-ready, but it has no
         # LicensePools, and will not show up in the materialized view.
@@ -2129,7 +2129,7 @@ Here's your problem: your presentation-ready works are not making it into the ma
 
     def test_no_delivery_mechanism(self):
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         # This work has a license pool, but no delivery mechanisms.
         work = self._work(with_license_pool=True)
@@ -2148,7 +2148,7 @@ Here's your problem: your works don't have delivery mechanisms.
 
     def test_suppressed_pool(self):
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         # This work has a license pool, but it's suppressed.
         work = self._work(with_license_pool=True)
@@ -2166,7 +2166,7 @@ Here's your problem: your works' license pools are suppressed.
 
     def test_no_licenses(self):
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         # This work has a license pool, but no licenses owned.
         work = self._work(with_license_pool=True)
@@ -2184,7 +2184,7 @@ Here's your problem: your works aren't open access and have no licenses owned.
 
     def test_success(self):
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         lane = self._lane()
 
@@ -2231,7 +2231,7 @@ I would now expect you to be able to find 1 works.
 
     def test_no_library(self):
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
         FixInvisibleWorksScript(self._db, output, search=search).do_run()
         assert "There are no libraries in the system -- that's a problem" in output.getvalue()
 
@@ -2240,7 +2240,7 @@ I would now expect you to be able to find 1 works.
         problems.
         """
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         library = self._default_library
         old_collections = library.collections
@@ -2252,7 +2252,7 @@ I would now expect you to be able to find 1 works.
         library.collections = old_collections
 
     def test_with_collections(self):
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         library = self._library()
         c1 = self._collection()
