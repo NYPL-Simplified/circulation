@@ -577,7 +577,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         for entrypoint_name in chosen_entrypoints:
             entrypoint = EntryPoint.BY_INTERNAL_NAME.get(entrypoint_name)
             if not entrypoint:
-                logging.warn("Ignoring unknown entry point %s" % entrypoint)
+                logging.warn("Ignoring unknown entry point %s" % entrypoint_name)
                 continue
             for order in chosen_orders:
                 if order not in allowed_orders:
@@ -601,26 +601,21 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
 
     def pagination(self, lane):
         """This script covers a user-specified number of pages."""
-        pagination = Pagination.default()
-        yield pagination
+        page = Pagination.default()
         for pagenum in range(0, self.pages):
-            yield pagination.next_page
+            yield page
+            page = page.next_page
 
-    def do_generate(self, lane, facets, pagination):
+    def do_generate(self, lane, facets, pagination, feed_class=None):
         feeds = []
         title = lane.display_name
-        if isinstance(lane, Lane):
-            lane_id = lane.id
-        else:
-            # Presumably this is the top-level WorkList.
-            lane_id = None
-
         library = lane.get_library(self._db)
         annotator = self.app.manager.annotator(lane, facets=facets)
         url = annotator.feed_url(lane, facets=facets, pagination=pagination)
-        return AcquisitionFeed.page(
-            self._db, title, url, lane, annotator,
-            facets=facets, pagination=pagination,
+        feed_class = feed_class or AcquisitionFeed
+        return feed_class.page(
+            _db=self._db, title=title, url=url, lane=lane,
+            annotator=annotator, facets=facets, pagination=pagination,
             force_refresh=True
         )
 

@@ -239,45 +239,124 @@ class TestCacheRepresentationPerLane(TestLaneScript):
         script = CacheRepresentationPerLane(self._db, manager=object())
         eq_([None], list(script.pagination(object())))
 
+
 class TestCacheFacetListsPerLane(TestLaneScript):
 
     def test_arguments(self):
+        # Verify that command-line arguments become attributes of
+        # the CacheFacetListsPerLane object.
         script = CacheFacetListsPerLane(
             self._db, ["--order=title", "--order=added"],
-            testing=True
+            manager=object()
         )
         eq_(['title', 'added'], script.orders)
         script = CacheFacetListsPerLane(
             self._db, ["--availability=all", "--availability=always"],
-            testing=True
+            manager=object()
         )
         eq_(['all', 'always'], script.availabilities)
 
         script = CacheFacetListsPerLane(
             self._db, ["--collection=main", "--collection=full"],
-            testing=True
+            manager=object()
         )
         eq_(['main', 'full'], script.collections)
 
         script = CacheFacetListsPerLane(
-            self._db, ['--pages=1'], testing=True
+            self._db, ["--entrypoint=Audio", "--entrypoint=Book"],
+            manager=object()
+        )
+        eq_(['Audio', 'Book'], script.entrypoints)
+
+        script = CacheFacetListsPerLane(
+            self._db, ['--pages=1'], manager=object()
         )
         eq_(1, script.pages)
 
-    def test_process_lane(self):
-        script = CacheFacetListsPerLane(
-            self._db, ["--availability=all", "--availability=always",
-                       "--collection=main", "--collection=full",
-                       "--order=title", "--pages=1"],
-            testing=True
-        )
-        with script.app.test_request_context("/"):
-            flask.request.library = self._default_library
-            lane = self._lane()
-            cached_feeds = script.process_lane(lane)
-            # 2 availabilities * 2 collections * 1 order * 1 page = 4 feeds
-            eq_(4, len(cached_feeds))
+    def test_facets(self):
+        # Verify that CacheFacetListsPerLane.facets combines the items
+        # found in the attributes created by command-line parsing.
+        script = CacheFacetListsPerLane(self._db, manager=object())
+        script.orders = [Facets.ORDER_TITLE, Facets.ORDER_AUTHOR, "nonsense"]
+        script.entrypoints = [AudiobooksEntryPoint.INTERNAL_NAME, "nonsense"]
+        script.availabilities = [Facets.AVAILABLE_NOW, "nonsense"]
+        script.collections = [Facets.COLLECTION_FULL, "nonsense"]
 
+        lane = self._lane()
+
+        # We get one Facets object for every non-nonsense combination
+        # of parameters. Here there are 2*1*1*1 combinations.
+        f1, f2 = script.facets(lane)
+
+        # The facets differ only in their .order.
+        eq_(Facets.ORDER_TITLE, f1.order)
+        eq_(Facets.ORDER_AUTHOR, f2.order)
+
+        # All other fields are tied to the only acceptable values
+        # given in the script attributes.
+        for f in f1, f2:
+            eq_(AudiobooksEntryPoint, f.entrypoint)
+            eq_(Facets.AVAILABLE_NOW, f.availability)
+            eq_(Facets.COLLECTION_FULL, f.collection)
+
+    def test_pagination(self):
+        script = CacheFacetListsPerLane(self._db, manager=object())
+        script.pages = 3
+        lane = self._lane()
+        p1, p2, p3 = script.pagination(lane)
+        pagination = Pagination.default()
+        eq_(pagination.query_string, p1.query_string)
+        eq_(pagination.next_page.query_string, p2.query_string)
+        eq_(pagination.next_page.next_page.query_string, p3.query_string)
+
+    def test_do_generate(self):
+        # When it's time to generate a feed, AcquisitionFeed.do_generate
+        # is called with the right arguments.
+        class MockAcquisitionFeed(object):
+            called_with = None
+            @classmethod
+            def page(cls, **kwargs):
+                cls.called_with = kwargs
+                return "here's your feed"
+
+        # Test our ability to generate a single feed.
+        script = CacheFacetListsPerLane(self._db, testing=True)
+        facets = Facets.default(self._default_library)
+        pagination = Pagination.default()
+
+        with script.app.test_request_context("/"):
+            lane = self._lane()
+            result = script.do_generate(
+                lane, facets, pagination, feed_class=MockAcquisitionFeed
+            )
+            eq_("here's your feed", result)
+
+            args = MockAcquisitionFeed.called_with
+            eq_(self._db, args['_db'])
+            eq_(lane, args['lane'])
+            eq_(lane.display_name, args['title'])
+            eq_(True, args['force_refresh'])
+
+            # The Pagination object was passed into
+            # MockAcquisitionFeed.page, and it was also used to make the
+            # feed URL (see below).
+            eq_(pagination, args['pagination'])
+
+            # The Facets object was passed into
+            # MockAcquisitionFeed.page, and it was also used to make
+            # the feed URL and to create the feed annotator.
+            eq_(facets, args['facets'])
+            annotator = args['annotator']
+            eq_(facets, annotator.facets)
+            eq_(
+                args['url'],
+                annotator.feed_url(lane, facets=facets, pagination=pagination)
+            )
+
+            # Try again without mocking AcquisitionFeed to verify that
+            # we get something that looks like an OPDS feed.
+            result = script.do_generate(lane, facets, pagination)
+            assert result.startswith('<feed')
 
 class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
 
