@@ -507,6 +507,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             title = lane.display_name
 
         if show_feed:
+            # TODO: Facets aren't being propagated here.
             return self.feed_url(lane, self.facets), title
 
         return self.lane_url(lane, self.facets), title
@@ -727,11 +728,14 @@ class LibraryAnnotator(CirculationManagerAnnotator):
 
         # Add a 'search' link if the lane is searchable.
         if lane and lane.search_target:
+            kwargs = {}
+            if self.facets != None:
+                kwargs.update(dict(self.facets.items()))
             lane_identifier = self._lane_identifier(lane)
             search_url = self.url_for(
                 'lane_search', lane_identifier=lane_identifier,
                 library_short_name=self.library.short_name,
-                _external=True
+                _external=True, **kwargs
             )
             search_link = dict(
                 rel="search",
