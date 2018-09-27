@@ -15,7 +15,7 @@ from ..entrypoint import (
     AudiobooksEntryPoint,
     MediumEntryPoint,
 )
-from external_search import Filter
+from ..external_search import Filter
 
 
 class TestEntryPoint(DatabaseTest):

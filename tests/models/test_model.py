@@ -19,6 +19,7 @@ from ...model import (
     get_one,
     SessionManager,
     Timestamp,
+    numericrange_to_tuple,
     tuple_to_numericrange,
 )
 

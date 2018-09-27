@@ -79,6 +79,7 @@ from model import (
     Work,
     WorkGenre,
 )
+from model.constants import EditionConstants
 from facets import FacetConstants
 from problem_details import *
 from util import (
