@@ -8,7 +8,7 @@ addons:
       - postgresql-contrib-9.3
 
 env:
-#  - ES_VERSION="6.3.2" ES_DOWNLOAD="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz"
+#  - ES_VERSION="6.3.2" ES_DOWNLOAD="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz" SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_core_test"
   - ES_VERSION="1.7.0" ES_DOWNLOAD="https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz"
 
 services:
@@ -28,8 +28,6 @@ before_install:
 install:
   - pip install -r requirements.txt
   - python -m textblob.download_corpora
-  - cp config.json.sample config.json
-  - export SIMPLIFIED_CONFIGURATION_FILE="${TRAVIS_BUILD_DIR}/config.json"
   - wget ${ES_DOWNLOAD}
   - export ES_PATH=elasticsearch-${ES_VERSION}
   - tar -xzf ${ES_PATH}.tar.gz

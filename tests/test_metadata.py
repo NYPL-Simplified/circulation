@@ -8,8 +8,8 @@ import pkgutil
 import csv
 from copy import deepcopy
 
-from classifier import Classifier
-from metadata_layer import (
+from ..classifier import Classifier
+from ..metadata_layer import (
     CSVFormatError,
     CSVMetadataImporter,
     CirculationData,
@@ -26,7 +26,7 @@ from metadata_layer import (
 )
 
 import os
-from model import (
+from ..model import (
     Contributor,
     CoverageRecord,
     DataSource,
@@ -46,8 +46,8 @@ from . import (
     DummyMetadataClient,
 )
 
-from s3 import MockS3Uploader
-from classifier import NO_VALUE, NO_NUMBER
+from ..s3 import MockS3Uploader
+from ..classifier import NO_VALUE, NO_NUMBER
 
 class TestIdentifierData(object):
 

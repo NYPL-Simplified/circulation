@@ -1,21 +1,21 @@
-from testing import DatabaseTest
+from ..testing import DatabaseTest
 import json
 from nose.tools import (
     assert_raises_regexp,
     eq_,
     set_trace,
 )
-from model import (
+from ..model import (
     Edition,
 )
-from entrypoint import (
+from ..entrypoint import (
     EntryPoint,
     EbooksEntryPoint,
     EverythingEntryPoint,
     AudiobooksEntryPoint,
     MediumEntryPoint,
 )
-from external_search import Filter
+from ..external_search import Filter
 
 
 class TestEntryPoint(DatabaseTest):
@@ -113,7 +113,7 @@ class TestMediumEntryPoint(DatabaseTest):
         class Videos(MediumEntryPoint):
             INTERNAL_NAME = Edition.VIDEO_MEDIUM
 
-        from model import MaterializedWorkWithGenre
+        from ..model import MaterializedWorkWithGenre
         qu = self._db.query(MaterializedWorkWithGenre)
 
         # The default entry points filter out the video.

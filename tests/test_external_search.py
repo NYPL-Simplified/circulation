@@ -14,19 +14,19 @@ from . import (
 
 from elasticsearch.exceptions import ElasticsearchException
 
-from config import CannotLoadConfiguration
-from lane import (
+from ..config import CannotLoadConfiguration
+from ..lane import (
     Lane,
-    Pagination
+    Pagination,
 )
-from model import (
+from ..model import (
     Edition,
     ExternalIntegration,
     Genre,
     Work,
     WorkCoverageRecord,
 )
-from external_search import (
+from ..external_search import (
     ExternalSearchIndex,
     ExternalSearchIndexVersions,
     Filter,
@@ -38,7 +38,6 @@ from external_search import (
     SearchIndexCoverageProvider,
     SearchIndexMonitor,
 )
-
 # NOTE: external_search took care of handling the differences between
 # Elasticsearch versions and making sure 'Q' and 'F' are set
 # appropriately.  That's why we import them from external_search
@@ -48,7 +47,7 @@ from external_search import (
     F,
 )
 
-from classifier import Classifier
+from ..classifier import Classifier
 
 
 class TestingClient(ExternalSearchIndex):

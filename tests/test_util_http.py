@@ -1,6 +1,6 @@
 import requests
 import json
-from util.http import (
+from ..util.http import (
     HTTP,
     BadResponseException,
     RemoteIntegrationException,
@@ -13,9 +13,9 @@ from nose.tools import (
     eq_,
     set_trace
 )
-from testing import MockRequestsResponse
-from util.problem_detail import ProblemDetail
-from problem_details import INVALID_INPUT
+from ..testing import MockRequestsResponse
+from ..util.problem_detail import ProblemDetail
+from ..problem_details import INVALID_INPUT
 
 class TestHTTP(object):
 
