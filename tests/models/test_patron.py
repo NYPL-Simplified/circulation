@@ -8,12 +8,15 @@ from nose.tools import (
 import datetime
 from .. import DatabaseTest
 from ...model import create
+from ...model.credential import Credential
 from ...model.datasource import DataSource
 from ...model.library import Library
 from ...model.licensing import PolicyException
 from ...model.patron import (
     Annotation,
     Hold,
+    Loan,
+    Patron,
     PatronProfileStorage,
 )
 
@@ -472,6 +475,44 @@ class TestPatron(DatabaseTest):
             patron.synchronize_annotations = None
         assert_raises(ValueError, try_to_set_none, p2)
 
+    def test_cascade_delete(self):
+        # Create a patron and check that it has  been created
+        patron = self._patron()
+        eq_(len(self._db.query(Patron).all()), 1)
+
+        # Give the patron a loan, and check that it has been created
+        work_for_loan = self._work(with_license_pool=True)
+        pool = work_for_loan.license_pools[0]
+        loan, is_new = pool.loan_to(patron)
+        eq_(loan, patron.loans[0])
+        eq_(len(self._db.query(Loan).all()), 1)
+
+        # Give the patron a hold and check that it has been created
+        work_for_hold = self._work(with_license_pool=True)
+        pool = work_for_hold.license_pools[0]
+        hold, is_new = pool.on_hold_to(patron)
+        eq_(hold, patron.holds[0])
+        eq_(len(self._db.query(Hold).all()), 1)
+
+        # Give the patron an annotation and check that it has been created
+        annotation, is_new = create(self._db, Annotation, patron=patron)
+        eq_(annotation, patron.annotations[0])
+        eq_(len(self._db.query(Annotation).all()), 1)
+
+        # Give the patron a credential and check that it has been created
+        credential, is_new = create(self._db, Credential, patron=patron)
+        eq_(credential, patron.credentials[0])
+        eq_(len(self._db.query(Credential).all()), 1)
+
+        # Delete the patron and check that it has been deleted
+        self._db.delete(patron)
+        eq_(len(self._db.query(Patron).all()), 0)
+
+        # The patron's loan, hold, annotation, and credential should also be gone
+        eq_(len(self._db.query(Loan).all()), 0)
+        eq_(len(self._db.query(Hold).all()), 0)
+        eq_(len(self._db.query(Annotation).all()), 0)
+        eq_(len(self._db.query(Credential).all()), 0)
 
 class TestPatronProfileStorage(DatabaseTest):
 
