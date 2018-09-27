@@ -419,8 +419,6 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         One feed will be generated for each combination of Facets and
         Pagination objects returned by facets() and pagination().
         """
-        a = time.time()
-
         cached_feeds = []
         for facets in self.facets(lane):
             for pagination in self.pagination(lane):
@@ -433,15 +431,15 @@ class CacheRepresentationPerLane(LaneSweeperScript):
                     "Generating feed for %s.%s", lane.full_identifier,
                     extra_description
                 )
+                a = time.time()
                 feed = self.do_generate(lane, facets, pagination)
+                b = time.time()
                 if feed:
                     cached_feeds.append(feed)
-            b = time.time()
-            total_size = sum(len(x) for x in cached_feeds)
-            self.log.info(
-                "Generated %d feed(s) for %s. Took %.2fsec to make %d bytes.",
-                len(cached_feeds), lane.full_identifier, (b-a), total_size
-            )
+                    self.log.info(
+                        "Took %.2f sec to make %d bytes.", (b-a), len(feed)
+                    )
+        total_size = sum(len(x) for x in cached_feeds)
         return cached_feeds
 
     def facets(self, lane):

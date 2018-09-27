@@ -728,6 +728,12 @@ class LibraryAnnotator(CirculationManagerAnnotator):
 
         # Add a 'search' link if the lane is searchable.
         if lane and lane.search_target:
+            # TODO: On the top level lane, when the library supports
+            # multiple entry points and the currently selected entry
+            # point is the default, the entrypoint of the search form
+            # should be EverythingEntryPoint, even though the
+            # currently selected entry point is not
+            # EverythingEntryPoint.
             kwargs = {}
             if self.facets != None:
                 kwargs.update(dict(self.facets.items()))
