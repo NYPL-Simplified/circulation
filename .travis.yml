@@ -8,6 +8,7 @@ addons:
       - postgresql-contrib-9.3
 
 env:
+#  - ES_VERSION="6.3.2" ES_DOWNLOAD="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz" SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_core_test"
   - ES_VERSION="1.7.0" ES_DOWNLOAD="https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz" SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_core_test"
 
 services:
@@ -30,8 +31,8 @@ install:
   - wget ${ES_DOWNLOAD}
   - export ES_PATH=elasticsearch-${ES_VERSION}
   - tar -xzf ${ES_PATH}.tar.gz
-  - cp elasticsearch.yml.testing ./${ES_PATH}/config/elasticsearch.yml
   - ./${ES_PATH}/bin/elasticsearch &
+
 
 before_script:
   - psql -c 'create user simplified_test;' -U postgres

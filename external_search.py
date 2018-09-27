@@ -3,10 +3,16 @@ from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk
 from elasticsearch.exceptions import ElasticsearchException
 from elasticsearch_dsl import (
+    Index,
     Search,
     Q,
-    F,
 )
+try:
+    from elasticsearch_dsl import F
+    MAJOR_VERSION = 1
+except ImportError, e:
+    from elasticsearch_dsl import Q as F
+    MAJOR_VERSION = 6
 from elasticsearch_dsl.query import (
     Bool,
     Query as BaseQuery
@@ -163,6 +169,8 @@ class ExternalSearchIndex(object):
                     repr(e)
                 )
 
+        self.search = Search(using=self.__client, index=self.works_alias)
+
         def bulk(docs, **kwargs):
             return elasticsearch_bulk(self.__client, docs, **kwargs)
         self.bulk = bulk
@@ -191,21 +199,27 @@ class ExternalSearchIndex(object):
         the works_index directly for search queries.
         """
         alias_name = self.works_alias_name(_db)
-        exists = self.indices.exists_alias(name=alias_name)
+        alias_is_set = self.indices.exists_alias(name=alias_name)
 
-        def _set_works_alias(name):
+        def _use_as_works_alias(name):
             self.works_alias = self.__client.works_alias = name
 
-        if exists:
+        if alias_is_set:
+            # The alias exists on the Elasticsearch server, so it must
+            # point _somewhere.
             exists_on_works_index = self.indices.exists_alias(
                 index=self.works_index, name=alias_name
             )
             if exists_on_works_index:
-                _set_works_alias(alias_name)
+                # It points to the index we were expecting it to point to.
+                # Use it.
+                _use_as_works_alias(alias_name)
             else:
-                # The current alias is already set on a different index.
-                # Don't overwrite it. Instead, just use the given index.
-                _set_works_alias(self.works_index)
+                # The alias exists but it points somewhere we didn't
+                # expect. Rather than changing how the alias works and
+                # then using the alias, use the index directly instead
+                # of going through the alias.
+                _use_as_works_alias(self.works_index)
             return
 
         # Create the alias and search against it.
@@ -215,11 +229,11 @@ class ExternalSearchIndex(object):
         if not response.get('acknowledged'):
             self.log.error("Alias '%s' could not be created", alias_name)
             # Work against the index instead of an alias.
-            _set_works_alias(self.works_index)
+            _use_as_works_alias(self.works_index)
             return
-        _set_works_alias(alias_name)
+        _use_as_works_alias(alias_name)
 
-    def setup_index(self, new_index=None):
+    def setup_index(self, new_index=None, **index_settings):
         """Create the search index with appropriate mapping.
 
         This will destroy the search index, and all works will need
@@ -227,13 +241,16 @@ class ExternalSearchIndex(object):
         existing index. Use it to create a new index, then change the
         alias to point to the new index.
         """
-        index = new_index or self.works_index
-        if self.indices.exists(index):
-            self.indices.delete(index)
+        index_name = new_index or self.works_index
+        if self.indices.exists(index_name):
+            self.indices.delete(index_name)
 
-        self.log.info("Creating index %s", index)
+        self.log.info("Creating index %s", index_name)
         body = ExternalSearchIndexVersions.latest_body()
-        self.indices.create(index=index, body=body)
+        body.setdefault('settings', {}).update(index_settings)
+        index = self.indices.create(
+            index=index_name, body=body
+        )
 
     def transfer_current_alias(self, _db, new_index):
         """Force -current alias onto a new index"""
@@ -255,15 +272,25 @@ class ExternalSearchIndex(object):
 
         exists = self.indices.exists_alias(name=alias_name)
         if not exists:
+            # The alias doesn't already exist. Set it.
             self.setup_current_alias(_db)
             return
 
-        exists_on_works_index = self.indices.get_alias(
-            index=self.works_index, name=alias_name
-        )
-        if not exists_on_works_index:
-            # The alias exists on one or more other indices.
-            # Remove it from them.
+        # We know the alias already exists. Before we set it to point
+        # to self.works_index, we may need to remove it from some
+        # other indices.
+        other_indices = self.indices.get_alias(name=alias_name).keys()
+
+        if self.works_index in other_indices:
+            # If the alias already points to the works index,
+            # that's fine -- we want to see if it points to any
+            # _other_ indices.
+            other_indices.remove(self.works_index)
+
+        if other_indices:
+            # The alias exists on one or more other indices.  Remove
+            # the alias altogether, then put it back on the works
+            # index.
             self.indices.delete_alias(index='_all', name=alias_name)
             self.indices.put_alias(
                 index=self.works_index, name=alias_name
@@ -297,17 +324,17 @@ class ExternalSearchIndex(object):
             return []
 
         query = Query(query_string, filter)
-        search = Search(
-            using=self.__client, index=self.works_alias
-        ).query(query.build())
+        query_without_filter = Query(query_string)
+        search = self.search.query(query.build())
         if debug:
             search = search.extra(explain=True)
 
         fields = None
         if debug:
-            # Get some additional fields to make it easy to check whether
-            # we got reasonable looking results.
-            fields = ["_id", "title", "author", "license_pool_id"]
+            # Don't restrict the fields at all -- get everything.
+            # This makes it easy to investigate everything about the
+            # results we do get.
+            fields = None
         else:
             # All we absolutely need is the document ID, which is a
             # key into the database.
@@ -315,7 +342,11 @@ class ExternalSearchIndex(object):
 
         # Change the Search object so it only retrieves the fields
         # we're asking for.
-        search = search.fields(fields)
+        if fields:
+            if MAJOR_VERSION == 1:
+                search = search.fields(fields)
+            else:
+                search = search.source(fields)
 
         if not pagination:
             from lane import Pagination
@@ -462,6 +493,11 @@ class ExternalSearchIndexVersions(object):
         '.standard' version of fields, analyzed using the standard
         analyzer for near-exact matches.
         """
+        if MAJOR_VERSION == 1:
+            string_type = 'string'
+        else:
+            string_type = 'text'
+
         settings = {
             "analysis": {
                 "filter": {
@@ -498,14 +534,14 @@ class ExternalSearchIndexVersions(object):
         mapping = cls.map_fields(
             fields=["title", "series", "subtitle", "summary", "classifications.term"],
             field_description={
-                "type": "string",
+                "type": string_type,
                 "analyzer": "en_analyzer",
                 "fields": {
                     "minimal": {
-                        "type": "string",
+                        "type": string_type,
                         "analyzer": "en_minimal_analyzer"},
                     "standard": {
-                        "type": "string",
+                        "type": string_type,
                         "analyzer": "standard"
                     }
                 }}
@@ -697,7 +733,10 @@ class Query(SearchBase):
         if self.filter:
             built_filter = self.filter.build()
             if built_filter:
-                query = Q("filtered", query=query, filter=built_filter)
+                if MAJOR_VERSION == 1:
+                    query = Q("filtered", query=query, filter=built_filter)
+                else:
+                    query = Q("bool", must=query, filter=built_filter)
 
         # There you go!
         return query
@@ -1189,7 +1228,8 @@ class Filter(SearchBase):
         collection_ids = filter_ids(self.collection_ids)
         f = None
         if collection_ids:
-            f = chain(f, F('terms', collection_id=filter_ids(collection_ids)))
+            ids = filter_ids(collection_ids)
+            f = chain(f, F('terms', **{'collections.collection_id' : ids}))
 
         if self.media:
             f = chain(f, F('terms', medium=scrub_list(self.media)))
@@ -1215,7 +1255,9 @@ class Filter(SearchBase):
             f = chain(f, F('terms', **{'genres.term' : filter_ids(genre_ids)}))
 
         for customlist_ids in self.customlist_restriction_sets:
-            f = chain(f, F('terms', list_id=filter_ids(customlist_ids)))
+            ids = filter_ids(customlist_ids)
+            f = chain(f, F('terms', **{'customlists.list_id' : ids}))
+
 
         return f
 
@@ -1240,7 +1282,11 @@ class Filter(SearchBase):
             """Either the given `clause` matches or the given field
             does not exist.
             """
-            return F('or', [clause, does_not_exist(field)])
+            if MAJOR_VERSION==1:
+                return F('or', [clause, does_not_exist(field)])
+            else:
+                return F('bool', should=[clause, does_not_exist(field)],
+                         minimum_should_match=1)
 
         clauses = []
 
@@ -1265,7 +1311,7 @@ class Filter(SearchBase):
             return clauses[0]
 
         # Both upper and lower age must match.
-        return F('and', clauses)
+        return F('bool', must=clauses)
 
     @classmethod
     def _scrub(cls, s):
