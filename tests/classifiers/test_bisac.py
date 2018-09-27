@@ -4,11 +4,11 @@ from nose.tools import (
     eq_,
     set_trace
 )
-from classifier import (
+from ...classifier import (
     BISACClassifier,
     Classifier,
 )
-from classifier.bisac import (
+from ...classifier.bisac import (
     MatchingRule,
     RE,
     anything,

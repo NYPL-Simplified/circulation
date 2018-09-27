@@ -18,19 +18,19 @@ from elasticsearch_dsl import (
 )
 from elasticsearch.exceptions import ElasticsearchException
 
-from config import CannotLoadConfiguration
-from lane import (
+from ..config import CannotLoadConfiguration
+from ..lane import (
     Lane,
-    Pagination
+    Pagination,
 )
-from model import (
+from ..model import (
     Edition,
     ExternalIntegration,
     Genre,
     Work,
     WorkCoverageRecord,
 )
-from external_search import (
+from ..external_search import (
     ExternalSearchIndex,
     ExternalSearchIndexVersions,
     Filter,
@@ -41,7 +41,7 @@ from external_search import (
     SearchIndexCoverageProvider,
     SearchIndexMonitor,
 )
-from classifier import Classifier
+from ..classifier import Classifier
 
 
 class ExternalSearchTest(DatabaseTest):

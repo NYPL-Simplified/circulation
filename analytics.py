@@ -2,6 +2,7 @@ from nose.tools import set_trace
 import importlib
 import contextlib
 import datetime
+import os
 from collections import defaultdict
 from model import ExternalIntegration
 from config import CannotLoadConfiguration
@@ -23,8 +24,17 @@ class Analytics(object):
         integrations = _db.query(ExternalIntegration).filter(ExternalIntegration.goal==ExternalIntegration.ANALYTICS_GOAL)
         # Turn each integration into an analytics provider.
         for integration in integrations:
+            kwargs = {}
+            module = integration.protocol
+            if module.startswith('.'):
+                # This is a relative import. Import it relative to
+                # this module. This should only happen during tests.
+                kwargs['package'] =__name__
+            else:
+                # This is an absolute import. Trust sys.path to find it.
+                pass
             try:
-                provider_module = importlib.import_module(integration.protocol)
+                provider_module = importlib.import_module(module, **kwargs)
                 provider_class = getattr(provider_module, "Provider", None)
                 if provider_class:
                     if not integration.libraries:
@@ -37,7 +47,7 @@ class Analytics(object):
                             self.library_providers[library.id].append(provider)
                             Analytics.LIBRARY_ENABLED.add(library.id)
                 else:
-                    self.initialization_exceptions[integration.id] = "Module %s does not have Provider defined." % integration.protocol
+                    self.initialization_exceptions[integration.id] = "Module %s does not have Provider defined." % module
             except (ImportError, CannotLoadConfiguration), e:
                 self.initialization_exceptions[integration.id] = e
 

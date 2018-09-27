@@ -36,8 +36,8 @@ from metadata_layer import (
     SubjectData,
     ReplacementPolicy,
 )
+
 from model import (
-    get_one,
     Collection,
     CoverageRecord,
     DataSource,
@@ -49,9 +49,11 @@ from model import (
     LicensePool,
     Measurement,
     Representation,
-    Subject,
     RightsStatus,
+    Subject,
+    get_one,
 )
+
 from coverage import CoverageFailure
 from util.http import (
     BadResponseException,

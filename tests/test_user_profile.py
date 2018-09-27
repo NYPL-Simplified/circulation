@@ -3,7 +3,7 @@ from nose.tools import (
     set_trace
 )
 import json
-from user_profile import (
+from ..user_profile import (
     ProfileController,
     MockProfileStorage,
 )

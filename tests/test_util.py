@@ -9,14 +9,14 @@ from nose.tools import (
     set_trace,
 )
 
-from model import (
+from ..model import (
     Identifier,
     Edition
 )
 
 from . import DatabaseTest
 
-from util import (
+from ..util import (
     Bigrams,
     english_bigrams,
     LanguageCodes,
@@ -27,7 +27,7 @@ from util import (
     fast_query_count,
     slugify
 )
-from util.median import median
+from ..util.median import median
 
 class TestLanguageCodes(object):
 

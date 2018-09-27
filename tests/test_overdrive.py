@@ -8,7 +8,7 @@ import os
 import json
 import pkgutil
 
-from overdrive import (
+from ..overdrive import (
     OverdriveAPI,
     MockOverdriveAPI,
     OverdriveAdvantageAccount,
@@ -16,13 +16,13 @@ from overdrive import (
     OverdriveBibliographicCoverageProvider,
 )
 
-from coverage import (
+from ..coverage import (
     CoverageFailure,
 )
 
-from config import CannotLoadConfiguration
+from ..config import CannotLoadConfiguration
 
-from model import (
+from ..model import (
     Collection,
     Contributor,
     DeliveryMechanism,
@@ -34,11 +34,11 @@ from model import (
     Measurement,
     Hyperlink,
 )
-from scripts import RunCollectionCoverageProviderScript
+from ..scripts import RunCollectionCoverageProviderScript
 
-from testing import MockRequestsResponse
+from ..testing import MockRequestsResponse
 
-from util.http import (
+from ..util.http import (
     BadResponseException,
     HTTP,
 )

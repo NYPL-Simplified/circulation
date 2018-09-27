@@ -4,7 +4,7 @@ from nose.tools import (
     set_trace
 )
 from lxml import etree
-from util.opds_writer import (
+from ..util.opds_writer import (
     AtomFeed,
     OPDSMessage
 )

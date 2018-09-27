@@ -16,6 +16,7 @@ from sqlalchemy.orm.session import Session
 
 from config import (
     temp_config,
+    CannotLoadConfiguration,
     Configuration,
 )
 
@@ -51,11 +52,6 @@ from metadata_layer import (
 
 from coverage import (
     BibliographicCoverageProvider,
-)
-
-from config import (
-    Configuration,
-    CannotLoadConfiguration,
 )
 
 from testing import DatabaseTest
