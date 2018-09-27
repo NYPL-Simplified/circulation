@@ -42,7 +42,7 @@ from ..external_search import (
 # Elasticsearch versions and making sure 'Q' and 'F' are set
 # appropriately.  That's why we import them from external_search
 # instead of elasticsearch_dsl.
-from external_search import (
+from ..external_search import (
     Q,
     F,
 )
