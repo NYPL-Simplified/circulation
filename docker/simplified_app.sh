@@ -8,9 +8,8 @@ version="$2"
 
 apt-get update && $minimal_apt_get_install python-dev \
   python2.7 \
-  python-cairo \
   python-nose \
-  python-pip \
+  python-setuptools \
   gcc \
   git \
   libpcre3 \
@@ -40,7 +39,7 @@ git submodule update --init --recursive
 printf "$(git describe --tags)" > .version
 
 # Use the latest version of pip to install a virtual environment for the app.
-pip install -U --no-cache-dir pip setuptools
+easy_install pip
 pip install --no-cache-dir virtualenv virtualenvwrapper
 virtualenv -p /usr/bin/python2.7 env
 

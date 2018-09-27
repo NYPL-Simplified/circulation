@@ -47,6 +47,9 @@ HOME=/var/www/circulation
 # Remove miscellaneous expired things from the database
 0 2 * * * root core/bin/run database_reaper >> /var/log/cron.log 2>&1
 
+# Sync a library's collection with NoveList
+0 0 * * 0 root core/bin/run novelist_update >> /var/log/cron.log 2>&1
+
 # The remaining scripts keep the circulation manager in sync with
 # specific types of collections.
 
@@ -76,7 +79,7 @@ HOME=/var/www/circulation
 # Enki
 #
 0 0 1 * * root core/bin/run enki_reaper >> /var/log/cron.log 2>&1
-0 3 * * * root core/bin/run enki_import >> /var/log/cron.log 2>&1
+0 */6 * * * root core/bin/run enki_import >> /var/log/cron.log 2>&1
 
 # OPDS For Distributors
 #
@@ -87,6 +90,9 @@ HOME=/var/www/circulation
 #
 0 5 * * * root core/bin/run opds_import_monitor >> /var/log/cron.log 2>&1
 
+# OPDS import from Feedbooks
+* * */7 * * root core/bin/run feedbooks_import_monitor >> /var/log/cron.log 2>&1
+
 # ODL With Consolidated Copies
 #
 0 6 * * * root core/bin/run odl_bibliographic_import_monitor >> /var/log/cron.log 2>&1
@@ -96,5 +102,4 @@ HOME=/var/www/circulation
 
 # Odilo
 #
-0 */4 * * * root core/bin/run odilo_monitor_full >> /var/log/cron.log 2>&1
 */15 * * * * root core/bin/run odilo_monitor_recent >> /var/log/cron.log 2>&1
