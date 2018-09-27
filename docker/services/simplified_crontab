@@ -14,7 +14,6 @@ HOME=/var/www/circulation
 */5 * * * * root core/bin/run cache_opds_blocks >> /var/log/cron.log 2>&1
 0 */6 * * * root core/bin/run refresh_materialized_views >> /var/log/cron.log 2>&1
 0 4 * * * root core/bin/run update_random_order >> /var/log/cron.log 2>&1
-0 1 * * * root core/bin/run database_reaper >> /var/log/cron.log 2>&1
 */6 * * * * root core/bin/run search_index_refresh >> /var/log/cron.log 2>&1
 
 # These scripts improve the bibliographic information associated with
@@ -44,6 +43,9 @@ HOME=/var/www/circulation
 
 # If any works have out-of-date OPDS entries, rebuild them,
 40 22 * * * root core/bin/run opds_entry_coverage >> /var/log/cron.log 2>&1
+
+# Remove miscellaneous expired things from the database
+0 2 * * * root core/bin/run database_reaper >> /var/log/cron.log 2>&1
 
 # Sync a library's collection with NoveList
 0 0 * * 0 root core/bin/run novelist_update >> /var/log/cron.log 2>&1
