@@ -912,7 +912,7 @@ class WorkList(object):
     def get_customlists(self, _db):
         """Get customlists associated with the Worklist."""
         if hasattr(self, "_customlist_ids"):
-            return [cl for cl in _db.query(CustomList).filter(CustomList.id.in_(self._customlist_ids))]
+            return _db.query(CustomList).filter(CustomList.id.in_(self._customlist_ids)).all()
         return []
 
     @property
