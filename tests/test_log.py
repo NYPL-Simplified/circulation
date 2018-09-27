@@ -9,7 +9,7 @@ from nose.tools import (
 )
 
 from . import DatabaseTest
-from log import (
+from ..log import (
     UTF8Formatter,
     JSONFormatter,
     LogglyHandler,
@@ -18,11 +18,11 @@ from log import (
     Loggly,
     Logger
 )
-from model import (
+from ..model import (
     ExternalIntegration,
     ConfigurationSetting
 )
-from config import Configuration
+from ..config import Configuration
 
 class TestJSONFormatter(object):
 

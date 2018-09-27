@@ -2,14 +2,13 @@ import os
 from nose.tools import eq_, set_trace
 from sqlalchemy.orm.session import Session
 
-from testing import DatabaseTest
+from ..testing import DatabaseTest
 
-from config import Configuration as BaseConfiguration
-from model import (
+from ..config import Configuration as BaseConfiguration
+from ..model import (
     ConfigurationSetting,
     ExternalIntegration,
 )
-
 
 # Create a configuration object that the tests can run against without
 # impacting the real configuration object.

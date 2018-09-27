@@ -6,11 +6,11 @@ from nose.tools import (
     set_trace,
 )
 
-from model import (
+from ..model import (
     Identifier,
     SessionManager,
 )
-from util.worker_pools import (
+from ..util.worker_pools import (
     DatabaseJob,
     DatabasePool,
     DatabaseWorker,

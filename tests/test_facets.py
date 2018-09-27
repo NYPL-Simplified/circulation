@@ -5,7 +5,7 @@ from nose.tools import (
 
 from . import DatabaseTest
 
-from facets import (
+from ..facets import (
     FacetConstants as Facets,
     FacetConfig,
 )

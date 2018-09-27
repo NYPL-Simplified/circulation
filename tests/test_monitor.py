@@ -8,14 +8,15 @@ import datetime
 
 from . import DatabaseTest
 
-from testing import (
+from ..testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
     BrokenCoverageProvider,
 )
 
-from model import (
+from ..model import (
     CachedFeed,
+    Subject,
     Collection,
     CollectionMissing,
     Credential,
@@ -29,7 +30,7 @@ from model import (
     WorkCoverageRecord,
 )
 
-from monitor import (
+from ..monitor import (
     CachedFeedReaper,
     CollectionMonitor,
     CoverageProvidersFailed,
