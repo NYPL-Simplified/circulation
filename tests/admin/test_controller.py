@@ -6334,12 +6334,11 @@ class TestLibraryRegistration(SettingsControllerTest):
             eq_((Registration.TESTING_STAGE, self.manager.url_for), args)
 
             # We would have made real HTTP requests.
-            eq_(HTTP.debuggable_post, kwargs['do_post'])
-            eq_(HTTP.debuggable_get, kwargs['do_get'])
+            eq_(HTTP.debuggable_post, kwargs.pop('do_post'))
+            eq_(HTTP.debuggable_get, kwargs.pop('do_get'))
 
-            # We would have generated a fresh public key just for this
-            # transaction.
-            eq_(None, kwargs['key'])
+            # No other keyword arguments were passed in.
+            eq_({}, kwargs)
 
 
 class TestCollectionRegistration(SettingsControllerTest):
@@ -6590,9 +6589,10 @@ class TestCollectionRegistration(SettingsControllerTest):
             goal=ExternalIntegration.METADATA_GOAL, url=self._url
         )
 
-        # An RSA key for testing purposes
-        key = RSA.generate(2048)
-        encryptor = PKCS1_OAEP.new(key)
+        # The service knows this site's public key, and is going
+        # to use it to encrypt a shared secret.
+        public_key, private_key = self.manager.sitewide_key_pair
+        encryptor = Configuration.cipher(public_key)
 
         # A catalog with registration url
         register_link_type = self.manager.admin_settings_controller.METADATA_SERVICE_URI_TYPE
@@ -6610,7 +6610,7 @@ class TestCollectionRegistration(SettingsControllerTest):
             MockRequestsResponse(200, content=json.dumps(catalog), headers=headers)
         )
 
-        # A registration document with secrets
+        # A registration document with an encrypted secret
         shared_secret = os.urandom(24).encode('hex')
         encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
         registration = dict(
@@ -6625,7 +6625,7 @@ class TestCollectionRegistration(SettingsControllerTest):
             ])
             response = self.manager.admin_settings_controller.sitewide_registration(
                 metadata_wrangler_service, do_get=self.do_request,
-                do_post=self.do_request, key=key
+                do_post=self.do_request
             )
         eq_(None, response)
 
@@ -6643,23 +6643,20 @@ class TestCollectionRegistration(SettingsControllerTest):
             assert k in document
 
         # The end result is that our ExternalIntegration for the metadata
-        # wrangler has been updated with a shared secret.
+        # wrangler has been updated with a (decrypted) shared secret.
         eq_(shared_secret, metadata_wrangler_service.password)
 
     def test_sitewide_registration_document(self):
         """Test the document sent along to sitewide registration."""
-        key = RSA.generate(2048)
         controller = self.manager.admin_settings_controller
         with self.request_context_with_admin('/'):
-            doc = controller.sitewide_registration_document(
-                key.exportKey()
-            )
+            doc = controller.sitewide_registration_document()
 
             # The registrar knows where to go to get our public key.
             eq_(doc['url'], controller.url_for('public_key_document'))
 
             # The JWT proves that we control the public/private key pair.
-            public_key = key.publickey().exportKey()
+            public_key, private_key = self.manager.sitewide_key_pair
             parsed = jwt.decode(
                 doc['jwt'], public_key, algorithm='RS256'
             )
