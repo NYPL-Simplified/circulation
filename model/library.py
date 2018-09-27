@@ -280,7 +280,8 @@ class Library(Base, HasFullTableCache):
         return self.setting(key)
 
     def restrict_to_ready_deliverable_works(
-        self, query, work_model, collection_ids=None, show_suppressed=False,
+        self, query, work_model, edition_model=None, collection_ids=None,
+            show_suppressed=False,
     ):
         """Restrict a query to show only presentation-ready works present in
         an appropriate collection which the default client can
@@ -298,7 +299,8 @@ class Library(Base, HasFullTableCache):
         from collection import Collection
         collection_ids = collection_ids or [x.id for x in self.all_collections]
         return Collection.restrict_to_ready_deliverable_works(
-            query, work_model, collection_ids=collection_ids, show_suppressed=show_suppressed,
+            query, work_model, edition_model,
+            collection_ids=collection_ids, show_suppressed=show_suppressed,
             allow_holds=self.allow_holds)
 
     def estimated_holdings_by_language(self, include_open_access=True):
@@ -314,7 +316,7 @@ class Library(Base, HasFullTableCache):
         ).select_from(Work).join(Work.license_pools).join(
             Work.presentation_edition
         ).filter(Edition.language != None).group_by(Edition.language)
-        qu = self.restrict_to_ready_deliverable_works(qu, Work)
+        qu = self.restrict_to_ready_deliverable_works(qu, Work, Edition)
         if not include_open_access:
             qu = qu.filter(LicensePool.open_access==False)
         counter = Counter()

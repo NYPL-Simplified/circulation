@@ -618,8 +618,8 @@ class Collection(Base, HasFullTableCache):
 
     @classmethod
     def restrict_to_ready_deliverable_works(
-        cls, query, work_model, collection_ids=None, show_suppressed=False,
-        allow_holds=True,
+        cls, query, work_model, edition_model=None, collection_ids=None,
+        show_suppressed=False, allow_holds=True,
     ):
         """Restrict a query to show only presentation-ready works present in
         an appropriate collection which the default client can
@@ -630,8 +630,9 @@ class Collection(Base, HasFullTableCache):
 
         :param query: The query to restrict.
 
-        :param work_model: Either Work or one of the MaterializedWork
-        materialized view classes.
+        :param work_model: Either Work or MaterializedWorkWithGenre
+
+        :param edition_model: Either Edition or MaterializedWorkWithGenre
 
         :param show_suppressed: Include titles that have nothing but
         suppressed LicensePools.
@@ -642,6 +643,8 @@ class Collection(Base, HasFullTableCache):
         :param allow_holds: If false, pools with no available copies
         will be hidden.
         """
+        edition_model = edition_model or work_model
+
         # Only find presentation-ready works.
         #
         # Such works are automatically filtered out of
@@ -659,6 +662,20 @@ class Collection(Base, HasFullTableCache):
         )
         query = query.filter(exists_clause)
 
+        # Some sources of audiobooks may be excluded because the
+        # server can't fulfill them or the expected client can't play
+        # them.
+        _db = query.session
+        excluded = ConfigurationSetting.excluded_audio_data_sources(_db)
+        if excluded:
+            audio_excluded_ids = [
+                DataSource.lookup(_db, x).id for x in excluded
+            ]
+            query = query.filter(
+                or_(edition_model.medium != EditionConstants.AUDIO_MEDIUM,
+                    ~LicensePool.data_source_id.in_(audio_excluded_ids))
+            )
+
         # Only find books with unsuppressed LicensePools.
         if not show_suppressed:
             query = query.filter(LicensePool.suppressed==False)
@@ -669,9 +686,10 @@ class Collection(Base, HasFullTableCache):
         )
 
         # Only find books in an appropriate collection.
-        query = query.filter(
-            LicensePool.collection_id.in_(collection_ids)
-        )
+        if collection_ids is not None:
+            query = query.filter(
+                LicensePool.collection_id.in_(collection_ids)
+            )
 
         # If we don't allow holds, hide any books with no available copies.
         if not allow_holds:
