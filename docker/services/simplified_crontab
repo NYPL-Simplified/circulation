@@ -19,7 +19,6 @@ HOME=/var/www/circulation
 # These scripts improve the bibliographic information associated with
 # the collections.
 #
-*/20 * * * * root core/bin/run bibliographic_coverage >> /var/log/cron.log 2>&1
 30 3 * * * root core/bin/run update_nyt_bestseller_lists >> /var/log/cron.log 2>&1
 
 # Add newly discovered identifiers to our Metadata Wrangler collection.
