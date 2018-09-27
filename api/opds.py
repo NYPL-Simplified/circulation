@@ -507,7 +507,6 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             title = lane.display_name
 
         if show_feed:
-            # TODO: Facets aren't being propagated here.
             return self.feed_url(lane, self.facets), title
 
         return self.lane_url(lane, self.facets), title

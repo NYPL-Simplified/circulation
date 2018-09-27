@@ -34,6 +34,7 @@ from core.lane import (
     Lane,
     Facets,
     FeaturedFacets,
+    Pagination,
     WorkList,
 )
 
@@ -146,7 +147,7 @@ class TestLaneScript(DatabaseTest):
                 k, self._default_library).value = json.dumps(v)
 
 
-class TestRepresentationPerLane(TestLaneScript):
+class TestCacheRepresentationPerLane(TestLaneScript):
 
     def test_language_filter(self):
         script = CacheRepresentationPerLane(
@@ -184,6 +185,59 @@ class TestRepresentationPerLane(TestLaneScript):
         eq_(False, script.should_process_lane(parent))
         eq_(True, script.should_process_lane(child))
 
+    def test_process_lane(self):
+        # process_lane() calls do_generate() once for every
+        # combination of items yielded by facets() and pagination().
+
+        class MockFacets(object):
+
+            def __init__(self, query):
+                self.query = query
+
+            @property
+            def query_string(self):
+                return self.query
+
+        facets1 = MockFacets("facets1")
+        facets2 = MockFacets("facets2")
+        page1 = Pagination.default()
+        page2 = page1.next_page
+
+        class Mock(CacheRepresentationPerLane):
+            generated = []
+            def do_generate(self, lane, facets, pagination):
+                value = (lane, facets, pagination)
+                self.generated.append(value)
+                return value
+
+            def facets(self, lane):
+                yield facets1
+                yield facets2
+
+            def pagination(self, lane):
+                yield page1
+                yield page2
+
+        lane = self._lane()
+        script = Mock(self._db, manager=object())
+        generated = script.process_lane(lane)
+        eq_(generated, script.generated)
+
+        c1, c2, c3, c4 = script.generated
+        eq_((lane, facets1, page1), c1)
+        eq_((lane, facets1, page2), c2)
+        eq_((lane, facets2, page1), c3)
+        eq_((lane, facets2, page2), c4)
+
+    def test_default_facets(self):
+        # By default, do_generate will only be called once, with facets=None.
+        script = CacheRepresentationPerLane(self._db, manager=object())
+        eq_([None], list(script.facets(object())))
+
+    def test_default_pagination(self):
+        # By default, do_generate will only be called once, with pagination=None.
+        script = CacheRepresentationPerLane(self._db, manager=object())
+        eq_([None], list(script.pagination(object())))
 
 class TestCacheFacetListsPerLane(TestLaneScript):
 

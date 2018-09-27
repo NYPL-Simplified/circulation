@@ -336,11 +336,13 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         )
         return parser
 
-    def __init__(self, _db=None, cmd_args=None, testing=False, *args, **kwargs):
+    def __init__(self, _db=None, cmd_args=None, testing=False, manager=None, *args, **kwargs):
         super(CacheRepresentationPerLane, self).__init__(_db, *args, **kwargs)
         self.parse_args(cmd_args)
+        if not manager:
+            manager = CirculationManager(self._db, testing=testing)
         from api.app import app
-        app.manager = CirculationManager(self._db, testing=testing)
+        app.manager = manager
         self.app = app
         self.base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
 
@@ -595,7 +597,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
                             entrypoint=entrypoint,
                             order=order, order_ascending=True
                         )
-                    yield facets
+                        yield facets
 
     def pagination(self, lane):
         """This script covers a user-specified number of pages."""
