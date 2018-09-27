@@ -42,11 +42,12 @@ from api.authenticator import (
     LibraryAuthenticator,
 )
 from core.app_server import (
-    load_lending_policy
+    load_lending_policy,
+    load_facets_from_request,
 )
 from core.classifier import Classifier
 from core.config import CannotLoadConfiguration
-from core.external_search import DummyExternalSearchIndex
+from core.external_search import MockExternalSearchIndex
 from core.metadata_layer import Metadata
 from core import model
 from core.entrypoint import (
@@ -388,7 +389,7 @@ class TestCirculationManager(CirculationControllerTest):
         )
 
         # The ExternalSearch object has been reset.
-        assert isinstance(manager.external_search, DummyExternalSearchIndex)
+        assert isinstance(manager.external_search, MockExternalSearchIndex)
 
         # So has the lending policy.
         assert isinstance(manager.lending_policy, dict)
@@ -2297,7 +2298,7 @@ class TestWorkController(CirculationControllerTest):
         )
         self.work.calculate_presentation(
             PresentationCalculationPolicy(regenerate_opds_entries=True),
-            DummyExternalSearchIndex()
+            MockExternalSearchIndex()
         )
         SessionManager.refresh_materialized_views(self._db)
 
@@ -2839,11 +2840,35 @@ class TestFeedController(CirculationControllerTest):
         # Update the materialized view to make sure the works show up.
         SessionManager.refresh_materialized_views(self._db)
 
-        # Execute a search query designed to find the second one.
+        # Execute a search query designed to find the second work.
         with self.request_context_with_library("/?q=t&size=1&after=1"):
             # First, try the top-level lane.
             response = self.manager.opds_feeds.search(None)
+
             feed = feedparser.parse(response.data)
+
+            # When the feed links to itself or to another page of
+            # results, the arguments necessary to propagate the query
+            # string and facet information are propagated through the
+            # link.
+            def assert_propagates_facets(lane, link):
+                # Assert that the given `link` propagates
+                # the query string arguments found in the facets
+                # associated with this request.
+                facets = load_facets_from_request(
+                    self._default_library, lane, base_class=SearchFacets
+                )
+                for k, v in facets.items():
+                    check = '%s=%s' % tuple(map(urllib.quote, (k,v)))
+                    assert check in link['href']
+
+            feed_links = feed['feed']['links']
+            for rel in ('next', 'previous', 'self'):
+                [link] = [link for link in feed_links if link.rel == rel]
+
+                assert_propagates_facets(None, link)
+                assert 'q=t' in link['href']
+
             entries = feed['entries']
             eq_(1, len(entries))
             entry = entries[0]
@@ -2856,12 +2881,6 @@ class TestFeedController(CirculationControllerTest):
 
             borrow_links = [link for link in entry.links if link.rel == 'http://opds-spec.org/acquisition/borrow']
             eq_(1, len(borrow_links))
-
-            next_links = [link for link in feed['feed']['links'] if link.rel == 'next']
-            eq_(1, len(next_links))
-
-            previous_links = [link for link in feed['feed']['links'] if link.rel == 'previous']
-            eq_(1, len(previous_links))
 
             # The query also works in a different searchable lane.
             english = self._lane("English", languages=["eng"])
