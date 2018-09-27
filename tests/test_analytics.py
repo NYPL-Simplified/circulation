@@ -2,21 +2,27 @@ from nose.tools import (
     eq_,
     set_trace,
 )
-from config import (
+from ..config import (
     Configuration,
     temp_config,
 )
-from analytics import Analytics
-from mock_analytics_provider import MockAnalyticsProvider
-from local_analytics_provider import LocalAnalyticsProvider
+from ..analytics import Analytics
+from ..mock_analytics_provider import MockAnalyticsProvider
+from ..local_analytics_provider import LocalAnalyticsProvider
 from . import DatabaseTest
-from model import (
+from ..model import (
     CirculationEvent,
     ExternalIntegration,
     Library,
     create,
 )
 import json
+
+# We can't import mock_analytics_provider from within a test,
+# and we can't tell Analytics to do so either. We need to tell
+# it to perform an import relative to the module the Analytics
+# class is in.
+MOCK_PROTOCOL = "..mock_analytics_provider"
 
 class TestAnalytics(DatabaseTest):
 
@@ -27,13 +33,13 @@ class TestAnalytics(DatabaseTest):
         mock_integration, ignore = create(
             self._db, ExternalIntegration,
             goal=ExternalIntegration.ANALYTICS_GOAL,
-            protocol="mock_analytics_provider"
+            protocol=MOCK_PROTOCOL
         )
         mock_integration.url = self._str
         local_integration, ignore = create(
             self._db, ExternalIntegration,
             goal=ExternalIntegration.ANALYTICS_GOAL,
-            protocol="local_analytics_provider"
+            protocol="..local_analytics_provider"
         )
 
         # A broken integration
@@ -50,14 +56,14 @@ class TestAnalytics(DatabaseTest):
         library_integration1, ignore = create(
             self._db, ExternalIntegration,
             goal=ExternalIntegration.ANALYTICS_GOAL,
-            protocol="mock_analytics_provider"
+            protocol=MOCK_PROTOCOL
          )
         library_integration1.libraries += [l1, l2]
 
         library_integration2, ignore = create(
             self._db, ExternalIntegration,
             goal=ExternalIntegration.ANALYTICS_GOAL,
-            protocol="mock_analytics_provider"
+            protocol=MOCK_PROTOCOL
          )
         library_integration2.libraries += [l2]
 
@@ -122,14 +128,14 @@ class TestAnalytics(DatabaseTest):
         sitewide_integration, ignore = create(
             self._db, ExternalIntegration,
             goal=ExternalIntegration.ANALYTICS_GOAL,
-            protocol="mock_analytics_provider"
+            protocol=MOCK_PROTOCOL
         )
 
         library, ignore = create(self._db, Library, short_name="library")
         library_integration, ignore = create(
             self._db, ExternalIntegration,
             goal=ExternalIntegration.ANALYTICS_GOAL,
-            protocol="mock_analytics_provider",
+            protocol=MOCK_PROTOCOL,
         )
         library_integration.libraries += [library]
 

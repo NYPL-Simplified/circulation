@@ -16,18 +16,18 @@ from nose.tools import (
 from . import (
     DatabaseTest
 )
-from model import (
+from ..model import (
     DataSource,
     ExternalIntegration,
     Hyperlink,
     Representation,
 )
-from s3 import (
+from ..s3 import (
     S3Uploader,
     MockS3Client,
 )
-from mirror import MirrorUploader
-from config import CannotLoadConfiguration
+from ..mirror import MirrorUploader
+from ..config import CannotLoadConfiguration
 
 class S3UploaderTest(DatabaseTest):
 

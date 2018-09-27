@@ -81,28 +81,26 @@ class EntryPoint(object):
         raise NotImplementedError()
 
     @classmethod
-    def modified_search_arguments(cls, **kwargs):
-        """If possible, modify the arguments to ExternalSearch.query_works()
-        so that only items belonging to this entry point are found.
+    def modify_search_filter(cls, filter):
+        """If necessary modify an ElasticSearch Filter object so that it
+        restricts results to items shown through this entry point.
 
         Any items returned will be run through the materialized view
         lookup, which will filter any items that don't belong in this
-        entry point, so this isn't required, but if you can't implement this
-        there's a chance that every item returned by
+        entry point, so this isn't required. But if you can't
+        implement this, there's a chance that every item returned by
         ExternalSearch.search() will be filtered out, giving the
-        impression that there are no search results when there are.
+        impression that there are no search results when there
+        actually are.
+
+        :param filter: An external_search.Filter object.
         """
-        return kwargs
+        return filter
 
     @classmethod
     def apply(cls, qu):
         """Default behavior is to not change a query at all."""
         return qu
-
-    @classmethod
-    def modified_search_arguments(cls, **kwargs):
-        """Default behavior is to not change search arguments at all."""
-        return kwargs
 
 
 class EverythingEntryPoint(EntryPoint):
@@ -130,12 +128,13 @@ class MediumEntryPoint(EntryPoint):
         return qu.filter(mv.medium==cls.INTERNAL_NAME)
 
     @classmethod
-    def modified_search_arguments(cls, **kwargs):
-        """Modify a set of arguments to ExternalSearch.query_works to find
-        only items with the given medium.
+    def modify_search_filter(cls, filter):
+        """Modify an external_search.Filter object so it only finds
+        titles available through this EntryPoint.
+
+        :param filter: An external_search.Filter object.
         """
-        kwargs['media'] = [cls.INTERNAL_NAME]
-        return kwargs
+        filter.media = [cls.INTERNAL_NAME]
 
 
 class EbooksEntryPoint(MediumEntryPoint):

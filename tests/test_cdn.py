@@ -5,9 +5,9 @@ from nose.tools import (
 )
 from . import DatabaseTest
 
-from config import Configuration, temp_config
-from model import ExternalIntegration
-from cdn import cdnify
+from ..config import Configuration, temp_config
+from ..model import ExternalIntegration
+from ..cdn import cdnify
 
 
 class TestCDN(DatabaseTest):
@@ -19,11 +19,12 @@ class TestCDN(DatabaseTest):
         cdns = cdns or {}
         with temp_config() as config:
             config[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = cdns
+            config[Configuration.CDNS_LOADED_FROM_DATABASE] = True
             eq_(expect, cdnify(url))
 
     def test_no_cdns(self):
         url = "http://foo/"
-        self.unchanged(url, Configuration.UNINITIALIZED_CDNS)
+        self.unchanged(url, {})
 
     def test_non_matching_cdn(self):
         url = "http://foo.com/bar"

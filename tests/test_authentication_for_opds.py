@@ -4,7 +4,7 @@ from nose.tools import (
     assert_raises_regexp,
     set_trace,
 )
-from util.authentication_for_opds import (
+from ..util.authentication_for_opds import (
     AuthenticationForOPDSDocument as Doc,
     OPDSAuthenticationFlow as Flow,
 )

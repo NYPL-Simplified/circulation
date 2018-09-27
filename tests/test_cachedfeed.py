@@ -5,25 +5,25 @@ from nose.tools import (
     set_trace,
 )
 
-from config import (
+from ..config import (
     Configuration,
     temp_config,
 )
 
-from model import (
+from ..model import (
     get_one_or_create,
     CachedFeed,
     WillNotGenerateExpensiveFeed,
 )
 
-from lane import (
+from ..lane import (
     Lane,
     Pagination,
     Facets,
     WorkList,
 )
 
-from opds import AcquisitionFeed
+from ..opds import AcquisitionFeed
 
 from . import (
     DatabaseTest

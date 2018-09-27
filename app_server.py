@@ -49,9 +49,9 @@ def cdn_url_for(*args, **kwargs):
 
 def load_lending_policy(policy):
     if not policy:
-        logging.info("No lending policy.")
         return {}
     if isinstance(policy, basestring):
+        logging.info("Lending policy: %s", policy)
         policy = json.loads(policy)
     for external_type, p in policy.items():
         if Patron.AUDIENCE_RESTRICTION_POLICY in p:
@@ -112,10 +112,11 @@ def load_facets_from_request(
     """
     kwargs = base_class_constructor_kwargs or dict()
     get_arg = flask.request.args.get
+    get_header = flask.request.headers.get
     library = flask.request.library
     facet_config = facet_config or library
     return base_class.from_request(
-        library, facet_config, get_arg, worklist, **kwargs
+        library, facet_config, get_arg, get_header, worklist, **kwargs
     )
 
 def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):

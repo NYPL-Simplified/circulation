@@ -10,44 +10,50 @@ import tempfile
 import uuid
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
+from sqlalchemy.exc import ProgrammingError
 from config import Configuration
 
 from lane import (
     Lane,
 )
+from model.constants import MediaTypes
 from model import (
     Base,
+    PresentationCalculationPolicy,
+    SessionManager,
+    get_one_or_create,
+)
+
+from model import (
+    CoverageRecord,
     Classification,
-    IntegrationClient,
     Collection,
     Complaint,
     ConfigurationSetting,
     Contributor,
-    CoverageRecord,
     Credential,
     CustomList,
     DataSource,
-    DeliveryMechanism,
     DelegatedPatronIdentifier,
+    DeliveryMechanism,
     Edition,
     ExternalIntegration,
     Genre,
     Hyperlink,
     Identifier,
+    IntegrationClient,
     Library,
     LicensePool,
     LicensePoolDeliveryMechanism,
     Patron,
-    PresentationCalculationPolicy,
     Representation,
     Resource,
     RightsStatus,
-    SessionManager,
     Subject,
     Work,
     WorkCoverageRecord,
-    get_one_or_create,
 )
+
 from classifier import Classifier
 from coverage import (
     BibliographicCoverageProvider,
@@ -57,7 +63,7 @@ from coverage import (
     WorkCoverageProvider,
 )
 
-from external_search import DummyExternalSearchIndex
+from external_search import MockExternalSearchIndex
 from log import LogConfiguration
 import external_search
 import mock
@@ -65,32 +71,41 @@ import inspect
 
 
 def package_setup():
-    """Make sure the database schema is initialized and initial
-    data is in place.
+    """Make sure the application starts in a pristine state.
     """
+    # This will make sure we always connect to the test database.
+    os.environ['TESTING'] = 'true'
+
+    # This will make sure we always connect to the test database.
+    os.environ['TESTING'] = 'true'
 
     # Ensure that the log configuration starts in a known state.
     LogConfiguration.initialize(None, testing=True)
 
-    engine, connection = DatabaseTest.get_database_connection()
-
-    # First, recreate the schema.
+    # Drop any existing schema. It will be recreated when
+    # SessionManager.initialize() runs.
     #
     # Base.metadata.drop_all(connection) doesn't work here, so we
-    # approximate by dropping everything except the materialized
-    # views.
+    # approximate by dropping every item individually.
+    engine = SessionManager.engine()
     for table in reversed(Base.metadata.sorted_tables):
-        if not table.name.startswith('mv_'):
-            engine.execute(table.delete())
+        if table.name.startswith('mv_'):
+            statement = "drop materialized view %s" % table.name
+        else:
+            statement = table.delete()
 
-    Base.metadata.create_all(connection)
+        try:
+            engine.execute(statement)
+        except ProgrammingError, e:
+            if 'does not exist' in e.message:
+                # This is the first time running these tests
+                # on this server, and the tables don't exist yet.
+                pass
 
-    # Initialize basic database data needed by the application.
-    _db = Session(connection)
-    SessionManager.initialize_data(_db)
-    _db.commit()
-    connection.close()
-    engine.dispose()
+
+def package_teardown():
+    if 'TESTING' in os.environ:
+        del os.environ['TESTING']
 
 class DatabaseTest(object):
 
@@ -99,7 +114,7 @@ class DatabaseTest(object):
 
     @classmethod
     def get_database_connection(cls):
-        url = Configuration.database_url(test=True)
+        url = Configuration.database_url()
         engine, connection = SessionManager.initialize(url)
 
         return engine, connection
@@ -118,8 +133,6 @@ class DatabaseTest(object):
         )
         Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {}
 
-        os.environ['TESTING'] = 'true'
-
     @classmethod
     def teardown_class(cls):
         # Destroy the database connection and engine.
@@ -134,8 +147,6 @@ class DatabaseTest(object):
             logging.warn("Cowardly refusing to remove 'temporary' directory %s" % cls.tmp_data_dir)
 
         Configuration.instance[Configuration.DATA_DIRECTORY] = cls.old_data_dir
-        if 'TESTING' in os.environ:
-            del os.environ['TESTING']
 
     def setup(self, mock_search=True):
         # Create a new connection to the database.
@@ -150,7 +161,7 @@ class DatabaseTest(object):
             "9780674368279", "0636920028468", "9781936460236", "9780316075978"
         ]
         if mock_search:
-            self.search_mock = mock.patch(external_search.__name__ + ".ExternalSearchIndex", DummyExternalSearchIndex)
+            self.search_mock = mock.patch(external_search.__name__ + ".ExternalSearchIndex", MockExternalSearchIndex)
             self.search_mock.start()
         else:
             self.search_mock = None
@@ -477,7 +488,7 @@ class DatabaseTest(object):
         if with_open_access_download:
             pool.open_access = True
             url = "http://foo.com/" + self._str
-            media_type = Representation.EPUB_MEDIA_TYPE
+            media_type = MediaTypes.EPUB_MEDIA_TYPE
             link, new = pool.identifier.add_link(
                 Hyperlink.OPEN_ACCESS_DOWNLOAD, url,
                 source, media_type
@@ -498,7 +509,7 @@ class DatabaseTest(object):
 
             # Add a DeliveryMechanism for this licensepool
             pool.set_delivery_mechanism(
-                Representation.EPUB_MEDIA_TYPE,
+                MediaTypes.EPUB_MEDIA_TYPE,
                 DeliveryMechanism.ADOBE_DRM,
                 RightsStatus.UNKNOWN,
                 None

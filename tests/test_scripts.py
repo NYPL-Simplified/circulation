@@ -16,15 +16,15 @@ from nose.tools import (
 from . import (
     DatabaseTest,
 )
-from classifier import Classifier
+from ..classifier import Classifier
 
-from config import (
+from ..config import (
     Configuration,
     temp_config,
 )
-from external_search import DummyExternalSearchIndex
-from mirror import MirrorUploader
-from model import (
+from ..external_search import MockExternalSearchIndex
+from ..mirror import MirrorUploader
+from ..model import (
     create,
     dump_query,
     get_one,
@@ -42,14 +42,15 @@ from model import (
     Identifier,
     Library,
     LicensePool,
+    MaterializedWorkWithGenre as work_model,
     RightsStatus,
     Timestamp,
     Work,
 )
-from lane import Lane
-from metadata_layer import LinkData
+from ..lane import Lane
+from ..metadata_layer import LinkData
 
-from scripts import (
+from ..scripts import (
     AddClassificationScript,
     CheckContributorNamesInDB,
     CollectionInputScript,
@@ -87,21 +88,21 @@ from scripts import (
     WorkClassificationScript,
     WorkProcessingScript,
 )
-from testing import(
+from ..testing import(
     AlwaysSuccessfulBibliographicCoverageProvider,
     BrokenBibliographicCoverageProvider,
     AlwaysSuccessfulCollectionCoverageProvider,
     AlwaysSuccessfulWorkCoverageProvider,
 )
-from monitor import (
+from ..monitor import (
     Monitor,
     CollectionMonitor,
     ReaperMonitor,
 )
-from util.opds_writer import (
+from ..util.opds_writer import (
     OPDSFeed,
 )
-from util.worker_pools import (
+from ..util.worker_pools import (
     DatabasePool,
 )
 
@@ -2101,7 +2102,7 @@ class TestFixInvisibleWorksScript(DatabaseTest):
 
     def test_no_presentation_ready_works(self):
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         self.MockScript(self._db, output, search=search).do_run()
         eq_("""0 presentation-ready works.
@@ -2111,7 +2112,7 @@ Here's your problem: there are no presentation-ready works.
 
     def test_no_materialized_view(self):
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         # This work is marked as presentation-ready, but it has no
         # LicensePools, and will not show up in the materialized view.
@@ -2128,7 +2129,7 @@ Here's your problem: your presentation-ready works are not making it into the ma
 
     def test_no_delivery_mechanism(self):
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         # This work has a license pool, but no delivery mechanisms.
         work = self._work(with_license_pool=True)
@@ -2147,7 +2148,7 @@ Here's your problem: your works don't have delivery mechanisms.
 
     def test_suppressed_pool(self):
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         # This work has a license pool, but it's suppressed.
         work = self._work(with_license_pool=True)
@@ -2165,7 +2166,7 @@ Here's your problem: your works' license pools are suppressed.
 
     def test_no_licenses(self):
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         # This work has a license pool, but no licenses owned.
         work = self._work(with_license_pool=True)
@@ -2183,7 +2184,7 @@ Here's your problem: your works aren't open access and have no licenses owned.
 
     def test_success(self):
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         lane = self._lane()
 
@@ -2193,7 +2194,6 @@ Here's your problem: your works aren't open access and have no licenses owned.
         work.presentation_ready = False
 
         # It's not in the materialized view.
-        from model import MaterializedWorkWithGenre as work_model
         mw_query = self._db.query(work_model)
         eq_(0, mw_query.count())
 
@@ -2231,7 +2231,7 @@ I would now expect you to be able to find 1 works.
 
     def test_no_library(self):
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
         FixInvisibleWorksScript(self._db, output, search=search).do_run()
         assert "There are no libraries in the system -- that's a problem" in output.getvalue()
 
@@ -2240,7 +2240,7 @@ I would now expect you to be able to find 1 works.
         problems.
         """
         output = StringIO()
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         library = self._default_library
         old_collections = library.collections
@@ -2252,7 +2252,7 @@ I would now expect you to be able to find 1 works.
         library.collections = old_collections
 
     def test_with_collections(self):
-        search = DummyExternalSearchIndex()
+        search = MockExternalSearchIndex()
 
         library = self._library()
         c1 = self._collection()
@@ -2263,7 +2263,6 @@ I would now expect you to be able to find 1 works.
         work.presentation_ready = False
 
         # It's not in the materialized view.
-        from model import MaterializedWorkWithGenre as work_model
         mw_query = self._db.query(work_model)
         eq_(0, mw_query.count())
 

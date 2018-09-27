@@ -18,17 +18,18 @@ from . import (
     DatabaseTest,
 )
 
-from opds import TestAnnotator
+from ..opds import TestAnnotator
 
-from model import Identifier
+from ..model import Identifier
 
-from lane import (
+from ..lane import (
     Facets,
     Pagination,
+    SearchFacets,
     WorkList,
 )
 
-from app_server import (
+from ..app_server import (
     HeartbeatController,
     URNLookupController,
     ErrorHandler,
@@ -37,20 +38,20 @@ from app_server import (
     load_pagination_from_request,
 )
 
-from config import Configuration
+from ..config import Configuration
 
-from entrypoint import (
+from ..entrypoint import (
     AudiobooksEntryPoint,
     EbooksEntryPoint,
     EntryPoint,
 )
 
-from problem_details import (
+from ..problem_details import (
     INVALID_INPUT,
     INVALID_URN,
 )
 
-from util.opds_writer import (
+from ..util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
@@ -299,6 +300,14 @@ class TestLoadMethods(DatabaseTest):
             facets = load_facets_from_request(worklist=worklist)
             eq_(EbooksEntryPoint, facets.entrypoint)
 
+        # Load a SearchFacets object that pulls information from an
+        # HTTP header.
+        with self.app.test_request_context(
+                '/', headers = {'Accept-Language' : 'ja' }
+        ):
+            flask.request.library = self._default_library
+            facets = load_facets_from_request(base_class=SearchFacets)
+            eq_(['jpn'], facets.languages)
 
     def test_load_facets_from_request_class_instantiation(self):
         """The caller of load_facets_from_request() can specify a class other

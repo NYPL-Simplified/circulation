@@ -2,7 +2,7 @@
 
 from textblob import TextBlob
 from textblob.exceptions import MissingCorpusError
-from util.summary import SummaryEvaluator
+from ..util.summary import SummaryEvaluator
 from nose.tools import eq_, set_trace
 
 class TestSummaryEvaluator(object):
