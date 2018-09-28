@@ -12,13 +12,13 @@ from . import (
     DummyMetadataClient,
 )
 
-from model import (
+from ..model import (
     DataSource,
     Edition,
     Identifier,
     Subject,
 )
-from external_list import (
+from ..external_list import (
     CustomListFromCSV,
     MembershipManager,
     ClassificationBasedMembershipManager,

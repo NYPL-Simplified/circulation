@@ -8,7 +8,7 @@ from nose.tools import (
 from . import (
     DatabaseTest
 )
-from testing import (
+from ..testing import (
     AlwaysSuccessfulBibliographicCoverageProvider,
     AlwaysSuccessfulCollectionCoverageProvider,
     AlwaysSuccessfulCoverageProvider,
@@ -21,7 +21,7 @@ from testing import (
     TransientFailureCoverageProvider,
     TransientFailureWorkCoverageProvider,
 )
-from model import (
+from ..model import (
     Collection,
     CollectionMissing,
     Contributor,
@@ -40,7 +40,7 @@ from model import (
     Work,
     WorkCoverageRecord,
 )
-from metadata_layer import (
+from ..metadata_layer import (
     Metadata,
     CirculationData,
     FormatData,
@@ -50,8 +50,8 @@ from metadata_layer import (
     ReplacementPolicy,
     SubjectData,
 )
-from s3 import MockS3Uploader
-from coverage import (
+from ..s3 import MockS3Uploader
+from ..coverage import (
     BaseCoverageProvider,
     BibliographicCoverageProvider,
     CatalogCoverageProvider,

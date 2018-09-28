@@ -9,11 +9,11 @@ from nose.tools import (
     set_trace,
 )
 
-from . import (
+from .. import (
     DatabaseTest,
 )
 
-from model import (
+from ...model import (
     Work,
 )
 

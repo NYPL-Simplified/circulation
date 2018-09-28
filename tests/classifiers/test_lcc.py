@@ -1,7 +1,7 @@
 from nose.tools import eq_, set_trace
-import classifier
-from classifier import *
-from classifier.lcc import LCCClassifier as LCC
+from ... import classifier
+from ...classifier import *
+from ...classifier.lcc import LCCClassifier as LCC
 
 class TestLCC(object):
 

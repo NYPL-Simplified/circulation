@@ -1,20 +1,22 @@
-from testing import DatabaseTest
+from ..testing import DatabaseTest
 import json
 from nose.tools import (
     assert_raises_regexp,
     eq_,
     set_trace,
 )
-from model import (
+from ..model import (
     Edition,
 )
-from entrypoint import (
+from ..entrypoint import (
     EntryPoint,
     EbooksEntryPoint,
     EverythingEntryPoint,
     AudiobooksEntryPoint,
     MediumEntryPoint,
 )
+from ..external_search import Filter
+
 
 class TestEntryPoint(DatabaseTest):
 
@@ -36,11 +38,13 @@ class TestEntryPoint(DatabaseTest):
             eq_(ep.URI, Edition.medium_to_additional_type[ep.INTERNAL_NAME])
 
     def test_no_changes(self):
-        # EntryPoint doesn't modify queries or searches.
+        # EntryPoint doesn't modify queries or search filters.
         qu = self._db.query(Edition)
         eq_(qu, EntryPoint.apply(qu))
         args = dict(arg="value")
-        eq_(args, EverythingEntryPoint.modified_search_arguments(**args))
+
+        filter = object()
+        eq_(filter, EverythingEntryPoint.modify_search_filter(filter))
 
     def test_register(self):
 
@@ -88,11 +92,14 @@ class TestEverythingEntryPoint(DatabaseTest):
     def test_no_changes(self):
         # EverythingEntryPoint doesn't modify queries or searches
         # beyond the default behavior for any entry point.
+        eq_("All", EverythingEntryPoint.INTERNAL_NAME)
+
         qu = self._db.query(Edition)
         eq_(qu, EntryPoint.apply(qu))
         args = dict(arg="value")
-        eq_(args, EverythingEntryPoint.modified_search_arguments(**args))
-        eq_("All", EverythingEntryPoint.INTERNAL_NAME)
+
+        filter = object()
+        eq_(filter, EverythingEntryPoint.modify_search_filter(filter))
 
 
 class TestMediumEntryPoint(DatabaseTest):
@@ -106,7 +113,7 @@ class TestMediumEntryPoint(DatabaseTest):
         class Videos(MediumEntryPoint):
             INTERNAL_NAME = Edition.VIDEO_MEDIUM
 
-        from model import MaterializedWorkWithGenre
+        from ..model import MaterializedWorkWithGenre
         qu = self._db.query(MaterializedWorkWithGenre)
 
         # The default entry points filter out the video.
@@ -119,15 +126,14 @@ class TestMediumEntryPoint(DatabaseTest):
         eq_([work.id], [x.works_id for x in videos])
 
 
-    def test_modified_search_arguments(self):
+    def test_modify_search_filter(self):
 
         class Mock(MediumEntryPoint):
             INTERNAL_NAME = object()
 
-        kwargs = dict(media="something else", other_argument="unaffected")
-        new_kwargs = Mock.modified_search_arguments(**kwargs)
-        eq_(dict(media=[Mock.INTERNAL_NAME], other_argument="unaffected"),
-            new_kwargs)
+        filter = Filter(media=object())
+        Mock.modify_search_filter(filter)
+        eq_([Mock.INTERNAL_NAME], filter.media)
 
 
 class TestLibrary(DatabaseTest):

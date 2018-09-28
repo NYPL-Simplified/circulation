@@ -14,21 +14,53 @@ from . import (
 
 from elasticsearch.exceptions import ElasticsearchException
 
-from config import CannotLoadConfiguration
-from lane import Lane
-from model import (
+from ..config import CannotLoadConfiguration
+from ..lane import (
+    Lane,
+    Pagination,
+)
+from ..model import (
     Edition,
     ExternalIntegration,
+    Genre,
+    Work,
     WorkCoverageRecord,
 )
-from external_search import (
+from ..external_search import (
     ExternalSearchIndex,
     ExternalSearchIndexVersions,
-    DummyExternalSearchIndex,
+    Filter,
+    MAJOR_VERSION,
+    MockExternalSearchIndex,
+    Query,
+    QueryParser,
+    SearchBase,
     SearchIndexCoverageProvider,
     SearchIndexMonitor,
 )
-from classifier import Classifier
+# NOTE: external_search took care of handling the differences between
+# Elasticsearch versions and making sure 'Q' and 'F' are set
+# appropriately.  That's why we import them from external_search
+# instead of elasticsearch_dsl.
+from ..external_search import (
+    Q,
+    F,
+)
+
+from ..classifier import Classifier
+
+
+class TestingClient(ExternalSearchIndex):
+    """When creating an index, limit it to a single shard and disable
+    replicas.
+
+    This makes search results more predictable.
+    """
+
+    def setup_index(self, new_index=None):
+        return super(TestingClient, self).setup_index(
+            new_index, number_of_shards=1, number_of_replicas=0
+        )
 
 
 class ExternalSearchTest(DatabaseTest):
@@ -52,7 +84,7 @@ class ExternalSearchTest(DatabaseTest):
         )
 
         try:
-            self.search = ExternalSearchIndex(self._db)
+            self.search = TestingClient(self._db)
         except Exception as e:
             self.search = None
             print "Unable to set up elasticsearch index, search tests will be skipped."
@@ -64,6 +96,7 @@ class ExternalSearchTest(DatabaseTest):
                 self.search.indices.delete(self.search.works_index, ignore=[404])
             self.search.indices.delete('the_other_index', ignore=[404])
             self.search.indices.delete('test_index-v100', ignore=[404])
+            self.search.indices.delete('test_index-v9999', ignore=[404])
             ExternalSearchIndex.reset()
         super(ExternalSearchTest, self).teardown()
 
@@ -190,7 +223,7 @@ class TestExternalSearch(ExternalSearchTest):
         # If the -current alias doesn't exist, it's created
         # and everything is updated accordingly.
         self.search.indices.delete_alias(
-            index=original_index, name='test_index-current'
+            index=original_index, name='test_index-current', ignore=[404]
         )
         self.search.setup_index(new_index='test_index-v9999')
         self.search.transfer_current_alias(self._db, 'test_index-v9999')
@@ -224,7 +257,60 @@ class TestExternalSearch(ExternalSearchTest):
             'banana-v10'
         )
 
-class TestExternalSearchWithWorks(ExternalSearchTest):
+
+class EndToEndExternalSearchTest(ExternalSearchTest):
+    """Subclasses of this class set up real works in a real
+    search index and run searches against it.
+    """
+
+    def _expect_results(self, works, *query_args, **kwargs):
+        """Helper function to call query() and verify that it
+        returns certain work IDs.
+
+
+        :param ordered: If this is True (the default), then the
+        assertion will only succeed if the search results come in in
+        the exact order specified in `works`. If this is False, then
+        those exact results must come up, but their order is not
+        what's being tested.
+        """
+        if isinstance(works, Work):
+            works = [works]
+
+        results = self.search.query_works(*query_args, debug=True)
+        expect = [x.id for x in works]
+        expect_ids = ", ".join(map(str, expect))
+        expect_titles = ", ".join([x.title for x in works])
+        result_works = self._db.query(Work).filter(Work.id.in_(results))
+        result_works_dict = {}
+
+        if not kwargs.pop('ordered', True):
+            expect = set(expect)
+            results = set(results)
+
+        # Get the titles of the works that were actually returned, to
+        # make comparisons easier.
+        for work in result_works:
+            result_works_dict[work.id] = work
+        result_titles = []
+        for id in results:
+            work = result_works_dict.get(id)
+            if work:
+                result_titles.append(work.title)
+            else:
+                result_titles.append("[unknown]")
+
+        eq_(
+            expect, results,
+            "Query args %r did not find %d works (%s/%s), instead found %d (%s/%s)" % (
+                query_args, len(expect), expect_ids, expect_titles,
+                len(results), ", ".join(map(str,results)),
+                ", ".join(result_titles)
+            )
+        )
+
+
+class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
     """These tests run against a real search index with works in it.
     The setup is very slow, so all the tests are in the same method.
     Don't add new methods to this class - add more tests into test_query_works,
@@ -253,15 +339,15 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             self.title_match = _work(title="Match")
             self.title_match.set_presentation_ready()
 
-            self.subtitle_match = _work()
+            self.subtitle_match = _work(title="SubtitleM")
             self.subtitle_match.presentation_edition.subtitle = "Match"
             self.subtitle_match.set_presentation_ready()
 
-            self.summary_match = _work()
+            self.summary_match = _work(title="SummaryM")
             self.summary_match.summary_text = "Match"
             self.summary_match.set_presentation_ready()
 
-            self.publisher_match = _work()
+            self.publisher_match = _work(title="PublisherM")
             self.publisher_match.presentation_edition.publisher = "Match"
             self.publisher_match.set_presentation_ready()
 
@@ -385,7 +471,16 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             eq_(2, len(self.sherlock.license_pools))
 
     def test_query_works(self):
+        # An end-to-end test of the search functionality.
+        #
+        # Works created during setup are added to a real search index.
+        # We then run actual Elasticsearch queries against the
+        # search index and verify that the work IDs returned
+        # are the ones we expect.
         if not self.search:
+            logging.error(
+                "Search is not configured, skipping test_query_works."
+            )
             return
 
         # Add all the works created in the setup to the search index.
@@ -396,490 +491,292 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         # Sleep to give the index time to catch up.
         time.sleep(2)
 
-        # Convenience method to query the default library.
-        def query(*args, **kwargs):
-            return self.search.query_works(
-                self._default_library, *args, **kwargs
-            )
+        # Set up convenient aliases for methods we'll be calling a
+        # lot.
+        query = self.search.query_works
+        expect = self._expect_results
 
-        # Pagination
+        # First, test pagination.
+        first_item = Pagination(size=1, offset=0)
+        expect(self.moby_dick, "moby dick", None, first_item)
 
-        results = query("moby dick", None, None, None, None, None, None, None, size=1, offset=0)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.moby_dick.id), hits[0]["_id"])
+        second_item = first_item.next_page
+        expect(self.moby_duck, "moby dick", None, second_item)
 
-        results = query("moby dick", None, None, None, None, None, None, None, size=1, offset=1)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.moby_duck.id), hits[0]["_id"])
-
-        results = query("moby dick", None, None, None, None, None, None, None, size=2, offset=0)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-        eq_(unicode(self.moby_dick.id), hits[0]["_id"])
-
-
-        # Matches all main fields
-
-        title_results = query("moby", None, None, None, None, None, None, None)
-        eq_(2, len(title_results["hits"]["hits"]))
-
-        author_results = query("melville", None, None, None, None, None, None, None)
-        eq_(1, len(author_results["hits"]["hits"]))
-
-        subtitle_results = query("whale", None, None, None, None, None, None, None)
-        eq_(1, len(subtitle_results["hits"]["hits"]))
-
-        series_results = query("classics", None, None, None, None, None, None, None)
-        eq_(1, len(series_results["hits"]["hits"]))
-
-        summary_results = query("ishmael", None, None, None, None, None, None, None)
-        eq_(1, len(summary_results["hits"]["hits"]))
-
-        publisher_results = query("gutenberg", None, None, None, None, None, None, None)
-        eq_(1, len(summary_results["hits"]["hits"]))
-
-
-        # Ranks title above subtitle above summary above publisher
-
-        results = query("match", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(4, len(hits))
-        eq_(unicode(self.title_match.id), hits[0]['_id'])
-        eq_(unicode(self.subtitle_match.id), hits[1]['_id'])
-        eq_(unicode(self.summary_match.id), hits[2]['_id'])
-        eq_(unicode(self.publisher_match.id), hits[3]['_id'])
-
-
-        # Ranks both title and author higher than only title
-
-        results = query("moby melville", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-        eq_(unicode(self.moby_dick.id), hits[0]['_id'])
-        eq_(unicode(self.moby_duck.id), hits[1]['_id'])
-
-
-        # Matches a quoted phrase
-
-        results = query("\"moby dick\"", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-        eq_(unicode(self.moby_dick.id), hits[0]["_id"])
-
-
-        # Matches stemmed word
-
-        results = query("runs", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.dodger.id), hits[0]['_id'])
-
-
-        # Matches misspelled phrase
-
-        results = query("movy", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-
-        results = query("mleville", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-
-        results = query("mo by dick", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-
-
-        # Matches word with apostrophe
-
-        results = query("durbervilles", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.tess.id), hits[0]['_id'])
-
-        results = query("tiffanys", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.tiffany.id), hits[0]['_id'])
-
-
-        # Matches work with unicode character
-
-        results = query("les miserables", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.les_mis.id), hits[0]['_id'])
-
-
-        # Matches fiction
-
-        results = query("fiction moby", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-        eq_(unicode(self.moby_dick.id), hits[0]['_id'])
-
-        results = query("nonfiction moby", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-        eq_(unicode(self.moby_duck.id), hits[0]['_id'])
-
-
-        # Matches genre
-
-        def expect_ids(works, *query_args):
-            original_query_args = list(query_args)
-            query_args = list(original_query_args)
-            while len(query_args) < 8:
-                query_args.append(None)
-            results = query(*query_args)
-            hits = results["hits"]["hits"]
-            expect = [unicode(x.id) for x in works]
-            actual = [x['_id'] for x in hits]
-            expect_titles = ", ".join([x.title for x in works])
-            actual_titles = ", ".join([x['_source']['title'] for x in hits])
-            eq_(
-                expect, actual,
-                "Query args %r did not find %d works (%s), instead found %d (%s)" % (
-                    original_query_args, len(expect), expect_titles,
-                    len(actual), actual_titles
-                )
-            )
-
-        # Search by genre. The name of the genre also shows up in the
-        # title of a book, but the genre comes up first.
-        expect_ids([self.ya_romance, self.modern_romance], "romance")
-
-        # Matches audience
-
-        results = query("children's", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.children_work.id), hits[0]['_id'])
-
-        results = query("young adult", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-        work_ids = sorted([unicode(self.ya_work.id), unicode(self.ya_romance.id)])
-        result_ids = sorted([hit["_id"] for hit in hits])
-        eq_(work_ids, result_ids)
-
-
-        # Matches grade
-
-        results = query("grade 4", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-        eq_(unicode(self.age_9_10.id), hits[0]['_id'])
-
-        results = query("grade 4-6", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-        eq_(unicode(self.age_9_10.id), hits[0]['_id'])
-
-
-        # Matches age
-
-        results = query("age 9", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-        eq_(unicode(self.age_9_10.id), hits[0]['_id'])
-
-        results = query("age 10-12", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-        eq_(unicode(self.age_9_10.id), hits[0]['_id'])
-
-
-        # Ranks closest target age range highest
-
-        results = query("age 3-5", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(3, len(hits))
-        eq_(unicode(self.age_4_5.id), hits[0]['_id'])
-        eq_(unicode(self.age_5_6.id), hits[1]['_id'])
-        eq_(unicode(self.age_2_10.id), hits[2]['_id'])
-
-
-        # Matches genre + audience
-
-        results = query("young adult romance", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-
-        # The book with 'Romance' in the title also shows up, but it
-        # shows up after the book whose audience matches 'young adult'
-        # and whose genre matches 'romance'.
-        eq_(
-            map(unicode, [self.ya_romance.id, self.modern_romance.id]),
-            [x['_id'] for x in hits]
+        two_per_page = Pagination(size=2, offset=0)
+        expect(
+            [self.moby_dick, self.moby_duck],
+            "moby dick", None, two_per_page
         )
 
-        # Matches age + fiction
+        # Now try some different search queries.
 
-        results = query("age 5 fiction", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-        eq_(unicode(self.age_4_5.id), hits[0]['_id'])
+        # Search in title.
+        eq_(2, len(query("moby")))
 
+        # Search in author name
+        expect(self.moby_dick, "melville")
 
-        # Matches genre + title
+        # Search in subtitle
+        expect(self.moby_dick, "whale")
 
-        results = query("lincoln biography", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-        eq_(unicode(self.lincoln.id), hits[0]['_id'])
-        eq_(unicode(self.lincoln_vampire.id), hits[1]['_id'])
+        # Search in series.
+        expect(self.moby_dick, "classics")
 
+        # Search in summary.
+        expect(self.moby_dick, "ishmael")
 
-        # Matches age + genre + summary
+        # Search in publisher name.
+        expect(self.moby_dick, "gutenberg")
 
-        results = query("age 8 president biography", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(5, len(hits))
-        eq_(unicode(self.obama.id), hits[0]['_id'])
+        # Title > subtitle > summary > publisher.
+        if MAJOR_VERSION == 1:
+            order = [
+                self.title_match,
+                self.subtitle_match,
+                self.summary_match,
+                self.publisher_match,
+            ]
+        else:
+            # TODO: This is incorrect -- summary is boosted way too much.
+            order = [
+                self.title_match,
+                self.summary_match,
+                self.subtitle_match,
+                self.publisher_match,
+            ]
+        expect(order, "match")
 
+        # (title match + author match) > title match
+        expect(
+            [self.moby_dick, self.moby_duck],
+            "moby melville"
+        )
 
-        # Filters on media
+        # Match a quoted phrase
+        # 'Moby-Dick' is the first result because it's an exact title
+        # match. 'Moby Duck' is the second result because it's a fuzzy
+        # match,
+        expect([self.moby_dick, self.moby_duck], '"moby dick"')
 
-        book_lane = self._lane("Books")
-        book_lane.media=[Edition.BOOK_MEDIUM]
-        audio_lane = self._lane("Audio")
-        audio_lane.media=[Edition.AUDIO_MEDIUM]
+        # Match a stemmed word: 'running' is stemmed to 'run', and
+        # so is 'runs'.
+        expect(self.dodger, "runs")
 
-        results = query("pride and prejudice", book_lane.media, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.pride.id), hits[0]["_id"])
+        # Match a misspelled phrase: 'movy' -> 'moby'.
+        expect([self.moby_dick, self.moby_duck], "movy", ordered=False)
 
-        results = query("pride and prejudice", audio_lane.media, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.pride_audio.id), hits[0]["_id"])
+        # Match a misspelled author: 'mleville' -> 'melville'
+        expect(self.moby_dick, "mleville")
 
+        expect([self.moby_dick, self.moby_duck], "mo by dick")
+
+        # A query without an apostrophe matches a word that contains one.
+        # (NOTE: it's not clear whether this is a feature of the index or
+        # done by the fuzzy match.)
+        expect(self.tess, "durbervilles")
+        expect(self.tiffany, "tiffanys")
+
+        # A query with an 'e' matches a word that contains an
+        # e-with-acute. (this is managed by the 'asciifolding' filter in
+        # the analyzers)
+        expect(self.les_mis, "les miserables")
+
+        # Find results based on fiction status.
+        #
+        # Here, Moby-Dick (fiction) is privileged over Moby Duck
+        # (nonfiction)
+        expect([self.moby_dick, self.moby_duck], "fiction moby")
+
+        # Here, Moby Duck is privileged over Moby-Dick.
+        expect([self.moby_duck, self.moby_dick], "nonfiction moby")
+
+        # Find results based on genre.
+
+        if MAJOR_VERSION == 1:
+            # The name of the genre also shows up in the title of a
+            # book, but the genre boost means the romance novel is the
+            # first result.
+            expect([self.ya_romance, self.modern_romance], "romance")
+        else:
+            # In ES6, the title boost is higher (TODO: how?) so
+            # the book with 'romance' in the title is the first result.
+            expect([self.modern_romance, self.ya_romance], "romance")
+
+        # Find results based on audience.
+        expect(self.children_work, "children's")
+
+        expect(
+            [self.ya_work, self.ya_romance], "young adult", ordered=False
+        )
+
+        # Find results based on grade level or target age.
+        for q in ('grade 4', 'grade 4-6', 'age 9'):
+            # ages 9-10 is a better result because a book targeted
+            # toward a narrow range is a better match than a book
+            # targeted toward a wide range.
+            expect([self.age_9_10, self.age_2_10], q)
+
+        # TODO: The target age query only scores how big the overlap
+        # is, it doesn't look at how large the non-overlapping part of
+        # the range is. So the 2-10 book can show up before the 9-10
+        # book. This could be improved.
+        expect([self.age_9_10, self.age_2_10], "age 10-12", ordered=False)
+
+        # Books whose target age are closer to the requested range
+        # are ranked higher.
+        expect([self.age_4_5, self.age_5_6, self.age_2_10], "age 3-5")
+
+        # Search by a combination of genre and audience.
+
+        # The book with 'Romance' in the title shows up, but it's
+        # after the book whose audience matches 'young adult' and
+        # whose genre matches 'romance'.
+        expect([self.ya_romance, self.modern_romance], "young adult romance")
+
+        # Search by a combination of target age and fiction
+        #
+        # Two books match the age range, but the one with a
+        # tighter age range comes first.
+        expect([self.age_4_5, self.age_2_10], "age 5 fiction")
+
+        # Search by a combination of genre and title
+
+        # Two books match 'lincoln', but the biography comes first.
+        expect([self.lincoln, self.lincoln_vampire], "lincoln biography")
+
+        # Search by age + genre + summary
+        results = query("age 8 president biography")
+
+        # There are a number of results, but the top one is a presidential
+        # biography for 8-year-olds.
+        eq_(5, len(results))
+        eq_(self.obama.id, results[0])
+
+        # Now we'll test filters.
+
+        # Both self.pride and self.pride_audio match the search query,
+        # but the filters eliminate one or the other from
+        # consideration.
+        book_filter = Filter(media=Edition.BOOK_MEDIUM)
+        audio_filter = Filter(media=Edition.AUDIO_MEDIUM)
+        expect(self.pride, "pride and prejudice", book_filter)
+        expect(self.pride_audio, "pride and prejudice", audio_filter)
 
         # Filters on languages
+        english = Filter(languages="en")
+        spanish = Filter(languages="es")
+        both = Filter(languages=["en", "es"])
 
-        english_lane = self._lane("English", languages="en")
-        spanish_lane = self._lane("Spanish", languages="es")
-        both_lane = self._lane("Both", languages=["en", "es"])
+        expect(self.sherlock, "sherlock", english)
+        expect(self.sherlock_spanish, "sherlock", spanish)
+        expect(
+            [self.sherlock, self.sherlock_spanish], "sherlock", both,
+            ordered=False
+        )
 
-        results = query("sherlock", None, english_lane.languages, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.sherlock.id), hits[0]["_id"])
+        # Filters on fiction status
+        fiction = Filter(fiction=True)
+        nonfiction = Filter(fiction=False)
+        both = Filter()
 
-        results = query("sherlock", None, spanish_lane.languages, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.sherlock_spanish.id), hits[0]["_id"])
-
-        results = query("sherlock", None, both_lane.languages, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-
-        # Filters on fiction
-
-        fiction_lane = self._lane("fiction")
-        fiction_lane.fiction = True
-        nonfiction_lane = self._lane("nonfiction")
-        nonfiction_lane.fiction = False
-        both_lane = self._lane("both")
-
-        results = query("moby dick", None, None, fiction_lane.fiction, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.moby_dick.id), hits[0]["_id"])
-
-        results = query("moby dick", None, None, nonfiction_lane.fiction, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.moby_duck.id), hits[0]["_id"])
-
-        results = query("moby dick", None, None, both_lane.fiction, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-
+        expect(self.moby_dick, "moby dick", fiction)
+        expect(self.moby_duck, "moby dick", nonfiction)
+        expect([self.moby_dick, self.moby_duck], "moby dick", both)
 
         # Filters on audience
+        adult = Filter(audiences=Classifier.AUDIENCE_ADULT)
+        ya = Filter(audiences=Classifier.AUDIENCE_YOUNG_ADULT)
+        children = Filter(audiences=Classifier.AUDIENCE_CHILDREN)
+        ya_and_children = Filter(
+            audiences=[Classifier.AUDIENCE_CHILDREN,
+                       Classifier.AUDIENCE_YOUNG_ADULT]
+        )
 
-        adult_lane = self._lane("Adult")
-        adult_lane.audiences = [Classifier.AUDIENCE_ADULT]
-        ya_lane = self._lane("YA")
-        ya_lane.audiences = [Classifier.AUDIENCE_YOUNG_ADULT]
-        children_lane = self._lane("Children")
-        children_lane.audiences = [Classifier.AUDIENCE_CHILDREN]
-        ya_and_children_lane = self._lane("YA and Children")
-        ya_and_children_lane.audiences = [Classifier.AUDIENCE_CHILDREN,
-                                          Classifier.AUDIENCE_YOUNG_ADULT]
+        expect(self.adult_work, "alice", adult)
+        expect(self.ya_work, "alice", ya)
+        expect(self.children_work, "alice", children)
 
-        results = query("alice", None, None, None, adult_lane.audiences, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.adult_work.id), hits[0]["_id"])
-
-        results = query("alice", None, None, None, ya_lane.audiences, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.ya_work.id), hits[0]["_id"])
-
-        results = query("alice", None, None, None, children_lane.audiences, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.children_work.id), hits[0]["_id"])
-
-        results = query("alice", None, None, None, ya_and_children_lane.audiences, None, None)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-        work_ids = sorted([unicode(self.ya_work.id), unicode(self.children_work.id)])
-        result_ids = sorted([hit["_id"] for hit in hits])
-        eq_(work_ids, result_ids)
-
+        expect([self.children_work, self.ya_work], "alice", ya_and_children,
+               ordered=False)
 
         # Filters on age range
+        age_8 = Filter(target_age=8)
+        age_5_8 = Filter(target_age=(5,8))
+        age_5_10 = Filter(target_age=(5,10))
+        age_8_10 = Filter(target_age=(8,10))
 
-        age_8_lane = self._lane("Age 8")
-        age_8_lane.target_age = 8
+        # As the age filter changes, different books appear and
+        # disappear. no_age is always present since it has no age
+        # restrictions.
+        expect(
+            [self.no_age, self.obama, self.dodger],
+            "president", age_8, ordered=False
+        )
 
-        age_5_8_lane = self._lane("Age 5-8")
-        age_5_8_lane.target_age = (5,8)
+        expect(
+            [self.no_age, self.age_4_5, self.obama, self.dodger],
+            "president", age_5_8, ordered=False
+        )
 
-        age_5_10_lane = self._lane("Age 5-10")
-        age_5_10_lane.target_age = (5,10)
+        expect(
+            [self.no_age, self.age_4_5, self.obama, self.dodger,
+             self.age_9_10],
+            "president", age_5_10, ordered=False
+        )
 
-        age_8_10_lane = self._lane("Age 8-10")
-        age_8_10_lane.target_age = (8,10)
-
-        results = query("president", None, None, None, None, age_8_lane.target_age, None)
-        hits = results["hits"]["hits"]
-        eq_(3, len(hits))
-        work_ids = sorted([unicode(self.no_age.id), unicode(self.obama.id), unicode(self.dodger.id)])
-        result_ids = sorted([hit["_id"] for hit in hits])
-        eq_(work_ids, result_ids)
-
-        results = query("president", None, None, None, None, age_5_8_lane.target_age, None)
-        hits = results["hits"]["hits"]
-        eq_(4, len(hits))
-        work_ids = sorted([unicode(self.no_age.id),
-                           unicode(self.age_4_5.id),
-                           unicode(self.obama.id),
-                           unicode(self.dodger.id)])
-        result_ids = sorted([hit["_id"] for hit in hits])
-        eq_(work_ids, result_ids)
-
-        results = query("president", None, None, None, None, age_5_10_lane.target_age, None)
-        hits = results["hits"]["hits"]
-        eq_(5, len(hits))
-        work_ids = sorted([unicode(self.no_age.id),
-                           unicode(self.age_4_5.id),
-                           unicode(self.obama.id),
-                           unicode(self.dodger.id),
-                           unicode(self.age_9_10.id)])
-        result_ids = sorted([hit["_id"] for hit in hits])
-        eq_(work_ids, result_ids)
-
-        results = query("president", None, None, None, None, age_8_10_lane.target_age, None)
-        hits = results["hits"]["hits"]
-        eq_(4, len(hits))
-        work_ids = sorted([unicode(self.no_age.id),
-                           unicode(self.obama.id),
-                           unicode(self.dodger.id),
-                           unicode(self.age_9_10.id)])
-        result_ids = sorted([hit["_id"] for hit in hits])
-        eq_(work_ids, result_ids)
-
+        expect(
+            [self.no_age, self.obama, self.dodger, self.age_9_10],
+            "president", age_8_10, ordered=False
+        )
 
         # Filters on genre
 
-        biography_lane = self._lane("Biography", genres=["Biography & Memoir"])
-        fantasy_lane = self._lane("Fantasy", genres=["Fantasy"])
-        both_lane = self._lane("Both", genres=["Biography & Memoir", "Fantasy"])
-        self._db.flush()
+        biography, ignore = Genre.lookup(self._db, "Biography & Memoir")
+        fantasy, ignore = Genre.lookup(self._db, "Fantasy")
+        biography_filter = Filter(genre_restriction_sets=[[biography]])
+        fantasy_filter = Filter(genre_restriction_sets=[[fantasy]])
+        both = Filter(genre_restriction_sets=[[fantasy, biography]])
 
-        results = query("lincoln", None, None, None, None, None, biography_lane.genre_ids)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.lincoln.id), hits[0]["_id"])
-
-        results = query("lincoln", None, None, None, None, None, fantasy_lane.genre_ids)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.lincoln_vampire.id), hits[0]["_id"])
-
-        results = query("lincoln", None, None, None, None, None, both_lane.genre_ids)
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
+        expect(self.lincoln, "lincoln", biography_filter)
+        expect(self.lincoln_vampire, "lincoln", fantasy_filter)
+        expect([self.lincoln, self.lincoln_vampire], "lincoln", both,
+               ordered=False)
 
         # Filters on list membership.
+
         # This ignores 'Abraham Lincoln, Vampire Hunter' because that
-        # book isn't on the list.
-        results = query("lincoln", None, None, None, None, None, None, on_any_of_these_lists=[self.presidential.id])
-        hits = results['hits']['hits']
-        eq_(1, len(hits))
-        eq_(unicode(self.lincoln.id), hits[0]["_id"])
+        # book isn't on the self.presidential list.
+        on_presidential_list = Filter(
+            customlist_restriction_sets=[[self.presidential]]
+        )
+        expect(self.lincoln, "lincoln", on_presidential_list)
 
         # This filters everything, since the query is restricted to
         # an empty set of lists.
-        results = query("lincoln", None, None, None, None, None, None, on_any_of_these_lists=[])
-        hits = results['hits']['hits']
-        eq_(0, len(hits))
+        expect([], "lincoln", Filter(customlist_restriction_sets=[[]]))
 
-        # This query does not match anything because the book in
-        # question is not in a collection associated with the default
-        # library.
-        results = query("a tiny book", None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(0, len(hits))
 
-        # If we don't pass in a library to query_works, the entire index is
-        # searched and we can see everything regardless of which collection
-        # it's in.
-        results = self.search.query_works(
-            None, "book", None, None, None, None, None, None, None
+        # Filter based on collection ID.
+
+        # "A Tiny Book" isn't in the default collection.
+        default_collection_only = Filter(collections=self._default_collection)
+        expect([], "a tiny book", default_collection_only)
+
+        # It is in the tiny_collection.
+        other_collection_only = Filter(collections=self.tiny_collection)
+        expect(self.tiny_book, "a tiny book", other_collection_only)
+
+        # If a book is present in two different collections which are
+        # being searched, it only shows up in search results once.
+        f = Filter(
+            collections=[self._default_collection, self.tiny_collection],
+            languages="en"
         )
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        results = self.search.query_works(
-            None, "moby dick", None, None, None, None, None, None, None
-        )
-        hits = results["hits"]["hits"]
-        eq_(2, len(hits))
+        expect(self.sherlock, "sherlock holmes", f)
 
-        #
-        # Test searching across collections.
-        #
 
-        # If we add the missing collection to the default library, "A
-        # Tiny Book" starts showing up in searches against that
-        # library.
-        self._default_library.collections.append(self.tiny_collection)
-        results = query("a tiny book", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-
-        # Although the English edition of 'The Adventures of Sherlock
-        # Holmes' is available through two different collections
-        # associated with the default library, it only shows up once
-        # in search results.
-        results = query(
-            "sherlock holmes", None, ['en'], None, None,
-            None, None, None
-        )
-        hits = results['hits']['hits']
-        eq_(1, len(hits))
-        [doc] = hits
-
-        # When the second English LicensePool for 'The Adventures of
-        # Sherlock Holmes' was associated with its Work, the Work was
-        # automatically reindexed to incorporate with a new set of
-        # collection IDs.
-        collections = [x['collection_id'] for x in doc['_source']['collections']]
-        expect_collections = [
-            self.tiny_collection.id, self._default_collection.id
-        ]
-        eq_(set(collections), set(expect_collections))
-
-class TestExactMatches(ExternalSearchTest):
+class TestExactMatches(EndToEndExternalSearchTest):
     """Verify that exact or near-exact title and author matches are
     privileged over matches that span fields.
     """
@@ -943,38 +840,16 @@ class TestExactMatches(ExternalSearchTest):
         # Sleep to give the index time to catch up.
         time.sleep(2)
 
+
     def test_exact_matches(self):
         if not self.search:
             return
 
-        # Convenience method to query the default library.
-        def query(*args, **kwargs):
-            return self.search.query_works(
-                self._default_library, *args, **kwargs
-            )
-
-        def expect_ids(works, *query_args):
-            original_query_args = list(query_args)
-            query_args = list(original_query_args)
-            while len(query_args) < 8:
-                query_args.append(None)
-            results = query(*query_args)
-            hits = results["hits"]["hits"]
-            expect = [unicode(x.id) for x in works]
-            actual = [x['_id'] for x in hits]
-            expect_titles = ", ".join([x.title for x in works])
-            actual_titles = ", ".join([x['_source']['title'] for x in hits])
-            eq_(
-                expect, actual,
-                "Query args %r did not find %d works (%s), instead found %d (%s)" % (
-                    original_query_args, len(expect), expect_titles,
-                    len(actual), actual_titles
-                )
-            )
+        expect = self._expect_results
 
         # A full title match takes precedence over a match that's
         # split across genre and subtitle.
-        expect_ids(
+        expect(
             [
                 self.modern_romance, # "modern romance" in title
                 self.ya_romance      # "modern" in subtitle, genre "romance"
@@ -985,7 +860,7 @@ class TestExactMatches(ExternalSearchTest):
         # A full author match takes precedence over a partial author
         # match. A partial author match that matches the entire search
         # string takes precedence over a partial author match that doesn't.
-        expect_ids(
+        expect(
             [
                 self.modern_romance,      # "Aziz Ansari" in author
                 self.parent_book,         # "Aziz" in title, "Ansari" in author
@@ -994,307 +869,1043 @@ class TestExactMatches(ExternalSearchTest):
             "aziz ansari"
         )
 
-        # When a string exactly matches both a title and an author,
-        # the books that match exactly are promoted.
-        expect_ids(
-            [self.biography_of_peter_graves, self.behind_the_scenes,
-             self.book_by_peter_graves, self.book_by_someone_else],
-            "peter graves"
-        )
+        # The next two cases have slightly different outcomes in
+        # Elasticsearch 1 and Elasticsearch 6, so we're only testing
+        # the invariants between versions.
 
-        # 'The Making of Biography With Peter Graves' does worse in a
-        # search for 'peter graves biography' than a biography whose
-        # title includes the phrase 'peter graves'. Although the title
-        # contains all three search terms, it's not an exact token
-        # match. But "The Making of..." still does better than
-        # books that match 'peter graves' (or 'peter' and 'graves'),
-        # but not 'biography'.
-        expect_ids(
-            [self.biography_of_peter_graves, # title + genre 'biography'
-             self.behind_the_scenes,         # all words match in title
-             self.book_by_peter_graves,      # author (no 'biography')
-             self.book_by_someone_else       # title + author (no 'biography')
-            ],
-            "peter graves biography"
-        )
+        # 'peter graves' is a string that has exact matches in both
+        # title and author.
 
-
-class TestSearchQuery(DatabaseTest):
-    def test_make_query(self):
-
-        search = DummyExternalSearchIndex()
-
-        # Basic query
-        query = search.make_query("test")
-
-        # The query runs a number of matching techniques on a search
-        # result and picks the best one.
-        must = query['dis_max']['queries']
-
-        # Here are the matching techniques.
-        stemmed, minimal, standard_title, standard_author, fuzzy = must
-
-        # The search string is stemmed and matched against a number of
-        # fields such as title and publisher. Results from this
-        # subquery are boosted with respect to the fuzzy subquery,
-        # which will come later.
-        boosted = stemmed['bool']
-        eq_(1.5, boosted['boost'])
-        stemmed_query = boosted['must']['simple_query_string']
-        eq_("test", stemmed_query['query'])
-        assert "title^4" in stemmed_query['fields']
-        assert 'publisher' in stemmed_query['fields']
-
-        def assert_field_names(query, *expect):
-            """Validate that a query is set up to match the string 'test'
-            against one or more of a number of fields.
-            """
-            actual_keys = set()
-
-            # For this part of the query to be considered successful,
-            # it's sufficient for a single field to match.
-            eq_(1, query['bool']['minimum_should_match'])
-
-            for possibility in query['bool']['should']:
-                [(key, value)] = possibility['match_phrase'].items()
-                actual_keys.add(key)
-                eq_(value, 'test')
-            eq_(set(actual_keys), set(expect))
-
-        # The search string is matched against a number of
-        # minimally processed fields.
-        assert_field_names(
-            minimal,
-            'title.minimal', 'author', 'series.minimal'
-        )
-
-        # The search string is matched more or less as-is against
-        # the title alone...
-        assert_field_names(standard_title, 'title.standard')
-
-        # ... and the author alone.
-        assert_field_names(standard_author, 'author.standard')
-
-        # The search string is matched fuzzily against a number of
-        # minimally-processed fields such as title and publisher.
-        fuzzy_query = fuzzy['multi_match']
-        eq_('AUTO', fuzzy_query['fuzziness'])
-
-        fuzzy_fields = fuzzy_query['fields']
-        assert 'title.minimal^4' in fuzzy_fields
-        assert 'author^4' in fuzzy_fields
-        assert 'publisher' in fuzzy_fields
-
-        # Of those fields, the single one that best matches the search
-        # request is chosen to represent this match technique's score.
-        # https://www.elastic.co/guide/en/elasticsearch/guide/current/_best_fields.html
-        eq_('best_fields', fuzzy_query['type'])
-
-        # If we create a query using a fuzzy blacklist keyword...
-        query = search.make_query("basketball")
-        must = query['dis_max']['queries']
-
-        # ... the fuzzy match technique is not used because it's too
-        # unreliable.
-        eq_(4, len(must))
-
-        # Query with genre
-        query = search.make_query("test romance")
-
-        must = query['dis_max']['queries']
-
-        eq_(6, len(must))
-        full_query = must[0]['bool']['must']['simple_query_string']
-        eq_("test romance", full_query['query'])
-        assert "title^4" in full_query['fields']
-        assert 'publisher' in full_query['fields']
-
-        classification_query = must[5]['bool']['must']
-        eq_(2, len(classification_query))
-        genre_query = classification_query[0]['match']
-        assert 'genres.name' in genre_query
-        eq_('Romance', genre_query['genres.name'])
-        remaining_query = classification_query[1]['simple_query_string']
-        assert "test" in remaining_query['query']
-        assert "romance" not in remaining_query['query']
-        assert 'author^4' in remaining_query['fields']
-
-
-        # Query with fiction
-        query = search.make_query("test nonfiction")
-
-        must = query['dis_max']['queries']
-
-        eq_(6, len(must))
-
-        classification_query = must[5]['bool']['must']
-        eq_(2, len(classification_query))
-        fiction_query = classification_query[0]['match']
-        assert 'fiction' in fiction_query
-        eq_('Nonfiction', fiction_query['fiction'])
-        remaining_query = classification_query[1]['simple_query_string']
-        assert "test" in remaining_query['query']
-        assert "fiction" not in remaining_query['query']
-        assert 'author^4' in remaining_query['fields']
-
-
-        # Query with genre and fiction
-        query = search.make_query("test romance fiction")
-
-        must = query['dis_max']['queries']
-
-        eq_(6, len(must))
-
-        classification_query = must[5]['bool']['must']
-        eq_(3, len(classification_query))
-        genre_query = classification_query[0]['match']
-        assert 'genres.name' in genre_query
-        eq_('Romance', genre_query['genres.name'])
-        fiction_query = classification_query[1]['match']
-        assert 'fiction' in fiction_query
-        eq_('Fiction', fiction_query['fiction'])
-        remaining_query = classification_query[2]['simple_query_string']
-        assert "test" in remaining_query['query']
-        assert "romance" not in remaining_query['query']
-        assert "fiction" not in remaining_query['query']
-        assert 'author^4' in remaining_query['fields']
-
-        # Query with audience
-        query = search.make_query("test young adult")
-
-        must = query['dis_max']['queries']
-
-        eq_(6, len(must))
-        full_query = must[0]['bool']['must']['simple_query_string']
-        eq_("test young adult", full_query['query'])
-
-        classification_query = must[5]['bool']['must']
-        eq_(2, len(classification_query))
-        audience_query = classification_query[0]['match']
-        assert 'audience' in audience_query
-        eq_('YoungAdult', audience_query['audience'])
-        remaining_query = classification_query[1]['simple_query_string']
-        assert "test" in remaining_query['query']
-        assert "young" not in remaining_query['query']
-
-        # Query with grade
-        query = search.make_query("test grade 6")
-
-        must = query['dis_max']['queries']
-
-        eq_(6, len(must))
-        full_query = must[0]['bool']['must']['simple_query_string']
-        eq_("test grade 6", full_query['query'])
-
-        classification_query = must[5]['bool']['must']
-        eq_(2, len(classification_query))
-        grade_query = classification_query[0]['bool']
-        assert 'must' in grade_query
-        assert 'should' in grade_query
-        age_must = grade_query['must']
-        eq_(2, len(age_must))
-        eq_(11, age_must[0]['range']['target_age.upper']['gte'])
-        eq_(11, age_must[1]['range']['target_age.lower']['lte'])
-
-        remaining_query = classification_query[1]['simple_query_string']
-        assert "test" in remaining_query['query']
-        assert "grade" not in remaining_query['query']
-
-        # Query with age
-        query = search.make_query("test 5-10 years")
-
-        must = query['dis_max']['queries']
-
-        eq_(6, len(must))
-        full_query = must[0]['bool']['must']['simple_query_string']
-        eq_("test 5-10 years", full_query['query'])
-
-        classification_query = must[5]['bool']['must']
-        eq_(2, len(classification_query))
-        grade_query = classification_query[0]['bool']
-        assert 'must' in grade_query
-        assert 'should' in grade_query
-        age_must = grade_query['must']
-        eq_(2, len(age_must))
-        eq_(5, age_must[0]['range']['target_age.upper']['gte'])
-        eq_(10, age_must[1]['range']['target_age.lower']['lte'])
-
-        remaining_query = classification_query[1]['simple_query_string']
-        assert "test" in remaining_query['query']
-        assert "5" not in remaining_query['query']
-        assert "years" not in remaining_query['query']
-
-
-class TestSearchFilterFromLane(DatabaseTest):
-
-    def test_make_filter_handles_collection_id(self):
-        search = DummyExternalSearchIndex()
-
-        lane = self._lane("anything")
-        collection_ids = [x.id for x in lane.library.collections]
-        filter = search.make_filter(
-            collection_ids,
-            lane.media, lane.languages,
-            lane.fiction, list(lane.audiences), lane.target_age,
-            lane.genre_ids, lane.customlist_ids,
-        )
-        [collection_filter] = filter['and']
-        expect = [
-            {'terms': {'collection_id': collection_ids}},
-            {'bool': {'must_not': {'exists': {'field': 'collection_id'}}}}
+        # Books with 'Peter Graves' in the title are the top results,
+        # ordered by how much other stuff is in the title. An exact
+        # author match is next.  A partial match split across fields
+        # ("peter" in author, "graves" in title) is the last result.
+        order = [
+            self.biography_of_peter_graves,
+            self.behind_the_scenes,
+            self.book_by_peter_graves,
+            self.book_by_someone_else,
         ]
-        eq_(expect, collection_filter['or'])
+        expect(order, "peter graves")
 
-    def test_query_works_from_lane_definition_handles_medium(self):
-        search = DummyExternalSearchIndex()
+        if MAJOR_VERSION == 1:
+            # In Elasticsearch 1, 'The Making of Biography With Peter
+            # Graves' does worse in a search for 'peter graves
+            # biography' than a biography whose title includes the
+            # phrase 'peter graves'. Although the title contains all
+            # three search terms, it's not an exact token match. But
+            # "The Making of..." still does better than books that
+            # match 'peter graves' (or 'peter' and 'graves'), but not
+            # 'biography'.
+            order = [
+                self.biography_of_peter_graves, # title + genre 'biography'
+                self.behind_the_scenes,         # all words match in title
+                self.book_by_peter_graves,      # author (no 'biography')
+                self.book_by_someone_else,      # match across fields (no 'biography')
+            ]
+        else:
+            # In Elasticsearch 6, the exact author match that doesn't
+            # mention 'biography' is boosted above a book that
+            # mentions all three words in its title.
+            order = [
+                self.biography_of_peter_graves, # title + genre 'biography'
+                self.book_by_peter_graves,      # author (no 'biography')
+                self.behind_the_scenes,         # all words match in title
+                self.book_by_someone_else,      # match across fields (no 'biography')
+            ]
 
-        lane = self._lane("Only Audio")
-        lane.media = [Edition.AUDIO_MEDIUM]
-        filter = search.make_filter(
-            [self._default_collection.id],
-            lane.media, lane.languages,
-            lane.fiction, lane.audiences, lane.target_age,
-            lane.genre_ids, lane.customlist_ids,
+        expect(order, "peter graves biography")
+
+
+class TestSearchBase(object):
+
+    def test__match_range(self):
+        # Test the _match_range helper method.
+        # This is used to create an Elasticsearch query term
+        # that only matches if a value is in a given range.
+
+        # This only matches if field.name has a value >= 5.
+        r = SearchBase._match_range("field.name", "gte", 5)
+        eq_(r, {'range': {'field.name': {'gte': 5}}})
+
+
+class TestQuery(DatabaseTest):
+
+    def test_constructor(self):
+        # Verify that the Query constructor sets members with
+        # no processing.
+        query = Query("query string", "filter")
+        eq_("query string", query.query_string)
+        eq_("filter", query.filter)
+
+    def test_build(self):
+        # Verify that the build() method combines the 'query' part of the
+        # Query and the 'filter' part to create a single Elasticsearch
+        # query object.
+        class Mock(Query):
+            def query(self):
+                return Q("simple_query_string", query=self.query_string)
+
+        # If there's a filter, an ElasticSearch query object is created.
+        filter = Filter(fiction=True)
+        m = Mock("query string", filter=filter)
+        filtered = m.build()
+
+        # The 'query' part came from calling Query.query()
+        # The 'filter' part came from Filter.build()
+        if MAJOR_VERSION == 1:
+            eq_(filtered.query, m.query())
+            eq_(filtered.filter, filter.build())
+        else:
+            eq_(filtered.must, [m.query()])
+            eq_(filtered.filter, [filter.build()])
+
+        # If there's no filter, the return value of Query.query()
+        # is used as-is.
+        m.filter = None
+        unfiltered = m.build()
+        eq_(unfiltered, m.query())
+        assert not hasattr(unfiltered, 'filter')
+
+    def test_query(self):
+        # The query() method calls a number of other methods
+        # to generate hypotheses, then creates a dis_max query
+        # to find the most likely hypothesis for any given book.
+
+        class Mock(Query):
+
+            _match_phrase_called_with = []
+            _boosts = {}
+            _kwargs = {}
+
+            def simple_query_string_query(self, query_string):
+                self.simple_query_string_called_with = query_string
+                return "simple"
+
+            def minimal_stemming_query(
+                    self, query_string, fields="default fields"
+            ):
+                self.minimal_stemming_called_with = (query_string, fields)
+                return "minimal stemming"
+
+            def _match_phrase(self, field, query_string):
+                self._match_phrase_called_with.append((field, query_string))
+                return "%s match phrase" % field
+
+            def fuzzy_string_query(self, query_string):
+                self.fuzzy_string_called_with = query_string
+                return "fuzzy string"
+
+            def _parsed_query_matches(self, query_string):
+                self._parsed_query_matches_called_with = query_string
+                return "parsed query matches"
+
+            def _hypothesize(
+                    self, hypotheses, new_hypothesis, boost="default",
+                    **kwargs
+            ):
+                self._boosts[new_hypothesis] = boost
+                self._kwargs[new_hypothesis] = kwargs
+                hypotheses.append(new_hypothesis)
+                return hypotheses
+
+            def _combine_hypotheses(self, hypotheses):
+                self._combine_hypotheses_called_with = hypotheses
+                return hypotheses
+
+        q = "query string"
+        query = Mock(q)
+        result = query.query()
+
+        # The final result is the result of calling _combine_hypotheses
+        # on a number of hypotheses. Our mock class just returns
+        # the hypotheses as-is, for easier testing.
+        eq_(result, query._combine_hypotheses_called_with)
+
+        # We ended up with five hypotheses. The mock methods were called
+        # once, except for _match_phrase, which was called once for title
+        # and once for author.
+        eq_(['simple', 'minimal stemming',
+             'title.standard match phrase', 'author match phrase',
+             'fuzzy string', 'parsed query matches'], result)
+
+        # For the parsed query matches, the extra all_must_match=True
+        # argument was passed into _boost() -- the boost only applies
+        # if every element of the parsed query is a hit.
+        eq_({'all_must_match': True},
+            query._kwargs['parsed query matches'])
+
+        # In each case, the original query string was used as the
+        # input into the mocked method.
+        eq_(q, query.simple_query_string_called_with)
+        eq_((q, "default fields"),
+            query.minimal_stemming_called_with)
+        eq_([('title.standard', q), ('author', q)],
+            query._match_phrase_called_with)
+        eq_(q, query.fuzzy_string_called_with)
+        eq_(q, query._parsed_query_matches_called_with)
+
+        # Each call to _hypothesize included a boost factor indicating
+        # how heavily to weight that hypothesis. Rather than do anything
+        # with this information, we just stored it in _boosts.
+
+        # Exact title or author matches are valued quite highly.
+        eq_(200, query._boosts['title.standard match phrase'])
+        eq_(50, query._boosts['author match phrase'])
+
+        # A near-exact match is also valued highly.
+        eq_(100, query._boosts['minimal stemming'])
+
+        # The default query match has the default boost.
+        eq_("default", query._boosts['simple'])
+
+        # The fuzzy match has a boost that's very low, to encourage any
+        # matches that are better to show up first.
+        eq_(1, query._boosts['fuzzy string'])
+
+        eq_(200, query._boosts['parsed query matches'])
+
+    def test__hypothesize(self):
+        # Verify that _hypothesize() adds a query to a list,
+        # boosting it if necessary.
+        class Mock(Query):
+            @classmethod
+            def _boost(cls, boost, query):
+                return "%s boosted by %d" % (query, boost)
+
+        hypotheses = []
+
+        # _hypothesize() does nothing if it's not passed a real
+        # query.
+        Mock._hypothesize(hypotheses, None, 100)
+        eq_([], hypotheses)
+
+        # If it is passed a real query, _boost() is called on the
+        # query object.
+        Mock._hypothesize(hypotheses, "query object", 10)
+        eq_(["query object boosted by 10"], hypotheses)
+
+        Mock._hypothesize(hypotheses, "another query object", 1)
+        eq_(["query object boosted by 10", "another query object boosted by 1"],
+            hypotheses)
+
+
+    def test__combine_hypotheses(self):
+        # Verify that _combine_hypotheses creates a DisMax query object
+        # that chooses the best one out of whichever queries it was passed.
+        h1 = Q("simple_query_string", query="query 1")
+        h2 = Q("simple_query_string", query="query 2")
+        hypotheses = [h1, h2]
+        combined = Query._combine_hypotheses(hypotheses)
+        eq_("dis_max", combined.name)
+        eq_(hypotheses, combined.queries)
+
+    def test__boost(self):
+        # Verify that _boost() converts a regular query (or list of queries)
+        # into a boosted query.
+        q1 = Q("simple_query_string", query="query 1")
+        q2 = Q("simple_query_string", query="query 2")
+
+        boosted_one = Query._boost(10, q1)
+        eq_("bool", boosted_one.name)
+        eq_(10.0, boosted_one.boost)
+        eq_([q1], boosted_one.must)
+
+        # By default, if you pass in multiple queries, only one of them
+        # must match for the boost to apply.
+        boosted_multiple = Query._boost(4.5, [q1, q2])
+        eq_("bool", boosted_multiple.name)
+        eq_(4.5, boosted_multiple.boost)
+        eq_(1, boosted_multiple.minimum_should_match)
+        eq_([q1, q2], boosted_multiple.should)
+
+        # Here, every query must match for the boost to apply.
+        boosted_multiple = Query._boost(4.5, [q1, q2], all_must_match=True)
+        eq_("bool", boosted_multiple.name)
+        eq_(4.5, boosted_multiple.boost)
+        eq_([q1, q2], boosted_multiple.must)
+
+        # A Bool query has its boost changed but is otherwise left alone.
+        bool = Q("bool", boost=10)
+        boosted_bool = Query._boost(1, bool)
+        eq_(Q("bool", boost=1), boosted_bool)
+
+        # Some other kind of query that's being given a "boost" of 1
+        # is left alone.
+        eq_(q1, Query._boost(1, q1))
+
+    def test_simple_query_string_query(self):
+        # Verify that simple_query_string_query() returns a
+        # SimpleQueryString Elasticsearch object.
+        qu = Query.simple_query_string_query("hello")
+        eq_("simple_query_string", qu.name)
+        eq_(Query.SIMPLE_QUERY_STRING_FIELDS, qu.fields)
+        eq_("hello", qu.query)
+
+        # It's possible to use your own set of fields instead of
+        # the defaults.
+        custom_fields = ['field1', 'field2']
+        qu = Query.simple_query_string_query("hello", custom_fields)
+        eq_(custom_fields, qu.fields)
+        eq_("hello", qu.query)
+
+    def test_fuzzy_string_query(self):
+        # fuzzy_string_query() returns a MultiMatch Elasticsearch
+        # object, unless the query string looks like a fuzzy search
+        # will do poorly on it -- then it returns None.
+
+        qu = Query.fuzzy_string_query("hello")
+        eq_("multi_match", qu.name)
+        eq_(Query.FUZZY_QUERY_STRING_FIELDS, qu.fields)
+        eq_("best_fields", qu.type)
+        eq_("AUTO", qu.fuzziness)
+        eq_("hello", qu.query)
+        eq_(1, qu.prefix_length)
+
+        # This query string contains a string that is known to mess
+        # with fuzzy searches.
+        qu = Query.fuzzy_string_query("tennis players")
+
+        # fuzzy_string_query does nothing, to avoid bad results.
+        eq_(None, qu)
+
+    def test__match(self):
+        # match creates a Match Elasticsearch object which does a
+        # match against a specific field.
+        qu = Query._match("author", "flannery o'connor")
+        eq_(
+            {'match': {'author': "flannery o'connor"}},
+            qu.to_dict()
         )
-        collection_filter, medium_filter = filter['and']
-        expect = dict(terms=dict(medium=[Edition.AUDIO_MEDIUM.lower()]))
-        eq_(expect, medium_filter)
 
-    def test_query_works_from_lane_definition_handles_age_range(self):
-        search = DummyExternalSearchIndex()
-
-        lane = self._lane("For Ages 5-10")
-        lane.target_age = (5,10)
-        filter = search.make_filter(
-            [self._default_collection.id],
-            lane.media, lane.languages,
-            lane.fiction, list(lane.audiences), lane.target_age,
-            lane.genre_ids, lane.customlist_ids,
+    def test__match_phrase(self):
+        # match_phrase creates a MatchPhrase Elasticsearch
+        # object which does a phrase match against a specific field.
+        qu = Query._match_phrase("author", "flannery o'connor")
+        eq_(
+            {'match_phrase': {'author': "flannery o'connor"}},
+            qu.to_dict()
         )
 
-        collection_filter, audience_filter, target_age_filter = filter['and']
-        upper_filter, lower_filter = target_age_filter['and']
-        expect_upper = {'or': [{'range': {'target_age.upper': {'gte': 5}}}, {'bool': {'must_not': {'exists': {'field': 'target_age.upper'}}}}]}
-        expect_lower = {'or': [{'range': {'target_age.lower': {'lte': 10}}}, {'bool': {'must_not': {'exists': {'field': 'target_age.lower'}}}}]}
-        eq_(expect_upper, upper_filter)
-        eq_(expect_lower, lower_filter)
+    def test_minimal_stemming_query(self):
+        class Mock(Query):
+            @classmethod
+            def _match_phrase(cls, field, query_string):
+                return "%s=%s" % (field, query_string)
 
-    def test_query_works_from_lane_definition_handles_languages(self):
-        search = DummyExternalSearchIndex()
+        m = Mock.minimal_stemming_query
 
-        lane = self._lane("english or spanish", languages=['eng', 'spa'])
-        filter = search.make_filter(
-            [self._default_collection.id],
-            lane.media, lane.languages,
-            lane.fiction, lane.audiences, lane.target_age,
-            lane.genre_ids, lane.customlist_ids,
+        # No fields, no queries.
+        eq_([], m("query string", []))
+
+        # If you pass in any fields, you get a _match_phrase
+        # query for each one.
+        results = m("query string", ["field1", "field2"])
+        eq_(
+            ["field1=query string", "field2=query string"],
+            results
         )
 
-        collection_filter, languages_filter = filter['and']
-        expect_languages = ['eng', 'spa']
-        assert 'terms' in languages_filter
-        assert 'language' in languages_filter['terms']
-        eq_(expect_languages, sorted(languages_filter['terms']['language']))
+        # The default fields are MINIMAL_STEMMING_QUERY_FIELDS.
+        results = m("query string")
+        eq_(
+            ["%s=query string" % field
+             for field in Mock.MINIMAL_STEMMING_QUERY_FIELDS],
+            results
+        )
+
+    def test_make_target_age_query(self):
+
+        # Search for material suitable for children between the
+        # ages of 5 and 10.
+        qu = Query.make_target_age_query((5,10), boost=50.1)
+
+        # We get a boosted boolean query.
+        eq_("bool", qu.name)
+        eq_(50.1, qu.boost)
+
+        # To match the query, the material's target age must overlap
+        # the 5-10 age range.
+        five_year_olds_not_too_old, ten_year_olds_not_too_young = qu.must
+        eq_(
+            {'range': {'target_age.upper': {'gte': 5}}},
+            five_year_olds_not_too_old.to_dict()
+        )
+        eq_(
+            {'range': {'target_age.lower': {'lte': 10}}},
+            ten_year_olds_not_too_young.to_dict()
+        )
+
+        # To get the full boost, the target age must fit entirely within
+        # the 5-10 age range. If a book would also work for older or younger
+        # kids who aren't in this age range, it's not as good a match.
+        would_work_for_older_kids, would_work_for_younger_kids = qu.should
+        eq_(
+            {'range': {'target_age.upper': {'lte': 10}}},
+            would_work_for_older_kids.to_dict()
+        )
+        eq_(
+            {'range': {'target_age.lower': {'gte': 5}}},
+            would_work_for_younger_kids.to_dict()
+        )
+
+        # The default boost is 1.
+        qu = Query.make_target_age_query((5,10))
+        eq_(1, qu.boost)
+
+    def test__parsed_query_matches(self):
+        # _parsed_query_matches creates a QueryParser from
+        # the query string and returns whatever it comes up with.
+        #
+        # This is a basic test to verify that a QueryParser
+        # is in use. The QueryParser is tested in much greater detail
+        # in TestQueryParser.
+
+        [must_match] = Query._parsed_query_matches("nonfiction")
+        eq_({'match': {'fiction': 'Nonfiction'}}, must_match.to_dict())
+
+
+class TestQueryParser(DatabaseTest):
+    """Test the class that tries to derive structure from freeform
+    text search requests.
+    """
+
+    def test_constructor(self):
+        # The constructor parses the query string, creates any
+        # necessary query objects, and turns the remaining part of
+        # the query into a 'simple query string'-type query.
+
+        class MockQuery(object):
+            """Create 'query' objects that are easier to test than
+            the ones the Query class makes.
+            """
+            @classmethod
+            def simple_query_string_query(cls, query_string, fields):
+                return (query_string, fields)
+
+            @classmethod
+            def _match(cls, field, query):
+                return (field, query)
+
+            @classmethod
+            def make_target_age_query(cls, query, boost):
+                return (query, boost)
+
+        parser = QueryParser("science fiction about dogs", MockQuery)
+
+        # The original query string is always stored as .original_query_string.
+        eq_("science fiction about dogs", parser.original_query_string)
+
+        # The part of the query that couldn't be parsed is always stored
+        # as final_query_string.
+        eq_("about dogs", parser.final_query_string)
+
+        # Leading and trailing whitespace is never regarded as
+        # significant and it is stripped from the query string
+        # immediately.
+        whitespace = QueryParser(" abc ", MockQuery)
+        eq_("abc", whitespace.original_query_string)
+
+        # The query string becomes a series of Query objects
+        # (simulated here by the tuples returned by the MockQuery
+        # methods).
+        #
+        # parser.match_queries contains some number of field-match
+        # queries, and then one final query that runs the unparseable
+        # portion of the query through a simple multi-field match.
+        query_string_fields = QueryParser.SIMPLE_QUERY_STRING_FIELDS
+        eq_(
+            [('genres.name', 'Science Fiction'),
+             ('about dogs', query_string_fields)],
+            parser.match_queries
+        )
+
+        # Now that you see how it works, let's define a helper
+        # function that will let us easily verify that a certain
+        # query string becomes a certain set of field matches plus a
+        # certain string left over.
+        def assert_parses_as(query_string, *matches):
+            matches = list(matches)
+            parser = QueryParser(query_string, MockQuery)
+            remainder = matches.pop(-1)
+            if remainder:
+                remainder_match = MockQuery.simple_query_string_query(
+                    remainder, query_string_fields
+                )
+                matches.append(remainder_match)
+            eq_(matches, parser.match_queries)
+            eq_(query_string, parser.original_query_string)
+            eq_(remainder, parser.final_query_string)
+
+        # Here's the same test from before, using the new
+        # helper function.
+        assert_parses_as(
+            "science fiction about dogs",
+            ("genres.name", "Science Fiction"),
+            "about dogs"
+        )
+
+        # Test audiences.
+
+        assert_parses_as(
+            "children's picture books",
+            ("audience", "Children"),
+            "picture books"
+        )
+
+        # (It's possible for the entire query string to be eaten up,
+        # such that there is no remainder match at all.)
+        assert_parses_as(
+            "young adult romance",
+            ("genres.name", "Romance"),
+            ("audience", "YoungAdult"),
+            ''
+        )
+
+        # Test fiction/nonfiction status.
+        assert_parses_as(
+            "fiction dinosaurs",
+            ("fiction", "Fiction"),
+            "dinosaurs"
+        )
+
+        # (Genres are parsed before fiction/nonfiction; otherwise
+        # "science fiction" would be chomped by a search for "fiction"
+        # and "nonfiction" would not be picked up.)
+        assert_parses_as(
+            "science fiction or nonfiction dinosaurs",
+            ("genres.name", "Science Fiction"), ("fiction", "Nonfiction"),
+            "or  dinosaurs"
+        )
+
+        # Test target age.
+
+        assert_parses_as(
+            "grade 5 science",
+            ("genres.name", "Science"), ((10, 10), 40),
+            ''
+        )
+
+        assert_parses_as(
+            'divorce ages 10 and up',
+            ((10, 14), 40),
+            'divorce  and up' # TODO: not ideal
+        )
+
+        # Nothing can be parsed out from this query--it's an author's name
+        # and will be handled by another query.
+        parser = QueryParser("octavia butler")
+        eq_([], parser.match_queries)
+        eq_("octavia butler", parser.final_query_string)
+
+        # Finally, try parsing a query without using MockQuery.
+        query = QueryParser("nonfiction asteroids")
+        nonfiction, asteroids = query.match_queries
+
+        # It creates real Elasticsearch-DSL query objects.
+        eq_({'match': {'fiction': 'Nonfiction'}}, nonfiction.to_dict())
+
+        eq_({'simple_query_string':
+             {'query': 'asteroids',
+              'fields': QueryParser.SIMPLE_QUERY_STRING_FIELDS }
+            },
+            asteroids.to_dict()
+        )
+
+    def test_add_match_query(self):
+        # TODO: this method could use a standalone test, but it's
+        # already covered by the test_constructor.
+        pass
+
+    def test_add_target_age_query(self):
+        # TODO: this method could use a standalone test, but it's
+        # already covered by the test_constructor.
+        pass
+
+    def test__without_match(self):
+        # Test our ability to remove matched text from a string.
+        m = QueryParser._without_match
+        eq_(" fiction", m("young adult fiction", "young adult"))
+        eq_(" of dinosaurs", m("science of dinosaurs", "science"))
+
+        # If the match cuts off in the middle of a word, we remove
+        # everything up to the end of the word.
+        eq_(" books", m("children's books", "children"))
+        eq_("", m("adulting", "adult"))
+
+
+class TestFilter(DatabaseTest):
+
+    def setup(self):
+        super(TestFilter, self).setup()
+
+        # Look up three Genre objects which can be used to make filters.
+        self.literary_fiction, ignore = Genre.lookup(
+            self._db, "Literary Fiction"
+        )
+        self.fantasy, ignore = Genre.lookup(self._db, "Fantasy")
+        self.horror, ignore = Genre.lookup(self._db, "Horror")
+
+        # Create two empty CustomLists which can be used to make filters.
+        self.best_sellers, ignore = self._customlist(num_entries=0)
+        self.staff_picks, ignore = self._customlist(num_entries=0)
+
+    def test_constructor(self):
+        # Verify that the Filter constructor sets members with
+        # minimal processing.
+        collection = self._default_collection
+
+        media = object()
+        languages = object()
+        fiction = object()
+        audiences = object()
+
+        # Test the easy stuff -- these arguments just get stored on the
+        # filter object. They'll be cleaned up later, during build().
+        filter = Filter(
+            media=media, languages=languages,
+            fiction=fiction, audiences=audiences
+        )
+        eq_(media, filter.media)
+        eq_(languages, filter.languages)
+        eq_(fiction, filter.fiction)
+        eq_(audiences, filter.audiences)
+
+        # Test the `collections` argument.
+
+        # If you pass in a library, you get all of its collections.
+        library_filter = Filter(collections=self._default_library)
+        eq_([self._default_collection.id], library_filter.collection_ids)
+
+        # If the library has no collections, the collection filter
+        # will filter everything out.
+        self._default_library.collections = []
+        library_filter = Filter(collections=self._default_library)
+        eq_([], library_filter.collection_ids)
+
+        # If you pass in Collection objects, you get their IDs.
+        collection_filter = Filter(collections=self._default_collection)
+        eq_([self._default_collection.id], collection_filter.collection_ids)
+        collection_filter = Filter(collections=[self._default_collection])
+        eq_([self._default_collection.id], collection_filter.collection_ids)
+
+        # If you pass in IDs, they're left alone.
+        ids = [10, 11, 22]
+        collection_filter = Filter(collections=ids)
+        eq_(ids, collection_filter.collection_ids)
+
+        # If you pass in nothing, there is no collection filter. This
+        # is different from the case above, where the library had no
+        # collections and everything was filtered out.
+        empty_filter = Filter()
+        eq_(None, empty_filter.collection_ids)
+
+        # Test the `target_age` argument.
+        eq_(None, empty_filter.target_age)
+
+        one_year = Filter(target_age=8)
+        eq_((8,8), one_year.target_age)
+
+        year_range = Filter(target_age=(8,10))
+        eq_((8,10), year_range.target_age)
+
+        year_range = Filter(target_age=NumericRange(3, 6, '()'))
+        eq_((4, 5), year_range.target_age)
+
+        # Test genre_restriction_sets
+
+        # In these three cases, there are no restrictions on genre.
+        eq_([], empty_filter.genre_restriction_sets)
+        eq_([], Filter(genre_restriction_sets=[]).genre_restriction_sets)
+        eq_([], Filter(genre_restriction_sets=None).genre_restriction_sets)
+
+        # Restrict to books that are literary fiction AND (horror OR
+        # fantasy).
+        restricted = Filter(
+            genre_restriction_sets = [
+                [self.horror, self.fantasy],
+                [self.literary_fiction],
+            ]
+        )
+        eq_(
+            [[self.horror.id, self.fantasy.id],
+             [self.literary_fiction.id]],
+            restricted.genre_restriction_sets
+        )
+
+        # This is a restriction: 'only books that have no genre'
+        eq_([[]], Filter(genre_restriction_sets=[[]]).genre_restriction_sets)
+
+        # Test customlist_restriction_sets
+
+        # In these three cases, there are no restrictions.
+        eq_([], empty_filter.customlist_restriction_sets)
+        eq_([], Filter(customlist_restriction_sets=None).customlist_restriction_sets)
+        eq_([], Filter(customlist_restriction_sets=[]).customlist_restriction_sets)
+
+        # Restrict to books that are on *both* the best sellers list and the
+        # staff picks list.
+        restricted = Filter(
+            customlist_restriction_sets = [
+                [self.best_sellers],
+                [self.staff_picks],
+            ]
+        )
+        eq_(
+            [[self.best_sellers.id],
+             [self.staff_picks.id]],
+            restricted.customlist_restriction_sets
+        )
+
+        # This is a restriction -- 'only books that are not on any lists'.
+        eq_(
+            [[]],
+            Filter(customlist_restriction_sets=[[]]).customlist_restriction_sets
+        )
+
+        # If you pass in a Facets object, its modify_search_filter()
+        # is called.
+        class Mock(object):
+            def modify_search_filter(self, filter):
+                self.called_with = filter
+
+        facets = Mock()
+        filter = Filter(facets=facets)
+        eq_(filter, facets.called_with)
+
+    def test_from_worklist(self):
+        # Any WorkList can be converted into a Filter.
+        #
+        # WorkList.inherited_value() and WorkList.inherited_values()
+        # are used to determine what should go into the constructor.
+
+        parent = self._lane(
+            display_name="Parent Lane", library=self._default_library
+        )
+        parent.media = Edition.AUDIO_MEDIUM
+        parent.languages = ["eng", "fra"]
+        parent.fiction = True
+        parent.audiences = [Classifier.AUDIENCE_CHILDREN]
+        parent.target_age = NumericRange(10, 11, '[]')
+        parent.genres = [self.horror, self.fantasy]
+        parent.customlists = [self.best_sellers]
+
+        # This lane inherits most of its configuration from its parent.
+        inherits = self._lane(
+            display_name="Child who inherits", parent=parent
+        )
+        inherits.genres = [self.literary_fiction]
+        inherits.customlists = [self.staff_picks]
+
+        class Mock(object):
+            def modify_search_filter(self, filter):
+                self.called_with = filter
+        facets = Mock()
+
+        filter = Filter.from_worklist(self._db, inherits, facets)
+        eq_([self._default_collection.id], filter.collection_ids)
+        eq_(parent.media, filter.media)
+        eq_(parent.languages, filter.languages)
+        eq_(parent.fiction, filter.fiction)
+        eq_(parent.audiences, filter.audiences)
+        eq_((parent.target_age.lower, parent.target_age.upper),
+            filter.target_age)
+
+        # Filter.from_worklist passed the mock Facets object in to
+        # the Filter constructor, which called its modify_search_filter()
+        # method.
+        assert facets.called_with is not None
+
+        # For genre and custom list restrictions, the child values are
+        # appended to the parent's rather than replacing it.
+        eq_([parent.genre_ids, inherits.genre_ids],
+            [set(x) for x in filter.genre_restriction_sets]
+        )
+
+        eq_([parent.customlist_ids, inherits.customlist_ids],
+            filter.customlist_restriction_sets
+        )
+
+        # If any other value is set on the child lane, the parent value
+        # is overridden.
+        inherits.media = Edition.BOOK_MEDIUM
+        filter = Filter.from_worklist(self._db, inherits, facets)
+        eq_(inherits.media, filter.media)
+
+        # This lane doesn't inherit anything from its parent.
+        does_not_inherit = self._lane(
+            display_name="Child who does not inherit", parent=parent
+        )
+        does_not_inherit.inherit_parent_restrictions = False
+
+        # Because of that, the final filter we end up with is nearly
+        # empty. The only restriction here is the collection
+        # restriction imposed by the fact that does_not_inherit
+        # is, itself, associated with a specific library.
+        filter = Filter.from_worklist(self._db, does_not_inherit, facets)
+        eq_({'terms': {'collections.collection_id': [self._default_collection.id]}},
+            filter.build().to_dict())
+
+    def test_build(self):
+        # Test the ability to turn a Filter into an ElasticSearch
+        # filter object.
+
+        # build() takes the information in the Filter object, scrubs
+        # it, and uses _chain_filters to chain together a number of
+        # sub-filters.
+        #
+        # Let's try it with some simple cases before mocking
+        # _chain_filters for a more detailed test.
+
+        # Start with an empty filter.
+        filter = Filter()
+        eq_(None, filter.build())
+
+        # Add a medium clause to the filter.
+        filter.media = "a medium"
+        medium_built = {'terms': {'medium': ['amedium']}}
+        eq_(medium_built, filter.build().to_dict())
+
+        # Add a language clause to the filter.
+        filter.languages = ["lang1", "LANG2"]
+        language_built = {'terms': {'language': ['lang1', 'lang2']}}
+
+        # Now both the medium clause and the language clause must match.
+        eq_(
+            {'bool': {'must': [medium_built, language_built]}},
+            filter.build().to_dict()
+        )
+
+        # Now let's mock _chain_filters so we don't have to check
+        # our test results against super-complicated Elasticsearch
+        # filter objects.
+        #
+        # Instead, we'll get a list of smaller filter objects.
+        def chain(filters, new_filter):
+            if filters is None:
+                # This is the first filter:
+                filters = []
+            filters.append(new_filter)
+            return filters
+
+        filter.collection_ids = [self._default_collection]
+        filter.fiction = True
+        filter.audiences = 'CHILDREN'
+        filter.target_age = (2,3)
+
+        # We want books that are literary fiction, *and* either
+        # fantasy or horror.
+        filter.genre_restriction_sets = [
+            [self.literary_fiction], [self.fantasy, self.horror]
+        ]
+
+        # We want books that are on _both_ of the custom lists.
+        filter.customlist_restriction_sets = [
+            [self.best_sellers], [self.staff_picks]
+        ]
+
+        # At this point every item on this Filter that can be set, has been
+        # set. When we run build, we'll end up with the output of our mocked
+        # chain() method -- a list of small filters.
+        built = filter.build(_chain_filters=chain)
+
+        # Every restriction imposed on the Filter object becomes an
+        # Elasticsearch filter object in this list.
+        (collection, medium, language, fiction, audience, target_age,
+         literary_fiction_filter, fantasy_or_horror_filter,
+         best_sellers_filter, staff_picks_filter) = built
+
+        # Test them one at a time.
+        #
+        # Throughout this test, notice that the data model objects --
+        # Collections, Genres, and CustomLists -- have been replaced with
+        # their database IDs. This is done by filter_ids.
+        #
+        # Also, audience, medium, and language have been run through
+        # scrub_list, which turns scalar values into lists, removes
+        # spaces, and converts to lowercase.
+
+        eq_(
+            {'terms': {'collections.collection_id': [self._default_collection.id]}},
+            collection.to_dict()
+        )
+
+        # These we tested earlier -- we're just making sure the same
+        # documents are put into the full filter.
+        eq_(medium_built, medium.to_dict())
+        eq_(language_built, language.to_dict())
+
+        eq_({'term': {'fiction': 'fiction'}}, fiction.to_dict())
+        eq_({'terms': {'audience': ['children']}}, audience.to_dict())
+
+        # The contents of target_age_filter are tested below -- this
+        # just tests that the target_age_filter is included.
+        eq_(filter.target_age_filter, target_age)
+
+        # There are two different restrictions on genre, because
+        # genre_restriction_sets was set to two lists of genres.
+        eq_({'terms': {'genres.term': [self.literary_fiction.id]}},
+            literary_fiction_filter.to_dict())
+        eq_({'terms': {'genres.term': [self.fantasy.id, self.horror.id]}},
+            fantasy_or_horror_filter.to_dict())
+
+        # Similarly, there are two different restrictions on custom
+        # list membership.
+        eq_({'terms': {'customlists.list_id': [self.best_sellers.id]}},
+            best_sellers_filter.to_dict())
+        eq_({'terms': {'customlists.list_id': [self.staff_picks.id]}},
+            staff_picks_filter.to_dict())
+
+        # We tried fiction; now try nonfiction.
+        filter = Filter()
+        filter.fiction = False
+        eq_({'term': {'fiction': 'nonfiction'}}, filter.build().to_dict())
+
+    def test_target_age_filter(self):
+        # Test an especially complex subfilter.
+
+        # We're going to test the construction of this subfilter using
+        # a number of inputs.
+
+        # First, let's create a filter that matches "ages 2 to 5".
+        two_to_five = Filter(target_age=(2,5))
+        filter = two_to_five.target_age_filter
+
+        # The result is the combination of two filters -- both must
+        # match.
+        #
+        # One filter matches against the lower age range; the other
+        # matches against the upper age range.
+        eq_("bool", filter.name)
+        lower_match, upper_match = filter.must
+
+        # We must establish that two-year-olds are not too old
+        # for the book.
+        def dichotomy(filter):
+            """Verify that `filter` is a boolean filter that
+            matches one of a number of possibilities. Return those
+            possibilities.
+            """
+            if MAJOR_VERSION == 1:
+                eq_("or", filter.name)
+                return filter.filters
+            else:
+                eq_("bool", filter.name)
+                eq_(1, filter.minimum_should_match)
+                return filter.should
+        more_than_two, no_upper_limit = dichotomy(upper_match)
+
+
+        # Either the upper age limit must be greater than two...
+        eq_(
+            {'range': {'target_age.upper': {'gte': 2}}},
+            more_than_two.to_dict()
+        )
+
+        # ...or the upper age limit must be missing entirely.
+        def assert_matches_nonexistent_field(f, field):
+            """Verify that a filter only matches when there is
+            no value for the given field.
+            """
+            eq_(
+                f.to_dict(),
+                {'bool': {'must_not': [{'exists': {'field': field}}]}},
+            )
+        assert_matches_nonexistent_field(no_upper_limit, 'target_age.upper')
+
+        # We must also establish that five-year-olds are not too young
+        # for the book. Again, there are two ways of doing this.
+        less_than_five, no_lower_limit = dichotomy(lower_match)
+
+        # Either the lower age limit must be less than five...
+        eq_(
+            {'range': {'target_age.lower': {'lte': 5}}},
+            less_than_five.to_dict()
+        )
+
+        # ...or the lower age limit must be missing entirely.
+        assert_matches_nonexistent_field(no_lower_limit, 'target_age.lower')
+
+        # Now let's try a filter that matches "ten and under"
+        ten_and_under = Filter(target_age=(None, 10))
+        filter = ten_and_under.target_age_filter
+
+        # There are two clauses, and one of the two must match.
+        less_than_ten, no_lower_limit = dichotomy(filter)
+
+        # Either the lower part of the age range must be <= ten, or
+        # there must be no lower age limit. If neither of these are
+        # true, then ten-year-olds are too young for the book.
+        eq_({'range': {'target_age.lower': {'lte': 10}}},
+            less_than_ten.to_dict())
+        assert_matches_nonexistent_field(no_lower_limit, 'target_age.lower')
+
+        # Next, let's try a filter that matches "twelve and up".
+        twelve_and_up = Filter(target_age=(12, None))
+        filter = twelve_and_up.target_age_filter
+
+        # There are two clauses, and one of the two must match.
+        more_than_twelve, no_upper_limit = dichotomy(filter)
+
+        # Either the upper part of the age range must be >= twelve, or
+        # there must be no upper age limit. If neither of these are true,
+        # then twelve-year-olds are too old for the book.
+        eq_({'range': {'target_age.upper': {'gte': 12}}},
+            more_than_twelve.to_dict())
+        assert_matches_nonexistent_field(no_upper_limit, 'target_age.upper')
+
+        # Finally, test filters that put no restriction on target age.
+        no_target_age = Filter()
+        eq_(None, no_target_age.target_age_filter)
+
+        no_target_age = Filter(target_age=(None, None))
+        eq_(None, no_target_age.target_age_filter)
+
+    def test__scrub(self):
+        # Test the _scrub helper method, which transforms incoming strings
+        # to the type of strings Elasticsearch uses.
+        m = Filter._scrub
+        eq_(None, m(None))
+        eq_("foo", m("foo"))
+        eq_("youngadult", m("Young Adult"))
+
+    def test__scrub_list(self):
+        # Test the _scrub_list helper method, which scrubs incoming
+        # strings and makes sure they are in a list.
+        m = Filter._scrub_list
+        eq_([], m(None))
+        eq_([], m([]))
+        eq_(["foo"], m("foo"))
+        eq_(["youngadult", "adult"], m(["Young Adult", "Adult"]))
+
+    def test__filter_ids(self):
+        # Test the _filter_ids helper method, which converts database
+        # objects to their IDs.
+        m = Filter._filter_ids
+        eq_(None, m(None))
+        eq_([], m([]))
+        eq_([1,2,3], m([1,2,3]))
+
+        library = self._default_library
+        eq_([library.id], m([library]))
+
+    def test__chain_filters(self):
+        # Test the _chain_filters method, which combines
+        # two Elasticsearch filter objects.
+        f1 = F('term', key="value")
+        f2 = F('term', key2="value2")
+
+        m = Filter._chain_filters
+
+        # If this filter is the start of the chain, it's returned unaltered.
+        eq_(f1, m(None, f1))
+
+        # Otherwise, a new filter is created.
+        chained = m(f1, f2)
+
+        # The chained filter is the conjunction of the two input
+        # filters.
+        eq_(chained, f1 & f2)
 
 
 class TestBulkUpdate(DatabaseTest):
@@ -1305,7 +1916,7 @@ class TestBulkUpdate(DatabaseTest):
         w2 = self._work()
         w2.set_presentation_ready()
         w3 = self._work()
-        index = DummyExternalSearchIndex()
+        index = MockExternalSearchIndex()
         successes, failures = index.bulk_update([w1, w2, w3])
 
         # All three works are regarded as successes, because their
@@ -1388,7 +1999,7 @@ class TestSearchErrors(ExternalSearchTest):
 class TestSearchIndexCoverageProvider(DatabaseTest):
 
     def test_operation(self):
-        index = DummyExternalSearchIndex()
+        index = MockExternalSearchIndex()
         provider = SearchIndexCoverageProvider(
             self._db, search_index_client=index
         )
@@ -1398,7 +2009,7 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
     def test_success(self):
         work = self._work()
         work.set_presentation_ready()
-        index = DummyExternalSearchIndex()
+        index = MockExternalSearchIndex()
         provider = SearchIndexCoverageProvider(
             self._db, search_index_client=index
         )
@@ -1411,7 +2022,7 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
         eq_(1, len(index.docs))
 
     def test_failure(self):
-        class DoomedExternalSearchIndex(DummyExternalSearchIndex):
+        class DoomedExternalSearchIndex(MockExternalSearchIndex):
             """All documents sent to this index will fail."""
             def bulk(self, docs, **kwargs):
                 return 0, [
@@ -1439,7 +2050,7 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
 class TestSearchIndexMonitor(DatabaseTest):
 
     def test_process_batch(self):
-        index = DummyExternalSearchIndex()
+        index = MockExternalSearchIndex()
 
         # Here's a work.
         work = self._work()

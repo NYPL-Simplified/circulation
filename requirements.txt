@@ -1,4 +1,5 @@
 # Requirements for core
+accept_types
 boto3
 feedparser
 pillow
@@ -11,7 +12,11 @@ flask
 isbnlib
 textblob
 rdflib
+#elasticsearch>6.0.0,<7.0.0
+#elasticsearch-dsl>6.0.0,<7.0.0
 elasticsearch==2.1.0
+elasticsearch-dsl<2.0.0
+
 python-dateutil
 uwsgi
 loggly-python-handler

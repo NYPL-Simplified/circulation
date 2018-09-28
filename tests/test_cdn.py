@@ -5,9 +5,9 @@ from nose.tools import (
 )
 from . import DatabaseTest
 
-from config import Configuration, temp_config
-from model import ExternalIntegration
-from cdn import cdnify
+from ..config import Configuration, temp_config
+from ..model import ExternalIntegration
+from ..cdn import cdnify
 
 
 class TestCDN(DatabaseTest):

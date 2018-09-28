@@ -9,8 +9,6 @@ from config import Configuration
 from StringIO import StringIO
 from loggly.handlers import HTTPSHandler as LogglyHandler
 
-if Configuration.instance is None:
-    Configuration.load()
 
 class JSONFormatter(logging.Formatter):
     hostname = socket.gethostname()

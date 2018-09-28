@@ -7,7 +7,7 @@ from nose.tools import (
 from copy import deepcopy
 import datetime
 
-from metadata_layer import (
+from ..metadata_layer import (
     CirculationData,
     ContributorData,
     FormatData,
@@ -18,7 +18,7 @@ from metadata_layer import (
     SubjectData,
 )
 
-from model import (
+from ..model import (
     Collection,
     DataSource,
     DeliveryMechanism,
@@ -34,7 +34,7 @@ from . import (
     DummyHTTPClient,
 )
 
-from s3 import MockS3Uploader
+from ..s3 import MockS3Uploader
 
 
 class TestCirculationData(DatabaseTest):

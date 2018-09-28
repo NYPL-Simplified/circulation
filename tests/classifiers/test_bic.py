@@ -1,7 +1,7 @@
 from nose.tools import eq_, set_trace
-import classifier
-from classifier import *
-from classifier.bic import BICClassifier as BIC
+from ... import classifier
+from ...classifier import *
+from ...classifier.bic import BICClassifier as BIC
 
 class TestBIC(object):
 
