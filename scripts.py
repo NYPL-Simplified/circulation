@@ -628,16 +628,17 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         # OPDS group feeds are only generated for lanes that have sublanes.
         if not lane.children:
             return False
-        if self.max_depth and lane.depth > self.max_depth:
+        if self.max_depth is not None and lane.depth > self.max_depth:
             return False
         return True
 
-    def do_generate(self, lane, facets, pagination):
+    def do_generate(self, lane, facets, pagination, feed_class=None):
         title = lane.display_name
         annotator = self.app.manager.annotator(lane, facets=facets)
         url = annotator.groups_url(lane, facets)
-        return AcquisitionFeed.groups(
-            self._db, title, url, lane, annotator,
+        feed_class = feed_class or AcquisitionFeed
+        return feed_class.groups(
+            _db=self._db, title=title, url=url, lane=lane, annotator=annotator,
             force_refresh=True, facets=facets
         )
 
@@ -659,7 +660,7 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         # can *switch to* from a given WorkList. We're handling the
         # case where you switched further up the hierarchy and now
         # you're navigating downwards.
-        entrypoints = library.entrypoints or [None]
+        entrypoints = list(library.entrypoints) or [None]
         for entrypoint in entrypoints:
             facets = FeaturedFacets(
                 minimum_featured_quality=library.minimum_featured_quality,
