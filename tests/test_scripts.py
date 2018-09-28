@@ -224,7 +224,7 @@ class TestCacheRepresentationPerLane(TestLaneScript):
                 yield page2
 
         lane = self._lane()
-        script = Mock(self._db, manager=object())
+        script = Mock(self._db, manager=object(), cmd_args=[])
         generated = script.process_lane(lane)
         eq_(generated, script.generated)
 
@@ -402,7 +402,7 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
                 return "here's your feed"
 
         # Test our ability to generate a single feed.
-        script = CacheOPDSGroupFeedPerLane(self._db, testing=True)
+        script = CacheOPDSGroupFeedPerLane(self._db, testing=True, cmd_args=[])
         facets = FeaturedFacets(0.1, entrypoint=AudiobooksEntryPoint)
         pagination = None
 
