@@ -34,7 +34,7 @@ from core.app_server import (
 )
 from core.external_search import (
     ExternalSearchIndex,
-    DummyExternalSearchIndex,
+    MockExternalSearchIndex,
 )
 from core.facets import FacetConfig
 from core.log import LogConfiguration
@@ -77,7 +77,6 @@ from core.model import (
 from core.opds import (
     AcquisitionFeed,
 )
-from core.util import LanguageCodes
 from core.util.opds_writer import (
      OPDSFeed,
 )
@@ -146,7 +145,6 @@ from novelist import (
 from base_controller import BaseCirculationManagerController
 from testing import MockCirculationAPI, MockSharedCollectionAPI
 from core.analytics import Analytics
-from accept_types import parse_header
 
 class CirculationManager(object):
 
@@ -281,7 +279,7 @@ class CirculationManager(object):
     def setup_search(self):
         """Set up a search client."""
         if self.testing:
-            return DummyExternalSearchIndex()
+            return MockExternalSearchIndex()
         else:
             search = ExternalSearchIndex(self._db)
             if not search:
@@ -766,29 +764,21 @@ class OPDSFeedController(CirculationManagerController):
         query = flask.request.args.get('q')
         library_short_name = flask.request.library.short_name
 
-        language_header = flask.request.headers.get("Accept-Language")
-        if language_header:
-            languages = parse_header(language_header)
-            languages = map(str, languages)
-            languages = map(LanguageCodes.iso_639_2_for_locale, languages)
-            languages = [l for l in languages if l]
-        else:
-            languages = None
-
         facets = load_facets_from_request(
             worklist=lane, base_class=SearchFacets
         )
-        kwargs = dict()
-        if languages:
-            kwargs['language'] = languages
-        kwargs.update(dict(facets.items()))
 
         # Create a function that, when called, generates a URL to the
         # search controller.
+        #
+        # We'll call this one way if there is no query string in the
+        # request arguments, and another way if there is a query
+        # string.
+        make_url_kwargs = dict(facets.items())
         make_url = lambda: self.url_for(
             'lane_search', lane_identifier=lane_identifier,
             library_short_name=library_short_name,
-            **kwargs
+            **make_url_kwargs
         )
         if not query:
             # Send the search form
@@ -800,8 +790,11 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(pagination, ProblemDetail):
             return pagination
 
+        # We have a query -- add it to the keyword arguments used when
+        # generating a URL.
+        make_url_kwargs['q'] = query.encode("utf8")
+
         # Run a search.
-        kwargs['q'] = query.encode("utf8")
         this_url = make_url()
 
         annotator = self.manager.annotator(lane, facets)
@@ -810,7 +803,7 @@ class OPDSFeedController(CirculationManagerController):
             _db=self._db, title=info['name'],
             url=this_url, lane=lane, search_engine=self.manager.external_search,
             query=query, annotator=annotator, pagination=pagination,
-            languages=languages, facets=facets
+            facets=facets,
         )
 
         return feed_response(opds_feed)

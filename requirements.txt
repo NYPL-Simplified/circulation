@@ -1,6 +1,7 @@
 # Core requirements
 boto3
 elasticsearch==2.1.0
+elasticsearch-dsl<2.0.0
 pillow
 psycopg2
 requests==2.18.4
