@@ -236,12 +236,16 @@ class TestCacheRepresentationPerLane(TestLaneScript):
 
     def test_default_facets(self):
         # By default, do_generate will only be called once, with facets=None.
-        script = CacheRepresentationPerLane(self._db, manager=object())
+        script = CacheRepresentationPerLane(
+            self._db, manager=object(), cmd_args=[]
+        )
         eq_([None], list(script.facets(object())))
 
     def test_default_pagination(self):
         # By default, do_generate will only be called once, with pagination=None.
-        script = CacheRepresentationPerLane(self._db, manager=object())
+        script = CacheRepresentationPerLane(
+            self._db, manager=object(), cmd_args=[]
+        )
         eq_([None], list(script.pagination(object())))
 
 
@@ -281,7 +285,7 @@ class TestCacheFacetListsPerLane(TestLaneScript):
     def test_facets(self):
         # Verify that CacheFacetListsPerLane.facets combines the items
         # found in the attributes created by command-line parsing.
-        script = CacheFacetListsPerLane(self._db, manager=object())
+        script = CacheFacetListsPerLane(self._db, manager=object(), cmd_args=[])
         script.orders = [Facets.ORDER_TITLE, Facets.ORDER_AUTHOR, "nonsense"]
         script.entrypoints = [AudiobooksEntryPoint.INTERNAL_NAME, "nonsense"]
         script.availabilities = [Facets.AVAILABLE_NOW, "nonsense"]
@@ -305,7 +309,7 @@ class TestCacheFacetListsPerLane(TestLaneScript):
             eq_(Facets.COLLECTION_FULL, f.collection)
 
     def test_pagination(self):
-        script = CacheFacetListsPerLane(self._db, manager=object())
+        script = CacheFacetListsPerLane(self._db, manager=object(), cmd_args=[])
         script.pages = 3
         lane = self._lane()
         p1, p2, p3 = script.pagination(lane)
@@ -325,7 +329,7 @@ class TestCacheFacetListsPerLane(TestLaneScript):
                 return "here's your feed"
 
         # Test our ability to generate a single feed.
-        script = CacheFacetListsPerLane(self._db, testing=True)
+        script = CacheFacetListsPerLane(self._db, testing=True, cmd_args=[])
         facets = Facets.default(self._default_library)
         pagination = Pagination.default()
 
@@ -372,7 +376,9 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
         grandchild = self._lane(parent=child)
 
         # Only WorkLists which have children are processed.
-        script = CacheOPDSGroupFeedPerLane(self._db, manager=object())
+        script = CacheOPDSGroupFeedPerLane(
+            self._db, manager=object(), cmd_args=[]
+        )
         script.max_depth = 10
         eq_(True, script.should_process_lane(parent))
         eq_(True, script.should_process_lane(child))
@@ -431,7 +437,9 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
         # Normally we yield one FeaturedFacets object for each of the
         # library's enabled entry points.
         library = self._default_library
-        script = CacheOPDSGroupFeedPerLane(self._db, manager=object())
+        script = CacheOPDSGroupFeedPerLane(
+            self._db, manager=object(), cmd_args=[]
+        )
         setting = library.setting(EntryPoint.ENABLED_SETTING)
         setting.value = json.dumps(
             [AudiobooksEntryPoint.INTERNAL_NAME,
