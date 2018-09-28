@@ -150,10 +150,13 @@ class TestLaneScript(DatabaseTest):
 
 class TestCacheRepresentationPerLane(TestLaneScript):
 
-    def test_language_filter(self):
+    def test_should_process_lane(self):
+
+        # Test that should_process_lane respects any specified
+        # language restrictions.
         script = CacheRepresentationPerLane(
             self._db, ["--language=fre", "--language=English", "--language=none", "--min-depth=0"],
-            testing=True
+            manager=object()
         )
         eq_(['fre', 'eng'], script.languages)
 
@@ -166,10 +169,11 @@ class TestCacheRepresentationPerLane(TestLaneScript):
         no_english_or_french_lane = self._lane(languages=['spa'])
         eq_(False, script.should_process_lane(no_english_or_french_lane))
 
-    def test_max_and_min_depth(self):
+        # Test that should_process_lane respects maximum depth
+        # restrictions.
         script = CacheRepresentationPerLane(
             self._db, ["--max-depth=0", "--min-depth=0"],
-            testing=True
+            manager=object()
         )
         eq_(0, script.max_depth)
 

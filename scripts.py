@@ -336,7 +336,23 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         )
         return parser
 
-    def __init__(self, _db=None, cmd_args=None, testing=False, manager=None, *args, **kwargs):
+    def __init__(self, _db=None, cmd_args=None, testing=False, manager=None,
+                 *args, **kwargs):
+        """Constructor.
+
+        :param _db: A database connection.
+        :param cmd_args: A mock set of command-line arguments, to use instead
+           of looking at the actual command line.
+        :param testing: If this method creates a CirculationManager object, 
+           this value will be passed in to its constructor as its value for
+           `testing`.
+        :param manager: A mock CirculationManager object, to use instead
+           of creating a new one (creating a CirculationManager object is
+           very time-consuming).
+        :param *args: Positional arguments to pass to the superconstructor.
+        :param **kwargs: Keyword arguments to pass to the superconstructor.
+        """
+        
         super(CacheRepresentationPerLane, self).__init__(_db, *args, **kwargs)
         self.parse_args(cmd_args)
         if not manager:
