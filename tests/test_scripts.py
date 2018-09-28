@@ -487,45 +487,6 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
         assert "Science Fiction" in feed.content
         assert work.title in feed.content
 
-    def test_do_generate_handles_all_entrypoints(self):
-        self.called_with = []
-        @classmethod
-        def mock_groups(cls, *args, **kwargs):
-            self.called_with.append((args, kwargs))
-        old_groups = AcquisitionFeed.groups
-        AcquisitionFeed.groups = mock_groups
-
-        # Here's a normal WorkList with no EntryPoints.
-        worklist = WorkList()
-        library = self._default_library
-        worklist.initialize(library)
-        script = CacheOPDSGroupFeedPerLane(self._db, cmd_args=[])
-        with script.app.test_request_context("/"):
-            list(script.do_generate(worklist))
-
-        # AcquisitionFeed.groups was called once, with a FeaturedFacets
-        # object that did not include an EntryPoint.
-        args, kwargs = self.called_with.pop()
-        facets = kwargs['facets']
-        assert isinstance(facets, FeaturedFacets)
-        eq_(library.minimum_featured_quality, facets.minimum_featured_quality)
-        eq_(worklist.uses_customlists, facets.uses_customlists)
-        eq_(None, facets.entrypoint)
-
-        # Now give the WorkList some EntryPoints.
-        worklist.initialize(
-            library, entrypoints=[AudiobooksEntryPoint, EbooksEntryPoint]
-        )
-        with script.app.test_request_context("/"):
-            list(script.do_generate(worklist))
-
-        # AcquisitionFeed.groups was called once for each
-        # EntryPoint available to the WorkList.
-        eq_([AudiobooksEntryPoint, EbooksEntryPoint],
-            [kwargs['facets'].entrypoint
-             for (args, kwargs) in self.called_with])
-
-        AcquisitionFeed.groups = old_groups
 
 class TestInstanceInitializationScript(DatabaseTest):
 
