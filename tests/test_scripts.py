@@ -287,14 +287,22 @@ class TestCacheFacetListsPerLane(TestLaneScript):
         # found in the attributes created by command-line parsing.
         script = CacheFacetListsPerLane(self._db, manager=object(), cmd_args=[])
         script.orders = [Facets.ORDER_TITLE, Facets.ORDER_AUTHOR, "nonsense"]
-        script.entrypoints = [AudiobooksEntryPoint.INTERNAL_NAME, "nonsense"]
+        script.entrypoints = [
+            AudiobooksEntryPoint.INTERNAL_NAME, "nonsense",
+            EbooksEntryPoint.INTERNAL_NAME
+        ]
         script.availabilities = [Facets.AVAILABLE_NOW, "nonsense"]
         script.collections = [Facets.COLLECTION_FULL, "nonsense"]
 
+        # EbooksEntryPoint is normally a valid entry point, but we're
+        # going to disable it for this library.
+        setting = self._default_library.setting(EntryPoint.ENABLED_SETTING)
+        setting.value = json.dumps([AudiobooksEntryPoint.INTERNAL_NAME])
+
         lane = self._lane()
 
-        # We get one Facets object for every non-nonsense combination
-        # of parameters. Here there are 2*1*1*1 combinations.
+        # We get one Facets object for every valid combination of
+        # parameters. Here there are 2*1*1*1 combinations.
         f1, f2 = script.facets(lane)
 
         # The facets differ only in their .order.
