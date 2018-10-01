@@ -12,12 +12,6 @@ python bin/repair/check_contributor_names --identifier-type 'RBDigital ID' 97814
 which generates a report file that lists the contributors affected, and whether their names
 were fixed or complained about.
 """
-import os
-import sys
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..", "..")
-sys.path.append(os.path.abspath(package_dir))
-from scripts import (
-     CheckContributorNamesInDB
-)
+import startup
+from core.scripts import CheckContributorNamesInDB
 CheckContributorNamesInDB().run()
