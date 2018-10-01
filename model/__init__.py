@@ -37,7 +37,6 @@ from sqlalchemy.sql.expression import (
 
 Base = declarative_base()
 
-from .. import classifier
 from constants import (
     DataSourceConstants,
     EditionConstants,
@@ -45,8 +44,7 @@ from constants import (
     LinkRelations,
     MediaTypes,
 )
-from sys import path
-from os.path import dirname as dir
+from .. import classifier
 
 def flush(db):
     """Flush the database connection unless it's known to already be flushing."""
