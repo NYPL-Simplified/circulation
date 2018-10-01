@@ -12,7 +12,6 @@ from . import (
 )
 from constants import DataSourceConstants
 from hasfulltablecache import HasFullTableCache
-
 from .. import classifier
 from ..classifier import (
     Classifier,
