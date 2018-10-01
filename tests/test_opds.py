@@ -14,6 +14,7 @@ from . import DatabaseTest
 
 from core.analytics import Analytics
 from core.lane import (
+    FacetsWithEntryPoint,
     Lane,
 )
 from core.model import (
@@ -40,6 +41,7 @@ from core.classifier import (
     Urban_Fantasy
 )
 
+from core.entrypoint import AudiobooksEntryPoint
 from core.external_search import MockExternalSearchIndex
 
 from core.util.opds_writer import (
@@ -1171,7 +1173,10 @@ class TestLibraryAnnotator(VendorIDTest):
 
     def test_feed_includes_lane_links(self):
         lane = self._lane()
-        annotator = LibraryAnnotator(None, lane, self._default_library, test_mode=True)
+        facets = FacetsWithEntryPoint(entrypoint=AudiobooksEntryPoint)
+        annotator = LibraryAnnotator(
+            None, lane, self._default_library, test_mode=True, facets=facets
+        )
         feed = AcquisitionFeed(
             self._db, "test", "url", [], annotator
         )
@@ -1181,7 +1186,9 @@ class TestLibraryAnnotator(VendorIDTest):
         links = parsed['links']
 
         [search_link] = [x for x in links if x['rel'].lower() == "search".lower()]
-        assert '/lane_search' in search_link['href']
+        search_url = search_link['href']
+        assert '/lane_search' in search_url
+        assert 'entrypoint=%s' % AudiobooksEntryPoint.INTERNAL_NAME in search_url
         assert str(lane.id) in search_link['href']
 
         # This lane isn't based on a custom list, so there's no crawlable link.
