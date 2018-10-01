@@ -204,12 +204,15 @@ class CreateWorksForIdentifiersScript(Script):
 class MetadataCalculationScript(Script):
 
     """Force calculate_presentation() to be called on some set of Editions.
+
     This assumes that the metadata is in already in the database and
     will fall into place if we just call
     Edition.calculate_presentation() and Edition.calculate_work() and
     Work.calculate_presentation().
+
     Most of these will be data repair scripts that do not need to be run
     regularly.
+
     """
 
     name = "Metadata calculation script"
@@ -252,6 +255,7 @@ class MetadataCalculationScript(Script):
 class FillInAuthorScript(MetadataCalculationScript):
     """Fill in Edition.sort_author for Editions that have a list of
     Contributors, but no .sort_author.
+
     This is a data repair script that should not need to be run
     regularly.
     """
@@ -811,9 +815,11 @@ class CompileTranslationsScript(Script):
 
 class InstanceInitializationScript(Script):
     """An idempotent script to initialize an instance of the Circulation Manager.
+
     This script is intended for use in servers, Docker containers, etc,
     when the Circulation Manager app is being installed. It initializes
     the database and sets an appropriate alias on the ElasticSearch index.
+
     Because it's currently run every time a container is started, it must
     remain idempotent.
     """
@@ -842,8 +848,10 @@ class InstanceInitializationScript(Script):
 class LoanReaperScript(Script):
     """Remove expired loans and holds whose owners have not yet synced
     with the loan providers.
+
     This stops the library from keeping a record of the final loans and
     holds of a patron who stopped using the circulation manager.
+
     If a loan or (more likely) hold is removed incorrectly, it will be
     restored the next time the patron syncs their loans feed.
     """
@@ -875,6 +883,7 @@ class LoanReaperScript(Script):
 
     def _reap(self, qu, what):
         """Delete every database object that matches the given query.
+
         :param qu: The query that yields objects to delete.
         :param what: A human-readable explanation of what's being
                      deleted.
@@ -920,14 +929,19 @@ class DisappearingBookReportScript(Script):
     def investigate(self, licensepool):
         """Find when the given LicensePool might have disappeared from the
         collection.
+
         :param licensepool: A LicensePool.
+
         :return: a 3-tuple (last_seen, title_removal_events,
         license_removal_events).
+
         `last_seen` is the latest point at which we knew the book was
         circulating. If we never knew the book to be circulating, this
         is the first time we ever saw the LicensePool.
+
         `title_removal_events` is a query that returns CirculationEvents
         in which this LicensePool was removed from the remote collection.
+
         `license_removal_events` is a query that returns
         CirculationEvents in which LicensePool.licenses_owned went
         from having a positive number to being zero or a negative
@@ -1162,13 +1176,16 @@ class DirectoryImportScript(Script):
 
     def load_collection(self, collection_name, data_source_name):
         """Create or locate a Collection with the given name.
+
         If the Collection needs to be created, it will be associated
         with the given data source and (if configured) the site-wide
         mirror configuration.
+
         :param collection_name: Name of the Collection.
         :param data_source_name: Associate this data source with
             the Collection if it does not already have a data source.
             A DataSource object will be created if necessary.
+
         :return: A 2-tuple (Collection, MirrorUploader)
         """
         collection, is_new = Collection.by_name_and_protocol(
@@ -1289,6 +1306,7 @@ class DirectoryImportScript(Script):
     def load_circulation_data(self, identifier, data_source, ebook_directory,
                               mirror, title, rights_uri):
         """Load an actual copy of a book from disk.
+
         :return: A CirculationData that contains the book as an open-access
         download, or None if no such book can be found.
         """
@@ -1337,6 +1355,7 @@ class DirectoryImportScript(Script):
 
     def load_cover_link(self, identifier, data_source, cover_directory, mirror):
        """Load an actual book cover from disk.
+
        :return: A LinkData containing a cover of the book, or None
        if no book cover can be found.
        """
@@ -1372,16 +1391,22 @@ class DirectoryImportScript(Script):
     def _locate_file(cls, base_filename, directory, extensions,
                      file_type="file", mock_filesystem_operations=None):
         """Find an acceptable file in the given directory.
+
         :param base_filename: A string to be used as the base of the filename.
+
         :param directory: Look for a file in this directory.
+
         :param extensions: Any of these extensions for the file is
         acceptable.
+
         :param file_type: Human-readable description of the type of
         file we're looking for. This is used only in a log warning if
         no file can be found.
+
         :param mock_filesystem_operations: A test may pass in a
         2-tuple of functions to replace os.path.exists and the 'open'
         function.
+
         :return: A 3-tuple. (None, None, None) if no file can be
         found; otherwise (filename, media_type, contents).
         """
