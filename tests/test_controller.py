@@ -2530,11 +2530,10 @@ class TestFeedController(CirculationControllerTest):
                            ]:
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
-        with self.request_context_with_library("/"):
+        with self.request_context_with_library("/?entrypoint=Book"):
             response = self.manager.opds_feeds.feed(
                 self.english_adult_fiction.id
             )
-
             assert self.english_1.title in response.data
             assert self.english_2.title not in response.data
             assert self.french_1.title not in response.data
@@ -2549,6 +2548,9 @@ class TestFeedController(CirculationControllerTest):
             eq_("b", by_rel[LibraryAnnotator.PRIVACY_POLICY])
             eq_("c", by_rel[LibraryAnnotator.COPYRIGHT])
             eq_("d", by_rel[LibraryAnnotator.ABOUT])
+
+            search_link = by_rel['search']
+            assert 'entrypoint=Book' in search_link
 
     def test_multipage_feed(self):
         self._work("fiction work", language="eng", fiction=True, with_open_access_download=True)
