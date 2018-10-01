@@ -725,13 +725,25 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             # authenticate (or that authentication is not supported).
             self.add_authentication_document_link(feed)
 
+        # Any link that needs to propagate the currently selected facets
+        # can pass these kwargs into url_for().
+        facet_kwargs = {}
+        if self.facets != None:
+            facet_kwargs.update(dict(self.facets.items()))
+
         # Add a 'search' link if the lane is searchable.
         if lane and lane.search_target:
+            # TODO: On the top level lane, when the library supports
+            # multiple entry points and the currently selected entry
+            # point is the default, the entrypoint of the search form
+            # should be EverythingEntryPoint, even though the
+            # currently selected entry point is not
+            # EverythingEntryPoint.
             lane_identifier = self._lane_identifier(lane)
             search_url = self.url_for(
                 'lane_search', lane_identifier=lane_identifier,
                 library_short_name=self.library.short_name,
-                _external=True
+                _external=True, **facet_kwargs
             )
             search_link = dict(
                 rel="search",

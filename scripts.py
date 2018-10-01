@@ -25,6 +25,8 @@ from sqlalchemy.orm import (
 from psycopg2.extras import NumericRange
 
 from core import log
+from core.cdn import cdnify
+from core.entrypoint import EntryPoint
 from core.lane import Lane
 from core.classifier import Classifier
 from core.metadata_layer import (
@@ -334,11 +336,29 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         )
         return parser
 
-    def __init__(self, _db=None, cmd_args=None, testing=False, *args, **kwargs):
+    def __init__(self, _db=None, cmd_args=None, testing=False, manager=None,
+                 *args, **kwargs):
+        """Constructor.
+
+        :param _db: A database connection.
+        :param cmd_args: A mock set of command-line arguments, to use instead
+           of looking at the actual command line.
+        :param testing: If this method creates a CirculationManager object,
+           this value will be passed in to its constructor as its value for
+           `testing`.
+        :param manager: A mock CirculationManager object, to use instead
+           of creating a new one (creating a CirculationManager object is
+           very time-consuming).
+        :param *args: Positional arguments to pass to the superconstructor.
+        :param **kwargs: Keyword arguments to pass to the superconstructor.
+        """
+
         super(CacheRepresentationPerLane, self).__init__(_db, *args, **kwargs)
         self.parse_args(cmd_args)
+        if not manager:
+            manager = CirculationManager(self._db, testing=testing)
         from api.app import app
-        app.manager = CirculationManager(self._db, testing=testing)
+        app.manager = manager
         self.app = app
         self.base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
 
@@ -412,17 +432,55 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         )
 
     def process_lane(self, lane):
-        annotator = self.app.manager.annotator(lane)
-        a = time.time()
-        self.log.info("Generating feed(s) for %s", lane.full_identifier)
-        cached_feeds = list(self.do_generate(lane))
-        b = time.time()
-        total_size = sum(len(x) for x in cached_feeds if x)
-        self.log.info(
-            "Generated %d feed(s) for %s. Took %.2fsec to make %d bytes.",
-            len(cached_feeds), lane.full_identifier, (b-a), total_size
-        )
+        """Generate a number of feeds for this lane.
+
+        One feed will be generated for each combination of Facets and
+        Pagination objects returned by facets() and pagination().
+        """
+        cached_feeds = []
+        for facets in self.facets(lane):
+            for pagination in self.pagination(lane):
+                extra_description = ""
+                if facets:
+                    extra_description += " Facets: %s." % facets.query_string
+                if pagination:
+                    extra_description += " Pagination: %s." % pagination.query_string
+                self.log.info(
+                    "Generating feed for %s.%s", lane.full_identifier,
+                    extra_description
+                )
+                a = time.time()
+                feed = self.do_generate(lane, facets, pagination)
+                b = time.time()
+                if feed:
+                    cached_feeds.append(feed)
+                    self.log.info(
+                        "Took %.2f sec to make %d bytes.", (b-a), len(feed)
+                    )
         return cached_feeds
+
+    def facets(self, lane):
+        """Yield a Facets object for each set of facets this
+        script is expected to handle.
+
+        :param lane: The lane under consideration. (Different lanes may have
+        different available facets.)
+
+        :yield: A sequence of Facets objects.
+        """
+        yield None
+
+    def pagination(self, lane):
+        """Yield a Pagination object for each page of a feed this
+        script is expected to handle.
+
+        :param lane: The lane under consideration. (Different lanes may have
+        different pagination rules.)
+
+        :yield: A sequence of Pagination objects.
+        """
+        yield None
+
 
 class CacheFacetListsPerLane(CacheRepresentationPerLane):
     """Cache the first two pages of every relevant facet list for this lane."""
@@ -465,6 +523,17 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             default=[],
         )
 
+        available = [x.INTERNAL_NAME for x in EntryPoint.ENTRY_POINTS]
+        entrypoint_help = 'Generate feeds for this entry point within each lane. Possible values: %s.' % (
+            ", ".join(available)
+        )
+        parser.add_argument(
+            '--entrypoint',
+            help=entrypoint_help,
+            action='append',
+            default=[],
+        )
+
         default_pages = 2
         parser.add_argument(
             '--pages',
@@ -479,27 +548,32 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         self.orders = parsed.order
         self.availabilities = parsed.availability
         self.collections = parsed.collection
+        self.entrypoints = parsed.entrypoint
         self.pages = parsed.pages
         return parsed
 
-    def do_generate(self, lane):
-        feeds = []
-        annotator = self.app.manager.annotator(lane)
-        if isinstance(lane, Lane):
-            lane_id = lane.id
-        else:
-            # Presumably this is the top-level WorkList.
-            lane_id = None
+    def facets(self, lane):
+        """This script covers a user-specified combination of facets, but it
+        defaults to using every combination of available facets for
+        the given lane with a certain sort order.
 
+        This means every combination of availability, collection, and
+        entry point.
+
+        That's a whole lot of feeds, which is why this script isn't
+        actually used -- by the time we generate all of then, they've
+        expired.
+        """
         library = lane.get_library(self._db)
-        url = self.app.manager.cdn_url_for(
-            "feed", lane_identifier=lane_id,
-            library_short_name=library.short_name
-        )
-
         default_order = library.default_facet(Facets.ORDER_FACET_GROUP_NAME)
         allowed_orders = library.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
         chosen_orders = self.orders or [default_order]
+
+        allowed_entrypoints = [
+            x.INTERNAL_NAME for x in library.entrypoints
+        ]
+
+        chosen_entrypoints = self.entrypoints or allowed_entrypoints
 
         default_availability = library.default_facet(
             Facets.AVAILABILITY_FACET_GROUP_NAME
@@ -517,32 +591,54 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         )
         chosen_collections = self.collections or [default_collection]
 
-        for order in chosen_orders:
-            if order not in allowed_orders:
-                logging.warn("Ignoring unsupported ordering %s" % order)
+        for entrypoint_name in chosen_entrypoints:
+            entrypoint = EntryPoint.BY_INTERNAL_NAME.get(entrypoint_name)
+            if not entrypoint:
+                logging.warn("Ignoring unknown entry point %s" % entrypoint_name)
                 continue
-            for availability in chosen_availabilities:
-                if availability not in allowed_availabilities:
-                    logging.warn("Ignoring unsupported availability %s" % availability)
+            if not entrypoint_name in allowed_entrypoints:
+                logging.warn("Ignoring disabled entry point %s" % entrypoint_name)
+                continue
+
+            for order in chosen_orders:
+                if order not in allowed_orders:
+                    logging.warn("Ignoring unsupported ordering %s" % order)
                     continue
-                for collection in chosen_collections:
-                    if collection not in allowed_collections:
-                        logging.warn("Ignoring unsupported collection %s" % collection)
+                for availability in chosen_availabilities:
+                    if availability not in allowed_availabilities:
+                        logging.warn("Ignoring unsupported availability %s" % availability)
                         continue
-                    pagination = Pagination.default()
-                    facets = Facets(
-                        library=library, collection=collection,
-                        availability=availability,
-                        order=order, order_ascending=True
-                    )
-                    title = lane.display_name
-                    for pagenum in range(0, self.pages):
-                        yield AcquisitionFeed.page(
-                            self._db, title, url, lane, annotator,
-                            facets=facets, pagination=pagination,
-                            force_refresh=True
+                    for collection in chosen_collections:
+                        if collection not in allowed_collections:
+                            logging.warn("Ignoring unsupported collection %s" % collection)
+                            continue
+                        facets = Facets(
+                            library=library, collection=collection,
+                            availability=availability,
+                            entrypoint=entrypoint,
+                            order=order, order_ascending=True
                         )
-                        pagination = pagination.next_page
+                        yield facets
+
+    def pagination(self, lane):
+        """This script covers a user-specified number of pages."""
+        page = Pagination.default()
+        for pagenum in range(0, self.pages):
+            yield page
+            page = page.next_page
+
+    def do_generate(self, lane, facets, pagination, feed_class=None):
+        feeds = []
+        title = lane.display_name
+        library = lane.get_library(self._db)
+        annotator = self.app.manager.annotator(lane, facets=facets)
+        url = annotator.feed_url(lane, facets=facets, pagination=pagination)
+        feed_class = feed_class or AcquisitionFeed
+        return feed_class.page(
+            _db=self._db, title=title, url=url, lane=lane,
+            annotator=annotator, facets=facets, pagination=pagination,
+            force_refresh=True
+        )
 
 
 class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
@@ -553,41 +649,46 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         # OPDS group feeds are only generated for lanes that have sublanes.
         if not lane.children:
             return False
-        if self.max_depth and lane.depth > self.max_depth:
+        if self.max_depth is not None and lane.depth > self.max_depth:
             return False
         return True
 
-    def do_generate(self, lane):
-        feeds = []
-        annotator = self.app.manager.annotator(lane)
+    def do_generate(self, lane, facets, pagination, feed_class=None):
         title = lane.display_name
+        annotator = self.app.manager.annotator(lane, facets=facets)
+        url = annotator.groups_url(lane, facets)
+        feed_class = feed_class or AcquisitionFeed
+        return feed_class.groups(
+            _db=self._db, title=title, url=url, lane=lane, annotator=annotator,
+            force_refresh=True, facets=facets
+        )
 
-        if isinstance(lane, Lane):
-            lane_id = lane.id
-        else:
-            # Presumably this is the top-level WorkList.
-            lane_id = None
+    def facets(self, lane):
+        """Generate a Facets object for each of the library's enabled
+        entrypoints.
+
+        This is the only way grouped feeds are ever generated, so there is
+        no way to override this.
+        """
         library = lane.get_library(self._db)
 
         # If the WorkList has explicitly defined EntryPoints, we want to
         # create a grouped feed for each EntryPoint. Otherwise, we want
         # to create a single grouped feed with no particular EntryPoint.
-        entrypoints = lane.entrypoints or [None]
+        #
+        # We use library.entrypoints instead of lane.entrypoints
+        # because WorkList.entrypoints controls which entry points you
+        # can *switch to* from a given WorkList. We're handling the
+        # case where you switched further up the hierarchy and now
+        # you're navigating downwards.
+        entrypoints = list(library.entrypoints) or [None]
         for entrypoint in entrypoints:
             facets = FeaturedFacets(
                 minimum_featured_quality=library.minimum_featured_quality,
                 uses_customlists=lane.uses_customlists,
                 entrypoint=entrypoint
             )
-            kwargs = dict(facets.items())
-            url = self.app.manager.cdn_url_for(
-                "acquisition_groups", lane_identifier=lane_id,
-                library_short_name=library.short_name, **kwargs
-            )
-            yield AcquisitionFeed.groups(
-                self._db, title, url, lane, annotator,
-                force_refresh=True, facets=facets
-            )
+            yield facets
 
 
 class AdobeAccountIDResetScript(PatronInputScript):

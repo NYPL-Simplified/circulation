@@ -30,7 +30,7 @@ babel = Babel(app)
 @app.before_first_request
 def initialize_database(autoinitialize=True):
     testing = 'TESTING' in os.environ
-    db_url = Configuration.database_url(testing)
+    db_url = Configuration.database_url()
     if autoinitialize:
         SessionManager.initialize(db_url)
     session_factory = SessionManager.sessionmaker(db_url)
