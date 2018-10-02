@@ -9,6 +9,7 @@ from ..model import (
     Edition,
 )
 from ..entrypoint import (
+    DefaultEntryPoint,
     EntryPoint,
     EbooksEntryPoint,
     EverythingEntryPoint,
@@ -134,6 +135,25 @@ class TestMediumEntryPoint(DatabaseTest):
         filter = Filter(media=object())
         Mock.modify_search_filter(filter)
         eq_([Mock.INTERNAL_NAME], filter.media)
+
+
+class TestDefaultEntryPoint(object):
+
+    def test_wrapping(self):
+        """When you wrap an EntryPoint in a DefaultEntryPoint,
+        the resulting object acts exactly like the original
+        EntryPoint.
+        """
+        audio = AudiobooksEntryPoint
+        default_audio = DefaultEntryPoint(audio)
+
+        # Test attribute access.
+        eq_(audio.URI, default_audio.URI)
+        eq_(audio.INTERNAL_NAME, default_audio.INTERNAL_NAME)
+
+        # Test method calls.
+        qu = object()
+        eq_(qu, default_audio.modify_search_filter(qu))
 
 
 class TestLibrary(DatabaseTest):

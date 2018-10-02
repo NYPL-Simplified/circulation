@@ -49,6 +49,7 @@ from sqlalchemy.sql.expression import literal
 
 from entrypoint import (
     EntryPoint,
+    DefaultEntryPoint,
     EverythingEntryPoint,
 )
 from external_search import (
@@ -210,16 +211,20 @@ class FacetsWithEntryPoint(FacetConstants):
         selected in a WorkList remains valid (but not selectable) for
         all of its children.
 
+        :param default: A class to use as the default EntryPoint
+        if none is specified. If no default is specified, the first
+        enabled EntryPoint will be used.
+
         :return: An EntryPoint class. This will be the requested
-        EntryPoint if possible. If a nonexistent or unusable
-        EntryPoint is requested, the first valid EntryPoint will be
-        returned. If there are no valid EntryPoints, None will be
-        returned.
+        EntryPoint if possible. If the default was used, it will be
+        wrapped in a DefaultEntryPoint object to indicate that it's a
+        default choice, not an explicit selection.
         """
         if not valid_entrypoints:
             return None
         if default is None:
             default = valid_entrypoints[0]
+        default = DefaultEntryPoint(default)
         ep = EntryPoint.BY_INTERNAL_NAME.get(name)
         if not ep or ep not in valid_entrypoints:
             return default

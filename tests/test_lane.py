@@ -21,6 +21,7 @@ from ..classifier import Classifier
 
 from ..entrypoint import (
     AudiobooksEntryPoint,
+    DefaultEntryPoint,
     EbooksEntryPoint,
     EverythingEntryPoint,
     EntryPoint,
@@ -212,19 +213,21 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         # This request does not ask for any particular entrypoint, and
         # it doesn't specify a default, so it gets the first available
         # entrypoint.
-        eq_(audio, m(None, entrypoints))
+        audio_default = m(None, entrypoints)
+        assert isinstance(audio_default, DefaultEntryPoint)
+        eq_(audio, audio_default.wrapped)
 
         # This request does not ask for any particular entrypoint,
-        # so it gets the specified default.
+        # so it gets a DefaultEntryPoint wrapping the specified default.
         default = object()
-        eq_(default, m(None, entrypoints, default))
+        eq_(default, m(None, entrypoints, default).wrapped)
 
         # This request asks for an entrypoint and gets it.
         eq_(ebooks, m(ebooks.INTERNAL_NAME, entrypoints))
 
         # This request asks for an entrypoint that is not available,
         # and gets the default.
-        eq_(audio, m("no such entrypoint", entrypoints))
+        eq_(audio, m("no such entrypoint", entrypoints).wrapped)
 
         # If no EntryPoints are available, load_entrypoint returns
         # nothing.
@@ -568,7 +571,10 @@ class TestFacets(DatabaseTest):
         eq_(default_collection, facets.collection)
         eq_(default_availability, facets.availability)
         eq_(library, facets.library)
-        eq_(AudiobooksEntryPoint, facets.entrypoint)
+
+        # The AudiobooksEntryPoint was selected as a default.
+        assert isinstance(facets.entrypoint, DefaultEntryPoint)
+        eq_(AudiobooksEntryPoint, facets.entrypoint.wrapped)
 
         # Valid object using non-default settings.
         args = dict(

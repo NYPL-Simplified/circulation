@@ -102,6 +102,34 @@ class EntryPoint(object):
         """Default behavior is to not change a query at all."""
         return qu
 
+
+class DefaultEntryPoint(EntryPoint):
+    """Wraps an EntryPoint class to make it clear that it was selected by
+    default and not by a user's explicit act.
+    """
+
+    def __init__(self, wrapped):
+        self.wrapped = wrapped
+
+    @classmethod
+    def register(cls, *args, **kwargs):
+        """Refuse to register this class with the registry."""
+        raise NotImplementedError()
+
+    @classmethod
+    def unregister(cls, *args, **kwargs):
+        """This class can't be registered, so de-registration is a no-op."""
+        return
+
+    @property
+    def URI(self):
+        return self.wrapped.URI
+
+    def __getattr__(self, name):
+        """Propagate all attribute requests to the wrapped object."""
+        return getattr(self.wrapped, name)
+
+
 class EverythingEntryPoint(EntryPoint):
     """An entry point that has everything."""
     INTERNAL_NAME = "All"
@@ -134,7 +162,6 @@ class MediumEntryPoint(EntryPoint):
         :param filter: An external_search.Filter object.
         """
         filter.media = [cls.INTERNAL_NAME]
-
 
 class EbooksEntryPoint(MediumEntryPoint):
     INTERNAL_NAME = "Book"
