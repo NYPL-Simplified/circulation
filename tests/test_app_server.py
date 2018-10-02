@@ -295,8 +295,8 @@ class TestLoadMethods(DatabaseTest):
             eq_(AudiobooksEntryPoint, facets.entrypoint)
             eq_(False, facets.entrypoint_is_default)
 
-        # If it's not configured, the default EntryPoint is wrapped
-        # in a DefaultEntryPoint object.
+        # If the requested EntryPoint not configured, the default
+        # EntryPoint is used.
         with self.app.test_request_context('/?entrypoint=NoSuchEntryPoint'):
             flask.request.library = self._default_library
             default_entrypoint=object()
