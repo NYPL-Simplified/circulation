@@ -103,50 +103,6 @@ class EntryPoint(object):
         return qu
 
 
-class DefaultEntryPoint(EntryPoint):
-    """Wraps an EntryPoint class to make it clear that it was selected by
-    default and not by a user's explicit act.
-    """
-
-    def __init__(self, wrapped):
-        self.wrapped = wrapped
-
-    @classmethod
-    def register(cls, *args, **kwargs):
-        """Refuse to register this class with the registry."""
-        raise NotImplementedError()
-
-    @classmethod
-    def unregister(cls, *args, **kwargs):
-        """This class can't be registered, so de-registration is a no-op."""
-        return
-
-    def __getattr__(self, name):
-        """Propagate all attribute requests to the wrapped object."""
-        return getattr(self.wrapped, name)
-
-    @property
-    def URI(self):
-        """Return the wrapped object's .URI.
-
-        We can't use __getattr__ for this because URI is always
-        defined, even if the value is None.
-        """
-        return self.wrapped.URI
-
-    def wrap(method_name):
-        """Forward a method call to the wrapped object."""
-        def wrapped_method(self, *args, **kwargs):
-            return getattr(self.wrapped, method_name)(*args, **kwargs)
-        return wrapped_method
-
-    # Wrap the methods -- we can't use __getattr__ for this because
-    # they're always defined, even if they raise an exception or are
-    # no-op.
-    modified_materialized_view_query = wrap("modified_materialized_view_query")
-    modify_search_filter = wrap("modify_search_filter")
-    apply = wrap("apply")
-
 class EverythingEntryPoint(EntryPoint):
     """An entry point that has everything."""
     INTERNAL_NAME = "All"

@@ -137,33 +137,6 @@ class TestMediumEntryPoint(DatabaseTest):
         eq_([Mock.INTERNAL_NAME], filter.media)
 
 
-class TestDefaultEntryPoint(object):
-
-    def test_wrapping(self):
-        """When you wrap an EntryPoint in a DefaultEntryPoint,
-        the resulting object acts exactly like the original
-        EntryPoint.
-        """
-
-        class MyEntryPoint(AudiobooksEntryPoint):
-            modified_filter = object()
-            URI = object()
-
-            @classmethod
-            def modify_search_filter(cls, qu):
-                return cls.modified_filter
-
-        default = DefaultEntryPoint(MyEntryPoint)
-
-        # Test attribute access.
-        eq_(MyEntryPoint.URI, default.URI)
-        eq_(MyEntryPoint.INTERNAL_NAME, default.INTERNAL_NAME)
-
-        # Test method calls.
-        qu = object()
-        eq_(MyEntryPoint.modified_filter, default.modify_search_filter(qu))
-
-
 class TestLibrary(DatabaseTest):
     """Test a Library's interaction with EntryPoints."""
 

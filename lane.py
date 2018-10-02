@@ -49,7 +49,6 @@ from sqlalchemy.sql.expression import literal
 
 from entrypoint import (
     EntryPoint,
-    DefaultEntryPoint,
     EverythingEntryPoint,
 )
 from external_search import (
@@ -108,14 +107,18 @@ class FacetsWithEntryPoint(FacetConstants):
     """Basic Facets class that knows how to filter a query based on a
     selected EntryPoint.
     """
-    def __init__(self, entrypoint=None, **kwargs):
+    def __init__(self, entrypoint=None, entrypoint_is_default=False, **kwargs):
         """Constructor.
 
         :param entrypoint: An EntryPoint (optional).
+        :param entrypoint_is_default: If this is True, then `entrypoint`
+            is a default value and was not determined by a user's
+            explicit choice.
         :param kwargs: Other arguments may be supplied based on user
             input, but the default implementation is to ignore them.
         """
         self.entrypoint = entrypoint
+        self.entrypoint_is_default = entrypoint_is_default
         self.constructor_kwargs = kwargs
 
     def navigate(self, entrypoint):
@@ -123,7 +126,8 @@ class FacetsWithEntryPoint(FacetConstants):
         a different EntryPoint.
         """
         return self.__class__(
-            entrypoint=entrypoint, **self.constructor_kwargs
+            entrypoint=entrypoint, entrypoint_is_default=False,
+            **self.constructor_kwargs
         )
 
     @classmethod
@@ -150,8 +154,7 @@ class FacetsWithEntryPoint(FacetConstants):
         :param default_entrypoint: Select this EntryPoint if the
            incoming request does not specify an enabled EntryPoint.
            If this is None, the first enabled EntryPoint will be used
-           as the default. In either case, a default selection will be
-           wrapped in a DefaultEntryPoint object.
+           as the default.
 
         :param extra_kwargs: A dictionary of keyword arguments to pass
            into the constructor when a faceting object is instantiated.
@@ -184,8 +187,9 @@ class FacetsWithEntryPoint(FacetConstants):
         )
         if isinstance(entrypoint, ProblemDetail):
             return entrypoint
-
-        return cls(entrypoint=entrypoint, **extra_kwargs)
+        entrypoint, is_default = entrypoint
+        return cls(entrypoint=entrypoint, entrypoint_is_default=is_default,
+                   **extra_kwargs)
 
     @classmethod
     def selectable_entrypoints(cls, worklist):
@@ -215,24 +219,18 @@ class FacetsWithEntryPoint(FacetConstants):
 
         :param default: A class to use as the default EntryPoint if
         none is specified. If no default is specified, the first
-        enabled EntryPoint will be used. In either case, a default
-        selection will be wrapped in a DefaultEntryPoint object.
+        enabled EntryPoint will be used.
 
-        :return: An EntryPoint class. This will be the requested
-        EntryPoint if possible. If the default was used, it will be
-        wrapped in a DefaultEntryPoint object to indicate that it's a
-        default choice, not an explicit selection.
-
+        :return: A 2-tuple (EntryPoint class, is_default).
         """
         if not valid_entrypoints:
-            return None
+            return None, True
         if default is None:
             default = valid_entrypoints[0]
-        default = DefaultEntryPoint(default)
         ep = EntryPoint.BY_INTERNAL_NAME.get(name)
         if not ep or ep not in valid_entrypoints:
-            return default
-        return ep
+            return default, True
+        return ep, False
 
     def items(self):
         """Yields a 2-tuple for every active facet setting.
@@ -332,7 +330,8 @@ class Facets(FacetsWithEntryPoint):
                                  default_entrypoint, **extra)
 
     def __init__(self, library, collection, availability, order,
-                 order_ascending=None, enabled_facets=None, entrypoint=None):
+                 order_ascending=None, enabled_facets=None, entrypoint=None,
+                 entrypoint_is_default=False):
         """Constructor.
 
         :param collection: This is not a Collection object; it's a value for
@@ -342,7 +341,7 @@ class Facets(FacetsWithEntryPoint):
         facet group is configured on a per-WorkList basis rather than
         a per-library basis.
         """
-        super(Facets, self).__init__(entrypoint)
+        super(Facets, self).__init__(entrypoint, entrypoint_is_default)
         if order_ascending is None:
             if order == self.ORDER_ADDED_TO_COLLECTION:
                 order_ascending = self.ORDER_DESCENDING
@@ -383,7 +382,8 @@ class Facets(FacetsWithEntryPoint):
                               availability or self.availability,
                               order or self.order,
                               enabled_facets=self.facets_enabled_at_init,
-                              entrypoint=(entrypoint or self.entrypoint)
+                              entrypoint=(entrypoint or self.entrypoint),
+                              entrypoint_is_default=False,
         )
 
     def items(self):
