@@ -9,7 +9,6 @@ from ..model import (
     Edition,
 )
 from ..entrypoint import (
-    DefaultEntryPoint,
     EntryPoint,
     EbooksEntryPoint,
     EverythingEntryPoint,
