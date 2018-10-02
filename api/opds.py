@@ -12,7 +12,6 @@ from sqlalchemy.orm import lazyload
 from core.cdn import cdnify
 from core.classifier import Classifier
 from core.entrypoint import (
-    DefaultEntryPoint,
     EverythingEntryPoint,
 )
 from core.opds import (
@@ -733,7 +732,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         if lane and lane.search_target:
             search_facet_kwargs = {}
             if self.facets != None:
-                if isinstance(self.facets.entrypoint, DefaultEntryPoint):
+                if self.facets.entrypoint_is_default:
                     # The currently selected entry point is a default.
                     # Rather than using it, we want the 'default' behavior
                     # for search, which is to search everything.

@@ -44,7 +44,6 @@ from core.classifier import (
 
 from core.entrypoint import (
     AudiobooksEntryPoint,
-    DefaultEntryPoint,
     EverythingEntryPoint,
 )
 from core.external_search import MockExternalSearchIndex
@@ -1206,9 +1205,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         # When the selected EntryPoint is a default, it's not used --
         # instead, we search everything.
-        annotator.facets.entrypoint = DefaultEntryPoint(
-            annotator.facets.entrypoint
-        )
+        annotator.facets.entrypoint_is_default = True
         links = annotated_links(lane, annotator)
         [url] = links['search']
         assert 'entrypoint=%s' % EverythingEntryPoint.INTERNAL_NAME in url
