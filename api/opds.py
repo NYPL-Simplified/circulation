@@ -11,6 +11,10 @@ from sqlalchemy.orm import lazyload
 
 from core.cdn import cdnify
 from core.classifier import Classifier
+from core.entrypoint import (
+    DefaultEntryPoint,
+    EverythingEntryPoint,
+)
 from core.opds import (
     Annotator,
     AcquisitionFeed,
@@ -725,25 +729,27 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             # authenticate (or that authentication is not supported).
             self.add_authentication_document_link(feed)
 
-        # Any link that needs to propagate the currently selected facets
-        # can pass these kwargs into url_for().
-        facet_kwargs = {}
-        if self.facets != None:
-            facet_kwargs.update(dict(self.facets.items()))
-
         # Add a 'search' link if the lane is searchable.
         if lane and lane.search_target:
-            # TODO: On the top level lane, when the library supports
-            # multiple entry points and the currently selected entry
-            # point is the default, the entrypoint of the search form
-            # should be EverythingEntryPoint, even though the
-            # currently selected entry point is not
-            # EverythingEntryPoint.
+            search_facet_kwargs = {}
+            if self.facets != None:
+                if isinstance(self.facets.entrypoint, DefaultEntryPoint):
+                    # The currently selected entry point is a default.
+                    # Rather than using it, we want the 'default' behavior
+                    # for search, which is to search everything.
+                    search_facets = self.facets.navigate(
+                        entrypoint=EverythingEntryPoint
+                    )
+                else:
+                    search_facets = self.facets
+                search_facet_kwargs.update(dict(search_facets.items()))
+
+
             lane_identifier = self._lane_identifier(lane)
             search_url = self.url_for(
                 'lane_search', lane_identifier=lane_identifier,
                 library_short_name=self.library.short_name,
-                _external=True, **facet_kwargs
+                _external=True, **search_facet_kwargs
             )
             search_link = dict(
                 rel="search",
