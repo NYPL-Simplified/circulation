@@ -23,6 +23,8 @@ from ..model import (
     DataSource,
     ExternalIntegration,
     Identifier,
+    Patron,
+    Subject,
     Timestamp,
     Work,
     WorkCoverageRecord,
@@ -41,6 +43,7 @@ from ..monitor import (
     Monitor,
     NotPresentationReadyWorkSweepMonitor,
     OPDSEntryCacheMonitor,
+    PatronReaper,
     PermanentWorkIDRefreshMonitor,
     PresentationReadyWorkSweepMonitor,
     ReaperMonitor,
@@ -725,6 +728,8 @@ class TestReaperMonitor(DatabaseTest):
         eq_(30, CachedFeedReaper.MAX_AGE)
         eq_(Credential.expires, CredentialReaper(self._db).timestamp_field)
         eq_(1, CredentialReaper.MAX_AGE)
+        eq_(Patron.authorization_expires, PatronReaper(self._db).timestamp_field)
+        eq_(60, PatronReaper.MAX_AGE)
 
     def test_where_clause(self):
         m = CachedFeedReaper(self._db)
@@ -752,3 +757,18 @@ class TestReaperMonitor(DatabaseTest):
         # are still in the database.
         remaining = set(self._db.query(Credential).all())
         eq_(set([active, eternal]), remaining)
+
+    def test_reap_patrons(self):
+        m = PatronReaper(self._db)
+        expired = self._patron()
+        now = datetime.datetime.utcnow()
+        expired.authorization_expires = now - datetime.timedelta(
+            days=PatronReaper.MAX_AGE + 1
+        )
+        active = self._patron()
+        active.expires = now - datetime.timedelta(
+            days=PatronReaper.MAX_AGE - 1
+        )
+        m.run_once()
+        remaining = self._db.query(Patron).all()
+        eq_([active], remaining)

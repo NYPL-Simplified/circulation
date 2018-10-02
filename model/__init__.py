@@ -286,7 +286,7 @@ class SessionManager(object):
     @classmethod
     def initialize(cls, url):
         """Initialize the database.
-
+        
         This includes the schema, the materialized views, the custom
         functions, and the initial content.
         """
