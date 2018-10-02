@@ -42,7 +42,6 @@ from ..config import Configuration
 
 from ..entrypoint import (
     AudiobooksEntryPoint,
-    DefaultEntryPoint,
     EbooksEntryPoint,
     EntryPoint,
 )
@@ -294,6 +293,7 @@ class TestLoadMethods(DatabaseTest):
             flask.request.library = self._default_library
             facets = load_facets_from_request(worklist=worklist)
             eq_(AudiobooksEntryPoint, facets.entrypoint)
+            eq_(False, facets.entrypoint_is_default)
 
         # If it's not configured, the default EntryPoint is wrapped
         # in a DefaultEntryPoint object.
@@ -303,8 +303,8 @@ class TestLoadMethods(DatabaseTest):
             facets = load_facets_from_request(
                 worklist=worklist, default_entrypoint=default_entrypoint
             )
-            assert isinstance(facets.entrypoint, DefaultEntryPoint)
-            eq_(default_entrypoint, facets.entrypoint.wrapped)
+            eq_(default_entrypoint, facets.entrypoint)
+            eq_(True, facets.entrypoint_is_default)
 
         # Load a SearchFacets object that pulls information from an
         # HTTP header.
