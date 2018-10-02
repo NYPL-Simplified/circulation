@@ -170,11 +170,13 @@ class FacetsWithEntryPoint(FacetConstants):
         entrypoint_name = get_argument(
             Facets.ENTRY_POINT_FACET_GROUP_NAME, None
         )
+        valid_entrypoints = list(cls.selectable_entrypoints(facet_config))
         entrypoint = cls.load_entrypoint(
-            entrypoint_name, list(facet_config.entrypoints)
+            entrypoint_name, valid_entrypoints
         )
         if isinstance(entrypoint, ProblemDetail):
             return entrypoint
+
         return cls(entrypoint=entrypoint, **extra_kwargs)
 
     @classmethod
@@ -267,7 +269,7 @@ class Facets(FacetsWithEntryPoint):
         )
 
     @classmethod
-    def from_request(cls, library, config, get_argument, get_header, worklist, 
+    def from_request(cls, library, config, get_argument, get_header, worklist,
                      **extra):
         """Load a faceting object from an HTTP request."""
         g = Facets.ORDER_FACET_GROUP_NAME
@@ -666,7 +668,7 @@ class SearchFacets(FacetsWithEntryPoint):
     allows someone to, e.g., search a multi-lingual WorkList in their
     preferred language.
     """
-    
+
     def __init__(self, entrypoint=None, media=None, languages=None, **kwargs):
         super(SearchFacets, self).__init__(entrypoint, **kwargs)
         if media == Edition.ALL_MEDIUM:
@@ -701,7 +703,7 @@ class SearchFacets(FacetsWithEntryPoint):
             languages = [l for l in languages if l]
         languages = languages or None
 
-        # The client can request an additional restriction on 
+        # The client can request an additional restriction on
         # the media types to be returned by searches.
 
         media = get_argument("media", None)
@@ -709,7 +711,6 @@ class SearchFacets(FacetsWithEntryPoint):
             media = None
         extra['media'] = media
         extra['languages'] = languages
-
         return cls._from_request(
             config, get_argument, get_header, worklist, **extra
         )

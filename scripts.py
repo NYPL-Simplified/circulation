@@ -2179,7 +2179,7 @@ class DatabaseMigrationScript(Script):
             # Create a special database session that doesn't initialize
             # the ORM. As long as we only execute SQL and don't try to use
             # any ORM objects, we'll be fine.
-            url = Configuration.database_url(test=test)
+            url = Configuration.database_url()
             self._session = SessionManager.session(url, initialize_data=False)
 
         parsed = self.parse_command_line(cmd_args=cmd_args)
