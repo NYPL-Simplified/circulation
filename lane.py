@@ -128,7 +128,7 @@ class FacetsWithEntryPoint(FacetConstants):
     @classmethod
     def from_request(
             cls, library, facet_config, get_argument, get_header, worklist,
-            **extra_kwargs
+            default_entrypoint=None, **extra_kwargs
     ):
         """Load a faceting object from an HTTP request.
 
@@ -146,6 +146,10 @@ class FacetsWithEntryPoint(FacetConstants):
         :param worklist: A WorkList associated with the current request,
            if any.
 
+        :param default_entrypoint: Select this EntryPoint if the
+           incoming request does not specify an enabled EntryPoint.
+           If this is None, the first enabled EntryPoint will be used.
+
         :param extra_kwargs: A dictionary of keyword arguments to pass
            into the constructor when a faceting object is instantiated.
 
@@ -153,13 +157,14 @@ class FacetsWithEntryPoint(FacetConstants):
             a problem with the input from the request.
         """
         return cls._from_request(
-            facet_config, get_argument, get_header, worklist, **extra_kwargs
+            facet_config, get_argument, get_header, worklist,
+            default_entrypoint, **extra_kwargs
         )
 
     @classmethod
     def _from_request(
             cls, facet_config, get_argument, get_header, worklist,
-            **extra_kwargs
+            default_entrypoint=None, **extra_kwargs
     ):
         """Load a faceting object from an HTTP request.
 
@@ -172,7 +177,7 @@ class FacetsWithEntryPoint(FacetConstants):
         )
         valid_entrypoints = list(cls.selectable_entrypoints(facet_config))
         entrypoint = cls.load_entrypoint(
-            entrypoint_name, valid_entrypoints
+            entrypoint_name, valid_entrypoints, default=default_entrypoint
         )
         if isinstance(entrypoint, ProblemDetail):
             return entrypoint
@@ -195,7 +200,7 @@ class FacetsWithEntryPoint(FacetConstants):
         return worklist.entrypoints
 
     @classmethod
-    def load_entrypoint(cls, name, valid_entrypoints):
+    def load_entrypoint(cls, name, valid_entrypoints, default=None):
         """Look up an EntryPoint by name, assuming it's valid in the
         given WorkList.
 
@@ -213,7 +218,8 @@ class FacetsWithEntryPoint(FacetConstants):
         """
         if not valid_entrypoints:
             return None
-        default = valid_entrypoints[0]
+        if default is None:
+            default = valid_entrypoints[0]
         ep = EntryPoint.BY_INTERNAL_NAME.get(name)
         if not ep or ep not in valid_entrypoints:
             return default
@@ -270,7 +276,7 @@ class Facets(FacetsWithEntryPoint):
 
     @classmethod
     def from_request(cls, library, config, get_argument, get_header, worklist,
-                     **extra):
+                     default_entrypoint=None, **extra):
         """Load a faceting object from an HTTP request."""
         g = Facets.ORDER_FACET_GROUP_NAME
         order = get_argument(g, config.default_facet(g))
@@ -314,7 +320,7 @@ class Facets(FacetsWithEntryPoint):
         extra['library'] = library
 
         return cls._from_request(config, get_argument, get_header, worklist,
-                                 **extra)
+                                 default_entrypoint, **extra)
 
     def __init__(self, library, collection, availability, order,
                  order_ascending=None, enabled_facets=None, entrypoint=None):
@@ -689,7 +695,7 @@ class SearchFacets(FacetsWithEntryPoint):
 
     @classmethod
     def from_request(cls, library, config, get_argument, get_header, worklist,
-                     **extra):
+                     default_entrypoint=None, **extra):
 
         # Searches against a WorkList that has no particular language
         # restrictions will use the languages defined in the
@@ -712,7 +718,8 @@ class SearchFacets(FacetsWithEntryPoint):
         extra['media'] = media
         extra['languages'] = languages
         return cls._from_request(
-            config, get_argument, get_header, worklist, **extra
+            config, get_argument, get_header, worklist, default_entrypoint,
+            **extra
         )
 
     @classmethod

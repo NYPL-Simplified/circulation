@@ -102,7 +102,6 @@ class EntryPoint(object):
         """Default behavior is to not change a query at all."""
         return qu
 
-
 class EverythingEntryPoint(EntryPoint):
     """An entry point that has everything."""
     INTERNAL_NAME = "All"
