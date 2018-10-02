@@ -1508,8 +1508,7 @@ class CustomListsController(AdminCirculationManagerController):
             name = flask.request.form.get("name")
             entries = self._getJSONFromRequest(flask.request.form.get("entries"))
             collections = self._getJSONFromRequest(flask.request.form.get("collections"))
-            deletedEntries = self._getJSONFromRequest(flask.request.form.get("deletedEntries"))
-            return self._create_or_update_list(library, name, entries, collections, deletedEntries, id)
+            return self._create_or_update_list(library, name, entries, collections, id=id)
 
     def _getJSONFromRequest(self, values):
         if values:
@@ -1535,7 +1534,7 @@ class CustomListsController(AdminCirculationManagerController):
         work = query.one()
         return work
 
-    def _create_or_update_list(self, library, name, entries, collections, deletedEntries, id=None, deleteAll=False):
+    def _create_or_update_list(self, library, name, entries, collections, deletedEntries=None, id=None, deleteAll=False):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
 
         old_list_with_name = CustomList.find(self._db, name, library=library)
@@ -1561,6 +1560,7 @@ class CustomListsController(AdminCirculationManagerController):
         membership_change = False
 
         if deleteAll:
+            membership_change = True
             list.entries = []
 
         for entry in entries:
@@ -1572,13 +1572,14 @@ class CustomListsController(AdminCirculationManagerController):
                 if entry_is_new:
                     membership_change = True
 
-        for entry in deletedEntries:
-            urn = entry.get("id")
-            work = self._get_work_from_urn(library, urn)
+        if deletedEntries:
+            for entry in deletedEntries:
+                urn = entry.get("id")
+                work = self._get_work_from_urn(library, urn)
 
-            if work:
-                list.remove_entry(work)
-                membership_change = True
+                if work:
+                    list.remove_entry(work)
+                    membership_change = True
 
         if membership_change:
             # If this list was used to populate any lanes, those
@@ -1648,8 +1649,8 @@ class CustomListsController(AdminCirculationManagerController):
             entries = self._getJSONFromRequest(flask.request.form.get("entries"))
             collections = self._getJSONFromRequest(flask.request.form.get("collections"))
             deletedEntries = self._getJSONFromRequest(flask.request.form.get("deletedEntries"))
-            deleteAll = flask.request.form.get("deletedEntries")
-            return self._create_or_update_list(library, name, entries, collections, deletedEntries, list_id, deleteAll)
+            deleteAll = flask.request.form.get("deleteAll") == "true"
+            return self._create_or_update_list(library, name, entries, collections, deletedEntries=deletedEntries, id=list_id, deleteAll=deleteAll)
 
         elif flask.request.method == "DELETE":
             # Deleting requires a library manager.
