@@ -71,6 +71,7 @@ def create(db, model, create_method='',
 
 def get_one(db, model, on_multiple='error', constraint=None, **kwargs):
     """Gets an object from the database based on its attributes.
+
     :param constraint: A single clause that can be passed into
         `sqlalchemy.Query.filter` to limit the object that is returned.
     :return: object or None
@@ -285,6 +286,7 @@ class SessionManager(object):
     @classmethod
     def initialize(cls, url):
         """Initialize the database.
+        
         This includes the schema, the materialized views, the custom
         functions, and the initial content.
         """
