@@ -89,7 +89,9 @@ class TestFacetsWithEntryPoint(DatabaseTest):
     def test_navigate(self):
         old_entrypoint = object()
         kwargs = dict(extra_key="extra_value")
-        facets = FacetsWithEntryPoint(old_entrypoint, **kwargs)
+        facets = FacetsWithEntryPoint(
+            old_entrypoint, entrypoint_is_default=True, **kwargs
+        )
         new_entrypoint = object()
         new_facets = facets.navigate(new_entrypoint)
 
@@ -99,7 +101,11 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         # It has the new entry point.
         eq_(new_entrypoint, new_facets.entrypoint)
 
-        # The keyword arguments used to create the origina faceting
+        # Since navigating from one Facets object to another is a choice,
+        # the new Facets object is not using a default EntryPoint.
+        eq_(False, new_facets.entrypoint_is_default)
+
+        # The keyword arguments used to create the original faceting
         # object were propagated to its constructor.
         eq_(kwargs, new_facets.constructor_kwargs)
 
