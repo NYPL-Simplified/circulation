@@ -303,7 +303,7 @@ class TestLoadMethods(DatabaseTest):
             facets = load_facets_from_request(
                 worklist=worklist, default_entrypoint=default_entrypoint
             )
-            assert isinstance(DefaultEntryPoint, facets.entrypoint)
+            assert isinstance(facets.entrypoint, DefaultEntryPoint)
             eq_(default_entrypoint, facets.entrypoint.wrapped)
 
         # Load a SearchFacets object that pulls information from an
