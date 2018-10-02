@@ -144,16 +144,24 @@ class TestDefaultEntryPoint(object):
         the resulting object acts exactly like the original
         EntryPoint.
         """
-        audio = AudiobooksEntryPoint
-        default_audio = DefaultEntryPoint(audio)
+
+        class MyEntryPoint(AudiobooksEntryPoint):
+            modified_filter = object()
+            URI = object()
+
+            @classmethod
+            def modify_search_filter(cls, qu):
+                return cls.modified_filter
+
+        default = DefaultEntryPoint(MyEntryPoint)
 
         # Test attribute access.
-        eq_(audio.URI, default_audio.URI)
-        eq_(audio.INTERNAL_NAME, default_audio.INTERNAL_NAME)
+        eq_(MyEntryPoint.URI, default.URI)
+        eq_(MyEntryPoint.INTERNAL_NAME, default.INTERNAL_NAME)
 
         # Test method calls.
         qu = object()
-        eq_(qu, default_audio.modify_search_filter(qu))
+        eq_(MyEntryPoint.modified_filter, default.modify_search_filter(qu))
 
 
 class TestLibrary(DatabaseTest):

@@ -149,7 +149,9 @@ class FacetsWithEntryPoint(FacetConstants):
 
         :param default_entrypoint: Select this EntryPoint if the
            incoming request does not specify an enabled EntryPoint.
-           If this is None, the first enabled EntryPoint will be used.
+           If this is None, the first enabled EntryPoint will be used
+           as the default. In either case, a default selection will be
+           wrapped in a DefaultEntryPoint object.
 
         :param extra_kwargs: A dictionary of keyword arguments to pass
            into the constructor when a faceting object is instantiated.
@@ -211,14 +213,16 @@ class FacetsWithEntryPoint(FacetConstants):
         selected in a WorkList remains valid (but not selectable) for
         all of its children.
 
-        :param default: A class to use as the default EntryPoint
-        if none is specified. If no default is specified, the first
-        enabled EntryPoint will be used.
+        :param default: A class to use as the default EntryPoint if
+        none is specified. If no default is specified, the first
+        enabled EntryPoint will be used. In either case, a default
+        selection will be wrapped in a DefaultEntryPoint object.
 
         :return: An EntryPoint class. This will be the requested
         EntryPoint if possible. If the default was used, it will be
         wrapped in a DefaultEntryPoint object to indicate that it's a
         default choice, not an explicit selection.
+
         """
         if not valid_entrypoints:
             return None
