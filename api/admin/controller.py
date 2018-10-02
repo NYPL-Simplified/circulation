@@ -1561,6 +1561,12 @@ class CustomListsController(AdminCirculationManagerController):
 
         if deleteAll:
             membership_change = True
+            for entry in list.entries:
+                id = str(entry.work_id)
+                work = get_one(self._db, Work, id=id)
+
+                if work:
+                    list.remove_entry(work)
             list.entries = []
 
         for entry in entries:
