@@ -1340,6 +1340,7 @@ class OPDSEntryWorkCoverageProvider(PresentationReadyWorkCoverageProvider):
 
     SERVICE_NAME = "OPDS Entry Work Coverage Provider"
     OPERATION = WorkCoverageRecord.GENERATE_OPDS_OPERATION
+    DEFAULT_BATCH_SIZE = 1000
 
     def process_item(self, work):
         work.calculate_opds_entries()
