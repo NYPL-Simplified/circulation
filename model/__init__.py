@@ -242,12 +242,8 @@ class SessionManager(object):
     # commands kept in files. This dictionary maps the views to the
     # SQL files.
 
-    MATERIALIZED_VIEW_WORKS = 'mv_works_editions_datasources_identifiers'
-    MATERIALIZED_VIEW_WORKS_WORKGENRES = 'mv_works_editions_workgenres_datasources_identifiers'
     MATERIALIZED_VIEW_LANES = 'mv_works_for_lanes'
     MATERIALIZED_VIEWS = {
-        #MATERIALIZED_VIEW_WORKS : 'materialized_view_works.sql',
-        #MATERIALIZED_VIEW_WORKS_WORKGENRES : 'materialized_view_works_workgenres.sql',
         MATERIALIZED_VIEW_LANES : 'materialized_view_for_lanes.sql',
     }
 
