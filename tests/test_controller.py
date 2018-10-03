@@ -52,6 +52,7 @@ from core import model
 from core.entrypoint import (
     EbooksEntryPoint,
     EntryPoint,
+    EverythingEntryPoint,
     AudiobooksEntryPoint,
 )
 from core.model import (
@@ -2875,9 +2876,8 @@ class TestFeedController(CirculationControllerTest):
         old_search = AcquisitionFeed.search
         AcquisitionFeed.search = self.mock_search
 
-        # Verify that AcquisitionFeed.search() is passed the
-        # appropriate faceting object when we try to search a
-        # different EntryPoint.
+        # Verify that AcquisitionFeed.search() is passed a faceting
+        # object with the appropriately selected EntryPoint.
 
         # By default, the library only has one entry point enabled.
         # We need to enable more than one so it's a real choice.
@@ -2885,13 +2885,22 @@ class TestFeedController(CirculationControllerTest):
         library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
             [AudiobooksEntryPoint.INTERNAL_NAME, EbooksEntryPoint.INTERNAL_NAME]
         )
-        with self.request_context_with_library("/?q=t&entrypoint=Audio"):
-            self.manager.opds_feeds.search(None)
-            (s, args) = self.called_with
-            facets = args['facets']
-            assert isinstance(facets, SearchFacets)
-            eq_(AudiobooksEntryPoint, facets.entrypoint)
-            pass
+
+        # When a specific entry point is selected, that entry point is
+        # used.
+        #
+        # When no entry point is selected, and there are multiple
+        # possible entry points, the default behavior is to search everything.
+        for q, expect_entrypoint in (
+                ('&entrypoint=Audio', AudiobooksEntryPoint),
+                ('', EverythingEntryPoint)
+        ):
+            with self.request_context_with_library("/?q=t%s" % q):
+                self.manager.opds_feeds.search(None)
+                (s, args) = self.called_with
+                facets = args['facets']
+                assert isinstance(facets, SearchFacets)
+                eq_(expect_entrypoint, facets.entrypoint)
 
         AcquisitionFeed.search = old_search
 
