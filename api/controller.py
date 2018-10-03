@@ -32,6 +32,7 @@ from core.app_server import (
     HeartbeatController,
     URNLookupController,
 )
+from core.entrypoint import EverythingEntryPoint
 from core.external_search import (
     ExternalSearchIndex,
     MockExternalSearchIndex,
@@ -765,7 +766,8 @@ class OPDSFeedController(CirculationManagerController):
         library_short_name = flask.request.library.short_name
 
         facets = load_facets_from_request(
-            worklist=lane, base_class=SearchFacets
+            worklist=lane, base_class=SearchFacets,
+            default_entrypoint=EverythingEntryPoint,
         )
 
         # Create a function that, when called, generates a URL to the
