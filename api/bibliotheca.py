@@ -132,7 +132,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
     delivery_mechanism_to_internal_format = {
         (Representation.EPUB_MEDIA_TYPE, adobe_drm): 'ePub',
         (Representation.PDF_MEDIA_TYPE, adobe_drm): 'PDF',
-        (Representation.MP3_MEDIA_TYPE, findaway_drm) : 'MP3'
+        (None, findaway_drm) : 'MP3'
     }
     internal_format_to_delivery_mechanism = dict(
         [v,k] for k, v in delivery_mechanism_to_internal_format.items()
