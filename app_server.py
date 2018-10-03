@@ -94,7 +94,7 @@ def _make_response(content, content_type, cache_for):
 
 def load_facets_from_request(
         facet_config=None, worklist=None, base_class=Facets,
-        base_class_constructor_kwargs=None
+        base_class_constructor_kwargs=None, default_entrypoint=None
 ):
     """Figure out which faceting object this request is asking for.
 
@@ -116,7 +116,8 @@ def load_facets_from_request(
     library = flask.request.library
     facet_config = facet_config or library
     return base_class.from_request(
-        library, facet_config, get_arg, get_header, worklist, **kwargs
+        library, facet_config, get_arg, get_header, worklist,
+        default_entrypoint, **kwargs
     )
 
 def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
