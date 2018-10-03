@@ -26,6 +26,7 @@ from model import (
     CustomListEntry,
     Identifier,
     LicensePool,
+    Patron,
     PresentationCalculationPolicy,
     Subject,
     Timestamp,
@@ -701,3 +702,10 @@ class CredentialReaper(ReaperMonitor):
     TIMESTAMP_FIELD = 'expires'
     MAX_AGE = 1
 ReaperMonitor.REGISTRY.append(CredentialReaper)
+
+class PatronReaper(ReaperMonitor):
+    """Remove patron records that expired more than 60 days ago"""
+    MODEL_CLASS = Patron
+    TIMESTAMP_FIELD = 'authorization_expires'
+    MAX_AGE = 60
+ReaperMonitor.REGISTRY.append(PatronReaper)

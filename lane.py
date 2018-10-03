@@ -107,14 +107,18 @@ class FacetsWithEntryPoint(FacetConstants):
     """Basic Facets class that knows how to filter a query based on a
     selected EntryPoint.
     """
-    def __init__(self, entrypoint=None, **kwargs):
+    def __init__(self, entrypoint=None, entrypoint_is_default=False, **kwargs):
         """Constructor.
 
         :param entrypoint: An EntryPoint (optional).
+        :param entrypoint_is_default: If this is True, then `entrypoint`
+            is a default value and was not determined by a user's
+            explicit choice.
         :param kwargs: Other arguments may be supplied based on user
             input, but the default implementation is to ignore them.
         """
         self.entrypoint = entrypoint
+        self.entrypoint_is_default = entrypoint_is_default
         self.constructor_kwargs = kwargs
 
     def navigate(self, entrypoint):
@@ -122,13 +126,14 @@ class FacetsWithEntryPoint(FacetConstants):
         a different EntryPoint.
         """
         return self.__class__(
-            entrypoint=entrypoint, **self.constructor_kwargs
+            entrypoint=entrypoint, entrypoint_is_default=False,
+            **self.constructor_kwargs
         )
 
     @classmethod
     def from_request(
             cls, library, facet_config, get_argument, get_header, worklist,
-            **extra_kwargs
+            default_entrypoint=None, **extra_kwargs
     ):
         """Load a faceting object from an HTTP request.
 
@@ -146,6 +151,11 @@ class FacetsWithEntryPoint(FacetConstants):
         :param worklist: A WorkList associated with the current request,
            if any.
 
+        :param default_entrypoint: Select this EntryPoint if the
+           incoming request does not specify an enabled EntryPoint.
+           If this is None, the first enabled EntryPoint will be used
+           as the default.
+
         :param extra_kwargs: A dictionary of keyword arguments to pass
            into the constructor when a faceting object is instantiated.
 
@@ -153,13 +163,14 @@ class FacetsWithEntryPoint(FacetConstants):
             a problem with the input from the request.
         """
         return cls._from_request(
-            facet_config, get_argument, get_header, worklist, **extra_kwargs
+            facet_config, get_argument, get_header, worklist,
+            default_entrypoint, **extra_kwargs
         )
 
     @classmethod
     def _from_request(
             cls, facet_config, get_argument, get_header, worklist,
-            **extra_kwargs
+            default_entrypoint=None, **extra_kwargs
     ):
         """Load a faceting object from an HTTP request.
 
@@ -172,12 +183,13 @@ class FacetsWithEntryPoint(FacetConstants):
         )
         valid_entrypoints = list(cls.selectable_entrypoints(facet_config))
         entrypoint = cls.load_entrypoint(
-            entrypoint_name, valid_entrypoints
+            entrypoint_name, valid_entrypoints, default=default_entrypoint
         )
         if isinstance(entrypoint, ProblemDetail):
             return entrypoint
-
-        return cls(entrypoint=entrypoint, **extra_kwargs)
+        entrypoint, is_default = entrypoint
+        return cls(entrypoint=entrypoint, entrypoint_is_default=is_default,
+                   **extra_kwargs)
 
     @classmethod
     def selectable_entrypoints(cls, worklist):
@@ -195,7 +207,7 @@ class FacetsWithEntryPoint(FacetConstants):
         return worklist.entrypoints
 
     @classmethod
-    def load_entrypoint(cls, name, valid_entrypoints):
+    def load_entrypoint(cls, name, valid_entrypoints, default=None):
         """Look up an EntryPoint by name, assuming it's valid in the
         given WorkList.
 
@@ -205,19 +217,20 @@ class FacetsWithEntryPoint(FacetConstants):
         selected in a WorkList remains valid (but not selectable) for
         all of its children.
 
-        :return: An EntryPoint class. This will be the requested
-        EntryPoint if possible. If a nonexistent or unusable
-        EntryPoint is requested, the first valid EntryPoint will be
-        returned. If there are no valid EntryPoints, None will be
-        returned.
+        :param default: A class to use as the default EntryPoint if
+        none is specified. If no default is specified, the first
+        enabled EntryPoint will be used.
+
+        :return: A 2-tuple (EntryPoint class, is_default).
         """
         if not valid_entrypoints:
-            return None
-        default = valid_entrypoints[0]
+            return None, True
+        if default is None:
+            default = valid_entrypoints[0]
         ep = EntryPoint.BY_INTERNAL_NAME.get(name)
         if not ep or ep not in valid_entrypoints:
-            return default
-        return ep
+            return default, True
+        return ep, False
 
     def items(self):
         """Yields a 2-tuple for every active facet setting.
@@ -270,7 +283,7 @@ class Facets(FacetsWithEntryPoint):
 
     @classmethod
     def from_request(cls, library, config, get_argument, get_header, worklist,
-                     **extra):
+                     default_entrypoint=None, **extra):
         """Load a faceting object from an HTTP request."""
         g = Facets.ORDER_FACET_GROUP_NAME
         order = get_argument(g, config.default_facet(g))
@@ -314,10 +327,11 @@ class Facets(FacetsWithEntryPoint):
         extra['library'] = library
 
         return cls._from_request(config, get_argument, get_header, worklist,
-                                 **extra)
+                                 default_entrypoint, **extra)
 
     def __init__(self, library, collection, availability, order,
-                 order_ascending=None, enabled_facets=None, entrypoint=None):
+                 order_ascending=None, enabled_facets=None, entrypoint=None,
+                 entrypoint_is_default=False):
         """Constructor.
 
         :param collection: This is not a Collection object; it's a value for
@@ -327,7 +341,7 @@ class Facets(FacetsWithEntryPoint):
         facet group is configured on a per-WorkList basis rather than
         a per-library basis.
         """
-        super(Facets, self).__init__(entrypoint)
+        super(Facets, self).__init__(entrypoint, entrypoint_is_default)
         if order_ascending is None:
             if order == self.ORDER_ADDED_TO_COLLECTION:
                 order_ascending = self.ORDER_DESCENDING
@@ -368,7 +382,8 @@ class Facets(FacetsWithEntryPoint):
                               availability or self.availability,
                               order or self.order,
                               enabled_facets=self.facets_enabled_at_init,
-                              entrypoint=(entrypoint or self.entrypoint)
+                              entrypoint=(entrypoint or self.entrypoint),
+                              entrypoint_is_default=False,
         )
 
     def items(self):
@@ -689,7 +704,7 @@ class SearchFacets(FacetsWithEntryPoint):
 
     @classmethod
     def from_request(cls, library, config, get_argument, get_header, worklist,
-                     **extra):
+                     default_entrypoint=None, **extra):
 
         # Searches against a WorkList that has no particular language
         # restrictions will use the languages defined in the
@@ -712,7 +727,8 @@ class SearchFacets(FacetsWithEntryPoint):
         extra['media'] = media
         extra['languages'] = languages
         return cls._from_request(
-            config, get_argument, get_header, worklist, **extra
+            config, get_argument, get_header, worklist, default_entrypoint,
+            **extra
         )
 
     @classmethod
