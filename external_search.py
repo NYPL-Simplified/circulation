@@ -308,7 +308,7 @@ class ExternalSearchIndex(object):
         return base_works_index
 
     def query_works(self, query_string, filter=None, pagination=None,
-                    debug=False):
+                    debug=False, return_raw_results=False):
         """Run a search query.
 
         :param query_string: The string to search for.
@@ -318,7 +318,11 @@ class ExternalSearchIndex(object):
             of the search results.
         :param debug: If this is True, some debugging information will
             be gathered (at a slight performance cost) and logged.
-        :return: A list of Work IDs that match the query string.
+        :param return_raw_results: If this is False (the default)
+            the return value will be a list of work IDs. If this is
+            true, the full result documents will be returned.
+        :return: A list of Work IDs that match the query string, or
+            (if return_raw_results is True) a list of X.
         """
         if not self.works_alias:
             return []
@@ -330,7 +334,7 @@ class ExternalSearchIndex(object):
             search = search.extra(explain=True)
 
         fields = None
-        if debug:
+        if debug or return_raw_results:
             # Don't restrict the fields at all -- get everything.
             # This makes it easy to investigate everything about the
             # results we do get.
@@ -367,6 +371,8 @@ class ExternalSearchIndex(object):
                     i, result.title, result.author, result.meta['id'],
                     result.meta['score'], result.meta['shard']
                 )
+        if return_raw_results:
+            return results
         return [int(result.meta['id']) for result in results]
 
     def bulk_update(self, works, retry_on_batch_failure=True):
