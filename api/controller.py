@@ -32,6 +32,7 @@ from core.app_server import (
     HeartbeatController,
     URNLookupController,
 )
+from core.entrypoint import EverythingEntryPoint
 from core.external_search import (
     ExternalSearchIndex,
     DummyExternalSearchIndex,
@@ -680,10 +681,10 @@ class OPDSFeedController(CirculationManagerController):
 
         title = lane.display_name
 
-        annotator = self.manager.annotator(lane)
         facets = load_facets_from_request(worklist=lane)
         if isinstance(facets, ProblemDetail):
             return facets
+        annotator = self.manager.annotator(lane, facets=facets)
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
@@ -776,7 +777,8 @@ class OPDSFeedController(CirculationManagerController):
             languages = None
 
         facets = load_facets_from_request(
-            worklist=lane, base_class=SearchFacets
+            worklist=lane, base_class=SearchFacets,
+            default_entrypoint=EverythingEntryPoint,
         )
         kwargs = dict()
         if languages:
