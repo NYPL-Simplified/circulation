@@ -1289,7 +1289,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     __tablename__ = 'deliverymechanisms'
     id = Column(Integer, primary_key=True)
-    content_type = Column(String, nullable=False)
+    content_type = Column(String)
     drm_scheme = Column(String)
 
     # Can the Library Simplified client fulfill a book with this
