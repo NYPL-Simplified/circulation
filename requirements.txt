@@ -38,6 +38,7 @@ pyjwt==1.4.2
 flask-cors
 PyLD==0.7.3
 pycryptodome
+wcag-contrast-ratio
 
 # A NYPL-specific requirement
 newrelic

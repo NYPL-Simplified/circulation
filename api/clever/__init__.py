@@ -60,6 +60,8 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         An authentication service for Open eBooks that uses Clever as an
         OAuth provider.""")
 
+    LOGIN_BUTTON_IMAGE = "CleverLoginButton280.png"
+
     SETTINGS = [
         { "key": ExternalIntegration.USERNAME, "label": _("Client ID") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },

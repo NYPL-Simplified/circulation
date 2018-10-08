@@ -512,3 +512,11 @@ def loadstorm_verify(code):
 @app.route('/healthcheck.html')
 def health_check():
     return Response("", 200)
+
+@app.route("/images/<filename>")
+def static_image(filename):
+    directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
+    cache_timeout = ConfigurationSetting.sitewide(
+        app._db, Configuration.STATIC_FILE_CACHE_TIME
+    ).int_value
+    return flask.send_from_directory(directory, filename, cache_timeout=cache_timeout)
