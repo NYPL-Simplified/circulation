@@ -322,7 +322,8 @@ class ExternalSearchIndex(object):
             the return value will be a list of work IDs. If this is
             true, the full result documents will be returned.
         :return: A list of Work IDs that match the query string, or
-            (if return_raw_results is True) a list of X.
+            (if return_raw_results is True) a list of dictionaries
+            representing search results.
         """
         if not self.works_alias:
             return []
