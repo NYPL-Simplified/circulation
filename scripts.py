@@ -562,9 +562,13 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         allowed_orders = library.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
         chosen_orders = self.orders or [default_order]
 
-        chosen_entrypoints = self.entrypoints or [
+        allowed_entrypoint_names = self.entrypoints or [
             x.INTERNAL_NAME for x in library.entrypoints
         ]
+        default_entrypoint_name = None
+        if allowed_entrypoint_names:
+            default_entrypoint_name = allowed_entrypoint_names[0]
+        chosen_entrypoints = self.entrypoints or allowed_entrypoint_names
 
         default_availability = library.default_facet(
             Facets.AVAILABILITY_FACET_GROUP_NAME
@@ -586,6 +590,9 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             entrypoint = EntryPoint.BY_INTERNAL_NAME.get(entrypoint_name)
             if not entrypoint:
                 logging.warn("Ignoring unknown entry point %s" % entrypoint_name)
+                continue
+            if not entrypoint_name in allowed_entrypoint_names:
+                logging.warn("Ignoring disabled entry point %s" % entrypoint_name)
                 continue
             for order in chosen_orders:
                 if order not in allowed_orders:
