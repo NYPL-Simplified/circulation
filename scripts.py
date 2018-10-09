@@ -562,7 +562,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         allowed_orders = library.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
         chosen_orders = self.orders or [default_order]
 
-        allowed_entrypoint_names = self.entrypoints or [
+        allowed_entrypoint_names = [
             x.INTERNAL_NAME for x in library.entrypoints
         ]
         default_entrypoint_name = None
