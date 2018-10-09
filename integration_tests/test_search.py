@@ -280,12 +280,11 @@ if ES6:
     url = os.environ['ES6_ELASTICSEARCH']
     index = "es6-test-v3"
 else:
-    # Use site settings.
-    url = None
+    url = os.environ['ES1_ELASTICSEARCH']
     index = None
         
 _db = production_session()
-library = Library.default(_db)
+library = None
 index = ExternalSearchIndex(_db, url=url, works_index=index)
 index.works_alias = index
 SearchTest.searcher = Searcher(library, index)
