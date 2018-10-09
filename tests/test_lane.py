@@ -723,6 +723,16 @@ class TestFacetsApply(DatabaseTest):
 
 class TestFeaturedFacets(DatabaseTest):
 
+    def test_constructor(self):
+        # Verify that constructor arguments are stored.
+        entrypoint = object()
+        facets = FeaturedFacets(1, True, entrypoint, entrypoint_is_default=True)
+        eq_(1, facets.minimum_featured_quality)
+        eq_(True, facets.uses_customlists)
+        eq_(entrypoint, facets.entrypoint)
+        eq_(True, facets.entrypoint_is_default)
+
+
     def test_navigate(self):
         """Test the ability of navigate() to move between slight
         variations of a FeaturedFacets object.
