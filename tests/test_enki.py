@@ -512,11 +512,12 @@ class TestBibliographicParser(BaseEnkiTest):
         m = parser.extract_bibliographic(data['result'])
         assert isinstance(m, Metadata)
 
-        # The book is available as an ACS-encrypted PDF.
+        # The book is available as a non-ACS PDF.
         circulation = m.circulation
         assert isinstance(circulation, CirculationData)
         [format] = circulation.formats
         eq_(Representation.PDF_MEDIA_TYPE, format.content_type)
+        eq_(DeliveryMechanism.NO_DRM, format.drm_scheme)
 
 class TestEnkiImport(BaseEnkiTest):
 
@@ -776,4 +777,3 @@ class TestEnkiCollectionReaper(BaseEnkiTest):
         eq_(0, pool.licenses_owned)
         eq_(0, pool.licenses_available)
         eq_(0, pool.patrons_in_hold_queue)
-
