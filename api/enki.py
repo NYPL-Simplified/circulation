@@ -223,7 +223,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         for element in data['result']['recentactivity']:
             identifier = IdentifierData(Identifier.ENKI_ID, element['id'])
             yield parser.extract_circulation(
-                identifier, element['availability'], {} #The recent activity API does not include format info
+                identifier, element['availability'], None # The recent activity API does not include format info
             )
 
     def updated_titles(self, since):
@@ -608,7 +608,7 @@ class BibliographicParser(object):
             subjects=subjects,
         )
         circulationdata = self.extract_circulation(
-            primary_identifier, element.get('availability', {}), element.get('formattype', {})
+            primary_identifier, element.get('availability', {}), element.get('formattype', None)
         )
         metadata.circulation = circulationdata
         return metadata
@@ -626,18 +626,21 @@ class BibliographicParser(object):
         if availability.get('accessType') == 'acs':
             drm_type = EnkiAPI.adobe_drm
         formats = []
-        if formattype != {}:
-            if formattype == 'PDF':
-                content_type = Representation.PDF_MEDIA_TYPE
-            elif formattype == 'EPUB':
-                content_type=Representation.EPUB_MEDIA_TYPE
 
+        content_type = None
+        if formattype == 'PDF':
+            content_type = Representation.PDF_MEDIA_TYPE
+        elif formattype == 'EPUB':
+            content_type=Representation.EPUB_MEDIA_TYPE
+        if content_type != None:
             formats.append(
                 FormatData(
                     content_type,
                     drm_scheme=drm_type
                 )
             )
+        else:
+            self.log.error("Unrecognized formattype: %s", formattype)
 
         circulationdata = CirculationData(
             data_source=DataSource.ENKI,
