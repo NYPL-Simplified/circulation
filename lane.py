@@ -585,7 +585,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
         :param kwargs: Other arguments may be supplied based on user
             input, but the default implementation is to ignore them.
         """
-        super(FeaturedFacets, self).__init__(entrypoint)
+        super(FeaturedFacets, self).__init__(entrypoint=entrypoint, **kwargs)
         self.minimum_featured_quality = minimum_featured_quality
         self.uses_customlists = uses_customlists
 
