@@ -302,7 +302,8 @@ class TestCacheFacetListsPerLane(TestLaneScript):
         lane = self._lane()
 
         # We get one Facets object for every valid combination
-        # of parameters. Here there are 2*1*1*1 combinations.
+        # of 
+        # Here there are 2*1*1*1 combinations.
         f1, f2 = script.facets(lane)
 
         # The facets differ only in their .order.
