@@ -505,6 +505,18 @@ class TestBibliographicParser(BaseEnkiTest):
         eq_(Representation.EPUB_MEDIA_TYPE, format.content_type)
         eq_(DeliveryMechanism.ADOBE_DRM, format.drm_scheme)
 
+    def test_extract_bibliographic_pdf(self):
+        """Test the ability to distingush between PDF and EPUB results"""
+        data = json.loads(self.get_data("pdf_document_entry.json"))
+        parser = BibliographicParser()
+        m = parser.extract_bibliographic(data['result'])
+        assert isinstance(m, Metadata)
+
+        # The book is available as an ACS-encrypted PDF.
+        circulation = m.circulation
+        assert isinstance(circulation, CirculationData)
+        [format] = circulation.formats
+        eq_(Representation.PDF_MEDIA_TYPE, format.content_type)
 
 class TestEnkiImport(BaseEnkiTest):
 
