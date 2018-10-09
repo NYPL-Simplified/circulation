@@ -302,9 +302,11 @@ class TestCacheFacetListsPerLane(TestLaneScript):
         eq_(Facets.ORDER_AUTHOR, f2.order)
 
         # All other fields are tied to the only acceptable values
-        # given in the script attributes.
+        # given in the script attributes. The first (and only)
+        # enabled entry point is treated as the default.
         for f in f1, f2:
             eq_(AudiobooksEntryPoint, f.entrypoint)
+            eq_(True, f.entrypoint_is_default)
             eq_(Facets.AVAILABLE_NOW, f.availability)
             eq_(Facets.COLLECTION_FULL, f.collection)
 
@@ -450,6 +452,13 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
         audio_facets, ebook_facets = script.facets(lane)
         eq_(AudiobooksEntryPoint, audio_facets.entrypoint)
         eq_(EbooksEntryPoint, ebook_facets.entrypoint)
+
+        # The first entry point in the library's list of enabled entry
+        # points is treated as the default.
+        eq_(True, audio_facets.entrypoint_is_default)
+        eq_(audio_facets.entrypoint, list(library.entrypoints)[0])
+        eq_(False, ebook_facets.entrypoint_is_default)
+
         for facets in (audio_facets, ebook_facets):
             # The FeaturedFacets objects knows to feature works at the
             # library's minimum quality level.

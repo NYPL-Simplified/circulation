@@ -603,6 +603,9 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
                             library=library, collection=collection,
                             availability=availability,
                             entrypoint=entrypoint,
+                            entrypoint_is_default=(
+                                entrypoint.INTERNAL_NAME == default_entrypoint_name
+                            ),
                             order=order, order_ascending=True
                         )
                         yield facets
@@ -668,11 +671,13 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         # case where you switched further up the hierarchy and now
         # you're navigating downwards.
         entrypoints = list(library.entrypoints) or [None]
+        default_entrypoint = entrypoints[0]
         for entrypoint in entrypoints:
             facets = FeaturedFacets(
                 minimum_featured_quality=library.minimum_featured_quality,
                 uses_customlists=lane.uses_customlists,
-                entrypoint=entrypoint
+                entrypoint=entrypoint,
+                entrypoint_is_default=(entrypoint is default_entrypoint)
             )
             yield facets
 
