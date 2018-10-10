@@ -562,9 +562,13 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         allowed_orders = library.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
         chosen_orders = self.orders or [default_order]
 
-        chosen_entrypoints = self.entrypoints or [
+        allowed_entrypoint_names = [
             x.INTERNAL_NAME for x in library.entrypoints
         ]
+        default_entrypoint_name = None
+        if allowed_entrypoint_names:
+            default_entrypoint_name = allowed_entrypoint_names[0]
+        chosen_entrypoints = self.entrypoints or allowed_entrypoint_names
 
         default_availability = library.default_facet(
             Facets.AVAILABILITY_FACET_GROUP_NAME
@@ -587,6 +591,9 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             if not entrypoint:
                 logging.warn("Ignoring unknown entry point %s" % entrypoint_name)
                 continue
+            if not entrypoint_name in allowed_entrypoint_names:
+                logging.warn("Ignoring disabled entry point %s" % entrypoint_name)
+                continue
             for order in chosen_orders:
                 if order not in allowed_orders:
                     logging.warn("Ignoring unsupported ordering %s" % order)
@@ -603,6 +610,9 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
                             library=library, collection=collection,
                             availability=availability,
                             entrypoint=entrypoint,
+                            entrypoint_is_default=(
+                                entrypoint.INTERNAL_NAME == default_entrypoint_name
+                            ),
                             order=order, order_ascending=True
                         )
                         yield facets
@@ -668,11 +678,13 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         # case where you switched further up the hierarchy and now
         # you're navigating downwards.
         entrypoints = list(library.entrypoints) or [None]
+        default_entrypoint = entrypoints[0]
         for entrypoint in entrypoints:
             facets = FeaturedFacets(
                 minimum_featured_quality=library.minimum_featured_quality,
                 uses_customlists=lane.uses_customlists,
-                entrypoint=entrypoint
+                entrypoint=entrypoint,
+                entrypoint_is_default=(entrypoint is default_entrypoint)
             )
             yield facets
 
