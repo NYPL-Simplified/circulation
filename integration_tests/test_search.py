@@ -385,6 +385,13 @@ class TestTitleMatch(SearchTest):
         FirstMatch(title="The Prime of Miss Jean Brodie")
       )
 
+    def test_gatos(self):
+      # Searching for a Spanish word should bring up books in Spanish
+        self.search(
+            "gatos",
+            FirstMatch(language="spa")
+        )
+
 class TestMixedTitleAuthorMatch(SearchTest):
 
     def test_centos_negus(self):
@@ -528,7 +535,6 @@ class TestGenreMatch(SearchTest):
             "Seventh grade science", SpecificGenre(genre="Science")
         )
 
-
 class TestSubtitleMatch(SearchTest):
 
     def test_shame_stereotypes(self):
@@ -616,8 +622,7 @@ class TestAuthorMatch(SearchTest):
             FirstMatch(author="Pablo Escobar", language="Spanish")
          )
 
-
-class TestSeries(SearchTest):
+class TestSeriesMatch(SearchTest):
 
     def test_poldi(self):
         self.search(
@@ -652,6 +657,12 @@ class TestSeries(SearchTest):
         self.search(
             "Gossip hirl",
             FirstMatch(series="Gossip Girl")
+        )
+
+    def test_goosebumps(self):
+        self.search(
+            "goosebumps",
+            FirstMatch(series="Goosebumps")
         )
 
     def test_severance(self):
@@ -706,10 +717,6 @@ class TestSeries(SearchTest):
             "Science comics",
             FirstMatch(series="Science Comics")
         )
-
-
-
-
 
 
 
