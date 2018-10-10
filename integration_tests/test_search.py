@@ -751,12 +751,6 @@ class TestSeriesMatch(SearchTest):
             SpecificSeries("Science Comics")
         )
 
-<<<<<<< HEAD
-
-
-
-=======
->>>>>>> 44b99b9a5b9f0cc711922693901777c2770d90d7
 ES6 = ('es6' in os.environ['VIRTUAL_ENV'])
 if ES6:
     url = os.environ['ES6_ELASTICSEARCH']
