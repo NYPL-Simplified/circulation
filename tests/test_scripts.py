@@ -308,6 +308,15 @@ class TestCacheFacetListsPerLane(TestLaneScript):
             eq_(Facets.AVAILABLE_NOW, f.availability)
             eq_(Facets.COLLECTION_FULL, f.collection)
 
+        # The first entry point is treated as the default only for WorkLists
+        # that have no parent. When the WorkList has a parent, the selected
+        # entry point is treated as an explicit choice -- navigating downward
+        # in the lane hierarchy ratifies the default value.
+        sublane = self._lane(parent=lane)
+        f1, f2 = script.facets(sublane)
+        for f in f1, f2:
+            eq_(False, f.entrypoint_is_default)
+
     def test_pagination(self):
         script = CacheFacetListsPerLane(self._db, manager=object(), cmd_args=[])
         script.pages = 3
@@ -458,6 +467,15 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
             # The FeaturedFacets object knows that custom lists are
             # not in play.
             eq_(False, facets.uses_customlists)
+
+        # The first entry point is treated as the default only for WorkLists
+        # that have no parent. When the WorkList has a parent, the selected
+        # entry point is treated as an explicit choice  -- navigating downward
+        # in the lane hierarchy ratifies the default value.
+        sublane = self._lane(parent=lane)
+        f1, f2 = script.facets(sublane)
+        for f in f1, f2:
+            eq_(False, f.entrypoint_is_default)
 
         # Make it look like the lane uses custom lists.
         lane.list_datasource = DataSource.lookup(self._db, DataSource.OVERDRIVE)
