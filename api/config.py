@@ -186,8 +186,8 @@ class Configuration(CoreConfiguration):
         },
         {
             "key": DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
-            "label": _("Default email address to use when notifying patrons of changes."),
-            "description": _("This should be an address that the library controls, but no emails will (currently) be sent to this address. If this address is not specified, no holds can be placed on Overdrive, Bibliotheca, or Axis 360 titles, and no RBdigital titles can be put on loan.")
+            "label": _("Default email address to use when sending vendor hold notifications"),
+            "description": _('This should be an address controlled by the library which rejects or trashes all email sent to it. Vendor hold notifications contain sensitive patron information, but <a href="https://confluence.nypl.org/display/SIM/About+Hold+Notifications">cannot be forwarded to patrons</a> because they contain vendor-specific instructions.')
         },
         {
             "key": COLOR_SCHEME,
