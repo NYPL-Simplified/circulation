@@ -594,6 +594,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         )
         chosen_collections = self.collections or [default_collection]
 
+        top_level = (lane.parent is None)
         for entrypoint_name in chosen_entrypoints:
             entrypoint = EntryPoint.BY_INTERNAL_NAME.get(entrypoint_name)
             if not entrypoint:
@@ -620,6 +621,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
                             availability=availability,
                             entrypoint=entrypoint,
                             entrypoint_is_default=(
+                                top_level and
                                 entrypoint.INTERNAL_NAME == default_entrypoint_name
                             ),
                             order=order, order_ascending=True
@@ -676,6 +678,7 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         This is the only way grouped feeds are ever generated, so there is
         no way to override this.
         """
+        top_level = (lane.parent is None)
         library = lane.get_library(self._db)
 
         # If the WorkList has explicitly defined EntryPoints, we want to
@@ -694,7 +697,9 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
                 minimum_featured_quality=library.minimum_featured_quality,
                 uses_customlists=lane.uses_customlists,
                 entrypoint=entrypoint,
-                entrypoint_is_default=(entrypoint is default_entrypoint)
+                entrypoint_is_default=(
+                    top_level and entrypoint is default_entrypoint
+                )
             )
             yield facets
 
