@@ -591,13 +591,6 @@ class TestAuthorMatch(SearchTest):
             )
         )
 
-<<<<<<< HEAD
-
-class TestKidSearches(SearchTest):
-
-    def test_39_clues(self):
-        self.search("39 clues", SpecificSeries("39 clues"))
-=======
     def test_plato(self):
         # The majority of the search results will be _about_ this author,
         # but there should also be some _by_ him.
@@ -656,16 +649,19 @@ class TestKidSearches(SearchTest):
 
 class TestSeries(SearchTest):
 
+    def test_39_clues(self):
+        self.search("39 clues", SpecificSeries("39 clues"))
+
     def test_poldi(self):
         self.search(
             "Auntie poldi",
-            FirstMatch(series="Auntie Poldi")
+            SpecificSeries("Auntie Poldi")
         )
 
     def test_maggie_hope(self):
         self.search(
             "Maggie hope",
-            FirstMatch(series="Maggie Hope")
+            SpecificSeries("Maggie Hope")
         )
 
     def test_harry_potter(self):
@@ -674,28 +670,28 @@ class TestSeries(SearchTest):
 
         self.search(
             "Harry potter",
-            FirstMatch(series="Harry Potter")
+            SpecificSeries("Harry Potter")
         )
 
     def test_maisie_dobbs(self):
         # Misspelled proper noun
         self.search(
             "maise dobbs",
-            FirstMatch(series="Maisie Dobbs")
+            SpecificSeries("Maisie Dobbs")
         )
 
     def test_gossip_girl(self):
         # Misspelled common word
         self.search(
             "Gossip hirl",
-            FirstMatch(series="Gossip Girl")
+            SpecificSeries("Gossip Girl")
         )
 
     def test_severance(self):
         # Partial, and slightly misspelled
         self.search(
             "Severence",
-            FirstMatch(series="The Severance Trilogy")
+            SpecificSeries("The Severance Trilogy")
         )
 
     def test_hunger_games(self):
@@ -705,7 +701,7 @@ class TestSeries(SearchTest):
         # Misspelled relatively common word
         self.search(
             "The hinger games",
-            FirstMatch(series="The Hunger Games")
+            SpecificSeries("The Hunger Games")
         )
 
     def test_mockingjay(self):
@@ -722,7 +718,7 @@ class TestSeries(SearchTest):
         # Series and full author
         self.search(
             "Isaac asimov foundation",
-            FirstMatch(series="Foundation", author="Isaac Asimov")
+            SpecificSeries("Foundation", author="Isaac Asimov")
         )
 
     def test_foundation_2(self):
@@ -731,7 +727,7 @@ class TestSeries(SearchTest):
         # Series, full author, and book number
         self.search(
             "Isaac Asimov foundation book 1",
-            FirstMatch(series="Foundation", title="Prelude to Foundation")
+            SpecificSeries("Foundation", title="Prelude to Foundation")
         )
 
     def test_science_comics(self):
@@ -741,16 +737,8 @@ class TestSeries(SearchTest):
         # Series name containing genre names
         self.search(
             "Science comics",
-            FirstMatch(series="Science Comics")
+            SpecificSeries("Science Comics")
         )
-
-
-
-
-
-
-
->>>>>>> 5e7345ba88046257749d561a8c7c0a08706ea5b3
 
 ES6 = ('es6' in os.environ['VIRTUAL_ENV'])
 if ES6:
