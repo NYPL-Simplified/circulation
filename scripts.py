@@ -593,6 +593,9 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             if not entrypoint:
                 logging.warn("Ignoring unknown entry point %s" % entrypoint_name)
                 continue
+            if not entrypoint_name in allowed_entrypoint_names:
+                logging.warn("Ignoring disabled entry point %s" % entrypoint_name)
+                continue
             for order in chosen_orders:
                 if order not in allowed_orders:
                     logging.warn("Ignoring unsupported ordering %s" % order)
