@@ -117,6 +117,15 @@ class Evaluator(object):
             actual = 0
         else:
             actual = float(len(matches)) / len(hits)
+        if actual < threshold:
+            # This test is going to fail. Log some useful information.
+            self.log.info(
+                "Need %d%% matches, got %d%%" % (
+                    threshold*100, actual*100
+                )
+            )
+            for i in hits:
+                self.log.info("%s %s", i in matches, i)
         assert actual >= threshold
 
 
@@ -198,6 +207,27 @@ class SpecificAuthor(FirstMatch):
         authors = [self._field('author', x) for x in hits]
         author_matches = [x for x in authors if x == author]
         self.assert_ratio(author_matches, authors, threshold)
+
+
+class SpecificSeries(Evaluator):
+
+    """Every result must be from the given series. The series name
+    must either show up in the title or in the series field.
+    """
+
+    def __init__(self, series, threshold=0.5):
+        self.series = series.lower()
+        self.threshold = threshold
+
+    def evaluate_hits(self, hits):
+        matches = []
+        for h in hits:
+            if h:
+                series = self._field('series', h)
+                title = self._field('title', h)
+                if self.series == series or self.series in title:
+                    matches.append(h)
+        self.assert_ratio(matches, hits, self.threshold)
 
 
 class SearchTest(object):
@@ -394,7 +424,7 @@ class TestTitleMatch(SearchTest):
 
 class TestMixedTitleAuthorMatch(SearchTest):
 
-    def test_centos_negus(self):
+    def test_centos_caen(self):
         # 'centos' shows up in the subtitle. 'caen' is the name
         # of one of the authors.
         self.search(
@@ -624,16 +654,19 @@ class TestAuthorMatch(SearchTest):
 
 class TestSeriesMatch(SearchTest):
 
+    def test_39_clues(self):
+        self.search("39 clues", SpecificSeries("39 clues"))
+
     def test_poldi(self):
         self.search(
             "Auntie poldi",
-            FirstMatch(series="Auntie Poldi")
+            SpecificSeries("Auntie Poldi")
         )
 
     def test_maggie_hope(self):
         self.search(
             "Maggie hope",
-            FirstMatch(series="Maggie Hope")
+            SpecificSeries("Maggie Hope")
         )
 
     def test_harry_potter(self):
@@ -642,21 +675,21 @@ class TestSeriesMatch(SearchTest):
 
         self.search(
             "Harry potter",
-            FirstMatch(series="Harry Potter")
+            SpecificSeries("Harry Potter")
         )
 
     def test_maisie_dobbs(self):
         # Misspelled proper noun
         self.search(
             "maise dobbs",
-            FirstMatch(series="Maisie Dobbs")
+            SpecificSeries("Maisie Dobbs")
         )
 
     def test_gossip_girl(self):
         # Misspelled common word
         self.search(
             "Gossip hirl",
-            FirstMatch(series="Gossip Girl")
+            SpecificSeries("Gossip Girl")
         )
 
     def test_goosebumps(self):
@@ -669,7 +702,7 @@ class TestSeriesMatch(SearchTest):
         # Partial, and slightly misspelled
         self.search(
             "Severence",
-            FirstMatch(series="The Severance Trilogy")
+            SpecificSeries("The Severance Trilogy")
         )
 
     def test_hunger_games(self):
@@ -679,7 +712,7 @@ class TestSeriesMatch(SearchTest):
         # Misspelled relatively common word
         self.search(
             "The hinger games",
-            FirstMatch(series="The Hunger Games")
+            SpecificSeries("The Hunger Games")
         )
 
     def test_mockingjay(self):
@@ -696,7 +729,7 @@ class TestSeriesMatch(SearchTest):
         # Series and full author
         self.search(
             "Isaac asimov foundation",
-            FirstMatch(series="Foundation", author="Isaac Asimov")
+            SpecificSeries("Foundation", author="Isaac Asimov")
         )
 
     def test_foundation_2(self):
@@ -705,7 +738,7 @@ class TestSeriesMatch(SearchTest):
         # Series, full author, and book number
         self.search(
             "Isaac Asimov foundation book 1",
-            FirstMatch(series="Foundation", title="Prelude to Foundation")
+            SpecificSeries("Foundation", title="Prelude to Foundation")
         )
 
     def test_science_comics(self):
@@ -715,12 +748,15 @@ class TestSeriesMatch(SearchTest):
         # Series name containing genre names
         self.search(
             "Science comics",
-            FirstMatch(series="Science Comics")
+            SpecificSeries("Science Comics")
         )
 
+<<<<<<< HEAD
 
 
 
+=======
+>>>>>>> 44b99b9a5b9f0cc711922693901777c2770d90d7
 ES6 = ('es6' in os.environ['VIRTUAL_ENV'])
 if ES6:
     url = os.environ['ES6_ELASTICSEARCH']
