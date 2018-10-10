@@ -125,7 +125,11 @@ class Evaluator(object):
                 )
             )
             for i in hits:
-                self.log.info("%s %s", i in matches, i)
+                if i in matches:
+                    success = 'Y'
+                else:
+                    success = 'N'
+                self.log.info("%s %s", success, i)
         assert actual >= threshold
 
 
@@ -221,13 +225,15 @@ class SpecificSeries(Evaluator):
 
     def evaluate_hits(self, hits):
         matches = []
+        everything = []
         for h in hits:
             if h:
                 series = self._field('series', h)
                 title = self._field('title', h)
+                everything.append((title, series))
                 if self.series == series or self.series in title:
-                    matches.append(h)
-        self.assert_ratio(matches, hits, self.threshold)
+                    matches.append((title, series))
+        self.assert_ratio(matches, everything, self.threshold)
 
 
 class SearchTest(object):
@@ -240,7 +246,10 @@ class SearchTest(object):
         pagination = Pagination(size=limit)
         qu = self.searcher.query(query, pagination=pagination)
         hits = [x for x in qu][:]
-        evaluator.evaluate(hits)
+        if not isinstance(evaluator, list):
+            evaluator = [evaluator]
+        for e in evaluator:
+            e.evaluate(hits)
 
 
 class TestTitleMatch(SearchTest):
@@ -654,66 +663,71 @@ class TestAuthorMatch(SearchTest):
 
 class TestSeriesMatch(SearchTest):
 
-    def test_39_clues(self):
-        self.search("39 clues", SpecificSeries("39 clues"))
-
     def test_poldi(self):
+        # We only have one book in this series.
         self.search(
             "Auntie poldi",
-            SpecificSeries("Auntie Poldi")
+            FirstMatch(series="Auntie Poldi")
         )
 
+    def test_39_clues(self):
+        # We have many books in this series.
+        self.search("39 clues", SpecificSeries("the 39 clues", threshold=0.9))
+
     def test_maggie_hope(self):
+        # We have many books in this series.
         self.search(
             "Maggie hope",
-            SpecificSeries("Maggie Hope")
+            SpecificSeries("Maggie Hope", threshold=0.9)
         )
 
     def test_harry_potter(self):
-        # NOTE: this doesn't work on either version of ES.  It prioritizes
-        # foreign-language editions of the "Harry Potter" books.
-
+        # This puts foreign-language titles above English titles, but
+        # that's fine because our search document doesn't include a
+        # language filter.
         self.search(
             "Harry potter",
-            SpecificSeries("Harry Potter")
+            SpecificSeries("Harry Potter", threshold=0.9)
         )
 
     def test_maisie_dobbs(self):
         # Misspelled proper noun
         self.search(
             "maise dobbs",
-            SpecificSeries("Maisie Dobbs")
+            SpecificSeries("Maisie Dobbs", threshold=0.9)
         )
 
     def test_gossip_girl(self):
         # Misspelled common word
+
+        # TODO: We only have two books in this series. It would be
+        # useful to specify the number of expected matches in the
+        # SpecificSeries constructor, rather than a percentage.
         self.search(
             "Gossip hirl",
-            SpecificSeries("Gossip Girl")
+            SpecificSeries("Gossip Girl"), limit=4
         )
 
     def test_goosebumps(self):
         self.search(
             "goosebumps",
-            FirstMatch(series="Goosebumps")
+            SpecificSeries(series="Goosebumps", threshold=0.9)
         )
 
     def test_severance(self):
         # Partial, and slightly misspelled
+        # We only have one of these titles.
         self.search(
             "Severence",
-            SpecificSeries("The Severance Trilogy")
+            FirstMatch(series="The Severance Trilogy")
         )
 
     def test_hunger_games(self):
-        # NOTE: this doesn't work on either version of ES.  Fixing the typo makes it
-        # work for ES1, but not for ES6.
+        # NOTE: This works on ES1 but not ES6.
+        self.search("the hunger games", SpecificSeries("The Hunger Games"))
 
-        # Misspelled relatively common word
-        self.search(
-            "The hinger games",
-            SpecificSeries("The Hunger Games")
-        )
+        # NOTE: This doesn't work on either version
+        self.search("The hinger games", SpecificSeries("The Hunger Games"))
 
     def test_mockingjay(self):
         # NOTE: this doesn't work on either version of ES.  The target book is
@@ -722,23 +736,23 @@ class TestSeriesMatch(SearchTest):
         # Series and title
         self.search(
             "The hunger games mockingjay",
-            FirstMatch(title="Mockingjay", series="The Hunger Games")
+            [FirstMatch(title="Mockingjay"), SpecificSeries("The Hunger Games")]
         )
 
-    def test_foundation_1(self):
+    def test_foundation(self):
         # Series and full author
         self.search(
             "Isaac asimov foundation",
-            SpecificSeries("Foundation", author="Isaac Asimov")
+            SpecificSeries("Foundation")
         )
 
-    def test_foundation_2(self):
+    def test_foundation_specific_book(self):
         # NOTE: this works on ES1 but not on ES6!
 
         # Series, full author, and book number
         self.search(
             "Isaac Asimov foundation book 1",
-            SpecificSeries("Foundation", title="Prelude to Foundation")
+            FirstMatch(series="Foundation", title="Prelude to Foundation")
         )
 
     def test_science_comics(self):
