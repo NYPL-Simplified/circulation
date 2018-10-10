@@ -117,6 +117,15 @@ class Evaluator(object):
             actual = 0
         else:
             actual = float(len(matches)) / len(hits)
+        if actual < threshold:
+            # This test is going to fail. Log some useful information.
+            self.log.info(
+                "Need %d%% matches, got %d%%" % (
+                    threshold*100, actual*100
+                )
+            )
+            for i in hits:
+                self.log.info("%s %s", i in matches, i)
         assert actual >= threshold
 
 
@@ -179,6 +188,27 @@ class SpecificAuthor(FirstMatch):
         self.assert_ratio(author_matches, authors, threshold)
 
 
+class SpecificSeries(Evaluator):
+
+    """Every result must be from the given series. The series name
+    must either show up in the title or in the series field.
+    """
+
+    def __init__(self, series, threshold=0.5):
+        self.series = series.lower()
+        self.threshold = threshold
+
+    def evaluate_hits(self, hits):
+        matches = []
+        for h in hits:
+            if h:
+                series = self._field('series', h)
+                title = self._field('title', h)
+                if self.series == series or self.series in title:
+                    matches.append(h)
+        self.assert_ratio(matches, hits, self.threshold)
+
+
 class SearchTest(object):
     """A test suite that runs searches and compares the actual results
     to some expected state.
@@ -214,7 +244,7 @@ class TestTitleMatch(SearchTest):
 
 class TestMixedTitleAuthorMatch(SearchTest):
 
-    def test_centos_negus(self):
+    def test_centos_caen(self):
         # 'centos' shows up in the subtitle. 'caen' is the name
         # of one of the authors.
         self.search(
@@ -274,6 +304,12 @@ class TestAuthorMatch(SearchTest):
                 "Stephen King", accept_book_about_author=True
             )
         )
+
+
+class TestKidSearches(SearchTest):
+
+    def test_39_clues(self):
+        self.search("39 clues", SpecificSeries("39 clues"))
 
 ES6 = ('es6' in os.environ['VIRTUAL_ENV'])
 if ES6:
