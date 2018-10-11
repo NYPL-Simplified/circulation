@@ -48,7 +48,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         integration.username = "user1"
         integration.password = "pass1"
         integration.setting(p.FIELD_SEPARATOR).value = "\t"
-        provider = p(self._default_library, integration, connect=False)
+        provider = p(self._default_library, integration)
 
         # A SIPClient was initialized based on the integration values.
         client = provider.client
@@ -62,7 +62,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
 
         # Try again, specifying a port.
         integration.setting(p.PORT).value = "1234"
-        provider = p(self._default_library, integration, connect=False)
+        provider = p(self._default_library, integration)
         eq_(1234, provider.client.target_port)
 
     def test_remote_authenticate(self):
@@ -206,14 +206,14 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         class CannotConnect(MockSIPClient):
             def connect(self):
                 raise IOError("Doom!")
-
-
         integration = self._external_integration(self._str)
+        provider = SIP2AuthenticationProvider(self._default_library, integration, client=CannotConnect)
+
         assert_raises_regexp(
             RemoteIntegrationException,
             "Error accessing unknown server: Doom!",
-            SIP2AuthenticationProvider,
-            self._default_library, integration, client=CannotConnect
+            provider.remote_authenticate,
+            "username", "password",
         )
 
     def test_ioerror_during_send_becomes_remoteintegrationexception(self):
@@ -221,7 +221,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         it becomes a RemoteIntegrationException.
         """
         class CannotSend(MockSIPClient):
-            def do_send(self, data):
+            def do_send(self, connection, data):
                 raise IOError("Doom!")
         client = CannotSend()
 

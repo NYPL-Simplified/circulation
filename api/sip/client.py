@@ -27,12 +27,8 @@ limitations under the License.
 
 import datetime
 import logging
-from nose.tools import set_trace
 import re
 import socket
-import sys
-import threading
-import time
 
 # SIP2 defines a large number of fields which are used in request and
 # response messages. This library focuses on defining the response
@@ -76,6 +72,7 @@ fixed._add('fine_items_count', 4)
 fixed._add('recall_items_count', 4)
 fixed._add('unavailable_holds_count', 4)
 fixed._add('login_ok', 1)
+fixed._add('end_session', 1)
 
 class named(object):
     """A variable-length field in a SIP2 response."""
@@ -234,8 +231,7 @@ class SIPClient(Constants):
     ]
 
     def __init__(self, target_server, target_port, login_user_id=None,
-                 login_password=None, location_code=None, separator=None,
-                 connect=True):
+                 login_password=None, location_code=None, separator=None):
         self.target_server = target_server
         if not target_port:
             target_port = 6001
@@ -252,127 +248,94 @@ class SIPClient(Constants):
             escaped = self.separator
         self.separator_re = re.compile(escaped + "([A-Z][A-Z])")
 
+        self.sequence_number = 0
+
         self.login_user_id = login_user_id
         self.login_password = login_password
         if login_user_id and login_password:
             # We need to log in before using this server.
-            self.logged_in = False
             self.must_log_in = True
         else:
             # We're implicitly logged in.
-            self.logged_in = True
             self.must_log_in = False
 
-        # socket_lock controls access to the socket connection to the
-        # SIP2 server.
-        #
-        # We need to use an RLock here because both connect() and
-        # make_request() require the lock, and make_request() will end
-        # up calling connect() if there's an error.
-        self.socket_lock = threading.RLock()
-
-        # The only reason connect would be false is that we're running
-        # a unit test and don't actually want to use a server.
-        if connect:
-            self.connect()
-
-    def login(self, *args, **kwargs):
-        """Log in to the SIP server."""
-        return self.make_request(
-            self.login_message, self.login_response_parser,
-            *args, **kwargs
-        )
+    def login(self, connection):
+        """Log in to the SIP server if required."""
+        if self.must_log_in:
+            response = self.make_request(
+                connection, self.login_message, self.login_response_parser,
+                self.login_user_id, self.login_password, self.location_code
+            )
+            if response['login_ok'] != '1':
+                raise IOError("Error logging in: %r" % response)
+            return response
 
     def patron_information(self, *args, **kwargs):
         """Get information about a patron, possibly also verifying their
         password.
         """
+        connection = self.connect()
+        self.login(connection)
+        information = self._patron_information(connection, *args, **kwargs)
+        self.end_session(connection, *args, **kwargs)
+        self.disconnect(connection)
+        return information
+
+    def _patron_information(self, connection, *args, **kwargs):
+        """Get information about a patron.
+        """
         return self.make_request(
-            self.patron_information_request, self.patron_information_parser,
+            connection, self.patron_information_request, self.patron_information_parser,
+            *args, **kwargs
+        )
+
+    def end_session(self, connection, *args, **kwargs):
+        """Send end session message."""
+        return self.make_request(
+            connection, self.end_session_message, self.end_session_response_parser,
             *args, **kwargs
         )
 
     def connect(self):
         """Create a socket connection to a SIP server."""
-        with self.socket_lock:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            try:
-                sock.connect((self.target_server, self.target_port))
-            except TypeError:
-                raise IOError(
-                    "Could not connect to %s:%s" % (
-                        self.target_server, self.target_port
-                    )
+        connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            connection.connect((self.target_server, self.target_port))
+        except TypeError:
+            raise IOError(
+                "Could not connect to %s:%s" % (
+                    self.target_server, self.target_port
                 )
-            sock.settimeout(12)
+            )
+        connection.settimeout(12)
 
-            # Since this is a new socket connection, reset the message count
-            # and, potentially, logged_in.
-            self.reset_connection_state()
-            self.socket = sock
-        return sock
+        # Since this is a new socket connection, reset the message count
+        self.reset_connection_state()
+        return connection
 
     def reset_connection_state(self):
         """Reset connection-specific state.
-
-        Specifically, the sequence number and the flag that tracks
-        whether we're logged in.
+        Specifically, the sequence number.
         """
         self.sequence_number = 0
-        if self.must_log_in:
-            self.logged_in = False
 
-    def make_request(self, message_creator, parser, *args, **kwargs):
+    def disconnect(self, connection):
+        """Close the connection to the SIP server."""
+        connection.close()
+
+    def make_request(self, connection, message_creator, parser, *args, **kwargs):
         """Send a request to a SIP server and parse the response.
 
+        :param connection: Socket to send data over.
         :param message_creator: A function that creates the message to send.
         :param parser: A function that parses the response message.
         """
-        with self.socket_lock:
-            return self._make_request(
-                message_creator, parser, *args, **kwargs
-            )
-
-    def _make_request(self, message_creator, parser, *args, **kwargs):
-        """Send a request to a SIP server and parse the response.
-
-        :param message_creator: A function that creates the message to send.
-        :param parser: A function that parses the response message.
-        """
-        if 'fail_on_network_error' in kwargs:
-            fail_on_network_error = kwargs.pop('fail_on_network_error')
-        else:
-            fail_on_network_error = False
-
-        if (self.must_log_in and not self.logged_in
-            and message_creator != self.login_message):
-            # The first thing we need to do is log in.
-            response = self.login(self.login_user_id, self.login_password,
-                                  self.location_code)
-            if response['login_ok'] != '1':
-                raise IOError("Error logging in: %r" % response)
-            self.logged_in = True
-
         original_message = message_creator(*args, **kwargs)
         message_with_checksum = self.append_checksum(original_message)
         parsed = None
         while not parsed:
-            try:
-                self.send(message_with_checksum)
-                response = self.read_message()
-            except (IOError, socket.error), e:
-                # Most likely there was a problem with the
-                # socket. Create a fresh socket connection and try
-                # again, unless this _is_ the 'try again' phase and
-                # we're still having a problem.
-                if fail_on_network_error:
-                    raise e
-                else:
-                    self.connect()
-                    return self.make_request(
-                        message_creator, parser,
-                        *args, fail_on_network_error=True, **kwargs
-                    )
+            self.send(connection, message_with_checksum)
+            response = self.read_message(connection)
             try:
                 parsed = parser(response)
             except RequestResend, e:
@@ -383,7 +346,6 @@ class SIPClient(Constants):
                     original_message, include_sequence_number=False
                 )
         return parsed
-
 
     def login_message(self, login_user_id, login_password, location_code="",
                       uid_algorithm="0",
@@ -405,10 +367,54 @@ class SIPClient(Constants):
             fixed.login_ok
         )
 
+    def end_session_message(
+            self, patron_identifier, patron_password="", institution_id="",
+            terminal_password="",
+    ):
+        """
+        This message will be sent when a patron has completed all of their
+        transactions. The ACS may, upon receipt of this command, close any
+        open files or deallocate data structures pertaining to that patron.
+        The ACS should respond with an End Session Response message.
+
+        Format of message to send to ILS:
+        35<transaction date><institution id><patron identifier>
+        <terminal password><patron password>
+        transaction date: 18-char, YYYYMMDDZZZZHHMMSS, required
+        institution id: AO, variable length, required
+        patron identifier: AA, variable length, required
+        terminal password: AC, variable length, optional
+        patron password: AD, variable length, optional
+        """
+        code = "35"
+        timestamp = self.now()
+
+        message = (code + timestamp +
+                   "AO" + institution_id + self.separator +
+                   "AA" + patron_identifier + self.separator +
+                   "AC" + terminal_password
+        )
+        if patron_password:
+            message += self.separator + "AD" + patron_password
+        return message
+
+    def end_session_response_parser(self, message):
+        """Parse the response from a end session message."""
+        return self.parse_response(
+            message,
+            36,
+            fixed.end_session,
+            fixed.transaction_date,
+            named.institution_id.required,
+            named.patron_identifier.required,
+            named.screen_message,
+            named.print_line
+        )
+
     def patron_information_request(
             self, patron_identifier, patron_password="", institution_id="",
             terminal_password="",
-            language=None, summary=None, start_item="", end_item=""
+            language=None, summary=None
     ):
         """
         A superset of patron status request.
@@ -545,7 +551,6 @@ class SIPClient(Constants):
         :param return: A dictionary containing the parsed-out information.
         """
         parsed = {}
-        original_message = data
         data = self.consume_status_code(data, str(expect_status_code), parsed)
 
         fields_by_sip_code = dict()
@@ -609,7 +614,6 @@ class SIPClient(Constants):
                     if field.required and field in required_fields_not_seen:
                         required_fields_not_seen.remove(field)
             i += 2
-            field = fields_by_sip_code
 
         # If a named field is required and never showed up, sound the alarm.
         for field in required_fields_not_seen:
@@ -686,28 +690,27 @@ class SIPClient(Constants):
             )
         return summary
 
-    def send(self, data):
+    def send(self, connection, data):
         """Send a message over the socket and update the sequence index."""
         data = data + '\r'
-        return self.do_send(data)
+        return self.do_send(connection, data)
 
-    def do_send(self, data):
+    def do_send(self, connection, data):
         """Actually send data over the socket.
 
         This method exists only to be subclassed by MockSIPClient.
         """
-        self.socket.send(data)
+        connection.send(data)
 
-    def read_message(self, max_size=1024*1024):
+    def read_message(self, connection, max_size=1024*1024):
         """Read a SIP2 message from the socket connection.
 
         A SIP2 message ends with a \r character.
         """
         done = False
         data = ""
-        tmp = ""
         while not done:
-            tmp = self.socket.recv(4096)
+            tmp = connection.recv(4096)
             data = data + tmp
             if not tmp:
                 raise IOError("No data read from socket.")
@@ -715,7 +718,6 @@ class SIPClient(Constants):
                 done = True
             if len(data) > max_size:
                 raise IOError("SIP2 response too large.")
-
         return data
 
     def append_checksum(self, text, include_sequence_number=True):
@@ -782,21 +784,28 @@ class MockSIPClient(SIPClient):
         # connection-specific variables.
         self.status.append("Creating new socket connection.")
         self.reset_connection_state()
+        return None
 
-    def do_send(self, data):
+    def do_send(self, connection, data):
         self.requests.append(data)
 
-    def read_message(self):
+    def read_message(self, connection, max_size=1024*1024):
         """Read a response message off the queue."""
         response = self.responses[0]
         self.responses = self.responses[1:]
         return response
 
+    def end_session(self, connection, *args, **kwargs):
+        pass
+
+    def disconnect(self, connection):
+        pass
+
 
 class CannotSendMockSIPClient(MockSIPClient):
     """A MockSIPClient that can never send data."""
 
-    def do_send(self, data):
+    def do_send(self, connection, data):
         self.status.append("I was unable to send data.")
         raise IOError("I'm doomed.")
 
@@ -804,6 +813,6 @@ class CannotSendMockSIPClient(MockSIPClient):
 class CannotReceiveMockSIPClient(MockSIPClient):
     """A MockSIPClient that can send data but never receives any."""
 
-    def read_message(self):
+    def read_message(self, connection, max_size=1024*1024):
         self.status.append("I was unable to read data.")
         raise socket.timeout()
