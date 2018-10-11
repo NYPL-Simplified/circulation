@@ -314,6 +314,29 @@ class TestTitleMatch(SearchTest):
         self.search("Do androids dream of electric sheep",
         FirstMatch(title="Do Androids Dream of Electric Sheep?"))
 
+    def test_unowned_title_cat(self):
+        # NOTE: this book isn't in the collection, but there are plenty of books
+        # with "save" and/or "cat" in their titles.  This works on ES6 but not ES1.
+        self.search("Save the Cat", Common(title=re.compile("(save|cat)"), threshold=1))
+
+    def test_nonexistent_title_tower(self):
+        # NOTE: there is no book with this title.  The most
+        # likely scenario is that the user meant "The Dark Tower."  This
+        # doesn't currently work on either version of ES.
+
+        self.search("The night tower", FirstMatch(title="The Dark Tower"))
+
+    def test_nonexistent_title_hand(self):
+        # NOTE: this title doesn't seem to exist.  The closest thing I can find
+        # is "A Hand Reached Down to Guide Me," which shows up in the top results
+        # in ES1 but not in ES6.
+
+        self.search(
+            "A hand to reach", [
+                AtLeastOne(title="A Hand Reached Down to Guide Me"),
+            ]
+        )
+
     def test_title_match_with_genre_name_romance(self):
         # The title contains the name of a genre. Despite this,
         # an exact title match should show up first.
@@ -327,11 +350,17 @@ class TestTitleMatch(SearchTest):
             FirstMatch(title="Law of the Mountain Man")
         )
 
-    def test_title_match_with_genre_name_spy(self):
-        # NOTE: this currently fails on both versions of ES.
+    def test_title_match_with_genre_name_spy_unowned(self):
+        # NOTE: this book is not in the system.
         self.search(
             "My life as a spy",
-            FirstMatch(title="My Life As a Spy")
+            Common(title=re.compile("(life|spy)"), threshold=.9)
+        )
+
+    def test_title_match_with_genre_name_spy(self):
+        self.search(
+            "spying on whales",
+            FirstMatch(title="Spying on Whales")
         )
 
     def test_title_match_with_genre_name_dance(self):
@@ -358,10 +387,66 @@ class TestTitleMatch(SearchTest):
 
     def test_wilder(self):
         # The book "Wilder" is correctly prioritized over books by authors with the
-        # last name "Wilder".
+        # last name "Wilder."
         self.search(
             "Wilder",
             FirstMatch(title="Wilder")
+        )
+
+    def test_alice(self):
+        # The book "Alice" is correctly prioritized over books by authors with the
+        # first name "Alice."
+        self.search(
+            "Alice",
+            FirstMatch(title="Alice")
+        )
+
+    def test_alex_and_eliza(self):
+        # The book "Alex and Eliza" is correctly prioritized over books by authors with the
+        # first names "Alex" or "Eliza."
+        self.search(
+            "Alex and Eliza",
+            FirstMatch(title="Alex and Eliza")
+        )
+
+    def test_disney(self):
+        # The majority of the search results will be about Walt Disney and/or the
+        # Disney Company, but there should also be some published by the Disney Book Group
+        self.search(
+            "disney",
+                [ Common(title=re.compile("disney")),
+                  AtLeastOne(title=re.compile("walt disney")),
+                  AtLeastOne(author="Disney Book Group") ]
+        )
+
+    def test_bridge(self):
+        # The search results correctly prioritize the book with this title over books
+        # by authors whose names contain "Luis" or "Rey."
+        self.search(
+            "the bridge of san luis rey",
+            FirstMatch(title="The Bridge of San Luis Rey")
+        )
+
+    def test_title_match_sewing(self):
+        # NOTE: this does pass, but in ES6, the first result is a picture book biography
+        # with the word "sewing" in the title, rather than a book about sewing (which it is in ES1).
+
+        self.search(
+            "Sewing",
+            [ FirstMatch(title=re.compile("sewing")),
+              Common(title=re.compile("sewing"))
+            ]
+        )
+
+    def test_title_match_louis_xiii(self):
+        # NOTE: this doesn't currently work.  There aren't very many books in the collection
+        # about Louis XIII, but there are lots of biographies of other people named Louis
+        # (including other kings of France), which should ideally show up before books from
+        # the Louis Kincaid series.
+
+        self.search(
+            "Louis xiii",
+            Common(title=re.compile("louis"), threshold=0.8)
         )
 
     def test_title_match_with_audience_name_children(self):
@@ -461,6 +546,16 @@ class TestTitleMatch(SearchTest):
             FirstMatch(title="They Came To Baghdad")
         )
 
+    def test_misspelled_title_match_genghis(self):
+        # NOTE: this doesn't work.  The collection definitely contains books with
+        # "Genghis Khan" in the title, but all of the top search results are books
+        # by authors with the last name "Khan."
+
+        self.search(
+            "Ghangiz Khan",
+            AtLeastOne(title=re.compile("Genghis Khan"))
+        )
+
     def test_misspelled_title_match_guernsey(self):
         # NOTE: this works in ES6 but not in ES1.  ES1 fixes the typo, but
         # doesn't seem able to handle converting the "and" into an ampersand.
@@ -488,6 +583,15 @@ class TestTitleMatch(SearchTest):
             FirstMatch(title="Fundamentals of Library Supervision")
         )
 
+    def test_partial_title_match_open_wide(self):
+        # Search query cuts off midway through the second word of the subtitle.
+        self.search(
+            "Open wide a radical",
+            FirstMatch(
+                title="Open Wide",
+                subtitle="a radically real guide to deep love, rocking relationships, and soulful sex"
+            )
+        )
 
     def test_partial_title_match_friends(self):
         # The search query only contains half of the title.
@@ -530,10 +634,10 @@ class TestTitleMatch(SearchTest):
       )
 
     def test_gatos(self):
-      # Searching for a Spanish word should bring up books in Spanish
+      # Searching for a Spanish word should mostly bring up books in Spanish
         self.search(
             "gatos",
-            FirstMatch(language="spa")
+            Common(language="spa", threshold=0.9)
         )
 
 class TestMixedTitleAuthorMatch(SearchTest):
@@ -578,6 +682,18 @@ class TestMixedTitleAuthorMatch(SearchTest):
         self.search(
             "The reckoning john",
             FirstMatch(title="The Reckoning", author="John Grisham")
+        )
+
+    def test_singh(self):
+        # NOTE: this doesn't currently work on either version of ES6.  The
+        # search results aren't sufficiently prioritizing titles containing
+        # "archangel" over the author's other books.  Changing "arch" to
+        # "archangel" in the search query helps only slightly.
+
+        self.search(
+            "Nalini singh archangel",
+            [ Common(author="Nalini Singh", threshold=0.9),
+              Common(title=re.compile("archangel")) ]
         )
 
 class TestGenreMatch(SearchTest):
@@ -650,7 +766,8 @@ class TestGenreMatch(SearchTest):
         # Genre and author
         self.search(
             "agatha christie mystery",
-            SpecificGenre(genre="Mystery", author="Agatha Christie")
+            [ SpecificGenre(genre="Mystery", author="Agatha Christie"),
+              Common(author="Agatha Christie", threshold=1) ]
         )
 
     def test_british_mystery(self):
@@ -706,18 +823,43 @@ class TestAuthorMatch(SearchTest):
         # reasonably show up as the first search result. However, the
         # majority of search results should be books _by_ this author.
         self.search(
-            "stephen king", SpecificAuthor(
-                "Stephen King", accept_book_about_author=True
-            )
+            "stephen king",
+                [ SpecificAuthor("Stephen King", accept_book_about_author=True),
+                  Common(author="Stephen King", threshold=0.7) ]
+        )
+
+    def test_fleming(self):
+        # It's reasonable for there to be a biography of this author in the search
+        # results, but the overwhelming majority of the results should be books by him.
+        self.search(
+            "ian fleming",
+            [ SpecificAuthor("Ian Fleming", accept_book_about_author=True),
+              Common(author="Ian Fleming", threshold=0.9) ]
         )
 
     def test_plato(self):
         # The majority of the search results will be _about_ this author,
         # but there should also be some _by_ him.
         self.search(
-            "plato", SpecificAuthor(
-                "Plato", accept_book_about_author=True
-            )
+            "plato",
+                [ SpecificAuthor("Plato", accept_book_about_author=True),
+                  AtLeastOne(author="Plato") ]
+        )
+
+    def test_hemingway(self):
+        # NOTE: this doesn't work in either version of ES.  All of the top
+        # results are books about, rather than by, Hemingway.  It makes sense
+        # that the title is being boosted (this is not necessarily a problem!),
+        # but on the other hand, I would imagine that most users searching "Hemingway"
+        # are trying to find books _by_ him.  Maybe there would be a way to at least
+        # boost the biographies over him over the novels which have him as a character?
+
+        # The majority of the search results should be _by_ this author,
+        # but there should also be at least one _about_ him.
+        self.search(
+            "Hemingway",
+                [ Common(author="Ernest Hemingway"),
+                  AtLeastOne(title=re.compile("Hemingway")) ]
         )
 
     def test_lagercrantz(self):
@@ -726,23 +868,50 @@ class TestAuthorMatch(SearchTest):
             "Lagercrantz", SpecificAuthor("Rose Lagercrantz")
         )
 
+    def test_burger(self):
+        # The author is correctly prioritized above books whose titles contain
+        # the word "burger."
+        self.search(
+            "wolfgang burger", SpecificAuthor("Wolfgang Burger")
+        )
+
+    def test_chase(self):
+        # The author is correctly prioritized above the book "Emma."
+        self.search(
+            "Emma chase", SpecificAuthor("Emma Chase")
+        )
+
     def test_deirdre_martin(self):
         # The author's first name is misspelled in the search query.
         self.search(
             "deidre martin", SpecificAuthor("Deirdre Martin")
         )
 
-    def test_danielle_steel(self):
+    def test_wharton(self):
         # The author's last name is misspelled in the search query.
         self.search(
-            "danielle steele", SpecificAuthor("Danielle Steel")
+            "edith warton", SpecificAuthor("Edith Wharton")
+        )
+
+    def test_danielle_steel(self):
+        # NOTE: this works, but setting the threshold to anything higher than
+        # the default 0.5 causes it to fail (even though she's written
+        # a LOT of books!).  Fixing the typo makes the test work even with the
+        # threshold set to 1.
+
+        # The author's last name is slightly misspelled in the search query.
+        self.search(
+            "danielle steel",
+            [   SpecificAuthor("Danielle Steel"),
+                Common(author="Danielle Steel")
+            ]
         )
 
     def test_nabokov(self):
         # Only the last name is provided in the search query,
         # and it's misspelled.
         self.search(
-            "Nabokof", SpecificAuthor("Nabokov")
+            "Nabokof", SpecificAuthor("Vladimir Nabokov")
         )
 
     def test_ba_paris(self):
@@ -757,13 +926,19 @@ class TestAuthorMatch(SearchTest):
             "Griffiths elly", SpecificAuthor("Elly Griffiths")
         )
 
+    def test_mankel(self):
+        # The search query lists the author's last name before his first name.
+        self.search(
+            "mankel henning", SpecificAuthor("Henning Mankel")
+        )
+
     def test_author_with_language(self):
         # NOTE: this doesn't work on either version of ES; the first Spanish result
         # is #3
 
          self.search(
             "Pablo escobar spanish",
-            FirstMatch(author="Pablo Escobar", language="Spanish")
+            FirstMatch(author="Pablo Escobar", language="spa")
          )
 
 class TestSeriesMatch(SearchTest):
