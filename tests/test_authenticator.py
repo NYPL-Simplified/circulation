@@ -1175,12 +1175,6 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         ConfigurationSetting.for_library(
             Configuration.WEB_FOREGROUND_COLOR, library).value = "#abcdef"
 
-        # Set the header links for a web client.
-        ConfigurationSetting.for_library(
-            Configuration.WEB_HEADER_LINKS, library).value = json.dumps(["http://library.com", "http://library2.com"])
-        ConfigurationSetting.for_library(
-            Configuration.WEB_HEADER_LABELS, library).value = json.dumps(["Library", "Library2"])
-
         # Configure the various ways a patron can get help.
         ConfigurationSetting.for_library(
             Configuration.HELP_EMAIL, library).value = "help@library"
@@ -1221,13 +1215,6 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("plaid", doc['color_scheme'])
             eq_("#012345", doc['web_colors']['background'])
             eq_("#abcdef", doc['web_colors']['foreground'])
-
-            # The header links are correct.
-            [header_link1, header_link2] = doc["web_header_links"]
-            eq_("http://library.com", header_link1["href"])
-            eq_("Library", header_link1["title"])
-            eq_("http://library2.com", header_link2["href"])
-            eq_("Library2", header_link2["title"])
 
             # _geographic_areas was called and provided the library's
             # focus area and service area.

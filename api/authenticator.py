@@ -935,17 +935,6 @@ class LibraryAuthenticator(object):
         if background or foreground:
             doc["web_colors"] = dict(background=background, foreground=foreground)
 
-        # Add the library's web header links, if it has any.
-        header_urls = ConfigurationSetting.for_library(
-            Configuration.WEB_HEADER_LINKS, library).json_value
-        if header_urls:
-            header_labels = ConfigurationSetting.for_library(
-                Configuration.WEB_HEADER_LABELS, library).json_value
-            header_links = []
-            for (url, label) in zip(header_urls, header_labels):
-                header_links.append(dict(href=url, title=label));
-            doc["web_header_links"] = header_links
-
         # Add the description of the library as the OPDS feed's
         # service_description.
         description = ConfigurationSetting.for_library(
