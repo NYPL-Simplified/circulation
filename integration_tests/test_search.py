@@ -131,10 +131,10 @@ class Evaluator(object):
             )
             for i in hits:
                 if i in matches:
-                    success = 'Y'
+                    template = 'Y (%s == %s)'
                 else:
-                    success = 'N'
-                self.log.debug("%s %s", success, i)
+                    template = 'N (%s != %s)'
+                self.log.debug(template % i)
         assert actual >= threshold
 
     def match_result(self, result):
@@ -265,15 +265,17 @@ class SearchTest(object):
     to some expected state.
     """
 
-    def search(self, query, evaluator, limit=10):
+    def search(self, query, evaluators=None, limit=10):
         query = query.lower()
         logging.debug("Query: %r", query)
         pagination = Pagination(size=limit)
         qu = self.searcher.query(query, pagination=pagination)
         hits = [x for x in qu][:]
-        if not isinstance(evaluator, list):
-            evaluator = [evaluator]
-        for e in evaluator:
+        if not evaluators:
+            raise Exception("No evaluators specified!")
+        if not isinstance(evaluators, list):
+            evaluators = [evaluators]
+        for e in evaluators:
             e.evaluate(hits)
 
 
@@ -905,6 +907,248 @@ class TestKidsSearches(SearchTest):
             "alliagent",
             FirstMatch(title="Allegiant")
         )
+
+    def test_all_the_hate(self):
+        for q in (
+                'the hate u give',
+                'all the hate u give',
+                'all the hate you give',
+                'hate you give',
+                'hate you gove'):
+            self.search(q, FirstMatch(title="The Hate U Give"))
+
+    def test_alien_misspelled(self):
+        "allien"
+        "aluens"
+        pass
+
+    def test_anime_genre(self):
+        self.search(
+            "anime books",
+        )
+
+    def test_batman(self):
+        # Patron is searching for 'batman' but treats it as two words.
+        self.search(
+            "bat man book",
+        )
+
+    def test_spiderman(self):
+        # Patron is searching for 'spider-man' but treats it as one word.
+        for q in ("spiderman", "spidermanbook"):
+            self.search(
+                q, Common(title=re.compile("spider-man"))
+            )
+
+    def test_texas_fair(self):
+        self.search("books about texas like the fair")
+
+    def test_boy_saved_baseball(self):
+        self.search("boy saved baseball")
+    
+    def test_chapter_books(self):
+        self.search("chapter bookd")
+        self.search("chapter books")
+        self.search("chaptr books")
+
+    def test_charlottes_web(self):
+        # Different ways of searching for "Charlotte's Web"
+        for q in (
+                "charlotte's web",
+                "charlottes web",
+                "charlottes web eb white"
+                'charlettes web',
+        ):
+            self.search(
+                q,
+                FirstMatch(title="Charlotte's Web")
+            )
+
+    def test_christopher_mouse(self):
+        # Different ways of searching for "Christopher Mouse: The Tale
+        # of a Small Traveler" (A book not in NYPL's collection)
+        for q in (                        
+                "christopher mouse",
+                "chistopher mouse",
+                "christophor mouse"
+                "christopher moise",
+                "chistoper muse",
+        ):
+            self.search(
+                q,
+                FirstMatch(title=re.compile("Christopher Mouse"))
+            )
+
+    def test_wimpy_kid(self):
+        self.search(
+            "dairy of the wimpy kid",
+            Common(series="Diary of a Wimpy Kid")
+        )
+
+    def test_wimpy_kid_specific_title(self):
+        self.search(
+            "dairy of the wimpy kid dog days",
+            [
+                FirstMatch(title="Dog Days", author="Jeff Kinney"),
+                Common(series="Diary of a Wimpy Kid"),
+            ]
+        )
+
+    def test_deep_poems(self):
+        # This appears to be a subject search.
+        self.search(
+            "deep poems",
+        )
+
+    def test_dinosaur_cove(self):
+        self.search(
+            "dinosuar cove",
+            Common(series="Dinosaur Cove")
+        )
+
+    def test_dirtbike(self):
+        self.search(
+            "dirtbike",
+        )
+
+    def test_dork_diaries(self):
+        # Different ways of spelling "Dork Diaries"
+        for q in (
+                'dork diaries',
+                'dork diarys',
+                'dork diarys #11',
+                'dork diary',
+                'doke diaries.',
+                'doke dirares',
+                'doke dares',
+                'doke dires',
+                'dork diareis',
+        ):
+            self.search(q, Common(series="Dork Diaries"))
+
+    def test_drama_comic(self):
+        self.search(
+            "drama comic",
+            FirstMatch(title="Drama", author="Raina Telgemeier")
+        )
+
+    def test_spanish(self):
+        self.search(
+            "espanol",
+            Common(language="spa")
+        )
+
+    def test_dan_gutman(self):
+        self.search(
+            "gutman, dan",
+            Common(author="Dan Gutman")
+        )
+
+    def test_dan_gutman_series(self):
+        self.search(
+            "gutman, dan the weird school",
+            Common(series=re.compile("my weird school"), author="Dan Gutman")
+        )
+
+    def test_i_funny(self):
+        self.search(
+            "i funny",
+            Common(series="I, Funny", threshold=0.3)
+        )
+
+        self.search(
+            "i funnyest",
+            AtLeastOne(title="I Totally Funniest"),
+        )
+
+    def test_information_technology(self):
+        self.search(
+            "information technology"
+        )
+
+    def test_i_survived(self):
+        # Different ways of spelling "I Survived"
+        for q in (
+                'i survived',
+                'i survied',
+                'i survive',
+                'i survided',
+        ):
+            self.search(q, Common(title=re.compile("^i survived")))
+
+    def test_manga(self):
+        self.search("manga")
+
+    def test_my_little_pony(self):
+        for q in ('my little pony', 'my little pon'):
+            self.search(
+                q, Common(title=re.compile("my little pony"))
+            )
+
+    def test_ninjas(self):
+        for q in (
+                'ninjas',
+                'ningas',
+        ):
+            self.search(q, Common(title=re.compile("ninja")))
+
+    def test_pranks(self):
+        for q in (
+                'prank',
+                'pranks',
+        ):
+            self.search(q, Common(title=re.compile("prank")))
+
+    def test_raina_telgemeier(self):
+        for q in (
+                'raina telgemeier',
+                'raina telemger',
+                'raina telgemerier'
+        ):
+            # We use a regular expression because Raina Telgemeier is
+            # frequently credited alongside others.
+            self.search(q, Common(author=re.compile("raina telgemeier")))
+
+    def test_scary_stories(self):
+        self.search("scary stories")
+
+    def test_scifi(self):
+        self.search("sci-fi", SpecificGenre(genre="Science Fiction"))
+
+    def test_survivors_specific_book(self):
+        self.search(
+            "survivors book 1",
+            [
+                Common(series="Survivors"),
+                FirstMatch(title="The Empty City"),
+            ]
+        )
+
+    def test_thrawn(self):
+        self.search(
+            "thrawn",
+            [
+                FirstMatch(title="Thrawn"),
+                Common(author="Timothy Zahn", series=re.compile("star wars")),
+            ]
+        )
+    
+    def test_timothy_zahn(self):
+        for i in ('timothy zahn', 'timithy zahn'):
+            self.search(q, Common(author="Timothy Zahn"))
+
+    def test_who_is(self):
+        # These children's bibliographies don't have .series set but
+        # are clearly part of a series.
+        #
+        # Because those books don't have .series set, the matches are
+        # done solely through title, so unrelated books like "Who Is
+        # Rich?" show up.
+        for q in ('who is', 'who was'):
+            self.search(q, Common(title=re.compile('^%s ' % q)))
+
+    def test_witches(self):
+        self.search("witches")
 
 ES6 = ('es6' in os.environ['VIRTUAL_ENV'])
 if ES6:
