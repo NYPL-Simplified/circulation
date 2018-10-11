@@ -973,9 +973,14 @@ class TestKidsSearches(SearchTest):
             self.search(q, FirstMatch(title="The Hate U Give"))
 
     def test_alien_misspelled(self):
-        "allien"
-        "aluens"
-        pass
+        for q in ("allien", "aluens"):
+            self.search(
+                q,
+                Common(
+                    subject=re.compile("(alien|extraterrestrial)"),
+                    first_must_match=False
+                )
+            )
 
     def test_anime_genre(self):
         self.search(
