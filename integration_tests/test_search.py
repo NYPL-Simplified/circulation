@@ -245,9 +245,36 @@ class SearchTest(object):
 
 class TestTitleMatch(SearchTest):
 
-    def test_simple_title_match(self):
+    def test_simple_title_match_carrie(self):
         # There is one obvious right answer.
         self.search("carrie", FirstMatch(title="Carrie"))
+
+    def test_simple_title_match_bookshop(self):
+        self.search("the bookshop", FirstMatch(title="The Bookshop"))
+
+    def test_simple_title_match_house(self):
+        self.search("A house for Mr. biswas", FirstMatch(title="A House for Mr. Biswas"))
+
+    def test_simple_title_match_clique(self):
+        self.search("clique", FirstMatch(title="The Clique"))
+
+    def test_simple_title_match_assassin(self):
+        self.search("blind assassin", FirstMatch(title="Blind Assassin"))
+
+    def test_simple_title_match_dry(self):
+        self.search("the dry", FirstMatch(title="The Dry"))
+
+    def test_simple_title_match_origin(self):
+        self.search("origin", FirstMatch(title="Origin"))
+
+    def test_simple_title_match_goldfinch(self):
+        self.search("goldfinch", FirstMatch(title="Goldfinch"))
+
+    def test_simple_title_match_beach(self):
+        self.search("Manhattan beach", FirstMatch(title="Manhattan Beach"))
+
+    def test_simple_title_match_testing(self):
+        self.search("The testing", FirstMatch(title="The testing"))
 
     def test_title_match_with_genre_name_romance(self):
         # The title contains the name of a genre. Despite this,
@@ -267,6 +294,12 @@ class TestTitleMatch(SearchTest):
         self.search(
             "My life as a spy",
             FirstMatch(title="My Life As a Spy")
+        )
+
+    def test_title_match_with_genre_name_dance(self):
+        self.search(
+            "dance with dragons",
+            FirstMatch(title="A Dance With Dragons")
         )
 
     def test_it(self):
@@ -293,11 +326,16 @@ class TestTitleMatch(SearchTest):
             FirstMatch(title="Wilder")
         )
 
-    def test_title_match_with_audience(self):
-        # The title contains the word "children."
+    def test_title_match_with_audience_name_children(self):
         self.search(
             "Children of blood and bone",
             FirstMatch(title="Children of Blood and Bone")
+        )
+
+    def test_title_match_with_audience_name_kids(self):
+        self.search(
+            "just kids",
+            FirstMatch(title="Just Kids")
         )
 
     def test_misspelled_title_match_emmie(self):
@@ -309,6 +347,16 @@ class TestTitleMatch(SearchTest):
         self.search(
             "Ivisible emmie",
             FirstMatch(title="Invisible Emmie")
+        )
+
+    def test_misspelled_title_match_wave(self):
+        # NOTE: this currently fails in both versions of ES; the target book is
+        # result #4.  Fixing the typo fixes the search results.
+
+        # One common word in the title is slightly misspelled.
+        self.search(
+            "He restless wave",
+            FirstMatch(title="The Restless Wave")
         )
 
     def test_misspelled_title_match_kingdom(self):
@@ -327,6 +375,17 @@ class TestTitleMatch(SearchTest):
         self.search(
             "The seven husbands if evyln hugo",
             FirstMatch(title="The Seven Husbands of Evelyn Hugo")
+        )
+
+    def test_misspelled_title_match_nightingale(self):
+        # NOTE: this fails in both versions of ES, but the top ES1 results are reasonable
+        # (titles containing "nightfall"), whereas the top ES6 result is entitled
+        # "Modern Warfare, Intelligence, and Deterrence."
+
+        # Unusual word, misspelled
+        self.search(
+            "The nightenale",
+            FirstMatch(title="The Nightingale")
         )
 
     def test_misspelled_title_match_geisha(self):
@@ -374,6 +433,17 @@ class TestTitleMatch(SearchTest):
             FirstMatch(title="Future Home Of the Living God")
         )
 
+    def test_partial_title_match_supervision(self):
+        # NOTE: works on ES1, fails on ES6; it's the second title rather than
+        # the first in ES6.
+
+        # A word from the middle of the title is missing.
+        self.search(
+            "fundamentals of supervision",
+            FirstMatch(title="Fundamentals of Library Supervision")
+        )
+
+
     def test_partial_title_match_friends(self):
         # The search query only contains half of the title.
         self.search(
@@ -394,7 +464,6 @@ class TestTitleMatch(SearchTest):
             "Wash your face",
             FirstMatch(title="Girl, Wash Your Face")
         )
-
 
     def test_partial_title_match_theresa(self):
         # The search results correctly prioritize books with titles containing
