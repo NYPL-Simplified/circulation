@@ -110,7 +110,7 @@ class Evaluator(object):
         """Extract a field from a search result."""
         result = result or self.first
         value = getattr(result, field, None)
-        if value and hasattr(value, 'lower'):
+        if isinstance(value, basestring):
             value = value.lower()
         return value
 
@@ -131,25 +131,64 @@ class Evaluator(object):
             )
             for i in hits:
                 if i in matches:
-                    success = 'Y'
+                    template = 'Y (%s == %s)'
                 else:
-                    success = 'N'
-                self.log.debug("%s %s", success, i)
+                    template = 'N (%s != %s)'
+                self.log.debug(template % i)
         assert actual >= threshold
+
+    def _match_scalar(self, value, expect):
+        if hasattr(expect, 'search'):
+            success = expect.search(value)
+            expect_str = expect.pattern
+        else:
+            success = (value == expect)
+            expect_str = expect
+        return success, expect_str
+
+    def _match_subject(self, subject, result):
+        """Is the given result classified under the given subject?"""
+        values = []
+        expect_str = subject
+        for classification in (result.classifications or []):
+            value = classification['term'].lower()
+            values.append(value)
+            success, expect_str = self._match_scalar(value, subject)
+            if success:
+                return True, values, expect_str
+        return False, values, expect_str
+
+    def _match_genre(self, subject, result):
+        """Is the given result classified under the given genre?"""
+        values = []
+        expect_str = subject
+        for genre in (result.genres or []):
+            value = genre['name'].lower()
+            values.append(value)
+            success, expect_str = self._match_scalar(value, subject)
+            if success:
+                return True, values, expect_str
+        return False, values, expect_str
+
+    def _match_target_age(self, how_old_is_the_kid, result):
+        upper, lower = result.target_age.upper, result.target_age.lower
+        if how_old_is_the_kid < lower or how_old_is_the_kid > upper:
+            return False, how_old_is_the_kid, (lower, upper)
+        return True, how_old_is_the_kid, (lower, upper)
 
     def match_result(self, result):
         """Does the given result match these criteria?"""
 
-        # genre and subject need separate handling
-
         for field, expect in self.kwargs.items():
-            value = self._field(field, result)
-            if hasattr(expect, 'search'):
-                success = expect.search(value)
-                expect_str = expect.pattern
+            if field == 'subject':
+                success, value, expect_str = self._match_subject(expect, result)
+            elif field == 'genre':
+                success, value, expect_str = self._match_genre(expect, result)
+            elif field == 'target_age':
+                success, value, expect_str = self._match_target_age(expect, result)
             else:
-                success = (value == expect)
-                expect_str = expect
+                value = self._field(field, result)
+                success, expect_str = self._match_scalar(value, expect)
             if not success:
                 return False, value, expect_str
         return True, value, expect_str
@@ -167,66 +206,75 @@ class Evaluator(object):
         return successes, failures
 
 
-class FirstMatch(Evaluator):
-    """The first result must match certain criteria."""
-
-    def evaluate_first(self, result):
-        success = True
-        bad_value = bad_expect = None
-
-        success, bad_value, bad_expect = self.match_result(result)
-        if not success:
-            # Log some useful information.
-            self.log.debug("First result details: %r", self.format(result))
-
-            # Now cause the failure.
-            eq_(bad_value, bad_expect)
-
 class Common(Evaluator):
-    """It must be common for the results to match certain criteria."""
-    def __init__(self, threshold=0.5, **kwargs):
+    """It must be common for the results to match certain criteria.
+    """
+    def __init__(self, threshold=0.5, minimum=None, first_must_match=True,
+                 **kwargs):
+        """Constructor.
+
+        :param threshold: A proportion of the search results must
+        match these criteria.
+
+        :param number: At least this many search results must match
+        these criteria.
+
+        :param first_must_match: In addition to any collective
+        restrictions, the first search result must match the criteria.
+        """
         super(Common, self).__init__(**kwargs)
         self.threshold = threshold
+        self.minimum = minimum
+        self.first_must_match = first_must_match
+
+    def evaluate_first(self, hit):
+        if self.first_must_match:
+            success, actual, expected = self.match_result(hit)
+            if not success:
+                self.log.debug(
+                    "First result did not match. %s != %s", expected, actual
+                )
+                eq_(actual, expected)
 
     def evaluate_hits(self, hits):
         successes, failures = self.multi_evaluate(hits)
-        self.assert_ratio(
-            [x[1:] for x in successes],
-            [x[1:] for x in successes+failures],
-            self.threshold
+        if self.threshold is not None:
+            self.assert_ratio(
+                [x[1:] for x in successes],
+                [x[1:] for x in successes+failures],
+                self.threshold
+            )
+        if self.minimum is not None:
+            if len(successes) < self.minimum or True:
+                self.log.debug(
+                    "Need %d matches, got %d", self.minimum, len(successes)
+                )
+                for i in (successes+failures):
+                    if i in successes:
+                        template = 'Y (%s == %s)'
+                    else:
+                        template = 'N (%s != %s)'
+                    self.log.debug(template % i[1:])
+            assert len(successes) >= self.minimum
+
+class FirstMatch(Common):
+    """The first result must match certain criteria."""
+
+    def __init__(self, **kwargs):
+        super(FirstMatch, self).__init__(
+            threshold=None, first_must_match=True, **kwargs
         )
 
-class AtLeastOne(Evaluator):
-    """At least one of the results must match certain criteria."""
-    def evaluate_hits(self, hits):
-        successes, failures = self.multi_evaluate(hits)
-        if len(successes) >= 1:
-            return True
-        for hit, expect, actual in failures:
-            self.log.debug("%s != %s", expect, actual)
-        eq_(expect, actual)
+
+class AtLeastOne(Common):
+    def __init__(self, **kwargs):
+        super(AtLeastOne, self).__init__(
+            threshold=None, minimum=1, first_must_match=False, **kwargs
+        )
 
 
-class SpecificGenre(FirstMatch):
-    """ The first result's genres must include a specific genre. """
-
-    def evaluate_first(self, first):
-        success = False
-        expect_genre = self.genre
-        if hasattr(self, 'author') and (self.author != self._field('author', first)):
-            eq_(success, True)
-        if hasattr(self, 'title') and (self.title != self._field('title', first)):
-            eq_(success, True)
-        genres = self._field('genres', first)
-        print(genres)
-        for genre in genres:
-            if genre.name.lower() == expect_genre:
-                success = True
-                return success
-
-        self.log.debug("First result details: %r", self.format(first))
-        eq_(success, True)
-
+class SpecificGenre(Common):
+    pass
 
 class SpecificAuthor(FirstMatch):
     """The first result must be by a specific author.
@@ -265,15 +313,17 @@ class SearchTest(object):
     to some expected state.
     """
 
-    def search(self, query, evaluator, limit=10):
+    def search(self, query, evaluators=None, limit=10):
         query = query.lower()
         logging.debug("Query: %r", query)
         pagination = Pagination(size=limit)
         qu = self.searcher.query(query, pagination=pagination)
         hits = [x for x in qu][:]
-        if not isinstance(evaluator, list):
-            evaluator = [evaluator]
-        for e in evaluator:
+        if not evaluators:
+            raise Exception("No evaluators specified!")
+        if not isinstance(evaluators, list):
+            evaluators = [evaluators]
+        for e in evaluators:
             e.evaluate(hits)
 
 
@@ -705,7 +755,7 @@ class TestGenreMatch(SearchTest):
 
         self.search(
             "science fiction",
-            SpecificGenre(genre="Science Fiction")
+            Common(genre="Science Fiction")
         )
 
     def test_iain_banks_sf(self):
@@ -716,7 +766,7 @@ class TestGenreMatch(SearchTest):
         self.search(
             # Genre and author
             "iain banks science fiction",
-            SpecificGenre(genre="Science Fiction", author="Iain M. Banks")
+            Common(genre="Science Fiction", author="Iain M. Banks")
         )
 
     def test_christian(self):
@@ -724,7 +774,7 @@ class TestGenreMatch(SearchTest):
         # title but that have no genre.
         self.search(
             "christian",
-            SpecificGenre(genre="Christian")
+            Common(genre="Christian")
         )
 
     def test_graphic_novel(self):
@@ -733,7 +783,7 @@ class TestGenreMatch(SearchTest):
 
         self.search(
             "Graphic novel",
-            SpecificGenre(genre="Comics & Graphic Novels")
+            Common(genre="Comics & Graphic Novels")
         )
 
     def test_percy_jackson_graphic_novel(self):
@@ -742,7 +792,7 @@ class TestGenreMatch(SearchTest):
 
         self.search(
             "Percy jackson graphic novel",
-            SpecificGenre(genre="Comics & Graphic Novels", author="Rick Riordan")
+            Common(genre="Comics & Graphic Novels", author="Rick Riordan")
         )
 
     def test_clique(self):
@@ -753,13 +803,13 @@ class TestGenreMatch(SearchTest):
         # Genre and title
         self.search(
             "The clique graphic novel",
-            SpecificGenre(genre="Comics & Graphic Novels", title="The Clique")
+            Common(genre="Comics & Graphic Novels", title="The Clique")
         )
 
     def test_mystery(self):
         self.search(
             "mystery",
-            SpecificGenre(genre="Mystery")
+            Common(genre="Mystery")
         )
 
     def test_agatha_christie_mystery(self):
@@ -774,26 +824,33 @@ class TestGenreMatch(SearchTest):
         # Genre and keyword
         self.search(
             "British mysteries",
-            SpecificGenre(genre="Romance")
+            Common(genre="Mystery", summary=re.compile("british"))
         )
 
     def test_music_theory(self):
         # Keywords
         self.search(
-            "music theory", SpecificGenre(genre="Music")
+            "music theory", Common(
+                genre="Music",
+                subject=re.compile("(music theory|musical theory)")
+            )
         )
 
     def test_supervising(self):
         # Keyword
         self.search(
-            "supervising", SpecificGenre(genre="Education")
+            "supervising", Common(genre="Education")
         )
 
     def test_grade_and_subject(self):
         # NOTE: this doesn't work on either version of ES.  The top result's genre
         # is science fiction rather than science.
         self.search(
-            "Seventh grade science", SpecificGenre(genre="Science")
+            "Seventh grade science",
+            [
+                Common(target_age=12),
+                Common(genre="Science")
+            ]
         )
 
 class TestSubtitleMatch(SearchTest):
@@ -1065,7 +1122,7 @@ class TestKidsSearches(SearchTest):
         self.search(
             "3 little pigs",
             [
-                AtLeastOne(title="Three Little Pigs"),
+                AtLeastOne(title=re.compile("three little pigs")),
                 Common(title=re.compile("pig")),
 
                 # TODO: This would require that '3' and 'three'
@@ -1080,6 +1137,342 @@ class TestKidsSearches(SearchTest):
             "alliagent",
             FirstMatch(title="Allegiant")
         )
+
+    def test_all_the_hate(self):
+        for q in (
+                'the hate u give',
+                'all the hate u give',
+                'all the hate you give',
+                'hate you give',
+                'hate you gove'):
+            self.search(q, FirstMatch(title="The Hate U Give"))
+
+    def test_alien_misspelled(self):
+        "allien"
+        "aluens"
+        pass
+
+    def test_anime_genre(self):
+        self.search(
+            "anime books",
+        )
+
+    def test_batman(self):
+        # Patron is searching for 'batman' but treats it as two words.
+        self.search(
+            "bat man book",
+        )
+
+    def test_spiderman(self):
+        # Patron is searching for 'spider-man' but treats it as one word.
+        for q in ("spiderman", "spidermanbook"):
+            self.search(
+                q, Common(title=re.compile("spider-man"))
+            )
+
+    def test_texas_fair(self):
+        self.search("books about texas like the fair")
+
+    def test_boy_saved_baseball(self):
+        self.search("boy saved baseball")
+
+    def test_chapter_books(self):
+        self.search("chapter bookd")
+        self.search("chapter books")
+        self.search("chaptr books")
+
+    def test_charlottes_web(self):
+        # Different ways of searching for "Charlotte's Web"
+        for q in (
+                "charlotte's web",
+                "charlottes web",
+                "charlottes web eb white"
+                'charlettes web',
+        ):
+            self.search(
+                q,
+                FirstMatch(title="Charlotte's Web")
+            )
+
+    def test_christopher_mouse(self):
+        # Different ways of searching for "Christopher Mouse: The Tale
+        # of a Small Traveler" (A book not in NYPL's collection)
+        for q in (
+                "christopher mouse",
+                "chistopher mouse",
+                "christophor mouse"
+                "christopher moise",
+                "chistoper muse",
+        ):
+            self.search(
+                q,
+                FirstMatch(title=re.compile("Christopher Mouse"))
+            )
+
+    def test_wimpy_kid(self):
+        self.search(
+            "dairy of the wimpy kid",
+            Common(series="Diary of a Wimpy Kid")
+        )
+
+    def test_wimpy_kid_specific_title(self):
+        self.search(
+            "dairy of the wimpy kid dog days",
+            [
+                FirstMatch(title="Dog Days", author="Jeff Kinney"),
+                Common(series="Diary of a Wimpy Kid"),
+            ]
+        )
+
+    def test_deep_poems(self):
+        # This appears to be a subject search.
+        self.search(
+            "deep poems",
+        )
+
+    def test_dinosaur_cove(self):
+        self.search(
+            "dinosuar cove",
+            Common(series="Dinosaur Cove")
+        )
+
+    def test_dirtbike(self):
+        self.search(
+            "dirtbike",
+        )
+
+    def test_dork_diaries(self):
+        # Different ways of spelling "Dork Diaries"
+        for q in (
+                'dork diaries',
+                'dork diarys',
+                'dork diarys #11',
+                'dork diary',
+                'doke diaries.',
+                'doke dirares',
+                'doke dares',
+                'doke dires',
+                'dork diareis',
+        ):
+            self.search(q, Common(series="Dork Diaries"))
+
+    def test_drama_comic(self):
+        self.search(
+            "drama comic",
+            FirstMatch(title="Drama", author="Raina Telgemeier")
+        )
+
+    def test_spanish(self):
+        self.search(
+            "espanol",
+            Common(language="spa")
+        )
+
+    def test_dan_gutman(self):
+        self.search(
+            "gutman, dan",
+            Common(author="Dan Gutman")
+        )
+
+    def test_dan_gutman_series(self):
+        self.search(
+            "gutman, dan the weird school",
+            Common(series=re.compile("my weird school"), author="Dan Gutman")
+        )
+
+    def test_i_funny(self):
+        self.search(
+            "i funny",
+            Common(series="I, Funny", threshold=0.3)
+        )
+
+        self.search(
+            "i funnyest",
+            AtLeastOne(title="I Totally Funniest"),
+        )
+
+    def test_information_technology(self):
+        self.search(
+            "information technology"
+        )
+
+    def test_i_survived(self):
+        # Different ways of spelling "I Survived"
+        for q in (
+                'i survived',
+                'i survied',
+                'i survive',
+                'i survided',
+        ):
+            self.search(q, Common(title=re.compile("^i survived")))
+
+    def test_manga(self):
+        self.search("manga")
+
+    def test_my_little_pony(self):
+        for q in ('my little pony', 'my little pon'):
+            self.search(
+                q, Common(title=re.compile("my little pony"))
+            )
+
+    def test_ninjas(self):
+        for q in (
+                'ninjas',
+                'ningas',
+        ):
+            self.search(q, Common(title=re.compile("ninja")))
+
+    def test_pranks(self):
+        for q in (
+                'prank',
+                'pranks',
+        ):
+            self.search(q, Common(title=re.compile("prank")))
+
+    def test_raina_telgemeier(self):
+        for q in (
+                'raina telgemeier',
+                'raina telemger',
+                'raina telgemerier'
+        ):
+            # We use a regular expression because Raina Telgemeier is
+            # frequently credited alongside others.
+            self.search(q, Common(author=re.compile("raina telgemeier")))
+
+    def test_scary_stories(self):
+        self.search("scary stories")
+
+    def test_scifi(self):
+        self.search("sci-fi", Common(genre="Science Fiction"))
+
+    def test_survivors_specific_book(self):
+        self.search(
+            "survivors book 1",
+            [
+                Common(series="Survivors"),
+                FirstMatch(title="The Empty City"),
+            ]
+        )
+
+    def test_thrawn(self):
+        self.search(
+            "thrawn",
+            [
+                FirstMatch(title="Thrawn"),
+                Common(author="Timothy Zahn", series=re.compile("star wars")),
+            ]
+        )
+
+    def test_timothy_zahn(self):
+        for i in ('timothy zahn', 'timithy zahn'):
+            self.search(q, Common(author="Timothy Zahn"))
+
+    def test_who_is(self):
+        # These children's bibliographies don't have .series set but
+        # are clearly part of a series.
+        #
+        # Because those books don't have .series set, the matches are
+        # done solely through title, so unrelated books like "Who Is
+        # Rich?" show up.
+        for q in ('who is', 'who was'):
+            self.search(q, Common(title=re.compile('^%s ' % q)))
+
+    def test_witches(self):
+        self.search(
+            "witches",
+            Common(subject=re.compile('witch'))
+        )
+
+class TestDifficultSearches(SearchTest):
+    """Tests that have been difficult in the past."""
+
+    def test_game_of_thrones(self):
+        self.search(
+            "game of thrones",
+            Common(series="a song of ice and fire")
+        )
+
+    def test_m_j_rose(self):
+        for spelling in (
+            'm. j. rose',
+            'm.j. rose',
+            'm j rose',
+            'mj rose',
+        ):
+            self.search(
+                spelling,
+                Common(author="M. J. Rose")
+            )
+
+    def test_steve_berry(self):
+        self.search(
+            "steve berry",
+            Common(author="Steve Berry")
+        )
+
+    def test_python_programming(self):
+        self.search(
+            "python programming",
+            Common(subject="Python (computer program language)")
+        )
+
+    def test_tennis(self):
+        self.search(
+            "tennis",
+            [
+                Common(subject=re.compile("tennis")),
+                Common(genre="Sports"),
+            ]
+        )
+
+    def test_girl_on_the_train(self):
+        self.search(
+            "girl on the train",
+            FirstMatch(title="The Girl On The Train")
+        )
+
+    def test_modern_romance_with_author(self):
+        self.search(
+            "modern romance aziz ansari",
+            FirstMatch(title="Modern Romance", author="Aziz Ansari")
+        )
+
+    def test_law_of_the_mountain_man_with_author(self):
+        self.search(
+            "law of the mountain man william johnstone",
+            [
+                FirstMatch(title="Law of the Mountain Man"),
+                Common(author="William Johnstone"),
+            ]
+        )
+
+    def test_thomas_python(self):
+        # All the terms are correctly spelled words, but the patron
+        # clearly means something else.
+        self.search(
+            "thomas python",
+            Common(author="Thomas Pynchon")
+        )
+
+    def test_age_3_5(self):
+        # These terms are chosen to appear in the descriptions of
+        # children's books, but also to appear in "Volume 3" or
+        # "Volume 5" of series for adults.
+        #
+        # This verifies that the server interprets "age 3-5" correctly.
+        for term in ('black', 'island', 'panda'):
+            self.search(
+                "%s age 3-5" % term,
+                [
+                    Common(audience='Children', threshold=1),
+                ]
+            )
+
+        for term in ('black', 'island'):
+            # Except from 'panda', the search terms on their own find
+            # mostly books for adults.
+            self.search(term, Common(audience='Adult', first_must_match=False))
+
 
 ES6 = ('es6' in os.environ['VIRTUAL_ENV'])
 if ES6:
