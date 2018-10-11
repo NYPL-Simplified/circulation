@@ -6,6 +6,7 @@ from nose.tools import (
     set_trace,
 )
 import os
+import re
 import json
 from core.model import (
     production_session,
@@ -55,7 +56,11 @@ class Evaluator(object):
     log = logging.getLogger("Search evaluator")
 
     def __init__(self, **kwargs):
-        self.kwargs = dict((k, v.lower()) for k, v in kwargs.items())
+        self.kwargs = dict()
+        for k, v in kwargs.items():
+            if isinstance(v, basestring):
+                v = v.lower()
+            self.kwargs[k] = v
         for k, v in self.kwargs.items():
             setattr(self, k, v)
 
@@ -119,7 +124,7 @@ class Evaluator(object):
             actual = float(len(matches)) / len(hits)
         if actual < threshold:
             # This test is going to fail. Log some useful information.
-            self.log.info(
+            self.log.debug(
                 "Need %d%% matches, got %d%%" % (
                     threshold*100, actual*100
                 )
@@ -129,36 +134,78 @@ class Evaluator(object):
                     success = 'Y'
                 else:
                     success = 'N'
-                self.log.info("%s %s", success, i)
+                self.log.debug("%s %s", success, i)
         assert actual >= threshold
 
-
-class FirstMatch(Evaluator):
-    """The first result must be a specific work."""
-
-    def evaluate_first(self, result):
-        success = True
-        bad_value = bad_expect = None
+    def match_result(self, result):
+        """Does the given result match these criteria?"""
 
         # genre and subject need separate handling
 
         for field, expect in self.kwargs.items():
             value = self._field(field, result)
-            if value != expect:
-                # This test is going to fail, but we need to do
-                # some other stuff before it does, so save the
-                # information about where exactly it failed for later.
-                success = False
-                bad_value = value
-                bad_expect = expect
-                break
+            if hasattr(expect, 'search'):
+                success = expect.search(value)
+                expect_str = expect.pattern
+            else:
+                success = (value == expect)
+                expect_str = expect
+            if not success:
+                return False, value, expect_str
+        return True, value, expect_str
 
+    def multi_evaluate(self, hits):
+        # Evalate a number of hits and sort them into successes and failures.
+        successes = []
+        failures = []
+        for h in hits:
+            success, actual, expected = self.match_result(h)
+            if success:
+                successes.append((success, actual, expected))
+            else:
+                failures.append((success, actual, expected))
+        return successes, failures
+
+
+class FirstMatch(Evaluator):
+    """The first result must match certain criteria."""
+
+    def evaluate_first(self, result):
+        success = True
+        bad_value = bad_expect = None
+
+        success, bad_value, bad_expect = self.match_result(result)
         if not success:
             # Log some useful information.
-            self.log.info("First result details: %r", self.format(result))
+            self.log.debug("First result details: %r", self.format(result))
 
             # Now cause the failure.
             eq_(bad_value, bad_expect)
+
+class Common(Evaluator):
+    """It must be common for the results to match certain criteria."""
+    def __init__(self, threshold=0.5, **kwargs):
+        super(Common, self).__init__(**kwargs)
+        self.threshold = threshold
+
+    def evaluate_hits(self, hits):
+        successes, failures = self.multi_evaluate(hits)
+        self.assert_ratio(
+            [x[1:] for x in successes],
+            [x[1:] for x in successes+failures],
+            self.threshold
+        )
+
+class AtLeastOne(Evaluator):
+    """At least one of the results must match certain criteria."""
+    def evaluate_hits(self, hits):
+        successes, failures = self.multi_evaluate(hits)
+        if len(successes) >= 1:
+            return True
+        for hit, expect, actual in failures:
+            self.log.debug("%s != %s", expect, actual)
+        eq_(expect, actual)
+
 
 class SpecificGenre(FirstMatch):
     """ The first result's genres must include a specific genre. """
@@ -177,7 +224,7 @@ class SpecificGenre(FirstMatch):
                 success = True
                 return success
 
-        self.log.info("First result details: %r", self.format(result))
+        self.log.debug("First result details: %r", self.format(first))
         eq_(success, True)
 
 
@@ -213,29 +260,6 @@ class SpecificAuthor(FirstMatch):
         self.assert_ratio(author_matches, authors, threshold)
 
 
-class SpecificSeries(Evaluator):
-
-    """Every result must be from the given series. The series name
-    must either show up in the title or in the series field.
-    """
-
-    def __init__(self, series, threshold=0.5):
-        self.series = series.lower()
-        self.threshold = threshold
-
-    def evaluate_hits(self, hits):
-        matches = []
-        everything = []
-        for h in hits:
-            if h:
-                series = self._field('series', h)
-                title = self._field('title', h)
-                everything.append((title, series))
-                if self.series == series or self.series in title:
-                    matches.append((title, series))
-        self.assert_ratio(matches, everything, self.threshold)
-
-
 class SearchTest(object):
     """A test suite that runs searches and compares the actual results
     to some expected state.
@@ -243,6 +267,7 @@ class SearchTest(object):
 
     def search(self, query, evaluator, limit=10):
         query = query.lower()
+        logging.debug("Query: %r", query)
         pagination = Pagination(size=limit)
         qu = self.searcher.query(query, pagination=pagination)
         hits = [x for x in qu][:]
@@ -741,13 +766,13 @@ class TestSeriesMatch(SearchTest):
 
     def test_39_clues(self):
         # We have many books in this series.
-        self.search("39 clues", SpecificSeries("the 39 clues", threshold=0.9))
+        self.search("39 clues", Common(series="the 39 clues", threshold=0.9))
 
     def test_maggie_hope(self):
         # We have many books in this series.
         self.search(
             "Maggie hope",
-            SpecificSeries("Maggie Hope", threshold=0.9)
+            Common(series="Maggie Hope", threshold=0.9)
         )
 
     def test_harry_potter(self):
@@ -756,14 +781,14 @@ class TestSeriesMatch(SearchTest):
         # language filter.
         self.search(
             "Harry potter",
-            SpecificSeries("Harry Potter", threshold=0.9)
+            Common(series="Harry Potter", threshold=0.9)
         )
 
     def test_maisie_dobbs(self):
         # Misspelled proper noun
         self.search(
             "maise dobbs",
-            SpecificSeries("Maisie Dobbs", threshold=0.9)
+            Common(series="Maisie Dobbs", threshold=0.5)
         )
 
     def test_gossip_girl(self):
@@ -774,13 +799,13 @@ class TestSeriesMatch(SearchTest):
         # SpecificSeries constructor, rather than a percentage.
         self.search(
             "Gossip hirl",
-            SpecificSeries("Gossip Girl"), limit=4
+            Common(series="Gossip Girl"), limit=4
         )
 
     def test_goosebumps(self):
         self.search(
             "goosebumps",
-            SpecificSeries(series="Goosebumps", threshold=0.9)
+            Common(series="Goosebumps", threshold=0.9)
         )
 
     def test_severance(self):
@@ -793,10 +818,10 @@ class TestSeriesMatch(SearchTest):
 
     def test_hunger_games(self):
         # NOTE: This works on ES1 but not ES6.
-        self.search("the hunger games", SpecificSeries("The Hunger Games"))
+        self.search("the hunger games", Common(series="The Hunger Games"))
 
         # NOTE: This doesn't work on either version
-        self.search("The hinger games", SpecificSeries("The Hunger Games"))
+        self.search("The hinger games", Common(series="The Hunger Games"))
 
     def test_mockingjay(self):
         # NOTE: this doesn't work on either version of ES.  The target book is
@@ -805,14 +830,14 @@ class TestSeriesMatch(SearchTest):
         # Series and title
         self.search(
             "The hunger games mockingjay",
-            [FirstMatch(title="Mockingjay"), SpecificSeries("The Hunger Games")]
+            [FirstMatch(title="Mockingjay"), Common(series="The Hunger Games")]
         )
 
     def test_foundation(self):
         # Series and full author
         self.search(
             "Isaac asimov foundation",
-            SpecificSeries("Foundation")
+            Common(series="Foundation")
         )
 
     def test_foundation_specific_book(self):
@@ -831,7 +856,43 @@ class TestSeriesMatch(SearchTest):
         # Series name containing genre names
         self.search(
             "Science comics",
-            SpecificSeries("Science Comics")
+            Common(series="Science Comics")
+        )
+
+class TestKidsSearches(SearchTest):
+
+    # Kids searches, being put into a separate test for now to avoid
+    # merge conflicts.
+
+    def test_39_clues_specific_title(self):
+        # The first result is the requested title. Other results
+        # are from the same series.
+        self.search(
+            "39 clues maze of bones",
+            [
+                FirstMatch(title="The Maze of Bones"),
+                Common(series="the 39 clues", threshold=0.9)
+            ]
+        )
+
+    def test_3_little_pigs(self):
+        self.search(
+            "3 little pigs",
+            [
+                AtLeastOne(title="Three Little Pigs"),
+                Common(title=re.compile("pig")),
+
+                # TODO: This would require that '3' and 'three'
+                # be analyzed the same way.
+                # FirstMatch(title="Three Little Pigs"),
+            ]
+        )
+
+    def test_allegiant_misspelled(self):
+        # A very bad misspelling.
+        self.search(
+            "alliagent",
+            FirstMatch(title="Allegiant")
         )
 
 ES6 = ('es6' in os.environ['VIRTUAL_ENV'])
