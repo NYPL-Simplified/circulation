@@ -1179,6 +1179,15 @@ class TestKidsSearches(SearchTest):
             ]
         )
 
+    def test_teen_titans(self):
+        # We can't necessarily deliver results tailored to
+        # 'teen titans girls', but we should at least give 
+        # _similar_ results as with 'teen titans'.
+        for q in ('teen titans', 'teen titans girls'):        
+            self.search(
+                q, Common(title=re.compile("^teen titans")), limit=5
+            )
+
     def test_thrawn(self):
         self.search(
             "thrawn",
