@@ -172,6 +172,9 @@ class Evaluator(object):
 
     def _match_target_age(self, how_old_is_the_kid, result):
         upper, lower = result.target_age.upper, result.target_age.lower
+        if upper < lower:
+            # this is a mistake in the index document.
+            upper, lower = lower, upper
         if how_old_is_the_kid < lower or how_old_is_the_kid > upper:
             return False, how_old_is_the_kid, (lower, upper)
         return True, how_old_is_the_kid, (lower, upper)
@@ -1160,12 +1163,14 @@ class TestKidsSearches(SearchTest):
     def test_anime_genre(self):
         self.search(
             "anime books",
+            Common(subject=re.compile("(manga|anime)"))
         )
 
     def test_batman(self):
         # Patron is searching for 'batman' but treats it as two words.
         self.search(
             "bat man book",
+            Common(title=re.compile("batman"))
         )
 
     def test_spiderman(self):
@@ -1176,15 +1181,18 @@ class TestKidsSearches(SearchTest):
             )
 
     def test_texas_fair(self):
-        self.search("books about texas like the fair")
-
-    def test_boy_saved_baseball(self):
-        self.search("boy saved baseball")
+        # We don't have any books about the fair per se, but lots of
+        # books about Texas.
+        self.search(
+            "books about texas like the fair",
+            [
+                Common(title=re.compile("texas")),
+            ]
+        )
 
     def test_chapter_books(self):
-        self.search("chapter bookd")
-        self.search("chapter books")
-        self.search("chaptr books")
+        for q in ('chapter books', 'chapter bookd', 'chaptr books'):
+            self.search(q, Common(target_age=6))
 
     def test_charlottes_web(self):
         # Different ways of searching for "Charlotte's Web"
@@ -1230,9 +1238,10 @@ class TestKidsSearches(SearchTest):
         )
 
     def test_deep_poems(self):
-        # This appears to be a subject search.
+        # This appears to be a subject search, e.g. for poems which are deep.
         self.search(
             "deep poems",
+            Common(genre="Poetry")
         )
 
     def test_dinosaur_cove(self):
@@ -1242,9 +1251,7 @@ class TestKidsSearches(SearchTest):
         )
 
     def test_dirtbike(self):
-        self.search(
-            "dirtbike",
-        )
+        self.search("dirtbike", Common(genre="Sports"))
 
     def test_dork_diaries(self):
         # Different ways of spelling "Dork Diaries"
@@ -1298,7 +1305,10 @@ class TestKidsSearches(SearchTest):
 
     def test_information_technology(self):
         self.search(
-            "information technology"
+            "information technology",
+            Common(
+                subject=re.compile("(information technology|computer)"),
+            )
         )
 
     def test_i_survived(self):
@@ -1312,9 +1322,16 @@ class TestKidsSearches(SearchTest):
             self.search(q, Common(title=re.compile("^i survived")))
 
     def test_manga(self):
-        self.search("manga")
+        self.search(
+            "manga",
+            [
+                Common(title=re.compile("manga")),
+                Common(subject=re.compile("(manga|art|comic)")),
+            ]
+        )
 
     def test_my_little_pony(self):
+        # .series is not set for these titles.
         for q in ('my little pony', 'my little pon'):
             self.search(
                 q, Common(title=re.compile("my little pony"))
@@ -1345,7 +1362,7 @@ class TestKidsSearches(SearchTest):
             self.search(q, Common(author=re.compile("raina telgemeier")))
 
     def test_scary_stories(self):
-        self.search("scary stories")
+        self.search("scary stories", Common(genre="Horror"))
 
     def test_scifi(self):
         self.search("sci-fi", Common(genre="Science Fiction"))
@@ -1378,7 +1395,7 @@ class TestKidsSearches(SearchTest):
         )
 
     def test_timothy_zahn(self):
-        for i in ('timothy zahn', 'timithy zahn'):
+        for q in ('timothy zahn', 'timithy zahn'):
             self.search(q, Common(author="Timothy Zahn"))
 
     def test_who_is(self):
