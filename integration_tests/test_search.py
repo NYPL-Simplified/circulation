@@ -110,7 +110,7 @@ class Evaluator(object):
         """Extract a field from a search result."""
         result = result or self.first
         value = getattr(result, field, None)
-        if value and hasattr(value, 'lower'):
+        if isinstance(value, basestring):
             value = value.lower()
         return value
 
@@ -150,7 +150,7 @@ class Evaluator(object):
         """Is the given result classified under the given subject?"""
         values = []
         expect_str = subject
-        for classification in result.classifications:
+        for classification in (result.classifications or []):
             value = classification['term'].lower()
             values.append(value)
             success, expect_str = self._match_scalar(value, subject)
@@ -162,13 +162,19 @@ class Evaluator(object):
         """Is the given result classified under the given genre?"""
         values = []
         expect_str = subject
-        for genre in result.genres:
+        for genre in (result.genres or []):
             value = genre['name'].lower()
             values.append(value)
             success, expect_str = self._match_scalar(value, subject)
             if success:
                 return True, values, expect_str
         return False, values, expect_str
+
+    def _match_target_age(self, how_old_is_the_kid, result):
+        upper, lower = result.target_age.upper, result.target_age.lower
+        if how_old_is_the_kid < lower or how_old_is_the_kid > upper:
+            return False, how_old_is_the_kid, (lower, upper)
+        return True, how_old_is_the_kid, (lower, upper)
 
     def match_result(self, result):
         """Does the given result match these criteria?"""
@@ -178,6 +184,8 @@ class Evaluator(object):
                 success, value, expect_str = self._match_subject(expect, result)
             elif field == 'genre':
                 success, value, expect_str = self._match_genre(expect, result)
+            elif field == 'target_age':
+                success, value, expect_str = self._match_target_age(expect, result)
             else:
                 value = self._field(field, result)
                 success, expect_str = self._match_scalar(value, expect)
@@ -631,7 +639,7 @@ class TestGenreMatch(SearchTest):
 
         self.search(
             "science fiction",
-            SpecificGenre(genre="Science Fiction")
+            Common(genre="Science Fiction")
         )
 
     def test_iain_banks_sf(self):
@@ -642,7 +650,7 @@ class TestGenreMatch(SearchTest):
         self.search(
             # Genre and author
             "iain banks science fiction",
-            SpecificGenre(genre="Science Fiction", author="Iain M. Banks")
+            Common(genre="Science Fiction", author="Iain M. Banks")
         )
 
     def test_christian(self):
@@ -650,7 +658,7 @@ class TestGenreMatch(SearchTest):
         # title but that have no genre.
         self.search(
             "christian",
-            SpecificGenre(genre="Christian")
+            Common(genre="Christian")
         )
 
     def test_graphic_novel(self):
@@ -659,7 +667,7 @@ class TestGenreMatch(SearchTest):
 
         self.search(
             "Graphic novel",
-            SpecificGenre(genre="Comics & Graphic Novels")
+            Common(genre="Comics & Graphic Novels")
         )
 
     def test_percy_jackson_graphic_novel(self):
@@ -668,7 +676,7 @@ class TestGenreMatch(SearchTest):
 
         self.search(
             "Percy jackson graphic novel",
-            SpecificGenre(genre="Comics & Graphic Novels", author="Rick Riordan")
+            Common(genre="Comics & Graphic Novels", author="Rick Riordan")
         )
 
     def test_clique(self):
@@ -679,46 +687,53 @@ class TestGenreMatch(SearchTest):
         # Genre and title
         self.search(
             "The clique graphic novel",
-            SpecificGenre(genre="Comics & Graphic Novels", title="The Clique")
+            Common(genre="Comics & Graphic Novels", title="The Clique")
         )
 
     def test_mystery(self):
         self.search(
             "mystery",
-            SpecificGenre(genre="Mystery")
+            Common(genre="Mystery")
         )
 
     def test_agatha_christie_mystery(self):
         # Genre and author
         self.search(
             "agatha christie mystery",
-            SpecificGenre(genre="Mystery", author="Agatha Christie")
+            Common(genre="Mystery", author="Agatha Christie")
         )
 
     def test_british_mystery(self):
         # Genre and keyword
         self.search(
             "British mysteries",
-            SpecificGenre(genre="Romance")
+            Common(genre="Mystery", summary=re.compile("british"))
         )
 
     def test_music_theory(self):
         # Keywords
         self.search(
-            "music theory", SpecificGenre(genre="Music")
+            "music theory", Common(
+                genre="Music",
+                subject=re.compile("(music theory|musical theory)")
+            )
         )
 
     def test_supervising(self):
         # Keyword
         self.search(
-            "supervising", SpecificGenre(genre="Education")
+            "supervising", Common(genre="Education")
         )
 
     def test_grade_and_subject(self):
         # NOTE: this doesn't work on either version of ES.  The top result's genre
         # is science fiction rather than science.
         self.search(
-            "Seventh grade science", SpecificGenre(genre="Science")
+            "Seventh grade science",
+            [
+                Common(target_age=12),
+                Common(genre="Science")
+            ]
         )
 
 class TestSubtitleMatch(SearchTest):
@@ -1153,7 +1168,7 @@ class TestKidsSearches(SearchTest):
         self.search("scary stories")
 
     def test_scifi(self):
-        self.search("sci-fi", SpecificGenre(genre="Science Fiction"))
+        self.search("sci-fi", Common(genre="Science Fiction"))
 
     def test_survivors_specific_book(self):
         self.search(
@@ -1192,6 +1207,97 @@ class TestKidsSearches(SearchTest):
             "witches",
             Common(subject=re.compile('witch'))
         )
+
+class TestDifficultSearches(SearchTest):
+    """Tests that have been difficult in the past."""
+
+    def test_game_of_thrones(self):
+        self.search(
+            "game of thrones",
+            Common(series="a song of ice and fire")
+        )
+
+    def test_m_j_rose(self):
+        for spelling in (
+            'm. j. rose',
+            'm.j. rose',
+            'm j rose',
+            'mj rose',
+        ):
+            self.search(
+                spelling,
+                Common(author="M. J. Rose")
+            )
+
+    def test_steve_berry(self):
+        self.search(
+            "steve berry",
+            Common(author="Steve Berry")
+        )
+
+    def test_python_programming(self):
+        self.search(
+            "python programming",
+            Common(subject="Python (computer program language)")
+        )
+
+    def test_tennis(self):
+        self.search(
+            "tennis",
+            [
+                Common(subject=re.compile("tennis")),
+                Common(genre="Sports"),
+            ]
+        )
+
+    def test_girl_on_the_train(self):
+        self.search(
+            "girl on the train",
+            FirstMatch(title="The Girl On The Train")
+        )
+
+    def test_modern_romance_with_author(self):
+        self.search(
+            "modern romance aziz ansari",
+            FirstMatch(title="Modern Romance", author="Aziz Ansari")
+        )
+
+    def test_law_of_the_mountain_man_with_author(self):
+        self.search(
+            "law of the mountain man william johnstone",
+            [
+                FirstMatch(title="Law of the Mountain Man"),
+                Common(author="William Johnstone"),
+            ]
+        )
+
+    def test_thomas_python(self):
+        # All the terms are correctly spelled words, but the patron
+        # clearly means something else.
+        self.search(
+            "thomas python",
+            Common(author="Thomas Pynchon")
+        )
+
+    def test_age_3_5(self):
+        # These terms are chosen to appear in the descriptions of
+        # children's books, but also to appear in "Volume 3" or
+        # "Volume 5" of series for adults.
+        #
+        # This verifies that the server interprets "age 3-5" correctly.
+        for term in ('black', 'island', 'panda'):
+            self.search(
+                "%s age 3-5" % term,
+                [
+                    Common(audience='Children', threshold=1),
+                ]
+            )
+
+        for term in ('black', 'island'):
+            # Except from 'panda', the search terms on their own find
+            # mostly books for adults.
+            self.search(term, Common(audience='Adult', first_must_match=False))
+
 
 ES6 = ('es6' in os.environ['VIRTUAL_ENV'])
 if ES6:
