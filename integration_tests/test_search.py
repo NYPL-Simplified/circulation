@@ -137,19 +137,50 @@ class Evaluator(object):
                 self.log.debug(template % i)
         assert actual >= threshold
 
+    def _match_scalar(self, value, expect):
+        if hasattr(expect, 'search'):
+            success = expect.search(value)
+            expect_str = expect.pattern
+        else:
+            success = (value == expect)
+            expect_str = expect
+        return success, expect_str
+
+    def _match_subject(self, subject, result):
+        """Is the given result classified under the given subject?"""
+        values = []
+        expect_str = subject
+        for classification in result.classifications:
+            value = classification['term'].lower()
+            values.append(value)
+            success, expect_str = self._match_scalar(value, subject)
+            if success:
+                return True, values, expect_str
+        return False, values, expect_str
+
+    def _match_genre(self, subject, result):
+        """Is the given result classified under the given genre?"""
+        values = []
+        expect_str = subject
+        for genre in result.genres:
+            value = genre['name'].lower()
+            values.append(value)
+            success, expect_str = self._match_scalar(value, subject)
+            if success:
+                return True, values, expect_str
+        return False, values, expect_str
+
     def match_result(self, result):
         """Does the given result match these criteria?"""
 
-        # genre and subject need separate handling
-
         for field, expect in self.kwargs.items():
-            value = self._field(field, result)
-            if hasattr(expect, 'search'):
-                success = expect.search(value)
-                expect_str = expect.pattern
+            if field == 'subject':
+                success, value, expect_str = self._match_subject(expect, result)
+            elif field == 'genre':
+                success, value, expect_str = self._match_genre(expect, result)
             else:
-                success = (value == expect)
-                expect_str = expect
+                value = self._field(field, result)
+                success, expect_str = self._match_scalar(value, expect)
             if not success:
                 return False, value, expect_str
         return True, value, expect_str
@@ -234,26 +265,8 @@ class AtLeastOne(Common):
         )
 
 
-class SpecificGenre(FirstMatch):
-    """ The first result's genres must include a specific genre. """
-
-    def evaluate_first(self, first):
-        success = False
-        expect_genre = self.genre
-        if hasattr(self, 'author') and (self.author != self._field('author', first)):
-            eq_(success, True)
-        if hasattr(self, 'title') and (self.title != self._field('title', first)):
-            eq_(success, True)
-        genres = self._field('genres', first)
-        print(genres)
-        for genre in genres:
-            if genre.name.lower() == expect_genre:
-                success = True
-                return success
-
-        self.log.debug("First result details: %r", self.format(first))
-        eq_(success, True)
-
+class SpecificGenre(Common):
+    pass
 
 class SpecificAuthor(FirstMatch):
     """The first result must be by a specific author.
@@ -1175,7 +1188,10 @@ class TestKidsSearches(SearchTest):
             self.search(q, Common(title=re.compile('^%s ' % q)))
 
     def test_witches(self):
-        self.search("witches")
+        self.search(
+            "witches",
+            Common(subject=re.compile('witch'))
+        )
 
 ES6 = ('es6' in os.environ['VIRTUAL_ENV'])
 if ES6:
