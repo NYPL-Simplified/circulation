@@ -2879,8 +2879,17 @@ class TestFeedController(CirculationControllerTest):
         # Verify that AcquisitionFeed.search() is passed a faceting
         # object with the appropriately selected EntryPoint.
 
-        # By default, the library only has one entry point enabled.
-        # We need to enable more than one so it's a real choice.
+        # By default, the library only has one entry point enabled --
+        # EbooksEntryPoint. In that case, the enabled entry point is
+        # always used.
+        with self.request_context_with_library("/?q=t"):
+            self.manager.opds_feeds.search(None)
+            (s, args) = self.called_with
+            facets = args['facets']
+            assert isinstance(facets, SearchFacets)
+            eq_(EbooksEntryPoint, facets.entrypoint)
+
+        # Enable another entry point so there's a real choice.
         library = self._default_library
         library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
             [AudiobooksEntryPoint.INTERNAL_NAME, EbooksEntryPoint.INTERNAL_NAME]
