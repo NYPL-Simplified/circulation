@@ -757,6 +757,21 @@ class OPDSFeedController(CirculationManagerController):
         )
         return feed_response(feed)
 
+    def _load_search_facets(self, lane):
+        entrypoints = list(flask.request.library.entrypoints)
+        if len(entrypoints) > 1:
+            # There is more than one enabled EntryPoint.
+            # By default, search them all.
+            default_entrypoint = EverythingEntryPoint
+        else:
+            # There is only one enabled EntryPoint,
+            # and no need for a special default.
+            default_entrypoint = None
+        return load_facets_from_request(
+            worklist=lane, base_class=SearchFacets,
+            default_entrypoint=default_entrypoint,
+        )
+
     def search(self, lane_identifier):
 
         lane = self.load_lane(lane_identifier)
@@ -764,11 +779,7 @@ class OPDSFeedController(CirculationManagerController):
             return lane
         query = flask.request.args.get('q')
         library_short_name = flask.request.library.short_name
-
-        facets = load_facets_from_request(
-            worklist=lane, base_class=SearchFacets,
-            default_entrypoint=EverythingEntryPoint,
-        )
+        facets = self._load_search_facets(lane)
 
         # Create a function that, when called, generates a URL to the
         # search controller.
