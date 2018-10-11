@@ -285,6 +285,10 @@ class TestTitleMatch(SearchTest):
     def test_simple_title_match_testing(self):
         self.search("The testing", FirstMatch(title="The testing"))
 
+    def test_simple_title_match_androids(self):
+        self.search("Do androids dream of electric sheep",
+        FirstMatch(title="Do Androids Dream of Electric Sheep?"))
+
     def test_title_match_with_genre_name_romance(self):
         # The title contains the name of a genre. Despite this,
         # an exact title match should show up first.
@@ -409,6 +413,13 @@ class TestTitleMatch(SearchTest):
         self.search(
             "healtylish",
             FirstMatch(title="Healthyish")
+        )
+
+    def test_misspelled_title_match_zodiac(self):
+        # Uncommon word, slightly misspelled.
+        self.search(
+            "Zodiaf",
+            FirstMatch(title="Zodiac")
         )
 
     def test_misspelled_title_match_bell(self):
