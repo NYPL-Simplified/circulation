@@ -167,44 +167,71 @@ class Evaluator(object):
         return successes, failures
 
 
-class FirstMatch(Evaluator):
-    """The first result must match certain criteria."""
-
-    def evaluate_first(self, result):
-        success = True
-        bad_value = bad_expect = None
-
-        success, bad_value, bad_expect = self.match_result(result)
-        if not success:
-            # Log some useful information.
-            self.log.debug("First result details: %r", self.format(result))
-
-            # Now cause the failure.
-            eq_(bad_value, bad_expect)
-
 class Common(Evaluator):
-    """It must be common for the results to match certain criteria."""
-    def __init__(self, threshold=0.5, **kwargs):
+    """It must be common for the results to match certain criteria.
+    """
+    def __init__(self, threshold=0.5, minimum=None, first_must_match=True,
+                 **kwargs):
+        """Constructor.
+
+        :param threshold: A proportion of the search results must
+        match these criteria.
+
+        :param number: At least this many search results must match
+        these criteria.
+
+        :param first_must_match: In addition to any collective
+        restrictions, the first search result must match the criteria.
+        """
         super(Common, self).__init__(**kwargs)
         self.threshold = threshold
+        self.minimum = minimum
+        self.first_must_match = first_must_match
+
+    def evaluate_first(self, hit):
+        if self.first_must_match:
+            success, actual, expected = self.match_result(hit)
+            if not success:
+                self.log.debug(
+                    "First result did not match. %s != %s", expected, actual
+                )
+                eq_(actual, expected)
 
     def evaluate_hits(self, hits):
         successes, failures = self.multi_evaluate(hits)
-        self.assert_ratio(
-            [x[1:] for x in successes],
-            [x[1:] for x in successes+failures],
-            self.threshold
+        if self.threshold is not None:
+            self.assert_ratio(
+                [x[1:] for x in successes],
+                [x[1:] for x in successes+failures],
+                self.threshold
+            )
+        if self.minimum is not None:
+            if len(successes) < self.minimum or True:
+                self.log.debug(
+                    "Need %d matches, got %d", self.minimum, len(successes)
+                )
+                for i in (successes+failures):
+                    if i in successes:
+                        template = 'Y (%s == %s)'
+                    else:
+                        template = 'N (%s != %s)'
+                    self.log.debug(template % i[1:])
+            assert len(successes) >= self.minimum
+
+class FirstMatch(Common):
+    """The first result must match certain criteria."""
+
+    def __init__(self, **kwargs):
+        super(FirstMatch, self).__init__(
+            threshold=None, first_must_match=True, **kwargs
         )
 
-class AtLeastOne(Evaluator):
-    """At least one of the results must match certain criteria."""
-    def evaluate_hits(self, hits):
-        successes, failures = self.multi_evaluate(hits)
-        if len(successes) >= 1:
-            return True
-        for hit, expect, actual in failures:
-            self.log.debug("%s != %s", expect, actual)
-        eq_(expect, actual)
+
+class AtLeastOne(Common):
+    def __init__(self, **kwargs):
+        super(AtLeastOne, self).__init__(
+            threshold=None, minimum=1, first_must_match=False, **kwargs
+        )
 
 
 class SpecificGenre(FirstMatch):
@@ -892,7 +919,7 @@ class TestKidsSearches(SearchTest):
         self.search(
             "3 little pigs",
             [
-                AtLeastOne(title="Three Little Pigs"),
+                AtLeastOne(title=re.compile("three little pigs")),
                 Common(title=re.compile("pig")),
 
                 # TODO: This would require that '3' and 'three'
@@ -945,7 +972,7 @@ class TestKidsSearches(SearchTest):
 
     def test_boy_saved_baseball(self):
         self.search("boy saved baseball")
-    
+
     def test_chapter_books(self):
         self.search("chapter bookd")
         self.search("chapter books")
@@ -967,7 +994,7 @@ class TestKidsSearches(SearchTest):
     def test_christopher_mouse(self):
         # Different ways of searching for "Christopher Mouse: The Tale
         # of a Small Traveler" (A book not in NYPL's collection)
-        for q in (                        
+        for q in (
                 "christopher mouse",
                 "chistopher mouse",
                 "christophor mouse"
@@ -1132,7 +1159,7 @@ class TestKidsSearches(SearchTest):
                 Common(author="Timothy Zahn", series=re.compile("star wars")),
             ]
         )
-    
+
     def test_timothy_zahn(self):
         for i in ('timothy zahn', 'timithy zahn'):
             self.search(q, Common(author="Timothy Zahn"))
