@@ -100,8 +100,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                 client = SIPClient(
                     target_server=server, target_port=port,
                     login_user_id=login_user_id, login_password=login_password,
-                    location_code=location_code, separator=field_separator,
-                    connect=connect
+                    location_code=location_code, separator=field_separator
                 )
 
         except IOError, e:

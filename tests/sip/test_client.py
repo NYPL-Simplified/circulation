@@ -34,7 +34,7 @@ class TestSIPClient(object):
 
     def test_connect(self):
         target_server = object()
-        sip = SIPClient(target_server, 999, connect=False)
+        sip = SIPClient(target_server, 999)
 
         old_socket = socket.socket
 
@@ -65,26 +65,26 @@ class TestBasicProtocol(object):
         eq_("some data|AY7AZFAAA", new_data)
 
     def test_sequence_number_increment(self):
-        sip = MockSIPClient()
+        sip = MockSIPClient(login_user_id='user_id', login_password='password')
         sip.sequence_number=0
         sip.queue_response('941')
-        response = sip.login('user_id', 'password')
+        response = sip.login(None)
         eq_(1, sip.sequence_number)
 
         # Test wraparound from 9 to 0
         sip.sequence_number=9
         sip.queue_response('941')
-        response = sip.login('user_id', 'password')
+        response = sip.login(None)
         eq_(0, sip.sequence_number)
 
     def test_resend(self):
-        sip = MockSIPClient()
+        sip = MockSIPClient(login_user_id='user_id', login_password='password')
         # The first response will be a request to resend the original message.
         sip.queue_response('96')
         # The second response will indicate a successful login.
         sip.queue_response('941')
 
-        response = sip.login('user_id', 'password')
+        response = sip.login(None)
 
         # We made two requests for a single login command.
         req1, req2 = sip.requests
@@ -100,56 +100,23 @@ class TestBasicProtocol(object):
         eq_({'login_ok': '1', '_status': '94'}, response)
 
 
-class TestNetworkError(object):
-
-    def test_retry_on_initial_ioerror(self):
-        sip = CannotSendMockSIPClient()
-
-        # When we try to send any data through the client, we get an
-        # IOError.
-        assert_raises(IOError, sip.login, 'username', 'password', 'location')
-
-        # But after the initial failure we created a new socket
-        # connection and sent the data again, so at least we tried.
-        expect = ['Creating new socket connection.',
-                  "I was unable to send data."] * 2
-        eq_(expect, sip.status)
-
-    def test_retry_on_initial_timeout(self):
-        sip = CannotReceiveMockSIPClient()
-
-        # When we try to send any data through the client, we get an
-        # exception.
-        assert_raises(
-            socket.timeout, sip.login, 'username', 'password', 'location'
-        )
-
-        # But after the initial failure we created a new socket
-        # connection and sent the data again, so at least we tried.
-        expect = ['Creating new socket connection.',
-                  "I was unable to read data."] * 2
-        eq_(expect, sip.status)
-
-
 class TestLogin(object):
 
     def test_login_success(self):
-        sip = MockSIPClient()
+        sip = MockSIPClient('user_id', 'password')
         sip.queue_response('941')
-        response = sip.login('user_id', 'password')
+        response = sip.login(None)
         eq_({'login_ok': '1', '_status': '94'}, response)
 
     def test_login_failure(self):
-        sip = MockSIPClient()
+        sip = MockSIPClient('user_id', 'password')
         sip.queue_response('940')
-        response = sip.login('user_id', 'password')
-        eq_('0', response['login_ok'])
+        assert_raises(IOError, sip.login, None)
 
     def test_login_happens_implicitly_when_user_id_and_password_specified(self):
         sip = MockSIPClient('user_id', 'password')
         # We're not logged in, and we must log in before sending a real
         # message.
-        eq_(False, sip.logged_in)
         eq_(True, sip.must_log_in)
 
         sip.queue_response('941')
@@ -160,16 +127,8 @@ class TestLogin(object):
         eq_(2, len(sip.requests))
         eq_(2, sip.sequence_number)
 
-        # We're logged in.
-        eq_(True, sip.logged_in)
-
         # We ended up with the right data.
         eq_('12345', response['patron_identifier'])
-
-        # If we reset the connection, we stop being logged in.
-        sip.connect()
-        eq_(False, sip.logged_in)
-        eq_(0, sip.sequence_number)
 
     def test_login_failure_interrupts_other_request(self):
         sip = MockSIPClient('user_id', 'password')
@@ -184,7 +143,6 @@ class TestLogin(object):
 
         # We're implicitly logged in.
         eq_(False, sip.must_log_in)
-        eq_(True, sip.logged_in)
 
         sip.queue_response('64Y                201610050000114734                        AOnypl |AA12345|AENo Name|BLN|AFYour library card number cannot be located.  Please see a staff member for assistance.|AY1AZC9DE')
         response = sip.patron_information('patron_identifier')
