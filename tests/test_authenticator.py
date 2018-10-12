@@ -1213,8 +1213,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
             # The mobile color scheme and web colors are correctly reported.
             eq_("plaid", doc['color_scheme'])
-            eq_("#012345", doc['web_colors']['background'])
-            eq_("#abcdef", doc['web_colors']['foreground'])
+            eq_("#012345", doc['web_color_scheme']['background'])
+            eq_("#abcdef", doc['web_color_scheme']['foreground'])
 
             # _geographic_areas was called and provided the library's
             # focus area and service area.

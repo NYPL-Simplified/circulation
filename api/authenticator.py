@@ -933,7 +933,7 @@ class LibraryAuthenticator(object):
         foreground = ConfigurationSetting.for_library(
             Configuration.WEB_FOREGROUND_COLOR, library).value
         if background or foreground:
-            doc["web_colors"] = dict(background=background, foreground=foreground)
+            doc["web_color_scheme"] = dict(background=background, foreground=foreground)
 
         # Add the description of the library as the OPDS feed's
         # service_description.
