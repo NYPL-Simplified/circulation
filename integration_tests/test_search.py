@@ -705,6 +705,9 @@ class TestTitleMatch(SearchTest):
         # the first in ES6.
 
         # A word from the middle of the title is missing.
+
+        # I think they might be searching for a different book
+        # we don't have. - LR
         self.search(
             "fundamentals of supervision",
             FirstMatch(title="Fundamentals of Library Supervision")
@@ -846,6 +849,8 @@ class TestMixedTitleAuthorMatch(SearchTest):
         # completely breaks the test; the top results are now books by
         # authors other than Sebald, with titles which contain none of the
         # search terms.
+        #
+        # This is because 'nature' is the name of a genre. -LR
 
         # Full, unowned title; author's last name only
         self.search(
@@ -881,6 +886,14 @@ class TestGenreMatch(SearchTest):
         # genre or subject listed, and in ES6 it's a novel about Fletcher Christian.
         # The subsequent results are fine; setting first_must_match to False
         # makes the test pass.
+
+        # A wealth of related searches we could run:
+        # self.search("lust christian")    # subject
+        # self.search("christian authors") # subject
+        # self.search("christian grey")    # character
+        # self.search("christian fiction") # subject
+        # self.search("christian kracht")  # author
+
 
         self.search(
             "christian",
@@ -1208,7 +1221,7 @@ class TestAuthorMatch(SearchTest):
 
         # The author's last name is slightly misspelled in the search query.
         self.search(
-            "danielle steel",
+            "danielle steele",
             [   SpecificAuthor("Danielle Steel"),
                 Common(author="Danielle Steel")
             ]
@@ -1296,10 +1309,11 @@ class TestSeriesMatch(SearchTest):
         )
 
     def test_goosebumps(self):
-        self.search(
-            "goosebumps",
-            Common(series="Goosebumps", threshold=0.9)
-        )
+        for q in ('goosebumps', 'goosebump'):
+            self.search(q, Common(series="Goosebumps", threshold=0.9))
+
+    def test_goosebumps_misspelled(self):
+            self.search("gosbums", Common(series="Goosebumps"))
 
     def test_severance(self):
         # Partial, and slightly misspelled
@@ -1422,8 +1436,12 @@ class TestKidsSearches(SearchTest):
     def test_anime_genre(self):
         # NOTE: this doesn't work; all of the top results in both versions of ES6
         # are for "animal" rather than "anime."
+        #
+        # 'anime' and 'manga' are not subject classifications we get
+        # from our existing vendors. We have a lot of these books but
+        # they're not classified under those terms. -LR
         self.search(
-            "anime books",
+            "anime",
             Common(subject=re.compile("(manga|anime)"))
         )
 
@@ -1518,7 +1536,7 @@ class TestKidsSearches(SearchTest):
             "dairy of the wimpy kid dog days",
             [
                 FirstMatch(title="Dog Days", author="Jeff Kinney"),
-                Common(series="Diary of a Wimpy Kid"),
+               Common(series="Diary of a Wimpy Kid"),
             ]
         )
 
