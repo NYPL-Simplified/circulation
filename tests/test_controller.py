@@ -22,6 +22,7 @@ from flask_sqlalchemy_session import (
     flask_scoped_session,
 )
 from werkzeug import ImmutableMultiDict
+from werkzeug.exceptions import NotFound
 
 from . import DatabaseTest
 from api.app import app, initialize_database
@@ -3858,6 +3859,10 @@ class TestStaticFileController(CirculationControllerTest):
         eq_(200, response.status_code)
         eq_('public, max-age=10', response.headers.get('Cache-Control'))
         eq_(expected_content, response.response.file.read())
+
+        with self.app.test_request_context("/"):
+            assert_raises(NotFound, self.app.manager.static_files.static_file,
+                          directory, "missing.png")
 
     def test_image(self):
         directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
