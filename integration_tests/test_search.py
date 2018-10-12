@@ -1410,16 +1410,21 @@ class TestKidsSearches(SearchTest):
             self.search(q, FirstMatch(title="The Hate U Give"))
 
     def test_alien_misspelled(self):
-        "allien"
-        "aluens"
-        pass
+        for q in ("allien", "aluens"):
+            self.search(
+                q,
+                Common(
+                    subject=re.compile("(alien|extraterrestrial)"),
+                    first_must_match=False
+                )
+            )
 
     def test_anime_genre(self):
         # NOTE: this doesn't work; all of the top results in both versions of ES6
         # are for "animal" rather than "anime."
         self.search(
             "anime books",
-            Common(genre=re.compile("anime"))
+            Common(subject=re.compile("(manga|anime)"))
         )
 
     def test_batman(self):
@@ -1518,10 +1523,10 @@ class TestKidsSearches(SearchTest):
         )
 
     def test_deep_poems(self):
-        # This appears to be a subject search.
+        # This appears to be a subject search, e.g. for poems which are deep.
         self.search(
             "deep poems",
-            Common(subject="poetry")
+            Common(genre="Poetry")
         )
 
     def test_dinosaur_cove(self):
@@ -1599,7 +1604,9 @@ class TestKidsSearches(SearchTest):
     def test_information_technology(self):
         self.search(
             "information technology",
-            Common(genre=re.compile("tech"), first_must_match=False)
+            Common(
+                subject=re.compile("(information technology|computer)"),
+            )
         )
 
     def test_i_survived(self):
@@ -1615,10 +1622,14 @@ class TestKidsSearches(SearchTest):
     def test_manga(self):
         self.search(
             "manga",
-            Common(title=re.compile("manga"))
+            [
+                Common(title=re.compile("manga")),
+                Common(subject=re.compile("(manga|art|comic)")),
+            ]
         )
 
     def test_my_little_pony(self):
+        # .series is not set for these titles.
         for q in ('my little pony', 'my little pon'):
             self.search(
                 q, Common(title=re.compile("my little pony"))
@@ -1649,10 +1660,7 @@ class TestKidsSearches(SearchTest):
             self.search(q, Common(author=re.compile("raina telgemeier")))
 
     def test_scary_stories(self):
-        self.search(
-            "scary stories",
-            Common(genre=re.compile("(horror|suspense)"))
-        )
+        self.search("scary stories", Common(genre="Horror"))
 
     def test_scifi(self):
         self.search("sci-fi", Common(genre="Science Fiction"))
