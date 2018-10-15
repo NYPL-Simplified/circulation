@@ -3528,10 +3528,11 @@ class TestWorkListGroups(DatabaseTest):
         lane = self._lane()
         m = lane._size_for_facets
 
-        ebooks, audio, everything = [
+        ebooks, audio, everything, nothing = [
             FeaturedFacets(minimum_featured_quality=0.5, entrypoint=x)
             for x in (
                 EbooksEntryPoint, AudiobooksEntryPoint, EverythingEntryPoint,
+                None
             )
         ]
 
@@ -3548,6 +3549,7 @@ class TestWorkListGroups(DatabaseTest):
             AudiobooksEntryPoint.URI : 2
         }
         eq_(99, m(None))
+        eq_(99, m(nothing))
         eq_(99, m(everything))
         eq_(1, m(ebooks))
         eq_(2, m(audio))
