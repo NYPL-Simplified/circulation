@@ -9,6 +9,7 @@ import urllib
 from psycopg2.extras import NumericRange
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import Select
+from sqlalchemy.dialects.postgresql import JSON
 
 from accept_types import parse_header
 
@@ -1788,7 +1789,9 @@ class WorkList(object):
 
         # Make sure this query finds a number of works proportinal
         # to the expected size of the lane.
-        lane_query = self._restrict_query_to_window(lane_query, target_size)
+        lane_query = self._restrict_query_to_window(
+            lane_query, target_size, facets
+        )
 
         lane_query = lane_query.order_by(
             "quality_tier desc", work_model.random.desc()
@@ -1801,13 +1804,13 @@ class WorkList(object):
         lane_query = lane_query.limit(target_size*1.3)
         return lane_query
 
-    def _restrict_query_to_window(self, query, target_size):
+    def _restrict_query_to_window(self, query, target_size, facets):
         """Restrict the given SQLAlchemy query so that it matches
         approximately `target_size` items.
         """
         if query is None:
             return query
-        window_start, window_end = self.featured_window(target_size)
+        window_start, window_end = self.featured_window(target_size, facets)
         if window_start > 0 and window_start < 1:
             query = query.filter(
                 work_model.random <= window_end,
@@ -1922,6 +1925,10 @@ class Lane(Base, WorkList):
     # How many titles are in this lane? This is periodically
     # calculated and cached.
     size = Column(Integer, nullable=False, default=0)
+
+    # How many titles are in this lane when viewed through a specific
+    # entry point? This is periodically calculated and cached.
+    size_by_entrypoint = Column(JSON, nullable=True)
 
     # A lane may have one parent lane and many sublanes.
     sublanes = relationship(
@@ -2206,7 +2213,16 @@ class Lane(Base, WorkList):
         """Update the stored estimate of the number of Works in this Lane."""
         query = self.works(_db).limit(None)
         query = query.distinct(work_model.works_id)
+
+        # Do the estimate for the lane as a whole.
         self.size = fast_query_count(query)
+
+        # Now do the estimate for each of the library's active entry points.
+        by_entrypoint = {EverythingEntryPoint.URI: self.size}
+        for entrypoint in self.library.entrypoints:
+            qu = entrypoint.apply(query)
+            by_entrypoint[entrypoint.URI] = fast_query_count(qu)
+        self.size_by_entrypoint = by_entrypoint
 
     @property
     def genre_ids(self):
@@ -2368,18 +2384,23 @@ class Lane(Base, WorkList):
                       languages=languages, media=media, audiences=audiences)
         return wl
 
-    def featured_window(self, target_size):
+    def featured_window(self, target_size, facets):
         """Randomly select an interval over `Work.random` that ought to
         contain approximately `target_size` high-quality works from
         this lane.
 
-        :param: A 2-tuple (low value, high value), or None if the
+        :param target_size: Try to get this many works.
+        :param facets: A FeaturedFacets object that will be applied to the
+           query, and affects how many results are likely to be returned.
+
+        :return: A 2-tuple (low value, high value), or None if the
         entire span should be considered.
         """
-        if self.size < target_size:
+        size = self._size_for_facets(facets)
+        if size < target_size:
             # Don't bother -- we're returning the whole lane.
             return 0,1
-        width = target_size / (self.size * 0.2)
+        width = target_size / (size * 0.2)
         width = min(1, width)
 
         maximum_offset = 1-width
@@ -2395,6 +2416,24 @@ class Lane(Base, WorkList):
         if start == end:
             end = start + 0.001
         return start, end
+
+    def _size_for_facets(self, facets):
+        """How big is this lane under the given `Facets` object?
+
+        :param facets: A Facets object.
+        :return: An int.
+        """
+        # Default to the total size of the lane.
+        size = self.size
+
+        entrypoint_name = EverythingEntryPoint.URI
+        if facets and facets.entrypoint:
+            entrypoint_name = facets.entrypoint.URI
+
+        if (self.size_by_entrypoint 
+            and entrypoint_name in self.size_by_entrypoint):
+            size = self.size_by_entrypoint[entrypoint_name]
+        return size
 
     def groups(self, _db, include_sublanes=True, facets=None):
         """Return a list of (MaterializedWorkWithGenre, Lane) 2-tuples
