@@ -86,6 +86,9 @@ class TestEntryPoint(DatabaseTest):
             EntryPoint.register, Mock2, "Mock!"
         )
 
+        EntryPoint.unregister(Mock)
+        assert Mock not in EntryPoint.DEFAULT_ENABLED
+
 
 class TestEverythingEntryPoint(DatabaseTest):
 

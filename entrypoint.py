@@ -72,6 +72,8 @@ class EntryPoint(object):
         cls.ENTRY_POINTS.remove(entrypoint_class)
         del cls.BY_INTERNAL_NAME[entrypoint_class.INTERNAL_NAME]
         del cls.DISPLAY_TITLES[entrypoint_class]
+        if entrypoint_class in cls.DEFAULT_ENABLED:
+            cls.DEFAULT_ENABLED.remove(entrypoint_class)
 
     @classmethod
     def modified_materialized_view_query(cls, qu):
