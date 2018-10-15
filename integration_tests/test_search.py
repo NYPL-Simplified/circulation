@@ -957,18 +957,21 @@ class TestGenreMatch(SearchTest):
             Common(genre=re.compile("(christian|religion)"))
         )
 
+    def test_christian_lust(self):
         # Passes
         self.search(
             "lust christian",
             Common(genre=re.compile("(christian|religion)"))
         )
 
+    def test_christian_authors(self):
         # Passes
         self.search(
             "christian authors",
             Common(genre=re.compile("(christian|religion)"))
         )
 
+    def test_christian_grey(self):
         # Fails.  The first two books are Christian-genre books with "grey" in
         # the title, which is a reasonable search result but is almost definitely
         # not what the user wanted.
@@ -977,6 +980,7 @@ class TestGenreMatch(SearchTest):
             FirstMatch(author="E. L. James")
         )
 
+    def test_christian_fiction(self):
         # Fails.  On ES6, the first few results are from the "Christian Gillette"
         # series. On ES6, most of the top results are books by Hans Christian Andersen.
         # Definitely not what the user meant.
@@ -985,7 +989,8 @@ class TestGenreMatch(SearchTest):
             Common(genre=re.compile("(christian|religion)"))
         )
 
-        # Passes
+    def test_christian_kracht(self):
+        # Passes - author name
         self.search(
             "christian kracht",
             FirstMatch(author="Christian Kracht")
