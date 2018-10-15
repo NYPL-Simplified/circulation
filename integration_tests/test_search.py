@@ -947,23 +947,48 @@ class TestGenreMatch(SearchTest):
         )
 
     def test_christian(self):
-        # NOTE: this fails because of the first result--on ES1, it's a
-        # book from 1839 entitled "Christian Phrenology," which doesn't have a
-        # genre or subject listed, and in ES6 it's a novel about Fletcher Christian.
-        # The subsequent results are fine; setting first_must_match to False
+        # Fails because of the first result--on ES1, it's a book from 1839
+        # entitled "Christian Phrenology," which doesn't have a genre or subject
+        # listed, and in ES6 it's a novel about Fletcher Christian. The
+        # subsequent results are fine; setting first_must_match to False
         # makes the test pass.
-
-        # A wealth of related searches we could run:
-        # self.search("lust christian")    # subject
-        # self.search("christian authors") # subject
-        # self.search("christian grey")    # character
-        # self.search("christian fiction") # subject
-        # self.search("christian kracht")  # author
-
-
         self.search(
             "christian",
             Common(genre=re.compile("(christian|religion)"))
+        )
+
+        # Passes
+        self.search(
+            "lust christian",
+            Common(genre=re.compile("(christian|religion)"))
+        )
+
+        # Passes
+        self.search(
+            "christian authors",
+            Common(genre=re.compile("(christian|religion)"))
+        )
+
+        # Fails.  The first two books are Christian-genre books with "grey" in
+        # the title, which is a reasonable search result but is almost definitely
+        # not what the user wanted.
+        self.search(
+            "christian grey",
+            FirstMatch(author="E. L. James")
+        )
+
+        # Fails.  On ES6, the first few results are from the "Christian Gillette"
+        # series. On ES6, most of the top results are books by Hans Christian Andersen.
+        # Definitely not what the user meant.
+        self.search(
+            "christian fiction",
+            Common(genre=re.compile("(christian|religion)"))
+        )
+
+        # Passes
+        self.search(
+            "christian kracht",
+            FirstMatch(author="Christian Kracht")
         )
 
     def test_graphic_novel(self):
