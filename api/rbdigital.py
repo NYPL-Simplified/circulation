@@ -1608,9 +1608,22 @@ class RBDigitalRepresentationExtractor(object):
             Identifier.RB_DIGITAL_ID, rbdigital_id
         )
 
+        # medium is both bibliographic and format information.
+
+        # options are: "eBook", "eAudio"
+        rbdigital_medium = book.get('mediaType', None)
+        if rbdigital_medium and rbdigital_medium not in cls.rbdigital_medium_to_simplified_medium:
+            cls.log.error(
+                "Could not process medium %s for %s", rbdigital_medium, rbdigital_id)
+
+        medium = cls.rbdigital_medium_to_simplified_medium.get(
+            rbdigital_medium, Edition.BOOK_MEDIUM
+        )
+
         metadata = Metadata(
             data_source=DataSource.RB_DIGITAL,
             primary_identifier=primary_identifier,
+            medium=medium,
         )
 
         if include_bibliographic:
@@ -1706,16 +1719,6 @@ class RBDigitalRepresentationExtractor(object):
                 )
                 subjects.append(subject)
 
-            # options are: "eBook", "eAudio"
-            rbdigital_medium = book.get('mediaType', None)
-            if rbdigital_medium and rbdigital_medium not in cls.rbdigital_medium_to_simplified_medium:
-                cls.log.error(
-                    "Could not process medium %s for %s", rbdigital_medium, rbdigital_id)
-
-            medium = cls.rbdigital_medium_to_simplified_medium.get(
-                rbdigital_medium, Edition.BOOK_MEDIUM
-            )
-
             # passed to metadata.apply, the isbn_identifier will create an equivalency
             # between the RBDigital-labeled and the ISBN-labeled identifier rows, which
             # will in turn allow us to ask the MetadataWrangler for more info about the book.
@@ -1760,7 +1763,6 @@ class RBDigitalRepresentationExtractor(object):
 
             metadata.title = title
             metadata.language = language
-            metadata.medium = medium
             metadata.series = series_name
             metadata.series_position = series_position
             metadata.publisher = publisher
@@ -1781,7 +1783,7 @@ class RBDigitalRepresentationExtractor(object):
                 drm_scheme = DeliveryMechanism.NO_DRM
                 formats.append(FormatData(content_type, drm_scheme))
             else:
-                cls.log.warn("Unfamiliar format: %s", format_id)
+                cls.log.warn("Unfamiliar format: %s", metadata.medium)
 
             # Make a CirculationData so we can write the formats,
             circulationdata = CirculationData(
