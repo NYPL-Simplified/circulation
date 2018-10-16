@@ -98,7 +98,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             if self.client:
                 sip = self.client
             else:
-                sip = self.client(
+                sip = SIPClient(
                     target_server=self.server, target_port=self.port,
                     login_user_id=self.login_user_id, login_password=self.login_password,
                     location_code=self.location_code, separator=self.field_separator
@@ -106,7 +106,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             sip.connect()
             sip.login()
             info = sip.patron_information(username, password)
-            sip.end_session()
+            sip.end_session(username, password)
             sip.disconnect()
             return info
 
