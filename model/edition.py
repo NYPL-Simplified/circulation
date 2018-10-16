@@ -331,7 +331,7 @@ class Edition(Base, EditionConstants):
         return q2
 
     @classmethod
-    def sort_by_priority(self, editions, license_source=None):
+    def sort_by_priority(cls, editions, license_source=None):
         """Return all Editions that describe the Identifier associated with
         this LicensePool, in the order they should be used to create a
         presentation Edition for the LicensePool.
