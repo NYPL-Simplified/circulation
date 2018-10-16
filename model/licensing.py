@@ -353,7 +353,7 @@ class LicensePool(Base):
         editions = equivalent_editions
         if not editions:
             editions = self.identifier.primarily_identifies
-        all_editions = list(Edition.sort_by_priority(editions))
+        all_editions = list(Edition.sort_by_priority(editions, self.data_source))
 
         # Note: We can do a cleaner solution, if we refactor to not use metadata's
         # methods to update editions.  For now, we're choosing to go with the below approach.
@@ -1289,7 +1289,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     __tablename__ = 'deliverymechanisms'
     id = Column(Integer, primary_key=True)
-    content_type = Column(String, nullable=False)
+    content_type = Column(String)
     drm_scheme = Column(String)
 
     # Can the Library Simplified client fulfill a book with this

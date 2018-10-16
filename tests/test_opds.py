@@ -1836,19 +1836,35 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(expect, entry)
 
     def test_format_types(self):
+        m = AcquisitionFeed.format_types
+
         epub_no_drm, ignore = DeliveryMechanism.lookup(
             self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
+        eq_([Representation.EPUB_MEDIA_TYPE], m(epub_no_drm))
+
         epub_adobe_drm, ignore = DeliveryMechanism.lookup(
             self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM)
-        overdrive_streaming_text, ignore = DeliveryMechanism.lookup(
-            self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM)
-
-        eq_([Representation.EPUB_MEDIA_TYPE],
-            AcquisitionFeed.format_types(epub_no_drm))
         eq_([DeliveryMechanism.ADOBE_DRM, Representation.EPUB_MEDIA_TYPE],
-            AcquisitionFeed.format_types(epub_adobe_drm))
-        eq_([OPDSFeed.ENTRY_TYPE, Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE],
-            AcquisitionFeed.format_types(overdrive_streaming_text))
+            m(epub_adobe_drm))
+
+        overdrive_streaming_text, ignore = DeliveryMechanism.lookup(
+            self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE,
+            DeliveryMechanism.OVERDRIVE_DRM
+        )
+        eq_(
+            [OPDSFeed.ENTRY_TYPE,
+             Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE],
+            m(overdrive_streaming_text)
+        )
+
+        # Test a case where there is a DRM scheme but no underlying
+        # content type.
+        findaway_manifest, ignore = DeliveryMechanism.lookup(
+            self._db, DeliveryMechanism.FINDAWAY_DRM, None
+        )
+        eq_([DeliveryMechanism.FINDAWAY_DRM],
+            AcquisitionFeed.format_types(findaway_manifest)
+        )
 
     def test_add_breadcrumbs(self):
         _db = self._db

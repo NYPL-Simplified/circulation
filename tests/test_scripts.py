@@ -558,15 +558,15 @@ class TestLaneSweeperScript(DatabaseTest):
         worklist = script.considered.pop(0)
         eq_(self._default_library, worklist.get_library(self._db))
         eq_(self._default_library.name, worklist.display_name)
-        eq_([good, bad], worklist.children)
+        eq_(set([good, bad]), set(worklist.children))
 
         # After that, every lane was considered for processing, with
         # top-level lanes considered first.
-        eq_([good, bad, good_child], script.considered)
+        eq_(set([good, bad, good_child]), set(script.considered))
 
         # But a lane was processed only if should_process_lane
         # returned True.
-        eq_([good, good_child], script.processed)
+        eq_(set([good, good_child]), set(script.processed))
 
 
 class TestRunCoverageProviderScript(DatabaseTest):

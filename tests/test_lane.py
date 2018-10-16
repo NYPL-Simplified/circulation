@@ -89,7 +89,9 @@ class TestFacetsWithEntryPoint(DatabaseTest):
     def test_navigate(self):
         old_entrypoint = object()
         kwargs = dict(extra_key="extra_value")
-        facets = FacetsWithEntryPoint(old_entrypoint, **kwargs)
+        facets = FacetsWithEntryPoint(
+            old_entrypoint, entrypoint_is_default=True, **kwargs
+        )
         new_entrypoint = object()
         new_facets = facets.navigate(new_entrypoint)
 
@@ -99,7 +101,11 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         # It has the new entry point.
         eq_(new_entrypoint, new_facets.entrypoint)
 
-        # The keyword arguments used to create the origina faceting
+        # Since navigating from one Facets object to another is a choice,
+        # the new Facets object is not using a default EntryPoint.
+        eq_(False, new_facets.entrypoint_is_default)
+
+        # The keyword arguments used to create the original faceting
         # object were propagated to its constructor.
         eq_(kwargs, new_facets.constructor_kwargs)
 
@@ -113,13 +119,14 @@ class TestFacetsWithEntryPoint(DatabaseTest):
                 return expect
         result = Mock.from_request(
             "library", "facet config", "get_argument",
-            "get_header", "worklist", extra="extra argument"
+            "get_header", "worklist", "default entrypoint",
+            extra="extra argument"
         )
 
         # The arguments given to from_request were propagated to _from_request.
         args, kwargs = Mock.called_with
         eq_(("facet config", "get_argument",
-             "get_header", "worklist"), args)
+             "get_header", "worklist", "default entrypoint"), args)
         eq_(dict(extra="extra argument"), kwargs)
 
         # The return value of _from_request was propagated through
@@ -127,9 +134,8 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         eq_(expect, result)
 
     def test__from_request(self):
-        """_from_request calls load_entrypoint and instantiates the
-        class with the result.
-        """
+        # _from_request calls load_entrypoint and instantiates the
+        # class with the result.
 
         # Mock load_entrypoint() to return whatever value we have set up
         # ahead of time.
@@ -142,8 +148,8 @@ class TestFacetsWithEntryPoint(DatabaseTest):
                 return ["Selectable entrypoints"]
 
             @classmethod
-            def load_entrypoint(cls, entrypoint_name, entrypoints):
-                cls.load_entrypoint_called_with = (entrypoint_name, entrypoints)
+            def load_entrypoint(cls, entrypoint_name, entrypoints, default=None):
+                cls.load_entrypoint_called_with = (entrypoint_name, entrypoints, default)
                 return cls.expect
 
         # Mock the functions that pull information out of an HTTP
@@ -178,15 +184,25 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         # Now, test success. If load_entrypoint() returns an object,
         # that object is passed as 'entrypoint' into the
         # FacetsWithEntryPoint constructor.
-        MockFacetsWithEntryPoint.expect = object()
+        #
+        # The object returned by load_entrypoint() does not need to be a
+        # currently enabled entrypoint for the library.
+        expect_entrypoint = object()
+        expect_is_default = object()
+        MockFacetsWithEntryPoint.expect = (expect_entrypoint, expect_is_default)
         config = self.MockFacetConfig
+        default_entrypoint = object()
         facets = MockFacetsWithEntryPoint._from_request(
             config, get_argument, get_header, mock_worklist,
-            extra="extra kwarg"
+            default_entrypoint=default_entrypoint, extra="extra kwarg"
         )
         assert isinstance(facets, FacetsWithEntryPoint)
-        eq_(MockFacetsWithEntryPoint.expect, facets.entrypoint)
-        eq_(("name of the entrypoint", ["Selectable entrypoints"]), MockFacetsWithEntryPoint.load_entrypoint_called_with)
+        eq_(expect_entrypoint, facets.entrypoint)
+        eq_(expect_is_default, facets.entrypoint_is_default)
+        eq_(
+            ("name of the entrypoint", ["Selectable entrypoints"], default_entrypoint),
+            MockFacetsWithEntryPoint.load_entrypoint_called_with
+        )
         eq_(dict(extra="extra kwarg"), facets.constructor_kwargs)
         eq_(MockFacetsWithEntryPoint.selectable_entrypoints_called_with, config)
 
@@ -201,20 +217,28 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         worklist = object()
         m = FacetsWithEntryPoint.load_entrypoint
 
-        # This request does not ask for any particular entrypoint,
-        # so it gets the default.
-        eq_(audio, m(None, entrypoints))
+        # This request does not ask for any particular entrypoint, and
+        # it doesn't specify a default, so it gets the first available
+        # entrypoint.
+        audio_default, is_default = m(None, entrypoints)
+        eq_(audio, audio_default)
+        eq_(True, is_default)
+
+        # This request does not ask for any particular entrypoint, so
+        # it gets the specified default.
+        default = object()
+        eq_((default, True), m(None, entrypoints, default))
 
         # This request asks for an entrypoint and gets it.
-        eq_(ebooks, m(ebooks.INTERNAL_NAME, entrypoints))
+        eq_((ebooks, False), m(ebooks.INTERNAL_NAME, entrypoints))
 
         # This request asks for an entrypoint that is not available,
         # and gets the default.
-        eq_(audio, m("no such entrypoint", entrypoints))
+        eq_((audio, True), m("no such entrypoint", entrypoints))
 
         # If no EntryPoints are available, load_entrypoint returns
         # nothing.
-        eq_(None, m(audio.INTERNAL_NAME, []))
+        eq_((None, True), m(audio.INTERNAL_NAME, []))
 
     def test_selectable_entrypoints(self):
         """The default implementation of selectable_entrypoints just returns
@@ -554,7 +578,10 @@ class TestFacets(DatabaseTest):
         eq_(default_collection, facets.collection)
         eq_(default_availability, facets.availability)
         eq_(library, facets.library)
+
+        # The AudiobooksEntryPoint was selected as a default.
         eq_(AudiobooksEntryPoint, facets.entrypoint)
+        eq_(True, facets.entrypoint_is_default)
 
         # Valid object using non-default settings.
         args = dict(
@@ -695,6 +722,16 @@ class TestFacetsApply(DatabaseTest):
 
 
 class TestFeaturedFacets(DatabaseTest):
+
+    def test_constructor(self):
+        # Verify that constructor arguments are stored.
+        entrypoint = object()
+        facets = FeaturedFacets(1, True, entrypoint, entrypoint_is_default=True)
+        eq_(1, facets.minimum_featured_quality)
+        eq_(True, facets.uses_customlists)
+        eq_(entrypoint, facets.entrypoint)
+        eq_(True, facets.entrypoint_is_default)
+
 
     def test_navigate(self):
         """Test the ability of navigate() to move between slight
@@ -1515,7 +1552,7 @@ class TestWorkList(DatabaseTest):
                 # kind of query so works_in_window can complete.
                 return _db.query(Work)
 
-            def _restrict_query_to_window(self, query, target_size):
+            def _restrict_query_to_window(self, query, target_size, facets):
                 return query
 
         wl = Mock()
@@ -2256,6 +2293,12 @@ class TestLane(DatabaseTest):
         eq_([Classifier.AUDIENCE_ADULT], lane.audiences)
 
     def test_update_size(self):
+
+        # Enable the 'ebooks' and 'audiobooks' entry points.
+        self._default_library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
+            [AudiobooksEntryPoint.INTERNAL_NAME, EbooksEntryPoint.INTERNAL_NAME]
+        )
+
         # One work in two subgenres of fiction.
         work = self._work(fiction=True, with_license_pool=True,
                           genre="Science Fiction")
@@ -2269,10 +2312,25 @@ class TestLane(DatabaseTest):
         # Science Fiction and once under Romance.
         self.add_to_materialized_view([work])
 
-        # update_size() sets the Lane's size to the correct number.
+        # update_size() sets the Lane's size and size_by_entrypoint to
+        # the correct number.
         fiction.size = 100
+        fiction.size_by_entrypoint = {"Nonexistent entrypoint": 200}
         fiction.update_size(self._db)
+
+        # The total number of books in the lane, regardless of entrypoint,
+        # is stored in .size.
         eq_(1, fiction.size)
+
+        # The lane size is also calculated individually for every
+        # enabled entry point. EverythingEntryPoint is used for the
+        # total size of the lane.
+        expect = {
+            EverythingEntryPoint.URI: fiction.size,
+            AudiobooksEntryPoint.URI: 0,
+            EbooksEntryPoint.URI: fiction.size,
+        }
+        eq_(expect, fiction.size_by_entrypoint)
 
     def test_visibility(self):
         parent = self._lane()
@@ -3286,6 +3344,7 @@ class TestWorkListGroups(DatabaseTest):
         # Here's an entry point that ignores everything except one
         # specific book.
         class LQRomanceEntryPoint(object):
+            URI = ""
             @classmethod
             def apply(cls, qu):
                 return qu.filter(work_model.sort_title=='LQ Romance')
@@ -3412,16 +3471,20 @@ class TestWorkListGroups(DatabaseTest):
     def test_featured_window(self):
         lane = self._lane()
 
+        facets = FeaturedFacets(
+            minimum_featured_quality=0.5, entrypoint=EbooksEntryPoint
+        )
+
         # Unless the lane has more items than we are asking for, the
         # 'window' spans the entire range from zero to one.
-        eq_((0,1), lane.featured_window(1))
+        eq_((0,1), lane.featured_window(1, facets))
         lane.size = 99
-        eq_((0,1), lane.featured_window(99))
+        eq_((0,1), lane.featured_window(99, facets))
 
         # Otherwise, the 'window' is a smaller, randomly selected range
         # between zero and one.
         lane.size = 6094
-        start, end = lane.featured_window(17)
+        start, end = lane.featured_window(17, facets)
         expect_start = 0.025
         eq_(expect_start, start)
         eq_(round(start+0.014,8), end)
@@ -3439,9 +3502,64 @@ class TestWorkListGroups(DatabaseTest):
         # is only three decimal places, so there's a limit on how
         # small the range can get.
         lane.size = 10**9
-        start, end = lane.featured_window(10)
+        start, end = lane.featured_window(10, facets)
         assert end == start + 0.001
 
+        # The size of the featured window depends on the active facets.
+        # Here, there are a billion audiobooks but only 10 ebooks.
+        #
+        # test__size_for_facets tests this in more detail.
+        lane.size_by_entrypoint = {
+            EbooksEntryPoint.URI : 10,
+            AudiobooksEntryPoint.URI : 10**9
+        }
+        start, end = lane.featured_window(10, facets)
+        eq_(0, start)
+        eq_(1, end)
+
+        facets = FeaturedFacets(
+            minimum_featured_quality=0.5, entrypoint=AudiobooksEntryPoint
+        )
+        start, end = lane.featured_window(10, facets)
+        assert end == start + 0.001
+
+    def test__size_for_facets(self):
+
+        lane = self._lane()
+        m = lane._size_for_facets
+
+        ebooks, audio, everything, nothing = [
+            FeaturedFacets(minimum_featured_quality=0.5, entrypoint=x)
+            for x in (
+                EbooksEntryPoint, AudiobooksEntryPoint, EverythingEntryPoint,
+                None
+            )
+        ]
+
+        # When Lane.size_by_entrypoint is not set, Lane.size is used.
+        # This should only happen immediately after a site is upgraded.
+        lane.size = 100
+        for facets in (ebooks, audio):
+            eq_(100, lane._size_for_facets(facets))
+
+        # Once Lane.size_by_entrypoint is set, it's used when possible.
+        lane.size_by_entrypoint = {
+            EverythingEntryPoint.URI : 99,
+            EbooksEntryPoint.URI : 1,
+            AudiobooksEntryPoint.URI : 2
+        }
+        eq_(99, m(None))
+        eq_(99, m(nothing))
+        eq_(99, m(everything))
+        eq_(1, m(ebooks))
+        eq_(2, m(audio))
+
+        # If size_by_entrypoint contains no estimate for a given
+        # EntryPoint URI, the overall lane size is used. This can
+        # happen between the time an EntryPoint is enabled and the
+        # materialized view refresh script is run.
+        del lane.size_by_entrypoint[AudiobooksEntryPoint.URI]
+        eq_(100, m(audio))
 
     def test_fill_parent_lane(self):
 
@@ -3507,19 +3625,21 @@ class TestWorkListGroups(DatabaseTest):
         query = self._db.query(work_model).filter(work_model.fiction==True)
         target_size = 10
 
+        facets = FeaturedFacets(0.5, entrypoint=EbooksEntryPoint)
+
         # If the lane is so small that windowing is not safe,
         # _restrict_query_to_window does nothing.
         lane.size = 1
         eq_(
             query,
-            lane._restrict_query_to_window(query, target_size)
+            lane._restrict_query_to_window(query, target_size, facets)
         )
 
         # If the lane size is small enough to window, then
         # _restrict_query_to_window adds restrictions on the .random
         # field.
         lane.size = 960
-        modified = lane._restrict_query_to_window(query, target_size)
+        modified = lane._restrict_query_to_window(query, target_size, facets)
 
         # Check the SQL.
         sql = dump_query(modified)
@@ -3540,5 +3660,5 @@ class TestWorkListGroups(DatabaseTest):
         # method ourselves we will get a different window of
         # approximately the same width.
         width = expect_upper-expect_lower
-        new_lower, new_upper = lane.featured_window(target_size)
+        new_lower, new_upper = lane.featured_window(target_size, facets)
         eq_(round(width, 3), round(new_upper-new_lower, 3))

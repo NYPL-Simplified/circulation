@@ -1088,7 +1088,7 @@ class Metadata(MetaToModelUtility):
             subtitle=None,
             sort_title=None,
             language=None,
-            medium=Edition.BOOK_MEDIUM,
+            medium=None,
             series=None,
             series_position=None,
             publisher=None,

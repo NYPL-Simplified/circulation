@@ -9,6 +9,7 @@ import urllib
 from psycopg2.extras import NumericRange
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import Select
+from sqlalchemy.dialects.postgresql import JSON
 
 from accept_types import parse_header
 
@@ -107,14 +108,18 @@ class FacetsWithEntryPoint(FacetConstants):
     """Basic Facets class that knows how to filter a query based on a
     selected EntryPoint.
     """
-    def __init__(self, entrypoint=None, **kwargs):
+    def __init__(self, entrypoint=None, entrypoint_is_default=False, **kwargs):
         """Constructor.
 
         :param entrypoint: An EntryPoint (optional).
+        :param entrypoint_is_default: If this is True, then `entrypoint`
+            is a default value and was not determined by a user's
+            explicit choice.
         :param kwargs: Other arguments may be supplied based on user
             input, but the default implementation is to ignore them.
         """
         self.entrypoint = entrypoint
+        self.entrypoint_is_default = entrypoint_is_default
         self.constructor_kwargs = kwargs
 
     def navigate(self, entrypoint):
@@ -122,13 +127,14 @@ class FacetsWithEntryPoint(FacetConstants):
         a different EntryPoint.
         """
         return self.__class__(
-            entrypoint=entrypoint, **self.constructor_kwargs
+            entrypoint=entrypoint, entrypoint_is_default=False,
+            **self.constructor_kwargs
         )
 
     @classmethod
     def from_request(
             cls, library, facet_config, get_argument, get_header, worklist,
-            **extra_kwargs
+            default_entrypoint=None, **extra_kwargs
     ):
         """Load a faceting object from an HTTP request.
 
@@ -146,6 +152,11 @@ class FacetsWithEntryPoint(FacetConstants):
         :param worklist: A WorkList associated with the current request,
            if any.
 
+        :param default_entrypoint: Select this EntryPoint if the
+           incoming request does not specify an enabled EntryPoint.
+           If this is None, the first enabled EntryPoint will be used
+           as the default.
+
         :param extra_kwargs: A dictionary of keyword arguments to pass
            into the constructor when a faceting object is instantiated.
 
@@ -153,13 +164,14 @@ class FacetsWithEntryPoint(FacetConstants):
             a problem with the input from the request.
         """
         return cls._from_request(
-            facet_config, get_argument, get_header, worklist, **extra_kwargs
+            facet_config, get_argument, get_header, worklist,
+            default_entrypoint, **extra_kwargs
         )
 
     @classmethod
     def _from_request(
             cls, facet_config, get_argument, get_header, worklist,
-            **extra_kwargs
+            default_entrypoint=None, **extra_kwargs
     ):
         """Load a faceting object from an HTTP request.
 
@@ -172,12 +184,13 @@ class FacetsWithEntryPoint(FacetConstants):
         )
         valid_entrypoints = list(cls.selectable_entrypoints(facet_config))
         entrypoint = cls.load_entrypoint(
-            entrypoint_name, valid_entrypoints
+            entrypoint_name, valid_entrypoints, default=default_entrypoint
         )
         if isinstance(entrypoint, ProblemDetail):
             return entrypoint
-
-        return cls(entrypoint=entrypoint, **extra_kwargs)
+        entrypoint, is_default = entrypoint
+        return cls(entrypoint=entrypoint, entrypoint_is_default=is_default,
+                   **extra_kwargs)
 
     @classmethod
     def selectable_entrypoints(cls, worklist):
@@ -195,7 +208,7 @@ class FacetsWithEntryPoint(FacetConstants):
         return worklist.entrypoints
 
     @classmethod
-    def load_entrypoint(cls, name, valid_entrypoints):
+    def load_entrypoint(cls, name, valid_entrypoints, default=None):
         """Look up an EntryPoint by name, assuming it's valid in the
         given WorkList.
 
@@ -205,19 +218,20 @@ class FacetsWithEntryPoint(FacetConstants):
         selected in a WorkList remains valid (but not selectable) for
         all of its children.
 
-        :return: An EntryPoint class. This will be the requested
-        EntryPoint if possible. If a nonexistent or unusable
-        EntryPoint is requested, the first valid EntryPoint will be
-        returned. If there are no valid EntryPoints, None will be
-        returned.
+        :param default: A class to use as the default EntryPoint if
+        none is specified. If no default is specified, the first
+        enabled EntryPoint will be used.
+
+        :return: A 2-tuple (EntryPoint class, is_default).
         """
         if not valid_entrypoints:
-            return None
-        default = valid_entrypoints[0]
+            return None, True
+        if default is None:
+            default = valid_entrypoints[0]
         ep = EntryPoint.BY_INTERNAL_NAME.get(name)
         if not ep or ep not in valid_entrypoints:
-            return default
-        return ep
+            return default, True
+        return ep, False
 
     def items(self):
         """Yields a 2-tuple for every active facet setting.
@@ -270,7 +284,7 @@ class Facets(FacetsWithEntryPoint):
 
     @classmethod
     def from_request(cls, library, config, get_argument, get_header, worklist,
-                     **extra):
+                     default_entrypoint=None, **extra):
         """Load a faceting object from an HTTP request."""
         g = Facets.ORDER_FACET_GROUP_NAME
         order = get_argument(g, config.default_facet(g))
@@ -314,10 +328,11 @@ class Facets(FacetsWithEntryPoint):
         extra['library'] = library
 
         return cls._from_request(config, get_argument, get_header, worklist,
-                                 **extra)
+                                 default_entrypoint, **extra)
 
     def __init__(self, library, collection, availability, order,
-                 order_ascending=None, enabled_facets=None, entrypoint=None):
+                 order_ascending=None, enabled_facets=None, entrypoint=None,
+                 entrypoint_is_default=False):
         """Constructor.
 
         :param collection: This is not a Collection object; it's a value for
@@ -327,7 +342,7 @@ class Facets(FacetsWithEntryPoint):
         facet group is configured on a per-WorkList basis rather than
         a per-library basis.
         """
-        super(Facets, self).__init__(entrypoint)
+        super(Facets, self).__init__(entrypoint, entrypoint_is_default)
         if order_ascending is None:
             if order == self.ORDER_ADDED_TO_COLLECTION:
                 order_ascending = self.ORDER_DESCENDING
@@ -368,7 +383,8 @@ class Facets(FacetsWithEntryPoint):
                               availability or self.availability,
                               order or self.order,
                               enabled_facets=self.facets_enabled_at_init,
-                              entrypoint=(entrypoint or self.entrypoint)
+                              entrypoint=(entrypoint or self.entrypoint),
+                              entrypoint_is_default=False,
         )
 
     def items(self):
@@ -570,7 +586,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
         :param kwargs: Other arguments may be supplied based on user
             input, but the default implementation is to ignore them.
         """
-        super(FeaturedFacets, self).__init__(entrypoint)
+        super(FeaturedFacets, self).__init__(entrypoint=entrypoint, **kwargs)
         self.minimum_featured_quality = minimum_featured_quality
         self.uses_customlists = uses_customlists
 
@@ -689,7 +705,7 @@ class SearchFacets(FacetsWithEntryPoint):
 
     @classmethod
     def from_request(cls, library, config, get_argument, get_header, worklist,
-                     **extra):
+                     default_entrypoint=None, **extra):
 
         # Searches against a WorkList that has no particular language
         # restrictions will use the languages defined in the
@@ -712,7 +728,8 @@ class SearchFacets(FacetsWithEntryPoint):
         extra['media'] = media
         extra['languages'] = languages
         return cls._from_request(
-            config, get_argument, get_header, worklist, **extra
+            config, get_argument, get_header, worklist, default_entrypoint,
+            **extra
         )
 
     @classmethod
@@ -1778,7 +1795,9 @@ class WorkList(object):
 
         # Make sure this query finds a number of works proportinal
         # to the expected size of the lane.
-        lane_query = self._restrict_query_to_window(lane_query, target_size)
+        lane_query = self._restrict_query_to_window(
+            lane_query, target_size, facets
+        )
 
         lane_query = lane_query.order_by(
             "quality_tier desc", work_model.random.desc()
@@ -1791,13 +1810,13 @@ class WorkList(object):
         lane_query = lane_query.limit(target_size*1.3)
         return lane_query
 
-    def _restrict_query_to_window(self, query, target_size):
+    def _restrict_query_to_window(self, query, target_size, facets):
         """Restrict the given SQLAlchemy query so that it matches
         approximately `target_size` items.
         """
         if query is None:
             return query
-        window_start, window_end = self.featured_window(target_size)
+        window_start, window_end = self.featured_window(target_size, facets)
         if window_start > 0 and window_start < 1:
             query = query.filter(
                 work_model.random <= window_end,
@@ -1912,6 +1931,10 @@ class Lane(Base, WorkList):
     # How many titles are in this lane? This is periodically
     # calculated and cached.
     size = Column(Integer, nullable=False, default=0)
+
+    # How many titles are in this lane when viewed through a specific
+    # entry point? This is periodically calculated and cached.
+    size_by_entrypoint = Column(JSON, nullable=True)
 
     # A lane may have one parent lane and many sublanes.
     sublanes = relationship(
@@ -2196,7 +2219,14 @@ class Lane(Base, WorkList):
         """Update the stored estimate of the number of Works in this Lane."""
         query = self.works(_db).limit(None)
         query = query.distinct(work_model.works_id)
-        self.size = fast_query_count(query)
+
+        # Do the estimate for every known entry point.
+        by_entrypoint = dict()
+        for entrypoint in EntryPoint.ENTRY_POINTS:
+            qu = entrypoint.apply(query)
+            by_entrypoint[entrypoint.URI] = fast_query_count(qu)
+        self.size_by_entrypoint = by_entrypoint
+        self.size = by_entrypoint[EverythingEntryPoint.URI]
 
     @property
     def genre_ids(self):
@@ -2358,18 +2388,23 @@ class Lane(Base, WorkList):
                       languages=languages, media=media, audiences=audiences)
         return wl
 
-    def featured_window(self, target_size):
+    def featured_window(self, target_size, facets):
         """Randomly select an interval over `Work.random` that ought to
         contain approximately `target_size` high-quality works from
         this lane.
 
-        :param: A 2-tuple (low value, high value), or None if the
+        :param target_size: Try to get this many works.
+        :param facets: A FeaturedFacets object that will be applied to the
+           query, and affects how many results are likely to be returned.
+
+        :return: A 2-tuple (low value, high value), or None if the
         entire span should be considered.
         """
-        if self.size < target_size:
+        size = self._size_for_facets(facets)
+        if size < target_size:
             # Don't bother -- we're returning the whole lane.
             return 0,1
-        width = target_size / (self.size * 0.2)
+        width = target_size / (size * 0.2)
         width = min(1, width)
 
         maximum_offset = 1-width
@@ -2385,6 +2420,24 @@ class Lane(Base, WorkList):
         if start == end:
             end = start + 0.001
         return start, end
+
+    def _size_for_facets(self, facets):
+        """How big is this lane under the given `Facets` object?
+
+        :param facets: A Facets object.
+        :return: An int.
+        """
+        # Default to the total size of the lane.
+        size = self.size
+
+        entrypoint_name = EverythingEntryPoint.URI
+        if facets and facets.entrypoint:
+            entrypoint_name = facets.entrypoint.URI
+
+        if (self.size_by_entrypoint 
+            and entrypoint_name in self.size_by_entrypoint):
+            size = self.size_by_entrypoint[entrypoint_name]
+        return size
 
     def groups(self, _db, include_sublanes=True, facets=None):
         """Return a list of (MaterializedWorkWithGenre, Lane) 2-tuples
