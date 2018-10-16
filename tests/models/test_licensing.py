@@ -585,7 +585,7 @@ class TestLicensePool(DatabaseTest):
         # Editions.
         pool.set_presentation_edition()
         presentation = pool.presentation_edition
-        eq_([license_pool], presentation.is_presentation_for)
+        eq_([pool], presentation.is_presentation_for)
 
         # The presentation edition is a completely new Edition.
         assert_not_equal(mw, od)
