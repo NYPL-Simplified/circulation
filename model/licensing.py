@@ -353,7 +353,7 @@ class LicensePool(Base):
         editions = equivalent_editions
         if not editions:
             editions = self.identifier.primarily_identifies
-        all_editions = list(Edition.sort_by_priority(editions))
+        all_editions = list(Edition.sort_by_priority(editions, self.data_source))
 
         # Note: We can do a cleaner solution, if we refactor to not use metadata's
         # methods to update editions.  For now, we're choosing to go with the below approach.

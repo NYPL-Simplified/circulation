@@ -347,13 +347,13 @@ class Resource(Base):
             quality = quality * 0.50
         elif source_name==DataSourceConstants.OPEN_LIBRARY:
             quality = quality * 0.25
-        elif source_name in DataSourceConstants.PRESENTATION_EDITION_PRIORITY:
+        elif source_name in DataSourceConstants.COVER_IMAGE_PRIORITY:
             # Covers from the data sources listed in
-            # PRESENTATION_EDITION_PRIORITY (e.g. the metadata wrangler
+            # COVER_IMAGE_PRIORITY (e.g. the metadata wrangler
             # and the administrative interface) are given priority
             # over all others, relative to their position in
-            # PRESENTATION_EDITION_PRIORITY.
-            i = DataSourceConstants.PRESENTATION_EDITION_PRIORITY.index(source_name)
+            # COVER_IMAGE_PRIORITY.
+            i = DataSourceConstants.COVER_IMAGE_PRIORITY.index(source_name)
             quality = quality * (i+2)
         self.set_estimated_quality(quality)
         return quality

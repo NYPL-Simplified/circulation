@@ -67,16 +67,27 @@ class DataSourceConstants(object):
     # LicensePool, editions are processed based on their data source,
     # in the following order:
     #
-    # [all other sources] < [source of the license pool] < [metadata
-    # wrangler] < [library staff] < [manual intervention]
+    # [all other sources] < [metadata wrangler] < [source of the license pool]
+    # < [library staff] < [manual intervention]
     #
-    # This list keeps track of the high-priority portion of that
-    # ordering.
+    # This list keeps track of the portion of that ordering that's
+    # higher priority than the source of the license pool.
     #
     # "LIBRARY_STAFF" comes from the Admin Interface.
     # "MANUAL" is not currently used, but will give the option of putting in
     # software engineer-created system overrides.
-    PRESENTATION_EDITION_PRIORITY = [METADATA_WRANGLER, LIBRARY_STAFF, MANUAL]
+    PRESENTATION_EDITION_PRIORITY = [LIBRARY_STAFF, MANUAL]
+
+    # When we're finding the cover image for a book, images from these
+    # sources are given priority, in the following order:
+    #
+    # [Open Library] < [Project Gutenberg] < [Gutenberg cover
+    # generator] < [all other data sources] < [metadata wrangler] <
+    # [the presentation edition priority sources]
+    #
+    # This list keeps track of the portion of that ordering that's
+    # higher priority than the source of the license pool.
+    COVER_IMAGE_PRIORITY = [METADATA_WRANGLER] + PRESENTATION_EDITION_PRIORITY
 
 class EditionConstants(object):
     ALL_MEDIUM = object()
