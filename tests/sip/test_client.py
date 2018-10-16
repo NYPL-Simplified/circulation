@@ -7,8 +7,6 @@ from nose.tools import (
 )
 import socket
 from api.sip.client import (
-    CannotReceiveMockSIPClient,
-    CannotSendMockSIPClient,
     MockSIPClient,
     SIPClient,
 )
@@ -43,8 +41,8 @@ class TestSIPClient(object):
 
         # Call connect() and make sure timeout is set properly.
         try:
-            connection = sip.connect()
-            eq_(12, connection.timeout)
+            sip.connect()
+            eq_(12, sip.connection.timeout)
         finally:
             # Un-mock the socket.socket function
             socket.socket = old_socket
@@ -68,13 +66,13 @@ class TestBasicProtocol(object):
         sip = MockSIPClient(login_user_id='user_id', login_password='password')
         sip.sequence_number=0
         sip.queue_response('941')
-        response = sip.login(None)
+        response = sip.login()
         eq_(1, sip.sequence_number)
 
         # Test wraparound from 9 to 0
         sip.sequence_number=9
         sip.queue_response('941')
-        response = sip.login(None)
+        response = sip.login()
         eq_(0, sip.sequence_number)
 
     def test_resend(self):
@@ -84,7 +82,7 @@ class TestBasicProtocol(object):
         # The second response will indicate a successful login.
         sip.queue_response('941')
 
-        response = sip.login(None)
+        response = sip.login()
 
         # We made two requests for a single login command.
         req1, req2 = sip.requests
@@ -105,15 +103,15 @@ class TestLogin(object):
     def test_login_success(self):
         sip = MockSIPClient('user_id', 'password')
         sip.queue_response('941')
-        response = sip.login(None)
+        response = sip.login()
         eq_({'login_ok': '1', '_status': '94'}, response)
 
     def test_login_failure(self):
         sip = MockSIPClient('user_id', 'password')
         sip.queue_response('940')
-        assert_raises(IOError, sip.login, None)
+        assert_raises(IOError, sip.login)
 
-    def test_login_happens_implicitly_when_user_id_and_password_specified(self):
+    def test_login_happens_when_user_id_and_password_specified(self):
         sip = MockSIPClient('user_id', 'password')
         # We're not logged in, and we must log in before sending a real
         # message.
@@ -121,11 +119,32 @@ class TestLogin(object):
 
         sip.queue_response('941')
         sip.queue_response('64Y                201610050000114734                        AOnypl |AA12345|AENo Name|BLN|AFYour library card number cannot be located.  Please see a staff member for assistance.|AY1AZC9DE')
+        sip.login()
         response = sip.patron_information('patron_identifier')
 
         # Two requests were made.
         eq_(2, len(sip.requests))
         eq_(2, sip.sequence_number)
+
+        # We ended up with the right data.
+        eq_('12345', response['patron_identifier'])
+
+    def test_no_login_when_user_id_and_password_not_specified(self):
+        sip = MockSIPClient()
+        eq_(False, sip.must_log_in)
+
+        sip.queue_response('64Y                201610050000114734                        AOnypl |AA12345|AENo Name|BLN|AFYour library card number cannot be located.  Please see a staff member for assistance.|AY1AZC9DE')
+        sip.login()
+
+        # Zero requests made
+        eq_(0, len(sip.requests))
+        eq_(0, sip.sequence_number)
+
+        response = sip.patron_information('patron_identifier')
+
+        # One request made.
+        eq_(1, len(sip.requests))
+        eq_(1, sip.sequence_number)
 
         # We ended up with the right data.
         eq_('12345', response['patron_identifier'])

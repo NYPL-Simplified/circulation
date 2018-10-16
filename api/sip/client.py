@@ -249,7 +249,7 @@ class SIPClient(Constants):
         self.separator_re = re.compile(escaped + "([A-Z][A-Z])")
 
         self.sequence_number = 0
-
+        self.connection = None
         self.login_user_id = login_user_id
         self.login_password = login_password
         if login_user_id and login_password:
@@ -259,11 +259,11 @@ class SIPClient(Constants):
             # We're implicitly logged in.
             self.must_log_in = False
 
-    def login(self, connection):
+    def login(self):
         """Log in to the SIP server if required."""
         if self.must_log_in:
             response = self.make_request(
-                connection, self.login_message, self.login_response_parser,
+                self.login_message, self.login_response_parser,
                 self.login_user_id, self.login_password, self.location_code
             )
             if response['login_ok'] != '1':
@@ -271,47 +271,34 @@ class SIPClient(Constants):
             return response
 
     def patron_information(self, *args, **kwargs):
-        """Get information about a patron, possibly also verifying their
-        password.
-        """
-        connection = self.connect()
-        self.login(connection)
-        information = self._patron_information(connection, *args, **kwargs)
-        self.end_session(connection, *args, **kwargs)
-        self.disconnect(connection)
-        return information
-
-    def _patron_information(self, connection, *args, **kwargs):
         """Get information about a patron.
         """
         return self.make_request(
-            connection, self.patron_information_request, self.patron_information_parser,
+            self.patron_information_request, self.patron_information_parser,
             *args, **kwargs
         )
 
-    def end_session(self, connection, *args, **kwargs):
+    def end_session(self, *args, **kwargs):
         """Send end session message."""
         return self.make_request(
-            connection, self.end_session_message, self.end_session_response_parser,
+            self.end_session_message, self.end_session_response_parser,
             *args, **kwargs
         )
 
     def connect(self):
         """Create a socket connection to a SIP server."""
-        connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            connection.connect((self.target_server, self.target_port))
+            self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.connection.connect((self.target_server, self.target_port))
         except TypeError:
             raise IOError(
                 "Could not connect to %s:%s" % (
                     self.target_server, self.target_port
                 )
             )
-        connection.settimeout(12)
-
+        self.connection.settimeout(12)
         # Since this is a new socket connection, reset the message count
         self.reset_connection_state()
-        return connection
 
     def reset_connection_state(self):
         """Reset connection-specific state.
@@ -319,11 +306,12 @@ class SIPClient(Constants):
         """
         self.sequence_number = 0
 
-    def disconnect(self, connection):
+    def disconnect(self):
         """Close the connection to the SIP server."""
-        connection.close()
+        self.connection.close()
+        self.connection = None
 
-    def make_request(self, connection, message_creator, parser, *args, **kwargs):
+    def make_request(self, message_creator, parser, *args, **kwargs):
         """Send a request to a SIP server and parse the response.
 
         :param connection: Socket to send data over.
@@ -334,8 +322,8 @@ class SIPClient(Constants):
         message_with_checksum = self.append_checksum(original_message)
         parsed = None
         while not parsed:
-            self.send(connection, message_with_checksum)
-            response = self.read_message(connection)
+            self.send(message_with_checksum)
+            response = self.read_message()
             try:
                 parsed = parser(response)
             except RequestResend, e:
@@ -690,19 +678,19 @@ class SIPClient(Constants):
             )
         return summary
 
-    def send(self, connection, data):
+    def send(self, data):
         """Send a message over the socket and update the sequence index."""
         data = data + '\r'
-        return self.do_send(connection, data)
+        return self.do_send(data)
 
-    def do_send(self, connection, data):
+    def do_send(self, data):
         """Actually send data over the socket.
 
         This method exists only to be subclassed by MockSIPClient.
         """
-        connection.send(data)
+        self.connection.send(data)
 
-    def read_message(self, connection, max_size=1024*1024):
+    def read_message(self, max_size=1024*1024):
         """Read a SIP2 message from the socket connection.
 
         A SIP2 message ends with a \r character.
@@ -710,7 +698,7 @@ class SIPClient(Constants):
         done = False
         data = ""
         while not done:
-            tmp = connection.recv(4096)
+            tmp = self.connection.recv(4096)
             data = data + tmp
             if not tmp:
                 raise IOError("No data read from socket.")
@@ -767,14 +755,16 @@ class MockSIPClient(SIPClient):
     connection.
     """
 
-    def __init__(self, login_user_id=None, login_password=None, separator="|"):
-        self.status = []
+    def __init__(self, login_user_id=None, login_password=None, separator="|",
+                 target_server=None, target_port=None, location_code=None):
         super(MockSIPClient, self).__init__(
             None, None, login_user_id=login_user_id,
             login_password=login_password, separator=separator
         )
+
         self.requests = []
         self.responses = []
+        self.status = []
 
     def queue_response(self, response):
         self.responses.append(response)
@@ -786,33 +776,17 @@ class MockSIPClient(SIPClient):
         self.reset_connection_state()
         return None
 
-    def do_send(self, connection, data):
+    def do_send(self, data):
         self.requests.append(data)
 
-    def read_message(self, connection, max_size=1024*1024):
+    def read_message(self, max_size=1024*1024):
         """Read a response message off the queue."""
         response = self.responses[0]
         self.responses = self.responses[1:]
         return response
 
-    def end_session(self, connection, *args, **kwargs):
+    def end_session(self, *args, **kwargs):
         pass
 
-    def disconnect(self, connection):
+    def disconnect(self):
         pass
-
-
-class CannotSendMockSIPClient(MockSIPClient):
-    """A MockSIPClient that can never send data."""
-
-    def do_send(self, connection, data):
-        self.status.append("I was unable to send data.")
-        raise IOError("I'm doomed.")
-
-
-class CannotReceiveMockSIPClient(MockSIPClient):
-    """A MockSIPClient that can send data but never receives any."""
-
-    def read_message(self, connection, max_size=1024*1024):
-        self.status.append("I was unable to read data.")
-        raise socket.timeout()
