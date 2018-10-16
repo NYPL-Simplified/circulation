@@ -1,4 +1,5 @@
 import base64
+from collections import defaultdict
 import contextlib
 import datetime
 import os
@@ -14,6 +15,7 @@ from . import DatabaseTest
 
 from core.analytics import Analytics
 from core.lane import (
+    FacetsWithEntryPoint,
     Lane,
 )
 from core.model import (
@@ -40,6 +42,10 @@ from core.classifier import (
     Urban_Fantasy
 )
 
+from core.entrypoint import (
+    AudiobooksEntryPoint,
+    EverythingEntryPoint,
+)
 from core.external_search import MockExternalSearchIndex
 
 from core.util.opds_writer import (
@@ -1170,46 +1176,56 @@ class TestLibraryAnnotator(VendorIDTest):
         assert link != None
 
     def test_feed_includes_lane_links(self):
-        lane = self._lane()
-        annotator = LibraryAnnotator(None, lane, self._default_library, test_mode=True)
-        feed = AcquisitionFeed(
-            self._db, "test", "url", [], annotator
-        )
-        annotator.annotate_feed(feed, lane)
-        raw = unicode(feed)
-        parsed = feedparser.parse(raw)['feed']
-        links = parsed['links']
+        def annotated_links(lane, annotator):
+            # Create an AcquisitionFeed is using the given Annotator.
+            # extract its links and return a dictionary that maps link
+            # relations to URLs.
+            feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
+            annotator.annotate_feed(feed, lane)
+            raw = unicode(feed)
+            parsed = feedparser.parse(raw)['feed']
+            links = parsed['links']
 
-        [search_link] = [x for x in links if x['rel'].lower() == "search".lower()]
-        assert '/lane_search' in search_link['href']
-        assert str(lane.id) in search_link['href']
+            d = defaultdict(list)
+            for link in links:
+                d[link['rel'].lower()].append(link['href'])
+            return d
+
+        # When an EntryPoint is explicitly selected, it shows up in the
+        # link to the search controller.
+        facets = FacetsWithEntryPoint(entrypoint=AudiobooksEntryPoint)
+        lane = self._lane()
+        annotator = LibraryAnnotator(
+            None, lane, self._default_library, test_mode=True, facets=facets
+        )
+        [url] = annotated_links(lane, annotator)['search']
+        assert '/lane_search' in url
+        assert 'entrypoint=%s' % AudiobooksEntryPoint.INTERNAL_NAME in url
+        assert str(lane.id) in url
+
+        # When the selected EntryPoint is a default, it's not used --
+        # instead, we search everything.
+        annotator.facets.entrypoint_is_default = True
+        links = annotated_links(lane, annotator)
+        [url] = links['search']
+        assert 'entrypoint=%s' % EverythingEntryPoint.INTERNAL_NAME in url
 
         # This lane isn't based on a custom list, so there's no crawlable link.
-        crawlable_links = [x for x in links if x['rel'].lower() == "http://opds-spec.org/crawlable".lower()]
-        eq_(0, len(crawlable_links))
+        eq_([], links["http://opds-spec.org/crawlable"])
 
         # It's also not crawlable if it's based on multiple lists.
         list1, ignore = self._customlist()
         list2, ignore = self._customlist()
         lane.customlists = [list1, list2]
-        annotator.annotate_feed(feed, lane)
-        raw = unicode(feed)
-        parsed = feedparser.parse(raw)['feed']
-        links = parsed['links']
-        # This lane isn't based on a custom list, so there's no crawlable link.
-        crawlable_links = [x for x in links if x['rel'].lower() == "http://opds-spec.org/crawlable".lower()]
-        eq_(0, len(crawlable_links))
+        links = annotated_links(lane, annotator)
+        eq_([], links["http://opds-spec.org/crawlable"])
 
-        # But if it's based on one list, it gets a crawlable link.
+        # A lane based on a single list gets a crawlable link.
         lane.customlists = [list1]
-        annotator.annotate_feed(feed, lane)
-        raw = unicode(feed)
-        parsed = feedparser.parse(raw)['feed']
-        links = parsed['links']
-
-        [crawlable_link] = [x for x in links if x['rel'].lower() == "http://opds-spec.org/crawlable".lower()]
-        assert '/crawlable_list_feed' in crawlable_link['href']
-        assert str(list1.name) in crawlable_link['href']
+        links = annotated_links(lane, annotator)
+        [crawlable] = links['http://opds-spec.org/crawlable']
+        assert '/crawlable_list_feed' in crawlable
+        assert str(list1.name) in crawlable
 
     def test_acquisition_links(self):
         annotator = LibraryLoanAndHoldAnnotator(None, None, self._default_library, test_mode=True)

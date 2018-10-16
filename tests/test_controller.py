@@ -53,6 +53,7 @@ from core import model
 from core.entrypoint import (
     EbooksEntryPoint,
     EntryPoint,
+    EverythingEntryPoint,
     AudiobooksEntryPoint,
 )
 from core.model import (
@@ -2531,11 +2532,10 @@ class TestFeedController(CirculationControllerTest):
                            ]:
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
-        with self.request_context_with_library("/"):
+        with self.request_context_with_library("/?entrypoint=Book"):
             response = self.manager.opds_feeds.feed(
                 self.english_adult_fiction.id
             )
-
             assert self.english_1.title in response.data
             assert self.english_2.title not in response.data
             assert self.french_1.title not in response.data
@@ -2550,6 +2550,9 @@ class TestFeedController(CirculationControllerTest):
             eq_("b", by_rel[LibraryAnnotator.PRIVACY_POLICY])
             eq_("c", by_rel[LibraryAnnotator.COPYRIGHT])
             eq_("d", by_rel[LibraryAnnotator.ABOUT])
+
+            search_link = by_rel['search']
+            assert 'entrypoint=Book' in search_link
 
     def test_multipage_feed(self):
         self._work("fiction work", language="eng", fiction=True, with_open_access_download=True)
@@ -2573,7 +2576,7 @@ class TestFeedController(CirculationControllerTest):
             assert any('order=author' in x['href'] for x in facet_links)
 
             search_link = [x for x in links if x['rel'] == 'search'][0]['href']
-            assert search_link.endswith('/search/%s' % lane_id)
+            assert '/search/%s' % lane_id in search_link
 
             shelf_link = [x for x in links if x['rel'] == 'http://opds-spec.org/shelf'][0]['href']
             assert shelf_link.endswith('/loans/')
@@ -2855,9 +2858,7 @@ class TestFeedController(CirculationControllerTest):
                 # Assert that the given `link` propagates
                 # the query string arguments found in the facets
                 # associated with this request.
-                facets = load_facets_from_request(
-                    self._default_library, lane, base_class=SearchFacets
-                )
+                facets = self.manager.opds_feeds._load_search_facets(lane)
                 for k, v in facets.items():
                     check = '%s=%s' % tuple(map(urllib.quote, (k,v)))
                     assert check in link['href']
@@ -2892,23 +2893,40 @@ class TestFeedController(CirculationControllerTest):
         old_search = AcquisitionFeed.search
         AcquisitionFeed.search = self.mock_search
 
-        # Verify that AcquisitionFeed.search() is passed the
-        # appropriate faceting object when we try to search a
-        # different EntryPoint.
+        # Verify that AcquisitionFeed.search() is passed a faceting
+        # object with the appropriately selected EntryPoint.
 
-        # By default, the library only has one entry point enabled.
-        # We need to enable more than one so it's a real choice.
-        library = self._default_library
-        library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
-            [AudiobooksEntryPoint.INTERNAL_NAME, EbooksEntryPoint.INTERNAL_NAME]
-        )
-        with self.request_context_with_library("/?q=t&entrypoint=Audio"):
+        # By default, the library only has one entry point enabled --
+        # EbooksEntryPoint. In that case, the enabled entry point is
+        # always used.
+        with self.request_context_with_library("/?q=t"):
             self.manager.opds_feeds.search(None)
             (s, args) = self.called_with
             facets = args['facets']
             assert isinstance(facets, SearchFacets)
-            eq_(AudiobooksEntryPoint, facets.entrypoint)
-            pass
+            eq_(EbooksEntryPoint, facets.entrypoint)
+
+        # Enable another entry point so there's a real choice.
+        library = self._default_library
+        library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
+            [AudiobooksEntryPoint.INTERNAL_NAME, EbooksEntryPoint.INTERNAL_NAME]
+        )
+
+        # When a specific entry point is selected, that entry point is
+        # used.
+        #
+        # When no entry point is selected, and there are multiple
+        # possible entry points, the default behavior is to search everything.
+        for q, expect_entrypoint in (
+                ('&entrypoint=Audio', AudiobooksEntryPoint),
+                ('', EverythingEntryPoint)
+        ):
+            with self.request_context_with_library("/?q=t%s" % q):
+                self.manager.opds_feeds.search(None)
+                (s, args) = self.called_with
+                facets = args['facets']
+                assert isinstance(facets, SearchFacets)
+                eq_(expect_entrypoint, facets.entrypoint)
 
         AcquisitionFeed.search = old_search
 
