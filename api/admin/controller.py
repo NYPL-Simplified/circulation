@@ -1534,7 +1534,7 @@ class CustomListsController(AdminCirculationManagerController):
         work = query.one()
         return work
 
-    def _create_or_update_list(self, library, name, entries, collections, deletedEntries=None, id=None, deleteAll=False):
+    def _create_or_update_list(self, library, name, entries, collections, deletedEntries=None, id=None):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
 
         old_list_with_name = CustomList.find(self._db, name, library=library)
@@ -1558,16 +1558,6 @@ class CustomListsController(AdminCirculationManagerController):
         list.updated = datetime.now()
         list.name = name
         membership_change = False
-
-        if deleteAll:
-            membership_change = True
-            for entry in list.entries:
-                id = str(entry.work_id)
-                work = get_one(self._db, Work, id=id)
-
-                if work:
-                    list.remove_entry(work)
-            list.entries = []
 
         for entry in entries:
             urn = entry.get("id")
@@ -1655,8 +1645,7 @@ class CustomListsController(AdminCirculationManagerController):
             entries = self._getJSONFromRequest(flask.request.form.get("entries"))
             collections = self._getJSONFromRequest(flask.request.form.get("collections"))
             deletedEntries = self._getJSONFromRequest(flask.request.form.get("deletedEntries"))
-            deleteAll = flask.request.form.get("deleteAll") == "true"
-            return self._create_or_update_list(library, name, entries, collections, deletedEntries=deletedEntries, id=list_id, deleteAll=deleteAll)
+            return self._create_or_update_list(library, name, entries, collections, deletedEntries=deletedEntries, id=list_id)
 
         elif flask.request.method == "DELETE":
             # Deleting requires a library manager.
