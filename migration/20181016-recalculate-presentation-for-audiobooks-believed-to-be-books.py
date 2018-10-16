@@ -42,7 +42,9 @@ for lp in qu:
     # Recalculate that LicensePool's presentation edition, and then its
     # work presentation.
     lp.set_presentation_edition()
-    policy = PresentationCalculationPolicy(regenerate_opds_entries=True)
+    policy = PresentationCalculationPolicy(
+        regenerate_opds_entries=True, update_search_index=True
+    )
     work, is_new = lp.calculate_work()
     work.calculate_presentation(policy)
     print "New medium: %s" % lp.presentation_edition.medium
