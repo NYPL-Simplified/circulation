@@ -2859,10 +2859,7 @@ class TestFeedController(CirculationControllerTest):
                 # Assert that the given `link` propagates
                 # the query string arguments found in the facets
                 # associated with this request.
-                facets = load_facets_from_request(
-                    self._default_library, lane, base_class=SearchFacets,
-                    default_entrypoint=EverythingEntryPoint,
-                )
+                facets = self.manager.opds_feeds._load_search_facets(lane)
                 for k, v in facets.items():
                     check = '%s=%s' % tuple(map(urllib.quote, (k,v)))
                     assert check in link['href']
@@ -2900,8 +2897,17 @@ class TestFeedController(CirculationControllerTest):
         # Verify that AcquisitionFeed.search() is passed a faceting
         # object with the appropriately selected EntryPoint.
 
-        # By default, the library only has one entry point enabled.
-        # We need to enable more than one so it's a real choice.
+        # By default, the library only has one entry point enabled --
+        # EbooksEntryPoint. In that case, the enabled entry point is
+        # always used.
+        with self.request_context_with_library("/?q=t"):
+            self.manager.opds_feeds.search(None)
+            (s, args) = self.called_with
+            facets = args['facets']
+            assert isinstance(facets, SearchFacets)
+            eq_(EbooksEntryPoint, facets.entrypoint)
+
+        # Enable another entry point so there's a real choice.
         library = self._default_library
         library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
             [AudiobooksEntryPoint.INTERNAL_NAME, EbooksEntryPoint.INTERNAL_NAME]
