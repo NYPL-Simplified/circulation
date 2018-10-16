@@ -116,9 +116,10 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             )
 
     def _remote_patron_lookup(self, patron_or_patrondata):
-        return self.patron_information(
+        info = self.patron_information(
             patron_or_patrondata.authorization_identifier, None
         )
+        return self.info_to_patrondata(info, False)
 
     def remote_authenticate(self, username, password):
         """Authenticate a patron with the SIP2 server.
@@ -135,7 +136,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         return self.info_to_patrondata(info)
 
     @classmethod
-    def info_to_patrondata(cls, info):
+    def info_to_patrondata(cls, info, validate_password=True):
 
         """Convert the SIP-specific dictionary obtained from
         SIPClient.patron_information() to an abstract,
@@ -146,7 +147,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             # library. Don't return any data.
             return None
 
-        if info.get('valid_patron_password') == 'N':
+        if info.get('valid_patron_password') == 'N' and validate_password:
             # The patron did not authenticate correctly. Don't
             # return any data.
             return None

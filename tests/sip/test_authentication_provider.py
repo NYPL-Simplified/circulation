@@ -255,12 +255,18 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
             def patron_information(self, identifier, password):
                 self.patron_information = identifier
                 self.password = password
-                return "Result"
+                return self.patron_information_parser(TestSIP2AuthenticationProvider.polaris_wrong_pin)
 
         client = Mock()
         auth = SIP2AuthenticationProvider(
             self._default_library, integration, client=client
         )
-        eq_(auth._remote_patron_lookup(patron), "Result")
-        eq_(client.patron_information, patron.authorization_identifier)
+        patron = auth._remote_patron_lookup(patron)
+        eq_(patron.__class__, PatronData)
+        eq_("25891000331441", patron.authorization_identifier)
+        eq_("foo@bar.com", patron.email_address)
+        eq_(9.25, patron.fines)
+        eq_("Falk, Jen", patron.personal_name)
+        eq_(datetime(2018, 6, 9, 23, 59, 59), patron.authorization_expires)
+        eq_(client.patron_information, "1234")
         eq_(client.password, None)
