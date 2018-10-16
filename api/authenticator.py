@@ -394,7 +394,7 @@ class PatronData(object):
 
         # A Money
         fines = scrub(self.fines)
-        if fines:
+        if fines is not None:
             fines = str(fines)
         data['fines'] = fines
 
@@ -581,6 +581,13 @@ class LibraryAuthenticator(object):
         self.oauth_providers_by_name = dict()
         self.bearer_token_signing_secret = bearer_token_signing_secret
         self.initialization_exceptions = dict()
+
+        # Make sure there's a public/private key pair for this
+        # library. This makes it possible to register the library with
+        # discovery services. Store the public key here for
+        # convenience; leave the private key in the database.
+        self.public_key, ignore = self.key_pair
+
         if oauth_providers:
             for provider in oauth_providers:
                 self.oauth_providers_by_name[provider.NAME] = provider
@@ -837,7 +844,7 @@ class LibraryAuthenticator(object):
         a request comes in with no authentication.
         """
         links = []
-        library = Library.by_id(self._db, self.library_id)
+        library = self.library
 
         # Add the same links that we would show in an OPDS feed, plus
         # some extra like 'registration' that are specific to Authentication
@@ -935,11 +942,8 @@ class LibraryAuthenticator(object):
         if service_area:
             doc['service_area'] = service_area
 
-        # Add the library's public key, if it has one.
-        public_key = ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, library).value
-        if public_key:
-            doc["public_key"] = dict(type="RSA", value=public_key)
+        # Add the library's public key.
+        doc["public_key"] = dict(type="RSA", value=self.public_key)
 
         # Add feature flags to signal to clients what features they should
         # offer.
@@ -958,6 +962,15 @@ class LibraryAuthenticator(object):
             )
 
         return json.dumps(doc)
+
+    @property
+    def key_pair(self):
+        """Look up or create a public/private key pair for use by this library.
+        """
+        setting = ConfigurationSetting.for_library(
+            Configuration.KEY_PAIR, self.library
+        )
+        return Configuration.key_pair(setting)
 
     @classmethod
     def _geographic_areas(cls, library):

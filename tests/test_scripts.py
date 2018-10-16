@@ -27,13 +27,15 @@ from api.novelist import (
 
 from core.entrypoint import (
     AudiobooksEntryPoint,
-    EbooksEntryPoint
+    EbooksEntryPoint,
+    EntryPoint,
 )
 
 from core.lane import (
     Lane,
     Facets,
     FeaturedFacets,
+    Pagination,
     WorkList,
 )
 
@@ -146,12 +148,15 @@ class TestLaneScript(DatabaseTest):
                 k, self._default_library).value = json.dumps(v)
 
 
-class TestRepresentationPerLane(TestLaneScript):
+class TestCacheRepresentationPerLane(TestLaneScript):
 
-    def test_language_filter(self):
+    def test_should_process_lane(self):
+
+        # Test that should_process_lane respects any specified
+        # language restrictions.
         script = CacheRepresentationPerLane(
             self._db, ["--language=fre", "--language=English", "--language=none", "--min-depth=0"],
-            testing=True
+            manager=object()
         )
         eq_(['fre', 'eng'], script.languages)
 
@@ -164,10 +169,11 @@ class TestRepresentationPerLane(TestLaneScript):
         no_english_or_french_lane = self._lane(languages=['spa'])
         eq_(False, script.should_process_lane(no_english_or_french_lane))
 
-    def test_max_and_min_depth(self):
+        # Test that should_process_lane respects maximum depth
+        # restrictions.
         script = CacheRepresentationPerLane(
             self._db, ["--max-depth=0", "--min-depth=0"],
-            testing=True
+            manager=object()
         )
         eq_(0, script.max_depth)
 
@@ -184,48 +190,322 @@ class TestRepresentationPerLane(TestLaneScript):
         eq_(False, script.should_process_lane(parent))
         eq_(True, script.should_process_lane(child))
 
+    def test_process_lane(self):
+        # process_lane() calls do_generate() once for every
+        # combination of items yielded by facets() and pagination().
+
+        class MockFacets(object):
+
+            def __init__(self, query):
+                self.query = query
+
+            @property
+            def query_string(self):
+                return self.query
+
+        facets1 = MockFacets("facets1")
+        facets2 = MockFacets("facets2")
+        page1 = Pagination.default()
+        page2 = page1.next_page
+
+        class Mock(CacheRepresentationPerLane):
+            generated = []
+            def do_generate(self, lane, facets, pagination):
+                value = (lane, facets, pagination)
+                self.generated.append(value)
+                return value
+
+            def facets(self, lane):
+                yield facets1
+                yield facets2
+
+            def pagination(self, lane):
+                yield page1
+                yield page2
+
+        lane = self._lane()
+        script = Mock(self._db, manager=object(), cmd_args=[])
+        generated = script.process_lane(lane)
+        eq_(generated, script.generated)
+
+        c1, c2, c3, c4 = script.generated
+        eq_((lane, facets1, page1), c1)
+        eq_((lane, facets1, page2), c2)
+        eq_((lane, facets2, page1), c3)
+        eq_((lane, facets2, page2), c4)
+
+    def test_default_facets(self):
+        # By default, do_generate will only be called once, with facets=None.
+        script = CacheRepresentationPerLane(
+            self._db, manager=object(), cmd_args=[]
+        )
+        eq_([None], list(script.facets(object())))
+
+    def test_default_pagination(self):
+        # By default, do_generate will only be called once, with pagination=None.
+        script = CacheRepresentationPerLane(
+            self._db, manager=object(), cmd_args=[]
+        )
+        eq_([None], list(script.pagination(object())))
+
 
 class TestCacheFacetListsPerLane(TestLaneScript):
 
     def test_arguments(self):
+        # Verify that command-line arguments become attributes of
+        # the CacheFacetListsPerLane object.
         script = CacheFacetListsPerLane(
             self._db, ["--order=title", "--order=added"],
-            testing=True
+            manager=object()
         )
         eq_(['title', 'added'], script.orders)
         script = CacheFacetListsPerLane(
             self._db, ["--availability=all", "--availability=always"],
-            testing=True
+            manager=object()
         )
         eq_(['all', 'always'], script.availabilities)
 
         script = CacheFacetListsPerLane(
             self._db, ["--collection=main", "--collection=full"],
-            testing=True
+            manager=object()
         )
         eq_(['main', 'full'], script.collections)
 
         script = CacheFacetListsPerLane(
-            self._db, ['--pages=1'], testing=True
+            self._db, ["--entrypoint=Audio", "--entrypoint=Book"],
+            manager=object()
+        )
+        eq_(['Audio', 'Book'], script.entrypoints)
+
+        script = CacheFacetListsPerLane(
+            self._db, ['--pages=1'], manager=object()
         )
         eq_(1, script.pages)
 
-    def test_process_lane(self):
-        script = CacheFacetListsPerLane(
-            self._db, ["--availability=all", "--availability=always",
-                       "--collection=main", "--collection=full",
-                       "--order=title", "--pages=1"],
-            testing=True
-        )
+    def test_facets(self):
+        # Verify that CacheFacetListsPerLane.facets combines the items
+        # found in the attributes created by command-line parsing.
+        script = CacheFacetListsPerLane(self._db, manager=object(), cmd_args=[])
+        script.orders = [Facets.ORDER_TITLE, Facets.ORDER_AUTHOR, "nonsense"]
+        script.entrypoints = [
+            AudiobooksEntryPoint.INTERNAL_NAME, "nonsense",
+            EbooksEntryPoint.INTERNAL_NAME
+        ]
+        script.availabilities = [Facets.AVAILABLE_NOW, "nonsense"]
+        script.collections = [Facets.COLLECTION_FULL, "nonsense"]
+
+        # EbooksEntryPoint is normally a valid entry point, but we're
+        # going to disable it for this library.
+        setting = self._default_library.setting(EntryPoint.ENABLED_SETTING)
+        setting.value = json.dumps([AudiobooksEntryPoint.INTERNAL_NAME])
+
+        lane = self._lane()
+
+        # We get one Facets object for every valid combination
+        # of parameters. Here there are 2*1*1*1 combinations.
+        f1, f2 = script.facets(lane)
+
+        # The facets differ only in their .order.
+        eq_(Facets.ORDER_TITLE, f1.order)
+        eq_(Facets.ORDER_AUTHOR, f2.order)
+
+        # All other fields are tied to the only acceptable values
+        # given in the script attributes. The first (and only)
+        # enabled entry point is treated as the default.
+        for f in f1, f2:
+            eq_(AudiobooksEntryPoint, f.entrypoint)
+            eq_(True, f.entrypoint_is_default)
+            eq_(Facets.AVAILABLE_NOW, f.availability)
+            eq_(Facets.COLLECTION_FULL, f.collection)
+
+        # The first entry point is treated as the default only for WorkLists
+        # that have no parent. When the WorkList has a parent, the selected
+        # entry point is treated as an explicit choice -- navigating downward
+        # in the lane hierarchy ratifies the default value.
+        sublane = self._lane(parent=lane)
+        f1, f2 = script.facets(sublane)
+        for f in f1, f2:
+            eq_(False, f.entrypoint_is_default)
+
+    def test_pagination(self):
+        script = CacheFacetListsPerLane(self._db, manager=object(), cmd_args=[])
+        script.pages = 3
+        lane = self._lane()
+        p1, p2, p3 = script.pagination(lane)
+        pagination = Pagination.default()
+        eq_(pagination.query_string, p1.query_string)
+        eq_(pagination.next_page.query_string, p2.query_string)
+        eq_(pagination.next_page.next_page.query_string, p3.query_string)
+
+    def test_do_generate(self):
+        # When it's time to generate a feed, AcquisitionFeed.page
+        # is called with the right arguments.
+        class MockAcquisitionFeed(object):
+            called_with = None
+            @classmethod
+            def page(cls, **kwargs):
+                cls.called_with = kwargs
+                return "here's your feed"
+
+        # Test our ability to generate a single feed.
+        script = CacheFacetListsPerLane(self._db, testing=True, cmd_args=[])
+        facets = Facets.default(self._default_library)
+        pagination = Pagination.default()
+
         with script.app.test_request_context("/"):
-            flask.request.library = self._default_library
             lane = self._lane()
-            cached_feeds = script.process_lane(lane)
-            # 2 availabilities * 2 collections * 1 order * 1 page = 4 feeds
-            eq_(4, len(cached_feeds))
+            result = script.do_generate(
+                lane, facets, pagination, feed_class=MockAcquisitionFeed
+            )
+            eq_("here's your feed", result)
+
+            args = MockAcquisitionFeed.called_with
+            eq_(self._db, args['_db'])
+            eq_(lane, args['lane'])
+            eq_(lane.display_name, args['title'])
+            eq_(True, args['force_refresh'])
+
+            # The Pagination object was passed into
+            # MockAcquisitionFeed.page, and it was also used to make the
+            # feed URL (see below).
+            eq_(pagination, args['pagination'])
+
+            # The Facets object was passed into
+            # MockAcquisitionFeed.page, and it was also used to make
+            # the feed URL and to create the feed annotator.
+            eq_(facets, args['facets'])
+            annotator = args['annotator']
+            eq_(facets, annotator.facets)
+            eq_(
+                args['url'],
+                annotator.feed_url(lane, facets=facets, pagination=pagination)
+            )
+
+            # Try again without mocking AcquisitionFeed to verify that
+            # we get something that looks like an OPDS feed.
+            result = script.do_generate(lane, facets, pagination)
+            assert result.startswith('<feed')
 
 
 class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
+
+    def test_should_process_lane(self):
+        parent = self._lane()
+        child = self._lane(parent=parent)
+        grandchild = self._lane(parent=child)
+
+        # Only WorkLists which have children are processed.
+        script = CacheOPDSGroupFeedPerLane(
+            self._db, manager=object(), cmd_args=[]
+        )
+        script.max_depth = 10
+        eq_(True, script.should_process_lane(parent))
+        eq_(True, script.should_process_lane(child))
+        eq_(False, script.should_process_lane(grandchild))
+
+        # If a WorkList is deeper in the hierarchy than max_depth,
+        # it's not processed, even if it has children.
+        script.max_depth = 0
+        eq_(True, script.should_process_lane(parent))
+        eq_(False, script.should_process_lane(child))
+
+    def test_do_generate(self):
+        # When it's time to generate a feed, AcquisitionFeed.groups
+        # is called with the right arguments.
+
+        class MockAcquisitionFeed(object):
+            called_with = None
+            @classmethod
+            def groups(cls, **kwargs):
+                cls.called_with = kwargs
+                return "here's your feed"
+
+        # Test our ability to generate a single feed.
+        script = CacheOPDSGroupFeedPerLane(self._db, testing=True, cmd_args=[])
+        facets = FeaturedFacets(0.1, entrypoint=AudiobooksEntryPoint)
+        pagination = None
+
+        with script.app.test_request_context("/"):
+            lane = self._lane()
+            result = script.do_generate(
+                lane, facets, pagination, feed_class=MockAcquisitionFeed
+            )
+            eq_("here's your feed", result)
+
+            args = MockAcquisitionFeed.called_with
+            eq_(self._db, args['_db'])
+            eq_(lane, args['lane'])
+            eq_(lane.display_name, args['title'])
+            eq_(True, args['force_refresh'])
+            eq_(pagination, None)
+
+            # The Facets object was passed into
+            # MockAcquisitionFeed.page, and it was also used to make
+            # the feed URL and to create the feed annotator.
+            eq_(facets, args['facets'])
+            annotator = args['annotator']
+            eq_(facets, annotator.facets)
+            eq_(args['url'], annotator.groups_url(lane, facets))
+
+            # Try again without mocking AcquisitionFeed to verify that
+            # we get something that looks like an OPDS feed.
+            result = script.do_generate(lane, facets, pagination)
+            assert result.startswith('<feed')
+
+    def test_facets(self):
+        # Normally we yield one FeaturedFacets object for each of the
+        # library's enabled entry points.
+        library = self._default_library
+        script = CacheOPDSGroupFeedPerLane(
+            self._db, manager=object(), cmd_args=[]
+        )
+        setting = library.setting(EntryPoint.ENABLED_SETTING)
+        setting.value = json.dumps(
+            [AudiobooksEntryPoint.INTERNAL_NAME,
+             EbooksEntryPoint.INTERNAL_NAME]
+        )
+
+        lane = self._lane()
+        audio_facets, ebook_facets = script.facets(lane)
+        eq_(AudiobooksEntryPoint, audio_facets.entrypoint)
+        eq_(EbooksEntryPoint, ebook_facets.entrypoint)
+
+        # The first entry point in the library's list of enabled entry
+        # points is treated as the default.
+        eq_(True, audio_facets.entrypoint_is_default)
+        eq_(audio_facets.entrypoint, list(library.entrypoints)[0])
+        eq_(False, ebook_facets.entrypoint_is_default)
+
+        for facets in (audio_facets, ebook_facets):
+            # The FeaturedFacets objects knows to feature works at the
+            # library's minimum quality level.
+            eq_(library.minimum_featured_quality,
+                facets.minimum_featured_quality)
+            # The FeaturedFacets object knows that custom lists are
+            # not in play.
+            eq_(False, facets.uses_customlists)
+
+        # The first entry point is treated as the default only for WorkLists
+        # that have no parent. When the WorkList has a parent, the selected
+        # entry point is treated as an explicit choice  -- navigating downward
+        # in the lane hierarchy ratifies the default value.
+        sublane = self._lane(parent=lane)
+        f1, f2 = script.facets(sublane)
+        for f in f1, f2:
+            eq_(False, f.entrypoint_is_default)
+
+        # Make it look like the lane uses custom lists.
+        lane.list_datasource = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+
+        # If the library has no enabled entry points, we yield one
+        # FeaturedFacets object with no particular entry point.
+        setting.value = json.dumps([])
+        no_entry_point, = script.facets(lane)
+        eq_(None, no_entry_point.entrypoint)
+
+        # The FeaturedFacets object knows that custom lists are in
+        # play.
+        eq_(True, no_entry_point.uses_customlists)
 
     def test_do_run(self):
 
@@ -250,45 +530,6 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
         assert "Science Fiction" in feed.content
         assert work.title in feed.content
 
-    def test_do_generate_handles_all_entrypoints(self):
-        self.called_with = []
-        @classmethod
-        def mock_groups(cls, *args, **kwargs):
-            self.called_with.append((args, kwargs))
-        old_groups = AcquisitionFeed.groups
-        AcquisitionFeed.groups = mock_groups
-
-        # Here's a normal WorkList with no EntryPoints.
-        worklist = WorkList()
-        library = self._default_library
-        worklist.initialize(library)
-        script = CacheOPDSGroupFeedPerLane(self._db, cmd_args=[])
-        with script.app.test_request_context("/"):
-            list(script.do_generate(worklist))
-
-        # AcquisitionFeed.groups was called once, with a FeaturedFacets
-        # object that did not include an EntryPoint.
-        args, kwargs = self.called_with.pop()
-        facets = kwargs['facets']
-        assert isinstance(facets, FeaturedFacets)
-        eq_(library.minimum_featured_quality, facets.minimum_featured_quality)
-        eq_(worklist.uses_customlists, facets.uses_customlists)
-        eq_(None, facets.entrypoint)
-
-        # Now give the WorkList some EntryPoints.
-        worklist.initialize(
-            library, entrypoints=[AudiobooksEntryPoint, EbooksEntryPoint]
-        )
-        with script.app.test_request_context("/"):
-            list(script.do_generate(worklist))
-
-        # AcquisitionFeed.groups was called once for each
-        # EntryPoint available to the WorkList.
-        eq_([AudiobooksEntryPoint, EbooksEntryPoint],
-            [kwargs['facets'].entrypoint
-             for (args, kwargs) in self.called_with])
-
-        AcquisitionFeed.groups = old_groups
 
 class TestInstanceInitializationScript(DatabaseTest):
 

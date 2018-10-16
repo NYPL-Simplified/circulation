@@ -234,6 +234,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             if error:
                 message += '/' + error
             diagnostic = None
+            debug = message
             if error == 'Requested record not found':
                 debug = "The patron failed Overdrive's cross-check against the library's ILS."
             raise PatronAuthorizationFailedException(message, debug)

@@ -274,13 +274,9 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         return response
 
     def checkout(self, patron, pin, licensepool, internal_format):
-
-        url = self.base_url + "checkout/v2"
         title_id = licensepool.identifier.identifier
         patron_id = patron.authorization_identifier
-        args = dict(titleId=title_id, patronId=patron_id,
-                    format=internal_format)
-        response = self.request(url, data=args, method="POST")
+        response = self._checkout(title_id, patron_id, internal_format)
         try:
             return CheckoutResponseParser(
                 licensepool.collection).process_all(response.content)
@@ -288,6 +284,13 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
             raise RemoteInitiatedServerError(
                 response.content, self.SERVICE_NAME
             )
+
+    def _checkout(self, title_id, patron_id, internal_format):
+        url = self.base_url + "checkout/v2"
+        args = dict(titleId=title_id, patronId=patron_id,
+                    format=internal_format)
+        response = self.request(url, data=args, method="POST")
+        return response
 
     def fulfill(self, patron, pin, licensepool, format_type):
         """Fulfill a patron's request for a specific book.

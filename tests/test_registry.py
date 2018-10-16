@@ -206,10 +206,6 @@ class TestRegistration(DatabaseTest):
                 self.initial_catalog_response = response
                 return "register_url", "vendor_id"
 
-            def _set_public_key(self, key):
-                self._set_public_key_called_with = key
-                return "an encryptor"
-
             def _create_registration_payload(self, url_for, stage):
                 self.payload_ingredients = (url_for, stage)
                 return dict(payload="this is it")
@@ -238,18 +234,34 @@ class TestRegistration(DatabaseTest):
                 self.do_get_called_with = url
                 return "A fake catalog"
 
-        # First of all, test success.
-        registration = Mock(self.registry, self._default_library)
+        # If there is no preexisting key pair set up for the library,
+        # registration fails. (This normally won't happen because the
+        # key pair is set up when the LibraryAuthenticator is
+        # initialized.
+        library = self._default_library
+        registration = Mock(self.registry, library)
         stage = Registration.TESTING_STAGE
         url_for = object()
         catalog_url = "http://catalog/"
         do_post = object()
-        key = object()
-        result = registration.push(
-            stage, url_for, catalog_url, registration.mock_do_get, do_post, key
-        )
+        def push():
+            return registration.push(
+                stage, url_for, catalog_url, registration.mock_do_get, do_post
+            )
 
-        # Ultimately the push succeeded.
+        result = push()
+        expect = "Library %s has no key pair set." % library.short_name
+        eq_(expect, result.detail)
+
+        # When a key pair is present, registration is kicked off, and
+        # in this case it succeeds.
+        key_pair_setting = ConfigurationSetting.for_library(
+            Configuration.KEY_PAIR, library
+        )
+        public_key, private_key = Configuration.key_pair(key_pair_setting)
+        result = registration.push(
+            stage, url_for, catalog_url, registration.mock_do_get, do_post
+        )
         eq_("all done!", result)
 
         # But there were many steps towards this result.
@@ -272,11 +284,6 @@ class TestRegistration(DatabaseTest):
             ).value
         )
 
-        # _set_public_key() was called to create an encryptor object.
-        # It returned an encryptor (here mocked as the string "an encryptor")
-        # to be used later.
-        eq_(key, registration._set_public_key_called_with)
-
         # _create_registration_payload was called to create the body
         # of the registration request.
         eq_((url_for, stage), registration.payload_ingredients)
@@ -296,14 +303,19 @@ class TestRegistration(DatabaseTest):
 
         # Finally, the return value of that method was loaded as JSON
         # and passed into _process_registration_result, along with
-        # the encryptor obtained from _set_public_key()
+        # a cipher created from the private key. (That cipher would be used
+        # to decrypt anything the foreign site signed using this site's
+        # public key.)
         results = registration._process_registration_result_called_with
-        eq_(("you did it!", "an encryptor", stage), results)
+        message, cipher, actual_stage = results
+        eq_("you did it!", message)
+        eq_(cipher._key.exportKey(), private_key)
+        eq_(actual_stage, stage)
 
         # If a nonexistent stage is provided a ProblemDetail is the result.
         result = registration.push(
             "no such stage", url_for, catalog_url, registration.mock_do_get,
-            do_post, key
+            do_post
         )
         eq_(INVALID_INPUT.uri, result.uri)
         eq_("'no such stage' is not a valid registration stage",
@@ -313,14 +325,9 @@ class TestRegistration(DatabaseTest):
         # that they return ProblemDetail documents. This tests that if
         # there is a failure at any stage, the ProblemDetail is
         # propagated.
-        def cause_problem():
-            """Try the same method call that worked before; it won't work
-            anymore.
-            """
-            return registration.push(
-                stage, url_for, catalog_url, registration.mock_do_get, do_post,
-                key
-            )
+
+        # The push() function will no longer push anything, so rename it.
+        cause_problem = push
 
         def fail(*args, **kwargs):
             return INVALID_REGISTRATION.detailed(
@@ -345,14 +352,6 @@ class TestRegistration(DatabaseTest):
         registration._create_registration_payload = fail
         problem = cause_problem()
         eq_("could not create registration payload", problem.detail)
-
-        def fail(*args, **kwargs):
-            return INVALID_REGISTRATION.detailed(
-                "could not set public key"
-            )
-        registration._set_public_key = fail
-        problem = cause_problem()
-        eq_("could not set public key", problem.detail)
 
         def fail(*args, **kwargs):
             return INVALID_REGISTRATION.detailed(
@@ -409,35 +408,6 @@ class TestRegistration(DatabaseTest):
         eq_(REMOTE_INTEGRATION_FAILED.uri, result.uri)
         eq_("The service at http://url/ did not return OPDS.",
             result.detail)
-
-    def test__set_public_key(self):
-        """Test that _set_public_key creates a public key for a library."""
-
-        # First try with a specific key.
-        key = RSA.generate(1024)
-        public_key = key.publickey().exportKey()
-
-        # The return value is a PKCS1_OAEP encryptor made from the keypair.
-        encryptor = self.registration._set_public_key(key)
-        assert isinstance(encryptor, type(PKCS1_OAEP.new(key)))
-        eq_(key, encryptor._key)
-
-        # The key is stored in a setting on the library.
-        setting = ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, self.registration.library
-        )
-        eq_(key.publickey().exportKey(), setting.value)
-
-        # Now try again without specifying a key - a new one will
-        # be generated. This is what will happen outside of tests.
-        encryptor = self.registration._set_public_key()
-        assert encryptor._key != key
-        setting = ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, self.registration.library
-        )
-
-        # The library setting has been changed.
-        eq_(encryptor._key.publickey().exportKey(), setting.value)
 
     def test__create_registration_payload(self):
         m = self.registration._create_registration_payload
@@ -562,21 +532,10 @@ class TestRegistration(DatabaseTest):
         reg = self.registration
         m = reg._process_registration_result
 
-        # Set up a public key just so it can be removed once
-        # registration is successful.
-        public_key = ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, reg.library
-        )
-        public_key.value = "a key"
-
         # Result must be a dictionary.
         result = m("not a dictionary", None, None)
         eq_(INTEGRATION_ERROR.uri, result.uri)
         eq_("Remote service served 'not a dictionary', which I can't make sense of as an OPDS document.", result.detail)
-
-        # Since there was an immediate failure, the public key has not been
-        # wiped.
-        eq_("a key", public_key.value)
 
         # When the result is empty, the registration is marked as successful.
         new_stage = "new stage"
@@ -584,9 +543,6 @@ class TestRegistration(DatabaseTest):
         result = m(dict(), encryptor, new_stage)
         eq_(True, result)
         eq_(reg.SUCCESS_STATUS, reg.status_field.value)
-
-        # The library's public key has been removed.
-        eq_(None, public_key.value)
 
         # The stage field has been set to the requested value.
         eq_(new_stage, reg.stage_field.value)

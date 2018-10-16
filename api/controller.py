@@ -32,9 +32,10 @@ from core.app_server import (
     HeartbeatController,
     URNLookupController,
 )
+from core.entrypoint import EverythingEntryPoint
 from core.external_search import (
     ExternalSearchIndex,
-    DummyExternalSearchIndex,
+    MockExternalSearchIndex,
 )
 from core.facets import FacetConfig
 from core.log import LogConfiguration
@@ -77,7 +78,6 @@ from core.model import (
 from core.opds import (
     AcquisitionFeed,
 )
-from core.util import LanguageCodes
 from core.util.opds_writer import (
      OPDSFeed,
 )
@@ -146,7 +146,6 @@ from novelist import (
 from base_controller import BaseCirculationManagerController
 from testing import MockCirculationAPI, MockSharedCollectionAPI
 from core.analytics import Analytics
-from accept_types import parse_header
 
 class CirculationManager(object):
 
@@ -202,6 +201,9 @@ class CirculationManager(object):
         # Potentially load a CustomIndexView for each library
         new_custom_index_views = {}
 
+        # Make sure there's a site-wide public/private key pair.
+        self.sitewide_key_pair
+
         new_adobe_device_management = None
         for library in self._db.query(Library):
             lanes = load_lanes(self._db, library)
@@ -215,6 +217,7 @@ class CirculationManager(object):
             new_circulation_apis[library.id] = self.setup_circulation(
                 library, self.analytics
             )
+
             authdata = self.setup_adobe_vendor_id(self._db, library)
             if authdata and not new_adobe_device_management:
                 # There's at least one library on this system that
@@ -277,7 +280,7 @@ class CirculationManager(object):
     def setup_search(self):
         """Set up a search client."""
         if self.testing:
-            return DummyExternalSearchIndex()
+            return MockExternalSearchIndex()
         else:
             search = ExternalSearchIndex(self._db)
             if not search:
@@ -418,17 +421,21 @@ class CirculationManager(object):
         return self.authentication_for_opds_documents[name]
 
     @property
+    def sitewide_key_pair(self):
+        """Look up or create the sitewide public/private key pair."""
+        setting = ConfigurationSetting.sitewide(
+            self._db, Configuration.KEY_PAIR
+        )
+        return Configuration.key_pair(setting)
+
+    @property
     def public_key_integration_document(self):
+        """Serve a document with the sitewide public key."""
         site_id = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
         document = dict(id=site_id)
 
-        public_key_dict = dict()
-        public_key = ConfigurationSetting.sitewide(self._db, Configuration.PUBLIC_KEY).value
-        if public_key:
-            public_key_dict['type'] = 'RSA'
-            public_key_dict['value'] = public_key
-
-        document['public_key'] = public_key_dict
+        public, private = self.sitewide_key_pair
+        document['public_key'] = dict(type='RSA', value=public)
         return json.dumps(document)
 
 
@@ -672,10 +679,10 @@ class OPDSFeedController(CirculationManagerController):
 
         title = lane.display_name
 
-        annotator = self.manager.annotator(lane)
         facets = load_facets_from_request(worklist=lane)
         if isinstance(facets, ProblemDetail):
             return facets
+        annotator = self.manager.annotator(lane, facets=facets)
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
@@ -750,6 +757,21 @@ class OPDSFeedController(CirculationManagerController):
         )
         return feed_response(feed)
 
+    def _load_search_facets(self, lane):
+        entrypoints = list(flask.request.library.entrypoints)
+        if len(entrypoints) > 1:
+            # There is more than one enabled EntryPoint.
+            # By default, search them all.
+            default_entrypoint = EverythingEntryPoint
+        else:
+            # There is only one enabled EntryPoint,
+            # and no need for a special default.
+            default_entrypoint = None
+        return load_facets_from_request(
+            worklist=lane, base_class=SearchFacets,
+            default_entrypoint=default_entrypoint,
+        )
+
     def search(self, lane_identifier):
 
         lane = self.load_lane(lane_identifier)
@@ -757,30 +779,19 @@ class OPDSFeedController(CirculationManagerController):
             return lane
         query = flask.request.args.get('q')
         library_short_name = flask.request.library.short_name
-
-        language_header = flask.request.headers.get("Accept-Language")
-        if language_header:
-            languages = parse_header(language_header)
-            languages = map(str, languages)
-            languages = map(LanguageCodes.iso_639_2_for_locale, languages)
-            languages = [l for l in languages if l]
-        else:
-            languages = None
-
-        facets = load_facets_from_request(
-            worklist=lane, base_class=SearchFacets
-        )
-        kwargs = dict()
-        if languages:
-            kwargs['language'] = languages
-        kwargs.update(dict(facets.items()))
+        facets = self._load_search_facets(lane)
 
         # Create a function that, when called, generates a URL to the
         # search controller.
+        #
+        # We'll call this one way if there is no query string in the
+        # request arguments, and another way if there is a query
+        # string.
+        make_url_kwargs = dict(facets.items())
         make_url = lambda: self.url_for(
             'lane_search', lane_identifier=lane_identifier,
             library_short_name=library_short_name,
-            **kwargs
+            **make_url_kwargs
         )
         if not query:
             # Send the search form
@@ -792,8 +803,11 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(pagination, ProblemDetail):
             return pagination
 
+        # We have a query -- add it to the keyword arguments used when
+        # generating a URL.
+        make_url_kwargs['q'] = query.encode("utf8")
+
         # Run a search.
-        kwargs['q'] = query.encode("utf8")
         this_url = make_url()
 
         annotator = self.manager.annotator(lane, facets)
@@ -802,7 +816,7 @@ class OPDSFeedController(CirculationManagerController):
             _db=self._db, title=info['name'],
             url=this_url, lane=lane, search_engine=self.manager.external_search,
             query=query, annotator=annotator, pagination=pagination,
-            languages=languages, facets=facets
+            facets=facets,
         )
 
         return feed_response(opds_feed)

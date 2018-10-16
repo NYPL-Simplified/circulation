@@ -42,16 +42,18 @@ from api.authenticator import (
     LibraryAuthenticator,
 )
 from core.app_server import (
-    load_lending_policy
+    load_lending_policy,
+    load_facets_from_request,
 )
 from core.classifier import Classifier
 from core.config import CannotLoadConfiguration
-from core.external_search import DummyExternalSearchIndex
+from core.external_search import MockExternalSearchIndex
 from core.metadata_layer import Metadata
 from core import model
 from core.entrypoint import (
     EbooksEntryPoint,
     EntryPoint,
+    EverythingEntryPoint,
     AudiobooksEntryPoint,
 )
 from core.model import (
@@ -317,6 +319,15 @@ class CirculationControllerTest(ControllerTest):
 class TestCirculationManager(CirculationControllerTest):
     """Test the CirculationManager object itself."""
 
+    def test_initialization(self):
+        # As soon as the CirculationManager object is created,
+        # it sets a public/private key pair for the site.
+        public, private = ConfigurationSetting.sitewide(
+            self._db, Configuration.KEY_PAIR
+        ).json_value
+        assert 'BEGIN PUBLIC KEY' in public
+        assert 'BEGIN RSA PRIVATE KEY' in private
+
     def test_load_settings(self):
         # Here's a CirculationManager which we've been using for a while.
         manager = self.manager
@@ -379,7 +390,7 @@ class TestCirculationManager(CirculationControllerTest):
         )
 
         # The ExternalSearch object has been reset.
-        assert isinstance(manager.external_search, DummyExternalSearchIndex)
+        assert isinstance(manager.external_search, MockExternalSearchIndex)
 
         # So has the lending policy.
         assert isinstance(manager.lending_policy, dict)
@@ -455,6 +466,24 @@ class TestCirculationManager(CirculationControllerTest):
         # the presence of another library that doesn't have a Vendor
         # ID configuration.
         eq_(obj, self.manager.adobe_vendor_id)
+
+    def test_sitewide_key_pair(self):
+        # A public/private key pair was created when the
+        # CirculationManager was initialized. Clear it out.
+        pair = ConfigurationSetting.sitewide(self._db, Configuration.KEY_PAIR)
+        pair.value = None
+
+        # Calling sitewide_key_pair will create a new pair of keys.
+        new_public, new_private = self.manager.sitewide_key_pair
+        assert 'BEGIN PUBLIC KEY' in new_public
+        assert 'BEGIN RSA PRIVATE KEY' in new_private
+
+        # The new values are stored in the appropriate
+        # ConfigurationSetting.
+        eq_([new_public, new_private], pair.json_value)
+
+        # Calling it again will do nothing.
+        eq_((new_public, new_private), self.manager.sitewide_key_pair)
 
 
 class TestBaseController(CirculationControllerTest):
@@ -916,21 +945,12 @@ class TestIndexController(CirculationControllerTest):
     def test_public_key_integration_document(self):
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
 
-        # Without a sitewide public key, only the id and an empty dictionary are
-        # returned. Library-specific public keys are ignored.
-        ConfigurationSetting.for_library(Configuration.PUBLIC_KEY, self.library).value = u'banana'
-        with self.app.test_request_context('/'):
-            response = self.manager.index_controller.public_key_document()
-
-        eq_(200, response.status_code)
-        eq_('application/opds+json', response.headers.get('Content-Type'))
-
-        data = json.loads(response.data)
-        eq_('http://test-circulation-manager/', data.get('id'))
-        eq_({}, data.get('public_key'))
-
-        # When a sitewide public key exists, all of its data is included.
-        ConfigurationSetting.sitewide(self._db, Configuration.PUBLIC_KEY).value = u'weird'
+        # When a sitewide key pair exists (which should be all the
+        # time), all of its data is included.
+        key_setting = ConfigurationSetting.sitewide(
+            self._db, Configuration.KEY_PAIR
+        )
+        key_setting.value = json.dumps(['public key', 'private key'])
         with self.app.test_request_context('/'):
             response = self.manager.index_controller.public_key_document()
 
@@ -939,7 +959,27 @@ class TestIndexController(CirculationControllerTest):
 
         data = json.loads(response.data)
         eq_('RSA', data.get('public_key', {}).get('type'))
-        eq_('weird', data.get('public_key', {}).get('value'))
+        eq_('public key', data.get('public_key', {}).get('value'))
+
+        # If there is no sitewide key pair (which should never
+        # happen), a new one is created. Library-specific public keys
+        # are ignored.
+        key_setting.value = None
+        ConfigurationSetting.for_library(
+            Configuration.KEY_PAIR, self.library
+        ).value = u'ignore me'
+            
+        with self.app.test_request_context('/'):
+            response = self.manager.index_controller.public_key_document()
+
+        eq_(200, response.status_code)
+        eq_('application/opds+json', response.headers.get('Content-Type'))
+
+        data = json.loads(response.data)
+        eq_('http://test-circulation-manager/', data.get('id'))
+        key = data.get('public_key')
+        eq_('RSA', key['type'])
+        assert 'BEGIN PUBLIC KEY' in key['value']
 
 
 class TestMultipleLibraries(CirculationControllerTest):
@@ -2259,7 +2299,7 @@ class TestWorkController(CirculationControllerTest):
         )
         self.work.calculate_presentation(
             PresentationCalculationPolicy(regenerate_opds_entries=True),
-            DummyExternalSearchIndex()
+            MockExternalSearchIndex()
         )
         SessionManager.refresh_materialized_views(self._db)
 
@@ -2492,11 +2532,10 @@ class TestFeedController(CirculationControllerTest):
                            ]:
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
-        with self.request_context_with_library("/"):
+        with self.request_context_with_library("/?entrypoint=Book"):
             response = self.manager.opds_feeds.feed(
                 self.english_adult_fiction.id
             )
-
             assert self.english_1.title in response.data
             assert self.english_2.title not in response.data
             assert self.french_1.title not in response.data
@@ -2511,6 +2550,9 @@ class TestFeedController(CirculationControllerTest):
             eq_("b", by_rel[LibraryAnnotator.PRIVACY_POLICY])
             eq_("c", by_rel[LibraryAnnotator.COPYRIGHT])
             eq_("d", by_rel[LibraryAnnotator.ABOUT])
+
+            search_link = by_rel['search']
+            assert 'entrypoint=Book' in search_link
 
     def test_multipage_feed(self):
         self._work("fiction work", language="eng", fiction=True, with_open_access_download=True)
@@ -2534,7 +2576,7 @@ class TestFeedController(CirculationControllerTest):
             assert any('order=author' in x['href'] for x in facet_links)
 
             search_link = [x for x in links if x['rel'] == 'search'][0]['href']
-            assert search_link.endswith('/search/%s' % lane_id)
+            assert '/search/%s' % lane_id in search_link
 
             shelf_link = [x for x in links if x['rel'] == 'http://opds-spec.org/shelf'][0]['href']
             assert shelf_link.endswith('/loans/')
@@ -2801,11 +2843,33 @@ class TestFeedController(CirculationControllerTest):
         # Update the materialized view to make sure the works show up.
         SessionManager.refresh_materialized_views(self._db)
 
-        # Execute a search query designed to find the second one.
+        # Execute a search query designed to find the second work.
         with self.request_context_with_library("/?q=t&size=1&after=1"):
             # First, try the top-level lane.
             response = self.manager.opds_feeds.search(None)
+
             feed = feedparser.parse(response.data)
+
+            # When the feed links to itself or to another page of
+            # results, the arguments necessary to propagate the query
+            # string and facet information are propagated through the
+            # link.
+            def assert_propagates_facets(lane, link):
+                # Assert that the given `link` propagates
+                # the query string arguments found in the facets
+                # associated with this request.
+                facets = self.manager.opds_feeds._load_search_facets(lane)
+                for k, v in facets.items():
+                    check = '%s=%s' % tuple(map(urllib.quote, (k,v)))
+                    assert check in link['href']
+
+            feed_links = feed['feed']['links']
+            for rel in ('next', 'previous', 'self'):
+                [link] = [link for link in feed_links if link.rel == rel]
+
+                assert_propagates_facets(None, link)
+                assert 'q=t' in link['href']
+
             entries = feed['entries']
             eq_(1, len(entries))
             entry = entries[0]
@@ -2819,12 +2883,6 @@ class TestFeedController(CirculationControllerTest):
             borrow_links = [link for link in entry.links if link.rel == 'http://opds-spec.org/acquisition/borrow']
             eq_(1, len(borrow_links))
 
-            next_links = [link for link in feed['feed']['links'] if link.rel == 'next']
-            eq_(1, len(next_links))
-
-            previous_links = [link for link in feed['feed']['links'] if link.rel == 'previous']
-            eq_(1, len(previous_links))
-
             # The query also works in a different searchable lane.
             english = self._lane("English", languages=["eng"])
             response = self.manager.opds_feeds.search(english.id)
@@ -2835,23 +2893,40 @@ class TestFeedController(CirculationControllerTest):
         old_search = AcquisitionFeed.search
         AcquisitionFeed.search = self.mock_search
 
-        # Verify that AcquisitionFeed.search() is passed the
-        # appropriate faceting object when we try to search a
-        # different EntryPoint.
+        # Verify that AcquisitionFeed.search() is passed a faceting
+        # object with the appropriately selected EntryPoint.
 
-        # By default, the library only has one entry point enabled.
-        # We need to enable more than one so it's a real choice.
-        library = self._default_library
-        library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
-            [AudiobooksEntryPoint.INTERNAL_NAME, EbooksEntryPoint.INTERNAL_NAME]
-        )
-        with self.request_context_with_library("/?q=t&entrypoint=Audio"):
+        # By default, the library only has one entry point enabled --
+        # EbooksEntryPoint. In that case, the enabled entry point is
+        # always used.
+        with self.request_context_with_library("/?q=t"):
             self.manager.opds_feeds.search(None)
             (s, args) = self.called_with
             facets = args['facets']
             assert isinstance(facets, SearchFacets)
-            eq_(AudiobooksEntryPoint, facets.entrypoint)
-            pass
+            eq_(EbooksEntryPoint, facets.entrypoint)
+
+        # Enable another entry point so there's a real choice.
+        library = self._default_library
+        library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
+            [AudiobooksEntryPoint.INTERNAL_NAME, EbooksEntryPoint.INTERNAL_NAME]
+        )
+
+        # When a specific entry point is selected, that entry point is
+        # used.
+        #
+        # When no entry point is selected, and there are multiple
+        # possible entry points, the default behavior is to search everything.
+        for q, expect_entrypoint in (
+                ('&entrypoint=Audio', AudiobooksEntryPoint),
+                ('', EverythingEntryPoint)
+        ):
+            with self.request_context_with_library("/?q=t%s" % q):
+                self.manager.opds_feeds.search(None)
+                (s, args) = self.called_with
+                facets = args['facets']
+                assert isinstance(facets, SearchFacets)
+                eq_(expect_entrypoint, facets.entrypoint)
 
         AcquisitionFeed.search = old_search
 

@@ -10,6 +10,7 @@ from nose.tools import (
 )
 
 import datetime
+from decimal import Decimal
 import json
 import os
 from money import Money
@@ -220,6 +221,12 @@ class TestPatronData(AuthenticatorTest):
         self.data.fines = PatronData.NO_VALUE
         data = self.data.to_dict
         expect['fines'] = None
+        eq_(data, expect)
+
+        # Test with a zeroed-out fines field
+        self.data.fines = Decimal(0.0)
+        data = self.data.to_dict
+        expect['fines'] = '0'
         eq_(data, expect)
 
         # Test with an empty expiration time
@@ -1168,10 +1175,6 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         ConfigurationSetting.for_library(
             Configuration.HELP_URI, library).value = "custom:uri"
 
-        # Set up a public key.
-        ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, library).value = "public key"
-
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
         base_url.value = u'http://circulation-manager/'
 
@@ -1263,7 +1266,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("mailto:help@library", copyright_agent['href'])
 
             # The public key is correct.
-            eq_("public key", doc['public_key']['value'])
+            eq_(authenticator.public_key, doc['public_key']['value'])
             eq_("RSA", doc['public_key']['type'])
 
 
@@ -1331,6 +1334,40 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             )
             headers = authenticator.create_authentication_headers()
             assert 'WWW-Authenticate' not in headers
+
+    def test_key_pair(self):
+        """Test the public/private key pair associated with a library."""
+
+        library = self._default_library
+
+        # Initially, the KEY_PAIR setting is not set.
+        def keys():
+            return ConfigurationSetting.for_library(
+                Configuration.KEY_PAIR, library
+            ).json_value
+        eq_(None, keys())
+
+        # Instantiating a LibraryAuthenticator for a library automatically
+        # generates a public/private key pair.
+        auth = LibraryAuthenticator.from_config(self._db, library)
+        public, private = keys()
+        assert 'BEGIN PUBLIC KEY' in public
+        assert 'BEGIN RSA PRIVATE KEY' in private
+
+        # The public key is stored in the
+        # LibraryAuthenticator.public_key property.
+        eq_(public, auth.public_key)
+
+        # The private key is not stored in the LibraryAuthenticator
+        # object, but it can be obtained from the database by
+        # using the key_pair property.
+        assert not hasattr(auth, 'private_key')
+        eq_((public, private), auth.key_pair)
+
+        # Each library has its own key pair.
+        library2 = self._library()
+        auth2 = LibraryAuthenticator.from_config(self._db, library2)
+        assert auth.public_key != auth2.public_key
 
     def test__geographic_areas(self):
         """Test the _geographic_areas helper method."""
