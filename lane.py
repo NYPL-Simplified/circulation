@@ -1035,6 +1035,12 @@ class WorkList(object):
         """Find the Library object associated with this WorkList."""
         return Library.by_id(_db, self.library_id)
 
+    def get_customlists(self, _db):
+        """Get customlists associated with the Worklist."""
+        if hasattr(self, "_customlist_ids"):
+            return _db.query(CustomList).filter(CustomList.id.in_(self._customlist_ids)).all()
+        return []
+
     @property
     def display_name_for_all(self):
         """The display name to use when referring to the set of all books in

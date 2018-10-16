@@ -29,6 +29,8 @@ from ..model import (
     CachedFeed,
     ConfigurationSetting,
     Contributor,
+    CustomList,
+    CustomListEntry,
     DataSource,
     DeliveryMechanism,
     ExternalIntegration,
@@ -40,6 +42,7 @@ from ..model import (
     Subject,
     Work,
     get_one,
+    create,
 )
 from ..facets import FacetConstants
 
@@ -1112,6 +1115,60 @@ class TestOPDS(DatabaseTest):
         # The entries in the feed are the same as they were when
         # they were cached before.
         eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_page).entries))
+
+    def test_from_query(self):
+        """Test creating a feed for a custom list from a query.
+        """
+
+        display_name = "custom_list"
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        list, ignore = create(self._db, CustomList, name=self._str, library=self._default_library, data_source=staff_data_source)
+        work = self._work(with_license_pool=True)
+        work2 = self._work(with_license_pool=True)
+        list.add_entry(work)
+        list.add_entry(work2)
+
+        # get all the entries from a custom list
+        query = self._db.query(Work).join(Work.custom_list_entries).filter(CustomListEntry.list_id==list.id)
+
+        pagination = Pagination(size=1)
+        worklist = WorkList()
+        worklist.initialize(self._default_library, customlists=[list], display_name=display_name)
+
+        def url_for_custom_list(library, list):
+            def url_fn(after):
+                base = "http://%s/" % display_name
+                if after:
+                    base += "?after=%s&size=1" % after
+                return base
+            return url_fn
+
+        url_fn = url_for_custom_list(self._default_library, list)
+        def from_query(pagination):
+            return AcquisitionFeed.from_query(
+                query, self._db, list.name, "url",
+                pagination, url_fn, TestAnnotator,
+            )
+
+        works = from_query(pagination)
+        parsed = feedparser.parse(unicode(works))
+        eq_(1, len(parsed['entries']))
+        eq_(list.name, parsed['feed'].title)
+
+        [next_link] = self.links(parsed, 'next')
+        eq_(TestAnnotator.feed_url(worklist, pagination=pagination.next_page), next_link['href'])
+
+        # This was the first page, so no previous link.
+        eq_([], self.links(parsed, 'previous'))
+
+        # Now get the second page and make sure it has a 'previous' link.
+        works = from_query(pagination.next_page)
+        parsed = feedparser.parse(unicode(works))
+        [previous_link] = self.links(parsed, 'previous')
+        eq_(TestAnnotator.feed_url(worklist, pagination=pagination.previous_page), previous_link['href'])
+        eq_(1, len(parsed['entries']))
+        eq_([], self.links(parsed, 'next'))
+
 
     def test_groups_feed(self):
         """Test the ability to create a grouped feed of recommended works for
