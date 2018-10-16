@@ -51,19 +51,18 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         provider = p(self._default_library, integration)
 
         # A SIPClient was initialized based on the integration values.
-        client = provider.client
-        eq_("user1", client.login_user_id)
-        eq_("pass1", client.login_password)
-        eq_("\t", client.separator)
-        eq_("server.com", client.target_server)
+        eq_("user1", provider.login_user_id)
+        eq_("pass1", provider.login_password)
+        eq_("\t", provider.field_separator)
+        eq_("server.com", provider.server)
 
         # Default port is 6001.
-        eq_(6001, client.target_port)
+        eq_(None, provider.port)
 
         # Try again, specifying a port.
         integration.setting(p.PORT).value = "1234"
         provider = p(self._default_library, integration)
-        eq_(1234, provider.client.target_port)
+        eq_(1234, provider.port)
 
     def test_remote_authenticate(self):
         integration = self._external_integration(self._str)
@@ -206,8 +205,10 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         class CannotConnect(MockSIPClient):
             def connect(self):
                 raise IOError("Doom!")
+
+        client = CannotConnect()
         integration = self._external_integration(self._str)
-        provider = SIP2AuthenticationProvider(self._default_library, integration, client=CannotConnect)
+        provider = SIP2AuthenticationProvider(self._default_library, integration, client=client)
 
         assert_raises_regexp(
             RemoteIntegrationException,
@@ -221,15 +222,15 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         it becomes a RemoteIntegrationException.
         """
         class CannotSend(MockSIPClient):
-            def do_send(self, connection, data):
+            def do_send(self, data):
                 raise IOError("Doom!")
-        client = CannotSend()
 
         integration = self._external_integration(self._str)
+        integration.url = 'server.local'
+        client = CannotSend()
         provider = SIP2AuthenticationProvider(
             self._default_library, integration, client=client
         )
-        provider.client.target_server = 'server.local'
         assert_raises_regexp(
             RemoteIntegrationException,
             "Error accessing server.local: Doom!",
@@ -243,7 +244,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_(datetime(2011, 1, 2, 10, 20, 30), parse("20110102    102030"))
         eq_(datetime(2011, 1, 2, 10, 20, 30), parse("20110102UTC102030"))
 
-    def test__remote_patron_lookup(self):
+    def test_remote_patron_lookup(self):
         #When the SIP authentication provider needs to look up a patron,
         #it calls patron_information on its SIP client and passes in None
         #for the password.
