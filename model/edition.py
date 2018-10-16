@@ -331,7 +331,7 @@ class Edition(Base, EditionConstants):
         return q2
 
     @classmethod
-    def sort_by_priority(self, editions):
+    def sort_by_priority(cls, editions, license_source=None):
         """Return all Editions that describe the Identifier associated with
         this LicensePool, in the order they should be used to create a
         presentation Edition for the LicensePool.
@@ -344,7 +344,7 @@ class Edition(Base, EditionConstants):
                 # lowest priority.
                 return -100
 
-            if source == self.data_source:
+            if source == license_source:
                 # This Edition contains information from the same data
                 # source as the LicensePool itself. Put it below any
                 # Edition from one of the data sources in
@@ -352,18 +352,17 @@ class Edition(Base, EditionConstants):
                 # Editions.
                 return -1
 
+            elif source.name == DataSourceConstants.METADATA_WRANGLER:
+                # The metadata wrangler is slightly less trustworthy
+                # than the license source, for everything except cover
+                # image (which is handled by
+                # Representation.quality_as_thumbnail_image)
+                return -1.5
+
             if source.name in DataSourceConstants.PRESENTATION_EDITION_PRIORITY:
-                id_type = edition.primary_identifier.type
-                if (id_type == Identifier.ISBN and
-                    source.name == DataSourceConstants.METADATA_WRANGLER):
-                    # This ISBN edition was pieced together from OCLC data.
-                    # To avoid overwriting better author and title data from
-                    # the license source, rank this edition lower.
-                    return -1.5
                 return DataSourceConstants.PRESENTATION_EDITION_PRIORITY.index(source.name)
             else:
                 return -2
-
         return sorted(editions, key=sort_key)
 
     @classmethod

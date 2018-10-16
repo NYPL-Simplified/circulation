@@ -554,53 +554,70 @@ class TestLicensePool(DatabaseTest):
         Make sure composite edition creation makes good choices when combining
         field data from provider, metadata wrangler, admin interface, etc. editions.
         """
-        # create different types of editions, all with the same identifier
-        edition_admin = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
-        edition_mw = self._edition(data_source_name=DataSource.METADATA_WRANGLER, with_license_pool=False)
-        edition_od, pool = self._edition(data_source_name=DataSource.OVERDRIVE, with_license_pool=True)
 
-        edition_mw.primary_identifier = pool.identifier
-        edition_admin.primary_identifier = pool.identifier
+        # Here's an Overdrive audiobook which also has data from the metadata
+        # wrangler and from library staff.
+        od, pool = self._edition(data_source_name=DataSource.OVERDRIVE, with_license_pool=True)
+        od.medium = Edition.AUDIO_MEDIUM
 
-        # set overlapping fields on editions
-        edition_od.title = u"OverdriveTitle1"
+        admin = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
+        admin.primary_identifier = pool.identifier
 
-        edition_mw.title = u"MetadataWranglerTitle1"
-        edition_mw.subtitle = u"MetadataWranglerSubTitle1"
+        mw = self._edition(data_source_name=DataSource.METADATA_WRANGLER, with_license_pool=False)
+        mw.primary_identifier = pool.identifier
 
-        edition_admin.title = u"AdminInterfaceTitle1"
+        # The library staff has no opinion on the book's medium,
+        # and the metadata wrangler has an incorrect opinion.
+        admin.medium = None
+        mw.medium = Edition.BOOK_MEDIUM
 
+        # Overdrive, the metadata wrangler, and the library staff all have
+        # opinions on the book's title. The metadata wrangler has also
+        # identified a subtitle.
+        od.title = u"OverdriveTitle1"
+
+        mw.title = u"MetadataWranglerTitle1"
+        mw.subtitle = u"MetadataWranglerSubTitle1"
+
+        admin.title = u"AdminInterfaceTitle1"
+
+        # Create a presentation edition, a composite of the available
+        # Editions.
         pool.set_presentation_edition()
+        presentation = pool.presentation_edition
+        eq_([pool], presentation.is_presentation_for)
 
-        edition_composite = pool.presentation_edition
+        # The presentation edition is a completely new Edition.
+        assert_not_equal(mw, od)
+        assert_not_equal(od, admin)
+        assert_not_equal(admin, presentation)
+        assert_not_equal(od, presentation)
 
-        assert_not_equal(edition_mw, edition_od)
-        assert_not_equal(edition_od, edition_admin)
-        assert_not_equal(edition_admin, edition_composite)
-        assert_not_equal(edition_od, edition_composite)
+        # Within the presentation edition, information from the
+        # library staff takes precedence over anything else.
+        eq_(presentation.title, u"AdminInterfaceTitle1")
+        eq_(admin.contributors, presentation.contributors)
 
-        # make sure admin pool data had precedence
-        eq_(edition_composite.title, u"AdminInterfaceTitle1")
-        eq_(edition_admin.contributors, edition_composite.contributors)
+        # Where the library staff has no opinion, the license source
+        # takes precedence over the metadata wrangler.
+        eq_(Edition.AUDIO_MEDIUM, presentation.medium)
 
-        # make sure data not present in the higher-precedence editions didn't overwrite the lower-precedented editions' fields
-        eq_(edition_composite.subtitle, u"MetadataWranglerSubTitle1")
-        [license_pool] = edition_composite.is_presentation_for
-        eq_(license_pool, pool)
+        # The metadata wrangler fills in any missing information.
+        eq_(presentation.subtitle, u"MetadataWranglerSubTitle1")
 
-        # Change the admin interface's opinion about who the author
-        # is.
-        for c in edition_admin.contributions:
+        # Now, change the admin interface's opinion about who the
+        # author is.
+        for c in admin.contributions:
             self._db.delete(c)
         self._db.commit()
         [jane], ignore = Contributor.lookup(self._db, u"Doe, Jane")
         jane.family_name, jane.display_name = jane.default_names()
-        edition_admin.add_contributor(jane, Contributor.AUTHOR_ROLE)
+        admin.add_contributor(jane, Contributor.AUTHOR_ROLE)
         pool.set_presentation_edition()
 
-        # The old contributor has been removed from the composite
+        # The old contributor has been removed from the presentation
         # edition, and the new contributor added.
-        eq_(set([jane]), edition_composite.contributors)
+        eq_(set([jane]), presentation.contributors)
 
     def test_circulation_changelog(self):
 
