@@ -2214,15 +2214,13 @@ class Lane(Base, WorkList):
         query = self.works(_db).limit(None)
         query = query.distinct(work_model.works_id)
 
-        # Do the estimate for the lane as a whole.
-        self.size = fast_query_count(query)
-
-        # Now do the estimate for each of the library's active entry points.
-        by_entrypoint = {EverythingEntryPoint.URI: self.size}
-        for entrypoint in self.library.entrypoints:
+        # Do the estimate for every known entry point.
+        by_entrypoint = dict()
+        for entrypoint in EntryPoint.ENTRY_POINTS:
             qu = entrypoint.apply(query)
             by_entrypoint[entrypoint.URI] = fast_query_count(qu)
         self.size_by_entrypoint = by_entrypoint
+        self.size = by_entrypoint[EverythingEntryPoint.URI]
 
     @property
     def genre_ids(self):

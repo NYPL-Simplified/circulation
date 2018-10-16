@@ -2315,7 +2315,7 @@ class TestLane(DatabaseTest):
         # update_size() sets the Lane's size and size_by_entrypoint to
         # the correct number.
         fiction.size = 100
-        fiction.size_by_entrypoint = {"Nonexistent entrypoint: 200"}
+        fiction.size_by_entrypoint = {"Nonexistent entrypoint": 200}
         fiction.update_size(self._db)
 
         # The total number of books in the lane, regardless of entrypoint,
