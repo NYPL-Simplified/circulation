@@ -892,6 +892,13 @@ class TestLinkData(DatabaseTest):
         eq_(None, description.guessed_media_type)
 
 class TestMetadata(DatabaseTest):
+
+    def test_defaults(self):
+        # Verify that a Metadata object doesn't make any assumptions
+        # about an item's medium.
+        m = Metadata(data_source=DataSource.OCLC)
+        eq_(None, m.medium)
+
     def test_from_edition(self):
         # Makes sure Metadata.from_edition copies all the fields over.
 
