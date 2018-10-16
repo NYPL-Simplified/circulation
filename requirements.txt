@@ -6,6 +6,7 @@ pillow
 psycopg2
 requests
 sqlalchemy==1.2.0
+urllib3==1.23
 flask-sqlalchemy-session
 lxml
 flask
