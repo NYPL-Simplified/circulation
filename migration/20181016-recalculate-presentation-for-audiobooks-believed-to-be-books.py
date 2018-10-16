@@ -1,15 +1,21 @@
+import os
+import sys
 from nose.tools import set_trace
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import (
     join,
     and_,
 )
+bin_dir = os.path.split(__file__)[0]
+package_dir = os.path.join(bin_dir, "..", "..")
+sys.path.append(os.path.abspath(package_dir))
 from core.model import (
     dump_query,
     production_session,
     LicensePool,
     DataSource,
     Edition,
+    PresentationCalculationPolicy,
 )
 
 # Find all books where the edition associated with the LicensePool has a
@@ -28,12 +34,16 @@ subq = select([LicensePool.id]).select_from(
 # edition says it _is_ a book.
 qu = _db.query(LicensePool).join(
     Edition, LicensePool.presentation_edition_id==Edition.id
-).filter(LicensePool.id.in_(subq)).filter(Edition.medium == Edition.BOOK_MEDIUM)
+).filter(LicensePool.id.in_(subq))#.filter(Edition.medium == Edition.BOOK_MEDIUM)
 
 print "Recalculating presentation edition for %d LicensePools." % qu.count()
 
 for lp in qu:
-    # Recalculate that LicensePool's presentation edition.
+    # Recalculate that LicensePool's presentation edition, and then its
+    # work presentation.
     lp.set_presentation_edition()
+    policy = PresentationCalculationPolicy(regenerate_opds_entries=True)
+    work, is_new = lp.calculate_work()
+    work.calculate_presentation(policy)
     print "New medium: %s" % lp.presentation_edition.medium
     _db.commit()
