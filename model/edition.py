@@ -541,27 +541,13 @@ class Edition(Base, EditionConstants):
 
     def calculate_permanent_work_id(self, debug=False):
         title = self.title_for_permanent_work_id
-        if not title:
-            # If a book has no title, it has no permanent work ID.
+        medium = self.medium_for_permanent_work_id.get(self.medium, None)
+        if not title or not medium:
+            # If a book has no title or medium, it has no permanent work ID.
             self.permanent_work_id = None
             return
 
         author = self.author_for_permanent_work_id
-
-        if self.medium == Edition.BOOK_MEDIUM:
-            medium = "book"
-        elif self.medium == Edition.AUDIO_MEDIUM:
-            medium = "book"
-        elif self.medium == Edition.MUSIC_MEDIUM:
-            medium = "music"
-        elif self.medium == Edition.PERIODICAL_MEDIUM:
-            medium = "book"
-        elif self.medium == Edition.VIDEO_MEDIUM:
-            medium = "movie"
-        elif self.medium == Edition.IMAGE_MEDIUM:
-            medium = "image"
-        elif self.medium == Edition.COURSEWARE_MEDIUM:
-            medium = "courseware"
 
         w = WorkIDCalculator
         norm_title = w.normalize_title(title)
