@@ -270,3 +270,60 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_(datetime(2018, 6, 9, 23, 59, 59), patron.authorization_expires)
         eq_(client.patron_information, "1234")
         eq_(client.password, None)
+
+    def test_info_to_patrondata_validate_password(self):
+        integration = self._external_integration(self._str)
+        integration.url = 'server.local'
+        client = MockSIPClient()
+        provider = SIP2AuthenticationProvider(
+            self._default_library, integration, client=client
+        )
+
+        # Test with valid login, should return PatronData
+        info = client.patron_information_parser(TestSIP2AuthenticationProvider.sierra_valid_login)
+        patron = provider.info_to_patrondata(info)
+        eq_(patron.__class__, PatronData)
+        eq_("12345", patron.authorization_identifier)
+        eq_("foo@example.com", patron.email_address)
+        eq_("SHELDON, ALICE", patron.personal_name)
+        eq_(0, patron.fines)
+        eq_(None, patron.authorization_expires)
+        eq_(None, patron.external_type)
+        eq_(PatronData.NO_VALUE, patron.block_reason)
+
+        # Test with invalid login, should return None
+        info = client.patron_information_parser(TestSIP2AuthenticationProvider.sierra_invalid_login)
+        patron = provider.info_to_patrondata(info)
+        eq_(None, patron)
+
+    def test_info_to_patrondata_no_validate_password(self):
+        integration = self._external_integration(self._str)
+        integration.url = 'server.local'
+        client = MockSIPClient()
+        provider = SIP2AuthenticationProvider(
+            self._default_library, integration, client=client
+        )
+
+        # Test with valid login, should return PatronData
+        info = client.patron_information_parser(TestSIP2AuthenticationProvider.sierra_valid_login)
+        patron = provider.info_to_patrondata(info, validate_password=False)
+        eq_(patron.__class__, PatronData)
+        eq_("12345", patron.authorization_identifier)
+        eq_("foo@example.com", patron.email_address)
+        eq_("SHELDON, ALICE", patron.personal_name)
+        eq_(0, patron.fines)
+        eq_(None, patron.authorization_expires)
+        eq_(None, patron.external_type)
+        eq_(PatronData.NO_VALUE, patron.block_reason)
+
+        # Test with invalid login, should return None
+        info = client.patron_information_parser(TestSIP2AuthenticationProvider.sierra_invalid_login)
+        patron = provider.info_to_patrondata(info, validate_password=False)
+        eq_(patron.__class__, PatronData)
+        eq_("12345", patron.authorization_identifier)
+        eq_("foo@example.com", patron.email_address)
+        eq_("SHELDON, ALICE", patron.personal_name)
+        eq_(0, patron.fines)
+        eq_(None, patron.authorization_expires)
+        eq_(None, patron.external_type)
+        eq_('no borrowing privileges', patron.block_reason)
