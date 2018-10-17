@@ -48,22 +48,21 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         integration.username = "user1"
         integration.password = "pass1"
         integration.setting(p.FIELD_SEPARATOR).value = "\t"
-        provider = p(self._default_library, integration, connect=False)
+        provider = p(self._default_library, integration)
 
         # A SIPClient was initialized based on the integration values.
-        client = provider.client
-        eq_("user1", client.login_user_id)
-        eq_("pass1", client.login_password)
-        eq_("\t", client.separator)
-        eq_("server.com", client.target_server)
+        eq_("user1", provider.login_user_id)
+        eq_("pass1", provider.login_password)
+        eq_("\t", provider.field_separator)
+        eq_("server.com", provider.server)
 
         # Default port is 6001.
-        eq_(6001, client.target_port)
+        eq_(None, provider.port)
 
         # Try again, specifying a port.
         integration.setting(p.PORT).value = "1234"
-        provider = p(self._default_library, integration, connect=False)
-        eq_(1234, provider.client.target_port)
+        provider = p(self._default_library, integration)
+        eq_(1234, provider.port)
 
     def test_remote_authenticate(self):
         integration = self._external_integration(self._str)
@@ -207,13 +206,15 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
             def connect(self):
                 raise IOError("Doom!")
 
-
+        client = CannotConnect()
         integration = self._external_integration(self._str)
+        provider = SIP2AuthenticationProvider(self._default_library, integration, client=client)
+
         assert_raises_regexp(
             RemoteIntegrationException,
             "Error accessing unknown server: Doom!",
-            SIP2AuthenticationProvider,
-            self._default_library, integration, client=CannotConnect
+            provider.remote_authenticate,
+            "username", "password",
         )
 
     def test_ioerror_during_send_becomes_remoteintegrationexception(self):
@@ -223,13 +224,13 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         class CannotSend(MockSIPClient):
             def do_send(self, data):
                 raise IOError("Doom!")
-        client = CannotSend()
 
         integration = self._external_integration(self._str)
+        integration.url = 'server.local'
+        client = CannotSend()
         provider = SIP2AuthenticationProvider(
             self._default_library, integration, client=client
         )
-        provider.client.target_server = 'server.local'
         assert_raises_regexp(
             RemoteIntegrationException,
             "Error accessing server.local: Doom!",
@@ -243,7 +244,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_(datetime(2011, 1, 2, 10, 20, 30), parse("20110102    102030"))
         eq_(datetime(2011, 1, 2, 10, 20, 30), parse("20110102UTC102030"))
 
-    def test__remote_patron_lookup(self):
+    def test_remote_patron_lookup(self):
         #When the SIP authentication provider needs to look up a patron,
         #it calls patron_information on its SIP client and passes in None
         #for the password.
@@ -254,12 +255,75 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
             def patron_information(self, identifier, password):
                 self.patron_information = identifier
                 self.password = password
-                return "Result"
+                return self.patron_information_parser(TestSIP2AuthenticationProvider.polaris_wrong_pin)
 
         client = Mock()
         auth = SIP2AuthenticationProvider(
             self._default_library, integration, client=client
         )
-        eq_(auth._remote_patron_lookup(patron), "Result")
-        eq_(client.patron_information, patron.authorization_identifier)
+        patron = auth._remote_patron_lookup(patron)
+        eq_(patron.__class__, PatronData)
+        eq_("25891000331441", patron.authorization_identifier)
+        eq_("foo@bar.com", patron.email_address)
+        eq_(9.25, patron.fines)
+        eq_("Falk, Jen", patron.personal_name)
+        eq_(datetime(2018, 6, 9, 23, 59, 59), patron.authorization_expires)
+        eq_(client.patron_information, "1234")
         eq_(client.password, None)
+
+    def test_info_to_patrondata_validate_password(self):
+        integration = self._external_integration(self._str)
+        integration.url = 'server.local'
+        client = MockSIPClient()
+        provider = SIP2AuthenticationProvider(
+            self._default_library, integration, client=client
+        )
+
+        # Test with valid login, should return PatronData
+        info = client.patron_information_parser(TestSIP2AuthenticationProvider.sierra_valid_login)
+        patron = provider.info_to_patrondata(info)
+        eq_(patron.__class__, PatronData)
+        eq_("12345", patron.authorization_identifier)
+        eq_("foo@example.com", patron.email_address)
+        eq_("SHELDON, ALICE", patron.personal_name)
+        eq_(0, patron.fines)
+        eq_(None, patron.authorization_expires)
+        eq_(None, patron.external_type)
+        eq_(PatronData.NO_VALUE, patron.block_reason)
+
+        # Test with invalid login, should return None
+        info = client.patron_information_parser(TestSIP2AuthenticationProvider.sierra_invalid_login)
+        patron = provider.info_to_patrondata(info)
+        eq_(None, patron)
+
+    def test_info_to_patrondata_no_validate_password(self):
+        integration = self._external_integration(self._str)
+        integration.url = 'server.local'
+        client = MockSIPClient()
+        provider = SIP2AuthenticationProvider(
+            self._default_library, integration, client=client
+        )
+
+        # Test with valid login, should return PatronData
+        info = client.patron_information_parser(TestSIP2AuthenticationProvider.sierra_valid_login)
+        patron = provider.info_to_patrondata(info, validate_password=False)
+        eq_(patron.__class__, PatronData)
+        eq_("12345", patron.authorization_identifier)
+        eq_("foo@example.com", patron.email_address)
+        eq_("SHELDON, ALICE", patron.personal_name)
+        eq_(0, patron.fines)
+        eq_(None, patron.authorization_expires)
+        eq_(None, patron.external_type)
+        eq_(PatronData.NO_VALUE, patron.block_reason)
+
+        # Test with invalid login, should return PatronData
+        info = client.patron_information_parser(TestSIP2AuthenticationProvider.sierra_invalid_login)
+        patron = provider.info_to_patrondata(info, validate_password=False)
+        eq_(patron.__class__, PatronData)
+        eq_("12345", patron.authorization_identifier)
+        eq_("foo@example.com", patron.email_address)
+        eq_("SHELDON, ALICE", patron.personal_name)
+        eq_(0, patron.fines)
+        eq_(None, patron.authorization_expires)
+        eq_(None, patron.external_type)
+        eq_('no borrowing privileges', patron.block_reason)
