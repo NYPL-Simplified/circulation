@@ -316,7 +316,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_(None, patron.external_type)
         eq_(PatronData.NO_VALUE, patron.block_reason)
 
-        # Test with invalid login, should return None
+        # Test with invalid login, should return PatronData
         info = client.patron_information_parser(TestSIP2AuthenticationProvider.sierra_invalid_login)
         patron = provider.info_to_patrondata(info, validate_password=False)
         eq_(patron.__class__, PatronData)
