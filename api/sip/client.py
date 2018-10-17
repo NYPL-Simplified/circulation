@@ -288,6 +288,9 @@ class SIPClient(Constants):
     def connect(self):
         """Create a socket connection to a SIP server."""
         try:
+            if self.connection:
+                # If we are still connected then disconnect.
+                self.disconnect()
             self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.connection.connect((self.target_server, self.target_port))
         except TypeError:
