@@ -124,6 +124,19 @@ class EditionConstants(object):
     for k, v in medium_to_additional_type.items():
         additional_type_to_medium[v] = k
 
+
+    # Map the medium constants to the strings used when generating
+    # permanent work IDs.
+    medium_for_permanent_work_id = {
+        BOOK_MEDIUM : "book",
+        AUDIO_MEDIUM : "book",
+        MUSIC_MEDIUM : "music",
+        PERIODICAL_MEDIUM : "book",
+        VIDEO_MEDIUM: "movie",
+        IMAGE_MEDIUM: "image",
+        COURSEWARE_MEDIUM: "courseware"
+    }
+
 class IdentifierConstants(object):
     # Common types of identifiers.
     OVERDRIVE_ID = u"Overdrive ID"

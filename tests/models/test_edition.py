@@ -460,16 +460,23 @@ class TestEdition(DatabaseTest):
             [x.data_source for x in records]
         )
 
-    def test_no_permanent_work_id_for_edition_with_no_title(self):
-        """An edition with no title is not assigned a permanent work ID."""
+    def test_no_permanent_work_id_for_edition_without_title_or_medium(self):
+        # An edition with no title or medium is not assigned a permanent work
+        # ID.
         edition = self._edition()
-        edition.title = ''
         eq_(None, edition.permanent_work_id)
+
+        edition.title = ''
         edition.calculate_permanent_work_id()
         eq_(None, edition.permanent_work_id)
+
         edition.title = u'something'
         edition.calculate_permanent_work_id()
         assert_not_equal(None, edition.permanent_work_id)
+
+        edition.medium = None
+        edition.calculate_permanent_work_id()
+        eq_(None, edition.permanent_work_id)
 
     def test_choose_cover_can_choose_full_image_and_thumbnail_separately(self):
         edition = self._edition()
