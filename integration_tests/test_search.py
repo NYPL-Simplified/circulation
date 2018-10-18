@@ -527,17 +527,6 @@ class TestTitleMatch(SearchTest):
 
         self.search("The night tower", FirstMatch(title="The Dark Tower"))
 
-    def test_nonexistent_title_hand(self):
-        # NOTE: this title doesn't seem to exist.  The closest thing I can find
-        # is "A Hand Reached Down to Guide Me," which shows up in the top results
-        # in ES1 but not in ES6.
-
-        self.search(
-            "A hand to reach", [
-                AtLeastOne(title="A Hand Reached Down to Guide Me"),
-            ]
-        )
-
     def test_title_match_with_genre_name_romance(self):
         # The title contains the name of a genre. Despite this,
         # an exact title match should show up first.
