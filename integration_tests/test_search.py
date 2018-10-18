@@ -1,4 +1,32 @@
 # encoding: utf-8
+#
+# These integration tests were written based primarily on real
+# searches made in October 2018 against NYPL's circulation
+# manager. Theoretically, most of the tests that pass on NYPL's index
+# should pass when run against the search index of any public library
+# with a similarly sized collection.
+#
+# These guidelines were used when writing the tests:
+#
+# * A search for a specific book should return that book as the first result.
+#   This is true whether or not the search query names the book.
+# * Results for a series search should be dominated by books from that series.
+# * Results for a person search should be dominated by books by or (in some
+#   cases) about that person.
+# * A search for a topic or genre should return books on that topic or
+#   in that genre.
+#
+# It's possible for a test to fail not because of a problem with the
+# search engine but because a library's collection is incomplete.  The
+# tests are written to minimize the chances that this will happen
+# unnecessarily. (e.g. the search for "dirtbike" checks for books
+# filed under certain subjects, not specific titles).
+#
+# To run the tests, put the URL to your Elasticsearch index in the
+# ES1_ELASTICSEARCH environment variable and run this command:
+#
+# $ nosetests integration_tests/test_search.py
+
 import logging
 import urllib
 from nose.tools import (
