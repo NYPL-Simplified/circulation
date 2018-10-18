@@ -1960,10 +1960,6 @@ class TestKidsSearches(SearchTest):
             ]
         )
 
-    def test_timothy_zahn(self):
-        for q in ('timothy zahn', 'timithy zahn'):
-            self.search(q, Common(author="Timothy Zahn"))
-
     def test_who_is(self):
         # These children's biographies don't have .series set but
         # are clearly part of a series.
@@ -2058,6 +2054,22 @@ class TestDifficultSearches(SearchTest):
             # mostly books for adults.
             self.search(term, Common(audience='Adult', first_must_match=False))
 
+class TestTimothyZahn(SearchTest):
+    # Test ways of searching for author Timothy Zahn.
+
+    def _test(self, query):
+        self.search(query, Common(author="Timothy Zahn"))
+
+    def test_correct_spelling(self):
+        self._test("timothy zahn")
+
+    def test_incorrect_1(self):
+        self._test("timithy zahn")
+
+    def test_incorrect_2(self):
+        self._test("timithy zhan")
+
+
 class TestRainaTelgemeier(SearchTest):
     # Test ways of searching for author Raina Telgemeier.
 
@@ -2082,7 +2094,7 @@ class TestMJRose(SearchTest):
     # punctuation and spaces.
 
     def _test(self, query):
-        self.search(query, Common(author=re.compile("m. j. rose")))
+        self.search(query, Common(author="M. J. Rose"))
 
     def test_with_periods_and_spaces(self):
         self._test("m. j. rose")
