@@ -1989,18 +1989,6 @@ class TestDifficultSearches(SearchTest):
             Common(series="a song of ice and fire")
         )
 
-    def test_m_j_rose(self):
-        for spelling in (
-            'm. j. rose',
-            'm.j. rose',
-            'm j rose',
-            'mj rose',
-        ):
-            self.search(
-                spelling,
-                Common(author="M. J. Rose")
-            )
-
     def test_steve_berry(self):
         self.search(
             "steve berry",
@@ -2071,11 +2059,12 @@ class TestDifficultSearches(SearchTest):
             self.search(term, Common(audience='Adult', first_must_match=False))
 
 class TestRainaTelgemeier(SearchTest):
+    # Test ways of searching for author Raina Telgemeier.
 
     def _test(self, query):
         # We use a regular expression because Raina Telgemeier is
         # frequently credited alongside others.
-        return self.search(query, Common(author=re.compile("raina telgemeier")))
+        self.search(query, Common(author=re.compile("raina telgemeier")))
 
     def test_correct_spelling(self):
         self._test('raina telgemeier')
@@ -2085,6 +2074,30 @@ class TestRainaTelgemeier(SearchTest):
 
     def test_misspelling_2(self):
         self._test('raina telgemerier')
+
+
+class TestMJRose(SearchTest):
+    # Test ways of searching for author M. J. Rose.
+    # This highlights a lot of problems with the way we handle
+    # punctuation and spaces.
+
+    def _test(self, query):
+        self.search(query, Common(author=re.compile("m. j. rose")))
+
+    def test_with_periods_and_spaces(self):
+        self._test("m. j. rose")
+
+    def test_with_periods(self):
+        self._test("m.j. rose")
+
+    def test_with_one_period(self):
+        self._test("m.j rose")
+
+    def test_with_spaces(self):
+        self._test("m j rose")
+
+    def test_with_no_periods_or_spaces(self):
+        self._test("mj rose")
 
 
 class TestTheHateUGive(SearchTest):
