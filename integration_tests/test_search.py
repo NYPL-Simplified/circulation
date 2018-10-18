@@ -976,7 +976,7 @@ class TestGenreMatch(SearchTest):
 
     def test_sf(self):
         # NOTE: This doesn't work.  On ES1, the top result has "science fiction" in
-        # the title, but has no genre; on ES6, the top result has "science fiction" if __name__ == '__main__':
+        # the title, but has no genre; on ES6, the top result has "science fiction"
         # the title, but its genre is "Reference & Study Aids"
 
         self.search(
