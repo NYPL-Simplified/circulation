@@ -18,15 +18,9 @@ from core.external_search import (
     Filter
 )
 
-
-# problems identified in ES6:
-# 'modern romance' - exact title match isn't promoted
-# (but it also doesn't work in ES1 on a real site)
-
-# summary is boosted over subtitle
-
-
-
+# A problem from the unit tests that we couldn't turn into a
+# real integration test.
+#
 # # In Elasticsearch 6, the exact author match that doesn't
 # # mention 'biography' is boosted above a book that
 # # mentions all three words in its title.
@@ -38,6 +32,7 @@ from core.external_search import (
 # ]
 
 class Searcher(object):
+    """A class that knows how to perform searches."""
     def __init__(self, library, index):
         self.library = library
         self.filter = Filter(collections=self.library)
