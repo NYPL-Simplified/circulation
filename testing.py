@@ -264,6 +264,7 @@ class DatabaseTest(object):
         if not title:
             title = self._str
         wr.title = unicode(title)
+        wr.medium = Edition.BOOK_MEDIUM
         if series:
             wr.series = series
         if language:

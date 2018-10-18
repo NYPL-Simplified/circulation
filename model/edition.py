@@ -112,9 +112,7 @@ class Edition(Base, EditionConstants):
 
     MEDIUM_ENUM = Enum(*EditionConstants.KNOWN_MEDIA, name="medium")
 
-    medium = Column(
-        MEDIUM_ENUM, default=EditionConstants.BOOK_MEDIUM, index=True
-    )
+    medium = Column(MEDIUM_ENUM, index=True)
 
     cover_id = Column(
         Integer, ForeignKey(
