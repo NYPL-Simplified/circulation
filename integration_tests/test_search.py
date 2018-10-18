@@ -243,6 +243,13 @@ class Evaluator(object):
         return successes, failures
 
 
+class ReturnsNothing(Evaluator):
+    """This search should return no results at all."""
+
+    def evaluate(self, hits):
+        assert not hits
+
+
 class Common(Evaluator):
     """It must be common for the results to match certain criteria.
     """
@@ -362,6 +369,32 @@ class SearchTest(object):
             evaluators = [evaluators]
         for e in evaluators:
             e.evaluate(hits)
+
+class TestGibberish(SearchTest):
+    # If you type junk into the search box you should get no results.
+
+    def test_junk(self):
+        # Test one long string
+        self.search(
+            "rguhriregiuh43pn5rtsadpfnsadfausdfhaspdiufnhwe42uhdsaipfh",
+            ReturnsNothing()
+        )
+
+    def test_multi_word_junk(self):
+        # Test several short strings
+        self.search(
+            "rguhriregiuh 43pn5rts adpfnsadfaus dfhaspdiufnhwe4 2uhdsaipfh",
+            ReturnsNothing()
+        )
+
+    def test_wordlike_junk(self):
+        # This test fails on ES1 and ES6. To a human eye it is
+        # obviously gibberish, but it's close enough to English words
+        # that it picks up a few results.
+        self.search(
+            "asdfza oiagher ofnalqk",
+            ReturnsNothing()
+        )
 
 
 class TestTitleMatch(SearchTest):
