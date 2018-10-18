@@ -1398,17 +1398,26 @@ class Work(Base):
         ).alias("genres_subquery")
         genres_json = query_to_json_array(genres)
 
+        # If the upper limit of the target age is inclusive, we leave
+        # it alone. Otherwise, we subtract one to make it inclusive.
+        upper_field = func.upper(Work.target_age)
+        upper = case(
+            [(func.upper_inc(Work.target_age), upper_field)],
+            else_=upper_field-1
+        ).label('upper')
 
-        # When we set an inclusive target age range, the upper bound is converted to
-        # exclusive and is 1 + our original upper bound, so we need to subtract 1.
-        upper_column = func.upper(Work.target_age) - 1
+        # If the lower limit of the target age is inclusive, we leave
+        # it alone. Otherwise, we add one to make it inclusive.
+        lower_field = func.lower(Work.target_age)
+        lower = case(
+            [(func.lower_inc(Work.target_age), lower_field)],
+            else_=lower_field+1
+        ).label('lower')
 
         # Subquery for target age. This has to be a subquery so it can become a
         # nested object in the final json.
         target_age = select(
-            [func.lower(Work.target_age).label('lower'),
-             upper_column.label('upper'),
-            ]
+            [upper, lower]
         ).where(
             Work.id==literal_column(works_alias.name + "." + works_alias.c.work_id.name)
         ).alias('target_age_subquery')
