@@ -1611,6 +1611,7 @@ class TestSeriesMatch(SearchTest):
         # NOTE: This works on ES1 but not ES6.
         self.search("the hunger games", Common(series="The Hunger Games"))
 
+    def test_hunger_games_misspelled(self):
         # NOTE: This doesn't work on either version
         self.search("The hinger games", Common(series="The Hunger Games"))
 
@@ -1663,9 +1664,9 @@ class TestSeriesMatch(SearchTest):
         )
 
 class TestKidsSearches(SearchTest):
-
-    # Kids searches, being put into a separate test for now to avoid
-    # merge conflicts.
+    # Children search differently from adults -- more series searches,
+    # fewer author searches, fewer partial title searches, more
+    # misspellings.
 
     def test_39_clues_specific_title(self):
         # The first result is the requested title. Other results
@@ -1698,14 +1699,22 @@ class TestKidsSearches(SearchTest):
             FirstMatch(title="Allegiant")
         )
 
-    def test_all_the_hate(self):
-        for q in (
-                'the hate u give',
-                'all the hate u give',
-                'all the hate you give',
-                'hate you give',
-                'hate you gove'):
-            self.search(q, FirstMatch(title="The Hate U Give"))
+    def test_the_hate(self):
+        self.search("the hate u give", FirstMatch(title="The Hate U Give"))
+
+    def test_the_hate_2(self):
+        self.search("all the hate u give", FirstMatch(title="The Hate U Give"))
+
+    def test_the_hate_3(self):
+        self.search(
+            "all the hate you give", FirstMatch(title="The Hate U Give")
+        )
+
+    def test_the_hate_4(self):
+        self.search("hate you give", FirstMatch(title="The Hate U Give"))
+
+    def test_the_hate_5(self):
+        self.search("hate you gove", FirstMatch(title="The Hate U Give"))
 
     def test_alien_misspelled(self):
         for q in ("allien", "aluens"):
