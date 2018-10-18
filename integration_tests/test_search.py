@@ -256,7 +256,7 @@ class Common(Evaluator):
         :param threshold: A proportion of the search results must
         match these criteria.
 
-        :param number: At least this many search results must match
+        :param minimum: At least this many search results must match
         these criteria.
 
         :param first_must_match: In addition to any collective
@@ -301,8 +301,9 @@ class FirstMatch(Common):
     """The first result must match certain criteria."""
 
     def __init__(self, **kwargs):
+        threshold = kwargs.pop('threshold', None)
         super(FirstMatch, self).__init__(
-            threshold=None, first_must_match=True, **kwargs
+            threshold=threshold, first_must_match=True, **kwargs
         )
 
 
@@ -322,12 +323,9 @@ class SpecificAuthor(FirstMatch):
     Most of the results must also be by that author.
     """
 
-    def __init__(self, author, accept_book_about_author=False, threshold=0.5):
-        super(SpecificAuthor, self).__init__(author=author)
+    def __init__(self, author, accept_book_about_author=False, threshold=0):
+        super(SpecificAuthor, self).__init__(author=author, threshold=threshold)
         self.accept_book_about_author = accept_book_about_author
-        # I changed the threshold to 0 because searches involving less prolific authors were
-        # failing otherwise
-        self.threshold = 0
 
     def evaluate_first(self, first):
         expect_author = self.author
@@ -418,13 +416,22 @@ class TestTitleMatch(SearchTest):
         self.search("origin", FirstMatch(title="Origin"))
 
     def test_simple_title_match_goldfinch(self):
-        self.search("goldfinch", FirstMatch(title="Goldfinch"))
+        self.search(
+            "goldfinch",
+            FirstMatch(
+                title=re.compile("^(the )?goldfinch$"),
+                author="Donna Tartt"
+            )
+        )
 
     def test_simple_title_match_beach(self):
         self.search("Manhattan beach", FirstMatch(title="Manhattan Beach"))
 
     def test_simple_title_match_testing(self):
-        self.search("The testing", FirstMatch(title="The testing"))
+        self.search(
+            "The testing",
+            FirstMatch(title="The testing", author='Joelle Charbonneau')
+        )
 
     def test_simple_title_twentysomething(self):
         self.search(
