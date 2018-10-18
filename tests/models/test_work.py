@@ -855,6 +855,7 @@ class TestWork(DatabaseTest):
         eq_(work.quality, search_doc['quality'])
         eq_(work.rating, search_doc['rating'])
         eq_(work.popularity, search_doc['popularity'])
+        eq_(dict(lower=7, upper=8), search_doc['target_age'])
 
         # Each collection in which the Work is found is listed in
         # the 'collections' section.
