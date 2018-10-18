@@ -1699,23 +1699,6 @@ class TestKidsSearches(SearchTest):
             FirstMatch(title="Allegiant")
         )
 
-    def test_the_hate(self):
-        self.search("the hate u give", FirstMatch(title="The Hate U Give"))
-
-    def test_the_hate_2(self):
-        self.search("all the hate u give", FirstMatch(title="The Hate U Give"))
-
-    def test_the_hate_3(self):
-        self.search(
-            "all the hate you give", FirstMatch(title="The Hate U Give")
-        )
-
-    def test_the_hate_4(self):
-        self.search("hate you give", FirstMatch(title="The Hate U Give"))
-
-    def test_the_hate_5(self):
-        self.search("hate you gove", FirstMatch(title="The Hate U Give"))
-
     def test_alien_misspelled(self):
         self.search(
             "allien",
@@ -1801,33 +1784,6 @@ class TestKidsSearches(SearchTest):
         self.search(
             "chaptr books", Common(target_age=(6, 10))
         )
-
-    def test_charlottes_web(self):
-        self.search("charlotte's web", FirstMatch(title="Charlotte's Web"))
-
-    def test_charlottes_web_no_apostrophe(self):
-        self.search("charlottes web", FirstMatch(title="Charlotte's Web"))
-
-    def test_charlottes_web_misspelled(self):
-        self.search("charlettes web", FirstMatch(title="Charlotte's Web"))
-
-    def test_charlottes_web_with_author(self):
-        self.search("charlottes web eb white", FirstMatch(title="Charlotte's Web"))
-
-    def test_christopher_mouse(self):
-        # Different ways of searching for "Christopher Mouse: The Tale
-        # of a Small Traveler" (A book not in NYPL's collection)
-        for q in (
-                "christopher mouse",
-                "chistopher mouse",
-                "christophor mouse"
-                "christopher moise",
-                "chistoper muse",
-        ):
-            self.search(
-                q,
-                FirstMatch(title=re.compile("Christopher Mouse"))
-            )
 
     def test_wimpy_kid(self):
         self.search(
@@ -1971,16 +1927,6 @@ class TestKidsSearches(SearchTest):
         ):
             self.search(q, Common(title=re.compile("prank")))
 
-    def test_raina_telgemeier(self):
-        for q in (
-                'raina telgemeier',
-                'raina telemger',
-                'raina telgemerier'
-        ):
-            # We use a regular expression because Raina Telgemeier is
-            # frequently credited alongside others.
-            self.search(q, Common(author=re.compile("raina telgemeier")))
-
     def test_scary_stories(self):
         self.search("scary stories", Common(genre="Horror"))
 
@@ -2123,6 +2069,83 @@ class TestDifficultSearches(SearchTest):
             # Except from 'panda', the search terms on their own find
             # mostly books for adults.
             self.search(term, Common(audience='Adult', first_must_match=False))
+
+class TestRainaTelgemeier(SearchTest):
+
+    def _test(self, query):
+        # We use a regular expression because Raina Telgemeier is
+        # frequently credited alongside others.
+        return self.search(query, Common(author=re.compile("raina telgemeier")))
+
+    def test_correct_spelling(self):
+        self._test('raina telgemeier')
+
+    def test_misspelling_1(self):
+        self._test('raina telemger')
+
+    def test_misspelling_2(self):
+        self._test('raina telgemerier')
+
+
+class TestTheHateUGive(SearchTest):
+    """Test various ways of searching for "The Hate U Give"."""
+
+    def _test(self, query):
+        return self.search(query, FirstMatch(title="The Hate U Give"))
+
+    def test_correct_spelling(self):
+        self._test("the hate u give")
+
+    def test_with_all(self):
+        self._test("all the hate u give")
+
+    def test_with_all_and_you(self):
+        self._test("all the hate you give")
+
+    def test_with_you(self):
+        self._test("hate you give")
+
+    def test_with_you_misspelled(self):
+        self._test("hate you gove")
+
+
+class TestCharlottesWeb(SearchTest):
+    """Test various ways of searching for "Charlotte's Web"."""
+
+    def _test(self, query):
+        return self.search(query, FirstMatch(title="Charlotte's Web"))
+
+    def test_with_apostrophe(self):
+        self._test("charlotte's web")
+
+    def test_without_apostrophe(self):
+        self._test("charlottes web")
+
+    def test_misspelled_no_apostrophe(self):
+        self._test("charlettes web")
+
+    def test_no_apostrophe_with_author(self):
+        self._test("charlottes web eb white")
+
+
+class TestChristopherMouse(SearchTest):
+    # Test various partial title spellings for "Christopher Mouse: The Tale
+    # of a Small Traveler". This title is not in NYPL's collection.
+
+    def _test(self, query):
+        self.search(query, FirstMatch(title=re.compile("Christopher Mouse")))
+
+    def test_correct_spelling(self):
+        self._test("christopher mouse")
+
+    def test_misspelled_1(self):
+        self._test("chistopher mouse")
+
+    def test_misspelled_2(self):
+        self._test("christopher moise")
+
+    def test_misspelled_3(self):
+        self._test("chistoper muse")
 
 
 ES6 = ('es6' in os.environ['VIRTUAL_ENV'])
