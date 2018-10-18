@@ -1717,14 +1717,22 @@ class TestKidsSearches(SearchTest):
         self.search("hate you gove", FirstMatch(title="The Hate U Give"))
 
     def test_alien_misspelled(self):
-        for q in ("allien", "aluens"):
-            self.search(
-                q,
-                Common(
-                    subject=re.compile("(alien|extraterrestrial)"),
-                    first_must_match=False
-                )
+        self.search(
+            "allien",
+            Common(
+                subject=re.compile("(alien|extraterrestrial|science fiction)"),
+                first_must_match=False
             )
+        )
+
+    def test_alien_misspelled_2(self):
+        self.search(
+            "aluens",
+            Common(
+                subject=re.compile("(alien|extraterrestrial|science fiction)"),
+                first_must_match=False
+            )
+        )
 
     def test_anime_genre(self):
         # NOTE: this doesn't work; all of the top results in both versions of ES6
@@ -1775,33 +1783,36 @@ class TestKidsSearches(SearchTest):
         )
 
     def test_chapter_books(self):
-        # This works:
         self.search(
             "chapter books", Common(target_age=(6, 10))
         )
-        # This doesn't; all of the top results are stand-alone excerpts from
-        # a travel book series, marked "Guidebook Chapter":
+
+    def test_chapter_books_misspelled_1(self):
+        # This doesn't work: all of the top results are stand-alone
+        # excerpts from a travel book series, marked "Guidebook
+        # Chapter":
         self.search(
             "chapter bookd", Common(target_age=(6, 10))
         )
-        # This doesn't either; the first few results are accurate, but the
+
+    def test_chapter_books_misspelled_2(self):
+        # This doesn't work: the first few results are accurate, but the
         # subsequent ones are a mixture of picture books and books for adults.
         self.search(
             "chaptr books", Common(target_age=(6, 10))
         )
 
     def test_charlottes_web(self):
-        # Different ways of searching for "Charlotte's Web"
-        for q in (
-                "charlotte's web",
-                "charlottes web",
-                "charlottes web eb white"
-                'charlettes web',
-        ):
-            self.search(
-                q,
-                FirstMatch(title="Charlotte's Web")
-            )
+        self.search("charlotte's web", FirstMatch(title="Charlotte's Web"))
+
+    def test_charlottes_web_no_apostrophe(self):
+        self.search("charlottes web", FirstMatch(title="Charlotte's Web"))
+
+    def test_charlottes_web_misspelled(self):
+        self.search("charlettes web", FirstMatch(title="Charlotte's Web"))
+
+    def test_charlottes_web_with_author(self):
+        self.search("charlottes web eb white", FirstMatch(title="Charlotte's Web"))
 
     def test_christopher_mouse(self):
         # Different ways of searching for "Christopher Mouse: The Tale
