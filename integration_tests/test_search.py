@@ -1260,13 +1260,11 @@ class TestGenreMatch(SearchTest):
             Common(genre=re.compile("(travel|guide|fodors)"), first_must_match=False)
         )
 
-    def test_travel_florida(self):
-        # NOTE: this doesn't work on either version of ES, but it's closer on ES6.
-
+    def test_travel_new_england(self):
         # Keyword
         self.search(
-            "Florida",
-            Common(subject=re.compile("(travel|guide|fodors)"), first_must_match=False)
+            "new england",
+            Common(subject=re.compile("(travel|guide|fodors)"))
         )
 
     def test_travel_toronto(self):
@@ -1581,13 +1579,9 @@ class TestSeriesMatch(SearchTest):
 
     def test_gossip_girl(self):
         # Misspelled common word
-
-        # TODO: We have a lot of books in this series, but only two of them have
-        # .series set. It would be useful to specify the number of expected matches in the
-        # SpecificSeries constructor, rather than a percentage.
         self.search(
             "Gossip hirl",
-            Common(series="Gossip Girl"), limit=4
+            Common(series="Gossip Girl", minimum=2), limit=4,
         )
 
     def test_magic(self):
