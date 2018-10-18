@@ -117,15 +117,16 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
     ]
 
     access_token_endpoint = 'accesstoken'
-    availability_endpoint = 'availability/v2'
+    availability_endpoint = 'availability/v3'
 
     log = logging.getLogger("Axis 360 API")
 
     # Create a lookup table between common DeliveryMechanism identifiers
-    # and Overdrive format types.
+    # and Axis 360 format types.
     epub = Representation.EPUB_MEDIA_TYPE
     pdf = Representation.PDF_MEDIA_TYPE
     adobe_drm = DeliveryMechanism.ADOBE_DRM
+    findaway_drm = DeliveryMechanism.FINDAWAY_DRM
     no_drm = DeliveryMechanism.NO_DRM
 
     delivery_mechanism_to_internal_format = {
@@ -133,6 +134,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         (epub, adobe_drm): 'ePub',
         (pdf, no_drm): 'PDF',
         (pdf, adobe_drm): 'PDF',
+        (None, findaway_drm): 'Blio',
     }
 
     def __init__(self, _db, collection):
@@ -150,6 +152,8 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
         if base_url in self.SERVER_NICKNAMES:
             base_url = self.SERVER_NICKNAMES[base_url]
+        if not base_url.endswith('/'):
+            base_url += '/'
         self.base_url = base_url
 
         if (not self.library_id or not self.username
@@ -722,7 +726,7 @@ class Axis360Parser(XMLParser):
 class BibliographicParser(Axis360Parser):
 
     DELIVERY_DATA_FOR_AXIS_FORMAT = {
-        "Blio" : None,
+        "Blio" : (None, DeliveryMechanism.FINDAWAY_DRM),
         "Acoustik" : None,
         "AxisNow": None,
         "ePub" : (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
@@ -935,6 +939,7 @@ class BibliographicParser(Axis360Parser):
         formats = []
         acceptable = False
         seen_formats = []
+        medium = None
         for format_tag in self._xpath(
                 element, 'axis:availability/axis:availableFormats/axis:formatName',
                 ns
@@ -952,6 +957,10 @@ class BibliographicParser(Axis360Parser):
                 formats.append(
                     FormatData(content_type=content_type, drm_scheme=drm_scheme)
                 )
+                if drm_scheme == DeliveryMechanism.FINDAWAY_DRM:
+                    medium = Edition.AUDIO_MEDIUM
+                else:
+                    medium = Edition.BOOK_MEDIUM
 
         if not formats:
             self.log.error(
@@ -963,7 +972,7 @@ class BibliographicParser(Axis360Parser):
             data_source=DataSource.AXIS_360,
             title=title,
             language=language,
-            medium=Edition.BOOK_MEDIUM,
+            medium=medium,
             series=series,
             publisher=publisher,
             imprint=imprint,
@@ -1226,6 +1235,8 @@ class AvailabilityResponseParser(ResponseParser):
                 availability, 'axis:checkoutEndDate', ns)
             download_url = self.text_of_optional_subtag(
                 availability, 'axis:downloadUrl', ns)
+            transaction_id = self.text_of_optional_subtag(
+                availability, 'axis:transactionId', ns)
             if download_url:
                 fulfillment = FulfillmentInfo(
                     collection=self.collection,
