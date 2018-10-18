@@ -201,12 +201,8 @@ class Evaluator(object):
         expect_upper, expect_lower = max(how_old_is_the_kid), min(how_old_is_the_kid)
         expect_set = set(range(expect_lower, expect_upper + 1))
 
-        # There are a handful of books for which the ages are flipped--i.e. the
-        # upper age is listed under result.target_age.lower, and vice versa;
-        # hence using max() and min() to extract the values rather
-        # than just using the keys to access them.
-        result_upper = max(result.target_age.upper, result.target_age.lower)
-        result_lower = min(result.target_age.upper, result.target_age.lower)
+        result_upper = result.target_age.upper
+        result_lower = result.target_age.lower
         result_set = set(range(result_lower, result_upper + 1))
 
         if result_set and expect_set.intersection(result_set):
