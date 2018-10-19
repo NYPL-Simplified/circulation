@@ -134,7 +134,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         (epub, adobe_drm): 'ePub',
         (pdf, no_drm): 'PDF',
         (pdf, adobe_drm): 'PDF',
-        (None, findaway_drm): 'Blio',
+        (None, findaway_drm): 'Acoustik',
     }
 
     def __init__(self, _db, collection):
@@ -726,9 +726,9 @@ class Axis360Parser(XMLParser):
 class BibliographicParser(Axis360Parser):
 
     DELIVERY_DATA_FOR_AXIS_FORMAT = {
-        "Blio" : (None, DeliveryMechanism.FINDAWAY_DRM),
-        "Acoustik" : None,
-        "AxisNow": None,
+        "Blio" : None,   # Unknown ebook format
+        "Acoustik" : (None, DeliveryMechanism.FINDAWAY_DRM), # Audiobooks
+        "AxisNow": None, # Proprietary web viewer
         "ePub" : (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
         "PDF" : (Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
     }
