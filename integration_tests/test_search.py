@@ -1640,7 +1640,7 @@ class TestSubjectMatch(SearchTest):
         self.search(
             "Davinci",
             Common(
-                Title=re.compile("(biography|art)"),
+                genre=re.compile("(biography|art)"),
                 first_must_match=False,
                 threshold=0.3
             )
@@ -2018,11 +2018,11 @@ class TestSeriesMatch(SearchTest):
         # Because those books don't have .series set, the matches are
         # done solely through title, so unrelated books like "Who Is
         # Rich?" also show up.
-        self.search("who is", Common(title=re.compile('^who is ' % q)))
+        self.search("who is", Common(title=re.compile('^who is ')))
 
     def test_who_was(self):
         # From the same series of biographies as test_who_is().
-        self.search("who was", Common(title=re.compile('^who was ' % q)))
+        self.search("who was", Common(title=re.compile('^who was ')))
 
     def test_wimpy_kid_misspelled(self):
         # Series name contains the wrong stopword ('the' vs 'a')
@@ -2092,7 +2092,7 @@ class TestSeriesTitleMatch(SearchTest):
 class TestISurvived(SearchTest):
     # Test different ways of spelling "I Survived"
     def _test(self, q):
-        self.search(q, Common(title=re.compile('^i survived ' % q)))
+        self.search(q, Common(title=re.compile('^i survived ')))
 
     def test_correct_spelling(self):
         self._test("i survived")
