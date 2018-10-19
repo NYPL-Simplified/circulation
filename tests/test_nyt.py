@@ -169,6 +169,15 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         eq_(True, isinstance(l, NYTBestSellerList))
         eq_(0, len(l))
 
+    def test_medium(self):
+        list_name = "combined-print-and-e-book-fiction"
+        l = self.api.best_seller_list(list_name)
+        eq_("Combined Print & E-Book Fiction", l.name)
+        eq_(Edition.BOOK_MEDIUM, l.medium)
+
+        l.name = "Audio Nonfiction"
+        eq_(Edition.AUDIO_MEDIUM, l.medium)
+
     def test_update(self):
         list_name = "combined-print-and-e-book-fiction"
         self.metadata_client.lookups['Paula Hawkins'] = 'Hawkins, Paula'
@@ -186,6 +195,9 @@ class TestNYTBestSellerList(NYTBestSellerAPITest):
         [isbn] = title.metadata.identifiers
         eq_("ISBN", isbn.type)
         eq_("9780698185395", isbn.identifier)
+
+        # The list's medium is propagated to its Editions.
+        eq_(l.medium, title.metadata.medium)
 
         [contributor] = title.metadata.contributors
         eq_("Paula Hawkins", contributor.display_name)
@@ -254,7 +266,7 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
     one_list_title = json.loads("""{"list_name":"Combined Print and E-Book Fiction","display_name":"Combined Print & E-Book Fiction","bestsellers_date":"2015-01-17","published_date":"2015-02-01","rank":1,"rank_last_week":0,"weeks_on_list":1,"asterisk":0,"dagger":0,"amazon_product_url":"http:\/\/www.amazon.com\/The-Girl-Train-A-Novel-ebook\/dp\/B00L9B7IKE?tag=thenewyorktim-20","isbns":[{"isbn10":"1594633665","isbn13":"9781594633669"},{"isbn10":"0698185390","isbn13":"9780698185395"}],"book_details":[{"title":"THE GIRL ON THE TRAIN","description":"A psychological thriller set in London is full of complications and betrayals.","contributor":"by Paula Hawkins","author":"Paula Hawkins","contributor_note":"","price":0,"age_group":"","publisher":"Riverhead","isbns":[{"isbn10":"1594633665","isbn13":"9781594633669"},{"isbn10":"0698185390","isbn13":"9780698185395"}],"primary_isbn13":"9780698185395","primary_isbn10":"0698185390"}],"reviews":[{"book_review_link":"","first_chapter_link":"","sunday_review_link":"","article_chapter_link":""}]}""")
 
     def test_creation(self):
-        title = NYTBestSellerListTitle(self.one_list_title)
+        title = NYTBestSellerListTitle(self.one_list_title, Edition.BOOK_MEDIUM)
 
         edition = title.to_edition(self._db, self.metadata_client)
         eq_("9780698185395", edition.primary_identifier.identifier)
@@ -281,7 +293,7 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
             self._db, u"Hawkins, Paula")
         contributor.display_name = u"Paula Hawkins"
 
-        title = NYTBestSellerListTitle(self.one_list_title)
+        title = NYTBestSellerListTitle(self.one_list_title, Edition.BOOK_MEDIUM)
         edition = title.to_edition(self._db, self.metadata_client)
         eq_(contributor.sort_name, edition.sort_author)
         eq_(contributor.display_name, edition.author)
@@ -292,7 +304,7 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
         # Set the metadata client up for success.
         self.metadata_client.lookups["Paula Hawkins"] = "Hawkins, Paula Z."
 
-        title = NYTBestSellerListTitle(self.one_list_title)
+        title = NYTBestSellerListTitle(self.one_list_title, Edition.BOOK_MEDIUM)
         edition = title.to_edition(self._db, self.metadata_client)
         eq_("Hawkins, Paula Z.", edition.sort_author)
         assert edition.permanent_work_id is not None
