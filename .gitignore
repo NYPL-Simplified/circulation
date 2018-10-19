@@ -54,3 +54,6 @@ docs/_build/
 
 *~
 .env
+
+# Special Elasticsearch 6 environment
+es6
