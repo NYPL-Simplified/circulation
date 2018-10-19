@@ -1855,26 +1855,24 @@ class TestSubjectMatch(SearchTest):
         )
 
 
-class TestTravel(SearchTest):
+class TestTravel(VariantSearchTest):
     # Searches for places that are likely to be searches for travel guides
     # (rather than history books, names of novels, etc).
 
-    def _travel(self, q, **kwargs):
-        match = Common(
-            subject=re.compile("(travel|guide|fodors)"), first_must_match=False
-        )
-        self.search(q, match)
+    EVALUATOR = Common(
+        subject=re.compile("(travel|guide|fodors)"), first_must_match=False
+    )
 
     def test_california(self):
         # NOTE: this doesn't work on either version of ES, but it's
         # closer on ES6.
-        self._travel("California")
+        self.search("California")
 
     def test_new_england(self):
-        self._travel("new england")
+        self.search("new england")
 
     def test_toronto(self):
-        self._travel("toronto")
+        self.search("toronto")
 
 
 class TestSeriesMatch(SearchTest):
