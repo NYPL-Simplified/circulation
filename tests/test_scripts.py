@@ -287,13 +287,21 @@ class TestCacheFacetListsPerLane(TestLaneScript):
         # found in the attributes created by command-line parsing.
         script = CacheFacetListsPerLane(self._db, manager=object(), cmd_args=[])
         script.orders = [Facets.ORDER_TITLE, Facets.ORDER_AUTHOR, "nonsense"]
-        script.entrypoints = [AudiobooksEntryPoint.INTERNAL_NAME, "nonsense"]
+        script.entrypoints = [
+            AudiobooksEntryPoint.INTERNAL_NAME, "nonsense",
+            EbooksEntryPoint.INTERNAL_NAME
+        ]
         script.availabilities = [Facets.AVAILABLE_NOW, "nonsense"]
         script.collections = [Facets.COLLECTION_FULL, "nonsense"]
 
+        # EbooksEntryPoint is normally a valid entry point, but we're
+        # going to disable it for this library.
+        setting = self._default_library.setting(EntryPoint.ENABLED_SETTING)
+        setting.value = json.dumps([AudiobooksEntryPoint.INTERNAL_NAME])
+
         lane = self._lane()
 
-        # We get one Facets object for every non-nonsense combination
+        # We get one Facets object for every valid combination
         # of parameters. Here there are 2*1*1*1 combinations.
         f1, f2 = script.facets(lane)
 
@@ -302,11 +310,22 @@ class TestCacheFacetListsPerLane(TestLaneScript):
         eq_(Facets.ORDER_AUTHOR, f2.order)
 
         # All other fields are tied to the only acceptable values
-        # given in the script attributes.
+        # given in the script attributes. The first (and only)
+        # enabled entry point is treated as the default.
         for f in f1, f2:
             eq_(AudiobooksEntryPoint, f.entrypoint)
+            eq_(True, f.entrypoint_is_default)
             eq_(Facets.AVAILABLE_NOW, f.availability)
             eq_(Facets.COLLECTION_FULL, f.collection)
+
+        # The first entry point is treated as the default only for WorkLists
+        # that have no parent. When the WorkList has a parent, the selected
+        # entry point is treated as an explicit choice -- navigating downward
+        # in the lane hierarchy ratifies the default value.
+        sublane = self._lane(parent=lane)
+        f1, f2 = script.facets(sublane)
+        for f in f1, f2:
+            eq_(False, f.entrypoint_is_default)
 
     def test_pagination(self):
         script = CacheFacetListsPerLane(self._db, manager=object(), cmd_args=[])
@@ -450,6 +469,13 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
         audio_facets, ebook_facets = script.facets(lane)
         eq_(AudiobooksEntryPoint, audio_facets.entrypoint)
         eq_(EbooksEntryPoint, ebook_facets.entrypoint)
+
+        # The first entry point in the library's list of enabled entry
+        # points is treated as the default.
+        eq_(True, audio_facets.entrypoint_is_default)
+        eq_(audio_facets.entrypoint, list(library.entrypoints)[0])
+        eq_(False, ebook_facets.entrypoint_is_default)
+
         for facets in (audio_facets, ebook_facets):
             # The FeaturedFacets objects knows to feature works at the
             # library's minimum quality level.
@@ -458,6 +484,15 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
             # The FeaturedFacets object knows that custom lists are
             # not in play.
             eq_(False, facets.uses_customlists)
+
+        # The first entry point is treated as the default only for WorkLists
+        # that have no parent. When the WorkList has a parent, the selected
+        # entry point is treated as an explicit choice  -- navigating downward
+        # in the lane hierarchy ratifies the default value.
+        sublane = self._lane(parent=lane)
+        f1, f2 = script.facets(sublane)
+        for f in f1, f2:
+            eq_(False, f.entrypoint_is_default)
 
         # Make it look like the lane uses custom lists.
         lane.list_datasource = DataSource.lookup(self._db, DataSource.OVERDRIVE)
