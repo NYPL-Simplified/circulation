@@ -248,34 +248,6 @@ class TestAxis360API(Axis360Test):
         eq_([301], [x.status_code for x in self.api.responses])
 
 
-    def test_new_format(self):
-
-        # Create a LicensePool that needs updating.
-        edition, pool = self._edition(
-            identifier_type=Identifier.AXIS_360_ID,
-            data_source_name=DataSource.AXIS_360,
-            with_license_pool=True,
-            collection=self.collection
-        )
-
-        # We have never checked the circulation information for this
-        # LicensePool. Put some random junk in the pool to verify
-        # that it gets changed.
-        eq_(None, pool.last_checked)
-
-        data = self.sample_data("new_availability.xml")
-
-        # Modify the data so that it appears to be talking about the
-        # book we just created.
-        new_identifier = pool.identifier.identifier.encode("ascii")
-        data = data.replace("0012377729", new_identifier)
-
-        self.api.queue_response(200, content=data)
-
-        self.api.update_availability(pool)
-        set_trace()
-
-
     def test_update_availability(self):
         """Test the Axis 360 implementation of the update_availability method
         defined by the CirculationAPI interface.

@@ -364,6 +364,16 @@ class SearchTest(object):
         for e in evaluators:
             e.evaluate(hits)
 
+class VariantSearchTest(SearchTest):
+    """A test suite that runs different searches but evaluates the
+    results against the same evaluator every time.
+    """
+    EVALUATOR = None
+
+    def search(self, query):
+        return super(VariantSearchTest, self).search(query, self.EVALUATOR)
+
+
 class TestGibberish(SearchTest):
     # If you type junk into the search box you should get no results.
 
@@ -1049,65 +1059,61 @@ class TestMixedTitleAuthorMatch(SearchTest):
 # Classes that test many different variant searches for a specific
 # title.
 #
-class TestTheHateUGive(SearchTest):
+class TestTheHateUGive(VariantSearchTest):
     """Test various ways of searching for "The Hate U Give"."""
 
-    def _test(self, query):
-        return self.search(query, FirstMatch(title="The Hate U Give"))
+    EVALUATOR = FirstMatch(title="The Hate U Give")
 
     def test_correct_spelling(self):
-        self._test("the hate u give")
+        self.search("the hate u give")
 
     def test_with_all(self):
-        self._test("all the hate u give")
+        self.search("all the hate u give")
 
     def test_with_all_and_you(self):
-        self._test("all the hate you give")
+        self.search("all the hate you give")
 
     def test_with_you(self):
-        self._test("hate you give")
+        self.search("hate you give")
 
     def test_with_you_misspelled(self):
-        self._test("hate you gove")
+        self.search("hate you gove")
 
 
-class TestCharlottesWeb(SearchTest):
+class TestCharlottesWeb(VariantSearchTest):
     """Test various ways of searching for "Charlotte's Web"."""
 
-    def _test(self, query):
-        return self.search(query, FirstMatch(title="Charlotte's Web"))
+    EVALUATOR = FirstMatch(title="Charlotte's Web")
 
     def test_with_apostrophe(self):
-        self._test("charlotte's web")
+        self.search("charlotte's web")
 
     def test_without_apostrophe(self):
-        self._test("charlottes web")
+        self.search("charlottes web")
 
     def test_misspelled_no_apostrophe(self):
-        self._test("charlettes web")
+        self.search("charlettes web")
 
     def test_no_apostrophe_with_author(self):
-        self._test("charlottes web eb white")
+        self.search("charlottes web eb white")
 
 
-class TestChristopherMouse(SearchTest):
+class TestChristopherMouse(VariantSearchTest):
     # Test various partial title spellings for "Christopher Mouse: The Tale
     # of a Small Traveler". This title is not in NYPL's collection.
-
-    def _test(self, query):
-        self.search(query, FirstMatch(title=re.compile("Christopher Mouse")))
+    EVALUATOR = FirstMatch(title=re.compile("Christopher Mouse"))
 
     def test_correct_spelling(self):
-        self._test("christopher mouse")
+        self.search("christopher mouse")
 
     def test_misspelled_1(self):
-        self._test("chistopher mouse")
+        self.search("chistopher mouse")
 
     def test_misspelled_2(self):
-        self._test("christopher moise")
+        self.search("christopher moise")
 
     def test_misspelled_3(self):
-        self._test("chistoper muse")
+        self.search("chistoper muse")
 
 
 class TestSubtitleMatch(SearchTest):
@@ -1302,62 +1308,57 @@ class TestAuthorMatch(SearchTest):
 # title.
 #
 
-class TestTimothyZahn(SearchTest):
+class TestTimothyZahn(VariantSearchTest):
     # Test ways of searching for author Timothy Zahn.
-
-    def _test(self, query):
-        self.search(query, Common(author="Timothy Zahn"))
+    EVALUATOR = Common(author="Timothy Zahn")
 
     def test_correct_spelling(self):
-        self._test("timothy zahn")
+        self.search("timothy zahn")
 
     def test_incorrect_1(self):
-        self._test("timithy zahn")
+        self.search("timithy zahn")
 
     def test_incorrect_2(self):
-        self._test("timithy zhan")
+        self.search("timithy zhan")
 
 
-class TestRainaTelgemeier(SearchTest):
+class TestRainaTelgemeier(VariantSearchTest):
     # Test ways of searching for author Raina Telgemeier.
 
-    def _test(self, query):
-        # We use a regular expression because Raina Telgemeier is
-        # frequently credited alongside others.
-        self.search(query, Common(author=re.compile("raina telgemeier")))
+    # We use a regular expression because Telgemeier is frequently
+    # credited alongside others.
+    EVALUATOR = Common(author=re.compile("raina telgemeier"))
 
     def test_correct_spelling(self):
-        self._test('raina telgemeier')
+        self.search('raina telgemeier')
 
     def test_misspelling_1(self):
-        self._test('raina telemger')
+        self.search('raina telemger')
 
     def test_misspelling_2(self):
-        self._test('raina telgemerier')
+        self.search('raina telgemerier')
 
 
-class TestMJRose(SearchTest):
+class TestMJRose(VariantSearchTest):
     # Test ways of searching for author M. J. Rose.
     # This highlights a lot of problems with the way we handle
     # punctuation and spaces.
-
-    def _test(self, query):
-        self.search(query, Common(author="M. J. Rose"))
+    EVALUATOR = Common(author="M. J. Rose")
 
     def test_with_periods_and_spaces(self):
-        self._test("m. j. rose")
+        self.search("m. j. rose")
 
     def test_with_periods(self):
-        self._test("m.j. rose")
+        self.search("m.j. rose")
 
     def test_with_one_period(self):
-        self._test("m.j rose")
+        self.search("m.j rose")
 
     def test_with_spaces(self):
-        self._test("m j rose")
+        self.search("m j rose")
 
     def test_with_no_periods_or_spaces(self):
-        self._test("mj rose")
+        self.search("mj rose")
 
 
 class TestGenreMatch(SearchTest):
@@ -2089,73 +2090,70 @@ class TestSeriesTitleMatch(SearchTest):
 # Classes that test many different kinds of searches for a particular
 # series.
 #
-class TestISurvived(SearchTest):
+class TestISurvived(VariantSearchTest):
     # Test different ways of spelling "I Survived"
-    def _test(self, q):
-        self.search(q, Common(title=re.compile('^i survived ')))
+    # .series is not set for these books so we check the title.
+    EVALUATOR = Common(title=re.compile('^i survived '))
 
     def test_correct_spelling(self):
-        self._test("i survived")
+        self.search("i survived")
 
     def test_incorrect_1(self):
-        self._test("i survied")
+        self.search("i survied")
 
     def test_incorrect_2(self):
-        self._test("i survive")
+        self.search("i survive")
 
     def test_incorrect_3(self):
-        self._test("i survided")
+        self.search("i survided")
 
 
-class TestDorkDiaries(SearchTest):
+class TestDorkDiaries(VariantSearchTest):
     # Test different ways of spelling "Dork Diaries"
-
-    def _test(self, q):
-        self.search(q, Common(series="Dork Diaries"))
+    EVALUATOR = Common(series="Dork Diaries")
 
     def test_correct_spelling(self):
-        self._test('dork diaries')
+        self.search('dork diaries')
 
     def test_misspelling_and_number(self):
-        self._test("dork diarys #11")
+        self.search("dork diarys #11")
 
     def test_misspelling_with_punctuation(self):
-        self._test('doke diaries.')
+        self.search('doke diaries.')
 
     def test_singular(self):
-        self._test("dork diary")
+        self.search("dork diary")
 
     def test_misspelling_1(self):
-        self._test('dork diarys')
+        self.search('dork diarys')
 
     def test_misspelling_2(self):
-        self._test('doke dirares')
+        self.search('doke dirares')
 
     def test_misspelling_3(self):
-        self._test('doke dares')
+        self.search('doke dares')
 
     def test_misspelling_4(self):
-        self._test('doke dires')
+        self.search('doke dires')
 
     def test_misspelling_5(self):
-        self._test('dork diareis')
+        self.search('dork diareis')
 
 
-class TestMyLittlePony(SearchTest):
+class TestMyLittlePony(VariantSearchTest):
     # Test different ways of spelling "My Little Pony"
-    # .series is not set for these books so we check the title.
 
-    def _test(self, q):
-        self.search(q, Common(title=re.compile("my little pony")))
+    # .series is not set for these books so we check the title.
+    EVALUATOR = Common(title=re.compile("my little pony"))
 
     def test_correct_spelling(self):
-        self._test("my little pony")
+        self.search("my little pony")
 
     def test_misspelling_1(self):
-        self._test("my little pon")
+        self.search("my little pon")
 
     def test_misspelling_2(self):
-        self._test("my little ponie")
+        self.search("my little ponie")
 
 
 class TestLanguageRestriction(SearchTest):
@@ -2262,7 +2260,7 @@ class TestAgeRangeRestriction(SearchTest):
     def all_children(self, q):
         # Verify that this search finds nothing but books for children.
         self.search(q, Common(audience='Children', threshold=1))
-        
+
     def mostly_adult(self, q):
         # Verify that this search finds mostly books for grown-ups.
         self.search(q, Common(audience='Adult', first_must_match=False))
