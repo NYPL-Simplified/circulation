@@ -77,7 +77,7 @@ from core.util.http import (
 from authenticator import Authenticator
 
 from circulation import (
-    APIAwareFulfillmentInfo
+    APIAwareFulfillmentInfo,
     LoanInfo,
     FulfillmentInfo,
     HoldInfo,
@@ -1237,8 +1237,7 @@ class AvailabilityResponseParser(ResponseParser):
             download_url = self.text_of_optional_subtag(
                 availability, 'axis:downloadUrl', ns)
             transaction_id = self.text_of_optional_subtag(
-                availability, 'axis:transactionId', ns)
-
+                availability, 'axis:transactionID', ns)
             # Arguments common to FulfillmentInfo and
             # AudiobookFulfillmentInfo.
             kwargs = dict(
@@ -1246,7 +1245,6 @@ class AvailabilityResponseParser(ResponseParser):
                 identifier_type=self.id_type,
                 identifier=axis_identifier
             )
-
             if download_url:
                 # This is an ebook.
                 fulfillment = FulfillmentInfo(
