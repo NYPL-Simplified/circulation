@@ -5201,13 +5201,14 @@ class TestSettingsController(SettingsControllerTest):
 
     def test_sitewide_settings_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([])
+            flask.request.form = MultiDict([("key", None)])
             response = self.manager.admin_settings_controller.sitewide_settings()
             eq_(response, MISSING_SITEWIDE_SETTING_KEY)
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("key", Configuration.SECRET_KEY),
+                ("value", None)
             ])
             response = self.manager.admin_settings_controller.sitewide_settings()
             eq_(response, MISSING_SITEWIDE_SETTING_VALUE)

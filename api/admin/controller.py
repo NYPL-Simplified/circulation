@@ -21,6 +21,7 @@ from sqlalchemy.exc import ProgrammingError
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 from StringIO import StringIO
+from api.admin.configuration_processor import ConfigurationProcessor
 from api.authenticator import (
     CannotCreateLocalPatron,
     PatronData,
@@ -2402,32 +2403,16 @@ class SettingsController(AdminCirculationManagerController):
         self._db.delete(integration)
         return Response(unicode(_("Deleted")), 200)
 
-    def _sitewide_settings_controller(self, configuration_object):
+    def _sitewide_settings_controller(self, configuration_object, key=None):
         self.require_system_admin()
+        cp = ConfigurationProcessor(configuration_object, flask.request, self._db)
 
         if flask.request.method == 'GET':
-            settings = []
-            for s in configuration_object.SITEWIDE_SETTINGS:
-                setting = ConfigurationSetting.sitewide(self._db, s.get("key"))
-                if setting.value:
-                    settings += [{ "key": setting.key, "value": setting.value }]
-
-            return dict(
-                settings=settings,
-                all_settings=configuration_object.SITEWIDE_SETTINGS,
-            )
-
-        key = flask.request.form.get("key")
-        if not key:
-            return MISSING_SITEWIDE_SETTING_KEY
-
-        value = flask.request.form.get("value")
-        if not value:
-            return MISSING_SITEWIDE_SETTING_VALUE
-
-        setting = ConfigurationSetting.sitewide(self._db, key)
-        setting.value = value
-        return Response(unicode(setting.key), 200)
+            return cp.process_get()
+        elif flask.request.method == 'POST':
+            return cp.process_post()
+        elif flask.request.method == 'DELETE':
+            return cp.process_delete(key)
 
     def _get_collection_protocols(self, provider_apis):
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
@@ -3146,11 +3131,7 @@ class SettingsController(AdminCirculationManagerController):
         return self._sitewide_settings_controller(Configuration)
 
     def sitewide_setting(self, key):
-        if flask.request.method == "DELETE":
-            self.require_system_admin()
-            setting = ConfigurationSetting.sitewide(self._db, key)
-            setting.value = None
-            return Response(unicode(_("Deleted")), 200)
+        return self._sitewide_settings_controller(Configuration, key)
 
     def logging_services(self):
         detail = _("You tried to create a new logging service, but a logging service is already configured.")
