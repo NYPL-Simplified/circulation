@@ -213,12 +213,12 @@ class APIAwareFulfillmentInfo(FulfillmentInfo):
     request on demand to get data, rather than having all the data
     ready right now.
 
-    This class is useful in situations where generating a real
+    This class is useful in situations where generating a full
     FulfillmentInfo object would be costly. We only want to incur that
     cost when the patron wants to fulfill this title and is not just
     looking at their loans.
     """
-    def __init__(self, api, data_source_name, identifier, key):
+    def __init__(self, api, data_source_name, identifier_type, identifier, key):
         """Constructor.
 
         :param api: An object that knows how to make API requests.
@@ -232,9 +232,8 @@ class APIAwareFulfillmentInfo(FulfillmentInfo):
         self.key = key
         self.collection = api.collection
         self.data_source_name = data_source_name
-        self._identifier = identifier
-        self.identifier_type = identifier.type
-        self.identifier = identifier.identifier
+        self.identifier_type = identifier_type
+        self.identifier = identifier
 
         self._fetched = False
         self._content_link = None
@@ -245,7 +244,7 @@ class APIAwareFulfillmentInfo(FulfillmentInfo):
     def fetch(self):
         """It's time to tell the API that we want to fulfill this book."""
         if self._fetched:
-            # We already made the request.
+            # We already sent the API request..
             return
         self.do_fetch()
         self._fetched = True

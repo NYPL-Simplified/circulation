@@ -834,7 +834,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         fulfillment_info = RBFulfillmentInfo(
             self,
             DataSource.RB_DIGITAL,
-            identifier,
+            identifier.type,
+            identifier.identifier,
             item,
         )
 
@@ -1415,7 +1416,7 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
 
         if self._content_type == Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
             # We have an audiobook.
-            self._content = self.process_audiobook_manifest(self.raw_data)
+            self._content = self.process_audiobook_manifest(self.key)
         else:
             # We have some other kind of file. Follow the download
             # link, which will return a JSON-based access document

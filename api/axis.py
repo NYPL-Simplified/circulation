@@ -77,6 +77,7 @@ from core.util.http import (
 from authenticator import Authenticator
 
 from circulation import (
+    APIAwareFulfillmentInfo
     LoanInfo,
     FulfillmentInfo,
     HoldInfo,
@@ -1238,29 +1239,26 @@ class AvailabilityResponseParser(ResponseParser):
             transaction_id = self.text_of_optional_subtag(
                 availability, 'axis:transactionId', ns)
 
-            fulfillment_class = kwargs = None
+            # Arguments common to FulfillmentInfo and
+            # AudiobookFulfillmentInfo.
+            kwargs = dict(
+                data_source_name=DataSource.AXIS_360,
+                identifier_type=self.id_type,
+                identifier=axis_identifier
+            )
+
             if download_url:
                 # This is an ebook.
-                fulfillment_class = FulfillmentInfo
-                kwargs = dict(content_link=download_url)
+                fulfillment = FulfillmentInfo(
+                    content_link=transaction_id, **kwargs
+                )
             elif transaction_id:
                 # This is an audiobook. If necessary we
                 # are prepared to make another API request to
                 # turn the transaction ID into a Findaway
                 # audio manifest.
-                fulfillment_class = AudiobookFulfillmentInfo
-                kwargs = dict(
-                    transaction_id=transaction_id,
-                    api=self
-                )
-
-            if fulfillment_class:
-                fulfillment = fulfillment_class(
-                    collection=self.collection,
-                    data_source_name=DataSource.AXIS_360,
-                    identifier_type=self.id_type,
-                    identifier=axis_identifier,
-                    **kwargs
+                fulfillment = AudiobookFulfillmentInfo(
+                    api=self, key=transaction_id, **kwargs
                 )
             else:
                 fulfillment = None
@@ -1270,7 +1268,8 @@ class AvailabilityResponseParser(ResponseParser):
                 identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=start_date, end_date=end_date,
-                fulfillment_info=fulfillment)
+                fulfillment_info=fulfillment
+            )
 
         elif reserved:
             end_date = self._xpath1_date(
@@ -1297,14 +1296,13 @@ class AvailabilityResponseParser(ResponseParser):
         return info
 
 
-class AudiobookFulfillmentInfo():
+class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):
     """An Axis 360-specific FulfillmentInfo implementation for audiobooks.
 
     We use these instead of real FulfillmentInfo objects because
     generating a real FulfillmentInfo object would require an extra
     HTTP request, and there's often no need to make that request.
     """
-    def __init__(self, api, data_source_name, identifier, transaction_id):
-        super(AudiobookFulfillmentInfo, self).__init__(**kwargs)
-
+    def do_fetch(self):
+        pass
 
