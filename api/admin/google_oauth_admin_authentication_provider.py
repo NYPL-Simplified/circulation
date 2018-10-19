@@ -18,14 +18,10 @@ from core.model import (
 class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
 
     NAME = ExternalIntegration.GOOGLE_OAUTH
-    DESCRIPTION = _("<p>Allow admins to sign in with their Google accounts.</p>" +
-                    "<p>To use this integration, visit <a target='_blank' href='https://console.developers.google.com/apis/dashboard'>the Google developer console.</a> " +
-                    "Create a project, click 'Create Credentials' in the left sidebar, and select 'OAuth client ID'. " +
-                    "If you get a warning about the consent screen, click 'Configure consent screen' and enter your library name as the product name. Save the consent screen information.</p>" +
-                    "<p>Choose 'Web Application' as the application type.</p>" +
-                    "<p>Leave 'Authorized JavaScript origins' blank, but under 'Authorized redirect URIs', add the url of your circulation manager followed by '/admin/GoogleAuth/callback', e.g. 'http://mycircmanager.org/admin/GoogleAuth/callback'.</p>" +
-                    "<p>Click create, and you'll get a popup with your new client ID and secret. Copy these values and enter them in the form below.</p>"),
+    DESCRIPTION = _("How to Configure a Google OAuth Integration")
     DOMAINS = "domains"
+
+    LINK = "https://confluence.nypl.org/display/SIM/Configure+a+Google+OAuth+Integration+for+Admin+Access"
 
     SETTINGS = [
         { "key": ExternalIntegration.URL, "label": _("Authentication URI"), "default": "https://accounts.google.com/o/oauth2/auth" },

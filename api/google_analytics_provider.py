@@ -13,27 +13,10 @@ from core.model import (
 )
 
 class GoogleAnalyticsProvider(object):
-    NAME = _("Google Analytics")
 
-    DESCRIPTION = _("<p>Send circulation-related analytics events to Google Analytics." +
-                    "<p>To use this integration, set up a property in Google Analytics. " +
-                    "On the administration page for the property, go to Custom Definitions > Custom Dimensions, " +
-                    "and add the following dimensions, in this order: <ol>" +
-                    "<li>time</li>" +
-                    "<li>identifier</li>" +
-                    "<li>identifier_type</li>" +
-                    "<li>title</li>" +
-                    "<li>author</li>" +
-                    "<li>fiction</li>" +
-                    "<li>audience</li>" +
-                    "<li>target_age</li>" +
-                    "<li>publisher</li>" +
-                    "<li>language</li>" +
-                    "<li>genre</li>" +
-                    "<li>open_access</li>" +
-                    "</ol></p>" +
-                    "<p>Each dimension should have the scope set to 'Hit' and the 'Active' box checked.</p>" +
-                    "<p>Then go to Tracking Info and get the tracking id for the property and enter it in the form below.</p>")
+    NAME = _("Google Analytics")
+    DESCRIPTION = _("How to Configure a Google Analytics Integration")
+    LINK = "https://confluence.nypl.org/display/SIM/Configure+a+Google+Analytics+Integration"
 
     TRACKING_ID = "tracking_id"
     DEFAULT_URL = "http://www.google-analytics.com/collect"
