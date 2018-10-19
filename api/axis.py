@@ -1237,14 +1237,31 @@ class AvailabilityResponseParser(ResponseParser):
                 availability, 'axis:downloadUrl', ns)
             transaction_id = self.text_of_optional_subtag(
                 availability, 'axis:transactionId', ns)
+
+            fulfillment_class = kwargs = None
             if download_url:
-                fulfillment = FulfillmentInfo(
+                # This is an ebook.
+                fulfillment_class = FulfillmentInfo
+                kwargs = dict(content_link=download_url)
+            elif transaction_id:
+                # This is an audiobook. If necessary we
+                # are prepared to make another API request to
+                # turn the transaction ID into a Findaway
+                # audio manifest.
+                fulfillment_class = AudiobookFulfillmentInfo
+                kwargs = dict(
+                    transaction_id=transaction_id,
+                    api=self
+                )
+
+            if fulfillment_class:
+                fulfillment = fulfillment_class(
                     collection=self.collection,
                     data_source_name=DataSource.AXIS_360,
                     identifier_type=self.id_type,
                     identifier=axis_identifier,
-                    content_link=download_url, content_type=None,
-                    content=None, content_expires=None)
+                    **kwargs
+                )
             else:
                 fulfillment = None
             info = LoanInfo(
@@ -1278,3 +1295,16 @@ class AvailabilityResponseParser(ResponseParser):
                 start_date=None, end_date=None,
                 hold_position=position)
         return info
+
+
+class AudiobookFulfillmentInfo():
+    """An Axis 360-specific FulfillmentInfo implementation for audiobooks.
+
+    We use these instead of real FulfillmentInfo objects because
+    generating a real FulfillmentInfo object would require an extra
+    HTTP request, and there's often no need to make that request.
+    """
+    def __init__(self, api, data_source_name, identifier, transaction_id):
+        super(AudiobookFulfillmentInfo, self).__init__(**kwargs)
+
+

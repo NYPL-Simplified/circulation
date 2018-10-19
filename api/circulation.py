@@ -208,6 +208,79 @@ class FulfillmentInfo(CirculationInfo):
             self.fd(self.content_expires))
 
 
+class APIAwareFulfillmentInfo(FulfillmentInfo):
+    """This that acts like FulfillmentInfo but is prepared to make an API
+    request on demand to get data, rather than having all the data
+    ready right now.
+
+    This class is useful in situations where generating a real
+    FulfillmentInfo object would be costly. We only want to incur that
+    cost when the patron wants to fulfill this title and is not just
+    looking at their loans.
+    """
+    def __init__(self, api, data_source_name, identifier, key):
+        """Constructor.
+
+        :param api: An object that knows how to make API requests.
+        :param data_source_name: The name of the data source that's
+           offering to fulfill a book.
+        :param identifier: The Identifier of the book being fulfilled.
+        :param key: Any special data, such as a license key, which must
+           be used to fulfill the book.
+        """
+        self.api = api
+        self.key = key
+        self.collection = api.collection
+        self.data_source_name = data_source_name
+        self._identifier = identifier
+        self.identifier_type = identifier.type
+        self.identifier = identifier.identifier
+
+        self._fetched = False
+        self._content_link = None
+        self._content_type = None
+        self._content = None
+        self._content_expires = None
+
+    def fetch(self):
+        """It's time to tell the API that we want to fulfill this book."""
+        if self._fetched:
+            # We already made the request.
+            return
+        self.do_fetch()
+        self._fetched = True
+
+    def do_fetch(self):
+        """Actually make the API request.
+
+        When implemented, this method must set values for some or all
+        of _content_link, _content_type, _content, and
+        _content_expires.
+        """
+        raise NotImplementedError()
+
+    @property
+    def content_link(self):
+        self.fetch()
+        return self._content_link
+
+    @property
+    def content_type(self):
+        self.fetch()
+        return self._content_type
+
+    @property
+    def content(self):
+        self.fetch()
+        return self._content
+
+    @property
+    def content_expires(self):
+        self.fetch()
+        return self._content_expires
+
+
+
 class LoanInfo(CirculationInfo):
     """A record of a loan."""
 
