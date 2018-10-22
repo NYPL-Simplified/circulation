@@ -622,6 +622,8 @@ class TestParsers(Axis360Test):
         eq_(u'Simon & Schuster', bib2.publisher)
         eq_(u'Pocket Books', bib2.imprint)
 
+        eq_(Edition.BOOK_MEDIUM, bib1.medium)
+
         # TODO: Would be nicer if we could test getting a real value
         # for this.
         eq_(None, bib2.series)
@@ -683,6 +685,11 @@ class TestParsers(Axis360Test):
         # we can't use.
         eq_([], bib2.formats)
         '''
+
+    def test_bibliographic_parser_audiobook(self):
+        # TODO - we need a real example to test from.
+        # Verify narrator information and medium.
+        pass
 
     def test_parse_author_role(self):
         """Suffixes on author names are turned into roles."""
