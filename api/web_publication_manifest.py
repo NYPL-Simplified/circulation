@@ -51,18 +51,19 @@ class FindawayManifest(AudiobookManifest):
         This will be used to fill in basic bibliographic information.
 
         :param accountId: An opaque string that Findaway calls the
-        'AudioEngine account ID'.
+        'account ID'. Apparently this is no longer used.
 
         :param checkoutId: An opaque string that Findaway calls the
-        'AudioEngine checkout transaction ID'.
+        'checkout transaction ID'. Apparently this is no longer used.
 
-        :param fulfillmentId: An opaque string that ????????
+        :param fulfillmentId: An opaque string that Findaway calls the
+        'title identifier' or 'content ID'.
 
         :param licenseId: An opaque string that Findaway calls the
-        "AudioEngine license ID"
+        'license ID'
 
         :param sessionId: An opaque string that Findaway calls the
-        "AudioEngine session key".
+        'session key'.
 
         :param spine_items: A list of SpineItem objects representing
         the chapters or other sections of the audiobook.

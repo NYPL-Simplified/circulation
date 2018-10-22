@@ -279,7 +279,8 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         return response
 
     def get_fulfillment_info(self, transaction_id):
-        # Make a call to the getFulfillmentInfoAPI
+        """Make a call to the getFulfillmentInfoAPI."""
+        set_trace()
 
     def checkout(self, patron, pin, licensepool, internal_format):
         title_id = licensepool.identifier.identifier
@@ -1308,19 +1309,27 @@ class FulfillmentInfoResponseParser(ResponseParser):
     We mainly subclass ResponseParser so we can reuse
     _raise_exception_on_error.
     """
-    def parse(self, data):
-        try:
-            parsed = json.loads(data)
-        except ValueError, e:
-            # It's not JSON.
-            raise RemoteInitiatedServerError(
-                "Invalid response from Axis 360 (was expecting JSON): %s" % data,
-                self.SERVICE_NAME
-            )
+    def parse(self, license_pool, data):
+        """Parse a FulfillmentInfo response into a FindawayManifest
+        object.
 
-        return self._extract(parsed)
+        :return: A 2-tuple (FindawayManifest, expiration_date)
+        """
+        if isinstance(data, dict):
+            parsed = data # already parsed
+        else:
+            try:
+                parsed = json.loads(data)
+            except ValueError, e:
+                # It's not JSON.
+                raise RemoteInitiatedServerError(
+                    "Invalid response from Axis 360 (was expecting JSON): %s" % data,
+                    self.SERVICE_NAME
+                )
 
-    def _required_key(key, json_obj=data):
+        return self._extract(license_pool, parsed)
+
+    def _required_key(key, json_obj):
         """Raise an exception if the given key is not present in the given
         object.
         """
@@ -1333,23 +1342,29 @@ class FulfillmentInfoResponseParser(ResponseParser):
             )
         return json_obj[key]
 
-
-    def _extract(self, parsed):
+    def _extract(self, license_pool, parsed):
+        """Extract all useful information from a parsed FulfillmentInfo
+        response.
+        
+        :return: A 2-tuple (FindawayManifest, expiration_date)
+        """
         k = self._required_key
         status = k('Status')
         code = k('Code', status)
         message = status.get('Message')
 
-        # If the document describes there's an error condition, raise
+        # If the document describes an error condition, raise
         # an appropriate exception immediately.
         self._raise_exception_on_error(code, message)
 
-        transaction_id = k('TransactionID')
-        findaway_session_key = k('FNDSessionKey')
-        findaway_transaction_id = k('FNDTransactionID')
-        findaway_license_id = k('FNDLicenseID')
-        findaway_content_id = k('FNDContentID']
-        expiration_date = k('ExpirationDate')
+        # The mobile client only uses the session key, so that's
+        # the only field we'll treat as required.
+        accountId = parsed.get('FNDAccountID')
+        checkoutId = parsed.get('FNDTransactionID')
+        fulfillmentId = parsed.get('FNDContentID')
+        licenseId = parsed.get('FNDLicenseID')
+        sessionKey = k('FNDSessionKey', parsed)
+        expiration_date = k('ExpirationDate', parsed)
 
         if '.' in expiration_date:
             # Remove 7(?!) decimal places of precision and
@@ -1364,8 +1379,12 @@ class FulfillmentInfoResponseParser(ResponseParser):
                 "Could not parse expiration date: %s" % expiration_date,
 
             )
-
-
+        manifest = FindawayManifest(
+            license_pool, accountId=accountId, checkoutId=checkoutId,
+            fulfillmentId=fulfillmentId, licenseId=licenseId,
+            sessionKey=sessionKey
+        )
+        return manifest, expiration_date
 
 
 class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):
@@ -1376,5 +1395,10 @@ class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):
     HTTP request, and there's often no need to make that request.
     """
     def do_fetch(self):
-        pass
-
+        transaction_id = self.key
+        license_pool = self.license_pool(self.api._db)
+        data = self.api.get_fulfillment_info(transaction_id)
+        manifest, expires = FulfillmentInfoResponseParser(license_pool, data)
+        self.content = unicode(manifest)
+        self.content_type = DeliveryMechanism.FINDAWAY_DRM
+        self.content_expires = expires
