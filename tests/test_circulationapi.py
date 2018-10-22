@@ -18,6 +18,7 @@ from datetime import (
 
 from api.circulation_exceptions import *
 from api.circulation import (
+    APIAwareFulfillmentInfo,
     BaseCirculationAPI,
     CirculationAPI,
     DeliveryMechanismInfo,
@@ -994,3 +995,95 @@ class TestConfigurationFailures(DatabaseTest):
         assert isinstance(e, CannotLoadConfiguration)
         eq_("doomed!", e.message)
 
+
+class TestAPIAwareFulfillmentInfo(object):
+
+    class MockAPIAwareFulfillmentInfo(APIAwareFulfillmentInfo):
+        """An APIAwareFulfillmentInfo that implements do_fetch() by delegating
+        to its API object.
+        """
+        def do_fetch(self):
+            return self.api.do_fetch()
+
+    class MockAPI(object):
+        """An API class that sets a flag when do_fetch()
+        is called.
+        """
+        def __init__(self, collection):
+            self.collection = collection
+            self.fetch_happened = False
+
+        def do_fetch(self):
+            self.fetch_happened = True
+
+    def make_info(self):
+        return self.MockAPIAwareFulfillmentInfo(
+            self.api, self.data_source_name, self.identifier_type,
+            self.identifier, self.key
+        )
+
+    def setup(self):
+        self.fetch_result = object()
+        self.collection = object()
+        self.data_source_name = object()
+        self.identifier_type = object()
+        self.identifier = object()
+        self.key = object()
+        self.api = self.MockAPI(self.collection)
+        self.info = self.make_info()
+
+    def test_constructor(self):
+        # Verify that the constructor sets the instance variables
+        # appropriately, but does not call do_fetch() or set
+        # any of the variables that imply do_fetch() has happened.
+
+        info = self.info
+        eq_(self.api, info.api)
+        eq_(self.key, info.key)
+        eq_(self.collection, self.api.collection)
+        eq_(self.api.collection, info.collection)
+        eq_(self.data_source_name, info.data_source_name)
+        eq_(self.identifier_type, info.identifier_type)
+        eq_(self.identifier, info.identifier)
+
+        eq_(None, info._content_link)
+        eq_(None, info._content_type)
+        eq_(None, info._content)
+        eq_(None, info._content_expires)
+
+    def test_fetch(self):
+        # Verify that fetch() calls api.do_fetch()
+        info = self.info
+        eq_(False, info._fetched)
+        eq_(False, self.api.fetch_happened)
+        info.fetch()
+        eq_(True, info._fetched)
+        eq_(True, self.api.fetch_happened)
+
+        # We don't check that values like _content_link were set,
+        # because our implementation of do_fetch() doesn't set any of
+        # them. Different implementations may set different subsets
+        # of these values.
+
+    def test_properties_fetch_on_demand(self):
+        # Verify that each of the properties calls fetch()
+        # if necessary.
+        info = self.info
+        eq_(False, info._fetched)
+        info.content_link
+        eq_(True, info._fetched)
+
+        info = self.make_info()
+        eq_(False, info._fetched)
+        info.content_type
+        eq_(True, info._fetched)
+
+        info = self.make_info()
+        eq_(False, info._fetched)
+        info.content
+        eq_(True, info._fetched)
+
+        info = self.make_info()
+        eq_(False, info._fetched)
+        info.content_expires
+        eq_(True, info._fetched)
