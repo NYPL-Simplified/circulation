@@ -230,7 +230,7 @@ class APIAwareFulfillmentInfo(FulfillmentInfo):
         """
         self.api = api
         self.key = key
-        self.collection = api.collection
+        self.collection_id = api.collection.id
         self.data_source_name = data_source_name
         self.identifier_type = identifier_type
         self.identifier = identifier

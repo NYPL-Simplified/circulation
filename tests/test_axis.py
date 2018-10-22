@@ -47,6 +47,7 @@ from core.util.http import (
 from api.authenticator import BasicAuthenticationProvider
 
 from api.axis import (
+    AudiobookFulfillmentInfo,
     AvailabilityResponseParser,
     Axis360API,
     Axis360BibliographicCoverageProvider,
@@ -998,6 +999,16 @@ class TestFulfillmentInfoResponseParser(Axis360Test):
                 m, pool, missing_field
             )
 
+        # Try with a response indicating an error condition.
+        error_condition = get_data()
+        error_condition['Status']['Code'] = 5004
+        error_condition['Status']['Message'] = "missing transaction id"
+        assert_raises_regexp(
+            LibraryInvalidInputException,
+            "missing transaction id",
+            m, pool, error_condition
+        )
+
         # Try with a bad expiration date.
         bad_date = get_data()
         bad_date['ExpirationDate'] = 'not-a-date'
@@ -1007,6 +1018,32 @@ class TestFulfillmentInfoResponseParser(Axis360Test):
             m, pool, bad_date
         )
 
+
+class TestAudiobookFulfillmentInfo(Axis360Test):
+    def test_fetch(self):
+        data = self.sample_data("audiobook_fulfillment_info.json")
+        self.api.queue_response(200, {}, data)
+
+        # Setup.
+        edition, pool = self._edition(with_license_pool=True)
+        identifier = pool.identifier
+        fulfillment = AudiobookFulfillmentInfo(
+            self.api, pool.data_source.name,
+            identifier.type, identifier.identifier, 'transaction_id'
+        )
+        eq_(None, fulfillment.content_type)
+
+        # Turn the crank.
+        fulfillment.fetch()
+
+        # The AudiobookFufillmentInfo now contains a Findaway manifest
+        # document.
+        eq_(DeliveryMechanism.FINDAWAY_DRM, fulfillment.content_type)
+        assert isinstance(unicode, fulfillment.content)
+        assert 'findaway:sessionKey' in fulfillment.content
+        eq_(
+            datetime.datetime(2018, 9, 29, 18, 34), fulfillment.content_expires
+        )
 
 class TestAxis360BibliographicCoverageProvider(Axis360Test):
     """Test the code that looks up bibliographic information from Axis 360."""

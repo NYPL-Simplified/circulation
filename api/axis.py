@@ -1411,18 +1411,13 @@ class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):
     HTTP request, and there's often no need to make that request.
     """
     def do_fetch(self):
+        _db = self.api._db
+        license_pool = self.license_pool(_db)
+        collection = self.collection(_db)
         transaction_id = self.key
-        license_pool = self.license_pool(self.api._db)
-        manifest, expires = self.get_fulfillment_info(transaction_id)
-        self.content = unicode(manifest)
-        self.content_type = DeliveryMechanism.FINDAWAY_DRM
-        self.content_expires = expires
-
-    def get_fulfillment_info(self):
-        """Make a GetFulfillmentInfo API request and process
-        the result.
-
-        :return: A 2-tuple (FindawayManifest, expiration_date)
-        """
-        data = self.api.get_fulfillment_info(transaction_id)
-        return FulfillmentInfoResponseParser(license_pool, data)
+        response = self.api.get_fulfillment_info(transaction_id)
+        parser = FulfillmentInfoResponseParser(collection)
+        manifest, expires = parser.parse(license_pool, response.content)
+        self._content = unicode(manifest)
+        self._content_type = DeliveryMechanism.FINDAWAY_DRM
+        self._content_expires = expires
