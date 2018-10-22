@@ -279,7 +279,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         return response
 
     def get_fulfillment_info(self, transaction_id):
-        pass
+        # Make a call to the getFulfillmentInfoAPI
 
     def checkout(self, patron, pin, licensepool, internal_format):
         title_id = licensepool.identifier.identifier
@@ -1069,6 +1069,8 @@ class ResponseParser(Axis360Parser):
         3135 : NoAcceptableFormat,
         3136 : LibraryInvalidInputException, # Missing checkout format
         5000 : RemoteInitiatedServerError,
+        5003 : LibraryInvalidInputException, # Missing TransactionID
+        5004 : LibraryInvalidInputException, # Missing TransactionID
     }
 
     def __init__(self, collection):
@@ -1084,11 +1086,12 @@ class ResponseParser(Axis360Parser):
             message = etree.tostring(e)
         else:
             message = message.text
-
         if code is None:
             # Something is so wrong that we don't know what to do.
             raise RemoteInitiatedServerError(message, self.SERVICE_NAME)
-        code = code.text
+        return self._raise_exception_on_error(code.text, message)
+
+    def _raise_exception_on_error(code, message)
         try:
             code = int(code)
         except ValueError:
@@ -1295,6 +1298,74 @@ class AvailabilityResponseParser(ResponseParser):
                 start_date=None, end_date=None,
                 hold_position=position)
         return info
+
+
+class FulfillmentInfoResponseParser(ResponseParser):
+    """Most ResponseParsers parse XML documents into LoanInfo-type
+    objects. This one parses JSON documents into Findaway audiobook
+    manifests.
+
+    We mainly subclass ResponseParser so we can reuse
+    _raise_exception_on_error.
+    """
+    def parse(self, data):
+        try:
+            parsed = json.loads(data)
+        except ValueError, e:
+            # It's not JSON.
+            raise RemoteInitiatedServerError(
+                "Invalid response from Axis 360 (was expecting JSON): %s" % data,
+                self.SERVICE_NAME
+            )
+
+        return self._extract(parsed)
+
+    def _required_key(key, json_obj=data):
+        """Raise an exception if the given key is not present in the given
+        object.
+        """
+        if key not in json_obj:
+            raise RemoteInitiatedServerError(
+                "Required key %s not present in Axis 360 fulfillment document: %s" % (
+                    key, json_obj,
+                )
+                self.SERVICE_NAME
+            )
+        return json_obj[key]
+
+
+    def _extract(self, parsed):
+        k = self._required_key
+        status = k('Status')
+        code = k('Code', status)
+        message = status.get('Message')
+
+        # If the document describes there's an error condition, raise
+        # an appropriate exception immediately.
+        self._raise_exception_on_error(code, message)
+
+        transaction_id = k('TransactionID')
+        findaway_session_key = k('FNDSessionKey')
+        findaway_transaction_id = k('FNDTransactionID')
+        findaway_license_id = k('FNDLicenseID')
+        findaway_content_id = k('FNDContentID']
+        expiration_date = k('ExpirationDate')
+
+        if '.' in expiration_date:
+            # Remove 7(?!) decimal places of precision and
+            # UTC timezone, which are more trouble to parse
+            # than they're worth.
+            expiration_date = expiration_date[expiration_date.rindex('.')]
+
+        try:
+            expiration_date = datetime.strptime(expiration_date, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            raise RemoteInitiatedServerError(
+                "Could not parse expiration date: %s" % expiration_date,
+
+            )
+
+
 
 
 class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):
