@@ -249,7 +249,6 @@ class TestAxis360API(Axis360Test):
         # The fourth request never got made.
         eq_([301], [x.status_code for x in self.api.responses])
 
-
     def test_update_availability(self):
         """Test the Axis 360 implementation of the update_availability method
         defined by the CirculationAPI interface.
@@ -440,6 +439,23 @@ class TestAxis360API(Axis360Test):
         eq_(0, pool.licenses_available)
         eq_(0, pool.licenses_reserved)
         eq_(0, pool.patrons_in_hold_queue)
+
+    def test_get_fulfillment_info(self):
+        # Test the get_fulfillment_info method, which makes an API request.
+
+        api = MockAxis360API(self._db, self.collection)
+        api.queue_response(200, {}, "the response")
+
+        # Make a request and check the response.
+        response = api.get_fulfillment_info("transaction ID")
+        eq_("the response", response.content)
+
+        # Verify that the 'HTTP request' was made to the right URL
+        # with the right keyword arguments and the right HTTP method.
+        url, args, kwargs = api.requests.pop()
+        assert url.endswith(api.fulfillment_endpoint)
+        eq_('POST', kwargs['method'])
+        eq_('transaction ID', kwargs['params']['TransactionID'])
 
 
 class TestCirculationMonitor(Axis360Test):

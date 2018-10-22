@@ -285,7 +285,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         """Make a call to the getFulfillmentInfoAPI."""
         url = self.base_url + self.fulfillment_endpoint
         params = dict(TransactionID=transaction_id)
-        response = self.request(url, "POST", params=params)
+        return self.request(url, "POST", params=params)
 
     def checkout(self, patron, pin, licensepool, internal_format):
         title_id = licensepool.identifier.identifier
