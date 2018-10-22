@@ -119,5 +119,6 @@ class FindawayManifest(AudiobookManifest):
             )
             total_duration += item.duration
 
-        self.metadata['duration'] = total_duration
+        if spine_items:
+            self.metadata['duration'] = total_duration
 

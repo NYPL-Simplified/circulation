@@ -90,6 +90,8 @@ from selftest import (
     SelfTestResult,
 )
 
+from web_publication_manifest import FindawayManifest
+
 
 class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
 
@@ -1093,29 +1095,32 @@ class ResponseParser(Axis360Parser):
         if code is None:
             # Something is so wrong that we don't know what to do.
             raise RemoteInitiatedServerError(message, self.SERVICE_NAME)
-        return self._raise_exception_on_error(code.text, message)
+        return self._raise_exception_on_error(
+            code.text, message, custom_error_classes
+        )
 
-    def _raise_exception_on_error(code, message)
+    @classmethod
+    def _raise_exception_on_error(cls, code, message, custom_error_classes={}):
         try:
             code = int(code)
         except ValueError:
             # Non-numeric code? Inconcievable!
             raise RemoteInitiatedServerError(
                 "Invalid response code from Axis 360: %s" % code,
-                self.SERVICE_NAME
+                cls.SERVICE_NAME
             )
 
-        for d in custom_error_classes, self.code_to_exception:
+        for d in custom_error_classes, cls.code_to_exception:
             if (code, message) in d:
                 raise d[(code, message)]
             elif code in d:
                 # Something went wrong and we know how to turn it into a
                 # specific exception.
-                cls = d[code]
-                if cls is RemoteInitiatedServerError:
-                    e = cls(message, self.SERVICE_NAME)
+                error_class = d[code]
+                if error_class is RemoteInitiatedServerError:
+                    e = error_class(message, cls.SERVICE_NAME)
                 else:
-                    e = cls(message)
+                    e = error_class(message)
                 raise e
         return code, message
 
@@ -1332,40 +1337,48 @@ class FulfillmentInfoResponseParser(ResponseParser):
 
         return self._extract(license_pool, parsed)
 
-    def _required_key(key, json_obj):
+    @classmethod
+    def _required_key(cls, key, json_obj):
         """Raise an exception if the given key is not present in the given
         object.
         """
-        if key not in json_obj:
+        if json_obj is None or key not in json_obj:
             raise RemoteInitiatedServerError(
                 "Required key %s not present in Axis 360 fulfillment document: %s" % (
                     key, json_obj,
-                )
-                self.SERVICE_NAME
+                ),
+                cls.SERVICE_NAME
             )
         return json_obj[key]
 
-    def _extract(self, license_pool, parsed):
+    @classmethod
+    def _extract(cls, license_pool, parsed):
         """Extract all useful information from a parsed FulfillmentInfo
         response.
 
+        :param license_pool: The LicensePool for the book that's
+        being fulfilled.
+
+        :param parsed: A dictionary corresponding to a parsed JSON
+        document.
+
         :return: A 2-tuple (FindawayManifest, expiration_date)
         """
-        k = self._required_key
-        status = k('Status')
+        k = cls._required_key
+        status = k('Status', parsed)
         code = k('Code', status)
         message = status.get('Message')
 
         # If the document describes an error condition, raise
         # an appropriate exception immediately.
-        self._raise_exception_on_error(code, message)
+        cls._raise_exception_on_error(code, message)
 
-        # The mobile client only uses the session key, so that's
-        # the only field we'll treat as required.
+        # The mobile client only uses the session key and license key,
+        # so those are the only fields we'll treat as required.
         accountId = parsed.get('FNDAccountID')
         checkoutId = parsed.get('FNDTransactionID')
         fulfillmentId = parsed.get('FNDContentID')
-        licenseId = parsed.get('FNDLicenseID')
+        licenseId = k('FNDLicenseID', parsed)
         sessionKey = k('FNDSessionKey', parsed)
         expiration_date = k('ExpirationDate', parsed)
 
@@ -1373,14 +1386,14 @@ class FulfillmentInfoResponseParser(ResponseParser):
             # Remove 7(?!) decimal places of precision and
             # UTC timezone, which are more trouble to parse
             # than they're worth.
-            expiration_date = expiration_date[expiration_date.rindex('.')]
+            expiration_date = expiration_date[:expiration_date.rindex('.')]
 
         try:
             expiration_date = datetime.strptime(expiration_date, "%Y-%m-%d %H:%M:%S")
         except ValueError:
             raise RemoteInitiatedServerError(
                 "Could not parse expiration date: %s" % expiration_date,
-
+                cls.SERVICE_NAME
             )
         manifest = FindawayManifest(
             license_pool, accountId=accountId, checkoutId=checkoutId,

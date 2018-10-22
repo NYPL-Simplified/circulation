@@ -10,6 +10,7 @@ from nose.tools import (
     set_trace,
 )
 
+from core.analytics import Analytics
 from core.coverage import CoverageFailure
 
 from core.model import (
@@ -53,6 +54,7 @@ from api.axis import (
     AxisCollectionReaper,
     BibliographicParser,
     CheckoutResponseParser,
+    FulfillmentInfoResponseParser,
     HoldReleaseResponseParser,
     HoldResponseParser,
     MockAxis360API,
@@ -77,7 +79,7 @@ from api.config import (
     temp_config,
 )
 
-from core.analytics import Analytics
+from api.web_publication_manifest import FindawayManifest
 
 
 class Axis360Test(DatabaseTest):
@@ -852,7 +854,7 @@ class TestAvailabilityResponseParser(TestResponseParser):
         eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
 
     def test_parse_audiobook_fulfillmentinfo(self):
-        data = self.sample_data("availability_audiobook.xml")
+        data = self.sample_data("audiobook_fulfillment_info.json")
         parser = AvailabilityResponseParser(self._default_collection)
         [loan] = list(parser.process_all(data))
         fulfillment = loan.fulfillment_info
@@ -863,6 +865,124 @@ class TestAvailabilityResponseParser(TestResponseParser):
         # used in one more API request. (See TestAudiobookFulfillmentInfo
         # for that.)
         eq_("C3F71F8D-1883-2B34-068F-96570678AEB0", fulfillment.key)
+
+
+class TestFulfillmentInfoResponseParser(Axis360Test):
+
+    def test_parse(self):
+        # Verify that parse() parses a JSON document
+        # and calls _extract() on it.
+        class Mock(FulfillmentInfoResponseParser):
+            def _extract(self, license_pool, parsed):
+                self.called_with = (license_pool, parsed)
+                return "Extracted document"
+
+        parser = Mock(self._default_collection)
+        license_pool = object()
+
+        # This works whether we pass it a JSON document or the object
+        # resulting from parsing such a document.
+        for json_document in ("{}", {}):
+            result = parser.parse(license_pool, "{}")
+            eq_("Extracted document", result)
+            eq_((license_pool, {}), parser.called_with)
+            parser.called_with = None
+
+        # Any other input causes an error.
+        assert_raises_regexp(
+            RemoteInitiatedServerError,
+            "Invalid response from Axis 360 \(was expecting JSON\): I'm not JSON",
+            parser.parse, license_pool, "I'm not JSON"
+        )
+
+    def test__required_key(self):
+        # Test the _required_key helper method.
+        m = FulfillmentInfoResponseParser._required_key
+        eq_("value", m("thekey", dict(thekey="value")))
+
+        for bad_dict in (None, {}, dict(otherkey="value")):
+            assert_raises_regexp(
+                RemoteInitiatedServerError,
+                "Required key thekey not present in Axis 360 fulfillment document",
+                m, "thekey", bad_dict
+            )
+
+    def test__extract(self):
+        # _extract will create a valid FindawayManifest given a
+        # complete document.
+
+        m = FulfillmentInfoResponseParser._extract
+
+        edition, pool = self._edition(with_license_pool=True)
+        parser = (self._default_collection)
+        def get_data():
+            # We'll be modifying this document to simulate failures,
+            # so make it easy to load a fresh copy.
+            return json.loads(
+                self.sample_data("audiobook_fulfillment_info.json")
+            )
+        data = get_data()
+        manifest, expires = m(pool, data)
+
+        assert isinstance(manifest, FindawayManifest)
+        metadata = manifest.metadata
+
+        # The manifest contains information from the LicensePool's presentation
+        # edition
+        eq_(edition.title, metadata['title'])
+
+        # It contains DRM licensing information from Findaway via the
+        # Axis 360 API.
+        encrypted = metadata['encrypted']
+        eq_(
+            '0f547af1-38c1-4b1c-8a1a-169d353065d0',
+            encrypted['findaway:sessionKey']
+        )
+        eq_('5babb89b16a4ed7d8238f498', encrypted['findaway:checkoutId'])
+        eq_('04960', encrypted['findaway:fulfillmentId'])
+        eq_('58ee81c6d3d8eb3b05597cdc', encrypted['findaway:licenseId'])
+
+        # There are no spine items and the book is of unknown duration.
+        assert 'duration' not in metadata
+        eq_([], manifest.readingOrder)
+
+        # We also know when the licensing document expires.
+        eq_(datetime.datetime(2018, 9, 29, 18, 34), expires)
+
+        # Now strategically remove required information from the
+        # document and verify that extraction fails.
+        #
+        no_status_code = get_data()
+        del no_status_code['Status']['Code']
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "Required key Code not present",
+            m, pool, no_status_code
+        )
+
+        no_status = get_data()
+        del no_status['Status']
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "Required key Status not present",
+            m, pool, no_status
+        )
+
+        for field in ('Status', 'FNDLicenseID', 'FNDSessionKey', 'ExpirationDate'):
+            missing_field = get_data()
+            del missing_field[field]
+            assert_raises_regexp(
+                RemoteInitiatedServerError,
+                "Required key %s not present" % field,
+                m, pool, missing_field
+            )
+
+        # Try with a bad expiration date.
+        bad_date = get_data()
+        bad_date['ExpirationDate'] = 'not-a-date'
+        assert_raises_regexp(
+            RemoteInitiatedServerError,
+            "Could not parse expiration date: not-a-date",
+            m, pool, bad_date
+        )
 
 
 class TestAxis360BibliographicCoverageProvider(Axis360Test):
