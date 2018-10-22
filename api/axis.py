@@ -118,7 +118,8 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
     ]
 
     access_token_endpoint = 'accesstoken'
-    availability_endpoint = 'availability/v3'
+    availability_endpoint = 'availability/v2'
+    fulfillment_endpoint = 'getfulfillmentinfo/v2'
 
     log = logging.getLogger("Axis 360 API")
 
@@ -280,7 +281,9 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
 
     def get_fulfillment_info(self, transaction_id):
         """Make a call to the getFulfillmentInfoAPI."""
-        set_trace()
+        url = self.base_url + self.fulfillment_endpoint
+        params = dict(TransactionID=transaction_id)
+        response = self.request(url, "POST", params=params)
 
     def checkout(self, patron, pin, licensepool, internal_format):
         title_id = licensepool.identifier.identifier
