@@ -1348,7 +1348,7 @@ class FulfillmentInfoResponseParser(ResponseParser):
     def _extract(self, license_pool, parsed):
         """Extract all useful information from a parsed FulfillmentInfo
         response.
-        
+
         :return: A 2-tuple (FindawayManifest, expiration_date)
         """
         k = self._required_key
@@ -1400,8 +1400,16 @@ class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):
     def do_fetch(self):
         transaction_id = self.key
         license_pool = self.license_pool(self.api._db)
-        data = self.api.get_fulfillment_info(transaction_id)
-        manifest, expires = FulfillmentInfoResponseParser(license_pool, data)
+        manifest, expires = self.get_fulfillment_info(transaction_id)
         self.content = unicode(manifest)
         self.content_type = DeliveryMechanism.FINDAWAY_DRM
         self.content_expires = expires
+
+    def get_fulfillment_info(self):
+        """Make a GetFulfillmentInfo API request and process
+        the result.
+
+        :return: A 2-tuple (FindawayManifest, expiration_date)
+        """
+        data = self.api.get_fulfillment_info(transaction_id)
+        return FulfillmentInfoResponseParser(license_pool, data)
