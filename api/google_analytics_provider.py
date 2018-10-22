@@ -16,7 +16,35 @@ class GoogleAnalyticsProvider(object):
 
     NAME = _("Google Analytics")
     DESCRIPTION = _("How to Configure a Google Analytics Integration")
-    LINK = "https://confluence.nypl.org/display/SIM/Configure+a+Google+Analytics+Integration"
+    INSTRUCTIONS = _("<p>In order to track usage statistics, you can configure the Circulation Manager " +
+                    "to connect to Google Analytics.  Currently, Google Analytics is the only analytics engine " +
+                    "supported for this function.</p>" +
+                    "<p>There are two components required to use Google Analytics to capture usage from your SimplyE service: " +
+                    "<ol><li><a href='https://analytics.google.com/analytics/web/provision/?authuser=0#/provision/create' " +
+                    "rel='noopener' rel='noreferer' target='_blank'>Create a Google Analytics account</a> and configure it " +
+                    "to accommodate elements of SimplyE usage</li>" +
+                    "<li>Add your Google Analytics account tracking ID to an integration record for your library " +
+                    "in the Circulation Manager Admin interface</li></ol></p>" +
+                    "<p>Configure Google Analytics Elements for SimplyE:</p>" +
+                    "<p>To capture data from the SimplyE Circulation Manager in your Google Analytics account, " +
+                    "you must set up a property in Google Analytics for SimplyE.  In your Google Analytics " +
+                    "account, on the administration page for the property, go to Custom Definitions > Custom Dimensions, " +
+                    "and add the following dimensions, in this order: <ol>" +
+                    "<li>time</li>" +
+                    "<li>identifier</li>" +
+                    "<li>identifier_type</li>" +
+                    "<li>title</li>" +
+                    "<li>author</li>" +
+                    "<li>fiction</li>" +
+                    "<li>audience</li>" +
+                    "<li>target_age</li>" +
+                    "<li>publisher</li>" +
+                    "<li>language</li>" +
+                    "<li>genre</li>" +
+                    "<li>open_access</li>" +
+                    "</ol></p>" +
+                    "<p>Each dimension should have the scope set to 'Hit' and the 'Active' box checked.</p>" +
+                    "<p>Then go to Tracking Info and get the tracking id for the property and enter it in the form below.</p>")
 
     TRACKING_ID = "tracking_id"
     DEFAULT_URL = "http://www.google-analytics.com/collect"
