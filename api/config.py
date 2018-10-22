@@ -186,8 +186,8 @@ class Configuration(CoreConfiguration):
         },
         {
             "key": DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
-            "label": _("Default email address to use when sending vendor hold notifications."),
-            "description": _('This should be an address controlled by the library which rejects or trashes all email sent to it. Vendor hold notifications contain sensitive patron information, but <a href="https://confluence.nypl.org/display/SIM/About+Hold+Notifications">cannot be forwarded to patrons</a> because they contain vendor-specific instructions.')
+            "label": _("Default email address to use when sending vendor hold notifications"),
+            "description": _('This should be an address controlled by the library which rejects or trashes all email sent to it. Vendor hold notifications contain sensitive patron information, but <a href="https://confluence.nypl.org/display/SIM/About+Hold+Notifications" target="_blank">cannot be forwarded to patrons</a> because they contain vendor-specific instructions.')
         },
         {
             "key": COLOR_SCHEME,
