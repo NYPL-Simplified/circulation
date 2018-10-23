@@ -379,7 +379,6 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         availability = self.availability(
             patron_id=patron.authorization_identifier,
             title_ids=title_ids)
-        set_trace()
         return list(AvailabilityResponseParser(self.collection).process_all(
             availability.content))
 
