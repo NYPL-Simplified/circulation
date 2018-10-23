@@ -1,4 +1,32 @@
 # encoding: utf-8
+#
+# These integration tests were written based primarily on real
+# searches made in October 2018 against NYPL's circulation
+# manager. Theoretically, most of the tests that pass on NYPL's index
+# should pass when run against the search index of any public library
+# with a similarly sized collection.
+#
+# These guidelines were used when writing the tests:
+#
+# * A search for a specific book should return that book as the first result.
+#   This is true whether or not the search query names the book.
+# * Results for a series search should be dominated by books from that series.
+# * Results for a person search should be dominated by books by or (in some
+#   cases) about that person.
+# * A search for a topic or genre should return books on that topic or
+#   in that genre.
+#
+# It's possible for a test to fail not because of a problem with the
+# search engine but because a library's collection is incomplete.  The
+# tests are written to minimize the chances that this will happen
+# unnecessarily. (e.g. the search for "dirtbike" checks for books
+# filed under certain subjects, not specific titles).
+#
+# To run the tests, put the URL to your Elasticsearch index in the
+# ES1_ELASTICSEARCH environment variable and run this command:
+#
+# $ nosetests integration_tests/test_search.py
+
 import logging
 import urllib
 from nose.tools import (
@@ -6,6 +34,7 @@ from nose.tools import (
     set_trace,
 )
 import os
+import re
 import json
 from core.model import (
     production_session,
@@ -17,15 +46,9 @@ from core.external_search import (
     Filter
 )
 
-
-# problems identified in ES6:
-# 'modern romance' - exact title match isn't promoted
-# (but it also doesn't work in ES1 on a real site)
-
-# summary is boosted over subtitle
-
-
-
+# A problem from the unit tests that we couldn't turn into a
+# real integration test.
+#
 # # In Elasticsearch 6, the exact author match that doesn't
 # # mention 'biography' is boosted above a book that
 # # mentions all three words in its title.
@@ -37,11 +60,12 @@ from core.external_search import (
 # ]
 
 class Searcher(object):
+    """A class that knows how to perform searches."""
     def __init__(self, library, index):
         self.library = library
         self.filter = Filter(collections=self.library)
         self.index = index
-    
+
     def query(self, query, pagination):
         return self.index.query_works(
             query, filter=self.filter, pagination=pagination,
@@ -55,7 +79,11 @@ class Evaluator(object):
     log = logging.getLogger("Search evaluator")
 
     def __init__(self, **kwargs):
-        self.kwargs = dict((k, v.lower()) for k, v in kwargs.items())
+        self.kwargs = dict()
+        for k, v in kwargs.items():
+            if isinstance(v, basestring):
+                v = v.lower()
+            self.kwargs[k] = v
         for k, v in self.kwargs.items():
             setattr(self, k, v)
 
@@ -82,7 +110,7 @@ class Evaluator(object):
         """Evaluate the search results as a whole."""
         return
 
-    def format(self, result):       
+    def format(self, result):
         source = dict(
             title=result.title,
             author=result.author,
@@ -105,7 +133,7 @@ class Evaluator(object):
         """Extract a field from a search result."""
         result = result or self.first
         value = getattr(result, field, None)
-        if value:
+        if isinstance(value, basestring):
             value = value.lower()
         return value
 
@@ -117,36 +145,177 @@ class Evaluator(object):
             actual = 0
         else:
             actual = float(len(matches)) / len(hits)
+        if actual < threshold:
+            # This test is going to fail. Log some useful information.
+            self.log.debug(
+                "Need %d%% matches, got %d%%" % (
+                    threshold*100, actual*100
+                )
+            )
+            for i in hits:
+                if i in matches:
+                    template = 'Y (%s == %s)'
+                else:
+                    template = 'N (%s != %s)'
+                self.log.debug(template % i)
         assert actual >= threshold
 
+    def _match_scalar(self, value, expect):
+        if hasattr(expect, 'search'):
+            success = expect.search(value)
+            expect_str = expect.pattern
+        else:
+            success = (value == expect)
+            expect_str = expect
+        return success, expect_str
 
-class FirstMatch(Evaluator):
-    """The first result must be a specific work."""
+    def _match_subject(self, subject, result):
+        """Is the given result classified under the given subject?"""
+        values = []
+        expect_str = subject
+        for classification in (result.classifications or []):
+            value = classification['term'].lower()
+            values.append(value)
+            success, expect_str = self._match_scalar(value, subject)
+            if success:
+                return True, values, expect_str
+        return False, values, expect_str
 
-    def evaluate_first(self, result):
-        success = True
-        bad_value = bad_expect = None
+    def _match_genre(self, subject, result):
+        """Is the given result classified under the given genre?"""
+        values = []
+        expect_str = subject
+        for genre in (result.genres or []):
+            value = genre['name'].lower()
+            values.append(value)
+            success, expect_str = self._match_scalar(value, subject)
+            if success:
+                return True, values, expect_str
+        return False, values, expect_str
 
-        # genre and subject need separate handling
+    def _match_target_age(self, how_old_is_the_kid, result):
+
+        if result.target_age.lower == 18:
+            return False, how_old_is_the_kid, "18+"
+
+        expect_upper, expect_lower = max(how_old_is_the_kid), min(how_old_is_the_kid)
+        expect_set = set(range(expect_lower, expect_upper + 1))
+
+        result_upper = result.target_age.upper
+        result_lower = result.target_age.lower
+        result_set = set(range(result_lower, result_upper + 1))
+
+        if result_set and expect_set.intersection(result_set):
+            return True, how_old_is_the_kid, (result_lower, result_upper)
+        return False, how_old_is_the_kid, (result_lower, result_upper)
+
+    def match_result(self, result):
+        """Does the given result match these criteria?"""
 
         for field, expect in self.kwargs.items():
-            value = self._field(field, result)
-            if value != expect:
-                # This test is going to fail, but we need to do
-                # some other stuff before it does, so save the
-                # information about where exactly it failed for later.
-                success = False
-                bad_value = value
-                bad_expect = expect
-                break
+            if field == 'subject':
+                success, value, expect_str = self._match_subject(expect, result)
+            elif field == 'genre':
+                success, value, expect_str = self._match_genre(expect, result)
+            elif field == 'target_age':
+                success, value, expect_str = self._match_target_age(expect, result)
+            else:
+                value = self._field(field, result)
+                success, expect_str = self._match_scalar(value, expect)
+            if not success:
+                return False, value, expect_str
+        return True, value, expect_str
 
-        if not success:
-            # Log some useful information.
-            self.log.info("First result details: %r", self.format(result))
+    def multi_evaluate(self, hits):
+        # Evalate a number of hits and sort them into successes and failures.
+        successes = []
+        failures = []
+        for h in hits:
+            success, actual, expected = self.match_result(h)
+            if success:
+                successes.append((success, actual, expected))
+            else:
+                failures.append((success, actual, expected))
+        return successes, failures
 
-            # Now cause the failure.
-            eq_(bad_value, bad_expect)
 
+class ReturnsNothing(Evaluator):
+    """This search should return no results at all."""
+
+    def evaluate(self, hits):
+        assert not hits
+
+
+class Common(Evaluator):
+    """It must be common for the results to match certain criteria.
+    """
+    def __init__(self, threshold=0.5, minimum=None, first_must_match=True,
+                 **kwargs):
+        """Constructor.
+
+        :param threshold: A proportion of the search results must
+        match these criteria.
+
+        :param minimum: At least this many search results must match
+        these criteria.
+
+        :param first_must_match: In addition to any collective
+        restrictions, the first search result must match the criteria.
+        """
+        super(Common, self).__init__(**kwargs)
+        self.threshold = threshold
+        self.minimum = minimum
+        self.first_must_match = first_must_match
+
+    def evaluate_first(self, hit):
+        if self.first_must_match:
+            success, actual, expected = self.match_result(hit)
+            if not success:
+                self.log.debug(
+                    "First result did not match. %s != %s", expected, actual
+                )
+                eq_(actual, expected)
+
+    def evaluate_hits(self, hits):
+        successes, failures = self.multi_evaluate(hits)
+        if self.threshold is not None:
+            self.assert_ratio(
+                [x[1:] for x in successes],
+                [x[1:] for x in successes+failures],
+                self.threshold
+            )
+        if self.minimum is not None:
+            if len(successes) < self.minimum or True:
+                self.log.debug(
+                    "Need %d matches, got %d", self.minimum, len(successes)
+                )
+                for i in (successes+failures):
+                    if i in successes:
+                        template = 'Y (%s == %s)'
+                    else:
+                        template = 'N (%s != %s)'
+                    self.log.debug(template % i[1:])
+            assert len(successes) >= self.minimum
+
+class FirstMatch(Common):
+    """The first result must match certain criteria."""
+
+    def __init__(self, **kwargs):
+        threshold = kwargs.pop('threshold', None)
+        super(FirstMatch, self).__init__(
+            threshold=threshold, first_must_match=True, **kwargs
+        )
+
+
+class AtLeastOne(Common):
+    def __init__(self, **kwargs):
+        super(AtLeastOne, self).__init__(
+            threshold=None, minimum=1, first_must_match=False, **kwargs
+        )
+
+
+class SpecificGenre(Common):
+    pass
 
 class SpecificAuthor(FirstMatch):
     """The first result must be by a specific author.
@@ -154,10 +323,9 @@ class SpecificAuthor(FirstMatch):
     Most of the results must also be by that author.
     """
 
-    def __init__(self, author, accept_book_about_author=False, threshold=0.5):
-        super(SpecificAuthor, self).__init__(author=author)
+    def __init__(self, author, accept_book_about_author=False, threshold=0):
+        super(SpecificAuthor, self).__init__(author=author, threshold=threshold)
         self.accept_book_about_author = accept_book_about_author
-        self.threshold = threshold
 
     def evaluate_first(self, first):
         expect_author = self.author
@@ -167,7 +335,6 @@ class SpecificAuthor(FirstMatch):
             return
         if self.accept_book_about_author and expect_author in title:
             return
-        set_trace()
         # We have failed.
         eq_(self.author, author)
 
@@ -184,25 +351,515 @@ class SearchTest(object):
     to some expected state.
     """
 
-    def search(self, query, evaluator, limit=10):
+    def search(self, query, evaluators=None, limit=10):
         query = query.lower()
+        logging.debug("Query: %r", query)
         pagination = Pagination(size=limit)
         qu = self.searcher.query(query, pagination=pagination)
         hits = [x for x in qu][:]
-        evaluator.evaluate(hits)
+        if not evaluators:
+            raise Exception("No evaluators specified!")
+        if not isinstance(evaluators, list):
+            evaluators = [evaluators]
+        for e in evaluators:
+            e.evaluate(hits)
 
-    
+class VariantSearchTest(SearchTest):
+    """A test suite that runs different searches but evaluates the
+    results against the same evaluator every time.
+    """
+    EVALUATOR = None
+
+    def search(self, query):
+        return super(VariantSearchTest, self).search(query, self.EVALUATOR)
+
+
+class TestGibberish(SearchTest):
+    # If you type junk into the search box you should get no results.
+
+    def test_junk(self):
+        # Test one long string
+        self.search(
+            "rguhriregiuh43pn5rtsadpfnsadfausdfhaspdiufnhwe42uhdsaipfh",
+            ReturnsNothing()
+        )
+
+    def test_multi_word_junk(self):
+        # Test several short strings
+        self.search(
+            "rguhriregiuh 43pn5rts adpfnsadfaus dfhaspdiufnhwe4 2uhdsaipfh",
+            ReturnsNothing()
+        )
+
+    def test_wordlike_junk(self):
+        # This test fails on ES1 and ES6. To a human eye it is
+        # obviously gibberish, but it's close enough to English words
+        # that it picks up a few results.
+        self.search(
+            "asdfza oiagher ofnalqk",
+            ReturnsNothing()
+        )
+
+
 class TestTitleMatch(SearchTest):
+    # A search for one specific book. We want that book to be the
+    # first result. The rest of the results are usually irrelevant.
 
-    def test_simple_title_match(self):
+    def test_simple_title_match_carrie(self):
         # There is one obvious right answer.
         self.search("carrie", FirstMatch(title="Carrie"))
+
+    def test_simple_title_match_bookshop(self):
+        self.search("the bookshop", FirstMatch(title="The Bookshop"))
+
+    def test_simple_title_match_house(self):
+        self.search("A house for Mr. biswas", FirstMatch(title="A House for Mr. Biswas"))
+
+    def test_simple_title_match_clique(self):
+        self.search("clique", FirstMatch(title="The Clique"))
+
+    def test_simple_title_match_assassin(self):
+        self.search("blind assassin", FirstMatch(title="Blind Assassin"))
+
+    def test_simple_title_match_dry(self):
+        self.search("the dry", FirstMatch(title="The Dry"))
+
+    def test_simple_title_match_origin(self):
+        self.search("origin", FirstMatch(title="Origin"))
+
+    def test_simple_title_match_goldfinch(self):
+        # This book is available as both "The Goldfinch" and "Goldfinch"
+        self.search(
+            "goldfinch",
+            FirstMatch(
+                title=re.compile("^(the )?goldfinch$"),
+                author="Donna Tartt"
+            )
+        )
+
+    def test_simple_title_match_beach(self):
+        self.search("Manhattan beach", FirstMatch(title="Manhattan Beach"))
+
+    def test_simple_title_match_testing(self):
+        self.search(
+            "The testing",
+            FirstMatch(title="The testing", author='Joelle Charbonneau')
+        )
+
+    def test_simple_title_twentysomething(self):
+        self.search(
+            "Twentysomething",
+            FirstMatch(title="Twentysomething")
+        )
+
+    def test_simple_title_match_bell_jar(self):
+        # NOTE: this works on ES6.  On ES1, the top result is the Sparknotes for
+        # "The Bell Jar," rather than the novel itself.
+
+        self.search("bell jar", FirstMatch(author="Sylvia Plath"))
+
+    def test_simple_title_match_androids(self):
+        self.search("Do androids dream of electric sheep",
+        FirstMatch(title="Do Androids Dream of Electric Sheep?"))
+
+    def test_genius_foods(self):
+        # In addition to an exact title match, we also check that
+        # food-related books show up in the search results.
+        self.search(
+            "genius foods", [
+                FirstMatch(title="Genius Foods"),
+                Common(
+                    genre=re.compile("(cook|diet)"),
+                    threshold=0.2
+                )
+            ]
+        )
+
+    def test_it(self):
+        # The book "It" is correctly prioritized over books whose titles contain
+        # the word "it."
+        self.search(
+            "It",
+            FirstMatch(title="It")
+        )
+
+    def test_girl_on_the_train(self):
+        # There's a different book called "The Girl in the Train".
+        self.search(
+            "girl on the train",
+            FirstMatch(title="The Girl On The Train")
+        )
+
+
+class TestUnownedTitle(SearchTest):
+    # These are title searches for books not owned by NYPL.
+    # Because of this we check that _similar_ books are returned.
+    #
+    # If your library owns these titles, then your results may be
+    # different for these tests.
+
+    def test_boy_saved_baseball(self):
+        # NOTE: The target title ("The Boy who Saved Baseball") isn't in the collection,
+        # but, ideally, most of the top results should still be about baseball.
+        # This works on ES6, but not on ES1.  (On ES1, several of the top results
+        # are romance novels.)
+        self.search(
+            "boy saved baseball",
+            Common(subject=re.compile("baseball"))
+        )
+
+    def test_unowned_title_cat(self):
+        # NOTE: this book isn't in the collection, but there are plenty of books
+        # with "save" and/or "cat" in their titles.  This works on ES6 but not ES1.
+        self.search("Save the Cat", Common(title=re.compile("(save|cat)"), threshold=1))
+
+    def test_unowned_title_zombie(self):
+        # NOTE: this fails on both versions, even though there's no shortage of
+        # books with one of those search terms in their titles.
+        self.search(
+            "Diary of a minecraft zombie",
+            Common(title=re.compile("(diar|minecraft|zombie)"))
+        )
+
+    def test_unowned_title_pie(self):
+        # NOTE: "Pie Town Woman" isn't in the collection, but there's a book called
+        # "Pie Town," which seems like the clear best option for the first result.
+        # This works on ES6.  On ES1, the first result is instead a book entitled
+        # "The Quiche and the Dead," which has "pie" only in the summary.
+        self.search("Pie town woman", FirstMatch(title="Pie Town"))
+
+    def test_unowned_title_divorce(self):
+        self.search(
+            "The truth about children and divorce", [
+                Common(
+                    audience="adult",
+                    first_must_match=False
+                ),
+                AtLeastOne(
+                    title=re.compile("divorce")
+                )
+            ]
+        )
+
+    def test_unowned_title_decluttering(self):
+        # NOTE: this book isn't in the collection, but the top search results should
+        # be reasonably relevant.  This works on ES6 but fails on ES1.
+
+        self.search(
+            "Decluttering at the speed of life", [
+                AtLeastOne(title=re.compile("declutter")),
+                Common(subject=re.compile(
+                    "(house|self-help|self-improvement|decluttering|organization)"
+                ), first_must_match=False)
+            ]
+        )
+
+
+    def test_patterns_of_fashion(self):
+        # NOTE: this specific title isn't in the collection, but the results
+        # should still be reasonably relevant.  This works on ES1 but not ES6.
+
+        self.search(
+            "Patterns of fashion", [
+                AtLeastOne(subject=re.compile("crafts")),
+                Common(title=re.compile("(patterns|fashion)"))
+            ]
+        )
+
+    def test_unowned_partial_title_rosetta_stone(self):
+        # NOTE: the collection doesn't have any books with titles containing "rosetta"
+        # stone," but it does have a few with titles containing "rosetta"; ideally,
+        # one of those would be the first result.  A title containing "stone" would be
+        # less relevant to the user, but still reasonable.  Instead, the first result
+        # is a memoir by an author whose first name is "Rosetta."
+
+        self.search(
+            "Rosetta stone",
+            FirstMatch(title=re.compile("(rosetta|stone)"))
+        )
+
+    def test_unowned_misspelled_partial_title_cosmetics(self):
+        # NOTE: this fails on both versions of ES.  The user was presumably
+        # looking for "Don't Go to the Cosmetics Counter Without Me," which
+        # isn't in the collection.  Ideally, one of the results should have
+        # something to do with cosmetics; instead, they're about comets.  Fixing
+        # the typo makes the test pass.
+
+        self.search(
+            "Cometics counter", [
+                AtLeastOne(title=re.compile("cosmetics")),
+            ]
+        )
+
+    def test_nonexistent_title_tower(self):
+        # NOTE: there is no book with this title.  The most
+        # likely scenario is that the user meant "The Dark Tower."  This
+        # doesn't currently work on either version of ES.
+
+        self.search("The night tower", FirstMatch(title="The Dark Tower"))
+
+
+class TestMisspelledTitleSearch(SearchTest):
+    # Test title searches where the title is misspelled.
+
+    def test_allegiant_misspelled(self):
+        # A very bad misspelling.
+        self.search(
+            "alliagent",
+            FirstMatch(title="Allegiant")
+        )
+
+    def test_misspelled_title_match_marriage(self):
+        # NOTE: fails on both versions.  The first result is "The Marriage Contract,"
+        # and "The Marriage Lie" (which is presumably what the user wanted, and
+        # which is in the collection) isn't even in the top ten.
+        self.search(
+            "Marriage liez",
+            FirstMatch(title="The Marriage Lie")
+        )
+
+    def test_misspelled_title_match_emmie(self):
+        # NOTE: this currently fails in both versions of ES.
+        # The target title does appear in the top search results,
+        # but it's not first.
+
+        # One word in the title is slightly misspelled.
+        self.search(
+            "Ivisible emmie",
+            FirstMatch(title="Invisible Emmie")
+        )
+
+    def test_misspelled_title_match_karamazov(self):
+        # NOTE: this works on ES1 but fails on ES6; not only is the target title
+        # not the first result in ES6, it's not any of the top results.  Fixing
+        # the typo makes it work.
+
+        # Extremely uncommon proper noun, slightly misspelled
+        self.search(
+            "Brothers karamzov",
+            FirstMatch(title="The Brothers Karamazov")
+        )
+
+    def test_misspelled_title_match_wave(self):
+        # NOTE: this currently fails in both versions of ES; the target book is
+        # result #4.  Fixing the typo fixes the search results.
+
+        # One common word in the title is slightly misspelled.
+        self.search(
+            "He restless wave",
+            FirstMatch(title="The Restless Wave")
+        )
+
+    def test_misspelled_title_match_kingdom(self):
+        # NOTE: this works in ES1, but not in ES6!  In ES6, the target title is not
+        # in the top search results.
+
+        # The first word, which is a fairly common word, is slightly misspelled.
+        self.search(
+            "Kngdom of the blind",
+            FirstMatch(title="The Kingdom of the Blind")
+        )
+
+    def test_misspelled_title_match_husbands(self):
+        # Two words--1) a common word which is spelled as a different word
+        # ("if" instead of "of"), and 2) a proper noun--are misspelled.
+        self.search(
+            "The seven husbands if evyln hugo",
+            FirstMatch(title="The Seven Husbands of Evelyn Hugo")
+        )
+
+    def test_misspelled_title_match_nightingale(self):
+        # NOTE: this fails in both versions of ES, but the top ES1 results are reasonable
+        # (titles containing "nightfall"), whereas the top ES6 result is entitled
+        # "Modern Warfare, Intelligence, and Deterrence."
+
+        # Unusual word, misspelled
+        self.search(
+            "The nightenale",
+            FirstMatch(title="The Nightingale")
+        )
+
+    def test_misspelled_title_match_geisha(self):
+        # NOTE: this currently fails in both versions of ES.
+        self.search(
+            "Memoire of a ghesia",
+            FirstMatch(title="Memoirs of a Geisha")
+        )
+
+    def test_misspelled_title_match_healthyish(self):
+        # The title is not a real word, and is misspelled.
+        self.search(
+            "healtylish",
+            FirstMatch(title="Healthyish")
+        )
+
+    def test_misspelled_title_match_zodiac(self):
+        # Uncommon word, slightly misspelled.
+        self.search(
+            "Zodiaf",
+            FirstMatch(title="Zodiac")
+        )
+
+    def test_misspelled_title_match_bell(self):
+        # One word, which is a relatively common word, is spelled as a different word.
+        self.search(
+            "For whom the bell tools",
+            FirstMatch(title="For Whom the Bell Tolls")
+        )
+
+    def test_misspelled_title_match_baghdad(self):
+        # One word, which is an extremely common word, is spelled as a different word.
+        self.search(
+            "They cane to baghdad",
+            FirstMatch(title="They Came To Baghdad")
+        )
+
+    def test_misspelled_title_match_genghis(self):
+        # NOTE: this doesn't work.  The collection definitely contains books with
+        # "Genghis Khan" in the title, but all of the top search results are books
+        # by authors with the last name "Khan."
+
+        self.search(
+            "Ghangiz Khan",
+            AtLeastOne(title=re.compile("Genghis Khan"))
+        )
+
+    def test_misspelled_title_match_guernsey(self):
+        # NOTE: this works in ES6 but not in ES1.  ES1 fixes the typo, but
+        # doesn't seem able to handle converting the "and" into an ampersand.
+
+        # One word, which is a place name, is misspelled.
+        self.search(
+            "The gurnsey literary and potato peel society",
+            FirstMatch(title="The Guernsey Literary & Potato Peel Society")
+        )
+
+    def test_british_spelling_color_of_our_sky(self):
+        # NOTE: fails on both.  In ES1, the target book is the 3rd result; in
+        # ES6, it's nowhere in the top results.
+        #
+        # Note to pedants: the title of the book as published is
+        # "The Color of Our Sky".
+
+        self.search(
+            "The colour of our sky",
+            FirstMatch(title="The Color of Our Sky")
+        )
+
+
+class TestPartialTitleSearch(SearchTest):
+    # Test title searches where only part of the title is provided.
+
+    def test_i_funnyest(self):
+        # An important word from the middle of the title is omitted.
+        self.search(
+            "i funnyest",
+            AtLeastOne(title="I Totally Funniest"),
+        )
+
+    def test_partial_title_match_home(self):
+        # The search query only contains half of the title.
+        self.search(
+            "Future home of",
+            FirstMatch(title="Future Home Of the Living God")
+        )
+
+    def test_partial_title_match_supervision(self):
+        # NOTE: works on ES1, fails on ES6; it's the second title rather than
+        # the first in ES6.
+
+        # A word from the middle of the title is missing.
+
+        # I think they might be searching for a different book
+        # we don't have. - LR
+        self.search(
+            "fundamentals of supervision",
+            FirstMatch(title="Fundamentals of Library Supervision")
+        )
+
+    def test_partial_title_match_hurin(self):
+        # Successfully searches "Húrin" (even though that's not a real word, and
+        # the query didn't have the accent mark) before trying to correct it.
+        self.search(
+            "Hurin",
+            FirstMatch(author=re.compile("tolkien"))
+        )
+
+    def test_partial_title_match_open_wide(self):
+        # Search query cuts off midway through the second word of the subtitle.
+        self.search(
+            "Open wide a radical",
+            FirstMatch(
+                title="Open Wide",
+                subtitle="a radically real guide to deep love, rocking relationships, and soulful sex"
+            )
+        )
+
+    def test_partial_title_match_friends(self):
+        # The search query only contains half of the title.
+        self.search(
+            "How to win friends",
+            FirstMatch(title="How to Win Friends and Influence People")
+        )
+
+    def test_partial_title_match_face_1(self):
+        # The search query is missing the last word of the title.
+        self.search(
+            "Girl wash your",
+            FirstMatch(title="Girl, Wash Your Face")
+        )
+
+    def test_partial_title_match_face_2(self):
+        # The search query is missing the first word of the title.
+        self.search(
+            "Wash your face",
+            FirstMatch(title="Girl, Wash Your Face")
+        )
+
+    def test_partial_title_match_theresa(self):
+        # The search results correctly prioritize books with titles containing
+        # "Theresa" over books by authors with the first name "Theresa."
+        self.search(
+            "Theresa",
+            FirstMatch(title="Theresa Raquin")
+        )
+
+    def test_misspelled_partial_title_match_brodie(self):
+      # NOTE: this works in ES1, but not in ES6!  In ES6, the target title is in
+      # the top search results, but is not first.
+
+      # The search query only has the first and last words from the title, and
+      # the last word is misspelled.
+      self.search(
+        "Prime brody",
+        FirstMatch(title="The Prime of Miss Jean Brodie")
+      )
+
+
+class TestTitleGenreConflict(SearchTest):
+    # These tests address a longstanding problem of books whose titles
+    # contain the names of genres.
+
+    def test_drama(self):
+        # The title of the book is the name of a genre, and another
+        # genre has been added to the search term to clarify it.
+        self.search(
+            "drama comic",
+            FirstMatch(title="Drama", author="Raina Telgemeier")
+        )
 
     def test_title_match_with_genre_name_romance(self):
         # The title contains the name of a genre. Despite this,
         # an exact title match should show up first.
         self.search(
             "modern romance", FirstMatch(title="Modern Romance")
+        )
+
+
+    def test_modern_romance_with_author(self):
+        self.search(
+            "modern romance aziz ansari",
+            FirstMatch(title="Modern Romance", author="Aziz Ansari")
         )
 
     def test_title_match_with_genre_name_law(self):
@@ -212,9 +869,116 @@ class TestTitleMatch(SearchTest):
         )
 
 
+    def test_law_of_the_mountain_man_with_author(self):
+        self.search(
+            "law of the mountain man william johnstone",
+            [
+                FirstMatch(title="Law of the Mountain Man"),
+                Common(author="William Johnstone"),
+            ]
+        )
+
+    def test_title_match_with_genre_name_spy_unowned(self):
+        # NOTE: this book is not in the system.
+        self.search(
+            "My life as a spy",
+            Common(title=re.compile("(life|spy)"), threshold=.9)
+        )
+
+    def test_title_match_with_genre_name_spy(self):
+        self.search(
+            "spying on whales",
+            FirstMatch(title="Spying on Whales")
+        )
+
+    def test_title_match_with_genre_name_dance(self):
+        self.search(
+            "dance with dragons",
+            FirstMatch(title="A Dance With Dragons")
+        )
+
+
+class TestTitleAuthorConflict(SearchTest):
+    # Test title searches for works whose titles contain words
+    # that often show up in peoples' names.
+
+    def test_lord_jim(self):
+        # The book "Lord Jim" is correctly prioritized over books whose authors' names
+        # contain "Lord" or "Jim."
+        self.search(
+            "Lord Jim",
+            FirstMatch(title="Lord Jim")
+        )
+
+    def test_wilder(self):
+        # The book "Wilder" is correctly prioritized over books by authors with the
+        # last name "Wilder."
+        self.search(
+            "Wilder",
+            FirstMatch(title="Wilder")
+        )
+
+    def test_alice(self):
+        # The book "Alice" is correctly prioritized over books by authors with the
+        # first name "Alice."
+        self.search(
+            "Alice",
+            FirstMatch(title="Alice")
+        )
+
+    def test_alex_and_eliza(self):
+        # The book "Alex and Eliza" is correctly prioritized over books by authors with the
+        # first names "Alex" or "Eliza."
+        self.search(
+            "Alex and Eliza",
+            FirstMatch(title="Alex and Eliza")
+        )
+
+    def test_disney(self):
+        # The majority of the search results will be about Walt Disney and/or the
+        # Disney Company, but there should also be some published by the Disney Book Group
+        self.search(
+            "disney",
+                [ Common(title=re.compile("disney")),
+                  AtLeastOne(title=re.compile("walt disney")),
+                  AtLeastOne(author="Disney Book Group") ]
+        )
+
+    def test_bridge(self):
+        # The search results correctly prioritize the book with this title over books
+        # by authors whose names contain "Luis" or "Rey."
+        self.search(
+            "the bridge of san luis rey",
+            FirstMatch(title="The Bridge of San Luis Rey")
+        )
+
+
+class TestTitleAudienceConflict(SearchTest):
+    # Test titles searches for books whose titles contain the
+    # name of an audience or target age.
+
+    def test_title_match_with_audience_name_children(self):
+        self.search(
+            "Children of blood and bone",
+            FirstMatch(title="Children of Blood and Bone")
+        )
+
+    def test_title_match_with_audience_name_kids(self):
+        self.search(
+            "just kids",
+            FirstMatch(title="Just Kids")
+        )
+
+    def test_tales_of_a_fourth_grade_nothing(self):
+        self.search(
+            "tales of a fourth grade nothing",
+            FirstMatch(title="Tales of a Fourth Grade Nothing")
+        )
+
+
 class TestMixedTitleAuthorMatch(SearchTest):
 
-    def test_centos_negus(self):
+    def test_centos_caen(self):
         # 'centos' shows up in the subtitle. 'caen' is the name
         # of one of the authors.
         self.search(
@@ -228,21 +992,133 @@ class TestMixedTitleAuthorMatch(SearchTest):
             FirstMatch(title="Fallen")
         )
 
-class GenreSearch(SearchTest):
-
-    # Just search for a genre like "graphic novel"
-    # Search for a title in a genre
-
-    def test_iain_banks_sf(self):
+    def test_dragons(self):
+        # Full title, full but misspelled author
         self.search(
-            "iain banks science fiction",
-            FirstMatch(author="Iain M. Banks", genre="Science Fiction")
+            "Michael conolley Nine Dragons",
+            FirstMatch(title="Nine Dragons", author="Michael Connelly")
         )
 
-    # Search for author + genre
+    def test_dostoyevsky(self):
+        # Full title, partial author
+        self.search(
+            "Crime and punishment Dostoyevsky",
+            FirstMatch(title="Crime and Punishment")
+        )
+
+    def test_sparks(self):
+        # Full title, full but misspelled author, "by"
+        self.search(
+            "Every breath by nicholis sparks",
+            FirstMatch(title="Every Breath", author="Nicholas Sparks")
+        )
+
+    def test_grisham(self):
+        # Full title, author's first name only
+        self.search(
+            "The reckoning john",
+            FirstMatch(title="The Reckoning", author="John Grisham")
+        )
+
+    def test_singh(self):
+        # NOTE: this doesn't currently work on either version of ES6.  The
+        # search results aren't sufficiently prioritizing titles containing
+        # "archangel" over the author's other books.  Changing "arch" to
+        # "archangel" in the search query helps only slightly.
+
+        self.search(
+            "Nalini singh archangel",
+            [ Common(author="Nalini Singh", threshold=0.9),
+              Common(title=re.compile("archangel")) ]
+        )
+
+    def test_sebald_1(self):
+        # NOTE: this title isn't in the collection, but the author's other
+        # books should still come up.
+
+        # Partial, unowned title; author's last name only
+        self.search(
+            "Sebald after",
+            Common(author=re.compile("(w. g. sebald|w.g. sebald)"))
+        )
+
+    def test_sebald_2(self):
+        # NOTE: putting in the full title (in contrast to the previous test)
+        # completely breaks the test; the top results are now books by
+        # authors other than Sebald, with titles which contain none of the
+        # search terms.
+        #
+        # This is because 'nature' is the name of a genre. -LR
+
+        # Full, unowned title; author's last name only
+        self.search(
+            "Sebald after nature",
+            Common(author=re.compile("(w. g. sebald|w.g. sebald)"))
+        )
+
+# Classes that test many different variant searches for a specific
+# title.
+#
+class TestTheHateUGive(VariantSearchTest):
+    """Test various ways of searching for "The Hate U Give"."""
+
+    EVALUATOR = FirstMatch(title="The Hate U Give")
+
+    def test_correct_spelling(self):
+        self.search("the hate u give")
+
+    def test_with_all(self):
+        self.search("all the hate u give")
+
+    def test_with_all_and_you(self):
+        self.search("all the hate you give")
+
+    def test_with_you(self):
+        self.search("hate you give")
+
+    def test_with_you_misspelled(self):
+        self.search("hate you gove")
+
+
+class TestCharlottesWeb(VariantSearchTest):
+    """Test various ways of searching for "Charlotte's Web"."""
+
+    EVALUATOR = FirstMatch(title="Charlotte's Web")
+
+    def test_with_apostrophe(self):
+        self.search("charlotte's web")
+
+    def test_without_apostrophe(self):
+        self.search("charlottes web")
+
+    def test_misspelled_no_apostrophe(self):
+        self.search("charlettes web")
+
+    def test_no_apostrophe_with_author(self):
+        self.search("charlottes web eb white")
+
+
+class TestChristopherMouse(VariantSearchTest):
+    # Test various partial title spellings for "Christopher Mouse: The Tale
+    # of a Small Traveler". This title is not in NYPL's collection.
+    EVALUATOR = FirstMatch(title=re.compile("Christopher Mouse"))
+
+    def test_correct_spelling(self):
+        self.search("christopher mouse")
+
+    def test_misspelled_1(self):
+        self.search("chistopher mouse")
+
+    def test_misspelled_2(self):
+        self.search("christopher moise")
+
+    def test_misspelled_3(self):
+        self.search("chistoper muse")
 
 
 class TestSubtitleMatch(SearchTest):
+    # Test searches for words that show up based on a remembered
+    # subtitle.
 
     def test_shame_stereotypes(self):
         # "Sister Citizen" has both search terms in its
@@ -257,7 +1133,6 @@ class TestSubtitleMatch(SearchTest):
             "garden wiser", FirstMatch(title="Gardening for a Lifetime")
         )
 
-
 class TestAuthorMatch(SearchTest):
 
     def test_kelly_link(self):
@@ -270,22 +1145,1182 @@ class TestAuthorMatch(SearchTest):
         # reasonably show up as the first search result. However, the
         # majority of search results should be books _by_ this author.
         self.search(
-            "stephen king", SpecificAuthor(
-                "Stephen King", accept_book_about_author=True
+            "stephen king",
+                [ SpecificAuthor("Stephen King", accept_book_about_author=True),
+                  Common(author="Stephen King", threshold=0.7) ]
+        )
+
+    def test_fleming(self):
+        # It's reasonable for there to be a biography of this author in the search
+        # results, but the overwhelming majority of the results should be books by him.
+        self.search(
+            "ian fleming",
+            [ SpecificAuthor("Ian Fleming", accept_book_about_author=True),
+              Common(author="Ian Fleming", threshold=0.9) ]
+        )
+
+    def test_plato(self):
+        # The majority of the search results will be _about_ this author,
+        # but there should also be some _by_ him.
+        self.search(
+            "plato",
+                [ SpecificAuthor("Plato", accept_book_about_author=True),
+                  AtLeastOne(author="Plato") ]
+        )
+
+    def test_byron(self):
+        # The user probably wants either a biography of Byron or a book of
+        # his poetry.
+        self.search(
+            "Byron", [
+                AtLeastOne(title=re.compile("byron"), genre=re.compile("biography")),
+                AtLeastOne(author=re.compile("byron"), genre="poetry")
+            ]
+        )
+
+    def test_hemingway(self):
+        # NOTE: this doesn't work in either version of ES.  All of the top
+        # results are books about, rather than by, Hemingway.  It makes sense
+        # that the title is being boosted (this is not necessarily a problem!),
+        # but on the other hand, I would imagine that most users searching "Hemingway"
+        # are trying to find books _by_ him.  Maybe there would be a way to at least
+        # boost the biographies over him over the novels which have him as a character?
+
+        # The majority of the search results should be _by_ this author,
+        # but there should also be at least one _about_ him.
+        self.search(
+            "Hemingway",
+                [ Common(author="Ernest Hemingway"),
+                  AtLeastOne(title=re.compile("Hemingway")) ]
+        )
+
+    def test_lagercrantz(self):
+        # The search query contains only the author's last name.
+        self.search(
+            "Lagercrantz", SpecificAuthor("Rose Lagercrantz")
+        )
+
+    def test_burger(self):
+        # The author is correctly prioritized above books whose titles contain
+        # the word "burger."
+        self.search(
+            "wolfgang burger", SpecificAuthor("Wolfgang Burger")
+        )
+
+    def test_chase(self):
+        # The author is correctly prioritized above the book "Emma."
+        self.search(
+            "Emma chase", SpecificAuthor("Emma Chase")
+        )
+
+    def test_deirdre_martin(self):
+        # The author's first name is misspelled in the search query.
+        self.search(
+            "deidre martin", SpecificAuthor("Deirdre Martin")
+        )
+
+    def test_wharton(self):
+        # The author's last name is misspelled in the search query.
+        self.search(
+            "edith warton", SpecificAuthor("Edith Wharton")
+        )
+
+    def test_danielle_steel(self):
+        # NOTE: this works, but setting the threshold to anything higher than
+        # the default 0.5 causes it to fail (even though she's written
+        # a LOT of books!).  Fixing the typo makes the test work even with the
+        # threshold set to 1.
+
+        # The author's last name is slightly misspelled in the search query.
+        self.search(
+            "danielle steele",
+            [   SpecificAuthor("Danielle Steel"),
+                Common(author="Danielle Steel")
+            ]
+        )
+
+    def test_nabokov(self):
+        # Only the last name is provided in the search query,
+        # and it's misspelled.
+        self.search(
+            "Nabokof", SpecificAuthor("Vladimir Nabokov")
+        )
+
+    def test_ba_paris(self):
+        # Author's last name could also be a subject keyword.
+        self.search(
+            "B a paris", SpecificAuthor("BA Paris")
+        )
+
+    def test_griffiths(self):
+        # The search query lists the author's last name before her first name.
+        self.search(
+            "Griffiths elly", SpecificAuthor("Elly Griffiths")
+        )
+
+    def test_mankel(self):
+        # The search query lists the author's last name before his first name.
+        self.search(
+            "mankel henning", SpecificAuthor("Henning Mankel")
+        )
+
+    def test_christian_kracht(self):
+        # The author's name contains a genre name.
+        self.search(
+            "christian kracht",
+            FirstMatch(author="Christian Kracht")
+        )
+
+    def test_dan_gutman(self):
+        self.search("gutman, dan", Common(author="Dan Gutman"))
+
+    def test_dan_gutman_with_series(self):
+        self.search(
+            "gutman, dan the weird school",
+            Common(series=re.compile("my weird school"), author="Dan Gutman")
+        )
+
+    def test_steve_berry(self):
+        # This search has been difficult in the past.
+        self.search("steve berry", Common(author="Steve Berry"))
+
+
+    def test_thomas_python(self):
+        # All the terms are correctly spelled words, but the patron
+        # clearly means something else.
+        self.search(
+            "thomas python",
+            Common(author="Thomas Pynchon")
+        )
+
+    def test_betty_neels_audiobooks(self):
+        # NOTE: Even though there are no audiobooks, all of the search results should still
+        # be books by this author.  This works on ES1, but the ES6 search results devolve
+        # into Betty Crocker cookbooks.
+
+        self.search(
+            "Betty neels audiobooks",
+            Common(author="Betty Neels", genre="romance", threshold=1)
+        )
+
+
+# Classes that test many different variant searches for a specific
+# title.
+#
+
+class TestTimothyZahn(VariantSearchTest):
+    # Test ways of searching for author Timothy Zahn.
+    EVALUATOR = Common(author="Timothy Zahn")
+
+    def test_correct_spelling(self):
+        self.search("timothy zahn")
+
+    def test_incorrect_1(self):
+        self.search("timithy zahn")
+
+    def test_incorrect_2(self):
+        self.search("timithy zhan")
+
+
+class TestRainaTelgemeier(VariantSearchTest):
+    # Test ways of searching for author Raina Telgemeier.
+
+    # We use a regular expression because Telgemeier is frequently
+    # credited alongside others.
+    EVALUATOR = Common(author=re.compile("raina telgemeier"))
+
+    def test_correct_spelling(self):
+        self.search('raina telgemeier')
+
+    def test_misspelling_1(self):
+        self.search('raina telemger')
+
+    def test_misspelling_2(self):
+        self.search('raina telgemerier')
+
+
+class TestMJRose(VariantSearchTest):
+    # Test ways of searching for author M. J. Rose.
+    # This highlights a lot of problems with the way we handle
+    # punctuation and spaces.
+    EVALUATOR = Common(author="M. J. Rose")
+
+    def test_with_periods_and_spaces(self):
+        self.search("m. j. rose")
+
+    def test_with_periods(self):
+        self.search("m.j. rose")
+
+    def test_with_one_period(self):
+        self.search("m.j rose")
+
+    def test_with_spaces(self):
+        self.search("m j rose")
+
+    def test_with_no_periods_or_spaces(self):
+        self.search("mj rose")
+
+
+class TestGenreMatch(SearchTest):
+    # A genre search is a search for books in a certain 'section'
+    # of the library.
+
+    def test_science_fiction(self):
+        # NOTE: This doesn't work.  On ES1, the top result has "science fiction" in
+        # the title, but has no genre; on ES6, the top result has "science fiction"
+        # the title, but its genre is "Reference & Study Aids"
+
+        self.search(
+            "science fiction",
+            Common(genre="Science Fiction")
+        )
+
+    def test_sf(self):
+        # Shorthand for "Science Fiction"
+        self.search("sf", Common(genre="Science Fiction"))
+
+    def test_scifi(self):
+        # Shorthand for "Science Fiction"
+        self.search("sci-fi", Common(genre="Science Fiction"))
+
+    def test_iain_banks_sf(self):
+        # NOTE: This works on ES6, but fails on ES1, just because the top hit in ES1 lists
+        # the author's name without the middle initial.
+
+        self.search(
+            # Genre and author
+            "iain banks science fiction",
+            Common(genre="Science Fiction", author="Iain M. Banks")
+        )
+
+    def test_christian(self):
+        # Fails because of the first result--on ES1, it's a book from 1839
+        # entitled "Christian Phrenology," which doesn't have a genre or subject
+        # listed, and in ES6 it's a novel about Fletcher Christian. The
+        # subsequent results are fine; setting first_must_match to False
+        # makes the test pass.
+        self.search(
+            "christian",
+            Common(genre=re.compile("(christian|religion)"))
+        )
+
+    def test_christian_authors(self):
+        # Passes
+        self.search(
+            "christian authors",
+            Common(genre=re.compile("(christian|religion)"))
+        )
+
+    def test_christian_lust(self):
+        # It's not clear what this person is looking for, but
+        # treating it as a genre search seems appropriate.
+        self.search(
+            "lust christian",
+            Common(genre=re.compile("(christian|religion)"))
+        )
+
+    def test_christian_fiction(self):
+        # Fails.  On ES6, the first few results are from the "Christian Gillette"
+        # series. On ES6, most of the top results are books by Hans Christian Andersen.
+        # Definitely not what the user meant.
+        self.search(
+            "christian fiction",
+            Common(genre=re.compile("(christian|religion)"))
+        )
+
+    def test_graphic_novel(self):
+        # NOTE: This works on ES6, but not on ES1.  On ES1, the top result's title
+        # contains the phrase "graphic novel", but its genre is "Suspense/Thriller."
+
+        self.search(
+            "Graphic novel",
+            Common(genre="Comics & Graphic Novels")
+        )
+
+    def test_horror(self):
+        self.search(
+            "Best horror story",
+            Common(genre=re.compile("horror"))
+        )
+
+    def test_scary_stories(self):
+        self.search("scary stories", Common(genre="Horror"))
+
+    def test_percy_jackson_graphic_novel(self):
+        # NOTE: This doesn't work; on both versions of ES, the top result is by
+        # Michael Demson and is not a graphic novel.
+
+        self.search(
+            "Percy jackson graphic novel",
+            Common(genre="Comics & Graphic Novels", author="Rick Riordan")
+        )
+
+
+    def test_gossip_girl_manga(self):
+        # A "Gossip Girl" manga series does exist, but it's not in NYPL's collection.
+        # Instead, the results should include some "Gossip Girl" books (most of which
+        # don't have .series set; hence searching by the author's name instead) and
+        # also some books about manga.
+        self.search(
+            "Gossip girl Manga", [
+                Common(
+                    author=re.compile("cecily von ziegesar"),
+                    first_must_match=False,
+                    threshold=0.3
+                ),
+                Common(
+                    title=re.compile("manga"),
+                    first_must_match=False,
+                    threshold=0.3
+                )
+            ]
+        )
+
+    def test_clique(self):
+        # NOTE: This doesn't work.  The target book does show up in the results, but
+        # it's #3 in ES1 and #2 in ES6.  In both cases, the top result is a graphic novel
+        # entitled "The Terrible and Wonderful Reasons Why I Run Long Distances."
+
+        # Genre and title
+        self.search(
+            "The clique graphic novel",
+            Common(genre="Comics & Graphic Novels", title="The Clique")
+        )
+
+    def test_spy(self):
+        self.search(
+            "Spy",
+            Common(genre=re.compile("(espionage|history|crime|thriller)"))
+        )
+
+    def test_espionage(self):
+        self.search(
+            "Espionage",
+            Common(
+                genre=re.compile("(espionage|history|crime|thriller)"),
+                first_must_match=False
             )
         )
+
+    def test_food(self):
+        self.search(
+            "food",
+            Common(
+                genre=re.compile("(cook|diet)"),
+                first_must_match=False
+            )
+        )
+
+    def test_mystery(self):
+        self.search(
+            "mystery",
+            Common(genre="Mystery")
+        )
+
+    def test_agatha_christie_mystery(self):
+        # Genre and author
+        self.search(
+            "agatha christie mystery",
+            [ SpecificGenre(genre="Mystery", author="Agatha Christie"),
+              Common(author="Agatha Christie", threshold=1) ]
+        )
+
+    def test_british_mystery(self):
+        # Genre and keyword
+        self.search(
+            "British mysteries",
+            Common(genre="Mystery", summary=re.compile("british"))
+        )
+
+    def test_finance(self):
+        # Keyword
+        self.search(
+            "Finance",
+            Common(
+                genre=re.compile("(business|finance)"), first_must_match=False
+            )
+        )
+
+    def test_constitution(self):
+        # Keyword
+        self.search(
+            "Constitution",
+            Common(
+                genre=re.compile("(politic|history)"), first_must_match=False
+            )
+        )
+
+    def test_deep_poems(self):
+        # This appears to be a search for poems which are deep.
+        self.search(
+            "deep poems",
+            Common(genre="Poetry")
+        )
+
+
+class TestSubjectMatch(SearchTest):
+    # Search for a specific subject, more specific than a genre.
+
+    def test_alien_misspelled(self):
+        self.search(
+            "allien",
+            Common(
+                subject=re.compile("(alien|extraterrestrial|science fiction)"),
+                first_must_match=False
+            )
+        )
+
+    def test_alien_misspelled_2(self):
+        self.search(
+            "aluens",
+            Common(
+                subject=re.compile("(alien|extraterrestrial|science fiction)"),
+                first_must_match=False
+            )
+        )
+
+    def test_anime_genre(self):
+        # NOTE: this doesn't work; all of the top results in both versions of ES6
+        # are for "animal" rather than "anime."
+        #
+        # 'anime' and 'manga' are not subject classifications we get
+        # from our existing vendors. We have a lot of these books but
+        # they're not classified under those terms. -LR
+        self.search(
+            "anime",
+            Common(subject=re.compile("(manga|anime)"))
+        )
+
+    def test_astrophysics(self):
+        # Keyword
+        self.search(
+            "Astrophysics",
+            Common(
+                genre="Science",
+                subject=re.compile("(astrophysics|astronomy|physics|space|science)")
+            )
+        )
+
+    def test_anxiety(self):
+        self.search(
+            "anxiety",
+            Common(
+                genre=re.compile("(psychology|self-help)"),
+                first_must_match=False
+            )
+        )
+
+    def test_beauty_hacks(self):
+        # NOTE: fails on both versions.  The user was obviously looking for a specific
+        # type of book; ideally, the search results would return at least one relevant
+        # one.  Instead, all of the top results are either books about computer hacking
+        # or romance novels.
+        self.search("beauty hacks",
+        AtLeastOne(subject=re.compile("(self-help|style|grooming|personal)")))
+
+    def test_college_essay(self):
+        self.search(
+            "College essay",
+            Common(
+                genre=re.compile("study aids"),
+                subject=re.compile("college")
+            )
+        )
+
+    def test_da_vinci(self):
+        # Someone who searches for "da vinci" is almost certainly
+        # looking entirely for books _about_ Da Vinci.
+        self.search(
+            "Da Vinci",
+            Common(genre=re.compile("(biography|art)"), first_must_match=False)
+        )
+
+    def test_da_vinci_missing_space(self):
+        # NOTE: fails in both versions. Books in the "Davina Graham"
+        # series are taking up most of the top search results.
+        self.search(
+            "Davinci",
+            Common(
+                genre=re.compile("(biography|art)"),
+                first_must_match=False,
+                threshold=0.3
+            )
+        )
+
+    def test_dirtbike(self):
+        # Searching "dirt bike" (two words) renders more relevant
+        # results, but still not enough for the test to pass.
+        self.search(
+            "dirtbike",
+            Common(
+                subject=re.compile("(bik|bicycle|sports|nature|travel)")
+            )
+        )
+
+    def test_greek_romance(self):
+        # NOTE: this fails.  All of the top results are romance novels with
+        # "Greek" in the summary.  Not necessarily problematic...but the
+        # user is probably more likely to be looking for something like "Essays
+        # on the Greek Romances."  If you search "Greek romances" rather than
+        # "Greek romance," then "Essays on the Greek Romances" becomes the first
+        # result on ES1, but is still nowhere to be found on ES6.
+        #
+        # I think this person might be searching for romance novels... -LR
+        self.search(
+            "Greek romance",
+            AtLeastOne(title=re.compile("greek romance"))
+        )
+
+    def test_ice_cream(self):
+        # There are a lot of books about making ice cream.  The search results
+        # correctly present those before looking for non-cooking "artisan" books.
+        self.search(
+            "Artisan ice cream",
+            Common(
+                genre=re.compile("cook"),
+                threshold=0.9
+            )
+        )
+
+    def test_information_technology(self):
+        self.search(
+            "information technology",
+            Common(
+                subject=re.compile("(information technology|computer)"),
+            )
+        )
+
+    def test_louis_xiii(self):
+        # NOTE: this doesn't currently work.  There aren't very many books in the collection
+        # about Louis XIII, but there are lots of biographies of other people named Louis
+        # (including other kings of France), which should ideally show up before books from
+        # the Louis Kincaid series.
+
+        self.search(
+            "Louis xiii",
+            Common(title=re.compile("louis"), threshold=0.8)
+        )
+
+    def test_managerial_skills(self):
+        # NOTE: This works on ES6.  On ES1, the first few results are good, but then
+        # it devolves into books from a fantasy series called "The Menagerie."
+        self.search(
+            "managerial skills",
+            Common(
+                subject=re.compile("(management)")
+            )
+        )
+
+    def test_manga(self):
+        # This has the same problem as the 'anime' test above --
+        # we have tons of manga but it's not labeled as "manga".
+        self.search(
+            "manga",
+            [
+                Common(title=re.compile("manga")),
+                Common(subject=re.compile("(manga|art|comic)")),
+            ]
+        )
+
+    def test_meditation(self):
+        self.search(
+            "Meditation",
+            Common(
+                genre=re.compile("(self-help|mind|spirit)")
+            )
+        )
+
+    def test_music_theory(self):
+        # Keywords
+        self.search(
+            "music theory", Common(
+                genre="Music",
+                subject=re.compile("(music theory|musical theory)")
+            )
+        )
+
+    def test_native_american(self):
+        # Keyword
+        self.search(
+            "Native american", [
+                Common(
+                    genre=re.compile("history"),
+                    subject=re.compile("(america|u.s.)"),
+                    first_must_match=False
+                )
+            ]
+        )
+
+    def test_native_american_misspelled(self):
+        # NOTE: this passes on ES1; the results aren't quite as good as they
+        # would be if the search term were spelled correctly, but are still
+        # very reasonable.  Fails on ES6.
+
+        # Keyword, misspelled
+        self.search(
+            "Native amerixan", [
+                Common(
+                    genre=re.compile("history"),
+                    subject=re.compile("(america|u.s.)"),
+                    first_must_match=False,
+                    threshold=0.4
+                )
+            ]
+        )
+
+
+    def test_ninjas(self):
+        self.search("ninjas", Common(title=re.compile("ninja")))
+
+    def test_ninjas_misspelled(self):
+        self.search("ningas", Common(title=re.compile("ninja")))
+
+    def test_pattern_making(self):
+        self.search(
+            "Pattern making",
+            AtLeastOne(subject=re.compile("crafts"))
+        )
+
+    def test_plant_based(self):
+        self.search(
+            "Plant based",
+            Common(
+                subject=re.compile("(cooking|food|nutrition|health)")
+            )
+        )
+
+    def test_prank(self):
+        self.search("prank", Common(title=re.compile("prank")))
+
+    def test_prank_plural(self):
+        self.search("pranks", Common(title=re.compile("prank")))
+
+    def test_presentations(self):
+        self.search(
+            "presentations",
+            Common(
+                subject=re.compile("(language arts|business presentations|business|management)")
+            )
+        )
+
+    def test_python_programming(self):
+        # This is tricky because 'python' means a lot of different
+        # things.
+        self.search(
+            "python programming",
+            Common(subject="Python (computer program language)")
+        )
+
+    def test_sewing(self):
+        # NOTE: this works on ES1, but not ES6; in ES6, the first result is a
+        # picture book biography with the word "sewing" in the title, rather than
+        # a book about sewing.
+
+        self.search(
+            "Sewing",
+            [ FirstMatch(title=re.compile("sewing")),
+              Common(title=re.compile("sewing")),
+              Common(subject=re.compile("crafts"))
+            ]
+        )
+
+    def test_supervising(self):
+        # Keyword
+        self.search(
+            "supervising", Common(genre="Education")
+        )
+
+    def test_tennis(self):
+        self.search(
+            "tennis",
+            [
+                Common(subject=re.compile("tennis")),
+                Common(genre="Sports"),
+            ]
+        )
+
+    def test_texas_fair(self):
+        # There exist a few books about the Texas state fair, but none of them
+        # are in the collection, so the best outcome is that the results will
+        # include a lot of books about Texas
+        self.search(
+            "books about texas like the fair",
+            Common(title=re.compile("texas"))
+        )
+
+    def test_witches(self):
+        self.search(
+            "witches",
+            Common(subject=re.compile('witch'))
+        )
+
+
+class TestTravel(VariantSearchTest):
+    # Searches for places that are likely to be searches for travel guides
+    # (rather than history books, names of novels, etc).
+
+    EVALUATOR = Common(
+        subject=re.compile("(travel|guide|fodors)"), first_must_match=False
+    )
+
+    def test_california(self):
+        # NOTE: this doesn't work on either version of ES, but it's
+        # closer on ES6.
+        self.search("California")
+
+    def test_new_england(self):
+        self.search("new england")
+
+    def test_toronto(self):
+        self.search("toronto")
+
+
+class TestSeriesMatch(SearchTest):
+
+    def test_dinosaur_cove_misspelled(self):
+        self.search(
+            "dinosuar cove",
+            Common(series="Dinosaur Cove")
+        )
+
+    def test_poldi(self):
+        # We only have one book in this series.
+        self.search(
+            "Auntie poldi",
+            FirstMatch(series="Auntie Poldi")
+        )
+
+    def test_39_clues(self):
+        # We have many books in this series.
+        self.search("39 clues", Common(series="the 39 clues", threshold=0.9))
+
+    def test_maggie_hope(self):
+        # We have many books in this series.
+        self.search(
+            "Maggie hope",
+            Common(series="Maggie Hope", threshold=0.9)
+        )
+
+    def test_game_of_thrones(self):
+        # People often search for the name of the TV show, but
+        # the series name is different.
+        self.search(
+            "game of thrones",
+            Common(series="a song of ice and fire")
+        )
+
+    def test_harry_potter(self):
+        # This puts foreign-language titles above English titles, but
+        # that's fine because our search document doesn't include a
+        # language filter.
+        self.search(
+            "Harry potter",
+            Common(series="Harry Potter", threshold=0.9)
+        )
+
+    def test_maisie_dobbs(self):
+        # Misspelled proper noun
+        self.search(
+            "maise dobbs",
+            Common(series="Maisie Dobbs", threshold=0.5)
+        )
+
+    def test_gossip_girl(self):
+        # Misspelled common word
+        self.search(
+            "Gossip hirl",
+            Common(series="Gossip Girl", minimum=2), limit=4,
+        )
+
+    def test_magic(self):
+        # This book isn't in the collection, but the results include other books from
+        # the same series.
+        self.search(
+            "Frogs and french kisses",
+            AtLeastOne(series="Magic in Manhattan")
+        )
+
+    def test_goosebumps(self):
+        self.search("goosebumps", Common(series="Goosebumps", threshold=0.9))
+
+    def test_goosebump_singular(self):
+        self.search("goosebump", Common(series="Goosebumps", threshold=0.9))
+
+    def test_goosebumps_misspelled(self):
+        self.search("gosbums", Common(series="Goosebumps"))
+
+    def test_severance(self):
+        # Partial, and slightly misspelled
+        # We only have one of these titles.
+        self.search(
+            "Severence",
+            FirstMatch(series="The Severance Trilogy")
+        )
+
+    def test_hunger_games(self):
+        # NOTE: This works on ES1 but not ES6.
+        self.search("the hunger games", Common(series="The Hunger Games"))
+
+    def test_hunger_games_misspelled(self):
+        # NOTE: This doesn't work on either version
+        self.search("The hinger games", Common(series="The Hunger Games"))
+
+    def test_mockingjay(self):
+        # NOTE: this doesn't work on either version of ES.  The target book is
+        # the 8th result, and the top results are irrelevant.
+
+        # Series and title
+        self.search(
+            "The hunger games mockingjay",
+            [FirstMatch(title="Mockingjay"), Common(series="The Hunger Games")]
+        )
+
+    def test_i_funny(self):
+        self.search(
+            "i funny",
+            Common(series="I, Funny", threshold=0.3)
+        )
+
+    def test_foundation(self):
+        # Series and full author
+        self.search(
+            "Isaac asimov foundation",
+            Common(series="Foundation")
+        )
+
+    def test_dark_tower(self):
+        # Most of the books in this series don't have .series set--hence searching
+        # by the author instead.  There exist two completely unrelated books which
+        # happen to be entitled "The Dark Tower"--it's fine for one of those to be
+        # the first result.
+        self.search(
+            "The dark tower", [
+                Common(author="Stephen King", first_must_match=False),
+                AtLeastOne(series="The Dark Tower")
+            ]
+        )
+
+    def test_science_comics(self):
+        # NOTE: this produces very different search results on ES1 vs. ES6, but
+        # doesn't work on either.  ES1 is closer.
+
+        # Series name containing genre names
+        self.search(
+            "Science comics",
+            Common(series="Science Comics")
+        )
+
+    def test_who_is(self):
+        # These children's biographies don't have .series set but
+        # are clearly part of a series.
+        #
+        # Because those books don't have .series set, the matches are
+        # done solely through title, so unrelated books like "Who Is
+        # Rich?" also show up.
+        self.search("who is", Common(title=re.compile('^who is ')))
+
+    def test_who_was(self):
+        # From the same series of biographies as test_who_is().
+        self.search("who was", Common(title=re.compile('^who was ')))
+
+    def test_wimpy_kid_misspelled(self):
+        # Series name contains the wrong stopword ('the' vs 'a')
+        self.search(
+            "dairy of the wimpy kid",
+            Common(series="Diary of a Wimpy Kid")
+        )
+
+
+class TestSeriesTitleMatch(SearchTest):
+    """Test a search that tries to match a specific book in a series."""
+
+    def test_39_clues_specific_title(self):
+        # The first result is the requested title. Other results
+        # are from the same series.
+        self.search(
+            "39 clues maze of bones",
+            [
+                FirstMatch(title="The Maze of Bones"),
+                Common(series="the 39 clues", threshold=0.9)
+            ]
+        )
+
+    def test_harry_potter_specific_title(self):
+        # The first result is the requested title. TODO: other results
+        # should be from the same series, but this doesn't happen much
+        # compared to other, similar tests.
+        self.search(
+            "chamber of secrets", [
+                FirstMatch(title="Harry Potter and the Chamber of Secrets"),
+                Common(series="Harry Potter", threshold=0.3)
+            ]
+        )
+
+    def test_wimpy_kid_specific_title(self):
+        # The first result is the requested title. Other results
+        # are from the same series.
+        self.search(
+            "dairy of the wimpy kid dog days",
+            [
+                FirstMatch(title="Dog Days", author="Jeff Kinney"),
+                Common(series="Diary of a Wimpy Kid"),
+            ]
+        )
+
+    def test_foundation_specific_title_by_number(self):
+        # NOTE: this works on ES1 but not on ES6!
+        # Series, full author, and book number
+        self.search(
+            "Isaac Asimov foundation book 1",
+            FirstMatch(series="Foundation", title="Prelude to Foundation")
+        )
+
+    def test_survivors_specific_title(self):
+        self.search(
+            "survivors book 1",
+            [
+                Common(series="Survivors"),
+                FirstMatch(title="The Empty City"),
+            ]
+        )
+
+
+# Classes that test many different kinds of searches for a particular
+# series.
+#
+class TestISurvived(VariantSearchTest):
+    # Test different ways of spelling "I Survived"
+    # .series is not set for these books so we check the title.
+    EVALUATOR = Common(title=re.compile('^i survived '))
+
+    def test_correct_spelling(self):
+        self.search("i survived")
+
+    def test_incorrect_1(self):
+        self.search("i survied")
+
+    def test_incorrect_2(self):
+        self.search("i survive")
+
+    def test_incorrect_3(self):
+        self.search("i survided")
+
+
+class TestDorkDiaries(VariantSearchTest):
+    # Test different ways of spelling "Dork Diaries"
+    EVALUATOR = Common(series="Dork Diaries")
+
+    def test_correct_spelling(self):
+        self.search('dork diaries')
+
+    def test_misspelling_and_number(self):
+        self.search("dork diarys #11")
+
+    def test_misspelling_with_punctuation(self):
+        self.search('doke diaries.')
+
+    def test_singular(self):
+        self.search("dork diary")
+
+    def test_misspelling_1(self):
+        self.search('dork diarys')
+
+    def test_misspelling_2(self):
+        self.search('doke dirares')
+
+    def test_misspelling_3(self):
+        self.search('doke dares')
+
+    def test_misspelling_4(self):
+        self.search('doke dires')
+
+    def test_misspelling_5(self):
+        self.search('dork diareis')
+
+
+class TestMyLittlePony(VariantSearchTest):
+    # Test different ways of spelling "My Little Pony"
+
+    # .series is not set for these books so we check the title.
+    EVALUATOR = Common(title=re.compile("my little pony"))
+
+    def test_correct_spelling(self):
+        self.search("my little pony")
+
+    def test_misspelling_1(self):
+        self.search("my little pon")
+
+    def test_misspelling_2(self):
+        self.search("my little ponie")
+
+
+class TestLanguageRestriction(SearchTest):
+    # Verify that adding the name of a language restricts the results
+    # to books in that language.
+
+    def test_language(self):
+        self.search("espanol", Common(language="spa"))
+
+    def test_author_with_language(self):
+        # NOTE: this doesn't work on either version of ES; the first
+        # Spanish result is #3
+        self.search(
+            "Pablo escobar spanish",
+            FirstMatch(author="Pablo Escobar", language="spa")
+        )
+
+    def test_gatos(self):
+        # Searching for a Spanish word should mostly bring up books in Spanish
+        self.search(
+            "gatos",
+            Common(language="spa", threshold=0.9)
+        )
+
+
+class TestCharacterMatch(SearchTest):
+    # These searches are best understood as an attempt to find books
+    # featuring certain fictional characters.
+    def test_3_little_pigs(self):
+        self.search(
+            "3 little pigs",
+            [
+                AtLeastOne(title=re.compile("three little pigs")),
+                Common(title=re.compile("pig")),
+
+                # TODO: This would require that '3' and 'three'
+                # be analyzed the same way.
+                # FirstMatch(title="Three Little Pigs"),
+            ]
+        )
+
+    def test_batman(self):
+        # NOTE: doesn't work.  (The results for "batman" as one word are as
+        # expected, though.)
+
+        # Patron is searching for 'batman' but treats it as two words.
+        self.search(
+            "bat man book",
+            Common(title=re.compile("batman"))
+        )
+
+    def test_christian_grey(self):
+        # This search uses a character name to stand in for a series.
+        #
+        # NOTE: this fails. The first two books are Christian-genre
+        # books with "grey" in the title, which is a reasonable search
+        # result but is not what the patron wanted.
+        self.search(
+            "christian grey",
+            FirstMatch(author="E. L. James")
+        )
+
+    def test_spiderman(self):
+        # Patron is searching for 'spider-man' but treats it as one word.
+        for q in ("spiderman", "spidermanbook"):
+            self.search(
+                q, Common(title=re.compile("spider-man"))
+            )
+
+    def test_teen_titans(self):
+        self.search(
+            "teen titans",
+            Common(title=re.compile("^teen titans")), limit=5
+        )
+
+    def test_teen_titans_girls(self):
+        # We don't gender books so we can't deliver results tailored
+        # to 'teen titans girls', but we should at least give
+        # _similar_ results to 'teen titans' and not go off
+        # on tangents because of the 'girls' part.
+        self.search(
+            "teen titans girls",
+            Common(title=re.compile("^teen titans")), limit=5
+        )
+
+    def test_thrawn(self):
+        # "Thrawn" is a specific title but the patron may be referring
+        # to a series of books featuring this character (though it's
+        # not the official name of the series), so we check beyond the
+        # first result.
+        self.search(
+            "thrawn",
+            [
+                FirstMatch(title="Thrawn"),
+                Common(author="Timothy Zahn", series=re.compile("star wars")),
+            ]
+        )
+
+
+class TestAgeRangeRestriction(SearchTest):
+    # Verify that adding an age range restricts the results returned
+    # to contain exclusively children's books.
+
+    def all_children(self, q):
+        # Verify that this search finds nothing but books for children.
+        self.search(q, Common(audience='Children', threshold=1))
+
+    def mostly_adult(self, q):
+        # Verify that this search finds mostly books for grown-ups.
+        self.search(q, Common(audience='Adult', first_must_match=False))
+
+    def test_black(self):
+        self.all_children("black age 3-5")
+        self.mostly_adult("black")
+
+    def test_island(self):
+        self.all_children("island age 3-5")
+        self.mostly_adult("island")
+
+    def test_panda(self):
+        self.all_children("panda age 3-5")
+        # We don't call mostly_adult() because 'panda' on its own
+        # finds mostly children's books.
+
+    def test_chapter_books(self):
+        # Chapter books are a book format aimed at a specific
+        # age range.
+        self.search(
+            "chapter books", Common(target_age=(6, 10))
+        )
+
+    def test_chapter_books_misspelled_1(self):
+        # This doesn't work: all of the top results are stand-alone
+        # excerpts from a travel book series, marked "Guidebook
+        # Chapter":
+        self.search(
+            "chapter bookd", Common(target_age=(6, 10))
+        )
+
+    def test_chapter_books_misspelled_2(self):
+        # This doesn't work: the first few results are accurate, but the
+        # subsequent ones are a mixture of picture books and books for adults.
+        self.search(
+            "chaptr books", Common(target_age=(6, 10))
+        )
+
+    def test_grade_and_subject(self):
+        # NOTE: this doesn't work on either version of ES.  The top result's genre
+        # is science fiction rather than science.
+        self.search(
+            "Seventh grade science",
+            [
+                Common(target_age=(12, 13)),
+                Common(genre="Science")
+            ]
+        )
+
 
 ES6 = ('es6' in os.environ['VIRTUAL_ENV'])
 if ES6:
     url = os.environ['ES6_ELASTICSEARCH']
     index = "es6-test-v3"
 else:
-    # Use site settings.
-    url = None
+    url = os.environ['ES1_ELASTICSEARCH']
     index = None
-        
+
 _db = production_session()
-library = Library.default(_db)
+library = None
+
 index = ExternalSearchIndex(_db, url=url, works_index=index)
 index.works_alias = index
 SearchTest.searcher = Searcher(library, index)
