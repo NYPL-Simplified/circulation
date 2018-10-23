@@ -2320,6 +2320,7 @@ else:
 
 _db = production_session()
 library = None
+
 index = ExternalSearchIndex(_db, url=url, works_index=index)
 index.works_alias = index
 SearchTest.searcher = Searcher(library, index)
