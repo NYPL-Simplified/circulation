@@ -20,6 +20,10 @@ from nose.tools import set_trace
 from sqlalchemy import or_
 from sqlalchemy.orm.session import Session
 
+from web_publication_manifest import (
+    FindawayManifest,
+    SpineItem,
+)
 from circulation import (
     FulfillmentInfo,
     HoldInfo,
@@ -68,7 +72,6 @@ from core.monitor import (
     CollectionMonitor,
     IdentifierSweepMonitor,
 )
-from core.util.web_publication_manifest import AudiobookManifest
 from core.util.xmlparser import XMLParser
 from core.util.http import (
     BadResponseException,
@@ -528,56 +531,32 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             analytics,
         )
 
-    # This URI prefix makes it clear when we are using a term coined
-    # by Findaway in a JSON-LD document.
-    FINDAWAY_EXTENSION_CONTEXT = "http://librarysimplified.org/terms/third-parties/findaway.com/"
-
     @classmethod
     def findaway_license_to_webpub_manifest(
             cls, license_pool, findaway_license
     ):
-        """Convert a Findaway license document to a standard Web Publication
-        Manifest (audiobook flavor).
+        """Convert a Bibliotheca license document to a FindawayManifest
+        suitable for serving to a mobile client.
 
         :param license_pool: A LicensePool for the title in question.
         This will be used to fill in basic bibliographic information.
 
         :param findaway_license: A string containing a Findaway
-           license document, or a dictionary representing such a
-           document loaded into JSON form.
+           license document via Bibliotheca, or a dictionary
+           representing such a document loaded into JSON form.
         """
         if isinstance(findaway_license, basestring):
             findaway_license = json.loads(findaway_license)
 
-        context_with_extension = [
-            "http://readium.org/webpub/default.jsonld",
-            {"findaway" : cls.FINDAWAY_EXTENSION_CONTEXT},
-        ]
-
-        manifest = AudiobookManifest(context=context_with_extension)
-
-        # Add basic bibliographic information (identifier, title,
-        # cover link) to the manifest based on our existing knowledge
-        # of the LicensePool and its Work.
-        manifest.update_bibliographic_metadata(license_pool)
-
-        # Add Findaway-specific DRM information as an 'encrypted' object
-        # within the metadata object.
-        encrypted = dict(
-            scheme='http://librarysimplified.org/terms/drm/scheme/FAE'
-        )
-        manifest.metadata['encrypted'] = encrypted
+        kwargs = {}
         for findaway_extension in [
-                'accountId', 'checkoutId', 'fulfillmentId', 'licenseId',
-                'sessionKey'
+            'accountId', 'checkoutId', 'fulfillmentId', 'licenseId',
+            'sessionKey'
         ]:
             value = findaway_license.get(findaway_extension, None)
-            output_key = 'findaway:' + findaway_extension
-            encrypted[output_key] = value
+            kwargs[findaway_extension] = value
 
-        # Add the readingOrder items. All of them are in the same format.
-        # None of them will have working 'href' fields -- it's just to
-        # give the client a picture of the structure of the timeline.
+        # Create the SpineItem objects.
         audio_format = findaway_license.get('format')
         if audio_format == 'MP3':
             part_media_type = Representation.MP3_MEDIA_TYPE
@@ -586,9 +565,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                           audio_format)
             part_media_type = None
 
-        part_key = 'findaway:part'
-        sequence_key = 'findaway:sequence'
-        total_duration = 0
+        spine_items = []
         for part in findaway_license.get('items'):
             title = part.get('title')
 
@@ -599,27 +576,22 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             # needs to be explicitly verified.
             duration = part.get('duration', 0) / 1000.0
 
-            kwargs = {}
+            spine_kwargs = {}
 
             part_number = int(part.get('part', 0))
-            kwargs[part_key] = part_number
 
             sequence = int(part.get('sequence', 0))
-            kwargs[sequence_key] = sequence
 
-            manifest.add_reading_order(
-                href=None, title=title, duration=duration,
-                type=part_media_type, **kwargs
+            spine_items.append(
+                SpineItem(title, duration, part_number, sequence)
             )
-            total_duration += duration
 
-        # Make sure the readingOrder items are sorted by part (~="part" in a
-        # book) and then sequence (~="chapter" in a book).
-        def sort_key(item):
-            return (item[part_key], item[sequence_key])
-        manifest.readingOrder.sort(key=sort_key)
+        # Create a FindawayManifest object and then convert it
+        # to a string.
+        manifest = FindawayManifest(
+            license_pool=license_pool, spine_items=spine_items, **kwargs
+        )
 
-        manifest.metadata['duration'] = total_duration
         return DeliveryMechanism.FINDAWAY_DRM, unicode(manifest)
 
 
