@@ -10,6 +10,7 @@ from nose.tools import (
     set_trace,
 )
 
+from core.analytics import Analytics
 from core.coverage import CoverageFailure
 
 from core.model import (
@@ -46,6 +47,7 @@ from core.util.http import (
 from api.authenticator import BasicAuthenticationProvider
 
 from api.axis import (
+    AudiobookFulfillmentInfo,
     AvailabilityResponseParser,
     Axis360API,
     Axis360BibliographicCoverageProvider,
@@ -53,6 +55,7 @@ from api.axis import (
     AxisCollectionReaper,
     BibliographicParser,
     CheckoutResponseParser,
+    FulfillmentInfoResponseParser,
     HoldReleaseResponseParser,
     HoldResponseParser,
     MockAxis360API,
@@ -77,7 +80,7 @@ from api.config import (
     temp_config,
 )
 
-from core.analytics import Analytics
+from api.web_publication_manifest import FindawayManifest
 
 
 class Axis360Test(DatabaseTest):
@@ -246,7 +249,6 @@ class TestAxis360API(Axis360Test):
 
         # The fourth request never got made.
         eq_([301], [x.status_code for x in self.api.responses])
-
 
     def test_update_availability(self):
         """Test the Axis 360 implementation of the update_availability method
@@ -439,6 +441,23 @@ class TestAxis360API(Axis360Test):
         eq_(0, pool.licenses_reserved)
         eq_(0, pool.patrons_in_hold_queue)
 
+    def test_get_fulfillment_info(self):
+        # Test the get_fulfillment_info method, which makes an API request.
+
+        api = MockAxis360API(self._db, self.collection)
+        api.queue_response(200, {}, "the response")
+
+        # Make a request and check the response.
+        response = api.get_fulfillment_info("transaction ID")
+        eq_("the response", response.content)
+
+        # Verify that the 'HTTP request' was made to the right URL
+        # with the right keyword arguments and the right HTTP method.
+        url, args, kwargs = api.requests.pop()
+        assert url.endswith(api.fulfillment_endpoint)
+        eq_('POST', kwargs['method'])
+        eq_('transaction ID', kwargs['params']['TransactionID'])
+
 
 class TestCirculationMonitor(Axis360Test):
 
@@ -604,6 +623,8 @@ class TestParsers(Axis360Test):
         eq_(u'Simon & Schuster', bib2.publisher)
         eq_(u'Pocket Books', bib2.imprint)
 
+        eq_(Edition.BOOK_MEDIUM, bib1.medium)
+
         # TODO: Would be nicer if we could test getting a real value
         # for this.
         eq_(None, bib2.series)
@@ -665,6 +686,26 @@ class TestParsers(Axis360Test):
         # we can't use.
         eq_([], bib2.formats)
         '''
+
+    def test_bibliographic_parser_audiobook(self):
+        # TODO - we need a real example to test from. The example we were
+        # given is a hacked-up ebook. Ideally we would be able to check
+        # narrator information here.
+        data = self.sample_data("availability_with_audiobook_fulfillment.xml")
+
+        [[bib, av]] = BibliographicParser(False, True).process_all(data)
+        eq_("Back Spin", bib.title)
+        eq_(Edition.AUDIO_MEDIUM, bib.medium)
+
+    def test_bibliographic_parser_unsupported_format(self):
+        data = self.sample_data("availability_with_audiobook_fulfillment.xml")
+        data = data.replace('Acoustik', 'Blio')
+
+        [[bib, av]] = BibliographicParser(False, True).process_all(data)
+
+        # We don't support the Blio format, but we know Blio titles
+        # are ebooks, not audiobooks.
+        eq_(Edition.BOOK_MEDIUM, bib.medium)
 
     def test_parse_author_role(self):
         """Suffixes on author names are turned into roles."""
@@ -734,6 +775,7 @@ class TestResponseParser(object):
         self._default_collection = MockCollection()
         self._default_collection.id = object()
 
+
 class TestRaiseExceptionOnError(TestResponseParser):
 
     def test_internal_server_error(self):
@@ -777,7 +819,6 @@ class TestCheckoutResponseParser(TestResponseParser):
         assert isinstance(parsed.fulfillment_info, FulfillmentInfo)
         eq_("http://axis360api.baker-taylor.com/Services/VendorAPI/GetAxisDownload/v2?blahblah",
             parsed.fulfillment_info.content_link)
-
 
     def test_parse_already_checked_out(self):
         data = self.sample_data("already_checked_out.xml")
@@ -851,6 +892,173 @@ class TestAvailabilityResponseParser(TestResponseParser):
         eq_("0015176429", loan.identifier)
         eq_(None, loan.fulfillment_info)
         eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
+
+    def test_parse_audiobook_fulfillmentinfo(self):
+        data = self.sample_data("availability_with_audiobook_fulfillment.xml")
+        parser = AvailabilityResponseParser(self._default_collection)
+        [loan] = list(parser.process_all(data))
+        fulfillment = loan.fulfillment_info
+        assert isinstance(fulfillment, AudiobookFulfillmentInfo)
+
+        # The transaction ID is stored as the .key. If we actually
+        # need to make a manifest for this audiobook, the key will be
+        # used in one more API request. (See TestAudiobookFulfillmentInfo
+        # for that.)
+        eq_("C3F71F8D-1883-2B34-068F-96570678AEB0", fulfillment.key)
+
+class TestFulfillmentInfoResponseParser(Axis360Test):
+
+    def test_parse(self):
+        # Verify that parse() parses a JSON document
+        # and calls _extract() on it.
+        class Mock(FulfillmentInfoResponseParser):
+            def _extract(self, license_pool, parsed):
+                self.called_with = (license_pool, parsed)
+                return "Extracted document"
+
+        parser = Mock(self._default_collection)
+        license_pool = object()
+
+        # This works whether we pass it a JSON document or the object
+        # resulting from parsing such a document.
+        for json_document in ("{}", {}):
+            result = parser.parse(license_pool, "{}")
+            eq_("Extracted document", result)
+            eq_((license_pool, {}), parser.called_with)
+            parser.called_with = None
+
+        # Any other input causes an error.
+        assert_raises_regexp(
+            RemoteInitiatedServerError,
+            "Invalid response from Axis 360 \(was expecting JSON\): I'm not JSON",
+            parser.parse, license_pool, "I'm not JSON"
+        )
+
+    def test__required_key(self):
+        # Test the _required_key helper method.
+        m = FulfillmentInfoResponseParser._required_key
+        eq_("value", m("thekey", dict(thekey="value")))
+
+        for bad_dict in (None, {}, dict(otherkey="value")):
+            assert_raises_regexp(
+                RemoteInitiatedServerError,
+                "Required key thekey not present in Axis 360 fulfillment document",
+                m, "thekey", bad_dict
+            )
+
+    def test__extract(self):
+        # _extract will create a valid FindawayManifest given a
+        # complete document.
+
+        m = FulfillmentInfoResponseParser._extract
+
+        edition, pool = self._edition(with_license_pool=True)
+        parser = (self._default_collection)
+        def get_data():
+            # We'll be modifying this document to simulate failures,
+            # so make it easy to load a fresh copy.
+            return json.loads(
+                self.sample_data("audiobook_fulfillment_info.json")
+            )
+        data = get_data()
+        manifest, expires = m(pool, data)
+
+        assert isinstance(manifest, FindawayManifest)
+        metadata = manifest.metadata
+
+        # The manifest contains information from the LicensePool's presentation
+        # edition
+        eq_(edition.title, metadata['title'])
+
+        # It contains DRM licensing information from Findaway via the
+        # Axis 360 API.
+        encrypted = metadata['encrypted']
+        eq_(
+            '0f547af1-38c1-4b1c-8a1a-169d353065d0',
+            encrypted['findaway:sessionKey']
+        )
+        eq_('5babb89b16a4ed7d8238f498', encrypted['findaway:checkoutId'])
+        eq_('04960', encrypted['findaway:fulfillmentId'])
+        eq_('58ee81c6d3d8eb3b05597cdc', encrypted['findaway:licenseId'])
+
+        # There are no spine items and the book is of unknown duration.
+        assert 'duration' not in metadata
+        eq_([], manifest.readingOrder)
+
+        # We also know when the licensing document expires.
+        eq_(datetime.datetime(2018, 9, 29, 18, 34), expires)
+
+        # Now strategically remove required information from the
+        # document and verify that extraction fails.
+        #
+        no_status_code = get_data()
+        del no_status_code['Status']['Code']
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "Required key Code not present",
+            m, pool, no_status_code
+        )
+
+        no_status = get_data()
+        del no_status['Status']
+        assert_raises_regexp(
+            RemoteInitiatedServerError, "Required key Status not present",
+            m, pool, no_status
+        )
+
+        for field in ('Status', 'FNDLicenseID', 'FNDSessionKey', 'ExpirationDate'):
+            missing_field = get_data()
+            del missing_field[field]
+            assert_raises_regexp(
+                RemoteInitiatedServerError,
+                "Required key %s not present" % field,
+                m, pool, missing_field
+            )
+
+        # Try with a response indicating an error condition.
+        error_condition = get_data()
+        error_condition['Status']['Code'] = 5004
+        error_condition['Status']['Message'] = "missing transaction id"
+        assert_raises_regexp(
+            LibraryInvalidInputException,
+            "missing transaction id",
+            m, pool, error_condition
+        )
+
+        # Try with a bad expiration date.
+        bad_date = get_data()
+        bad_date['ExpirationDate'] = 'not-a-date'
+        assert_raises_regexp(
+            RemoteInitiatedServerError,
+            "Could not parse expiration date: not-a-date",
+            m, pool, bad_date
+        )
+
+
+class TestAudiobookFulfillmentInfo(Axis360Test):
+    def test_fetch(self):
+        data = self.sample_data("audiobook_fulfillment_info.json")
+        self.api.queue_response(200, {}, data)
+
+        # Setup.
+        edition, pool = self._edition(with_license_pool=True)
+        identifier = pool.identifier
+        fulfillment = AudiobookFulfillmentInfo(
+            self.api, pool.data_source.name,
+            identifier.type, identifier.identifier, 'transaction_id'
+        )
+        eq_(None, fulfillment._content_type)
+
+        # Turn the crank.
+        fulfillment.fetch()
+
+        # The AudiobookFufillmentInfo now contains a Findaway manifest
+        # document.
+        eq_(DeliveryMechanism.FINDAWAY_DRM, fulfillment.content_type)
+        assert isinstance(fulfillment.content, unicode)
+        assert 'findaway:sessionKey' in fulfillment.content
+        eq_(
+            datetime.datetime(2018, 9, 29, 18, 34), fulfillment.content_expires
+        )
 
 class TestAxis360BibliographicCoverageProvider(Axis360Test):
     """Test the code that looks up bibliographic information from Axis 360."""
