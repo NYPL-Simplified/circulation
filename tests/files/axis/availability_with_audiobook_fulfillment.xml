@@ -20,7 +20,7 @@
     <publicationDate>7/22/2009</publicationDate>
     <availability>
       <availableFormats>
-        <formatName>Blio</formatName>
+        <formatName>Acoustik</formatName>
         <formatName>AxisNow</formatName>
       </availableFormats>
       <availableCopies>2</availableCopies>
@@ -32,7 +32,7 @@
       <estimatedHoldPeriod>2</estimatedHoldPeriod>
       <isReserved>false</isReserved>
       <isCheckedout>true</isCheckedout>
-      <checkoutFormat>Blio</checkoutFormat>
+      <checkoutFormat>Acoustik</checkoutFormat>
       <transactionID>C3F71F8D-1883-2B34-068F-96570678AEB0</transactionID>
       <drmTransactionID/>
       <acoustikLicenseID/>

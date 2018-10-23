@@ -688,9 +688,15 @@ class TestParsers(Axis360Test):
         '''
 
     def test_bibliographic_parser_audiobook(self):
-        # TODO - we need a real example to test from.
-        # Verify narrator information and medium.
-        pass
+        # TODO - we need a real example to test from. The example we were
+        # given is a hacked-up ebook. Ideally we would be able to check
+        # narrator information here.
+        data = self.sample_data("availability_with_audiobook_fulfillment.xml")
+
+        [[bib, av]] = BibliographicParser(
+            False, True).process_all(data)
+        eq_("Back Spin", bib.title)
+        eq_(Edition.AUDIO_MEDIUM, bib.medium)
 
     def test_parse_author_role(self):
         """Suffixes on author names are turned into roles."""
