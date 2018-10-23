@@ -120,7 +120,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
     ]
 
     access_token_endpoint = 'accesstoken'
-    availability_endpoint = 'availability/v3'
+    availability_endpoint = 'availability/v2'
     fulfillment_endpoint = 'getfulfillmentinfo/v2'
 
     log = logging.getLogger("Axis 360 API")
