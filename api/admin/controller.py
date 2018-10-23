@@ -21,7 +21,6 @@ from sqlalchemy.exc import ProgrammingError
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 from StringIO import StringIO
-from api.admin.configuration_processor import ConfigurationProcessor
 from api.authenticator import (
     CannotCreateLocalPatron,
     PatronData,
@@ -169,6 +168,8 @@ def setup_admin_controllers(manager):
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
     manager.admin_patron_controller = PatronController(manager)
+    from api.admin.configuration_settings_controller import SitewideConfigurationSettingsController
+    manager.admin_sitewide_configuration_settings_controller = SitewideConfigurationSettingsController(manager)
 
 class AdminController(object):
 
@@ -2403,16 +2404,6 @@ class SettingsController(AdminCirculationManagerController):
         self._db.delete(integration)
         return Response(unicode(_("Deleted")), 200)
 
-    def _sitewide_settings_controller(self, configuration_object, key=None):
-        self.require_system_admin()
-        cp = ConfigurationProcessor(configuration_object, flask.request, self._db)
-
-        if flask.request.method == 'GET':
-            return cp.process_get()
-        elif flask.request.method == 'POST':
-            return cp.process_post()
-        elif flask.request.method == 'DELETE':
-            return cp.process_delete(key)
 
     def _get_collection_protocols(self, provider_apis):
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
@@ -3126,12 +3117,6 @@ class SettingsController(AdminCirculationManagerController):
         return self._delete_integration(
             service_id, ExternalIntegration.PATRON_AUTH_GOAL
         )
-
-    def sitewide_settings(self):
-        return self._sitewide_settings_controller(Configuration)
-
-    def sitewide_setting(self, key):
-        return self._sitewide_settings_controller(Configuration, key)
 
     def logging_services(self):
         detail = _("You tried to create a new logging service, but a logging service is already configured.")

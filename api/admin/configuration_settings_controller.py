@@ -1,19 +1,23 @@
 from nose.tools import set_trace
 from core.model import ConfigurationSetting
+from controller import AdminCirculationManagerController
+from api.config import Configuration
 from flask import Response
 from problem_details import *
+import flask
 from flask_babel import lazy_gettext as _
 
-class ConfigurationProcessor(object):
+class SitewideConfigurationSettingsController(AdminCirculationManagerController):
 
-    def __init__(self, config_options, request, _db):
-        self.config_options = config_options
-        self.request = request
-        self.form = request.form
-        self._db = _db
+    def process_settings(self):
+         self.require_system_admin()
+         if flask.request.method == 'GET':
+            return self.process_get()
+         elif flask.request.method == 'POST':
+            return self.process_post()
 
     def process_get(self):
-        sitewide_settings = self.config_options.SITEWIDE_SETTINGS
+        sitewide_settings = Configuration.SITEWIDE_SETTINGS
         settings = []
 
         for s in sitewide_settings:
@@ -27,15 +31,16 @@ class ConfigurationProcessor(object):
         )
 
     def process_post(self):
-        error = self.validate_form_fields(self.form.keys())
+        error = self.validate_form_fields(flask.request.form.keys())
         if error:
             return error
 
-        setting = ConfigurationSetting.sitewide(self._db, self.form.get("key"))
-        setting.value = self.form.get("value")
+        setting = ConfigurationSetting.sitewide(self._db, flask.request.form.get("key"))
+        setting.value = flask.request.form.get("value")
         return Response(unicode(setting.key), 200)
 
     def process_delete(self, key):
+        self.require_system_admin()
         setting = ConfigurationSetting.sitewide(self._db, key)
         setting.value = None
         return Response(unicode(_("Deleted")), 200)
@@ -48,5 +53,5 @@ class ConfigurationProcessor(object):
         )
 
         for field in fields:
-            if not self.form.get(field):
+            if not flask.request.form.get(field):
                 return MISSING_FIELD_MESSAGES.get(field)
