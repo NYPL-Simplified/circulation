@@ -120,7 +120,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
     ]
 
     access_token_endpoint = 'accesstoken'
-    availability_endpoint = 'availability/v2'
+    availability_endpoint = 'availability/v3'
     fulfillment_endpoint = 'getfulfillmentinfo/v2'
 
     log = logging.getLogger("Axis 360 API")
@@ -379,6 +379,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         availability = self.availability(
             patron_id=patron.authorization_identifier,
             title_ids=title_ids)
+        set_trace()
         return list(AvailabilityResponseParser(self.collection).process_all(
             availability.content))
 
@@ -949,7 +950,12 @@ class BibliographicParser(Axis360Parser):
         formats = []
         acceptable = False
         seen_formats = []
-        medium = None
+
+        # All of the formats we don't support, like Blio, are ebook
+        # formats. If this is an audiobook format (Acoustik), we'll
+        # hear about it below.
+        medium = Edition.BOOK_MEDIUM
+
         for format_tag in self._xpath(
                 element, 'axis:availability/axis:availableFormats/axis:formatName',
                 ns

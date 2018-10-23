@@ -693,10 +693,19 @@ class TestParsers(Axis360Test):
         # narrator information here.
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
 
-        [[bib, av]] = BibliographicParser(
-            False, True).process_all(data)
+        [[bib, av]] = BibliographicParser(False, True).process_all(data)
         eq_("Back Spin", bib.title)
         eq_(Edition.AUDIO_MEDIUM, bib.medium)
+
+    def test_bibliographic_parser_unsupported_format(self):
+        data = self.sample_data("availability_with_audiobook_fulfillment.xml")
+        data = data.replace('Acoustik', 'Blio')
+
+        [[bib, av]] = BibliographicParser(False, True).process_all(data)
+
+        # We don't support the Blio format, but we know Blio titles
+        # are ebooks, not audiobooks.
+        eq_(Edition.BOOK_MEDIUM, bib.medium)
 
     def test_parse_author_role(self):
         """Suffixes on author names are turned into roles."""
