@@ -760,6 +760,7 @@ class TestResponseParser(object):
         self._default_collection = MockCollection()
         self._default_collection.id = object()
 
+
 class TestRaiseExceptionOnError(TestResponseParser):
 
     def test_internal_server_error(self):
@@ -878,18 +879,17 @@ class TestAvailabilityResponseParser(TestResponseParser):
         eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
 
     def test_parse_audiobook_fulfillmentinfo(self):
-        data = self.sample_data("audiobook_fulfillment_info.json")
+        data = self.sample_data("availability_with_audiobook_fulfillment.xml")
         parser = AvailabilityResponseParser(self._default_collection)
         [loan] = list(parser.process_all(data))
         fulfillment = loan.fulfillment_info
-        assert isinstance(fulfillment, AudiobookFufillmentInfo)
+        assert isinstance(fulfillment, AudiobookFulfillmentInfo)
 
         # The transaction ID is stored as the .key. If we actually
         # need to make a manifest for this audiobook, the key will be
         # used in one more API request. (See TestAudiobookFulfillmentInfo
         # for that.)
         eq_("C3F71F8D-1883-2B34-068F-96570678AEB0", fulfillment.key)
-
 
 class TestFulfillmentInfoResponseParser(Axis360Test):
 
