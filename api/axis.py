@@ -1263,7 +1263,12 @@ class AvailabilityResponseParser(ResponseParser):
             if download_url:
                 # This is an ebook.
                 fulfillment = FulfillmentInfo(
-                    content_link=transaction_id, **kwargs
+                    collection=self.collection,
+                    content_link=download_url,
+                    content_type=DeliveryMechanism.ADOBE_DRM,
+                    content=None,
+                    content_expires=None,
+                    **kwargs
                 )
             elif transaction_id:
                 # This is an audiobook. If necessary we

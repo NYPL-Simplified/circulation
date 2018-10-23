@@ -1031,7 +1031,7 @@ class TestAudiobookFulfillmentInfo(Axis360Test):
             self.api, pool.data_source.name,
             identifier.type, identifier.identifier, 'transaction_id'
         )
-        eq_(None, fulfillment.content_type)
+        eq_(None, fulfillment._content_type)
 
         # Turn the crank.
         fulfillment.fetch()
@@ -1039,7 +1039,7 @@ class TestAudiobookFulfillmentInfo(Axis360Test):
         # The AudiobookFufillmentInfo now contains a Findaway manifest
         # document.
         eq_(DeliveryMechanism.FINDAWAY_DRM, fulfillment.content_type)
-        assert isinstance(unicode, fulfillment.content)
+        assert isinstance(fulfillment.content, unicode)
         assert 'findaway:sessionKey' in fulfillment.content
         eq_(
             datetime.datetime(2018, 9, 29, 18, 34), fulfillment.content_expires
