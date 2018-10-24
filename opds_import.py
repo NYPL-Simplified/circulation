@@ -132,7 +132,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
     CARDINALITY = 1
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "label": _("URL"), "default": "http://metadata.librarysimplified.org/" },
+        { "key": ExternalIntegration.URL, "label": _("URL"), "default": "http://metadata.librarysimplified.org/", "required": True },
     ]
 
     SITEWIDE = True

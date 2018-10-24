@@ -175,14 +175,17 @@ class Configuration(object):
         {
             "key": NONGROUPED_MAX_AGE_POLICY,
             "label": _("Cache time for paginated OPDS feeds"),
+            "required": True,
         },
         {
             "key": GROUPED_MAX_AGE_POLICY,
             "label": _("Cache time for grouped OPDS feeds"),
+            "required": True,
         },
         {
             "key": BASE_URL_KEY,
             "label": _("Base url of the application"),
+            "required": True,
         },
         {
             "key": LOG_LEVEL, "label": _("Log Level"), "type": "select",
@@ -192,6 +195,7 @@ class Configuration(object):
             "key": LOG_APP_NAME, "label": _("Application name"),
             "description": _("Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems."),
             "default": DEFAULT_APP_NAME,
+            "required": True,
         },
         {
             "key": DATABASE_LOG_LEVEL, "label": _("Database Log Level"),
@@ -204,6 +208,7 @@ class Configuration(object):
             "label": _("Excluded audiobook sources"),
             "description": _("Audiobooks from these data sources will be hidden from the collection, even if they would otherwise show up as available."),
             "default": None,
+            "required": True,
         },
     ]
 
@@ -211,7 +216,8 @@ class Configuration(object):
         {
             "key": WEBSITE_URL,
             "label": _("URL of the library's website"),
-            "description": _("The library's main website, e.g. \"https://www.nypl.org/\" (not this Circulation Manager's URL).")
+            "description": _("The library's main website, e.g. \"https://www.nypl.org/\" (not this Circulation Manager's URL)."),
+            "required": True,
         },
         {
             "key": ALLOW_HOLDS,

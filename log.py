@@ -82,7 +82,8 @@ class SysLogger(Logger):
         },
         {
             "key": LOG_MESSAGE_TEMPLATE, "label": _("template"),
-            "default": DEFAULT_MESSAGE_TEMPLATE
+            "default": DEFAULT_MESSAGE_TEMPLATE,
+            "required": True,
         }
     ]
 
@@ -159,9 +160,9 @@ class Loggly(Logger):
     URL = 'url'
 
     SETTINGS = [
-        { "key": USER, "label": _("Username") },
-        { "key": PASSWORD, "label": _("Password") },
-        { "key": URL, "label": _("URL") },
+        { "key": USER, "label": _("Username"), "required": True },
+        { "key": PASSWORD, "label": _("Password"), "required": True },
+        { "key": URL, "label": _("URL"), "required": True },
     ]
 
     SITEWIDE = True
