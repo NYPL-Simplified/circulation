@@ -118,7 +118,7 @@ class TestRoutes(ControllerTest):
             eq_(("a lane",), method.args)
         
     def test_feed(self):
-        # The incoming lane identifier is passed in to the groups()
+        # The incoming lane identifier is passed in to the feed()
         # method.
         with self.app.test_request_context():
             response = routes.feed(lane_identifier="a lane")
