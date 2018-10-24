@@ -58,7 +58,7 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTests):
     CARDINALITY = 1
 
     SETTINGS = [
-        { "key": ExternalIntegration.PASSWORD, "label": _("API key") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("API key"), "required": True },
     ]
 
     # An NYT integration is shared by all libraries in a circulation manager.

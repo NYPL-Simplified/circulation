@@ -3442,8 +3442,8 @@ class SettingsController(AdminCirculationManagerController):
                 "name": ExternalIntegration.CDN,
                 "sitewide": True,
                 "settings": [
-                    { "key": ExternalIntegration.URL, "label": _("CDN URL") },
-                    { "key": Configuration.CDN_MIRRORED_DOMAIN_KEY, "label": _("Mirrored domain") },
+                    { "key": ExternalIntegration.URL, "label": _("CDN URL"), "required": True },
+                    { "key": Configuration.CDN_MIRRORED_DOMAIN_KEY, "label": _("Mirrored domain"), "required": True },
                 ],
             }
         ]

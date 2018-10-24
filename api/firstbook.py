@@ -42,8 +42,8 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     DEFAULT_PASSWORD_REGULAR_EXPRESSION = '^[0-9]+$'
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "label": _("URL") },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Key") },
+        { "key": ExternalIntegration.URL, "label": _("URL"), "required": True },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Key"), "required": True },
     ] + BasicAuthenticationProvider.SETTINGS
 
     log = logging.getLogger("First Book authentication API")

@@ -22,8 +22,8 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     FIELD_SEPARATOR = "field separator"
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "label": _("Server") },
-        { "key": PORT, "label": _("Port") },
+        { "key": ExternalIntegration.URL, "label": _("Server"), "required": True },
+        { "key": PORT, "label": _("Port"), "required": True },
         { "key": ExternalIntegration.USERNAME, "label": _("Login User ID"), "optional": True },
         { "key": ExternalIntegration.PASSWORD, "label": _("Login Password"), "optional": True },
         { "key": LOCATION_CODE, "label": _("Location Code"), "optional": True },
