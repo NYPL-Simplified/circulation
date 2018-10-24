@@ -637,16 +637,10 @@ def admin_base(**kwargs):
 @returns_problem_detail
 def admin_js():
     directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "node_modules", "simplified-circulation-web", "dist")
-    cache_timeout = ConfigurationSetting.sitewide(
-        app._db, Configuration.STATIC_FILE_CACHE_TIME
-    ).int_value
-    return flask.send_from_directory(directory, "circulation-web.js", cache_timeout=cache_timeout)
+    return app.manager.static_files.static_file(directory, "circulation-web.js")
 
 @app.route('/admin/static/circulation-web.css')
 @returns_problem_detail
 def admin_css():
     directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "node_modules", "simplified-circulation-web", "dist")
-    cache_timeout = ConfigurationSetting.sitewide(
-        app._db, Configuration.STATIC_FILE_CACHE_TIME
-    ).int_value
-    return flask.send_from_directory(directory, "circulation-web.css", cache_timeout=cache_timeout)
+    return app.manager.static_files.static_file(directory, "circulation-web.css")
