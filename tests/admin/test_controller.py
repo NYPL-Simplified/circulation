@@ -6436,7 +6436,11 @@ class TestCollectionRegistration(SettingsControllerTest):
         ])
 
         class Mock(Registration):
-            def push(self, *args, **kwargs):
+            # We reproduce the signature, even though it's not
+            # necessary for what we're testing, so that if the push()
+            # signature changes this test will fail.
+            def push(self, stage, url_for, catalog_url=None, do_get=None,
+                     do_post=None):
                 return REMOTE_INTEGRATION_FAILED
 
         with self.request_context_with_admin("/", method="POST"):
@@ -6463,12 +6467,15 @@ class TestCollectionRegistration(SettingsControllerTest):
             eq_((Registration.PRODUCTION_STAGE, self.manager.url_for), args)
 
             # We would have made real HTTP requests.
-            eq_(HTTP.debuggable_post, kwargs['do_post'])
-            eq_(HTTP.debuggable_get, kwargs['do_get'])
+            eq_(HTTP.debuggable_post, kwargs.pop('do_post'))
+            eq_(HTTP.debuggable_get, kwargs.pop('do_get'))
 
-            # We would have generated a fresh public key just for this
-            # transaction.
-            eq_(None, kwargs['key'])
+            # And passed the collection URL over to the shared collection.
+            eq_(collection.external_account_id, kwargs.pop('catalog_url'))
+
+            # No other weird keyword arguments were passed in.
+            eq_({}, kwargs)
+
 
     def test_sitewide_registration_post_errors(self):
         def assert_remote_integration_error(response, message=None):
