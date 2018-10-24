@@ -2720,7 +2720,7 @@ class SettingsController(AdminCirculationManagerController):
 
     def collection_library_registrations(
             self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
-            key=None, registration_class=Registration
+            registration_class=Registration
     ):
         """Use the ODPS Directory Registration Protocol to register a
         Collection with its remote source of truth.
@@ -2771,7 +2771,7 @@ class SettingsController(AdminCirculationManagerController):
             registered = registration.push(
                 Registration.PRODUCTION_STAGE, self.url_for,
                 catalog_url=collection.external_account_id,
-                do_get=do_get, do_post=do_post, key=key
+                do_get=do_get, do_post=do_post
             )
             if isinstance(registered, ProblemDetail):
                 return registered
