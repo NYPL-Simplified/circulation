@@ -110,9 +110,7 @@ class TestRoutes(ControllerTest):
         # The incoming lane identifier is passed in to the groups()
         # method.
         with self.app.test_request_context():
-            response = routes.acquisition_groups(
-                lane_identifier="a lane"
-            )
+            response = routes.acquisition_groups(lane_identifier="a lane")
             called = response.method
             eq_(self.manager.opds_feeds.groups, method)
             eq_(("a lane",), method.args)
@@ -121,9 +119,7 @@ class TestRoutes(ControllerTest):
         # The incoming lane identifier is passed in to the groups()
         # method.
         with self.app.test_request_context():
-            response = routes.feed(
-                lane_identifier="a lane"
-            )
+            response = routes.feed(lane_identifier="a lane")
             called = response.method
             eq_(self.manager.opds_feeds.feed, called)
             eq_(("a lane",), called.args)
