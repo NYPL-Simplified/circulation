@@ -56,7 +56,7 @@ class MockControllerMethod(object):
 
 class MockController(MockControllerMethod):
     """Pretends to be a controller.
-    
+
     A controller has methods, but it may also be called _as_ a method,
     so this class subclasses MockControllerMethod.
     """
@@ -83,46 +83,72 @@ class TestRoutes(ControllerTest):
         app = MockApp()
         routes.app = app
         self.manager = app.manager
+        self.resolver = self.original_app.url_map.bind('', '/')
 
     def teardown(self):
         routes.app = self.original_app
 
-    def test_index(self):
+    def request(self, url, method='GET'):
+        """Simulate a request to a URL without triggering any code outside
+        routes.py.
+        """
+        # Map an incoming URL to the name of a function within routes.py
+        # and a set of arguments to the function.
+        function_name, kwargs = self.resolver.match(url, method)
+
+        # Locate the function itself.
+        function = getattr(routes, function_name)
+
+        # Call it in the context of our MockApp which simulates the
+        # controller code.
         with self.app.test_request_context():
-            response = routes.index()
+            return function(**kwargs)
+
+    def test_index(self):
+        for url in '/', '':
+            response = self.request(url)
             eq_(self.manager.index_controller, response.method)
 
     def test_authentication_document(self):
-        with self.app.test_request_context():
-            response = routes.authentication_document()
-            eq_(
-                self.manager.index_controller.authentication_document,
-                response.method
-            )
-    
+        response = self.request("/authentication_document")
+        eq_(
+            self.manager.index_controller.authentication_document,
+            response.method
+        )
+
     def test_public_key_document(self):
-        with self.app.test_request_context():
-            response = routes.public_key_document()
-            eq_(
-                self.manager.index_controller.public_key_document,
-                response.method
-            )
+        response = self.request("/public_key_document")
+        eq_(
+            self.manager.index_controller.public_key_document,
+            response.method
+        )
 
     def test_acquisition_groups(self):
-        # The incoming lane identifier is passed in to the groups()
+        # An incoming lane identifier is passed in to the groups()
         # method.
-        with self.app.test_request_context():
-            response = routes.acquisition_groups(lane_identifier="a lane")
-            called = response.method
-            eq_(self.manager.opds_feeds.groups, called)
-            eq_(("a lane",), called.args)
-        
+
+        # Top-level grouped feed
+        response = self.request("/groups")
+        called = response.method
+        eq_(self.manager.opds_feeds.groups, called)
+        eq_((None,), called.args)
+
+        # Grouped feed for a-lane
+        response = self.request("/groups/a-lane")
+        called = response.method
+        eq_(self.manager.opds_feeds.groups, called)
+        eq_(("a-lane",), called.args)
+
     def test_feed(self):
-        # The incoming lane identifier is passed in to the feed()
+        # An incoming lane identifier is passed in to the feed()
         # method.
-        with self.app.test_request_context():
-            response = routes.feed(lane_identifier="a lane")
-            called = response.method
-            eq_(self.manager.opds_feeds.feed, called)
-            eq_(("a lane",), called.args)
-        
+
+        response = self.request("/feed")
+        called = response.method
+        eq_(self.manager.opds_feeds.feed, called)
+        eq_((None,), called.args)
+
+        response = self.request("/feed/a-lane")
+        called = response.method
+        eq_(self.manager.opds_feeds.feed, called)
+        eq_(("a-lane",), called.args)
