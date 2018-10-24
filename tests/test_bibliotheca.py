@@ -67,6 +67,7 @@ from api.bibliotheca import (
     ItemListParser,
     BibliothecaBibliographicCoverageProvider,
 )
+from api.web_publication_manifest import FindawayManifest
 
 
 class BibliothecaAPITest(DatabaseTest):
@@ -495,7 +496,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         context = manifest['@context']
         default, findaway = context
         eq_(AudiobookManifest.DEFAULT_CONTEXT, default)
-        eq_({"findaway" : BibliothecaAPI.FINDAWAY_EXTENSION_CONTEXT},
+        eq_({"findaway" : FindawayManifest.FINDAWAY_EXTENSION_CONTEXT},
            findaway)
 
         metadata = manifest['metadata']
