@@ -22,7 +22,7 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
     DOMAINS = "domains"
 
     INSTRUCTIONS = _("<p>Configuring a Google OAuth integration in the Circulation Manager " +
-                    "will allow users to sign into the Admin interface with their Google/GMail credentials.</p>" +
+                    "will allow admins to sign into the Admin interface with their Google/GMail credentials.</p>" +
                     "<p>Configure the Google OAuth Service: </p>" +
                     "<ol><li>To use this integration, visit the " +
                     "<a href='https://console.developers.google.com/apis/dashboard?pli=1' rel='noopener' " +
