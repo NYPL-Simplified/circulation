@@ -40,6 +40,7 @@ from core.model import (
     ConfigurationSetting,
     Contributor,
     CustomList,
+    CustomListEntry,
     DataSource,
     Edition,
     ExternalIntegration,
@@ -60,7 +61,7 @@ from core.model import (
     Work,
     WorkGenre,
 )
-from core.lane import Lane
+from core.lane import (Lane, WorkList)
 from core.log import (LogConfiguration, SysLogger, Loggly)
 from core.util.problem_detail import (
     ProblemDetail,
@@ -95,11 +96,10 @@ from password_admin_authentication_provider import PasswordAdminAuthenticationPr
 
 from api.controller import CirculationManagerController
 from api.coverage import MetadataWranglerCollectionRegistrar
-from core.app_server import entry_response
 from core.app_server import (
     entry_response,
     feed_response,
-    load_pagination_from_request
+    load_pagination_from_request,
 )
 from core.opds import AcquisitionFeed
 from opds import AdminAnnotator, AdminFeed
@@ -151,6 +151,8 @@ from api.adobe_vendor_id import AuthdataUtility
 from core.external_search import ExternalSearchIndex
 
 from core.selftest import HasSelfTests
+
+from core.util.opds_writer import OPDSFeed
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
@@ -1506,11 +1508,35 @@ class CustomListsController(AdminCirculationManagerController):
         if flask.request.method == "POST":
             id = flask.request.form.get("id")
             name = flask.request.form.get("name")
-            entries = flask.request.form.get("entries")
-            collections = flask.request.form.get("collections")
-            return self._create_or_update_list(library, name, entries, collections, id)
+            entries = self._getJSONFromRequest(flask.request.form.get("entries"))
+            collections = self._getJSONFromRequest(flask.request.form.get("collections"))
+            return self._create_or_update_list(library, name, entries, collections, id=id)
 
-    def _create_or_update_list(self, library, name, entries, collections, id=None):
+    def _getJSONFromRequest(self, values):
+        if values:
+            values = json.loads(values)
+        else:
+            values = []
+
+        return values
+
+    def _get_work_from_urn(self, library, urn):
+        identifier, ignore = Identifier.parse_urn(self._db, urn)
+        query = self._db.query(
+            Work
+        ).join(
+            LicensePool, LicensePool.work_id==Work.id
+        ).join(
+            Collection, LicensePool.collection_id==Collection.id
+        ).filter(
+            LicensePool.identifier_id==identifier.id
+        ).filter(
+            Collection.id.in_([c.id for c in library.all_collections])
+        )
+        work = query.one()
+        return work
+
+    def _create_or_update_list(self, library, name, entries, collections, deletedEntries=None, id=None):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
 
         old_list_with_name = CustomList.find(self._db, name, library=library)
@@ -1533,41 +1559,25 @@ class CustomListsController(AdminCirculationManagerController):
 
         list.updated = datetime.now()
         list.name = name
-
-        if entries:
-            entries = json.loads(entries)
-        else:
-            entries = []
-
-        old_entries = [x for x in list.entries if x.edition]
         membership_change = False
-        for entry in entries:
-            urn = entry.get("identifier_urn")
 
-            identifier, ignore = Identifier.parse_urn(self._db, urn)
-            query = self._db.query(
-                Work
-            ).join(
-                LicensePool, LicensePool.work_id==Work.id
-            ).join(
-                Collection, LicensePool.collection_id==Collection.id
-            ).filter(
-                LicensePool.identifier_id==identifier.id
-            ).filter(
-                Collection.id.in_([c.id for c in library.all_collections])
-            )
-            work = query.one()
+        for entry in entries:
+            urn = entry.get("id")
+            work = self._get_work_from_urn(library, urn)
 
             if work:
                 entry, entry_is_new = list.add_entry(work, featured=True)
                 if entry_is_new:
                     membership_change = True
 
-        new_urns = [entry.get("identifier_urn") for entry in entries]
-        for entry in old_entries:
-            if entry.edition.primary_identifier.urn not in new_urns:
-                list.remove_entry(entry.edition)
-                membership_change = True
+        if deletedEntries:
+            for entry in deletedEntries:
+                urn = entry.get("id")
+                work = self._get_work_from_urn(library, urn)
+
+                if work:
+                    list.remove_entry(work)
+                    membership_change = True
 
         if membership_change:
             # If this list was used to populate any lanes, those
@@ -1575,10 +1585,6 @@ class CustomListsController(AdminCirculationManagerController):
             for lane in Lane.affected_by_customlist(list):
                 lane.update_size(self._db)
 
-        if collections:
-            collections = json.loads(collections)
-        else:
-            collections = []
         new_collections = []
         for collection_id in collections:
             collection = get_one(self._db, Collection, id=collection_id)
@@ -1596,6 +1602,11 @@ class CustomListsController(AdminCirculationManagerController):
         else:
             return Response(unicode(list.id), 200)
 
+    def url_for_custom_list(self, library, list):
+        def url_fn(after):
+            return self.url_for("custom_list", after=after, library_short_name=library.short_name, list_id=list.id)
+        return url_fn
+
     def custom_list(self, list_id):
         library = flask.request.library
         self.require_librarian(library)
@@ -1606,32 +1617,37 @@ class CustomListsController(AdminCirculationManagerController):
             return MISSING_CUSTOM_LIST
 
         if flask.request.method == "GET":
-            entries = []
-            for entry in list.entries:
-                if entry.edition:
-                    url = self.url_for(
-                        "permalink",
-                        identifier_type=entry.edition.primary_identifier.type,
-                        identifier=entry.edition.primary_identifier.identifier,
-                        library_short_name=library.short_name,
-                    )
-                    entries.append(dict(identifier_urn=entry.edition.primary_identifier.urn,
-                                        title=entry.edition.title,
-                                        authors=[author.display_name for author in entry.edition.author_contributors],
-                                        medium=Edition.medium_to_additional_type.get(entry.edition.medium, None),
-                                        url=url,
-                                        language=entry.edition.language,
-                    ))
-            collections = []
-            for collection in list.collections:
-                collections.append(dict(id=collection.id, name=collection.name, protocol=collection.protocol))
-            return dict(id=list.id, name=list.name, entries=entries, collections=collections, entry_count=len(entries))
+            pagination = load_pagination_from_request()
+            if isinstance(pagination, ProblemDetail):
+                return pagination
+
+            query = self._db.query(Work).join(Work.custom_list_entries).filter(CustomListEntry.list_id==list_id)
+            url = self.url_for(
+                "custom_list", list_name=list.name,
+                library_short_name=library.short_name,
+                list_id=list_id,
+            )
+
+            worklist = WorkList()
+            worklist.initialize(library, customlists=[list])
+
+            annotator = self.manager.annotator(worklist)
+            url_fn = self.url_for_custom_list(library, list)
+
+            feed = AcquisitionFeed.from_query(
+                query, self._db, list.name,
+                url, pagination, url_fn, annotator
+            )
+            annotator.annotate_feed(feed, worklist)
+
+            return feed_response(unicode(feed), cache_for=0)
 
         elif flask.request.method == "POST":
             name = flask.request.form.get("name")
-            entries = flask.request.form.get("entries")
-            collections = flask.request.form.get("collections")
-            return self._create_or_update_list(library, name, entries, collections, list_id)
+            entries = self._getJSONFromRequest(flask.request.form.get("entries"))
+            collections = self._getJSONFromRequest(flask.request.form.get("collections"))
+            deletedEntries = self._getJSONFromRequest(flask.request.form.get("deletedEntries"))
+            return self._create_or_update_list(library, name, entries, collections, deletedEntries=deletedEntries, id=list_id)
 
         elif flask.request.method == "DELETE":
             # Deleting requires a library manager.
@@ -2725,7 +2741,7 @@ class SettingsController(AdminCirculationManagerController):
 
     def collection_library_registrations(
             self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
-            key=None, registration_class=Registration
+            registration_class=Registration
     ):
         """Use the ODPS Directory Registration Protocol to register a
         Collection with its remote source of truth.
@@ -2776,7 +2792,7 @@ class SettingsController(AdminCirculationManagerController):
             registered = registration.push(
                 Registration.PRODUCTION_STAGE, self.url_for,
                 catalog_url=collection.external_account_id,
-                do_get=do_get, do_post=do_post, key=key
+                do_get=do_get, do_post=do_post
             )
             if isinstance(registered, ProblemDetail):
                 return registered
