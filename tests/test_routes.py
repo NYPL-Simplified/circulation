@@ -114,7 +114,7 @@ class TestRoutes(ControllerTest):
         with self.app.test_request_context():
             response = routes.acquisition_groups(lane_identifier="a lane")
             called = response.method
-            eq_(self.manager.opds_feeds.groups, method)
+            eq_(self.manager.opds_feeds.groups, called)
             eq_(("a lane",), method.args)
         
     def test_feed(self):
