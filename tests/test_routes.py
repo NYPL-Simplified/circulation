@@ -127,28 +127,18 @@ class TestRoutes(ControllerTest):
         # An incoming lane identifier is passed in to the groups()
         # method.
 
-        # Top-level grouped feed
-        response = self.request("/groups")
-        called = response.method
-        eq_(self.manager.opds_feeds.groups, called)
-        eq_((None,), called.args)
-
-        # Grouped feed for a-lane
-        response = self.request("/groups/a-lane")
-        called = response.method
-        eq_(self.manager.opds_feeds.groups, called)
-        eq_(("a-lane",), called.args)
+        for (url, lane) in (('/groups', None), ('/groups/a-lane', 'a-lane')):
+            response = self.request(url)
+            called = response.method
+            eq_(self.manager.opds_feeds.groups, called)
+            eq_((lane,), called.args)
 
     def test_feed(self):
         # An incoming lane identifier is passed in to the feed()
         # method.
 
-        response = self.request("/feed")
-        called = response.method
-        eq_(self.manager.opds_feeds.feed, called)
-        eq_((None,), called.args)
-
-        response = self.request("/feed/a-lane")
-        called = response.method
-        eq_(self.manager.opds_feeds.feed, called)
-        eq_(("a-lane",), called.args)
+        for (url, lane) in (('/feed', None), ('/feed/a-lane', 'a-lane')):
+            response = self.request(url)
+            called = response.method
+            eq_(self.manager.opds_feeds.feed, called)
+            eq_((lane,), called.args)
