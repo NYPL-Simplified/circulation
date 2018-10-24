@@ -104,41 +104,44 @@ class TestRoutes(ControllerTest):
         with self.app.test_request_context():
             return function(**kwargs)
 
+    def assert_request_calls(self, url, method, *args, **kwargs):
+        """Make a request to the given `url` and assert that
+        the given controller `method` was called with the
+        given `args` and `kwargs`.
+        """
+        http_method = kwargs.pop('method', 'GET')
+        response = self.request(url, http_method)
+        eq_(response.method, method)
+        eq_(response.method.args, args)
+        eq_(response.method.kwargs, kwargs)
+
     def test_index(self):
         for url in '/', '':
-            response = self.request(url)
-            eq_(self.manager.index_controller, response.method)
+            self.assert_request_calls(url, self.manager.index_controller)
 
     def test_authentication_document(self):
-        response = self.request("/authentication_document")
-        eq_(
-            self.manager.index_controller.authentication_document,
-            response.method
+        self.assert_request_calls(
+            "/authentication_document",
+            self.manager.index_controller.authentication_document
         )
 
     def test_public_key_document(self):
-        response = self.request("/public_key_document")
-        eq_(
-            self.manager.index_controller.public_key_document,
-            response.method
+        self.assert_request_calls(
+            "/public_key_document",
+            self.manager.index_controller.public_key_document
         )
 
     def test_acquisition_groups(self):
         # An incoming lane identifier is passed in to the groups()
         # method.
-
-        for (url, lane) in (('/groups', None), ('/groups/a-lane', 'a-lane')):
-            response = self.request(url)
-            called = response.method
-            eq_(self.manager.opds_feeds.groups, called)
-            eq_((lane,), called.args)
+        method = self.manager.opds_feeds.groups
+        self.assert_request_calls("/groups", method, None)
+        self.assert_request_calls("/groups/a-lane", method, 'a-lane')
 
     def test_feed(self):
         # An incoming lane identifier is passed in to the feed()
         # method.
+        method = self.manager.opds_feeds.feed
+        self.assert_request_calls("/feed", method, None)
+        self.assert_request_calls("/feed/a-lane", method, 'a-lane')
 
-        for (url, lane) in (('/feed', None), ('/feed/a-lane', 'a-lane')):
-            response = self.request(url)
-            called = response.method
-            eq_(self.manager.opds_feeds.feed, called)
-            eq_((lane,), called.args)
