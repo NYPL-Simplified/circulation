@@ -170,8 +170,10 @@ def setup_admin_controllers(manager):
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
     manager.admin_patron_controller = PatronController(manager)
-    from api.admin.configuration_settings_controller import SitewideConfigurationSettingsController
+    from api.admin.sitewide_configuration_settings_controller import SitewideConfigurationSettingsController
     manager.admin_sitewide_configuration_settings_controller = SitewideConfigurationSettingsController(manager)
+    from api.admin.library_settings_controller import LibrarySettingsController
+    manager.admin_library_settings_controller = LibrarySettingsController(manager)
 
 class AdminController(object):
 
@@ -2106,139 +2108,6 @@ class SettingsController(AdminCirculationManagerController):
                      SharedODLAPI,
                      FeedbooksOPDSImporter,
                     ]
-
-    def libraries(self):
-        if flask.request.method == 'GET':
-            libraries = []
-            for library in self._db.query(Library).order_by(Library.name):
-                # Only include libraries this admin has librarian access to.
-                if not flask.request.admin or not flask.request.admin.is_librarian(library):
-                    continue
-
-                settings = dict()
-                for setting in Configuration.LIBRARY_SETTINGS:
-                    if setting.get("type") == "list":
-                        value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
-                    else:
-                        value = ConfigurationSetting.for_library(setting.get("key"), library).value
-                    if value:
-                        settings[setting.get("key")] = value
-                libraries += [dict(
-                    uuid=library.uuid,
-                    name=library.name,
-                    short_name=library.short_name,
-                    settings=settings,
-                )]
-            return dict(libraries=libraries, settings=Configuration.LIBRARY_SETTINGS)
-
-
-        library_uuid = flask.request.form.get("uuid")
-        name = flask.request.form.get("name")
-        short_name = flask.request.form.get("short_name")
-
-        library = None
-        is_new = False
-
-        if not short_name:
-            return MISSING_LIBRARY_SHORT_NAME
-
-        if library_uuid:
-            # Library UUID is required when editing an existing library
-            # from the admin interface, and isn't present for new libraries.
-            library = get_one(
-                self._db, Library, uuid=library_uuid,
-            )
-            if not library:
-                return LIBRARY_NOT_FOUND.detailed(_("The specified library uuid does not exist."))
-
-        if not library or short_name != library.short_name:
-            # If you're adding a new short_name, either by editing an
-            # existing library or creating a new library, it must be unique.
-            library_with_short_name = get_one(self._db, Library, short_name=short_name)
-            if library_with_short_name:
-                return LIBRARY_SHORT_NAME_ALREADY_IN_USE
-
-        if not library:
-            self.require_system_admin()
-            library, is_new = create(
-                self._db, Library, short_name=short_name,
-                uuid=str(uuid.uuid4()))
-        else:
-            self.require_library_manager(library)
-
-        if name:
-            library.name = name
-        if short_name:
-            library.short_name = short_name
-
-        NO_VALUE = object()
-        for setting in Configuration.LIBRARY_SETTINGS:
-            # Start off by assuming the value is not set.
-            value = NO_VALUE
-            if setting.get("type") == "list":
-                if setting.get('options'):
-                    # Restrict to the values in 'options'.
-                    value = []
-                    for option in setting.get("options"):
-                        if setting["key"] + "_" + option["key"] in flask.request.form:
-                            value += [option["key"]]
-                else:
-                    # Allow any entered values.
-                    value = [item for item in flask.request.form.getlist(setting.get('key')) if item]
-                value = json.dumps(value)
-            elif setting.get("type") == "image":
-                image_file = flask.request.files.get(setting.get("key"))
-                if not image_file and not setting.get("optional"):
-                    self._db.rollback()
-                    return INCOMPLETE_CONFIGURATION.detailed(_(
-                        "The library is missing a required setting: %s." % setting.get("key")))
-                if image_file:
-                    allowed_types = [Representation.JPEG_MEDIA_TYPE, Representation.PNG_MEDIA_TYPE, Representation.GIF_MEDIA_TYPE]
-                    type = image_file.headers.get("Content-Type")
-                    if type not in allowed_types:
-                        self._db.rollback()
-                        return INVALID_CONFIGURATION_OPTION.detailed(_(
-                            "Upload for %(setting)s must be in GIF, PNG, or JPG format. (Upload was %(format)s.)",
-                            setting=setting.get("label"),
-                            format=type))
-                    image = Image.open(image_file)
-                    width, height = image.size
-                    if width > 135 or height > 135:
-                        image.thumbnail((135, 135), Image.ANTIALIAS)
-                    buffer = StringIO()
-                    image.save(buffer, format="PNG")
-                    b64 = base64.b64encode(buffer.getvalue())
-                    value = "data:image/png;base64,%s" % b64
-            else:
-                default = setting.get('default')
-                value = flask.request.form.get(setting['key'], default)
-            if value != NO_VALUE:
-                ConfigurationSetting.for_library(setting['key'], library).value = value
-            if not value and not setting.get("optional"):
-                self._db.rollback()
-                return INCOMPLETE_CONFIGURATION.detailed(
-                    _("The configuration is missing a required setting: %(setting)s",
-                      setting=setting.get("label"),
-                    ))
-
-        if is_new:
-            # Now that the configuration settings are in place, create
-            # a default set of lanes.
-            create_default_lanes(self._db, library)
-
-        if is_new:
-            return Response(unicode(library.uuid), 201)
-        else:
-            return Response(unicode(library.uuid), 200)
-
-    def library(self, library_uuid):
-        if flask.request.method == "DELETE":
-            self.require_system_admin()
-            library = get_one(self._db, Library, uuid=library_uuid)
-            if not library:
-                return LIBRARY_NOT_FOUND.detailed(_("The specified library uuid does not exist."))
-            self._db.delete(library)
-            return Response(unicode(_("Deleted")), 200)
 
     @classmethod
     def _get_integration_protocols(cls, provider_apis, protocol_name_attr="__module__"):
