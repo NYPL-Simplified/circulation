@@ -26,6 +26,7 @@ from core.model import (
     CirculationEvent,
     ConfigurationSetting,
     Credential,
+    CustomList,
     DataSource,
     DeliveryMechanism,
     Identifier,
@@ -772,18 +773,28 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                 href=self.url_for('annotations', library_short_name=self.library.short_name, _external=True))
             feed.add_link_to_feed(feed.feed, **annotations_link)
 
-        if lane and lane.uses_customlists and len(lane.customlists) == 1:
-            crawlable_url = self.url_for(
-                "crawlable_list_feed", list_name=lane.customlists[0].name,
-                library_short_name=self.library.short_name,
-                _external=True
-            )
-            crawlable_link = dict(
-                rel="http://opds-spec.org/crawlable",
-                type=OPDSFeed.ACQUISITION_FEED_TYPE,
-                href=crawlable_url,
-            )
-            feed.add_link_to_feed(feed.feed, **crawlable_link)
+        if lane and lane.uses_customlists:
+            name = None
+            if hasattr(lane, "customlists") and len(lane.customlists) == 1:
+                name = lane.customlists[0].name
+            else:
+                _db = Session.object_session(self.library)
+                customlist = lane.get_customlists(_db)
+                if customlist:
+                    name = customlist[0].name
+
+            if name:
+                crawlable_url = self.url_for(
+                    "crawlable_list_feed", list_name=name,
+                    library_short_name=self.library.short_name,
+                    _external=True
+                )
+                crawlable_link = dict(
+                    rel="http://opds-spec.org/crawlable",
+                    type=OPDSFeed.ACQUISITION_FEED_TYPE,
+                    href=crawlable_url,
+                )
+                feed.add_link_to_feed(feed.feed, **crawlable_link)
 
         self.add_configuration_links(feed)
 

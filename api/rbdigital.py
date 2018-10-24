@@ -13,6 +13,7 @@ from sqlalchemy.orm.session import Session
 import uuid
 
 from circulation import (
+    APIAwareFulfillmentInfo,
     BaseCirculationAPI,
     FulfillmentInfo,
     HoldInfo,
@@ -833,7 +834,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         fulfillment_info = RBFulfillmentInfo(
             self,
             DataSource.RB_DIGITAL,
-            identifier,
+            identifier.type,
+            identifier.identifier,
             item,
         )
 
@@ -1381,7 +1383,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         response = self.request(url, params=args, verbosity=verbosity)
         return response
 
-class RBFulfillmentInfo(object):
+class RBFulfillmentInfo(APIAwareFulfillmentInfo):
     """An RBdigital-specific FulfillmentInfo implementation.
 
     We use these instead of real FulfillmentInfo objects because
@@ -1389,48 +1391,9 @@ class RBFulfillmentInfo(object):
     and there's often no need to make that request.
     """
 
-    def __init__(self, api, data_source_name, identifier,
-                 raw_data):
-        self.api = api
-        self.collection = api.collection
-        self.data_source_name = data_source_name
-        self._identifier = identifier
-        self.identifier_type = identifier.type
-        self.identifier = identifier.identifier
-        self.raw_data = raw_data
-
-        self._fetched = False
-        self._content_link = None
-        self._content_type = None
-        self._content = None
-        self._content_expires = None
-
-    @property
-    def content_link(self):
-        self.fetch()
-        return self._content_link
-
-    @property
-    def content_type(self):
-        self.fetch()
-        return self._content_type
-
-    @property
-    def content(self):
-        self.fetch()
-        return self._content
-
-    @property
-    def content_expires(self):
-        self.fetch()
-        return self._content_expires
-
-    def fetch(self):
-        if self._fetched:
-            return
-
+    def do_fetch(self):
         # Get a list of files associated with this loan.
-        files = self.raw_data.get('files', [])
+        files = self.key.get('files', [])
 
         # Determine if we're fulfilling an audiobook (which means sending a
         # manifest) or an ebook (which means sending a download link).
@@ -1453,7 +1416,7 @@ class RBFulfillmentInfo(object):
 
         if self._content_type == Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
             # We have an audiobook.
-            self._content = self.process_audiobook_manifest(self.raw_data)
+            self._content = self.process_audiobook_manifest(self.key)
         else:
             # We have some other kind of file. Follow the download
             # link, which will return a JSON-based access document
@@ -1468,7 +1431,6 @@ class RBFulfillmentInfo(object):
             self._content_type, self._content_link, self._content_expires = self.process_access_document(
                 access_document
             )
-        self._fetched = True
 
     @classmethod
     def process_audiobook_manifest(self, rb_data):
