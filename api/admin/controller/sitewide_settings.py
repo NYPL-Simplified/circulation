@@ -9,14 +9,8 @@ from flask_babel import lazy_gettext as _
 
 class SitewideConfigurationSettingsController(AdminCirculationManagerController):
 
-    def process_settings(self):
-         self.require_system_admin()
-         if flask.request.method == 'GET':
-            return self.process_get()
-         elif flask.request.method == 'POST':
-            return self.process_post()
-
     def process_get(self):
+        self.require_system_admin()
         sitewide_settings = Configuration.SITEWIDE_SETTINGS
         settings = []
 
@@ -31,6 +25,7 @@ class SitewideConfigurationSettingsController(AdminCirculationManagerController)
         )
 
     def process_post(self):
+        self.require_system_admin()
         error = self.validate_form_fields(flask.request.form.keys())
         if error:
             return error

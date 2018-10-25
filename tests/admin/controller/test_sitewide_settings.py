@@ -18,7 +18,7 @@ class TestSitewideSettings(SettingsControllerTest):
 
     def test_sitewide_settings_get(self):
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_sitewide_configuration_settings_controller.process_settings()
+            response = self.manager.admin_sitewide_configuration_settings_controller.process_get()
             settings = response.get("settings")
             all_settings = response.get("all_settings")
 
@@ -33,7 +33,7 @@ class TestSitewideSettings(SettingsControllerTest):
         self._db.flush()
 
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_sitewide_configuration_settings_controller.process_settings()
+            response = self.manager.admin_sitewide_configuration_settings_controller.process_get()
             settings = response.get("settings")
             all_settings = response.get("all_settings")
 
@@ -49,12 +49,12 @@ class TestSitewideSettings(SettingsControllerTest):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
             assert_raises(AdminNotAuthorized,
-                          self.manager.admin_sitewide_configuration_settings_controller.process_settings)
+                          self.manager.admin_sitewide_configuration_settings_controller.process_get)
 
     def test_sitewide_settings_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([("key", None)])
-            response = self.manager.admin_sitewide_configuration_settings_controller.process_settings()
+            response = self.manager.admin_sitewide_configuration_settings_controller.process_post()
             eq_(response, MISSING_SITEWIDE_SETTING_KEY)
 
         with self.request_context_with_admin("/", method="POST"):
@@ -62,7 +62,7 @@ class TestSitewideSettings(SettingsControllerTest):
                 ("key", Configuration.SECRET_KEY),
                 ("value", None)
             ])
-            response = self.manager.admin_sitewide_configuration_settings_controller.process_settings()
+            response = self.manager.admin_sitewide_configuration_settings_controller.process_post()
             eq_(response, MISSING_SITEWIDE_SETTING_VALUE)
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
@@ -72,7 +72,7 @@ class TestSitewideSettings(SettingsControllerTest):
                 ("value", "secret"),
             ])
             assert_raises(AdminNotAuthorized,
-                          self.manager.admin_sitewide_configuration_settings_controller.process_settings)
+                          self.manager.admin_sitewide_configuration_settings_controller.process_post)
 
     def test_sitewide_settings_post_create(self):
         with self.request_context_with_admin("/", method="POST"):
@@ -80,7 +80,7 @@ class TestSitewideSettings(SettingsControllerTest):
                 ("key", AcquisitionFeed.GROUPED_MAX_AGE_POLICY),
                 ("value", "10"),
             ])
-            response = self.manager.admin_sitewide_configuration_settings_controller.process_settings()
+            response = self.manager.admin_sitewide_configuration_settings_controller.process_post()
             eq_(response.status_code, 200)
 
         # The setting was created.
@@ -97,7 +97,7 @@ class TestSitewideSettings(SettingsControllerTest):
                 ("key", AcquisitionFeed.GROUPED_MAX_AGE_POLICY),
                 ("value", "20"),
             ])
-            response = self.manager.admin_sitewide_configuration_settings_controller.process_settings()
+            response = self.manager.admin_sitewide_configuration_settings_controller.process_post()
             eq_(response.status_code, 200)
 
         # The setting was changed.
