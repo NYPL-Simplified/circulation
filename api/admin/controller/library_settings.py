@@ -18,6 +18,7 @@ from core.model import (
 from PIL import Image
 from api.admin.exceptions import *
 from api.admin.problem_details import *
+from core.util.problem_detail import ProblemDetail
 from nose.tools import set_trace
 
 class LibrarySettingsController(AdminCirculationManagerController):
@@ -46,26 +47,31 @@ class LibrarySettingsController(AdminCirculationManagerController):
         return dict(libraries=libraries, settings=Configuration.LIBRARY_SETTINGS)
 
     def process_post(self):
+        self.require_system_admin()
+
         library = None
         is_new = False
 
-        error = self.validate_form_fields()
-        if error:
-            return error
-
         library_uuid = flask.request.form.get("uuid")
-        name = flask.request.form.get("name")
         library = self.get_library_from_uuid(library_uuid)
+        if isinstance(library, ProblemDetail):
+            return library
+
         short_name = flask.request.form.get("short_name")
         short_name_not_unique = self.check_short_name_unique(library, short_name)
         if short_name_not_unique:
             return short_name_not_unique
+
+        error = self.validate_form_fields()
+        if error:
+            return error
 
         if not library:
             (library, is_new) = self.create_library(short_name, library_uuid)
         else:
             self.require_library_manager(library)
 
+        name = flask.request.form.get("name")
         if name:
             library.name = name
         if short_name:
@@ -101,14 +107,12 @@ class LibrarySettingsController(AdminCirculationManagerController):
         return self.check_for_missing_fields(settings) or self.check_input_type(settings)
 
     def check_for_missing_fields(self, settings):
-        MISSING_FIELD_MESSAGES = dict(
-            short_name = MISSING_LIBRARY_SHORT_NAME,
-        )
-        for field in flask.request.form.keys():
-            if MISSING_FIELD_MESSAGES.get(field) and not flask.request.form.get(field):
-                return MISSING_FIELD_MESSAGES.get(field)
+        if not flask.request.form.get("short_name"):
+            return MISSING_LIBRARY_SHORT_NAME
 
-        self.check_for_missing_settings(settings)
+        error = self.check_for_missing_settings(settings)
+        if error:
+            return error
 
     def check_for_missing_settings(self, settings):
         required = filter(lambda s: not s.get('optional') and not s.get('default'), Configuration.LIBRARY_SETTINGS)

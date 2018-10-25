@@ -9,6 +9,12 @@ import json
 from StringIO import StringIO
 from werkzeug import ImmutableMultiDict, MultiDict
 from api.admin.exceptions import AdminNotAuthorized
+from api.admin.problem_details import (
+    INCOMPLETE_CONFIGURATION,
+    LIBRARY_NOT_FOUND,
+    MISSING_LIBRARY_SHORT_NAME,
+    LIBRARY_SHORT_NAME_ALREADY_IN_USE,
+)
 from api.config import Configuration
 from core.facets import FacetConstants
 from core.model import (
@@ -103,7 +109,7 @@ class TestLibrarySettings(SettingsControllerTest):
                 ("short_name", library.short_name),
             ])
             assert_raises(AdminNotAuthorized,
-                          self.manager.admin_library_settings_controller.process_post)
+                self.manager.admin_library_settings_controller.process_post)
 
         self.admin.add_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
