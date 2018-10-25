@@ -47,7 +47,6 @@ from api.config import (
 
 from api.simple_authentication import SimpleAuthenticationProvider
 
-TEST_NODE_VALUE = 114740953091845
 
 class TestVendorIDModel(VendorIDTest):
 
@@ -82,7 +81,7 @@ class TestVendorIDModel(VendorIDTest):
 
         self.model = AdobeVendorIDModel(
             self._db, self._default_library, self.authenticator,
-            TEST_NODE_VALUE
+            self.TEST_NODE_VALUE
         )
         self.data_source = DataSource.lookup(self._db, DataSource.ADOBE)
 
@@ -1161,7 +1160,7 @@ class TestAdobeVendorIDController(VendorIDTest):
 
         controller = AdobeVendorIDController(
             self._db, self._default_library, self.TEST_VENDOR_ID,
-            TEST_NODE_VALUE, object()
+            self.TEST_NODE_VALUE, object()
         )
         patron = self._patron()
         response = controller.create_authdata_handler(patron)

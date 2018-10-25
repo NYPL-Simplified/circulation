@@ -12,6 +12,7 @@ from werkzeug.exceptions import MethodNotAllowed
 from api import app
 from api import routes
 from api.opds import CirculationManagerAnnotator
+from api.controller import CirculationManager
 
 from test_controller import ControllerTest
 
@@ -47,6 +48,7 @@ class MockControllerMethod(object):
         """
         self.controller = controller
         self.name = name
+        self.callable_name = name
 
     def __call__(self, *args, **kwargs):
         """Simulate a successful method call.
@@ -79,6 +81,11 @@ class MockController(MockControllerMethod):
         :param name: The name of the controller.
         """
         self.name = name
+
+        # If this controller were to be called as a method, the method
+        # name would be __call__, not the name of the controller.
+        self.callable_name = '__call__'
+
         self._cache = {}
         self.authenticated = False
 
@@ -108,11 +115,30 @@ class RouteTest(ControllerTest):
     routes we've registered with Flask.
     """
 
+    # The first time setup() is called, it will instantiate a real
+    # CirculationManager object and store it here. We only do this
+    # once because it takes about a second to instantiate this object.
+    # Calling any of this object's methods could be problematic, since
+    # it's probably left over from a previous test, but we won't be
+    # calling any methods -- we just want to verify the _existence_,
+    # in a real CirculationManager, of the methods called in
+    # routes.py.
+    REAL_CIRCULATION_MANAGER = None
+
     def setup(self, _db=None):
         super(RouteTest, self).setup(_db=_db, set_up_circulation_manager=False)
-        self.original_app = routes.app
+        if not RouteTest.REAL_CIRCULATION_MANAGER:
+            library = self._default_library
+            # Set up the necessary configuration so that when we
+            # instantiate the CirculationManager it gets an
+            # adobe_vendor_id controller -- this wouldn't normally
+            # happen because most circulation managers don't need such a
+            # controller.
+            self.initialize_adobe(library, [library])
+            self.adobe_vendor_id.password = self.TEST_NODE_VALUE
+            manager = CirculationManager(self._db, testing=True)
+            RouteTest.REAL_CIRCULATION_MANAGER = manager
         app = MockApp()
-        routes.app = app
         self.manager = app.manager
         self.resolver = self.original_app.url_map.bind('', '/')
 
@@ -122,7 +148,19 @@ class RouteTest(ControllerTest):
         if controller_name:
             self.controller = getattr(self.manager, controller_name)
 
+            # Make sure there's a controller by this name in the real
+            # CirculationManager.
+            self.real_controller = getattr(
+                self.REAL_CIRCULATION_MANAGER, controller_name
+            )
+        else:
+            self.real_controller = None
+
+        self.original_app = routes.app
+        routes.app = app
+
     def teardown(self):
+        super(RouteTest, self).teardown()
         routes.app = self.original_app
 
     def request(self, url, method='GET'):
@@ -133,13 +171,12 @@ class RouteTest(ControllerTest):
         # and a set of arguments to the function.
         function_name, kwargs = self.resolver.match(url, method)
 
-        # Locate the function itself.
-        function = getattr(routes, function_name)
+        # Locate the corresponding function in our mock app.
+        mock_function = getattr(routes, function_name)
 
-        # Call it in the context of our MockApp which simulates the
-        # controller code.
+        # Call it in the context of the mock app.
         with self.app.test_request_context():
-            return function(**kwargs)
+            return mock_function(**kwargs)
 
     def assert_request_calls(self, url, method, *args, **kwargs):
         """Make a request to the given `url` and assert that
@@ -151,6 +188,14 @@ class RouteTest(ControllerTest):
         eq_(response.method, method)
         eq_(response.method.args, args)
         eq_(response.method.kwargs, kwargs)
+
+        # Make sure the real controller has a method by the name of
+        # the mock method that was called. We won't call it, because
+        # it would slow down these tests dramatically, but we can make
+        # sure it exists.
+        if self.real_controller:
+            real_method = getattr(self.real_controller, method.callable_name)
+
 
     def assert_authenticated_request_calls(self, url, method, *args, **kwargs):
         """First verify that an unauthenticated request fails. Then make an
