@@ -3615,7 +3615,7 @@ class TestURLLookupController(ControllerTest):
     """Test that a client can look up data on specific works."""
 
     def test_get(self):
-        """Look up a work."""
+        # Look up a work.
         work = self._work(with_license_pool=True)
         [pool] = work.license_pools
         urn = pool.identifier.urn
@@ -3627,7 +3627,7 @@ class TestURLLookupController(ControllerTest):
             # The route name we passed into work_lookup shows up in
             # the feed-level link with rel="self".
             [self_link] = feed['feed']['links']
-            assert cdn_url_for(route_name) in self_link['href']
+            assert '/' + route_name in self_link['href']
 
             # The work we looked up has an OPDS entry.
             [entry] = feed['entries']
