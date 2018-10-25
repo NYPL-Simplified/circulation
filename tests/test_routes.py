@@ -140,6 +140,7 @@ class RouteTest(ControllerTest):
             RouteTest.REAL_CIRCULATION_MANAGER = manager
         app = MockApp()
         self.manager = app.manager
+        self.original_app = routes.app
         self.resolver = self.original_app.url_map.bind('', '/')
 
         # For convenience, set self.controller to a specific controller
@@ -156,7 +157,6 @@ class RouteTest(ControllerTest):
         else:
             self.real_controller = None
 
-        self.original_app = routes.app
         routes.app = app
 
     def teardown(self):
