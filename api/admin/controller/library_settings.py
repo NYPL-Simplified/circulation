@@ -104,7 +104,6 @@ class LibrarySettingsController(AdminCirculationManagerController):
         MISSING_FIELD_MESSAGES = dict(
             short_name = MISSING_LIBRARY_SHORT_NAME,
         )
-
         for field in flask.request.form.keys():
             if MISSING_FIELD_MESSAGES.get(field) and not flask.request.form.get(field):
                 return MISSING_FIELD_MESSAGES.get(field)
