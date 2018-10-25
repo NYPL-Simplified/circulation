@@ -1,9 +1,11 @@
 import contextlib
+import logging
 from nose.tools import (
     assert_raises,
     eq_,
     set_trace,
 )
+import flask
 from flask import Response
 from werkzeug.exceptions import MethodNotAllowed
 
@@ -69,6 +71,8 @@ class MockController(MockControllerMethod):
     A controller has methods, but it may also be called _as_ a method,
     so this class subclasses MockControllerMethod.
     """
+    AUTHENTICATED_PATRON = "i am a mock patron"
+
     def __init__(self, name):
         """Constructor.
 
@@ -76,6 +80,18 @@ class MockController(MockControllerMethod):
         """
         self.name = name
         self._cache = {}
+        self.authenticated = False
+
+    def authenticated_patron_from_request(self):
+        if self.authenticated:
+            patron = object()
+            flask.request.patron = self.AUTHENTICATED_PATRON
+            return self.AUTHENTICATED_PATRON
+        else:
+            return Response(
+                "authenticated_patron_from_request called without authorizing",
+                401
+            )
 
     def __getattr__(self, method_name):
         """Locate a method of this controller as a MockControllerMethod."""
@@ -133,6 +149,28 @@ class RouteTest(ControllerTest):
         eq_(response.method.args, args)
         eq_(response.method.kwargs, kwargs)
 
+    def assert_authenticated_request_calls(self, url, method, *args, **kwargs):
+        """First verify that an unauthenticated request fails. Then make an
+        authenticated request to `url` and verify the results, as with
+        assert_request_calls
+        """
+        http_method = kwargs.pop('http_method', 'GET')
+        response = self.request(url, http_method)
+        eq_(401, response.status_code)
+        eq_("authenticated_patron_from_request called without authorizing",
+            response.data)
+
+        # Set a variable so that authenticated_patron_from_request
+        # will succeed, and try again.
+        self.manager.index_controller.authenticated = True
+        try:
+            kwargs['http_method'] = http_method
+            self.assert_request_calls(url, method, *args, **kwargs)
+        finally:
+            # Un-set authentication for the benefit of future
+            # assertions in this test function.
+            self.manager.index_controller.authenticated = False
+
     def assert_supported_methods(self, url, *methods):
         """Verify that the given HTTP `methods` are the only ones supported
         on the given `url`.
@@ -142,7 +180,9 @@ class RouteTest(ControllerTest):
         # raised each time.
         check = set(['GET', 'POST', 'PUT', 'DELETE']) - set(methods)
         for method in check:
+            logging.debug("MethodNotAllowed should be raised on %s", method)
             assert_raises(MethodNotAllowed, self.request, url, method)
+            logging.debug("And it was.")
 
 
 class TestIndex(RouteTest):
@@ -286,67 +326,105 @@ class TestSharedCollection(RouteTest):
             '<hold_id>'
 	)
 
+
 class TestProfileController(RouteTest):
 
+    CONTROLLER_NAME = "profiles"
+
     def test_patron_profile(self):
-    	url = ""
-	self.assert_request_calls(
-	    url, self.controller.method,
+    	url = "/patrons/me"
+	self.assert_authenticated_request_calls(
+	    url, self.controller.protocol,
 	)
 
 
 class TestLoansController(RouteTest):
 
+    CONTROLLER_NAME = "loans"
+
     def test_active_loans(self):
-    	url = ""
-	self.assert_request_calls(
-	    url, self.controller.method,
+    	url = "/loans"
+	self.assert_authenticated_request_calls(
+	    url, self.controller.sync,
 	)
+        self.assert_supported_methods(url, 'GET', 'HEAD')
 
     def test_borrow(self):
-    	url = ""
-	self.assert_request_calls(
-	    url, self.controller.method,
+        url = '/works/<identifier_type>/an/identifier/borrow'
+	self.assert_authenticated_request_calls(
+	    url, self.controller.borrow,
+            "<identifier_type>", "an/identifier", None
 	)
+        self.assert_supported_methods(url, 'GET', 'PUT')
+        
+        url = '/works/<identifier_type>/an/identifier/borrow/<mechanism_id>'
+	self.assert_authenticated_request_calls(
+	    url, self.controller.borrow,
+            "<identifier_type>", "an/identifier", "<mechanism_id>"
+	)
+        self.assert_supported_methods(url, 'GET', 'PUT')
 
     def test_fulfill(self):
-    	url = ""
+        # fulfill does *not* require authentication, because this
+        # controller is how a no-authentication library fulfills
+        # open-access titles.
+    	url = '/works/<license_pool_id>/fulfill'
 	self.assert_request_calls(
-	    url, self.controller.method,
+	    url, self.controller.fulfill, "<license_pool_id>", None
+	)
+
+        url = '/works/<license_pool_id>/fulfill/<mechanism_id>'
+	self.assert_request_calls(
+	    url, self.controller.fulfill, "<license_pool_id>",
+            "<mechanism_id>"
 	)
 
     def test_revoke_loan_or_hold(self):
-    	url = ""
-	self.assert_request_calls(
-	    url, self.controller.method,
+    	url = '/loans/<license_pool_id>/revoke'
+	self.assert_authenticated_request_calls(
+	    url, self.controller.revoke, '<license_pool_id>'
 	)
 
+        # TODO: DELETE shouldn't be in here, but "DELETE
+        # /loans/<license_pool_id>/revoke" is interpreted as an attempt
+        # to match /loans/<identifier_type>/<path:identifier>, the
+        # method tested directly below, which does support DELETE.
+        self.assert_supported_methods(url, 'GET', 'PUT', 'DELETE')
+
     def test_loan_or_hold_detail(self):
-    	url = ""
-	self.assert_request_calls(
-	    url, self.controller.method,
+    	url = '/loans/<identifier_type>/an/identifier'
+	self.assert_authenticated_request_calls(
+	    url, self.controller.detail,
+            "<identifier_type>", "an/identifier"
 	)
+        self.assert_supported_methods(url, 'GET', 'DELETE')
 
 
 class TestAnnotationsController(RouteTest):
 
+    CONTROLLER_NAME = "annotations"
+
     def test_annotations(self):
-    	url = ""
-	self.assert_request_calls(
-	    url, self.controller.method,
+    	url = '/annotations/'
+	self.assert_authenticated_request_calls(
+            url, self.controller.container
 	)
+        self.assert_supported_methods(url, 'HEAD', 'GET', 'POST')
 
     def test_annotation_detail(self):
-    	url = ""
-	self.assert_request_calls(
-	    url, self.controller.method,
+    	url = '/annotations/<annotation_id>'
+	self.assert_authenticated_request_calls(
+	    url, self.controller.detail, '<annotation_id>'
 	)
+        self.assert_supported_methods(url, 'HEAD', 'GET', 'DELETE')
 
     def test_annotations_for_work(self):
-    	url = ""
-	self.assert_request_calls(
-	    url, self.controller.method,
+    	url = '/annotations/<identifier_type>/an/identifier/'
+	self.assert_authenticated_request_calls(
+	    url, self.controller.container_for_work,
+            '<identifier_type>', 'an/identifier'
 	)
+        self.assert_supported_methods(url, 'GET')
 
 
 class TestURNLookupController(RouteTest):
@@ -448,10 +526,10 @@ class TestAdobeVendorID(RouteTest):
     CONTROLLER_NAME = "adobe_vendor_id"
 
     def test_adobe_vendor_id_get_token(self):
-        # TODO: This requires auth.
     	url = '/AdobeAuth/authdata'
-	self.assert_request_calls(
+	self.assert_authenticated_request_calls(
 	    url, self.controller.create_authdata_handler,
+            self.controller.AUTHENTICATED_PATRON
 	)
         # TODO: test what happens when vendor ID is not configured.
 
