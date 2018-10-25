@@ -196,6 +196,10 @@ class RouteTest(ControllerTest):
         if self.real_controller:
             real_method = getattr(self.real_controller, method.callable_name)
 
+            # TODO: We could use inspect.getarcspec to verify that the
+            # argument names line up with the variables passed in to
+            # the mock method. This might remove the need to call the
+            # mock method at all.
 
     def assert_authenticated_request_calls(self, url, method, *args, **kwargs):
         """First verify that an unauthenticated request fails. Then make an
