@@ -433,9 +433,7 @@ class TestURNLookupController(RouteTest):
 
     def test_work(self):
     	url = '/works'
-	self.assert_request_calls(
-	    url, self.controller.work_lookup
-	)
+	self.assert_request_calls(url, self.controller.work_lookup, 'work')
 
 
 class TestWorkController(RouteTest):
