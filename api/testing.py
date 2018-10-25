@@ -38,6 +38,7 @@ class VendorIDTest(DatabaseTest):
     """
 
     TEST_VENDOR_ID = u"vendor id"
+    TEST_NODE_VALUE = 114740953091845
 
     def initialize_adobe(self, vendor_id_library, short_token_libraries=[]):
         """Initialize an Adobe Vendor ID integration and a

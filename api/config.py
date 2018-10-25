@@ -79,9 +79,21 @@ class Configuration(CoreConfiguration):
 
     LANGUAGE_DESCRIPTION = _('Each value must be an <a href="https://www.loc.gov/standards/iso639-2/php/code_list.php" target="_blank">ISO-639-2</a> language code.')
 
-    # The client-side color scheme to use for this library.
+    # The color scheme for native mobile applications to use for this library.
     COLOR_SCHEME = "color_scheme"
     DEFAULT_COLOR_SCHEME = "blue"
+
+    # The color options for web applications to use for this library.
+    WEB_BACKGROUND_COLOR = "web-background-color"
+    WEB_FOREGROUND_COLOR = "web-foreground-color"
+    DEFAULT_WEB_BACKGROUND_COLOR = "#000000"
+    DEFAULT_WEB_FOREGROUND_COLOR = "#ffffff"
+
+    # Header links and labels for web applications to display for this library.
+    # TODO: It's very awkward to have these as separate settings, and separate
+    # lists of inputs in the UI.
+    WEB_HEADER_LINKS = "web-header-links"
+    WEB_HEADER_LABELS = "web-header-labels"
 
     # The library-wide logo setting.
     LOGO = "logo"
@@ -143,7 +155,7 @@ class Configuration(CoreConfiguration):
         },
         {
             "key": STATIC_FILE_CACHE_TIME,
-            "label": _("Cache time for static JS and CSS files for the admin interface"),
+            "label": _("Cache time for static images and JS and CSS files"),
         },
     ]
 
@@ -188,12 +200,11 @@ class Configuration(CoreConfiguration):
             "key": DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
             "label": _("Default email address to use when sending vendor hold notifications"),
             "description": _('This should be an address controlled by the library which rejects or trashes all email sent to it. Vendor hold notifications contain sensitive patron information, but <a href="https://confluence.nypl.org/display/SIM/About+Hold+Notifications" target="_blank">cannot be forwarded to patrons</a> because they contain vendor-specific instructions.')
-
         },
         {
             "key": COLOR_SCHEME,
-            "label": _("Color scheme"),
-            "description": _("This tells clients what color scheme to use when rendering this library's OPDS feed."),
+            "label": _("Mobile color scheme"),
+            "description": _("This tells mobile applications what color scheme to use when rendering this library's OPDS feed."),
             "options": [
                 dict(key="amber", label=_("Amber")),
                 dict(key="black", label=_("Black")),
@@ -215,6 +226,34 @@ class Configuration(CoreConfiguration):
             ],
             "type": "select",
             "default": DEFAULT_COLOR_SCHEME,
+        },
+        {
+            "key": WEB_BACKGROUND_COLOR,
+            "label": _("Web background color"),
+            "description": _("This tells web applications what background color to use. Must have sufficient contrast with the foreground color."),
+            "type": "color-picker",
+            "default": DEFAULT_WEB_BACKGROUND_COLOR,
+        },
+        {
+            "key": WEB_FOREGROUND_COLOR,
+            "label": _("Web foreground color"),
+            "description": _("This tells web applications what foreground color to use. Must have sufficient contrast with the background color."),
+            "type": "color-picker",
+            "default": DEFAULT_WEB_FOREGROUND_COLOR,
+        },
+        {
+            "key": WEB_HEADER_LINKS,
+            "label": _("Web header links"),
+            "description": _("This gives web applications a list of links to display in the header. Specify labels for each link in the same order under 'Web header labels'."),
+            "type": "list",
+            "optional": True
+        },
+        {
+            "key": WEB_HEADER_LABELS,
+            "label": _("Web header labels"),
+            "description": _("Labels for each link under 'Web header links'."),
+            "type": "list",
+            "optional": True
         },
         {
             "key": LOGO,

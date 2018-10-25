@@ -921,11 +921,19 @@ class LibraryAuthenticator(object):
             links=links
         ).to_dict(self._db)
 
-        # Add the library's color scheme, if it has one.
+        # Add the library's mobile color scheme, if it has one.
         description = ConfigurationSetting.for_library(
             Configuration.COLOR_SCHEME, library).value
         if description:
             doc['color_scheme'] = description
+
+        # Add the library's web colors, if it has any.
+        background = ConfigurationSetting.for_library(
+            Configuration.WEB_BACKGROUND_COLOR, library).value
+        foreground = ConfigurationSetting.for_library(
+            Configuration.WEB_FOREGROUND_COLOR, library).value
+        if background or foreground:
+            doc["web_color_scheme"] = dict(background=background, foreground=foreground)
 
         # Add the description of the library as the OPDS feed's
         # service_description.
@@ -1065,6 +1073,13 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
     # then as specific individuals (the way a geographic gate does),
     # it should override this value and set it to False.
     IDENTIFIES_INDIVIDUALS = True
+
+    # An AuthenticationProvider may define a custom button image for
+    # clients to display when letting a user choose between different
+    # AuthenticationProviders. Image files MUST be stored in the
+    # `resources/images` directory - the value here should be the
+    # file name.
+    LOGIN_BUTTON_IMAGE = None
 
     # Each authentication mechanism may have a list of SETTINGS that
     # must be configured for that mechanism, and may have a list of
@@ -1979,13 +1994,19 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             self.password_label,
             self.password_label
         )
-        return dict(
+        flow_doc = dict(
             description=unicode(self.DISPLAY_NAME),
             labels=dict(login=unicode(localized_identifier_label),
                         password=unicode(localized_password_label)),
             inputs = dict(login=login_inputs,
                           password=password_inputs)
         )
+        if self.LOGIN_BUTTON_IMAGE:
+            # TODO: I'm not sure if logo is appropriate for this, since it's a button
+            # with the logo on it rather than a plain logo. Perhaps we should use plain
+            # logos instead.
+            flow_doc["links"] = [dict(rel="logo", href=url_for("static_image", filename=self.LOGIN_BUTTON_IMAGE, _external=True))]
+        return flow_doc
 
 
 class OAuthAuthenticationProvider(AuthenticationProvider):
@@ -2254,6 +2275,11 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             links=[dict(rel="authenticate",
                         href=self._internal_authenticate_url(_db))]
         )
+        if self.LOGIN_BUTTON_IMAGE:
+            # TODO: I'm not sure if logo is appropriate for this, since it's a button
+            # with the logo on it rather than a plain logo. Perhaps we should use plain
+            # logos instead.
+            flow_doc["links"] += [dict(rel="logo", href=url_for("static_image", filename=self.LOGIN_BUTTON_IMAGE, _external=True))]
         return flow_doc
 
     def token_data_source(self, _db):
