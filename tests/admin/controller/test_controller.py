@@ -138,6 +138,8 @@ class AdminControllerTest(CirculationControllerTest):
         if 'admin' in kwargs:
             admin = kwargs.pop('admin')
         with self.app.test_request_context(route, *args, **kwargs) as c:
+            flask.request.form = {}
+            flask.request.files = {}
             self._db.begin_nested()
             flask.request.admin = admin
             yield c
@@ -149,6 +151,8 @@ class AdminControllerTest(CirculationControllerTest):
         if 'admin' in kwargs:
             admin = kwargs.pop('admin')
         with self.request_context_with_library(route, *args, **kwargs) as c:
+            flask.request.form = {}
+            flask.request.files = {}
             self._db.begin_nested()
             flask.request.admin = admin
             yield c

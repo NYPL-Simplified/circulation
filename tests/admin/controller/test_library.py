@@ -77,6 +77,13 @@ class TestLibrarySettings(SettingsControllerTest):
                settings.get(Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
 
     def test_libraries_post_errors(self):
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Brooklyn Public Library"),
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response, MISSING_LIBRARY_SHORT_NAME)
+
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -85,13 +92,6 @@ class TestLibrarySettings(SettingsControllerTest):
             ])
             assert_raises(AdminNotAuthorized,
               self.manager.admin_library_settings_controller.process_post)
-
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("name", "Brooklyn Public Library"),
-            ])
-            response = self.manager.admin_library_settings_controller.process_post()
-            eq_(response, MISSING_LIBRARY_SHORT_NAME)
 
         library = self._library()
         self.admin.add_role(AdminRole.LIBRARIAN, library)
