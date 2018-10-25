@@ -3593,7 +3593,7 @@ class SettingsController(AdminCirculationManagerController):
                 "name": opds_registration,
                 "sitewide": True,
                 "settings": [
-                    { "key": ExternalIntegration.URL, "label": _("URL") },
+                    { "key": ExternalIntegration.URL, "label": _("URL"), "required": True },
                 ],
                 "supports_registration": True,
             }

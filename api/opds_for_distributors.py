@@ -48,10 +48,12 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
         {
             "key": ExternalIntegration.USERNAME,
             "label": _("Library's username or access key"),
+            "required": True,
         },
         {
             "key": ExternalIntegration.PASSWORD,
             "label": _("Library's password or secret key"),
+            "required": True,
         }
     ]
 
@@ -390,4 +392,3 @@ class MockOPDSForDistributorsAPI(OPDSForDistributorsAPI):
             url, response, kwargs.get('allowed_response_codes'),
             kwargs.get('disallowed_response_codes')
         )
-

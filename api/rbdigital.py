@@ -113,8 +113,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                      if x['key'] != BaseCirculationAPI.DEFAULT_LOAN_PERIOD]
 
     SETTINGS = [
-        { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token") },
-        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token"), "required": True },
+        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID"), "required": True },
         { "key": ExternalIntegration.URL, "label": _("URL"), "default": PRODUCTION_BASE_URL },
     ] + BASE_SETTINGS
 

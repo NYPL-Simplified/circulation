@@ -58,10 +58,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
     NAME = ExternalIntegration.OVERDRIVE
     DESCRIPTION = _("Integrate an Overdrive collection. For an Overdrive Advantage collection, select the consortium's Overdrive collection as the parent.")
     SETTINGS = [
-        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
-        { "key": BaseOverdriveAPI.WEBSITE_ID, "label": _("Website ID") },
-        { "key": ExternalIntegration.USERNAME, "label": _("Client Key") },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID"), "required": True },
+        { "key": BaseOverdriveAPI.WEBSITE_ID, "label": _("Website ID"), "required": True },
+        { "key": ExternalIntegration.USERNAME, "label": _("Client Key"), "required": True },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret"), "required": True },
     ] + BaseCirculationAPI.SETTINGS
 
     LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
@@ -1162,4 +1162,3 @@ class OverdriveAdvantageAccountListScript(Script):
             print " ", book['title']
             if i > 10:
                 break
-

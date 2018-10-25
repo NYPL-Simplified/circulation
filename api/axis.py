@@ -109,9 +109,9 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
     DATE_FORMAT = "%m-%d-%Y %H:%M:%S"
 
     SETTINGS = [
-        { "key": ExternalIntegration.USERNAME, "label": _("Username") },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Password") },
-        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
+        { "key": ExternalIntegration.USERNAME, "label": _("Username"), "required": True },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Password"), "required": True },
+        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID"), "required": True },
         { "key": ExternalIntegration.URL, "label": _("Server"), "default": PRODUCTION_BASE_URL },
     ] + BaseCirculationAPI.SETTINGS
 

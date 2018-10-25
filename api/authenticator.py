@@ -1544,6 +1544,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
           "required": True,
         },
         { "key": TEST_PASSWORD, "label": _("Test Password"), "description": _("The password for the test identifier."),
+          "required": True,
         },
         { "key" : IDENTIFIER_BARCODE_FORMAT,
           "label": _("Patron identifier barcode format"),
