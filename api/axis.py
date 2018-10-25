@@ -77,6 +77,7 @@ from core.util.http import (
 from authenticator import Authenticator
 
 from circulation import (
+    APIAwareFulfillmentInfo,
     LoanInfo,
     FulfillmentInfo,
     HoldInfo,
@@ -88,6 +89,8 @@ from selftest import (
     HasSelfTests,
     SelfTestResult,
 )
+
+from web_publication_manifest import FindawayManifest
 
 
 class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
@@ -118,14 +121,16 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
 
     access_token_endpoint = 'accesstoken'
     availability_endpoint = 'availability/v2'
+    fulfillment_endpoint = 'getfulfillmentinfo/v2'
 
     log = logging.getLogger("Axis 360 API")
 
     # Create a lookup table between common DeliveryMechanism identifiers
-    # and Overdrive format types.
+    # and Axis 360 format types.
     epub = Representation.EPUB_MEDIA_TYPE
     pdf = Representation.PDF_MEDIA_TYPE
     adobe_drm = DeliveryMechanism.ADOBE_DRM
+    findaway_drm = DeliveryMechanism.FINDAWAY_DRM
     no_drm = DeliveryMechanism.NO_DRM
 
     delivery_mechanism_to_internal_format = {
@@ -133,6 +138,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         (epub, adobe_drm): 'ePub',
         (pdf, no_drm): 'PDF',
         (pdf, adobe_drm): 'PDF',
+        (None, findaway_drm): 'Acoustik',
     }
 
     def __init__(self, _db, collection):
@@ -150,6 +156,8 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
         if base_url in self.SERVER_NICKNAMES:
             base_url = self.SERVER_NICKNAMES[base_url]
+        if not base_url.endswith('/'):
+            base_url += '/'
         self.base_url = base_url
 
         if (not self.library_id or not self.username
@@ -272,6 +280,12 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
             args['titleIds'] = ','.join(title_ids)
         response = self.request(url, params=args)
         return response
+
+    def get_fulfillment_info(self, transaction_id):
+        """Make a call to the getFulfillmentInfoAPI."""
+        url = self.base_url + self.fulfillment_endpoint
+        params = dict(TransactionID=transaction_id)
+        return self.request(url, "POST", params=params)
 
     def checkout(self, patron, pin, licensepool, internal_format):
         title_id = licensepool.identifier.identifier
@@ -722,9 +736,9 @@ class Axis360Parser(XMLParser):
 class BibliographicParser(Axis360Parser):
 
     DELIVERY_DATA_FOR_AXIS_FORMAT = {
-        "Blio" : None,
-        "Acoustik" : None,
-        "AxisNow": None,
+        "Blio" : None,   # Unknown ebook format
+        "Acoustik" : (None, DeliveryMechanism.FINDAWAY_DRM), # Audiobooks
+        "AxisNow": None, # Proprietary web viewer
         "ePub" : (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
         "PDF" : (Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
     }
@@ -935,6 +949,12 @@ class BibliographicParser(Axis360Parser):
         formats = []
         acceptable = False
         seen_formats = []
+
+        # All of the formats we don't support, like Blio, are ebook
+        # formats. If this is an audiobook format (Acoustik), we'll
+        # hear about it below.
+        medium = Edition.BOOK_MEDIUM
+
         for format_tag in self._xpath(
                 element, 'axis:availability/axis:availableFormats/axis:formatName',
                 ns
@@ -952,6 +972,10 @@ class BibliographicParser(Axis360Parser):
                 formats.append(
                     FormatData(content_type=content_type, drm_scheme=drm_scheme)
                 )
+                if drm_scheme == DeliveryMechanism.FINDAWAY_DRM:
+                    medium = Edition.AUDIO_MEDIUM
+                else:
+                    medium = Edition.BOOK_MEDIUM
 
         if not formats:
             self.log.error(
@@ -963,7 +987,7 @@ class BibliographicParser(Axis360Parser):
             data_source=DataSource.AXIS_360,
             title=title,
             language=language,
-            medium=Edition.BOOK_MEDIUM,
+            medium=medium,
             series=series,
             publisher=publisher,
             imprint=imprint,
@@ -1056,6 +1080,8 @@ class ResponseParser(Axis360Parser):
         3135 : NoAcceptableFormat,
         3136 : LibraryInvalidInputException, # Missing checkout format
         5000 : RemoteInitiatedServerError,
+        5003 : LibraryInvalidInputException, # Missing TransactionID
+        5004 : LibraryInvalidInputException, # Missing TransactionID
     }
 
     def __init__(self, collection):
@@ -1071,31 +1097,35 @@ class ResponseParser(Axis360Parser):
             message = etree.tostring(e)
         else:
             message = message.text
-
         if code is None:
             # Something is so wrong that we don't know what to do.
             raise RemoteInitiatedServerError(message, self.SERVICE_NAME)
-        code = code.text
+        return self._raise_exception_on_error(
+            code.text, message, custom_error_classes
+        )
+
+    @classmethod
+    def _raise_exception_on_error(cls, code, message, custom_error_classes={}):
         try:
             code = int(code)
         except ValueError:
             # Non-numeric code? Inconcievable!
             raise RemoteInitiatedServerError(
                 "Invalid response code from Axis 360: %s" % code,
-                self.SERVICE_NAME
+                cls.SERVICE_NAME
             )
 
-        for d in custom_error_classes, self.code_to_exception:
+        for d in custom_error_classes, cls.code_to_exception:
             if (code, message) in d:
                 raise d[(code, message)]
             elif code in d:
                 # Something went wrong and we know how to turn it into a
                 # specific exception.
-                cls = d[code]
-                if cls is RemoteInitiatedServerError:
-                    e = cls(message, self.SERVICE_NAME)
+                error_class = d[code]
+                if error_class is RemoteInitiatedServerError:
+                    e = error_class(message, cls.SERVICE_NAME)
                 else:
-                    e = cls(message)
+                    e = error_class(message)
                 raise e
         return code, message
 
@@ -1226,14 +1256,33 @@ class AvailabilityResponseParser(ResponseParser):
                 availability, 'axis:checkoutEndDate', ns)
             download_url = self.text_of_optional_subtag(
                 availability, 'axis:downloadUrl', ns)
+            transaction_id = self.text_of_optional_subtag(
+                availability, 'axis:transactionID', ns)
+            # Arguments common to FulfillmentInfo and
+            # AudiobookFulfillmentInfo.
+            kwargs = dict(
+                data_source_name=DataSource.AXIS_360,
+                identifier_type=self.id_type,
+                identifier=axis_identifier
+            )
             if download_url:
+                # This is an ebook.
                 fulfillment = FulfillmentInfo(
                     collection=self.collection,
-                    data_source_name=DataSource.AXIS_360,
-                    identifier_type=self.id_type,
-                    identifier=axis_identifier,
-                    content_link=download_url, content_type=None,
-                    content=None, content_expires=None)
+                    content_link=download_url,
+                    content_type=DeliveryMechanism.ADOBE_DRM,
+                    content=None,
+                    content_expires=None,
+                    **kwargs
+                )
+            elif transaction_id:
+                # This is an audiobook. If necessary we
+                # are prepared to make another API request to
+                # turn the transaction ID into a Findaway
+                # audio manifest.
+                fulfillment = AudiobookFulfillmentInfo(
+                    api=self, key=transaction_id, **kwargs
+                )
             else:
                 fulfillment = None
             info = LoanInfo(
@@ -1242,7 +1291,8 @@ class AvailabilityResponseParser(ResponseParser):
                 identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=start_date, end_date=end_date,
-                fulfillment_info=fulfillment)
+                fulfillment_info=fulfillment
+            )
 
         elif reserved:
             end_date = self._xpath1_date(
@@ -1267,3 +1317,117 @@ class AvailabilityResponseParser(ResponseParser):
                 start_date=None, end_date=None,
                 hold_position=position)
         return info
+
+
+class FulfillmentInfoResponseParser(ResponseParser):
+    """Most ResponseParsers parse XML documents into LoanInfo-type
+    objects. This one parses JSON documents into Findaway audiobook
+    manifests.
+
+    We mainly subclass ResponseParser so we can reuse
+    _raise_exception_on_error.
+    """
+    def parse(self, license_pool, data):
+        """Parse a FulfillmentInfo response into a FindawayManifest
+        object.
+
+        :return: A 2-tuple (FindawayManifest, expiration_date)
+        """
+        if isinstance(data, dict):
+            parsed = data # already parsed
+        else:
+            try:
+                parsed = json.loads(data)
+            except ValueError, e:
+                # It's not JSON.
+                raise RemoteInitiatedServerError(
+                    "Invalid response from Axis 360 (was expecting JSON): %s" % data,
+                    self.SERVICE_NAME
+                )
+
+        return self._extract(license_pool, parsed)
+
+    @classmethod
+    def _required_key(cls, key, json_obj):
+        """Raise an exception if the given key is not present in the given
+        object.
+        """
+        if json_obj is None or key not in json_obj:
+            raise RemoteInitiatedServerError(
+                "Required key %s not present in Axis 360 fulfillment document: %s" % (
+                    key, json_obj,
+                ),
+                cls.SERVICE_NAME
+            )
+        return json_obj[key]
+
+    @classmethod
+    def _extract(cls, license_pool, parsed):
+        """Extract all useful information from a parsed FulfillmentInfo
+        response.
+
+        :param license_pool: The LicensePool for the book that's
+        being fulfilled.
+
+        :param parsed: A dictionary corresponding to a parsed JSON
+        document.
+
+        :return: A 2-tuple (FindawayManifest, expiration_date)
+        """
+        k = cls._required_key
+        status = k('Status', parsed)
+        code = k('Code', status)
+        message = status.get('Message')
+
+        # If the document describes an error condition, raise
+        # an appropriate exception immediately.
+        cls._raise_exception_on_error(code, message)
+
+        # The mobile client only uses the session key and license key,
+        # so those are the only fields we'll treat as required.
+        accountId = parsed.get('FNDAccountID')
+        checkoutId = parsed.get('FNDTransactionID')
+        fulfillmentId = parsed.get('FNDContentID')
+        licenseId = k('FNDLicenseID', parsed)
+        sessionKey = k('FNDSessionKey', parsed)
+        expiration_date = k('ExpirationDate', parsed)
+
+        if '.' in expiration_date:
+            # Remove 7(?!) decimal places of precision and
+            # UTC timezone, which are more trouble to parse
+            # than they're worth.
+            expiration_date = expiration_date[:expiration_date.rindex('.')]
+
+        try:
+            expiration_date = datetime.strptime(expiration_date, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            raise RemoteInitiatedServerError(
+                "Could not parse expiration date: %s" % expiration_date,
+                cls.SERVICE_NAME
+            )
+        manifest = FindawayManifest(
+            license_pool, accountId=accountId, checkoutId=checkoutId,
+            fulfillmentId=fulfillmentId, licenseId=licenseId,
+            sessionKey=sessionKey
+        )
+        return manifest, expiration_date
+
+
+class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):
+    """An Axis 360-specific FulfillmentInfo implementation for audiobooks.
+
+    We use these instead of real FulfillmentInfo objects because
+    generating a real FulfillmentInfo object would require an extra
+    HTTP request, and there's often no need to make that request.
+    """
+    def do_fetch(self):
+        _db = self.api._db
+        license_pool = self.license_pool(_db)
+        collection = self.collection(_db)
+        transaction_id = self.key
+        response = self.api.get_fulfillment_info(transaction_id)
+        parser = FulfillmentInfoResponseParser(collection)
+        manifest, expires = parser.parse(license_pool, response.content)
+        self._content = unicode(manifest)
+        self._content_type = DeliveryMechanism.FINDAWAY_DRM
+        self._content_expires = expires

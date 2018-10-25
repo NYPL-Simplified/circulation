@@ -18,6 +18,7 @@ from datetime import (
 
 from api.circulation_exceptions import *
 from api.circulation import (
+    APIAwareFulfillmentInfo,
     BaseCirculationAPI,
     CirculationAPI,
     DeliveryMechanismInfo,
@@ -994,3 +995,116 @@ class TestConfigurationFailures(DatabaseTest):
         assert isinstance(e, CannotLoadConfiguration)
         eq_("doomed!", e.message)
 
+
+class TestAPIAwareFulfillmentInfo(DatabaseTest):
+    # The APIAwareFulfillmentInfo class has the same properties as a
+    # regular FulfillmentInfo -- content_link and so on -- but their
+    # values are filled dynamically the first time one of them is
+    # accessed, by calling the do_fetch() method.
+
+    class MockAPIAwareFulfillmentInfo(APIAwareFulfillmentInfo):
+        """An APIAwareFulfillmentInfo that implements do_fetch() by delegating
+        to its API object.
+        """
+        def do_fetch(self):
+            return self.api.do_fetch()
+
+    class MockAPI(object):
+        """An API class that sets a flag when do_fetch()
+        is called.
+        """
+        def __init__(self, collection):
+            self.collection = collection
+            self.fetch_happened = False
+
+        def do_fetch(self):
+            self.fetch_happened = True
+
+    def setup(self):
+        super(TestAPIAwareFulfillmentInfo, self).setup()
+        self.collection = self._default_collection
+
+        # Create a bunch of mock objects which will be used to initialize
+        # the instance variables of MockAPIAwareFulfillmentInfo objects.
+        self.mock_data_source_name = object()
+        self.mock_identifier_type = object()
+        self.mock_identifier = object()
+        self.mock_key = object()
+
+    def make_info(self, api=None):
+        # Create a MockAPIAwareFulfillmentInfo with
+        # well-known mock values for its properties.
+        return self.MockAPIAwareFulfillmentInfo(
+            api, self.mock_data_source_name, self.mock_identifier_type,
+            self.mock_identifier, self.mock_key
+        )
+
+    def test_constructor(self):
+        # The constructor sets the instance variables appropriately,
+        # but does not call do_fetch() or set any of the variables
+        # that imply do_fetch() has happened.
+
+        # Create a MockAPI
+        api = self.MockAPI(self.collection)
+
+        # Create an APIAwareFulfillmentInfo based on that API.
+        info = self.make_info(api)
+        eq_(api, info.api)
+        eq_(self.mock_key, info.key)
+        eq_(self.collection, api.collection)
+        eq_(api.collection, info.collection(self._db))
+        eq_(self.mock_data_source_name, info.data_source_name)
+        eq_(self.mock_identifier_type, info.identifier_type)
+        eq_(self.mock_identifier, info.identifier)
+
+        # The fetch has not happened.
+        eq_(False, api.fetch_happened)
+        eq_(None, info._content_link)
+        eq_(None, info._content_type)
+        eq_(None, info._content)
+        eq_(None, info._content_expires)
+
+    def test_fetch(self):
+        # Verify that fetch() calls api.do_fetch()
+        api = self.MockAPI(self.collection)
+        info = self.make_info(api)
+        eq_(False, info._fetched)
+        eq_(False, api.fetch_happened)
+        info.fetch()
+        eq_(True, info._fetched)
+        eq_(True, api.fetch_happened)
+
+        # We don't check that values like _content_link were set,
+        # because our implementation of do_fetch() doesn't set any of
+        # them. Different implementations may set different subsets
+        # of these values.
+
+    def test_properties_fetch_on_demand(self):
+        # Verify that accessing each of the properties calls fetch()
+        # if it hasn't been called already.
+        api = self.MockAPI(self.collection)
+        info = self.make_info(api)
+        eq_(False, info._fetched)
+        info.content_link
+        eq_(True, info._fetched)
+
+        info = self.make_info(api)
+        eq_(False, info._fetched)
+        info.content_type
+        eq_(True, info._fetched)
+
+        info = self.make_info(api)
+        eq_(False, info._fetched)
+        info.content
+        eq_(True, info._fetched)
+
+        info = self.make_info(api)
+        eq_(False, info._fetched)
+        info.content_expires
+        eq_(True, info._fetched)
+
+        # Once the data has been fetched, accessing one of the properties
+        # doesn't call fetch() again.
+        info.fetch_happened = False
+        info.content_expires
+        eq_(False, info.fetch_happened)
