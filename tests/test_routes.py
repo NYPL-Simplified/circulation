@@ -9,6 +9,7 @@ from werkzeug.exceptions import MethodNotAllowed
 
 from api import app
 from api import routes
+from api.opds import CirculationManagerAnnotator
 
 from test_controller import ControllerTest
 
@@ -188,13 +189,13 @@ class TestOPDSFeed(RouteTest):
         self.assert_request_calls(
             "/crawlable", self.controller.crawlable_library_feed
         )
-    
+
     def test_crawlable_list_feed(self):
         self.assert_request_calls(
             "/lists/<list_name>/crawlable",
             self.controller.crawlable_list_feed, '<list_name>'
         )
-    
+
     def test_crawlable_collection_feed(self):
         self.assert_request_calls(
             "/collections/<collection_name>/crawlable",
@@ -217,7 +218,7 @@ class TestSharedCollection(RouteTest):
             "/collections/<collection_name>",
             self.controller.info, '<collection_name>'
         )
-    
+
     def test_shared_collection_register(self):
         url = "/collections/<collection_name>/register"
         self.assert_request_calls(
@@ -225,7 +226,7 @@ class TestSharedCollection(RouteTest):
             http_method='POST'
         )
         self.assert_supported_methods(url, 'POST')
-    
+
     def test_shared_collection_borrow_identifier(self):
         url = "/collections/<collection_name>/<identifier_type>/an/identifier/borrow"
         self.assert_request_calls(
@@ -241,19 +242,19 @@ class TestSharedCollection(RouteTest):
             '<hold_id>'
         )
         self.assert_supported_methods(url, 'GET', 'POST')
-    
+
     def test_shared_collection_loan_info(self):
         url = "/collections/<collection_name>/loans/<loan_id>"
         self.assert_request_calls(
             url, self.controller.loan_info, '<collection_name>', '<loan_id>'
         )
-    
+
     def test_shared_collection_revoke_loan(self):
         url = "/collections/<collection_name>/loans/<loan_id>/revoke"
         self.assert_request_calls(
             url, self.controller.revoke_loan, '<collection_name>', '<loan_id>'
         )
-    
+
     def test_shared_collection_fulfill_no_mechanism(self):
         url = "/collections/<collection_name>/loans/<loan_id>/fulfill"
         self.assert_request_calls(
@@ -274,7 +275,7 @@ class TestSharedCollection(RouteTest):
 	    url, self.controller.hold_info, '<collection_name>',
             '<hold_id>'
 	)
-        
+
     def test_shared_collection_revoke_hold(self):
     	url = "/collections/<collection_name>/holds/<hold_id>/revoke"
 	self.assert_request_calls(
@@ -283,7 +284,7 @@ class TestSharedCollection(RouteTest):
 	)
 
 class TestProfileController(RouteTest):
-                
+
     def test_patron_profile(self):
     	url = ""
 	self.assert_request_calls(
@@ -291,7 +292,7 @@ class TestProfileController(RouteTest):
 	)
 
 class TestLoansController(RouteTest):
-        
+
     def test_active_loans(self):
     	url = ""
 	self.assert_request_calls(
@@ -303,26 +304,26 @@ class TestLoansController(RouteTest):
 	self.assert_request_calls(
 	    url, self.controller.method,
 	)
-        
+
     def test_fulfill(self):
     	url = ""
 	self.assert_request_calls(
 	    url, self.controller.method,
 	)
-        
+
     def test_revoke_loan_or_hold(self):
     	url = ""
 	self.assert_request_calls(
 	    url, self.controller.method,
 	)
-        
+
     def test_loan_or_hold_detail(self):
     	url = ""
 	self.assert_request_calls(
 	    url, self.controller.method,
 	)
 
-        
+
 class TestAnnotationsController(RouteTest):
 
     def test_annotations(self):
@@ -330,27 +331,30 @@ class TestAnnotationsController(RouteTest):
 	self.assert_request_calls(
 	    url, self.controller.method,
 	)
-        
+
     def test_annotation_detail(self):
     	url = ""
 	self.assert_request_calls(
 	    url, self.controller.method,
 	)
-        
+
     def test_annotations_for_work(self):
     	url = ""
 	self.assert_request_calls(
 	    url, self.controller.method,
 	)
 
-class TestURNLookupController(RouteTest):        
-        
+class TestURNLookupController(RouteTest):
+
+    CONTROLLER_NAME = "urn_lookup"
+
     def test_work(self):
-    	url = ""
+    	url = '/works'
 	self.assert_request_calls(
-	    url, self.controller.method,
+	    url, self.controller.work_lookup
 	)
-        
+
+
 class TestWorkController(RouteTest):
 
     CONTROLLER_NAME = "work_controller"
@@ -374,7 +378,7 @@ class TestWorkController(RouteTest):
 	    url, self.controller.contributor,
             "<contributor_name>", "<languages>", "<audiences>"
 	)
-       
+
     def test_series(self):
     	url = '/works/series/<series_name>'
 	self.assert_request_calls(
@@ -393,36 +397,36 @@ class TestWorkController(RouteTest):
 	    url, self.controller.series, "<series_name>", "<languages>",
             "<audiences>"
 	)
-        
+
     def test_permalink(self):
     	url = '/works/<identifier_type>/an/identifier'
 	self.assert_request_calls(
 	    url, self.controller.permalink,
             "<identifier_type>", "an/identifier"
 	)
-        
+
     def test_recommendations(self):
     	url = '/works/<identifier_type>/an/identifier/recommendations'
 	self.assert_request_calls(
 	    url, self.controller.recommendations,
             "<identifier_type>", "an/identifier"
 	)
-        
+
     def test_related_books(self):
     	url = '/works/<identifier_type>/an/identifier/related_books'
 	self.assert_request_calls(
 	    url, self.controller.related, "<identifier_type>", "an/identifier"
 	)
-        
+
     def test_report(self):
     	url = '/works/<identifier_type>/an/identifier/report'
 	self.assert_request_calls(
-	    url, self.controller.report, 
+	    url, self.controller.report,
             "<identifier_type>", "an/identifier",
 	)
         self.assert_supported_methods(url, 'GET', 'POST')
 
-        
+
 class TestAnalyticsController(RouteTest):
     CONTROLLER_NAME = "analytics_controller"
 
@@ -432,7 +436,7 @@ class TestAnalyticsController(RouteTest):
 	    url, self.controller.track_event,
             "<identifier_type>", "an/identifier", "<event_type>"
 	)
-        
+
 class TestAdobeVendorID(RouteTest):
 
     CONTROLLER_NAME = "adobe_vendor_id"
@@ -444,13 +448,13 @@ class TestAdobeVendorID(RouteTest):
 	    url, self.controller.create_authdata_handler,
 	)
         # TODO: test what happens when vendor ID is not configured.
-        
+
     def test_adobe_vendor_id_signin(self):
     	url = '/AdobeAuth/SignIn'
 	self.assert_request_calls(
 	    url, self.controller.signin_handler, http_method='POST'
 	)
-        self.assert_supported_methods(url, 'POST')        
+        self.assert_supported_methods(url, 'POST')
 
     def test_adobe_vendor_id_accountinfo(self):
     	url = '/AdobeAuth/AccountInfo'
@@ -458,7 +462,7 @@ class TestAdobeVendorID(RouteTest):
 	    url, self.controller.userinfo_handler, http_method='POST'
 	)
         self.assert_supported_methods(url, 'POST')
-        
+
     def test_adobe_vendor_id_status(self):
     	url = '/AdobeAuth/Status'
 	self.assert_request_calls(
@@ -476,7 +480,7 @@ class TestAdobeDeviceManagement(RouteTest):
             url, self.controller.device_id_list_handler
         )
         self.assert_supported_methods(url, 'GET', 'POST')
-        
+
     def test_adobe_drm_device(self):
     	url = "/AdobeAuth/devices/<device_id>"
 	self.assert_request_calls(
@@ -490,14 +494,14 @@ class TestOAuthController(RouteTest):
     # flask.request.args are propagated through, instead of checking
     # an empty dict.
     CONTROLLER_NAME = "oauth_controller"
-        
+
     def test_oauth_authenticate(self):
     	url = "/oauth_authenticate"
         _db = self.manager._db
 	self.assert_request_calls(
 	    url, self.controller.oauth_authentication_redirect, {}, _db
 	)
-        
+
     def test_oauth_callback(self):
     	url = "/oauth_callback"
         _db = self.manager._db
@@ -517,7 +521,7 @@ class TestODLNotificationController(RouteTest):
         self.assert_supported_methods(url, 'GET', 'POST')
 
 
-class TestHeartbeatController(RouteTest):       
+class TestHeartbeatController(RouteTest):
     CONTROLLER_NAME = "heartbeat"
 
     def test_heartbeat(self):
@@ -537,5 +541,8 @@ class TestHealthCheck(RouteTest):
         # system has a status message in its .data.
         eq_("", response.data)
 
-# TODO: There's no test for the Loadstorm verification code, but
-# it's not too bad because no one uses it.
+
+class TestLoadstormVerification(RouteTest):
+    # TODO: There's no test for this, but it's not too bad because no
+    # one uses it.
+    pass
