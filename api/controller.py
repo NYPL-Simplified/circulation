@@ -7,6 +7,7 @@ import datetime
 import base64
 from wsgiref.handlers import format_date_time
 from time import mktime
+import os
 
 from lxml import etree
 from sqlalchemy.orm import eagerload
@@ -320,6 +321,7 @@ class CirculationManager(object):
         self.heartbeat = HeartbeatController()
         self.odl_notification_controller = ODLNotificationController(self)
         self.shared_collection_controller = SharedCollectionController(self)
+        self.static_files = StaticFileController(self)
 
     def setup_configuration_dependent_controllers(self):
         """Set up all the controllers that depend on the
@@ -1874,3 +1876,15 @@ class SharedCollectionController(CirculationManagerController):
         except CannotReleaseHold, e:
             return CANNOT_RELEASE_HOLD.detailed(str(e))
         return Response(_("Success"), 200)
+
+class StaticFileController(CirculationManagerController):
+    def static_file(self, directory, filename):
+        cache_timeout = ConfigurationSetting.sitewide(
+            self._db, Configuration.STATIC_FILE_CACHE_TIME
+        ).int_value
+        return flask.send_from_directory(directory, filename, cache_timeout=cache_timeout)
+
+    def image(self, filename):
+        directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
+        return self.static_file(directory, filename)
+    
