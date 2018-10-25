@@ -104,6 +104,9 @@ class MockController(MockControllerMethod):
 
 
 class RouteTest(ControllerTest):
+    """Test what happens when an HTTP request is run through the
+    routes we've registered with Flask.
+    """
 
     def setup(self, _db=None):
         super(RouteTest, self).setup(_db=_db, set_up_circulation_manager=False)
@@ -179,6 +182,12 @@ class RouteTest(ControllerTest):
         # other potential methods and verify that MethodNotAllowed is
         # raised each time.
         check = set(['GET', 'POST', 'PUT', 'DELETE']) - set(methods)
+
+        # Treat HEAD specially. Any controller that supports GET
+        # automatically supports HEAD. So we only assert that HEAD
+        # fails if the method supports neither GET nor HEAD.
+        if 'GET' not in methods and 'HEAD' not in methods:
+            check.add('HEAD')
         for method in check:
             logging.debug("MethodNotAllowed should be raised on %s", method)
             assert_raises(MethodNotAllowed, self.request, url, method)
@@ -194,11 +203,11 @@ class TestIndex(RouteTest):
             self.assert_request_calls(url, self.controller)
 
     def test_authentication_document(self):
-        url = "/authentication_document"
+        url = '/authentication_document'
         self.assert_request_calls(url, self.controller.authentication_document)
 
     def test_public_key_document(self):
-        url = "/public_key_document"
+        url = '/public_key_document'
         self.assert_request_calls(url, self.controller.public_key_document)
 
 
@@ -218,35 +227,35 @@ class TestOPDSFeed(RouteTest):
     def test_feed(self):
         # An incoming lane identifier is passed in to the feed()
         # method.
-        url = "/feed"
+        url = '/feed'
         self.assert_request_calls(url, self.controller.feed, None)
-        url = "/feed/<lane_identifier>"
+        url = '/feed/<lane_identifier>'
         self.assert_request_calls(
             url, self.controller.feed, '<lane_identifier>'
         )
 
     def test_crawlable_library_feed(self):
-        url = "/crawlable"
+        url = '/crawlable'
         self.assert_request_calls(url, self.controller.crawlable_library_feed)
 
     def test_crawlable_list_feed(self):
-        url = "/lists/<list_name>/crawlable"
+        url = '/lists/<list_name>/crawlable'
         self.assert_request_calls(
             url, self.controller.crawlable_list_feed, '<list_name>'
         )
 
     def test_crawlable_collection_feed(self):
-        url = "/collections/<collection_name>/crawlable"
+        url = '/collections/<collection_name>/crawlable'
         self.assert_request_calls(
             url, self.manager.opds_feeds.crawlable_collection_feed,
             '<collection_name>'
         )
 
     def test_lane_search(self):
-    	url = "/search"
+    	url = '/search'
 	self.assert_request_calls(url, self.controller.search, None)
 
-    	url = "/search/<lane_identifier>"
+    	url = '/search/<lane_identifier>'
 	self.assert_request_calls(
             url, self.controller.search, "<lane_identifier>"
         )
@@ -257,13 +266,13 @@ class TestSharedCollection(RouteTest):
     CONTROLLER_NAME = 'shared_collection_controller'
 
     def test_shared_collection_info(self):
-        url = "/collections/<collection_name>"
+        url = '/collections/<collection_name>'
         self.assert_request_calls(
             url, self.controller.info, '<collection_name>'
         )
 
     def test_shared_collection_register(self):
-        url = "/collections/<collection_name>/register"
+        url = '/collections/<collection_name>/register'
         self.assert_request_calls(
             url, self.controller.register, '<collection_name>',
             http_method='POST'
@@ -271,7 +280,7 @@ class TestSharedCollection(RouteTest):
         self.assert_supported_methods(url, 'POST')
 
     def test_shared_collection_borrow_identifier(self):
-        url = "/collections/<collection_name>/<identifier_type>/an/identifier/borrow"
+        url = '/collections/<collection_name>/<identifier_type>/an/identifier/borrow'
         self.assert_request_calls(
             url, self.controller.borrow, '<collection_name>',
             '<identifier_type>', 'an/identifier', None
@@ -279,7 +288,7 @@ class TestSharedCollection(RouteTest):
         self.assert_supported_methods(url, 'GET', 'POST')
 
     def test_shared_collection_borrow_hold_id(self):
-        url = "/collections/<collection_name>/holds/<hold_id>/borrow"
+        url = '/collections/<collection_name>/holds/<hold_id>/borrow'
         self.assert_request_calls(
             url, self.controller.borrow, '<collection_name>', None, None,
             '<hold_id>'
@@ -287,40 +296,40 @@ class TestSharedCollection(RouteTest):
         self.assert_supported_methods(url, 'GET', 'POST')
 
     def test_shared_collection_loan_info(self):
-        url = "/collections/<collection_name>/loans/<loan_id>"
+        url = '/collections/<collection_name>/loans/<loan_id>'
         self.assert_request_calls(
             url, self.controller.loan_info, '<collection_name>', '<loan_id>'
         )
 
     def test_shared_collection_revoke_loan(self):
-        url = "/collections/<collection_name>/loans/<loan_id>/revoke"
+        url = '/collections/<collection_name>/loans/<loan_id>/revoke'
         self.assert_request_calls(
             url, self.controller.revoke_loan, '<collection_name>', '<loan_id>'
         )
 
     def test_shared_collection_fulfill_no_mechanism(self):
-        url = "/collections/<collection_name>/loans/<loan_id>/fulfill"
+        url = '/collections/<collection_name>/loans/<loan_id>/fulfill'
         self.assert_request_calls(
             url, self.controller.fulfill, '<collection_name>', '<loan_id>',
             None
         )
 
     def test_shared_collection_fulfill_with_mechanism(self):
-        url = "/collections/<collection_name>/loans/<loan_id>/fulfill/<mechanism_id>"
+        url = '/collections/<collection_name>/loans/<loan_id>/fulfill/<mechanism_id>'
         self.assert_request_calls(
             url, self.controller.fulfill, '<collection_name>', '<loan_id>',
             '<mechanism_id>'
         )
 
     def test_shared_collection_hold_info(self):
-    	url = "/collections/<collection_name>/holds/<hold_id>"
+    	url = '/collections/<collection_name>/holds/<hold_id>'
 	self.assert_request_calls(
 	    url, self.controller.hold_info, '<collection_name>',
             '<hold_id>'
 	)
 
     def test_shared_collection_revoke_hold(self):
-    	url = "/collections/<collection_name>/holds/<hold_id>/revoke"
+    	url = '/collections/<collection_name>/holds/<hold_id>/revoke'
 	self.assert_request_calls(
 	    url, self.controller.revoke_hold, '<collection_name>',
             '<hold_id>'
@@ -332,7 +341,7 @@ class TestProfileController(RouteTest):
     CONTROLLER_NAME = "profiles"
 
     def test_patron_profile(self):
-    	url = "/patrons/me"
+    	url = '/patrons/me'
 	self.assert_authenticated_request_calls(
 	    url, self.controller.protocol,
 	)
@@ -343,7 +352,7 @@ class TestLoansController(RouteTest):
     CONTROLLER_NAME = "loans"
 
     def test_active_loans(self):
-    	url = "/loans"
+    	url = '/loans'
 	self.assert_authenticated_request_calls(
 	    url, self.controller.sync,
 	)
@@ -556,14 +565,14 @@ class TestAdobeDeviceManagement(RouteTest):
     CONTROLLER_NAME = "adobe_device_management"
 
     def test_adobe_drm_devices(self):
-    	url = "/AdobeAuth/devices"
+    	url = '/AdobeAuth/devices'
 	self.assert_authenticated_request_calls(
             url, self.controller.device_id_list_handler
         )
         self.assert_supported_methods(url, 'GET', 'POST')
 
     def test_adobe_drm_device(self):
-    	url = "/AdobeAuth/devices/<device_id>"
+    	url = '/AdobeAuth/devices/<device_id>'
 	self.assert_authenticated_request_calls(
 	    url, self.controller.device_id_handler, "<device_id>",
             http_method='DELETE'
@@ -578,14 +587,14 @@ class TestOAuthController(RouteTest):
     CONTROLLER_NAME = "oauth_controller"
 
     def test_oauth_authenticate(self):
-    	url = "/oauth_authenticate"
+    	url = '/oauth_authenticate'
         _db = self.manager._db
 	self.assert_request_calls(
 	    url, self.controller.oauth_authentication_redirect, {}, _db
 	)
 
     def test_oauth_callback(self):
-    	url = "/oauth_callback"
+    	url = '/oauth_callback'
         _db = self.manager._db
 	self.assert_request_calls(
 	    url, self.controller.oauth_authentication_callback, _db, {}
@@ -596,7 +605,7 @@ class TestODLNotificationController(RouteTest):
     CONTROLLER_NAME = "odl_notification_controller"
 
     def test_odl_notify(self):
-    	url = "/odl_notify/<loan_id>"
+    	url = '/odl_notify/<loan_id>'
 	self.assert_request_calls(
 	    url, self.controller.notify, "<loan_id>"
 	)
@@ -607,7 +616,7 @@ class TestHeartbeatController(RouteTest):
     CONTROLLER_NAME = "heartbeat"
 
     def test_heartbeat(self):
-    	url = "/heartbeat"
+    	url = '/heartbeat'
 	self.assert_request_calls(url, self.controller.heartbeat)
 
 
