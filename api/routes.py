@@ -496,15 +496,6 @@ def odl_notify(loan_id):
 def heartbeat():
     return app.manager.heartbeat.heartbeat()
 
-@app.route('/loadstorm-<code>.html')
-@returns_problem_detail
-def loadstorm_verify(code):
-    c = Configuration.integration("Loadstorm", required=True)
-    if code == c['verification_code']:
-        return Response("", 200)
-    else:
-        return Response("", 404)
-
 @app.route('/healthcheck.html')
 def health_check():
     return Response("", 200)

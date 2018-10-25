@@ -154,14 +154,13 @@ class TestIndex(RouteTest):
             self.assert_request_calls(url, self.controller)
 
     def test_authentication_document(self):
-        self.assert_request_calls(
-            "/authentication_document", self.controller.authentication_document
-        )
+        url = "/authentication_document"
+        self.assert_request_calls(url, self.controller.authentication_document)
 
     def test_public_key_document(self):
-        self.assert_request_calls(
-            "/public_key_document", self.controller.public_key_document
-        )
+        url = "/public_key_document"
+        self.assert_request_calls(url, self.controller.public_key_document)
+
 
 class TestOPDSFeed(RouteTest):
 
@@ -179,34 +178,38 @@ class TestOPDSFeed(RouteTest):
     def test_feed(self):
         # An incoming lane identifier is passed in to the feed()
         # method.
-        method = self.controller.feed
-        self.assert_request_calls("/feed", method, None)
+        url = "/feed"
+        self.assert_request_calls(url, self.controller.feed, None)
+        url = "/feed/<lane_identifier>"
         self.assert_request_calls(
-            "/feed/<lane_identifier>", method, '<lane_identifier>'
+            url, self.controller.feed, '<lane_identifier>'
         )
 
     def test_crawlable_library_feed(self):
-        self.assert_request_calls(
-            "/crawlable", self.controller.crawlable_library_feed
-        )
+        url = "/crawlable"
+        self.assert_request_calls(url, self.controller.crawlable_library_feed)
 
     def test_crawlable_list_feed(self):
+        url = "/lists/<list_name>/crawlable"
         self.assert_request_calls(
-            "/lists/<list_name>/crawlable",
-            self.controller.crawlable_list_feed, '<list_name>'
+            url, self.controller.crawlable_list_feed, '<list_name>'
         )
 
     def test_crawlable_collection_feed(self):
+        url = "/collections/<collection_name>/crawlable"
         self.assert_request_calls(
-            "/collections/<collection_name>/crawlable",
-            self.manager.opds_feeds.crawlable_collection_feed, '<collection_name>'
+            url, self.manager.opds_feeds.crawlable_collection_feed,
+            '<collection_name>'
         )
 
     def test_lane_search(self):
-    	url = ""
+    	url = "/search"
+	self.assert_request_calls(url, self.controller.search, None)
+
+    	url = "/search/<lane_identifier>"
 	self.assert_request_calls(
-	    url, self.controller.method,
-	)
+            url, self.controller.search, "<lane_identifier>"
+        )
 
 
 class TestSharedCollection(RouteTest):
@@ -214,9 +217,9 @@ class TestSharedCollection(RouteTest):
     CONTROLLER_NAME = 'shared_collection_controller'
 
     def test_shared_collection_info(self):
+        url = "/collections/<collection_name>"
         self.assert_request_calls(
-            "/collections/<collection_name>",
-            self.controller.info, '<collection_name>'
+            url, self.controller.info, '<collection_name>'
         )
 
     def test_shared_collection_register(self):
@@ -291,6 +294,7 @@ class TestProfileController(RouteTest):
 	    url, self.controller.method,
 	)
 
+
 class TestLoansController(RouteTest):
 
     def test_active_loans(self):
@@ -343,6 +347,7 @@ class TestAnnotationsController(RouteTest):
 	self.assert_request_calls(
 	    url, self.controller.method,
 	)
+
 
 class TestURNLookupController(RouteTest):
 
@@ -437,6 +442,7 @@ class TestAnalyticsController(RouteTest):
             "<identifier_type>", "an/identifier", "<event_type>"
 	)
 
+
 class TestAdobeVendorID(RouteTest):
 
     CONTROLLER_NAME = "adobe_vendor_id"
@@ -472,22 +478,22 @@ class TestAdobeVendorID(RouteTest):
 
 class TestAdobeDeviceManagement(RouteTest):
     CONTROLLER_NAME = "adobe_device_management"
-    # TODO: These don't work because they require auth.
 
     def test_adobe_drm_devices(self):
     	url = "/AdobeAuth/devices"
-	self.assert_request_calls(
+	self.assert_authenticated_request_calls(
             url, self.controller.device_id_list_handler
         )
         self.assert_supported_methods(url, 'GET', 'POST')
 
     def test_adobe_drm_device(self):
     	url = "/AdobeAuth/devices/<device_id>"
-	self.assert_request_calls(
+	self.assert_authenticated_request_calls(
 	    url, self.controller.device_id_handler, "<device_id>",
             http_method='DELETE'
 	)
         self.assert_supported_methods(url, 'DELETE')
+
 
 class TestOAuthController(RouteTest):
     # TODO: We might be able to do a better job of checking that
@@ -538,11 +544,5 @@ class TestHealthCheck(RouteTest):
 
         # This is how we know we actually called health_check() and
         # not a mock method -- the Response returned by the mock
-        # system has a status message in its .data.
+        # system would have an explanatory message in its .data.
         eq_("", response.data)
-
-
-class TestLoadstormVerification(RouteTest):
-    # TODO: There's no test for this, but it's not too bad because no
-    # one uses it.
-    pass
