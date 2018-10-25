@@ -13,11 +13,17 @@ from core.model import (
 )
 
 class GoogleAnalyticsProvider(object):
-    NAME = _("Google Analytics")
 
-    DESCRIPTION = _("<p>Send circulation-related analytics events to Google Analytics." +
-                    "<p>To use this integration, set up a property in Google Analytics. " +
-                    "On the administration page for the property, go to Custom Definitions > Custom Dimensions, " +
+    NAME = _("Google Analytics")
+    DESCRIPTION = _("How to Configure a Google Analytics Integration")
+    INSTRUCTIONS = _("<p>In order to track usage statistics, you can configure the Circulation Manager " +
+                    "to connect to Google Analytics.</p>" +
+                    "<p>Create a <a href='https://analytics.google.com/analytics/web/provision/?authuser=0#/provision' " +
+                    "rel='noopener' rel='noreferer' target='_blank'>Google Analytics</a> account, " +
+                    "or sign into your existing one.</p>" +
+                    "<p>To capture data from the Library Simplified Circulation Manager in your Google Analytics account, " +
+                    "you must set up a property in Google Analytics for Library Simplified.  In your Google Analytics " +
+                    "account, on the administration page for the property, go to Custom Definitions > Custom Dimensions, " +
                     "and add the following dimensions, in this order: <ol>" +
                     "<li>time</li>" +
                     "<li>identifier</li>" +
@@ -33,7 +39,8 @@ class GoogleAnalyticsProvider(object):
                     "<li>open_access</li>" +
                     "</ol></p>" +
                     "<p>Each dimension should have the scope set to 'Hit' and the 'Active' box checked.</p>" +
-                    "<p>Then go to Tracking Info and get the tracking id for the property and enter it in the form below.</p>")
+                    "<p>Then go to Tracking Info and get the tracking id for the property.  Select your " +
+                    "library from the dropdown below, and enter the tracking id into the form.</p>")
 
     TRACKING_ID = "tracking_id"
     DEFAULT_URL = "http://www.google-analytics.com/collect"
