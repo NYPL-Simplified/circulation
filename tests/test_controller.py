@@ -43,6 +43,7 @@ from api.authenticator import (
     LibraryAuthenticator,
 )
 from core.app_server import (
+    cdn_url_for,
     load_lending_policy,
     load_facets_from_request,
 )
@@ -969,7 +970,7 @@ class TestIndexController(CirculationControllerTest):
         ConfigurationSetting.for_library(
             Configuration.KEY_PAIR, self.library
         ).value = u'ignore me'
-            
+
         with self.app.test_request_context('/'):
             response = self.manager.index_controller.public_key_document()
 
@@ -3608,6 +3609,30 @@ class TestSharedCollectionController(ControllerTest):
             api.queue_revoke_hold(NotOnHold())
             response = self.manager.shared_collection_controller.revoke_hold(self.collection.name, hold.id)
             eq_(NO_ACTIVE_HOLD.uri, response.uri)
+
+
+class TestURLLookupController(ControllerTest):
+    """Test that a client can look up data on specific works."""
+
+    def test_get(self):
+        # Look up a work.
+        work = self._work(with_license_pool=True)
+        [pool] = work.license_pools
+        urn = pool.identifier.urn
+        with self.request_context_with_library("/?urn=%s" % urn):
+            route_name = "work"
+            response = self.manager.urn_lookup.work_lookup(route_name)
+            feed = feedparser.parse(response.data)
+
+            # The route name we passed into work_lookup shows up in
+            # the feed-level link with rel="self".
+            [self_link] = feed['feed']['links']
+            assert '/' + route_name in self_link['href']
+
+            # The work we looked up has an OPDS entry.
+            [entry] = feed['entries']
+            eq_(work.title, entry['title'])
+
 
 class TestProfileController(ControllerTest):
     """Test that a client can interact with the User Profile Management
