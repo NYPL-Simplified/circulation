@@ -72,8 +72,8 @@ from core.metadata_layer import (
 )
 from core.mirror import MirrorUploader
 from core.util.http import HTTP
-from problem_details import *
-from exceptions import *
+from api.problem_details import *
+from api.admin.exceptions import *
 from core.util import (
     fast_query_count,
     LanguageCodes,
@@ -89,8 +89,8 @@ from api.registry import (
     Registration,
 )
 
-from google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
-from password_admin_authentication_provider import PasswordAdminAuthenticationProvider
+from api.admin.google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
+from api.admin.password_admin_authentication_provider import PasswordAdminAuthenticationProvider
 
 from api.controller import CirculationManagerController
 from api.coverage import MetadataWranglerCollectionRegistrar
@@ -100,7 +100,7 @@ from core.app_server import (
     load_pagination_from_request,
 )
 from core.opds import AcquisitionFeed
-from opds import AdminAnnotator, AdminFeed
+from api.admin.opds import AdminAnnotator, AdminFeed
 from collections import Counter
 from core.classifier import (
     genres,
@@ -113,7 +113,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, select, join
 from sqlalchemy.orm import lazyload
 
-from templates import admin as admin_template
+from api.admin.templates import admin as admin_template
 
 from api.authenticator import (
     AuthenticationProvider,
@@ -170,9 +170,9 @@ def setup_admin_controllers(manager):
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
     manager.admin_patron_controller = PatronController(manager)
-    from api.admin.sitewide_configuration_settings_controller import SitewideConfigurationSettingsController
+    from api.admin.controller.sitewide_settings import SitewideConfigurationSettingsController
     manager.admin_sitewide_configuration_settings_controller = SitewideConfigurationSettingsController(manager)
-    from api.admin.library_settings_controller import LibrarySettingsController
+    from api.admin.controller.library_settings import LibrarySettingsController
     manager.admin_library_settings_controller = LibrarySettingsController(manager)
 
 class AdminController(object):
@@ -1091,7 +1091,7 @@ class WorkController(AdminCirculationManagerController):
             draw = ImageDraw.Draw(image)
             image_width, image_height = image.size
 
-            admin_dir = os.path.split(__file__)[0]
+            admin_dir = os.path.dirname(os.path.split(__file__)[0])
             package_dir = os.path.join(admin_dir, "../..")
             bold_font_path = os.path.join(package_dir, "resources/OpenSans-Bold.ttf")
             regular_font_path = os.path.join(package_dir, "resources/OpenSans-Regular.ttf")
@@ -1635,7 +1635,6 @@ class CustomListsController(AdminCirculationManagerController):
 
             annotator = self.manager.annotator(worklist)
             url_fn = self.url_for_custom_list(library, list)
-
             feed = AcquisitionFeed.from_query(
                 query, self._db, list.name,
                 url, pagination, url_fn, annotator

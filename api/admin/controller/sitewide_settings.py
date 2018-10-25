@@ -1,9 +1,9 @@
 from nose.tools import set_trace
 from core.model import ConfigurationSetting
-from controller import AdminCirculationManagerController
+from . import AdminCirculationManagerController
 from api.config import Configuration
 from flask import Response
-from problem_details import *
+from api.admin.problem_details import *
 import flask
 from flask_babel import lazy_gettext as _
 

@@ -5,7 +5,7 @@ from flask_babel import lazy_gettext as _
 import json
 from StringIO import StringIO
 import uuid
-from controller import AdminCirculationManagerController
+from . import AdminCirculationManagerController
 from api.config import Configuration
 from api.lanes import create_default_lanes
 from core.model import (
@@ -16,37 +16,36 @@ from core.model import (
     Representation,
 )
 from PIL import Image
-from problem_details import *
+from api.admin.exceptions import *
+from api.admin.problem_details import *
 from nose.tools import set_trace
 
 class LibrarySettingsController(AdminCirculationManagerController):
 
     def process_get(self):
-        if flask.request.method == 'GET':
-            libraries = []
-            for library in self._db.query(Library).order_by(Library.name):
-                # Only include libraries this admin has librarian access to.
-                if not flask.request.admin or not flask.request.admin.is_librarian(library):
-                    continue
+        libraries = []
+        for library in self._db.query(Library).order_by(Library.name):
+            # Only include libraries this admin has librarian access to.
+            if not flask.request.admin or not flask.request.admin.is_librarian(library):
+                continue
 
-                settings = dict()
-                for setting in Configuration.LIBRARY_SETTINGS:
-                    if setting.get("type") == "list":
-                        value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
-                    else:
-                        value = ConfigurationSetting.for_library(setting.get("key"), library).value
-                    if value:
-                        settings[setting.get("key")] = value
-                libraries += [dict(
-                    uuid=library.uuid,
-                    name=library.name,
-                    short_name=library.short_name,
-                    settings=settings,
-                )]
-            return dict(libraries=libraries, settings=Configuration.LIBRARY_SETTINGS)
+            settings = dict()
+            for setting in Configuration.LIBRARY_SETTINGS:
+                if setting.get("type") == "list":
+                    value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
+                else:
+                    value = ConfigurationSetting.for_library(setting.get("key"), library).value
+                if value:
+                    settings[setting.get("key")] = value
+            libraries += [dict(
+                uuid=library.uuid,
+                name=library.name,
+                short_name=library.short_name,
+                settings=settings,
+            )]
+        return dict(libraries=libraries, settings=Configuration.LIBRARY_SETTINGS)
 
     def process_post(self):
-
         library = None
         is_new = False
 
@@ -165,14 +164,17 @@ class LibrarySettingsController(AdminCirculationManagerController):
     def library_configuration_settings(self, library):
         for setting in Configuration.LIBRARY_SETTINGS:
             if setting.get("type") == "list":
-                value = self.list_setting(setting)
+                value = self.list_setting(setting) or self.current_value(setting, library)
             elif setting.get("type") == "image":
-                value = self.image_setting(setting)
+                value = self.image_setting(setting) or self.current_value(setting, library)
             else:
                 default = setting.get('default')
                 value = flask.request.form.get(setting['key'], default)
 
             ConfigurationSetting.for_library(setting['key'], library).value = value
+
+    def current_value(self, setting, library):
+        return ConfigurationSetting.for_library(setting['key'], library).value
 
     def list_setting(self, setting):
         if setting.get('options'):

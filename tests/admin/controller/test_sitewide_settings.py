@@ -14,7 +14,7 @@ from test_controller import SettingsControllerTest
 from werkzeug import ImmutableMultiDict, MultiDict
 import flask
 
-class TestSitewideConfigurationSettingsController(SettingsControllerTest):
+class TestSitewideSettings(SettingsControllerTest):
 
     def test_sitewide_settings_get(self):
         with self.request_context_with_admin("/"):
