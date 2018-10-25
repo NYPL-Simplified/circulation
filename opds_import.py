@@ -357,10 +357,12 @@ class OPDSImporter(object):
         {
             "key": Collection.EXTERNAL_ACCOUNT_ID_KEY,
             "label": _("URL"),
+            "required": True,
         },
         {
             "key": Collection.DATA_SOURCE_NAME_SETTING,
             "label": _("Data source name"),
+            "required": True,
         },
     ]
 
@@ -370,13 +372,11 @@ class OPDSImporter(object):
         {
             "key": ExternalIntegration.USERNAME,
             "label": _("Username"),
-            "optional": True,
             "description": _("If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the username here."),
         },
         {
             "key": ExternalIntegration.PASSWORD,
             "label": _("Password"),
-            "optional": True,
             "description": _("If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the password here."),
         },
     ]
