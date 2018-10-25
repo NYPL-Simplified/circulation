@@ -31,7 +31,7 @@ from core.app_server import (
     load_pagination_from_request,
     ComplaintController,
     HeartbeatController,
-    URNLookupController,
+    URNLookupController as CoreURNLookupController,
 )
 from core.entrypoint import EverythingEntryPoint
 from core.external_search import (
@@ -314,7 +314,7 @@ class CirculationManager(object):
         self.opds_feeds = OPDSFeedController(self)
         self.loans = LoanController(self)
         self.annotations = AnnotationController(self)
-        self.urn_lookup = URNLookupController(self._db)
+        self.urn_lookup = URNLookupController(self)
         self.work_controller = WorkController(self)
         self.analytics_controller = AnalyticsController(self)
         self.profiles = ProfileController(self)
@@ -1590,6 +1590,25 @@ class ProfileController(CirculationManagerController):
         if isinstance(result, ProblemDetail):
             return result
         return make_response(*result)
+
+
+class URNLookupController(CoreURNLookupController):
+
+    def __init__(self, manager):
+        self.manager = manager
+        super(URNLookupController, self).__init__(manager._db)
+
+    def work_lookup(self, route_name):
+        """Build a CirculationManagerAnnotor based on the current library's
+        top-level WorkList, and use it to generate an OPDS lookup
+        feed.
+        """
+        library = flask.request.library
+        top_level_worklist = self.manager.top_level_lanes[library.id]
+        annotator = CirculationManagerAnnotator(top_level_worklist)
+        return super(URNLookupController, self).work_lookup(
+            annotator, route_name
+        )
 
 
 class AnalyticsController(CirculationManagerController):
