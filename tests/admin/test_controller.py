@@ -3037,6 +3037,7 @@ class TestSettingsController(SettingsControllerTest):
             __module__ = 'my name'
             NAME = 'my label'
             DESCRIPTION = 'my description'
+            INSTRUCTIONS = "my instructions"
             SITEWIDE = True
             SETTINGS = [1,2,3]
             CHILD_SETTINGS = [4,5]
@@ -3046,9 +3047,9 @@ class TestSettingsController(SettingsControllerTest):
         [result] = SettingsController._get_integration_protocols([Protocol])
         expect = dict(
             sitewide=True, description='my description',
-            settings=[1, 2, 3], library_settings=[6],
-            child_settings=[4, 5], label='my label',
-            cardinality=1, name='my name'
+            instructions="my instructions", settings=[1, 2, 3],
+            library_settings=[6], child_settings=[4, 5],
+            label='my label', cardinality=1, name='my name'
         )
         eq_(expect, result)
 
