@@ -22,6 +22,7 @@ from flask_sqlalchemy_session import (
     flask_scoped_session,
 )
 from werkzeug import ImmutableMultiDict
+from werkzeug.exceptions import NotFound
 
 from . import DatabaseTest
 from api.app import app, initialize_database
@@ -3845,3 +3846,39 @@ class TestScopedSession(ControllerTest):
         # which is the same as self._db, the unscoped database session
         # used by most other unit tests.
         assert session1 != session2
+
+class TestStaticFileController(CirculationControllerTest):
+    def test_static_file(self):
+        cache_timeout = ConfigurationSetting.sitewide(
+            self._db, Configuration.STATIC_FILE_CACHE_TIME
+        )
+        cache_timeout.value = 10
+
+        directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "files", "images")
+        filename = "blue.jpg"
+        with open(os.path.join(directory, filename)) as f:
+            expected_content = f.read()
+
+        with self.app.test_request_context("/"):
+            response = self.app.manager.static_files.static_file(directory, filename)
+
+        eq_(200, response.status_code)
+        eq_('public, max-age=10', response.headers.get('Cache-Control'))
+        eq_(expected_content, response.response.file.read())
+
+        with self.app.test_request_context("/"):
+            assert_raises(NotFound, self.app.manager.static_files.static_file,
+                          directory, "missing.png")
+
+    def test_image(self):
+        directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
+        filename = "CleverLoginButton280.png"
+        with open(os.path.join(directory, filename)) as f:
+            expected_content = f.read()
+
+        with self.app.test_request_context("/"):
+            response = self.app.manager.static_files.image(filename)
+
+        eq_(200, response.status_code)
+        eq_(expected_content, response.response.file.read())
+        
