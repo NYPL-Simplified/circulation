@@ -21,6 +21,8 @@ from sqlalchemy.exc import ProgrammingError
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 from StringIO import StringIO
+import wcag_contrast_ratio
+
 from api.authenticator import (
     CannotCreateLocalPatron,
     PatronData,
@@ -2140,6 +2142,25 @@ class SettingsController(AdminCirculationManagerController):
         if not short_name:
             return MISSING_LIBRARY_SHORT_NAME
 
+        # Verify that web colors have enough contrast.
+        background = flask.request.form.get(Configuration.WEB_BACKGROUND_COLOR, Configuration.DEFAULT_WEB_BACKGROUND_COLOR)
+        foreground = flask.request.form.get(Configuration.WEB_FOREGROUND_COLOR, Configuration.DEFAULT_WEB_FOREGROUND_COLOR)
+        def hex_to_rgb(hex):
+            hex = hex.lstrip("#")
+            return tuple(int(hex[i:i+2], 16)/255.0 for i in (0, 2 ,4))
+        if not wcag_contrast_ratio.passes_AA(wcag_contrast_ratio.rgb(hex_to_rgb(background), hex_to_rgb(foreground))):
+            contrast_check_url = "https://contrast-ratio.com/#%23" + foreground[1:] + "-on-%23" + background[1:]
+            return INVALID_CONFIGURATION_OPTION.detailed(
+                _("The web background and foreground colors don't have enough contrast to pass the WCAG 2.0 AA guidelines and will be difficult for some patrons to read. Check contrast <a href='%(contrast_check_url)s' target='_blank'>here</a>.",
+                  contrast_check_url=contrast_check_url))
+
+        # Verify that header links and labels are the same length.
+        header_links = flask.request.form.getlist(Configuration.WEB_HEADER_LINKS)
+        header_labels = flask.request.form.getlist(Configuration.WEB_HEADER_LABELS)
+        if len(header_links) != len(header_labels):
+            return INVALID_CONFIGURATION_OPTION.detailed(
+                _("There must be the same number of web header links and web header labels."))
+
         if library_uuid:
             # Library UUID is required when editing an existing library
             # from the admin interface, and isn't present for new libraries.
@@ -2252,6 +2273,10 @@ class SettingsController(AdminCirculationManagerController):
             description = getattr(api, "DESCRIPTION", None)
             if description != None:
                 protocol["description"] = description
+
+            instructions = getattr(api, "INSTRUCTIONS", None)
+            if instructions != None:
+                protocol["instructions"] = instructions
 
             sitewide = getattr(api, "SITEWIDE", None)
             if sitewide != None:

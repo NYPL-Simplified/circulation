@@ -20,9 +20,6 @@ from core.app_server import (
 )
 from core.model import ConfigurationSetting
 from core.util.problem_detail import ProblemDetail
-from opds import (
-    CirculationManagerAnnotator,
-)
 from controller import CirculationManager
 from problem_details import REMOTE_INTEGRATION_FAILED
 from flask_babel import lazy_gettext as _
@@ -374,8 +371,7 @@ def loan_or_hold_detail(identifier_type, identifier):
 @allows_patron_web
 @returns_problem_detail
 def work():
-    annotator = CirculationManagerAnnotator(app.manager.circulation, None)
-    return app.manager.urn_lookup.work_lookup(annotator, 'work')
+    return app.manager.urn_lookup.work_lookup('work')
 
 @library_dir_route('/works/contributor/<contributor_name>', defaults=dict(languages=None, audiences=None))
 @library_dir_route('/works/contributor/<contributor_name>/<languages>', defaults=dict(audiences=None))
@@ -500,15 +496,10 @@ def odl_notify(loan_id):
 def heartbeat():
     return app.manager.heartbeat.heartbeat()
 
-@app.route('/loadstorm-<code>.html')
-@returns_problem_detail
-def loadstorm_verify(code):
-    c = Configuration.integration("Loadstorm", required=True)
-    if code == c['verification_code']:
-        return Response("", 200)
-    else:
-        return Response("", 404)
-
 @app.route('/healthcheck.html')
 def health_check():
     return Response("", 200)
+
+@app.route("/images/<filename>")
+def static_image(filename):
+    return app.manager.static_files.image(filename)

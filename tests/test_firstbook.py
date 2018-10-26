@@ -3,6 +3,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
+import os
 
 from api.authenticator import (
     PatronData,
@@ -102,6 +103,13 @@ class TestFirstBook(DatabaseTest):
         )
 
     def test_authentication_flow_document(self):
-        doc = self.api.authentication_flow_document(self._db)
-        eq_(self.api.DISPLAY_NAME, doc['description'])
-        eq_(self.api.FLOW_TYPE, doc['type'])
+        # We're about to call url_for, so we must create an
+        # application context.
+        os.environ['AUTOINITIALIZE'] = "False"
+        from api.app import app
+        self.app = app
+        del os.environ['AUTOINITIALIZE']
+        with self.app.test_request_context("/"):
+            doc = self.api.authentication_flow_document(self._db)
+            eq_(self.api.DISPLAY_NAME, doc['description'])
+            eq_(self.api.FLOW_TYPE, doc['type'])

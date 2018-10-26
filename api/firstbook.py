@@ -27,7 +27,9 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
         An authentication service for Open eBooks that authenticates
         using access codes and PINs.""")
 
-    LOGIN_LABEL = _("Access Code")
+    DISPLAY_NAME = NAME
+    DEFAULT_IDENTIFIER_LABEL = _("Access Code")
+    LOGIN_BUTTON_IMAGE = "FirstBookLoginButton280.png"
 
     # If FirstBook sends this message it means they accepted the
     # patron's credentials.

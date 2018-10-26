@@ -3037,6 +3037,7 @@ class TestSettingsController(SettingsControllerTest):
             __module__ = 'my name'
             NAME = 'my label'
             DESCRIPTION = 'my description'
+            INSTRUCTIONS = "my instructions"
             SITEWIDE = True
             SETTINGS = [1,2,3]
             CHILD_SETTINGS = [4,5]
@@ -3046,9 +3047,9 @@ class TestSettingsController(SettingsControllerTest):
         [result] = SettingsController._get_integration_protocols([Protocol])
         expect = dict(
             sitewide=True, description='my description',
-            settings=[1, 2, 3], library_settings=[6],
-            child_settings=[4, 5], label='my label',
-            cardinality=1, name='my name'
+            instructions="my instructions", settings=[1, 2, 3],
+            library_settings=[6], child_settings=[4, 5],
+            label='my label', cardinality=1, name='my name'
         )
         eq_(expect, result)
 
@@ -3244,6 +3245,34 @@ class TestSettingsController(SettingsControllerTest):
             ])
             response = self.manager.admin_settings_controller.libraries()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.WEB_BACKGROUND_COLOR, "#000000"),
+                (Configuration.WEB_FOREGROUND_COLOR, "#010101"),
+            ])
+            response = self.manager.admin_settings_controller.libraries()
+            eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
+            assert "contrast-ratio.com/#%23010101-on-%23000000" in response.detail
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.WEB_HEADER_LINKS, "http://library.com/1"),
+                (Configuration.WEB_HEADER_LINKS, "http://library.com/2"),
+                (Configuration.WEB_HEADER_LABELS, "One"),
+            ])
+            response = self.manager.admin_settings_controller.libraries()
+            eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
 
     def test_libraries_post_create(self):
         class TestFileUpload(StringIO):
