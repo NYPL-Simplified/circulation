@@ -81,7 +81,6 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         },
         { "key": BLOCK_TYPES, "label": _("Block types"),
           "description": _("Values of MBLOCK[p56] which mean a patron is blocked. By default, any value other than '-' indicates a block."),
-          "required": True,
         },
         { "key": IDENTIFIER_BLACKLIST, "label": _("Identifier Blacklist"),
           "type": "list",
@@ -90,7 +89,6 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                            "If librarians invalidate library cards by adding strings like \"EXPIRED\" or \"INVALID\" " +
                            "on to the beginning of the card number, put those strings here so the Circulation Manager " +
                            "knows they do not represent real card numbers."),
-          "required": True,
         },
         { "key": AUTHENTICATION_MODE, "label": _("Authentication Mode"),
           "type": "select",

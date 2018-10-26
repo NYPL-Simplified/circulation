@@ -3416,6 +3416,8 @@ class SettingsController(AdminCirculationManagerController):
                 return service
 
         name = flask.request.form.get("name")
+        if not name:
+            return MISSING_ANALYTICS_NAME
         if name:
             if service.name != name:
                 service_with_name = get_one(self._db, ExternalIntegration, name=name)
