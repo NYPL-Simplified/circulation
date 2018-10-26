@@ -13,6 +13,10 @@ from api import app
 from api import routes
 from api.opds import CirculationManagerAnnotator
 from api.controller import CirculationManager
+from api.routes import (
+    exception_handler,
+    h as error_handler_object,
+)
 
 from test_controller import ControllerTest
 
@@ -680,3 +684,28 @@ class TestHealthCheck(RouteTest):
         # not a mock method -- the Response returned by the mock
         # system would have an explanatory message in its .data.
         eq_("", response.data)
+
+
+class TestExceptionHandler(RouteTest):
+
+    def test_exception_handling(self):
+        # The exception handler deals with most exceptions by running them
+        # through ErrorHandler.handle()
+        value_error = ValueError()
+        with self.app.test_request_context():
+            result = exception_handler(value_error)
+
+            # This generally turns them into Internal Server Errors.
+            expect = error_handler_object.handle(value_error)
+            eq_(expect.data, result.data)
+            eq_(500, result.status_code)
+            eq_(expect.status_code, result.status_code)
+
+        # But werkzeug HTTPExceptions are _not_ run through
+        # handle(). werkzeug does the conversion to a Response object
+        # representing a more specific (and possibly even desirable)
+        # HTTP response.
+        with self.app.test_request_context():
+            exception = MethodNotAllowed()
+            response = exception_handler(exception)
+            eq_(405, response.status_code)
