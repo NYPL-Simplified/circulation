@@ -331,7 +331,7 @@ class Configuration(CoreConfiguration):
             "label": _("The primary languages represented in this library's collection"),
             "type": "list",
             "description": LANGUAGE_DESCRIPTION,
-            "optional": True,
+            "default": ["eng"],
         },
         {
             "key": SMALL_COLLECTION_LANGUAGES,
