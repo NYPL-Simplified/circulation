@@ -2207,7 +2207,7 @@ class SettingsController(AdminCirculationManagerController):
                 value = json.dumps(value)
             elif setting.get("type") == "image":
                 image_file = flask.request.files.get(setting.get("key"))
-                if not image_file and not setting.get("optional"):
+                if not image_file and setting.get("required"):
                     self._db.rollback()
                     return INCOMPLETE_CONFIGURATION.detailed(_(
                         "The library is missing a required setting: %s." % setting.get("key")))
@@ -2233,7 +2233,7 @@ class SettingsController(AdminCirculationManagerController):
                 value = flask.request.form.get(setting['key'], default)
             if value != NO_VALUE:
                 ConfigurationSetting.for_library(setting['key'], library).value = value
-            if not value and not setting.get("optional"):
+            if not value and setting.get("required"):
                 self._db.rollback()
                 return INCOMPLETE_CONFIGURATION.detailed(
                     _("The configuration is missing a required setting: %(setting)s",
@@ -2376,7 +2376,7 @@ class SettingsController(AdminCirculationManagerController):
                     "The configuration value for %(setting)s is invalid.",
                     setting=setting.get("label"),
                 ))
-        if not value and not setting.get("optional"):
+        if not value and setting.get("required"):
             # Roll back any changes to the integration that have already been made.
             self._db.rollback()
             return INCOMPLETE_CONFIGURATION.detailed(
@@ -2402,7 +2402,7 @@ class SettingsController(AdminCirculationManagerController):
                     "The configuration value for %(setting)s is invalid.",
                     setting=setting.get("label"),
                 ))
-            if not value and not setting.get("optional"):
+            if not value and setting.get("required"):
                 self._db.rollback()
                 return INCOMPLETE_CONFIGURATION.detailed(
                     _("The configuration is missing a required setting: %(setting)s for library %(library)s",
@@ -2690,7 +2690,7 @@ class SettingsController(AdminCirculationManagerController):
             key = setting.get("key")
             if key == "external_account_id":
                 value = flask.request.form.get(key)
-                if not value and not setting.get("optional"):
+                if not value and setting.get("required"):
                     # Roll back any changes to the collection that have already been made.
                     self._db.rollback()
                     return INCOMPLETE_CONFIGURATION.detailed(
