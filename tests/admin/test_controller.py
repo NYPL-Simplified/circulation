@@ -3245,6 +3245,34 @@ class TestSettingsController(SettingsControllerTest):
             response = self.manager.admin_settings_controller.libraries()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.WEB_BACKGROUND_COLOR, "#000000"),
+                (Configuration.WEB_FOREGROUND_COLOR, "#010101"),
+            ])
+            response = self.manager.admin_settings_controller.libraries()
+            eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
+            assert "contrast-ratio.com/#%23010101-on-%23000000" in response.detail
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.WEB_HEADER_LINKS, "http://library.com/1"),
+                (Configuration.WEB_HEADER_LINKS, "http://library.com/2"),
+                (Configuration.WEB_HEADER_LABELS, "One"),
+            ])
+            response = self.manager.admin_settings_controller.libraries()
+            eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
+
     def test_libraries_post_create(self):
         class TestFileUpload(StringIO):
             headers = { "Content-Type": "image/png" }

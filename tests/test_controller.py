@@ -22,6 +22,7 @@ from flask_sqlalchemy_session import (
     flask_scoped_session,
 )
 from werkzeug import ImmutableMultiDict
+from werkzeug.exceptions import NotFound
 
 from . import DatabaseTest
 from api.app import app, initialize_database
@@ -42,6 +43,7 @@ from api.authenticator import (
     LibraryAuthenticator,
 )
 from core.app_server import (
+    cdn_url_for,
     load_lending_policy,
     load_facets_from_request,
 )
@@ -968,7 +970,7 @@ class TestIndexController(CirculationControllerTest):
         ConfigurationSetting.for_library(
             Configuration.KEY_PAIR, self.library
         ).value = u'ignore me'
-            
+
         with self.app.test_request_context('/'):
             response = self.manager.index_controller.public_key_document()
 
@@ -3608,6 +3610,30 @@ class TestSharedCollectionController(ControllerTest):
             response = self.manager.shared_collection_controller.revoke_hold(self.collection.name, hold.id)
             eq_(NO_ACTIVE_HOLD.uri, response.uri)
 
+
+class TestURLLookupController(ControllerTest):
+    """Test that a client can look up data on specific works."""
+
+    def test_get(self):
+        # Look up a work.
+        work = self._work(with_license_pool=True)
+        [pool] = work.license_pools
+        urn = pool.identifier.urn
+        with self.request_context_with_library("/?urn=%s" % urn):
+            route_name = "work"
+            response = self.manager.urn_lookup.work_lookup(route_name)
+            feed = feedparser.parse(response.data)
+
+            # The route name we passed into work_lookup shows up in
+            # the feed-level link with rel="self".
+            [self_link] = feed['feed']['links']
+            assert '/' + route_name in self_link['href']
+
+            # The work we looked up has an OPDS entry.
+            [entry] = feed['entries']
+            eq_(work.title, entry['title'])
+
+
 class TestProfileController(ControllerTest):
     """Test that a client can interact with the User Profile Management
     Protocol.
@@ -3845,3 +3871,39 @@ class TestScopedSession(ControllerTest):
         # which is the same as self._db, the unscoped database session
         # used by most other unit tests.
         assert session1 != session2
+
+class TestStaticFileController(CirculationControllerTest):
+    def test_static_file(self):
+        cache_timeout = ConfigurationSetting.sitewide(
+            self._db, Configuration.STATIC_FILE_CACHE_TIME
+        )
+        cache_timeout.value = 10
+
+        directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "files", "images")
+        filename = "blue.jpg"
+        with open(os.path.join(directory, filename)) as f:
+            expected_content = f.read()
+
+        with self.app.test_request_context("/"):
+            response = self.app.manager.static_files.static_file(directory, filename)
+
+        eq_(200, response.status_code)
+        eq_('public, max-age=10', response.headers.get('Cache-Control'))
+        eq_(expected_content, response.response.file.read())
+
+        with self.app.test_request_context("/"):
+            assert_raises(NotFound, self.app.manager.static_files.static_file,
+                          directory, "missing.png")
+
+    def test_image(self):
+        directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
+        filename = "CleverLoginButton280.png"
+        with open(os.path.join(directory, filename)) as f:
+            expected_content = f.read()
+
+        with self.app.test_request_context("/"):
+            response = self.app.manager.static_files.image(filename)
+
+        eq_(200, response.status_code)
+        eq_(expected_content, response.response.file.read())
+        
