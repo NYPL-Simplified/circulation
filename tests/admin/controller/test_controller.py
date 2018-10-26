@@ -22,7 +22,7 @@ import operator
 from flask_babel import lazy_gettext as _
 
 from tests import sample_data
-from ..test_controller import CirculationControllerTest
+from tests.test_controller import CirculationControllerTest
 from api.adobe_vendor_id import (
     AdobeVendorIDModel,
     AuthdataUtility
