@@ -140,6 +140,11 @@ class CirculationManagerAnnotator(Annotator):
             kwargs.update(extra_kwargs)
         return self.cdn_url_for(route, _external=True, **kwargs)
 
+    def navigation_url(self, lane):
+        return self.cdn_url_for(
+            "navigation_feed", lane_identifier=self._lane_identifier(lane),
+            library_short_name=lane.library.short_name, _external=True)
+
     def active_licensepool_for(self, work):
         loan = (self.active_loans_by_work.get(work) or
                 self.active_holds_by_work.get(work))

@@ -78,6 +78,7 @@ from core.model import (
 )
 from core.opds import (
     AcquisitionFeed,
+    NavigationFeed,
 )
 from core.util.opds_writer import (
      OPDSFeed,
@@ -692,6 +693,33 @@ class OPDSFeedController(CirculationManagerController):
             self._db, title, url, lane, annotator=annotator,
             facets=facets,
             pagination=pagination,
+        )
+        return feed_response(feed)
+
+    def navigation(self, lane_identifier):
+        """Build or retrieve a navigation feed, for clients that do not support groups."""
+
+        lane = self.load_lane(lane_identifier)
+        if isinstance(lane, ProblemDetail):
+            return lane
+        library = flask.request.library
+        library_short_name = library.short_name
+        url = self.cdn_url_for(
+            "navigation_feed", lane_identifier=lane_identifier, library_short_name=library_short_name,
+        )
+
+        title = lane.display_name
+        facet_class_kwargs = dict(
+            minimum_featured_quality=library.minimum_featured_quality,
+            uses_customlists=lane.uses_customlists
+        )
+        facets = load_facets_from_request(
+            worklist=lane, base_class=FeaturedFacets,
+            base_class_constructor_kwargs=facet_class_kwargs
+        )
+        annotator = self.manager.annotator(lane, facets)
+        feed = NavigationFeed.navigation(
+            self._db, title, url, lane, annotator, facets=facets
         )
         return feed_response(feed)
 

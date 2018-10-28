@@ -283,6 +283,16 @@ class TestOPDSFeed(RouteTest):
             url, self.controller.feed, '<lane_identifier>'
         )
 
+    def test_navigation_feed(self):
+        # An incoming lane identifier is passed in to the feed()
+        # method.
+        url = '/navigation'
+        self.assert_request_calls(url, self.controller.navigation, None)
+        url = '/navigation/<lane_identifier>'
+        self.assert_request_calls(
+            url, self.controller.navigation, '<lane_identifier>'
+        )
+
     def test_crawlable_library_feed(self):
         url = '/crawlable'
         self.assert_request_calls(url, self.controller.crawlable_library_feed)
