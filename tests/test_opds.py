@@ -59,6 +59,7 @@ from ..opds import (
     AcquisitionFeed,
     Annotator,
     LookupAcquisitionFeed,
+    NavigationFeed,
     OPDSFeed,
     UnfulfillableWork,
     VerboseAnnotator,
@@ -2365,3 +2366,84 @@ class TestEntrypointLinkInsertion(DatabaseTest):
             self.wl, facets, pagination
         )
         eq_(first_page_url, make_link(EbooksEntryPoint))
+
+class TestNavigationFeed(DatabaseTest):
+
+    def setup(self):
+        super(TestNavigationFeed, self).setup()
+        self.fiction = self._lane("Fiction")
+        self.fantasy = self._lane(
+            "Fantasy", parent=self.fiction)
+        self.romance = self._lane(
+            "Romance", parent=self.fiction)
+        self.contemporary_romance = self._lane(
+            "Contemporary Romance", parent=self.romance)
+
+    def test_add_entry(self):
+        feed = NavigationFeed("title", "http://navigation")
+        feed.add_entry("http://example.com", "Example", "text/html")
+        parsed = feedparser.parse(unicode(feed))
+        [entry] = parsed["entries"]
+        eq_("Example", entry["title"])
+        [link] = entry["links"]
+        eq_("http://example.com", link["href"])
+        eq_("text/html", link["type"])
+        eq_("subsection", link["rel"])
+
+    def test_navigation_with_sublanes(self):
+        feed = NavigationFeed.navigation(
+            self._db, "Navigation", "http://navigation",
+            self.fiction, TestAnnotator)
+        parsed = feedparser.parse(unicode(feed))
+        eq_("Navigation", parsed["feed"]["title"])
+        [self_link] = parsed["feed"]["links"]
+        eq_("http://navigation", self_link["href"])
+        eq_("self", self_link["rel"])
+        eq_("http://navigation", parsed["feed"]["id"])
+        [fantasy, romance] = sorted(parsed["entries"], key=lambda x: x["title"])
+
+        eq_(self.fantasy.display_name, fantasy["title"])
+        eq_("http://%s/" % self.fantasy.id, fantasy["id"])
+        [fantasy_link] = fantasy["links"]
+        eq_("http://%s/" % self.fantasy.id, fantasy_link["href"])
+        eq_("subsection", fantasy_link["rel"])
+        eq_(NavigationFeed.ACQUISITION_FEED_TYPE, fantasy_link["type"])
+
+        eq_(self.romance.display_name, romance["title"])
+        eq_("http://navigation/%s" % self.romance.id, romance["id"])
+        [romance_link] = romance["links"]
+        eq_("http://navigation/%s" % self.romance.id, romance_link["href"])
+        eq_("subsection", romance_link["rel"])
+        eq_(NavigationFeed.NAVIGATION_FEED_TYPE, romance_link["type"])
+
+        # The feed was cached.
+        eq_(1, self._db.query(CachedFeed).count())
+
+        # When a feed is created without a cache_type of NO_CACHE,
+        # CachedFeeds aren't used.
+        uncached_feed = NavigationFeed.navigation(
+            self._db, "test", self._url, self.romance,
+            TestAnnotator, cache_type=NavigationFeed.NO_CACHE,
+        )
+
+        # No new CachedFeeds were created.
+        eq_(1, self._db.query(CachedFeed).count())
+        
+    def test_navigation_without_sublanes(self):
+        feed = NavigationFeed.navigation(
+            self._db, "Navigation", "http://navigation",
+            self.fantasy, TestAnnotator)
+        parsed = feedparser.parse(unicode(feed))
+        eq_("Navigation", parsed["feed"]["title"])
+        [self_link] = parsed["feed"]["links"]
+        eq_("http://navigation", self_link["href"])
+        eq_("self", self_link["rel"])
+        eq_("http://navigation", parsed["feed"]["id"])
+        [fantasy] = parsed["entries"]
+
+        eq_("All " + self.fantasy.display_name, fantasy["title"])
+        eq_("http://%s/" % self.fantasy.id, fantasy["id"])
+        [fantasy_link] = fantasy["links"]
+        eq_("http://%s/" % self.fantasy.id, fantasy_link["href"])
+        eq_("subsection", fantasy_link["rel"])
+        eq_(NavigationFeed.ACQUISITION_FEED_TYPE, fantasy_link["type"])
