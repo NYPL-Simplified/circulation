@@ -6,6 +6,7 @@ import json
 import logging
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.session import Session
+import urlparse
 
 from core.model import (
     create,
@@ -125,6 +126,10 @@ class Registration(object):
     PRODUCTION_STAGE = "production"
     VALID_REGISTRATION_STAGES = [TESTING_STAGE, PRODUCTION_STAGE]
 
+    # A registry may provide access to a web client. If so, we'll store
+    # the URL so we can link to it.
+    LIBRARY_REGISTRATION_WEB_CLIENT = u"library-registration-web-client"
+
     def __init__(self, registry, library):
         self.registry = registry
         self.integration = self.registry.integration
@@ -146,6 +151,10 @@ class Registration(object):
         self.stage_field = self.setting(
             self.LIBRARY_REGISTRATION_STAGE, self.TESTING_STAGE
         )
+
+        # If the registry provides a web client for the library, it will
+        # be stored in this setting.
+        self.web_client_field = self.setting(self.LIBRARY_REGISTRATION_WEB_CLIENT)
 
     def setting(self, key, default_value=None):
         """Find or create a ConfigurationSetting that configures this
@@ -386,6 +395,13 @@ class Registration(object):
         metadata = catalog.get("metadata", {})
         short_name = metadata.get("short_name")
         shared_secret = metadata.get("shared_secret")
+        links = catalog.get("links", [])
+
+        web_client_url = None
+        for link in links:
+            if link.get("rel") == "self" and link.get("type") == "text/html":
+                web_client_url = link.get("href")
+                break
 
         if short_name:
              setting = self.setting(ExternalIntegration.USERNAME)
@@ -406,6 +422,27 @@ class Registration(object):
         # Our opinion about the proper stage of this library was succesfully
         # communicated to the registry.
         self.stage_field.value = desired_stage
+
+        # Store the web client URL as a ConfigurationSetting. Make sure the URL
+        # is also added to the sitewide patron web URL setting to enable CORS.
+        if web_client_url:
+            self.web_client_field.value = web_client_url
+
+            # The previous setting is a single URL, but the sitewide
+            # setting may contain multiple comma-separated URLs. In addition,
+            # the previous setting may contain a path or parameters, but those
+            # aren't needed for the sitewide setting.
+            sitewide_web_setting = ConfigurationSetting.sitewide(
+                self._db, Configuration.PATRON_WEB_CLIENT_URL)
+            scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(web_client_url)
+
+            web_domain = scheme + "://" + netloc
+
+            if not sitewide_web_setting.value:
+                sitewide_web_setting.value = web_domain
+            elif web_domain not in sitewide_web_setting.value:
+                sitewide_web_setting.value += "," + web_domain
+
         return True
 
 

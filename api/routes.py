@@ -116,7 +116,7 @@ def allows_patron_web(f):
         patron_web_client_url = app.manager.patron_web_client_url
         if patron_web_client_url:
             options = get_cors_options(
-                app, dict(origins=[patron_web_client_url],
+                app, dict(origins=patron_web_client_url.split(","),
                           supports_credentials=True)
             )
             set_cors_headers(resp, options)

@@ -141,10 +141,11 @@ class TestRegistration(DatabaseTest):
 
         settings = [x for x in reg.integration.settings
                     if x.library is not None]
-        eq_(set([reg.status_field, reg.stage_field]),
+        eq_(set([reg.status_field, reg.stage_field, reg.web_client_field]),
             set(settings))
         eq_(Registration.FAILURE_STATUS, reg.status_field.value)
         eq_(Registration.TESTING_STAGE, reg.stage_field.value)
+        eq_(None, reg.web_client_field.value)
 
         # The Library has been associated with the ExternalIntegration.
         eq_([self._default_library], self.integration.libraries)
@@ -547,8 +548,8 @@ class TestRegistration(DatabaseTest):
         # The stage field has been set to the requested value.
         eq_(new_stage, reg.stage_field.value)
 
-        # Now try with a result that includes a short name and
-        # a shared secret.
+        # Now try with a result that includes a short name,
+        # a shared secret, and a web client URL.
 
         class Mock(Registration):
             def _decrypt_shared_secret(self, encryptor, shared_secret):
@@ -557,7 +558,8 @@ class TestRegistration(DatabaseTest):
 
         reg = Mock(self.registry, self._default_library)
         catalog = dict(
-            metadata=dict(short_name="SHORT", shared_secret="ciphertext")
+            metadata=dict(short_name="SHORT", shared_secret="ciphertext", id="uuid"),
+            links=[dict(href="http://web/library", rel="self", type="text/html")],
         )
         result = reg._process_registration_result(
             catalog, encryptor, "another new stage"
@@ -570,6 +572,13 @@ class TestRegistration(DatabaseTest):
         # Shared secret was decrypted and is set.
         eq_((encryptor, "ciphertext"), reg._decrypt_shared_secret_called_with)
         eq_("cleartext", reg.setting(ExternalIntegration.PASSWORD).value)
+
+        # Web client URL is set, both in a registration setting and in the
+        # sitewide setting for the patron web URL.
+        eq_("http://web/library", reg.setting(reg.LIBRARY_REGISTRATION_WEB_CLIENT).value)
+        # The path has been removed for the sitewide setting.
+        eq_("http://web",
+            ConfigurationSetting.sitewide(self._db, Configuration.PATRON_WEB_CLIENT_URL).value)
 
         eq_("another new stage", reg.stage_field.value)
 
