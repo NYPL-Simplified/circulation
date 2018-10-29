@@ -331,14 +331,17 @@ def stats():
 @requires_admin
 @requires_csrf_token
 def libraries():
-    return app.manager.admin_settings_controller.libraries()
+    if flask.request.method == 'GET':
+        return app.manager.admin_library_settings_controller.process_get()
+    else:
+        return app.manager.admin_library_settings_controller.process_post()
 
 @app.route("/admin/library/<library_uuid>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def library(library_uuid):
-    return app.manager.admin_settings_controller.library(library_uuid)
+    return app.manager.admin_library_settings_controller.process_delete(library_uuid)
 
 @app.route("/admin/collections", methods=['GET', 'POST'])
 @returns_json_or_response_or_problem_detail
@@ -516,14 +519,17 @@ def discovery_service(service_id):
 @requires_admin
 @requires_csrf_token
 def sitewide_settings():
-    return app.manager.admin_settings_controller.sitewide_settings()
+    if flask.request.method == 'GET':
+        return app.manager.admin_sitewide_configuration_settings_controller.process_get()
+    else:
+        return app.manager.admin_sitewide_configuration_settings_controller.process_post()
 
 @app.route("/admin/sitewide_setting/<key>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def sitewide_setting(key):
-    return app.manager.admin_settings_controller.sitewide_setting(key)
+    return app.manager.admin_sitewide_configuration_settings_controller.process_delete(key)
 
 @app.route("/admin/logging_services", methods=['GET', 'POST'])
 @returns_json_or_response_or_problem_detail

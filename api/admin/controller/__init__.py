@@ -21,8 +21,6 @@ from sqlalchemy.exc import ProgrammingError
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 from StringIO import StringIO
-import wcag_contrast_ratio
-
 from api.authenticator import (
     CannotCreateLocalPatron,
     PatronData,
@@ -74,8 +72,8 @@ from core.metadata_layer import (
 )
 from core.mirror import MirrorUploader
 from core.util.http import HTTP
-from problem_details import *
-from exceptions import *
+from api.problem_details import *
+from api.admin.exceptions import *
 from core.util import (
     fast_query_count,
     LanguageCodes,
@@ -91,8 +89,8 @@ from api.registry import (
     Registration,
 )
 
-from google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
-from password_admin_authentication_provider import PasswordAdminAuthenticationProvider
+from api.admin.google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
+from api.admin.password_admin_authentication_provider import PasswordAdminAuthenticationProvider
 
 from api.controller import CirculationManagerController
 from api.coverage import MetadataWranglerCollectionRegistrar
@@ -102,7 +100,7 @@ from core.app_server import (
     load_pagination_from_request,
 )
 from core.opds import AcquisitionFeed
-from opds import AdminAnnotator, AdminFeed
+from api.admin.opds import AdminAnnotator, AdminFeed
 from collections import Counter
 from core.classifier import (
     genres,
@@ -115,7 +113,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, select, join
 from sqlalchemy.orm import lazyload
 
-from templates import admin as admin_template
+from api.admin.templates import admin as admin_template
 
 from api.authenticator import (
     AuthenticationProvider,
@@ -172,6 +170,10 @@ def setup_admin_controllers(manager):
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
     manager.admin_patron_controller = PatronController(manager)
+    from api.admin.controller.sitewide_settings import SitewideConfigurationSettingsController
+    manager.admin_sitewide_configuration_settings_controller = SitewideConfigurationSettingsController(manager)
+    from api.admin.controller.library_settings import LibrarySettingsController
+    manager.admin_library_settings_controller = LibrarySettingsController(manager)
 
 class AdminController(object):
 
@@ -1089,7 +1091,7 @@ class WorkController(AdminCirculationManagerController):
             draw = ImageDraw.Draw(image)
             image_width, image_height = image.size
 
-            admin_dir = os.path.split(__file__)[0]
+            admin_dir = os.path.dirname(os.path.split(__file__)[0])
             package_dir = os.path.join(admin_dir, "../..")
             bold_font_path = os.path.join(package_dir, "resources/OpenSans-Bold.ttf")
             regular_font_path = os.path.join(package_dir, "resources/OpenSans-Regular.ttf")
@@ -1633,7 +1635,6 @@ class CustomListsController(AdminCirculationManagerController):
 
             annotator = self.manager.annotator(worklist)
             url_fn = self.url_for_custom_list(library, list)
-
             feed = AcquisitionFeed.from_query(
                 query, self._db, list.name,
                 url, pagination, url_fn, annotator
@@ -2107,158 +2108,6 @@ class SettingsController(AdminCirculationManagerController):
                      FeedbooksOPDSImporter,
                     ]
 
-    def libraries(self):
-        if flask.request.method == 'GET':
-            libraries = []
-            for library in self._db.query(Library).order_by(Library.name):
-                # Only include libraries this admin has librarian access to.
-                if not flask.request.admin or not flask.request.admin.is_librarian(library):
-                    continue
-
-                settings = dict()
-                for setting in Configuration.LIBRARY_SETTINGS:
-                    if setting.get("type") == "list":
-                        value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
-                    else:
-                        value = ConfigurationSetting.for_library(setting.get("key"), library).value
-                    if value:
-                        settings[setting.get("key")] = value
-                libraries += [dict(
-                    uuid=library.uuid,
-                    name=library.name,
-                    short_name=library.short_name,
-                    settings=settings,
-                )]
-            return dict(libraries=libraries, settings=Configuration.LIBRARY_SETTINGS)
-
-
-        library_uuid = flask.request.form.get("uuid")
-        name = flask.request.form.get("name")
-        short_name = flask.request.form.get("short_name")
-
-        library = None
-        is_new = False
-
-        if not short_name:
-            return MISSING_LIBRARY_SHORT_NAME
-
-        # Verify that web colors have enough contrast.
-        background = flask.request.form.get(Configuration.WEB_BACKGROUND_COLOR, Configuration.DEFAULT_WEB_BACKGROUND_COLOR)
-        foreground = flask.request.form.get(Configuration.WEB_FOREGROUND_COLOR, Configuration.DEFAULT_WEB_FOREGROUND_COLOR)
-        def hex_to_rgb(hex):
-            hex = hex.lstrip("#")
-            return tuple(int(hex[i:i+2], 16)/255.0 for i in (0, 2 ,4))
-        if not wcag_contrast_ratio.passes_AA(wcag_contrast_ratio.rgb(hex_to_rgb(background), hex_to_rgb(foreground))):
-            contrast_check_url = "https://contrast-ratio.com/#%23" + foreground[1:] + "-on-%23" + background[1:]
-            return INVALID_CONFIGURATION_OPTION.detailed(
-                _("The web background and foreground colors don't have enough contrast to pass the WCAG 2.0 AA guidelines and will be difficult for some patrons to read. Check contrast <a href='%(contrast_check_url)s' target='_blank'>here</a>.",
-                  contrast_check_url=contrast_check_url))
-
-        # Verify that header links and labels are the same length.
-        header_links = flask.request.form.getlist(Configuration.WEB_HEADER_LINKS)
-        header_labels = flask.request.form.getlist(Configuration.WEB_HEADER_LABELS)
-        if len(header_links) != len(header_labels):
-            return INVALID_CONFIGURATION_OPTION.detailed(
-                _("There must be the same number of web header links and web header labels."))
-
-        if library_uuid:
-            # Library UUID is required when editing an existing library
-            # from the admin interface, and isn't present for new libraries.
-            library = get_one(
-                self._db, Library, uuid=library_uuid,
-            )
-            if not library:
-                return LIBRARY_NOT_FOUND.detailed(_("The specified library uuid does not exist."))
-
-        if not library or short_name != library.short_name:
-            # If you're adding a new short_name, either by editing an
-            # existing library or creating a new library, it must be unique.
-            library_with_short_name = get_one(self._db, Library, short_name=short_name)
-            if library_with_short_name:
-                return LIBRARY_SHORT_NAME_ALREADY_IN_USE
-
-        if not library:
-            self.require_system_admin()
-            library, is_new = create(
-                self._db, Library, short_name=short_name,
-                uuid=str(uuid.uuid4()))
-        else:
-            self.require_library_manager(library)
-
-        if name:
-            library.name = name
-        if short_name:
-            library.short_name = short_name
-
-        NO_VALUE = object()
-        for setting in Configuration.LIBRARY_SETTINGS:
-            # Start off by assuming the value is not set.
-            value = NO_VALUE
-            if setting.get("type") == "list":
-                if setting.get('options'):
-                    # Restrict to the values in 'options'.
-                    value = []
-                    for option in setting.get("options"):
-                        if setting["key"] + "_" + option["key"] in flask.request.form:
-                            value += [option["key"]]
-                else:
-                    # Allow any entered values.
-                    value = [item for item in flask.request.form.getlist(setting.get('key')) if item]
-                value = json.dumps(value)
-            elif setting.get("type") == "image":
-                image_file = flask.request.files.get(setting.get("key"))
-                if not image_file and not setting.get("optional"):
-                    self._db.rollback()
-                    return INCOMPLETE_CONFIGURATION.detailed(_(
-                        "The library is missing a required setting: %s." % setting.get("key")))
-                if image_file:
-                    allowed_types = [Representation.JPEG_MEDIA_TYPE, Representation.PNG_MEDIA_TYPE, Representation.GIF_MEDIA_TYPE]
-                    type = image_file.headers.get("Content-Type")
-                    if type not in allowed_types:
-                        self._db.rollback()
-                        return INVALID_CONFIGURATION_OPTION.detailed(_(
-                            "Upload for %(setting)s must be in GIF, PNG, or JPG format. (Upload was %(format)s.)",
-                            setting=setting.get("label"),
-                            format=type))
-                    image = Image.open(image_file)
-                    width, height = image.size
-                    if width > 135 or height > 135:
-                        image.thumbnail((135, 135), Image.ANTIALIAS)
-                    buffer = StringIO()
-                    image.save(buffer, format="PNG")
-                    b64 = base64.b64encode(buffer.getvalue())
-                    value = "data:image/png;base64,%s" % b64
-            else:
-                default = setting.get('default')
-                value = flask.request.form.get(setting['key'], default)
-            if value != NO_VALUE:
-                ConfigurationSetting.for_library(setting['key'], library).value = value
-            if not value and not setting.get("optional"):
-                self._db.rollback()
-                return INCOMPLETE_CONFIGURATION.detailed(
-                    _("The configuration is missing a required setting: %(setting)s",
-                      setting=setting.get("label"),
-                    ))
-
-        if is_new:
-            # Now that the configuration settings are in place, create
-            # a default set of lanes.
-            create_default_lanes(self._db, library)
-
-        if is_new:
-            return Response(unicode(library.uuid), 201)
-        else:
-            return Response(unicode(library.uuid), 200)
-
-    def library(self, library_uuid):
-        if flask.request.method == "DELETE":
-            self.require_system_admin()
-            library = get_one(self._db, Library, uuid=library_uuid)
-            if not library:
-                return LIBRARY_NOT_FOUND.detailed(_("The specified library uuid does not exist."))
-            self._db.delete(library)
-            return Response(unicode(_("Deleted")), 200)
-
     @classmethod
     def _get_integration_protocols(cls, provider_apis, protocol_name_attr="__module__"):
         protocols = []
@@ -2273,10 +2122,6 @@ class SettingsController(AdminCirculationManagerController):
             description = getattr(api, "DESCRIPTION", None)
             if description != None:
                 protocol["description"] = description
-
-            instructions = getattr(api, "INSTRUCTIONS", None)
-            if instructions != None:
-                protocol["instructions"] = instructions
 
             sitewide = getattr(api, "SITEWIDE", None)
             if sitewide != None:
@@ -2443,32 +2288,6 @@ class SettingsController(AdminCirculationManagerController):
         self._db.delete(integration)
         return Response(unicode(_("Deleted")), 200)
 
-    def _sitewide_settings_controller(self, configuration_object):
-        self.require_system_admin()
-
-        if flask.request.method == 'GET':
-            settings = []
-            for s in configuration_object.SITEWIDE_SETTINGS:
-                setting = ConfigurationSetting.sitewide(self._db, s.get("key"))
-                if setting.value:
-                    settings += [{ "key": setting.key, "value": setting.value }]
-
-            return dict(
-                settings=settings,
-                all_settings=configuration_object.SITEWIDE_SETTINGS,
-            )
-
-        key = flask.request.form.get("key")
-        if not key:
-            return MISSING_SITEWIDE_SETTING_KEY
-
-        value = flask.request.form.get("value")
-        if not value:
-            return MISSING_SITEWIDE_SETTING_VALUE
-
-        setting = ConfigurationSetting.sitewide(self._db, key)
-        setting.value = value
-        return Response(unicode(setting.key), 200)
 
     def _get_collection_protocols(self, provider_apis):
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
@@ -2745,7 +2564,7 @@ class SettingsController(AdminCirculationManagerController):
 
     def collection_library_registrations(
             self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
-            registration_class=Registration
+            key=None, registration_class=Registration
     ):
         """Use the ODPS Directory Registration Protocol to register a
         Collection with its remote source of truth.
@@ -3182,16 +3001,6 @@ class SettingsController(AdminCirculationManagerController):
         return self._delete_integration(
             service_id, ExternalIntegration.PATRON_AUTH_GOAL
         )
-
-    def sitewide_settings(self):
-        return self._sitewide_settings_controller(Configuration)
-
-    def sitewide_setting(self, key):
-        if flask.request.method == "DELETE":
-            self.require_system_admin()
-            setting = ConfigurationSetting.sitewide(self._db, key)
-            setting.value = None
-            return Response(unicode(_("Deleted")), 200)
 
     def logging_services(self):
         detail = _("You tried to create a new logging service, but a logging service is already configured.")
