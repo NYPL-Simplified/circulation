@@ -284,7 +284,7 @@ class TestOPDSFeed(RouteTest):
         )
 
     def test_navigation_feed(self):
-        # An incoming lane identifier is passed in to the feed()
+        # An incoming lane identifier is passed in to the navigation_feed()
         # method.
         url = '/navigation'
         self.assert_request_calls(url, self.controller.navigation, None)
