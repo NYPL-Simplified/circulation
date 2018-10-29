@@ -2615,7 +2615,7 @@ class SettingsController(AdminCirculationManagerController):
             registered = registration.push(
                 Registration.PRODUCTION_STAGE, self.url_for,
                 catalog_url=collection.external_account_id,
-                do_get=do_get, do_post=do_post, key=key
+                do_get=do_get, do_post=do_post
             )
             if isinstance(registered, ProblemDetail):
                 return registered
