@@ -2300,6 +2300,9 @@ class SettingsController(AdminCirculationManagerController):
             supports_registration = getattr(api, "SUPPORTS_REGISTRATION", None)
             if supports_registration != None:
                 protocol['supports_registration'] = supports_registration
+            supports_staging = getattr(api, "SUPPORTS_STAGING", None)
+            if supports_staging != None:
+                protocol['supports_staging'] = supports_staging
 
             protocols.append(protocol)
         return protocols
@@ -3600,6 +3603,7 @@ class SettingsController(AdminCirculationManagerController):
                     { "key": ExternalIntegration.URL, "label": _("URL") },
                 ],
                 "supports_registration": True,
+                "supports_staging": True,
             }
         ]
 
