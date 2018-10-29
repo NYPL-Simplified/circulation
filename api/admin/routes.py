@@ -391,14 +391,17 @@ def admin_auth_service(protocol):
 @requires_admin
 @requires_csrf_token
 def individual_admins():
-    return app.manager.admin_settings_controller.individual_admins()
+    if flask.request.method == 'GET':
+        return app.manager.admin_individual_admin_settings_controller.process_get()
+    else:
+        return app.manager.admin_individual_admin_settings_controller.process_post()
 
 @app.route("/admin/individual_admin/<email>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def individual_admin(email):
-    return app.manager.admin_settings_controller.individual_admin(email)
+    return app.manager.admin_individual_admin_settings_controller.process_delete(email)
 
 @app.route("/admin/patron_auth_services", methods=['GET', 'POST'])
 @returns_json_or_response_or_problem_detail
