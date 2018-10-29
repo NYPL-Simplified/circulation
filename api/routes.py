@@ -10,6 +10,7 @@ from flask import (
     make_response,
 )
 from flask_cors.core import get_cors_options, set_cors_headers
+from werkzeug.exceptions import HTTPException
 
 from app import app, babel
 
@@ -127,6 +128,11 @@ h = ErrorHandler(app, app.config['DEBUG'])
 @app.errorhandler(Exception)
 @allows_patron_web
 def exception_handler(exception):
+    if isinstance(exception, HTTPException):
+        # This isn't an exception we need to handle, it's werkzeug's way
+        # of interrupting normal control flow with a specific HTTP response.
+        # Return the exception and it will be used as the response.
+        return exception
     return h.handle(exception)
 
 def has_library(f):
@@ -219,6 +225,14 @@ def acquisition_groups(lane_identifier):
 @returns_problem_detail
 def feed(lane_identifier):
     return app.manager.opds_feeds.feed(lane_identifier)
+
+@library_dir_route('/navigation', defaults=dict(lane_identifier=None))
+@library_route('/navigation/<lane_identifier>')
+@has_library
+@allows_patron_web
+@returns_problem_detail
+def navigation_feed(lane_identifier):
+    return app.manager.opds_feeds.navigation(lane_identifier)
 
 @library_route('/crawlable')
 @has_library

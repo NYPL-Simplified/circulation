@@ -125,6 +125,7 @@ import base64
 import feedparser
 from core.opds import (
     AcquisitionFeed,
+    NavigationFeed,
 )
 from core.util.opds_writer import (
     OPDSFeed,
@@ -2669,6 +2670,39 @@ class TestFeedController(CirculationControllerTest):
         eq_(library.minimum_featured_quality, facets.minimum_featured_quality)
         eq_(lane.uses_customlists, facets.uses_customlists)
         AcquisitionFeed.groups = old_groups
+
+    def test_navigation(self):
+        library = self._default_library
+        lane = self.manager.top_level_lanes[library.id]
+        lane = self._db.merge(lane)
+
+        # Mock NavigationFeed.navigation so we can see the arguments going
+        # into it.
+        old_navigation = NavigationFeed.navigation
+        @classmethod
+        def mock_navigation(cls, *args, **kwargs):
+            self.called_with = (args, kwargs)
+            return old_navigation(*args, **kwargs)
+        NavigationFeed.navigation = mock_navigation
+
+        with self.request_context_with_library("/"):
+            response = self.manager.opds_feeds.navigation(lane.id)
+
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
+            # The default top-level lane is "World Languages", which contains
+            # sublanes for English, Spanish, Chinese, and French.
+            eq_(len(lane.sublanes), len(entries))
+
+        # A FeaturedFacets object was created from a combination of
+        # library configuration and lane configuration, and passed in
+        # to NavigationFeed.navigation().
+        args, kwargs = self.called_with
+        facets = kwargs['facets']
+        assert isinstance(facets, FeaturedFacets)
+        eq_(library.minimum_featured_quality, facets.minimum_featured_quality)
+        eq_(lane.uses_customlists, facets.uses_customlists)
+        NavigationFeed.navigation = old_navigation
 
     def _set_update_times(self):
         """Set the last update times so we can create a crawlable feed."""
