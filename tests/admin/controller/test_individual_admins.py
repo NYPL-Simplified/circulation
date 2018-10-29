@@ -151,20 +151,32 @@ class TestIndividualAdmins(SettingsControllerTest):
                     assert_raises(AdminNotAuthorized,
                                   self.manager.admin_individual_admin_settings_controller.process_post)
 
+        # Various types of user trying to change a system admin's roles
         test_changing_roles(system, system, allowed=True)
-        for admin in [sitewide_manager, sitewide_librarian, manager1, librarian1, manager2, librarian2]:
-            test_changing_roles(admin, system)
+        test_changing_roles(sitewide_manager, system)
+        test_changing_roles(sitewide_librarian, system)
+        test_changing_roles(manager1, system)
+        test_changing_roles(librarian1, system)
+        test_changing_roles(manager2, system)
+        test_changing_roles(librarian2, system)
 
-        for admin in [system, sitewide_manager]:
-            test_changing_roles(admin, sitewide_manager, allowed=True)
-        for admin in [sitewide_librarian, manager1, librarian1, manager2, librarian2]:
-            test_changing_roles(admin, sitewide_manager)
+        # Various types of user trying to change a sitewide manager's roles
+        test_changing_roles(system, sitewide_manager, allowed=True)
+        test_changing_roles(sitewide_manager, sitewide_manager, allowed=True)
+        test_changing_roles(sitewide_librarian, sitewide_manager)
+        test_changing_roles(manager1, sitewide_manager)
+        test_changing_roles(librarian1, sitewide_manager)
+        test_changing_roles(manager2, sitewide_manager)
+        test_changing_roles(librarian2, sitewide_manager)
 
-        for admin in [system, sitewide_manager]:
-            test_changing_roles(admin, sitewide_librarian, allowed=True)
-
-        for admin in [sitewide_librarian, manager1, librarian1, manager2, librarian2]:
-            test_changing_roles(admin, sitewide_librarian)
+        # Various types of user trying to change a sitewide librarian's roles
+        test_changing_roles(system, sitewide_librarian, allowed=True)
+        test_changing_roles(sitewide_manager, sitewide_librarian, allowed=True)
+        test_changing_roles(sitewide_librarian, sitewide_librarian)
+        test_changing_roles(manager1, sitewide_librarian)
+        test_changing_roles(librarian1, sitewide_librarian)
+        test_changing_roles(manager2, sitewide_librarian)
+        test_changing_roles(librarian2, sitewide_librarian)
 
         test_changing_roles(manager1, manager1, allowed=True)
         test_changing_roles(manager1, sitewide_librarian,
@@ -198,35 +210,64 @@ class TestIndividualAdmins(SettingsControllerTest):
                     assert_raises(AdminNotAuthorized,
                                   self.manager.admin_individual_admin_settings_controller.process_post)
 
+        # Various types of user trying to change a system admin's password
         test_changing_password(system, system, allowed=True)
-        for admin in [sitewide_manager, sitewide_librarian, manager1, librarian1, manager2, librarian2]:
-            test_changing_password(admin, system)
+        test_changing_password(sitewide_manager, system)
+        test_changing_password(sitewide_librarian, system)
+        test_changing_password(manager1, system)
+        test_changing_password(librarian1, system)
+        test_changing_password(manager2, system)
+        test_changing_password(librarian2, system)
 
-        for admin in [system, sitewide_manager]:
-            test_changing_password(admin, sitewide_manager, allowed=True)
-        for admin in [sitewide_librarian, manager1, librarian1, manager2, librarian2]:
-            test_changing_password(admin, sitewide_manager)
+        # Various types of user trying to change a sitewide manager's password
+        test_changing_password(system, sitewide_manager, allowed=True)
+        test_changing_password(sitewide_manager, sitewide_manager, allowed=True)
+        test_changing_password(sitewide_librarian, sitewide_manager)
+        test_changing_password(manager1, sitewide_manager)
+        test_changing_password(librarian1, sitewide_manager)
+        test_changing_password(manager2, sitewide_manager)
+        test_changing_password(librarian2, sitewide_manager)
 
-        for admin in [system, sitewide_manager, manager1, manager2]:
-            test_changing_password(admin, sitewide_librarian, allowed=True)
-        for admin in [sitewide_librarian, librarian1, librarian2]:
-            test_changing_password(admin, sitewide_librarian)
+        # Various types of user trying to change a sitewide librarian's password
+        test_changing_password(system, sitewide_librarian, allowed=True)
+        test_changing_password(sitewide_manager, sitewide_librarian, allowed=True)
+        test_changing_password(manager1, sitewide_librarian, allowed=True)
+        test_changing_password(manager2, sitewide_librarian, allowed=True)
+        test_changing_password(sitewide_librarian, sitewide_librarian)
+        test_changing_password(librarian1, sitewide_librarian)
+        test_changing_password(librarian2, sitewide_librarian)
 
-        for admin in [system, sitewide_manager, manager1]:
-            test_changing_password(admin, manager1, allowed=True)
-            test_changing_password(admin, librarian1, allowed=True)
+        # Various types of user trying to change a manager's password
+        # Manager 1
+        test_changing_password(system, manager1, allowed=True)
+        test_changing_password(sitewide_manager, manager1, allowed=True)
+        test_changing_password(manager1, manager1, allowed=True)
+        test_changing_password(sitewide_librarian, manager1)
+        test_changing_password(manager2, manager1)
+        test_changing_password(librarian2, manager1)
+        # Manager 2
+        test_changing_password(system, manager2, allowed=True)
+        test_changing_password(sitewide_manager, manager2, allowed=True)
+        test_changing_password(manager2, manager2, allowed=True)
+        test_changing_password(sitewide_librarian, manager2)
+        test_changing_password(manager1, manager2)
+        test_changing_password(librarian1, manager2)
 
-        for admin in [sitewide_librarian, manager2, librarian2]:
-            test_changing_password(admin, manager1)
-            test_changing_password(admin, librarian1)
-
-        for admin in [system, sitewide_manager, manager2]:
-            test_changing_password(admin, manager2, allowed=True)
-            test_changing_password(admin, librarian2, allowed=True)
-        for admin in [sitewide_librarian, manager1, librarian1]:
-            test_changing_password(admin, manager2)
-            test_changing_password(admin, librarian2)
-
+        # Various types of user trying to change a librarian's password
+        # Librarian 1
+        test_changing_password(system, librarian1, allowed=True)
+        test_changing_password(sitewide_manager, librarian1, allowed=True)
+        test_changing_password(manager1, librarian1, allowed=True)
+        test_changing_password(sitewide_librarian, librarian1)
+        test_changing_password(manager2, librarian1)
+        test_changing_password(librarian2, librarian1)
+        # Librarian 2
+        test_changing_password(system, librarian2, allowed=True)
+        test_changing_password(sitewide_manager, librarian2, allowed=True)
+        test_changing_password(manager2, librarian2, allowed=True)
+        test_changing_password(sitewide_librarian, librarian2)
+        test_changing_password(manager1, librarian2)
+        test_changing_password(librarian1, librarian2)
 
     def test_individual_admins_post_create(self):
         with self.request_context_with_admin("/", method="POST"):
