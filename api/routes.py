@@ -10,6 +10,7 @@ from flask import (
     make_response,
 )
 from flask_cors.core import get_cors_options, set_cors_headers
+from werkzeug.exceptions import HTTPException
 
 from app import app, babel
 
@@ -127,6 +128,11 @@ h = ErrorHandler(app, app.config['DEBUG'])
 @app.errorhandler(Exception)
 @allows_patron_web
 def exception_handler(exception):
+    if isinstance(exception, HTTPException):
+        # This isn't an exception we need to handle, it's werkzeug's way
+        # of interrupting normal control flow with a specific HTTP response.
+        # Return the exception and it will be used as the response.
+        return exception
     return h.handle(exception)
 
 def has_library(f):
