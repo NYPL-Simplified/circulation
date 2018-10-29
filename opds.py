@@ -405,6 +405,10 @@ class Annotator(object):
         return None
 
     @classmethod
+    def navigation_url(cls, lane):
+        raise NotImplementedError()
+
+    @classmethod
     def active_licensepool_for(cls, work):
         """Which license pool would be/has been used to issue a license for
         this work?
@@ -1643,6 +1647,71 @@ class LookupAcquisitionFeed(AcquisitionFeed):
                 "I know about this work but can offer no way of fulfilling it."
             )
 
+class NavigationFeed(OPDSFeed):
+
+    NO_CACHE = object()
+    FEED_CACHE_TIME = int(Configuration.get('default_feed_cache_time', 600))
+
+    @classmethod
+    def navigation(cls, _db, title, url, lane, annotator,
+                   cache_type=None, force_refresh=False, facets=None):
+        """The navigation feed with links to a given lane's sublanes."""
+
+        if not annotator:
+            annotator = Annotator
+        if callable(annotator):
+            annotator = annotator()
+        cached = None
+        use_cache = cache_type != cls.NO_CACHE
+        facets = facets or lane.default_featured_facets(_db)
+        if use_cache:
+            cache_type = cache_type or CachedFeed.NAVIGATION_TYPE
+            cached, usable = CachedFeed.fetch(
+                _db,
+                lane=lane,
+                type=cache_type,
+                facets=facets,
+                pagination=None,
+                annotator=annotator,
+                force_refresh=force_refresh,
+            )
+            if usable:
+                return cached.content
+
+        feed = NavigationFeed(title, url)
+
+        if not lane.children:
+            # We can't generate links to sublanes since this lane has no sublanes,
+            # so we'll generate a link to its page-type feed instead.
+            title = "All " + lane.display_name
+            page_url = annotator.feed_url(lane)
+            feed.add_entry(page_url, title, cls.ACQUISITION_FEED_TYPE)
+
+        for sublane in lane.children:
+            title = sublane.display_name
+            if sublane.children:
+                sublane_url = annotator.navigation_url(sublane)
+                feed.add_entry(sublane_url, title, cls.NAVIGATION_FEED_TYPE)
+            else:
+                sublane_url = annotator.feed_url(sublane)
+                feed.add_entry(sublane_url, title, cls.ACQUISITION_FEED_TYPE)
+
+        annotator.annotate_feed(feed, lane)
+
+        content = unicode(feed)
+        if cached and use_cache:
+            cached.update(_db, content)
+        return content
+
+    def add_entry(self, url, title, type=OPDSFeed.NAVIGATION_FEED_TYPE):
+        """Create an OPDS navigation entry for a URL."""
+        entry = AtomFeed.entry(
+            AtomFeed.title(title))
+        entry.extend([AtomFeed.id(url)])
+        entry.extend([AtomFeed.link(rel="subsection", href=url, type=type)])
+        self.feed.append(entry)
+
+
 # Mock annotators for use in unit tests.
 
 class TestAnnotator(Annotator):
@@ -1711,6 +1780,14 @@ class TestAnnotator(Annotator):
         return "http://facet/" + "&".join(
             ["%s=%s" % (k, v) for k, v in sorted(facets.items())]
         )
+
+    @classmethod
+    def navigation_url(cls, lane):
+        if lane and isinstance(lane, Lane):
+            identifier = lane.id
+        else:
+            identifier = ""
+        return "http://navigation/%s" % identifier
 
     @classmethod
     def top_level_title(cls):

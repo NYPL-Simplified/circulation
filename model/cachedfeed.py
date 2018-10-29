@@ -37,7 +37,7 @@ class CachedFeed(Base):
     # Every feed has a timestamp reflecting when it was created.
     timestamp = Column(DateTime, nullable=True, index=True)
 
-    # A feed is of a certain type--currently either 'page' or 'groups'.
+    # A feed is of a certain type--such as 'page' or 'groups'.
     type = Column(Unicode, nullable=False)
 
     # A feed associated with a WorkList can have a unique key.
@@ -65,6 +65,7 @@ class CachedFeed(Base):
 
     GROUPS_TYPE = u'groups'
     PAGE_TYPE = u'page'
+    NAVIGATION_TYPE = u'navigation'
     RECOMMENDATIONS_TYPE = u'recommendations'
     SERIES_TYPE = u'series'
     CONTRIBUTOR_TYPE = u'contributor'
