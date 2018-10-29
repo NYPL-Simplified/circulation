@@ -78,7 +78,6 @@ class LibrarySettingsController(AdminCirculationManagerController):
             library.short_name = short_name
 
         self.library_configuration_settings(library)
-
         if is_new:
             # Now that the configuration settings are in place, create
             # a default set of lanes.
