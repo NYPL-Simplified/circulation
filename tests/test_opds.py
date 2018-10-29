@@ -150,6 +150,11 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         assert str(self.lane.id) in feed_url_fantasy
         assert self._default_library.name not in feed_url_fantasy
 
+    def test_navigation_url(self):
+        navigation_url_fantasy = self.annotator.navigation_url(self.lane)
+        assert "navigation" in navigation_url_fantasy
+        assert str(self.lane.id) in navigation_url_fantasy
+
     def test_rights_attributes(self):
         m = self.annotator.rights_attributes
 
