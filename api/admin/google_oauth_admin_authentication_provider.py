@@ -39,7 +39,12 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
 
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "label": _("Authentication URI"), "default": "https://accounts.google.com/o/oauth2/auth" },
+        {
+          "key": ExternalIntegration.URL,
+          "label": _("Authentication URI"),
+          "default": "https://accounts.google.com/o/oauth2/auth",
+          "required": True,
+        },
         { "key": ExternalIntegration.USERNAME, "label": _("Client ID"), "required": True },
         { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret"), "required": True },
     ]

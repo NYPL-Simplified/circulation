@@ -181,7 +181,7 @@ MISSING_ANALYTICS_NAME = pd(
     "http://librarysimplified.org/terms/problem/missing-analytics-name",
     status_code=400,
     title=_("Missing analytics name."),
-    detail=_("You must identify the analytics by its name."),
+    detail=_("You must identify the analytics service by its name."),
 )
 
 COLLECTION_NAME_ALREADY_IN_USE = pd(
