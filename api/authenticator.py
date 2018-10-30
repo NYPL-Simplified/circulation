@@ -1554,6 +1554,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
               { "key": BARCODE_FORMAT_NONE, "label": _("Patron identifiers are not rendered as barcodes") },
           ],
           "default": BARCODE_FORMAT_NONE,
+          "required": True,
         },
         { "key": IDENTIFIER_REGULAR_EXPRESSION,
           "label": _("Identifier Regular Expression"),
@@ -1572,7 +1573,8 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
                 "label": _("Email address entry") },
               { "key": NUMBER_PAD, "label": _("Number pad") },
           ],
-          "default": DEFAULT_KEYBOARD
+          "default": DEFAULT_KEYBOARD,
+          "required": True,
         },
         { "key": PASSWORD_KEYBOARD,
           "label": _("Keyboard for password entry"),

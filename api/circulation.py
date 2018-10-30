@@ -1147,7 +1147,6 @@ class BaseCirculationAPI(object):
     DEFAULT_LOAN_DURATION_SETTING = {
         "key": Collection.EBOOK_LOAN_DURATION_KEY,
         "label": _("Default Loan Period (in Days)"),
-        "optional": True,
         "type": "number",
         "default": Collection.STANDARD_DEFAULT_LOAN_PERIOD,
         "description": _("Until it hears otherwise from the distributor, this server will assume that any given loan for this library from this collection will last this number of days. This number is usually a negotiated value between the library and the distributor. This only affects estimates&mdash;it cannot affect the actual length of loans.")

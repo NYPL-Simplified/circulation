@@ -107,7 +107,6 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             LIBRARY_SETTINGS.append({
                 "key": BasicAuthenticationProvider.LIBRARY_IDENTIFIER_FIELD,
                 "label": _("Library Identifier Field"),
-                "optional": True,
                 "description": _("This is the field on the patron record that the <em>Library Identifier Restriction " +
                                  "Type</em> is applied to. The option 'barcode' matches the users barcode, other " +
                                  "values are pulled directly from the patron record for example: 'P TYPE[p47]'. " +

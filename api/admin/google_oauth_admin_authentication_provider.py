@@ -52,7 +52,6 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
     LIBRARY_SETTINGS = [
         { "key": DOMAINS,
           "label": _("Allowed Domains"),
-          "optional": True,
           "description": _("Anyone who logs in with an email address from one of these domains will automatically have librarian-level access to this library. Library manager roles must still be granted individually by other admins. If you want to set up admins individually but still allow them to log in with Google, you can create the admin authentication service without adding any libraries."),
           "type": "list" },
     ]

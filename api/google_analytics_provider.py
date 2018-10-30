@@ -50,7 +50,7 @@ class GoogleAnalyticsProvider(object):
     ]
 
     LIBRARY_SETTINGS = [
-        { "key": TRACKING_ID, "label": _("Tracking ID") },
+        { "key": TRACKING_ID, "label": _("Tracking ID"), "required": True },
     ]
 
     def __init__(self, integration, library=None):

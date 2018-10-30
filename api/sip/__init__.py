@@ -28,7 +28,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         { "key": ExternalIntegration.PASSWORD, "label": _("Login Password") },
         { "key": LOCATION_CODE, "label": _("Location Code") },
         { "key": FIELD_SEPARATOR, "label": _("Field Separator"),
-          "default": "|",
+          "default": "|", "required": True,
         },
     ] + BasicAuthenticationProvider.SETTINGS
 
