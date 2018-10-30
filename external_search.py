@@ -60,9 +60,10 @@ class ExternalSearchIndex(object):
     VERSION_RE = re.compile('-v([0-9]+)$')
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "label": _("URL") },
+        { "key": ExternalIntegration.URL, "label": _("URL"), "required": True },
         { "key": WORKS_INDEX_PREFIX_KEY, "label": _("Index prefix"),
           "default": DEFAULT_WORKS_INDEX_PREFIX,
+          "required": True,
           "description": _("Any Elasticsearch indexes needed for this application will be created with this unique prefix. In most cases, the default will work fine. You may need to change this if you have multiple application servers using a single Elasticsearch server.")
         },
     ]

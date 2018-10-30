@@ -41,12 +41,12 @@ class S3Uploader(MirrorUploader):
     }
 
     SETTINGS = [
-        { "key": ExternalIntegration.USERNAME, "label": _("Access Key") },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Secret Key") },
-        { "key": BOOK_COVERS_BUCKET_KEY, "label": _("Book Covers Bucket"), "optional": True,
+        { "key": ExternalIntegration.USERNAME, "label": _("Access Key"), "required": True },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Secret Key"), "required": True },
+        { "key": BOOK_COVERS_BUCKET_KEY, "label": _("Book Covers Bucket"),
           "description" : _("All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
         },
-        { "key": OA_CONTENT_BUCKET_KEY, "label": _("Open Access Content Bucket"), "optional": True,
+        { "key": OA_CONTENT_BUCKET_KEY, "label": _("Open Access Content Bucket"),
           "description" : _("All open-access books encountered will be uploaded to this S3 bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
         },
         { "key": URL_TEMPLATE_KEY, "label": _("URL format"),
