@@ -4657,6 +4657,7 @@ class TestSettingsController(SettingsControllerTest):
             (B.TEST_PASSWORD, "pass"),
             (B.IDENTIFIER_KEYBOARD, B.DEFAULT_KEYBOARD),
             (B.PASSWORD_KEYBOARD, B.DEFAULT_KEYBOARD),
+            (B.IDENTIFIER_BARCODE_FORMAT, B.BARCODE_FORMAT_CODABAR),
         ]
 
     def test_patron_auth_services_post_errors(self):
