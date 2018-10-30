@@ -1037,7 +1037,7 @@ class WorkList(object):
 
     def get_customlists(self, _db):
         """Get customlists associated with the Worklist."""
-        if hasattr(self, "_customlist_ids"):
+        if hasattr(self, "_customlist_ids") and self._customlist_ids is not None:
             return _db.query(CustomList).filter(CustomList.id.in_(self._customlist_ids)).all()
         return []
 
