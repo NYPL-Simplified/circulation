@@ -154,6 +154,9 @@ class IndividualAdminSettingsController(AdminCirculationManagerController):
             # libraries, or if they are editing a new admin or an admin who has no
             # roles yet.
             # TODO: set up password reset emails instead.
+            # NOTE: librarians can change their own passwords via SignInController.change_password(),
+            # but not via this controller; this is because they don't have access to the
+            # IndividualAdmins create/edit form.
             if not is_new and not admin.is_sitewide_library_manager():
                 can_change_pw = False
                 if not admin.roles:
