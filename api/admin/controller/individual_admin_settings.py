@@ -50,7 +50,7 @@ class IndividualAdminSettingsController(AdminCirculationManagerController):
         settingUp = (self._db.query(Admin).count() == 0)
 
         admin, is_new = get_one_or_create(self._db, Admin, email=email)
-        self.check_permissions(user, admin, settingUp)
+        self.check_permissions(admin, settingUp)
 
         roles = flask.request.form.get("roles")
         if roles:
@@ -67,7 +67,9 @@ class IndividualAdminSettingsController(AdminCirculationManagerController):
 
         return self.response(admin, is_new)
 
-    def check_permissions(self, user, admin, settingUp):
+    def check_permissions(self, admin, settingUp):
+        """Before going any further, check that the user actually has permission
+         to create/edit this type of admin"""
         # User must be a sitewide library manager in order to create/edit
         # a sitewide library manager.
         if admin.is_sitewide_library_manager() and not settingUp:
@@ -77,6 +79,8 @@ class IndividualAdminSettingsController(AdminCirculationManagerController):
             self.require_system_admin()
 
     def validate_form_fields(self, email):
+        # At the moment, this just checks whether the email field is blank. It will
+        # eventually also check whether the input is formatted as a valid email address.
         if not email:
             return INCOMPLETE_CONFIGURATION
 
@@ -85,6 +89,8 @@ class IndividualAdminSettingsController(AdminCirculationManagerController):
             return UNKNOWN_ROLE
 
     def look_up_library_for_role(self, role):
+        """If the role is affiliated with a particular library, as opposed to being
+        sitewide, find the library (and check that it actually exists)."""
         library = None
         library_short_name = role.get("library")
         if library_short_name:
@@ -94,6 +100,8 @@ class IndividualAdminSettingsController(AdminCirculationManagerController):
         return library
 
     def handle_roles(self, user, admin, roles, settingUp):
+        """Compare the admin's existing set of roles against the roles submitted in the form, and,
+        unless there's a problem with the roles or the permissions, modify the admin's roles accordingly"""
         old_roles = admin.roles
         old_roles_set = set((role.role, role.library) for role in old_roles)
 
@@ -138,9 +146,10 @@ class IndividualAdminSettingsController(AdminCirculationManagerController):
                     continue
 
     def handle_password(self, password, admin, is_new, user):
+        """Check that the user has permission to change this type of admin's password"""
         if password:
             # If the admin we're editing has a sitewide manager role, we've already verified
-            # the current admin's role above. Otherwise, an admin can only change that
+            # the current admin's role in check_permissions. Otherwise, an admin can only change that
             # admin's password if they are a library manager of one of that admin's
             # libraries, or if they are editing a new admin or an admin who has no
             # roles yet.
@@ -176,8 +185,6 @@ class IndividualAdminSettingsController(AdminCirculationManagerController):
             return Response(unicode(admin.email), 201)
         else:
             return Response(unicode(admin.email), 200)
-
-
 
     def process_delete(self, email):
         self.require_sitewide_library_manager()
