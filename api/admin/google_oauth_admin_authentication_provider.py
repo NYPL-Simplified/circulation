@@ -39,15 +39,19 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
 
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "label": _("Authentication URI"), "default": "https://accounts.google.com/o/oauth2/auth" },
-        { "key": ExternalIntegration.USERNAME, "label": _("Client ID") },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+        {
+          "key": ExternalIntegration.URL,
+          "label": _("Authentication URI"),
+          "default": "https://accounts.google.com/o/oauth2/auth",
+          "required": True,
+        },
+        { "key": ExternalIntegration.USERNAME, "label": _("Client ID"), "required": True },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret"), "required": True },
     ]
 
     LIBRARY_SETTINGS = [
         { "key": DOMAINS,
           "label": _("Allowed Domains"),
-          "optional": True,
           "description": _("Anyone who logs in with an email address from one of these domains will automatically have librarian-level access to this library. Library manager roles must still be granted individually by other admins. If you want to set up admins individually but still allow them to log in with Google, you can create the admin authentication service without adding any libraries."),
           "type": "list" },
     ]

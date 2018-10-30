@@ -194,6 +194,7 @@ class TestLibrarySettings(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("name", "The New York Public Library"),
                 ("short_name", "nypl"),
+                ("library_description", "Short description of library"),
                 (Configuration.WEBSITE_URL, "https://library.library/"),
                 (Configuration.TINY_COLLECTION_LANGUAGES, 'ger'),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),

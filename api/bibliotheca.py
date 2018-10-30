@@ -113,9 +113,9 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
     DEFAULT_BASE_URL = "https://partner.yourcloudlibrary.com/"
 
     SETTINGS = [
-        { "key": ExternalIntegration.USERNAME, "label": _("Account ID") },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Account Key") },
-        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
+        { "key": ExternalIntegration.USERNAME, "label": _("Account ID"), "required": True },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Account Key"), "required": True },
+        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID"), "required": True },
     ] + BaseCirculationAPI.SETTINGS
 
     LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [

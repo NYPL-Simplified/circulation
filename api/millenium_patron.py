@@ -71,7 +71,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     ]
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "label": _("URL") },
+        { "key": ExternalIntegration.URL, "label": _("URL"), "required": True },
         { "key": VERIFY_CERTIFICATE, "label": _("Certificate Verification"),
           "type": "select", "options": [
               { "key": "true", "label": _("Verify Certificate Normally (Required for production)") },
@@ -81,7 +81,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         },
         { "key": BLOCK_TYPES, "label": _("Block types"),
           "description": _("Values of MBLOCK[p56] which mean a patron is blocked. By default, any value other than '-' indicates a block."),
-          "optional": True },
+        },
         { "key": IDENTIFIER_BLACKLIST, "label": _("Identifier Blacklist"),
           "type": "list",
           "description": _("Identifiers containing any of these strings are ignored when finding the 'correct' " +
@@ -89,7 +89,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                            "If librarians invalidate library cards by adding strings like \"EXPIRED\" or \"INVALID\" " +
                            "on to the beginning of the card number, put those strings here so the Circulation Manager " +
                            "knows they do not represent real card numbers."),
-          "optional": True },
+        },
         { "key": AUTHENTICATION_MODE, "label": _("Authentication Mode"),
           "type": "select",
           "options": [
@@ -107,7 +107,6 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             LIBRARY_SETTINGS.append({
                 "key": BasicAuthenticationProvider.LIBRARY_IDENTIFIER_FIELD,
                 "label": _("Library Identifier Field"),
-                "optional": True,
                 "description": _("This is the field on the patron record that the <em>Library Identifier Restriction " +
                                  "Type</em> is applied to. The option 'barcode' matches the users barcode, other " +
                                  "values are pulled directly from the patron record for example: 'P TYPE[p47]'. " +
