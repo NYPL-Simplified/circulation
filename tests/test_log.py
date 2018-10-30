@@ -13,10 +13,14 @@ from ..log import (
     UTF8Formatter,
     JSONFormatter,
     LogglyHandler,
+    CloudWatchLogHandler,
+    MockCloudWatchLogHandler,
     LogConfiguration,
     SysLogger,
     Loggly,
-    Logger
+    CloudwatchLogs,
+    Logger,
+    CannotLoadConfiguration
 )
 from ..model import (
     ExternalIntegration,
@@ -69,6 +73,18 @@ class TestLogConfiguration(DatabaseTest):
         integration.password = "a_token"
         return integration
 
+    def cloudwatch_integration(self):
+        """Create an ExternalIntegration for a Cloudwatch account."""
+        integration = self._external_integration(
+            protocol=ExternalIntegration.CLOUDWATCH,
+            goal=ExternalIntegration.LOGGING_GOAL
+        )
+
+        integration.set_setting(CloudwatchLogs.GROUP, "test_group")
+        integration.set_setting(CloudwatchLogs.STREAM, "test_stream")
+        integration.set_setting(CloudwatchLogs.INTERVAL, 60)
+        return integration
+
     def test_from_configuration(self):
         cls = LogConfiguration
         config = Configuration
@@ -93,7 +109,7 @@ class TestLogConfiguration(DatabaseTest):
         assert isinstance(handler.formatter, JSONFormatter)
 
         # Let's set up a Loggly integration and change the defaults.
-        loggly = self.loggly_integration()
+        self.loggly_integration()
         internal = self._external_integration(
             protocol=ExternalIntegration.INTERNAL_LOGGING,
             goal=ExternalIntegration.LOGGING_GOAL
@@ -128,23 +144,31 @@ class TestLogConfiguration(DatabaseTest):
         eq_(cls.WARN, database_log_level)
         eq_(SysLogger.DEFAULT_MESSAGE_TEMPLATE, handler.formatter._fmt)
 
-    def test_defaults(self):
+    def test_syslog_defaults(self):
         cls = SysLogger
-        template = SysLogger.DEFAULT_MESSAGE_TEMPLATE
 
-        # Normally the default log level is INFO and log messages are
-        # emitted in JSON format.
+        # Normally log messages are emitted in JSON format.
         eq_(
-            (cls.INFO, SysLogger.JSON_LOG_FORMAT, cls.WARN,
-             SysLogger.DEFAULT_MESSAGE_TEMPLATE),
+            (SysLogger.JSON_LOG_FORMAT, SysLogger.DEFAULT_MESSAGE_TEMPLATE),
             cls._defaults(testing=False)
         )
 
-        # When we're running unit tests, the default log level is INFO
-        # and log messages are emitted in text format.
+        # When we're running unit tests, log messages are emitted in text format.
         eq_(
-            (cls.INFO, SysLogger.TEXT_LOG_FORMAT, cls.WARN,
-             SysLogger.DEFAULT_MESSAGE_TEMPLATE),
+            (SysLogger.TEXT_LOG_FORMAT, SysLogger.DEFAULT_MESSAGE_TEMPLATE),
+            cls._defaults(testing=True)
+        )
+
+    def test_defaults(self):
+        cls = LogConfiguration
+
+        eq_(
+            (cls.INFO, cls.WARN),
+            cls._defaults(testing=False)
+        )
+
+        eq_(
+            (cls.INFO, cls.WARN),
             cls._defaults(testing=True)
         )
 
@@ -155,8 +179,10 @@ class TestLogConfiguration(DatabaseTest):
         # Configure it for text output.
         template = '%(filename)s:%(message)s'
         SysLogger.set_formatter(
-            handler, SysLogger.TEXT_LOG_FORMAT, template,
-            "some app"
+            handler,
+            log_format=SysLogger.TEXT_LOG_FORMAT,
+            message_template=template,
+            app_name="some app"
         )
         formatter = handler.formatter
         assert isinstance(formatter, UTF8Formatter)
@@ -165,7 +191,7 @@ class TestLogConfiguration(DatabaseTest):
         # Configure a similar handler for JSON output.
         handler = logging.StreamHandler()
         SysLogger.set_formatter(
-            handler, SysLogger.JSON_LOG_FORMAT, template, None
+            handler, log_format=SysLogger.JSON_LOG_FORMAT, message_template=template
         )
         formatter = handler.formatter
         assert isinstance(formatter, JSONFormatter)
@@ -198,6 +224,21 @@ class TestLogConfiguration(DatabaseTest):
         handler = Loggly.loggly_handler(integration)
         eq_(Loggly.DEFAULT_LOGGLY_URL % dict(token="a_token"),
             handler.url)
+
+    def test_cloudwatch_handler(self):
+        """Turn an appropriate ExternalIntegration into a CloudWatchLogHandler."""
+
+        integration = self.cloudwatch_integration()
+        handler = CloudwatchLogs.get_handler(integration, testing=True)
+        assert isinstance(handler, MockCloudWatchLogHandler)
+        eq_("test_stream", handler.stream_name)
+        eq_("test_group", handler.log_group)
+        eq_(60, handler.send_interval)
+
+        integration.setting(CloudwatchLogs.INTERVAL).value = -10
+        assert_raises(CannotLoadConfiguration, CloudwatchLogs.get_handler, integration, True)
+        integration.setting(CloudwatchLogs.INTERVAL).value = "a string"
+        assert_raises(CannotLoadConfiguration, CloudwatchLogs.get_handler, integration, True)
 
     def test_interpolate_loggly_url(self):
         m = Loggly._interpolate_loggly_url

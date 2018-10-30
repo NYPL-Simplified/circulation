@@ -8,7 +8,9 @@ from flask_babel import lazy_gettext as _
 from config import Configuration
 from StringIO import StringIO
 from loggly.handlers import HTTPSHandler as LogglyHandler
-
+from watchtower import CloudWatchLogHandler
+from config import CannotLoadConfiguration
+from model import ExternalIntegration, ConfigurationSetting
 
 class JSONFormatter(logging.Formatter):
     hostname = socket.gethostname()
@@ -52,22 +54,40 @@ class UTF8Formatter(logging.Formatter):
         return data
 
 class Logger(object):
-
-    DEBUG = "DEBUG"
-    INFO = "INFO"
-    WARN = "WARN"
-    ERROR = "ERROR"
+    """Abstract base class for logging"""
 
     DEFAULT_APP_NAME = 'simplified'
+
+    JSON_LOG_FORMAT = 'json'
+    TEXT_LOG_FORMAT = 'text'
+    DEFAULT_MESSAGE_TEMPLATE = "%(asctime)s:%(name)s:%(levelname)s:%(filename)s:%(message)s"
+
+    @classmethod
+    def set_formatter(cls, handler, app_name=None, log_format=None, message_template=None):
+        """Tell the given `handler` to format its log messages in a
+        certain way.
+        """
+        # Initialize defaults
+        if log_format is None:
+            log_format = cls.JSON_LOG_FORMAT
+        if message_template is None:
+            message_template = cls.DEFAULT_MESSAGE_TEMPLATE
+
+        if log_format == cls.JSON_LOG_FORMAT:
+            formatter = JSONFormatter(app_name)
+        else:
+            formatter = UTF8Formatter(message_template)
+        handler.setFormatter(formatter)
+
+    @classmethod
+    def from_configuration(cls, _db, testing=False):
+        """Should be implemented in each logging class."""
+        raise NotImplementedError()
 
 class SysLogger(Logger):
 
     NAME = 'sysLog'
 
-    JSON_LOG_FORMAT = 'json'
-    TEXT_LOG_FORMAT = 'text'
-
-    DEFAULT_MESSAGE_TEMPLATE = "%(asctime)s:%(name)s:%(levelname)s:%(filename)s:%(message)s"
     # Settings for the integration with protocol=INTERNAL_LOGGING
     LOG_FORMAT = 'log_format'
     LOG_MESSAGE_TEMPLATE = 'message_template'
@@ -76,13 +96,13 @@ class SysLogger(Logger):
         {
             "key": LOG_FORMAT, "label": _("Log Format"), "type": "select",
             "options": [
-                { "key": JSON_LOG_FORMAT, "label": _("json") },
-                { "key": TEXT_LOG_FORMAT, "label": _("text") }
+                { "key": Logger.JSON_LOG_FORMAT, "label": _("json") },
+                { "key": Logger.TEXT_LOG_FORMAT, "label": _("text") }
             ]
         },
         {
             "key": LOG_MESSAGE_TEMPLATE, "label": _("template"),
-            "default": DEFAULT_MESSAGE_TEMPLATE,
+            "default": Logger.DEFAULT_MESSAGE_TEMPLATE,
             "required": True,
         }
     ]
@@ -97,16 +117,11 @@ class SysLogger(Logger):
         else:
             internal_log_format = cls.JSON_LOG_FORMAT
         message_template = cls.DEFAULT_MESSAGE_TEMPLATE
-        internal_log_level = cls.INFO
-        database_log_level = cls.WARN
-        return (internal_log_level, internal_log_format, database_log_level,
-            message_template)
+        return internal_log_format, message_template
 
     @classmethod
     def from_configuration(cls, _db, testing=False):
-        from model import (ExternalIntegration, ConfigurationSetting)
-        (internal_log_level, internal_log_format, database_log_level,
-            message_template) = cls._defaults(testing)
+        (internal_log_format, message_template) = cls._defaults(testing)
         app_name = cls.DEFAULT_APP_NAME
 
         if _db and not testing:
@@ -124,31 +139,11 @@ class SysLogger(Logger):
                     internal.setting(cls.LOG_MESSAGE_TEMPLATE).value
                     or message_template
                 )
-                internal_log_level = (
-                    ConfigurationSetting.sitewide(_db, Configuration.LOG_LEVEL).value
-                    or internal_log_level
-                )
-                database_log_level = (
-                    ConfigurationSetting.sitewide(_db, Configuration.DATABASE_LOG_LEVEL).value
-                    or database_log_level
-                )
                 app_name = ConfigurationSetting.sitewide(_db, Configuration.LOG_APP_NAME).value or app_name
 
         handler = logging.StreamHandler()
-        cls.set_formatter(handler, internal_log_format, message_template, app_name)
-
-        return (handler, internal_log_level, database_log_level)
-
-    @classmethod
-    def set_formatter(cls, handler, log_format, message_template, app_name):
-        """Tell the given `handler` to format its log messages in a
-        certain way.
-        """
-        if (log_format == cls.JSON_LOG_FORMAT):
-            formatter = JSONFormatter(app_name)
-        else:
-            formatter = UTF8Formatter(message_template)
-        handler.setFormatter(formatter)
+        cls.set_formatter(handler, log_format=internal_log_format, message_template=message_template, app_name=app_name)
+        return handler
 
 class Loggly(Logger):
 
@@ -224,6 +219,68 @@ class Loggly(Logger):
         formatter = JSONFormatter(app_name)
         handler.setFormatter(formatter)
 
+class CloudwatchLogs(Logger):
+
+    NAME = "AWS Cloudwatch Logs"
+
+    GROUP = 'group'
+    STREAM = 'stream'
+    INTERVAL = 'interval'
+
+    DEFAULT_INTERVAL = 60
+
+    SETTINGS = [
+        { "key": GROUP, "label": _("Log Group") },
+        { "key": STREAM, "label": _("Log Stream") },
+        { "key": INTERVAL, "label": _("Update Interval Seconds") },
+    ]
+
+    SITEWIDE = True
+
+    @classmethod
+    def from_configuration(cls, _db, testing=False):
+        settings = None
+        cloudwatch = None
+        from model import (ExternalIntegration, ConfigurationSetting)
+
+        app_name = cls.DEFAULT_APP_NAME
+        if _db and not testing:
+            goal = ExternalIntegration.LOGGING_GOAL
+            settings = ExternalIntegration.lookup(
+                _db, ExternalIntegration.CLOUDWATCH, goal
+            )
+            app_name = ConfigurationSetting.sitewide(_db, Configuration.LOG_APP_NAME).value or app_name
+
+        if settings:
+            cloudwatch = cls.get_handler(settings, testing)
+            cls.set_formatter(cloudwatch, app_name)
+
+        return cloudwatch
+
+    @classmethod
+    def get_handler(cls, settings, testing=False):
+        """Turn a Loggly ExternalIntegration into a log handler.
+        """
+        group = settings.setting(cls.GROUP).value or cls.DEFAULT_APP_NAME
+        stream = settings.setting(cls.STREAM).value or cls.DEFAULT_APP_NAME
+        interval = settings.setting(cls.INTERVAL).value or cls.DEFAULT_INTERVAL
+        try:
+            interval = int(interval)
+            if interval <= 0:
+                raise CannotLoadConfiguration(
+                    "AWS Cloudwatch Logs interval must be a positive integer."
+                )
+        except ValueError:
+            raise CannotLoadConfiguration(
+                "AWS Cloudwatch Logs interval configuration must be an integer."
+            )
+        if testing:
+            cloudwatch = MockCloudWatchLogHandler
+        else:
+            cloudwatch = CloudWatchLogHandler
+
+        return cloudwatch(log_group=group, stream_name=stream, send_interval=interval)
+
 class LogConfiguration(object):
     """Configures the active Python logging handlers based on logging
     configuration from the database.
@@ -238,6 +295,9 @@ class LogConfiguration(object):
     # unless LOG_APP_NAME overrides it.
     DEFAULT_APP_NAME = 'simplified'
     LOG_APP_NAME = 'log_app'
+
+    DEFAULT_LOG_LEVEL = INFO
+    DEFAULT_DATABASE_LOG_LEVEL = WARN
 
     # Settings for the integration with protocol=INTERNAL_LOGGING
     LOG_LEVEL = 'log_level'
@@ -263,6 +323,12 @@ class LogConfiguration(object):
           "default": WARN,
         },
     ]
+
+    @classmethod
+    def _defaults(cls, testing=False):
+        log_level = cls.DEFAULT_LOG_LEVEL
+        database_log_level = cls.DEFAULT_DATABASE_LOG_LEVEL
+        return log_level, database_log_level
 
     @classmethod
     def initialize(cls, _db, testing=False):
@@ -329,13 +395,35 @@ class LogConfiguration(object):
         Handler objects that will be associated with the top-level
         logger.
         """
+        (log_level, database_log_level) = cls._defaults(testing)
 
+        if _db and not testing:
+            log_level = (
+                ConfigurationSetting.sitewide(_db, Configuration.LOG_LEVEL).value
+                or log_level
+            )
+            database_log_level = (
+                ConfigurationSetting.sitewide(_db, Configuration.DATABASE_LOG_LEVEL).value
+                or database_log_level
+            )
+
+        loggers = [SysLogger, Loggly, CloudwatchLogs]
         handlers = []
 
-        (sysLogglerHandler, internal_log_level, database_log_level) = SysLogger.from_configuration(_db, testing)
-        handlers.append(sysLogglerHandler)
-        loggly = Loggly.from_configuration(_db, testing)
-        if loggly:
-            handlers.append(loggly)
+        for logger in loggers:
+            handler = logger.from_configuration(_db, testing)
+            if handler:
+                handlers.append(handler)
 
-        return internal_log_level, database_log_level, handlers
+        return log_level, database_log_level, handlers
+
+
+class MockCloudWatchLogHandler(CloudWatchLogHandler):
+    def __init__(self, log_group=__name__, stream_name=None, use_queues=True, send_interval=60,
+                 max_batch_size=1024*1024, max_batch_count=10000):
+        self.log_group = log_group
+        self.stream_name = stream_name
+        self.use_queues = use_queues
+        self.send_interval = send_interval
+        self.max_batch_size = max_batch_size
+        self.max_batch_count = max_batch_count
