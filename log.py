@@ -259,7 +259,7 @@ class CloudwatchLogs(Logger):
 
     @classmethod
     def get_handler(cls, settings, testing=False):
-        """Turn a Loggly ExternalIntegration into a log handler.
+        """Turn ExternalIntegration into a log handler.
         """
         group = settings.setting(cls.GROUP).value or cls.DEFAULT_APP_NAME
         stream = settings.setting(cls.STREAM).value or cls.DEFAULT_APP_NAME
@@ -419,6 +419,10 @@ class LogConfiguration(object):
 
 
 class MockCloudWatchLogHandler(CloudWatchLogHandler):
+    """
+    Mock handler used during unit testing.
+    """
+
     def __init__(self, log_group=__name__, stream_name=None, use_queues=True, send_interval=60,
                  max_batch_size=1024*1024, max_batch_count=10000):
         self.log_group = log_group
