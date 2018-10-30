@@ -316,18 +316,21 @@ class Configuration(CoreConfiguration):
             "label": _("The primary languages represented in this library's collection"),
             "type": "list",
             "description": LANGUAGE_DESCRIPTION,
+            "optional": True
         },
         {
             "key": SMALL_COLLECTION_LANGUAGES,
             "label": _("Other major languages represented in this library's collection"),
             "type": "list",
             "description": LANGUAGE_DESCRIPTION,
+            "optional": True,
         },
         {
             "key": TINY_COLLECTION_LANGUAGES,
             "label": _("Other languages in this library's collection"),
             "type": "list",
             "description": LANGUAGE_DESCRIPTION,
+            "optional": True,
         },
     ]
 

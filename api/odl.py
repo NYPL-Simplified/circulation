@@ -990,6 +990,7 @@ class SharedODLAPI(BaseCirculationAPI):
     ]
 
     SUPPORTS_REGISTRATION = True
+    SUPPORTS_STAGING = False
 
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 

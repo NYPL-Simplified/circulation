@@ -226,6 +226,14 @@ def acquisition_groups(lane_identifier):
 def feed(lane_identifier):
     return app.manager.opds_feeds.feed(lane_identifier)
 
+@library_dir_route('/navigation', defaults=dict(lane_identifier=None))
+@library_route('/navigation/<lane_identifier>')
+@has_library
+@allows_patron_web
+@returns_problem_detail
+def navigation_feed(lane_identifier):
+    return app.manager.opds_feeds.navigation(lane_identifier)
+
 @library_route('/crawlable')
 @has_library
 @allows_patron_web
