@@ -63,8 +63,8 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
     LOGIN_BUTTON_IMAGE = "CleverLoginButton280.png"
 
     SETTINGS = [
-        { "key": ExternalIntegration.USERNAME, "label": _("Client ID") },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+        { "key": ExternalIntegration.USERNAME, "label": _("Client ID"), "required": True },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret"), "required": True },
     ] + OAuthAuthenticationProvider.SETTINGS
 
     # Unlike other authentication providers, external type regular expression

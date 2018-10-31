@@ -126,7 +126,7 @@ class LibrarySettingsController(AdminCirculationManagerController):
             return error
 
     def check_for_missing_settings(self, settings):
-        required = filter(lambda s: not s.get('optional') and not s.get('default'), Configuration.LIBRARY_SETTINGS)
+        required = filter(lambda s: s.get('required') and not s.get('default'), Configuration.LIBRARY_SETTINGS)
         missing = filter(lambda s: not flask.request.form.get(s.get("key")), required)
         if missing:
             return INCOMPLETE_CONFIGURATION.detailed(

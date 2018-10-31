@@ -56,8 +56,8 @@ class NoveListAPI(object):
     AUTHORIZED_IDENTIFIER = u"62521fa1-bdbb-4939-84aa-aee2a52c8d59"
 
     SETTINGS = [
-        { "key": ExternalIntegration.USERNAME, "label": _("Profile") },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Password") },
+        { "key": ExternalIntegration.USERNAME, "label": _("Profile"), "required": True },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Password"), "required": True },
     ]
 
     # Different libraries may have different NoveList integrations
