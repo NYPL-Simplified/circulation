@@ -172,6 +172,8 @@ def setup_admin_controllers(manager):
     manager.admin_patron_controller = PatronController(manager)
     from api.admin.controller.patron_auth_services import PatronAuthServicesController
     manager.admin_patron_auth_services_controller = PatronAuthServicesController(manager)
+    from api.admin.controller.admin_auth_services import AdminAuthServicesController
+    manager.admin_auth_services_controller = AdminAuthServicesController(manager)
     from api.admin.controller.collection_settings import CollectionSettingsController
     manager.admin_collection_settings_controller = CollectionSettingsController(manager)
     from api.admin.controller.sitewide_settings import SitewideConfigurationSettingsController
@@ -2526,64 +2528,10 @@ class SettingsController(AdminCirculationManagerController):
             return DUPLICATE_INTEGRATION, False
         return integration, is_new
 
-    def admin_auth_services(self):
-        self.require_system_admin()
-        provider_apis = [GoogleOAuthAdminAuthenticationProvider]
-        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
-
-        if flask.request.method == 'GET':
-            auth_services = self._get_integration_info(ExternalIntegration.ADMIN_AUTH_GOAL, protocols)
-            return dict(
-                admin_auth_services=auth_services,
-                protocols=protocols,
-            )
-
-        protocol = flask.request.form.get("protocol")
-        if protocol and protocol not in ExternalIntegration.ADMIN_AUTH_PROTOCOLS:
-            return UNKNOWN_PROTOCOL
-
-        id = flask.request.form.get("id")
-
-        is_new = False
-        auth_service = ExternalIntegration.admin_authentication(self._db)
-        if auth_service:
-            if id and int(id) != auth_service.id:
-                return MISSING_SERVICE
-            if protocol != auth_service.protocol:
-                return CANNOT_CHANGE_PROTOCOL
-        else:
-            if id:
-                return MISSING_SERVICE
-
-            if protocol:
-                auth_service, is_new = get_one_or_create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.ADMIN_AUTH_GOAL
-                )
-            else:
-                return NO_PROTOCOL_FOR_NEW_SERVICE
-
-        name = flask.request.form.get("name")
-        auth_service.name = name
-
         [protocol] = [p for p in protocols if p.get("name") == protocol]
         result = self._set_integration_settings_and_libraries(auth_service, protocol)
         if isinstance(result, ProblemDetail):
             return result
-
-        if is_new:
-            return Response(unicode(auth_service.protocol), 201)
-        else:
-            return Response(unicode(auth_service.protocol), 200)
-
-    def admin_auth_service(self, protocol):
-        if flask.request.method == "DELETE":
-            self.require_system_admin()
-            service = get_one(self._db, ExternalIntegration, protocol=protocol, goal=ExternalIntegration.ADMIN_AUTH_GOAL)
-            if not service:
-                return MISSING_SERVICE
-            self._db.delete(service)
-            return Response(unicode(_("Deleted")), 200)
 
     def logging_services(self):
         detail = _("You tried to create a new logging service, but a logging service is already configured.")
