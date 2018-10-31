@@ -27,8 +27,6 @@ class Configuration(CoreConfiguration):
     DEFAULT_OPDS_FORMAT = "simple_opds_entry"
 
     # The name of the sitewide url that points to the patron web catalog.
-    # May be a comma-separated list if there is more than one supported
-    # web client.
     PATRON_WEB_CLIENT_URL = u"Patron Web Client"
 
     # The name of the sitewide secret used to sign cookies for admin login.
