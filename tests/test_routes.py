@@ -35,7 +35,7 @@ class MockManager(object):
         self._cache = {}
 
         # This is used by the allows_patron_web annotator.
-        self.patron_web_client_url = "http://patron/web"
+        self.patron_web_domains = set(["http://patron/web"])
 
     def __getattr__(self, controller_name):
         return self._cache.setdefault(
