@@ -2226,7 +2226,8 @@ class SettingsController(AdminCirculationManagerController):
                     "The configuration value for %(setting)s is invalid.",
                     setting=setting.get("label"),
                 ))
-        if not value and not setting.get("optional"):
+        # set_trace()
+        if not value and setting.get("required"):
             # Roll back any changes to the integration that have already been made.
             self._db.rollback()
             return INCOMPLETE_CONFIGURATION.detailed(
@@ -2394,124 +2395,6 @@ class SettingsController(AdminCirculationManagerController):
                     return Response(_("Successfully ran new self tests"), 200)
 
             return FAILED_TO_RUN_SELF_TESTS
-
-    # def collections(self):
-
-
-        # self.require_system_admin()
-        #
-        # id = flask.request.form.get("id")
-        #
-        # name = flask.request.form.get("name")
-        # if not name:
-        #     return MISSING_COLLECTION_NAME
-        #
-        # protocol = flask.request.form.get("protocol")
-        #
-        # if protocol and protocol not in [p.get("name") for p in protocols]:
-        #     return UNKNOWN_PROTOCOL
-        #
-        # is_new = False
-        # collection = None
-        # if id:
-        #     collection = get_one(self._db, Collection, id=id)
-        #     if not collection:
-        #         return MISSING_COLLECTION
-        #
-        # if collection:
-        #     if protocol != collection.protocol:
-        #         return CANNOT_CHANGE_PROTOCOL
-        #     if name != collection.name:
-        #         collection_with_name = get_one(self._db, Collection, name=name)
-        #         if collection_with_name:
-        #             return COLLECTION_NAME_ALREADY_IN_USE
-        #
-        # else:
-        #     if protocol:
-        #         collection, is_new = get_one_or_create(self._db, Collection, name=name)
-        #         if not is_new:
-        #             self._db.rollback()
-        #             return COLLECTION_NAME_ALREADY_IN_USE
-        #         collection.create_external_integration(protocol)
-        #     else:
-        #         return NO_PROTOCOL_FOR_NEW_SERVICE
-        #
-        # collection.name = name
-        # [protocol] = [p for p in protocols if p.get("name") == protocol]
-        #
-        # parent_id = flask.request.form.get("parent_id")
-        #
-        # if parent_id and not protocol.get("child_settings"):
-        #     self._db.rollback()
-        #     return PROTOCOL_DOES_NOT_SUPPORT_PARENTS
-        #
-        # if parent_id:
-        #     parent = get_one(self._db, Collection, id=parent_id)
-        #     if not parent:
-        #         self._db.rollback()
-        #         return MISSING_PARENT
-        #     collection.parent = parent
-        #     settings = protocol.get("child_settings")
-        # else:
-        #     collection.parent = None
-        #     settings = protocol.get("settings")
-        #
-        # for setting in settings:
-        #     key = setting.get("key")
-        #     if key == "external_account_id":
-        #         value = flask.request.form.get(key)
-        #         if not value and not setting.get("optional"):
-        #             # Roll back any changes to the collection that have already been made.
-        #             self._db.rollback()
-        #             return INCOMPLETE_CONFIGURATION.detailed(
-        #                 _("The collection configuration is missing a required setting: %(setting)s",
-        #                   setting=setting.get("label")))
-        #         collection.external_account_id = value
-        #     elif key == 'mirror_integration_id':
-        #         value = flask.request.form.get(key)
-        #         if value == self.NO_MIRROR_INTEGRATION:
-        #             integration_id = None
-        #         else:
-        #             integration = get_one(
-        #                 self._db, ExternalIntegration, id=value
-        #             )
-        #             if not integration:
-        #                 self._db.rollback()
-        #                 return MISSING_SERVICE
-        #             if integration.goal != ExternalIntegration.STORAGE_GOAL:
-        #                 self._db.rollback()
-        #                 return INTEGRATION_GOAL_CONFLICT
-        #             integration_id = integration.id
-        #         collection.mirror_integration_id = integration_id
-        #     else:
-        #         result = self._set_integration_setting(collection.external_integration, setting)
-        #         if isinstance(result, ProblemDetail):
-        #             return result
-        #
-        # libraries = []
-        # if flask.request.form.get("libraries"):
-        #     libraries = json.loads(flask.request.form.get("libraries"))
-        #
-        # for library_info in libraries:
-        #     library = get_one(self._db, Library, short_name=library_info.get("short_name"))
-        #     if not library:
-        #         return NO_SUCH_LIBRARY.detailed(_("You attempted to add the collection to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
-        #     if collection not in library.collections:
-        #         library.collections.append(collection)
-        #     result = self._set_integration_library(collection.external_integration, library_info, protocol)
-        #     if isinstance(result, ProblemDetail):
-        #         return result
-        # for library in collection.libraries:
-        #     if library.short_name not in [l.get("short_name") for l in libraries]:
-        #         library.collections.remove(collection)
-        #         for setting in protocol.get("library_settings", []):
-        #             ConfigurationSetting.for_library_and_externalintegration(
-        #                 self._db, setting.get("key"), library, collection.external_integration,
-        #             ).value = None
-        # if is_new:
-        #     return Response(unicode(collection.id), 201)
-        # else:
-        #     return Response(unicode(collection.id), 200)
 
     def collection_library_registrations(
             self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,

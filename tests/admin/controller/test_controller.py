@@ -3036,6 +3036,17 @@ class SettingsControllerTest(AdminControllerTest):
         response = self.responses.pop()
         return HTTP.process_debuggable_response(url, response)
 
+    def mock_prior_test_results(self, *args, **kwargs):
+        self.prior_test_results_called_with = (args, kwargs)
+        self_test_results = dict(
+            duration=0.9,
+            start="2018-08-08T16:04:05Z",
+            end="2018-08-08T16:05:05Z",
+            results=[]
+        )
+        self.self_test_results = self_test_results
+
+        return self_test_results
 
 class TestSettingsController(SettingsControllerTest):
 
@@ -3130,17 +3141,6 @@ class TestSettingsController(SettingsControllerTest):
         eq_(False, is_new2)
         eq_(DUPLICATE_INTEGRATION, i2)
 
-    def mock_prior_test_results(self, *args, **kwargs):
-        self.prior_test_results_called_with = (args, kwargs)
-        self_test_results = dict(
-            duration=0.9,
-            start="2018-08-08T16:04:05Z",
-            end="2018-08-08T16:05:05Z",
-            results=[]
-        )
-        self.self_test_results = self_test_results
-
-        return self_test_results
 
     def mock_run_self_tests(self, *args, **kwargs):
         self.run_self_tests_called_with = (args, kwargs)

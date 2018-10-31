@@ -27,26 +27,25 @@ from core.util.problem_detail import ProblemDetail
 
 class CollectionSettingsController(SettingsController):
 
-    # SET UP
+    def _get_collection_protocols(self):
+        protocols = super(CollectionSettingsController, self)._get_collection_protocols(self.PROVIDER_APIS)
+        # If there are storage integrations, add a mirror integration
+        # setting to every protocol's 'settings' block.
+        mirror_integration_setting = self._mirror_integration_setting()
+        if mirror_integration_setting:
+            for protocol in protocols:
+                protocol['settings'].append(mirror_integration_setting)
+        return protocols
+
     def process_collections(self):
-        self.set_up_protocols()
         if flask.request.method == 'GET':
             return self.process_get()
         else:
             return self.process_post()
 
-    def set_up_protocols(self):
-        self.protocols = self._get_collection_protocols(self.PROVIDER_APIS)
-
-        # If there are storage integrations, add a mirror integration
-        # setting to every protocol's 'settings' block.
-        mirror_integration_setting = self._mirror_integration_setting()
-        if mirror_integration_setting:
-            for protocol in self.protocols:
-                protocol['settings'].append(mirror_integration_setting)
-
     # GET
     def process_get(self):
+        protocols = self._get_collection_protocols()
         user = flask.request.admin
         collections = []
         protocolClass = None
@@ -56,8 +55,8 @@ class CollectionSettingsController(SettingsController):
 
             collection_dict = self.collection_to_dict(collection_object)
 
-            if collection_object.protocol in [p.get("name") for p in self.protocols]:
-                [protocol] = [p for p in self.protocols if p.get("name") == collection_object.protocol]
+            if collection_object.protocol in [p.get("name") for p in protocols]:
+                [protocol] = [p for p in protocols if p.get("name") == collection_object.protocol]
                 self.load_libraries(collection_dict, collection_object, user, protocol)
                 self.load_settings(protocol.get("settings"), collection_dict, collection_object)
                 [protocolClass] = self.find_protocol_class(collection_object)
@@ -67,7 +66,7 @@ class CollectionSettingsController(SettingsController):
 
         return dict(
             collections=collections,
-            protocols=self.protocols,
+            protocols=protocols,
         )
 
     def collection_to_dict(self, collection_object):
@@ -110,6 +109,7 @@ class CollectionSettingsController(SettingsController):
     # POST
     def process_post(self):
         self.require_system_admin()
+        protocols = self._get_collection_protocols()
         is_new = False
         collection = None
 
@@ -121,7 +121,7 @@ class CollectionSettingsController(SettingsController):
             collection = get_one(self._db, Collection, id=id)
             fields["collection"] = collection
 
-        error = self.validate_form_fields(is_new, **fields)
+        error = self.validate_form_fields(is_new, protocols, **fields)
         if error:
             return error
 
@@ -133,7 +133,7 @@ class CollectionSettingsController(SettingsController):
             collection.create_external_integration(fields.get("protocol"))
 
         collection.name = name
-        [protocol] = [p for p in self.protocols if p.get("name") == protocol]
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
 
         settings = self.validate_parent(protocol, collection)
         if isinstance(settings, ProblemDetail):
@@ -151,10 +151,10 @@ class CollectionSettingsController(SettingsController):
         else:
             return Response(unicode(collection.id), 200)
 
-    def validate_form_fields(self, is_new, **fields):
+    def validate_form_fields(self, is_new, protocols, **fields):
         if not fields.get("name"):
             return MISSING_COLLECTION_NAME
-        if fields.get("protocol") and fields.get("protocol") not in [p.get("name") for p in self.protocols]:
+        if fields.get("protocol") and fields.get("protocol") not in [p.get("name") for p in protocols]:
             return UNKNOWN_PROTOCOL
         if not fields.get("protocol"):
             return NO_PROTOCOL_FOR_NEW_SERVICE
