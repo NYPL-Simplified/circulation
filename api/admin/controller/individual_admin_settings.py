@@ -50,6 +50,7 @@ class IndividualAdminSettingsController(AdminCirculationManagerController):
         settingUp = (self._db.query(Admin).count() == 0)
 
         admin, is_new = get_one_or_create(self._db, Admin, email=email)
+
         self.check_permissions(admin, settingUp)
 
         roles = flask.request.form.get("roles")
