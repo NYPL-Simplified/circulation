@@ -95,11 +95,15 @@ class PatronAuthServicesController(SettingsController):
             return Response(unicode(auth_service.id), 200)
 
     def validate_form_fields(self, protocol):
+        """Verify that the protocol which the user has selected is in the list
+        of recognized protocol options."""
+
         if protocol and protocol not in [p.get("name") for p in self.protocols]:
             return UNKNOWN_PROTOCOL
 
     def get_name(self, auth_service):
-        # Check that there isn't already an auth service with this name
+        """Check that there isn't already an auth service with this name"""
+
         name = flask.request.form.get("name")
         if name:
             if auth_service.name != name:
@@ -110,7 +114,8 @@ class PatronAuthServicesController(SettingsController):
             return name
 
     def check_library_integrations(self, library):
-        # Check that the library didn't end up with multiple basic auth services.
+        """Check that the library didn't end up with multiple basic auth services."""
+
         basic_auth_count = 0
         for integration in library.integrations:
             if integration.goal == ExternalIntegration.PATRON_AUTH_GOAL and integration.protocol in self.basic_auth_protocols:
@@ -123,7 +128,8 @@ class PatronAuthServicesController(SettingsController):
                     ))
 
     def check_external_type(self, library, auth_service):
-        # Check that the library's external type regular expression is valid, if it was set.
+        """Check that the library's external type regular expression is valid, if it was set."""
+
         value = ConfigurationSetting.for_library_and_externalintegration(
             self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
             library, auth_service).value
@@ -135,8 +141,9 @@ class PatronAuthServicesController(SettingsController):
                 return INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION
 
     def check_identifier_restriction(self, library, auth_service):
-        # Check whether the library's identifier restriction regular expression is set and
-        # is supposed to be a regular expression; if so, check that it's valid.
+        """Check whether the library's identifier restriction regular expression is set and
+        is supposed to be a regular expression; if so, check that it's valid."""
+
         identifier_restriction_type = ConfigurationSetting.for_library_and_externalintegration(
             self._db, AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE,
             library, auth_service).value
@@ -151,6 +158,9 @@ class PatronAuthServicesController(SettingsController):
                 return INVALID_LIBRARY_IDENTIFIER_RESTRICTION_REGULAR_EXPRESSION
 
     def check_libraries(self, auth_service):
+        """Run the three library validation methods on each of the libraries for which the user is trying
+        to configure this patron auth service."""
+
         for library in auth_service.libraries:
             error = self.check_library_integrations(library) or self.check_external_type(library, auth_service) or self.check_identifier_restriction(library, auth_service)
             if error:
