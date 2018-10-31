@@ -408,14 +408,14 @@ def individual_admin(email):
 @requires_admin
 @requires_csrf_token
 def patron_auth_services():
-    return app.manager.admin_settings_controller.patron_auth_services()
+    return app.manager.admin_patron_auth_services_controller.process_patron_auth_services()
 
 @app.route("/admin/patron_auth_service/<service_id>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def patron_auth_service(service_id):
-    return app.manager.admin_settings_controller.patron_auth_service(service_id)
+    return app.manager.admin_patron_auth_services_controller.process_delete(service_id)
 
 @library_route("/admin/manage_patrons", methods=['POST'])
 @has_library

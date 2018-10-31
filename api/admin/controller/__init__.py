@@ -170,6 +170,8 @@ def setup_admin_controllers(manager):
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
     manager.admin_patron_controller = PatronController(manager)
+    from api.admin.controller.patron_auth_services import PatronAuthServicesController
+    manager.admin_patron_auth_services_controller = PatronAuthServicesController(manager)
     from api.admin.controller.sitewide_settings import SitewideConfigurationSettingsController
     manager.admin_sitewide_configuration_settings_controller = SitewideConfigurationSettingsController(manager)
     from api.admin.controller.library_settings import LibrarySettingsController
@@ -2766,113 +2768,6 @@ class SettingsController(AdminCirculationManagerController):
                 return MISSING_SERVICE
             self._db.delete(service)
             return Response(unicode(_("Deleted")), 200)
-
-    def patron_auth_services(self):
-        self.require_system_admin()
-
-        provider_apis = [SimpleAuthenticationProvider,
-                         MilleniumPatronAPI,
-                         SIP2AuthenticationProvider,
-                         FirstBookAuthenticationAPI,
-                         CleverAuthenticationAPI,
-                        ]
-        protocols = self._get_integration_protocols(provider_apis)
-
-        basic_auth_protocols = [SimpleAuthenticationProvider.__module__,
-                                MilleniumPatronAPI.__module__,
-                                SIP2AuthenticationProvider.__module__,
-                                FirstBookAuthenticationAPI.__module__,
-                               ]
-
-        if flask.request.method == 'GET':
-            services = self._get_integration_info(ExternalIntegration.PATRON_AUTH_GOAL, protocols)
-            return dict(
-                patron_auth_services=services,
-                protocols=protocols,
-            )
-
-        id = flask.request.form.get("id")
-
-        protocol = flask.request.form.get("protocol")
-        if protocol and protocol not in [p.get("name") for p in protocols]:
-            return UNKNOWN_PROTOCOL
-
-        is_new = False
-        if id:
-            auth_service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.PATRON_AUTH_GOAL)
-            if not auth_service:
-                return MISSING_SERVICE
-            if protocol != auth_service.protocol:
-                return CANNOT_CHANGE_PROTOCOL
-        else:
-            auth_service, is_new = self._create_integration(
-                protocols, protocol, ExternalIntegration.PATRON_AUTH_GOAL
-            )
-            if isinstance(auth_service, ProblemDetail):
-                return auth_service
-
-        name = flask.request.form.get("name")
-        if name:
-            if auth_service.name != name:
-                service_with_name = get_one(self._db, ExternalIntegration, name=name)
-                if service_with_name:
-                    self._db.rollback()
-                    return INTEGRATION_NAME_ALREADY_IN_USE
-            auth_service.name = name
-
-        [protocol] = [p for p in protocols if p.get("name") == protocol]
-        result = self._set_integration_settings_and_libraries(auth_service, protocol)
-        if isinstance(result, ProblemDetail):
-            return result
-
-        for library in auth_service.libraries:
-            # Check that the library didn't end up with multiple basic auth services.
-            basic_auth_count = 0
-            for integration in library.integrations:
-                if integration.goal == ExternalIntegration.PATRON_AUTH_GOAL and integration.protocol in basic_auth_protocols:
-                    basic_auth_count += 1
-                    if basic_auth_count > 1:
-                        self._db.rollback()
-                        return MULTIPLE_BASIC_AUTH_SERVICES.detailed(_(
-                            "You tried to add a patron authentication service that uses basic auth to %(library)s, but it already has one.",
-                            library=library.short_name,
-                        ))
-
-            # Check that the library's external type regular express is valid, if it was set.
-            value = ConfigurationSetting.for_library_and_externalintegration(
-                self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
-                library, auth_service).value
-            if value:
-                try:
-                    re.compile(value)
-                except Exception, e:
-                    self._db.rollback()
-                    return INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION
-
-            # Check that the library's identifier restriction regular express is valid, it its set
-            # and its a regular expression.
-            identifier_restriction_type = ConfigurationSetting.for_library_and_externalintegration(
-                self._db, AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE,
-                library, auth_service).value
-            identifier_restriction = ConfigurationSetting.for_library_and_externalintegration(
-                self._db, AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION,
-                library, auth_service).value
-            if identifier_restriction and identifier_restriction_type == AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX:
-                try:
-                    re.compile(identifier_restriction)
-                except Exception, e:
-                    self._db.rollback()
-                    return INVALID_LIBRARY_IDENTIFIER_RESTRICTION_REGULAR_EXPRESSION
-
-        if is_new:
-            return Response(unicode(auth_service.id), 201)
-        else:
-            return Response(unicode(auth_service.id), 200)
-
-    def patron_auth_service(self, service_id):
-        return self._delete_integration(
-            service_id, ExternalIntegration.PATRON_AUTH_GOAL
-        )
 
     def logging_services(self):
         detail = _("You tried to create a new logging service, but a logging service is already configured.")
