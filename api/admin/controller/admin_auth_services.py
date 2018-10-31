@@ -14,10 +14,13 @@ from api.admin.problem_details import *
 
 class AdminAuthServicesController(SettingsController):
 
-    def process_admin_auth_services(self):
-        self.require_system_admin()
+    def __init__(self, manager):
+        super(AdminAuthServicesController, self).__init__(manager)
         provider_apis = [GoogleOAuthAdminAuthenticationProvider]
         self.protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
+
+    def process_admin_auth_services(self):
+        self.require_system_admin()
         if flask.request.method == 'GET':
             return self.process_get()
         else:
