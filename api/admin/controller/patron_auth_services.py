@@ -76,6 +76,7 @@ class PatronAuthServicesController(SettingsController):
 
         name = self.get_name(auth_service)
         if isinstance(name, ProblemDetail):
+            self._db.rollback()
             return name
         elif name:
             auth_service.name = name
@@ -87,6 +88,7 @@ class PatronAuthServicesController(SettingsController):
 
         library_error = self.check_libraries(auth_service)
         if library_error:
+            self._db.rollback()
             return library_error
 
         if is_new:
@@ -109,7 +111,6 @@ class PatronAuthServicesController(SettingsController):
             if auth_service.name != name:
                 service_with_name = get_one(self._db, ExternalIntegration, name=name)
                 if service_with_name:
-                    self._db.rollback()
                     return INTEGRATION_NAME_ALREADY_IN_USE
             return name
 
@@ -121,7 +122,6 @@ class PatronAuthServicesController(SettingsController):
             if integration.goal == ExternalIntegration.PATRON_AUTH_GOAL and integration.protocol in self.basic_auth_protocols:
                 basic_auth_count += 1
                 if basic_auth_count > 1:
-                    self._db.rollback()
                     return MULTIPLE_BASIC_AUTH_SERVICES.detailed(_(
                         "You tried to add a patron authentication service that uses basic auth to %(library)s, but it already has one.",
                         library=library.short_name,
@@ -137,7 +137,6 @@ class PatronAuthServicesController(SettingsController):
             try:
                 re.compile(value)
             except Exception, e:
-                self._db.rollback()
                 return INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION
 
     def check_identifier_restriction(self, library, auth_service):
@@ -154,7 +153,6 @@ class PatronAuthServicesController(SettingsController):
             try:
                 re.compile(identifier_restriction)
             except Exception, e:
-                self._db.rollback()
                 return INVALID_LIBRARY_IDENTIFIER_RESTRICTION_REGULAR_EXPRESSION
 
     def check_libraries(self, auth_service):
