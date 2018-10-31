@@ -14,9 +14,9 @@ from core.model import (
     ExternalIntegration,
     get_one,
 )
-from test_controller import TestSettingsController
+from test_controller import SettingsControllerTest
 
-class TestAdminAuthServices(TestSettingsController):
+class TestAdminAuthServices(SettingsControllerTest):
     def test_admin_auth_services_get_with_no_services(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_auth_services_controller.process_admin_auth_services()

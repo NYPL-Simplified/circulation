@@ -64,15 +64,19 @@ class AdminAuthServicesController(SettingsController):
             return Response(unicode(auth_service.protocol), 200)
 
     def validate_form_fields(self, **fields):
-        if fields.get("protocol") and fields.get("protocol") not in ExternalIntegration.ADMIN_AUTH_PROTOCOLS:
+        protocol = fields.get("protocol")
+        auth_service = fields.get("auth_service")
+        id = fields.get("id")
+
+        if protocol and protocol not in ExternalIntegration.ADMIN_AUTH_PROTOCOLS:
             return UNKNOWN_PROTOCOL
-        if fields.get("auth_service"):
-            if fields.get("id") and int(fields.get("id")) != fields.get("auth_service").id:
+        if auth_service:
+            if id and int(id) != auth_service.id:
                 return MISSING_SERVICE
-            if fields.get("protocol") != fields.get("auth_service").protocol:
+            if protocol != auth_service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            if fields.get("id"):
+            if id:
                 return MISSING_SERVICE
 
     def process_delete(self, protocol):
