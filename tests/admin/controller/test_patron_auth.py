@@ -211,6 +211,7 @@ class TestPatronAuth(SettingsControllerTest):
             (B.TEST_PASSWORD, "pass"),
             (B.IDENTIFIER_KEYBOARD, B.DEFAULT_KEYBOARD),
             (B.PASSWORD_KEYBOARD, B.DEFAULT_KEYBOARD),
+            (B.IDENTIFIER_BARCODE_FORMAT, B.BARCODE_FORMAT_CODABAR),
         ]
 
     def test_patron_auth_services_post_errors(self):
@@ -354,6 +355,7 @@ class TestPatronAuth(SettingsControllerTest):
         library, ignore = create(
             self._db, Library, name="Library", short_name="L",
         )
+
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
