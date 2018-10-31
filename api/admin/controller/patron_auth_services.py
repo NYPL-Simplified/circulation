@@ -20,9 +20,8 @@ from core.util.problem_detail import ProblemDetail
 
 class PatronAuthServicesController(SettingsController):
 
-    def process_patron_auth_services(self):
-        self.require_system_admin()
-
+    def __init__(self, manager):
+        super(PatronAuthServicesController, self).__init__(manager)
         provider_apis = [SimpleAuthenticationProvider,
                          MilleniumPatronAPI,
                          SIP2AuthenticationProvider,
@@ -36,6 +35,9 @@ class PatronAuthServicesController(SettingsController):
                                 SIP2AuthenticationProvider.__module__,
                                 FirstBookAuthenticationAPI.__module__,
                                ]
+
+    def process_patron_auth_services(self):
+        self.require_system_admin()
 
         if flask.request.method == 'GET':
             return self.process_get()
