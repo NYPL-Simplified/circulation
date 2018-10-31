@@ -267,6 +267,7 @@ class TestPatronAuth(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             M = MilleniumPatronAPI
             flask.request.form = MultiDict([
+                ("name", "some auth name"),
                 ("id", auth_service.id),
                 ("protocol", MilleniumPatronAPI.__module__),
                 (ExternalIntegration.URL, "url"),
