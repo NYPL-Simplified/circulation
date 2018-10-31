@@ -67,6 +67,10 @@ class AdminAuthServicesController(SettingsController):
             return Response(unicode(auth_service.protocol), 200)
 
     def validate_form_fields(self, **fields):
+        """Check that 1) the user has selected a valid protocol, 2) the user has not
+        left the required fields blank, and 3) the user is not attempting to
+        change the protocol of an existing admin auth service."""
+
         protocol = fields.get("protocol")
         auth_service = fields.get("auth_service")
         id = fields.get("id")

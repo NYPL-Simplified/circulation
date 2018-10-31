@@ -142,6 +142,7 @@ import json
 import urllib
 from core.analytics import Analytics
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
+from api.registry import Registration
 
 class ControllerTest(VendorIDTest):
     """A test that requires a functional app server."""
@@ -344,6 +345,7 @@ class TestCirculationManager(CirculationControllerTest):
         manager.lending_policy = object()
         manager.shared_collection_api = object()
         manager.new_custom_index_views = object()
+        manager.patron_web_domains = object()
 
         # But some fields are _not_ about to be reloaded
         index_controller = manager.index_controller
@@ -371,6 +373,17 @@ class TestCirculationManager(CirculationControllerTest):
             return None
         old_for_library = CustomIndexView.for_library
         CustomIndexView.for_library = mock_for_library
+
+        # We also set up some patron web client settings that will
+        # be loaded.
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.PATRON_WEB_CLIENT_URL).value = "http://sitewide/1234"
+        registry = self._external_integration(
+            protocol="some protocol", goal=ExternalIntegration.DISCOVERY_GOAL
+        )
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, Registration.LIBRARY_REGISTRATION_WEB_CLIENT,
+            library, registry).value = "http://registration"
 
         # Then reload the CirculationManager...
         self.manager.load_settings()
@@ -408,6 +421,10 @@ class TestCirculationManager(CirculationControllerTest):
         # So has the SharecCollectionAPI.
         assert isinstance(manager.shared_collection_api,
                           SharedCollectionAPI)
+
+        # So have the patron web domains, and their paths have been
+        # removed.
+        eq_(set(["http://sitewide", "http://registration"]), manager.patron_web_domains)
 
         # Controllers that don't depend on site configuration
         # have not been reloaded.

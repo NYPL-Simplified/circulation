@@ -3,6 +3,7 @@ import json
 import logging
 import sys
 import urllib
+import urlparse
 import datetime
 import base64
 from wsgiref.handlers import format_date_time
@@ -235,8 +236,27 @@ class CirculationManager(object):
             Configuration.policy('lending', {})
         )
 
-        self.patron_web_client_url = ConfigurationSetting.sitewide(
+        # Assemble the list of patron web client domains from individual
+        # library registration settings as well as a sitewide setting.
+        patron_web_domains = set()
+
+        def get_domain(url):
+            scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
+            return scheme + "://" + netloc
+
+        sitewide_patron_web_client_url = ConfigurationSetting.sitewide(
             self._db, Configuration.PATRON_WEB_CLIENT_URL).value
+        if sitewide_patron_web_client_url:
+            patron_web_domains.add(get_domain(sitewide_patron_web_client_url))
+
+        from registry import Registration
+        for setting in self._db.query(
+            ConfigurationSetting).filter(
+            ConfigurationSetting.key==Registration.LIBRARY_REGISTRATION_WEB_CLIENT):
+            if setting.value:
+                patron_web_domains.add(get_domain(setting.value))
+
+        self.patron_web_domains = patron_web_domains
 
         self.setup_configuration_dependent_controllers()
         self.authentication_for_opds_documents = {}
