@@ -573,12 +573,8 @@ class TestRegistration(DatabaseTest):
         eq_((encryptor, "ciphertext"), reg._decrypt_shared_secret_called_with)
         eq_("cleartext", reg.setting(ExternalIntegration.PASSWORD).value)
 
-        # Web client URL is set, both in a registration setting and in the
-        # sitewide setting for the patron web URL.
+        # Web client URL is set.
         eq_("http://web/library", reg.setting(reg.LIBRARY_REGISTRATION_WEB_CLIENT).value)
-        # The path has been removed for the sitewide setting.
-        eq_("http://web",
-            ConfigurationSetting.sitewide(self._db, Configuration.PATRON_WEB_CLIENT_URL).value)
 
         eq_("another new stage", reg.stage_field.value)
 

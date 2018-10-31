@@ -6,7 +6,6 @@ import json
 import logging
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.session import Session
-import urlparse
 
 from core.model import (
     create,
@@ -127,7 +126,9 @@ class Registration(object):
     VALID_REGISTRATION_STAGES = [TESTING_STAGE, PRODUCTION_STAGE]
 
     # A registry may provide access to a web client. If so, we'll store
-    # the URL so we can link to it.
+    # the URL so we can enable CORS headers in requests from that client,
+    # and use it in MARC records so the library's main catalog can link
+    # to it.
     LIBRARY_REGISTRATION_WEB_CLIENT = u"library-registration-web-client"
 
     def __init__(self, registry, library):
@@ -423,25 +424,9 @@ class Registration(object):
         # communicated to the registry.
         self.stage_field.value = desired_stage
 
-        # Store the web client URL as a ConfigurationSetting. Make sure the URL
-        # is also added to the sitewide patron web URL setting to enable CORS.
+        # Store the web client URL as a ConfigurationSetting.
         if web_client_url:
             self.web_client_field.value = web_client_url
-
-            # The previous setting is a single URL, but the sitewide
-            # setting may contain multiple comma-separated URLs. In addition,
-            # the previous setting may contain a path or parameters, but those
-            # aren't needed for the sitewide setting.
-            sitewide_web_setting = ConfigurationSetting.sitewide(
-                self._db, Configuration.PATRON_WEB_CLIENT_URL)
-            scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(web_client_url)
-
-            web_domain = scheme + "://" + netloc
-
-            if not sitewide_web_setting.value:
-                sitewide_web_setting.value = web_domain
-            elif web_domain not in sitewide_web_setting.value:
-                sitewide_web_setting.value += "," + web_domain
 
         return True
 
