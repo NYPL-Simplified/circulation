@@ -174,6 +174,9 @@ def setup_admin_controllers(manager):
     manager.admin_sitewide_configuration_settings_controller = SitewideConfigurationSettingsController(manager)
     from api.admin.controller.library_settings import LibrarySettingsController
     manager.admin_library_settings_controller = LibrarySettingsController(manager)
+    from api.admin.controller.individual_admin_settings import IndividualAdminSettingsController
+    manager.admin_individual_admin_settings_controller = IndividualAdminSettingsController(manager)
+
 
 class AdminController(object):
 
@@ -2762,140 +2765,6 @@ class SettingsController(AdminCirculationManagerController):
             if not service:
                 return MISSING_SERVICE
             self._db.delete(service)
-            return Response(unicode(_("Deleted")), 200)
-
-    def individual_admins(self):
-        if flask.request.method == 'GET':
-            admins = []
-            for admin in self._db.query(Admin):
-                roles = []
-                for role in admin.roles:
-                    if role.library:
-                        if not flask.request.admin or not flask.request.admin.is_librarian(role.library):
-                            continue
-                        roles.append(dict(role=role.role, library=role.library.short_name))
-                    else:
-                        roles.append(dict(role=role.role))
-                admins.append(dict(email=admin.email, roles=roles))
-
-            return dict(
-                individualAdmins=admins,
-            )
-
-        email = flask.request.form.get("email")
-        password = flask.request.form.get("password")
-        roles = flask.request.form.get("roles")
-
-        if not email:
-            return INCOMPLETE_CONFIGURATION
-
-        if roles:
-            roles = json.loads(roles)
-        else:
-            roles = []
-
-        # If there are no admins yet, anyone can create the first system admin.
-        settingUp = (self._db.query(Admin).count() == 0)
-
-        admin, is_new = get_one_or_create(self._db, Admin, email=email)
-        if admin.is_sitewide_library_manager() and not settingUp:
-            self.require_sitewide_library_manager()
-        if admin.is_system_admin() and not settingUp:
-            self.require_system_admin()
-
-        if password:
-            # If the admin we're editing has a sitewide manager role, we've already verified
-            # the current admin's role above. Otherwise, an admin can only change that
-            # admin's password if they are a library manager of one of that admin's
-            # libraries, or if they are editing a new admin or an admin who has no
-            # roles yet.
-            # TODO: set up password reset emails instead.
-            if not is_new and not admin.is_sitewide_library_manager():
-                can_change_pw = False
-                if not admin.roles:
-                    can_change_pw = True
-                if admin.is_sitewide_librarian():
-                    # A manager of any library can change a sitewide librarian's password.
-                    if flask.request.admin.is_sitewide_library_manager():
-                        can_change_pw = True
-                    else:
-                        for role in flask.request.admin.roles:
-                            if role.role == AdminRole.LIBRARY_MANAGER:
-                                can_change_pw = True
-                else:
-                    for role in admin.roles:
-                        if flask.request.admin.is_library_manager(role.library):
-                            can_change_pw = True
-                            break
-                if not can_change_pw:
-                    raise AdminNotAuthorized()
-            admin.password = password
-        try:
-            self._db.flush()
-        except ProgrammingError as e:
-            self._db.rollback()
-            return MISSING_PGCRYPTO_EXTENSION
-
-        old_roles = admin.roles
-        old_roles_set = set((role.role, role.library) for role in old_roles)
-        for role in roles:
-            if role.get("role") not in AdminRole.ROLES:
-                self._db.rollback()
-                return UNKNOWN_ROLE
-
-            library = None
-            library_short_name = role.get("library")
-            if library_short_name:
-                library = Library.lookup(self._db, library_short_name)
-                if not library:
-                    self._db.rollback()
-                    return LIBRARY_NOT_FOUND.detailed(_("Library \"%(short_name)s\" does not exist.", short_name=library_short_name))
-
-            if (role.get("role"), library) in old_roles_set:
-                # The admin already has this role.
-                continue
-
-            if library:
-                self.require_library_manager(library)
-            elif role.get("role") == AdminRole.SYSTEM_ADMIN and not settingUp:
-                self.require_system_admin()
-            elif not settingUp:
-                self.require_sitewide_library_manager()
-            admin.add_role(role.get("role"), library)
-
-        new_roles = set((role.get("role"), role.get("library")) for role in roles)
-        for role in old_roles:
-            library = None
-            if role.library:
-                library = role.library.short_name
-            if not (role.role, library) in new_roles:
-                if not library:
-                    self.require_sitewide_library_manager()
-                if flask.request.admin and flask.request.admin.is_librarian(role.library):
-                    # A librarian can see roles for the library, but only a library manager
-                    # can delete them.
-                    self.require_library_manager(role.library)
-                    admin.remove_role(role.role, role.library)
-                else:
-                    # An admin who isn't a librarian for the library won't be able to see
-                    # its roles, so might make requests that change other roles without
-                    # including this library's roles. Leave the non-visible roles alone.
-                    continue
-
-        if is_new:
-            return Response(unicode(admin.email), 201)
-        else:
-            return Response(unicode(admin.email), 200)
-
-    def individual_admin(self, email):
-        if flask.request.method == "DELETE":
-            self.require_sitewide_library_manager()
-            admin = get_one(self._db, Admin, email=email)
-            if admin.is_system_admin():
-                self.require_system_admin()
-            if not admin:
-                return MISSING_ADMIN
-            self._db.delete(admin)
             return Response(unicode(_("Deleted")), 200)
 
     def patron_auth_services(self):
