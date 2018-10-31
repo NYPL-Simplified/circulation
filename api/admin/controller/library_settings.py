@@ -5,6 +5,8 @@ from flask_babel import lazy_gettext as _
 import json
 from StringIO import StringIO
 import uuid
+import wcag_contrast_ratio
+
 from . import AdminCirculationManagerController
 from api.config import Configuration
 from api.lanes import create_default_lanes
@@ -103,7 +105,16 @@ class LibrarySettingsController(AdminCirculationManagerController):
 
     def validate_form_fields(self):
         settings = Configuration.LIBRARY_SETTINGS
-        return self.check_for_missing_fields(settings) or self.check_input_type(settings)
+        validations = [
+            self.check_for_missing_fields,
+            self.check_input_type,
+            self.check_web_color_contrast,
+            self.check_header_links
+        ]
+        for validation in validations:
+            result = validation(settings)
+            if result is not None:
+                return result
 
     def check_for_missing_fields(self, settings):
         if not flask.request.form.get("short_name"):
@@ -114,7 +125,7 @@ class LibrarySettingsController(AdminCirculationManagerController):
             return error
 
     def check_for_missing_settings(self, settings):
-        required = filter(lambda s: not s.get('optional') and not s.get('default'), Configuration.LIBRARY_SETTINGS)
+        required = filter(lambda s: s.get('required') and not s.get('default'), Configuration.LIBRARY_SETTINGS)
         missing = filter(lambda s: not flask.request.form.get(s.get("key")), required)
         if missing:
             return INCOMPLETE_CONFIGURATION.detailed(
@@ -128,6 +139,29 @@ class LibrarySettingsController(AdminCirculationManagerController):
         for setting in settings:
             if setting.get("type") == "image":
                 return self.check_image_type(setting)
+
+    def check_web_color_contrast(self, settings):
+        """Verify that the web background color and web foreground
+        color go together.
+        """
+        background = flask.request.form.get(Configuration.WEB_BACKGROUND_COLOR, Configuration.DEFAULT_WEB_BACKGROUND_COLOR)
+        foreground = flask.request.form.get(Configuration.WEB_FOREGROUND_COLOR, Configuration.DEFAULT_WEB_FOREGROUND_COLOR)
+        def hex_to_rgb(hex):
+            hex = hex.lstrip("#")
+            return tuple(int(hex[i:i+2], 16)/255.0 for i in (0, 2 ,4))
+        if not wcag_contrast_ratio.passes_AA(wcag_contrast_ratio.rgb(hex_to_rgb(background), hex_to_rgb(foreground))):
+            contrast_check_url = "https://contrast-ratio.com/#%23" + foreground[1:] + "-on-%23" + background[1:]
+            return INVALID_CONFIGURATION_OPTION.detailed(
+                _("The web background and foreground colors don't have enough contrast to pass the WCAG 2.0 AA guidelines and will be difficult for some patrons to read. Check contrast <a href='%(contrast_check_url)s' target='_blank'>here</a>.",
+                  contrast_check_url=contrast_check_url))
+
+    def check_header_links(self, settings):
+        """Verify that header links and labels are the same length."""
+        header_links = flask.request.form.getlist(Configuration.WEB_HEADER_LINKS)
+        header_labels = flask.request.form.getlist(Configuration.WEB_HEADER_LABELS)
+        if len(header_links) != len(header_labels):
+            return INVALID_CONFIGURATION_OPTION.detailed(
+                _("There must be the same number of web header links and web header labels."))
 
     def get_library_from_uuid(self, library_uuid):
         if library_uuid:

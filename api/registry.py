@@ -125,6 +125,12 @@ class Registration(object):
     PRODUCTION_STAGE = "production"
     VALID_REGISTRATION_STAGES = [TESTING_STAGE, PRODUCTION_STAGE]
 
+    # A registry may provide access to a web client. If so, we'll store
+    # the URL so we can enable CORS headers in requests from that client,
+    # and use it in MARC records so the library's main catalog can link
+    # to it.
+    LIBRARY_REGISTRATION_WEB_CLIENT = u"library-registration-web-client"
+
     def __init__(self, registry, library):
         self.registry = registry
         self.integration = self.registry.integration
@@ -146,6 +152,10 @@ class Registration(object):
         self.stage_field = self.setting(
             self.LIBRARY_REGISTRATION_STAGE, self.TESTING_STAGE
         )
+
+        # If the registry provides a web client for the library, it will
+        # be stored in this setting.
+        self.web_client_field = self.setting(self.LIBRARY_REGISTRATION_WEB_CLIENT)
 
     def setting(self, key, default_value=None):
         """Find or create a ConfigurationSetting that configures this
@@ -386,6 +396,13 @@ class Registration(object):
         metadata = catalog.get("metadata", {})
         short_name = metadata.get("short_name")
         shared_secret = metadata.get("shared_secret")
+        links = catalog.get("links", [])
+
+        web_client_url = None
+        for link in links:
+            if link.get("rel") == "self" and link.get("type") == "text/html":
+                web_client_url = link.get("href")
+                break
 
         if short_name:
              setting = self.setting(ExternalIntegration.USERNAME)
@@ -406,6 +423,11 @@ class Registration(object):
         # Our opinion about the proper stage of this library was succesfully
         # communicated to the registry.
         self.stage_field.value = desired_stage
+
+        # Store the web client URL as a ConfigurationSetting.
+        if web_client_url:
+            self.web_client_field.value = web_client_url
+
         return True
 
 

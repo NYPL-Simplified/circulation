@@ -31,13 +31,12 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
     basic_settings = list(BasicAuthenticationProvider.SETTINGS)
     for setting in basic_settings:
         if setting['key'] == BasicAuthenticationProvider.TEST_PASSWORD:
-            setting['optional'] = False
+            setting['required'] = True
 
     SETTINGS = basic_settings + [
         { "key": ADDITIONAL_TEST_IDENTIFIERS,
           "label": _("Additional test identifiers"),
           "type": "list",
-          "optional": True,
           "description": _("Identifiers for additional patrons to use in testing. The identifiers will all use the same test password as the first identifier."),
         }
     ]

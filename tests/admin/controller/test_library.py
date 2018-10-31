@@ -11,6 +11,7 @@ from werkzeug import ImmutableMultiDict, MultiDict
 from api.admin.exceptions import AdminNotAuthorized
 from api.admin.problem_details import (
     INCOMPLETE_CONFIGURATION,
+    INVALID_CONFIGURATION_OPTION,
     LIBRARY_NOT_FOUND,
     MISSING_LIBRARY_SHORT_NAME,
     LIBRARY_SHORT_NAME_ALREADY_IN_USE,
@@ -150,6 +151,40 @@ class TestLibrarySettings(SettingsControllerTest):
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
+        # Test a bad contrast ratio between the web foreground and
+        # web background colors.
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.WEB_BACKGROUND_COLOR, "#000000"),
+                (Configuration.WEB_FOREGROUND_COLOR, "#010101"),
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
+            assert "contrast-ratio.com/#%23010101-on-%23000000" in response.detail
+
+        # Test a list of web header links and a list of labels that
+        # aren't the same length.
+        library = self._library()
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.WEB_HEADER_LINKS, "http://library.com/1"),
+                (Configuration.WEB_HEADER_LINKS, "http://library.com/2"),
+                (Configuration.WEB_HEADER_LABELS, "One"),
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
+
+
     def test_libraries_post_create(self):
         class TestFileUpload(StringIO):
             headers = { "Content-Type": "image/png" }
@@ -159,6 +194,7 @@ class TestLibrarySettings(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("name", "The New York Public Library"),
                 ("short_name", "nypl"),
+                ("library_description", "Short description of library"),
                 (Configuration.WEBSITE_URL, "https://library.library/"),
                 (Configuration.TINY_COLLECTION_LANGUAGES, 'ger'),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),

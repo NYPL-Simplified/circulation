@@ -3655,6 +3655,7 @@ class TestSettingsController(SettingsControllerTest):
             (B.TEST_PASSWORD, "pass"),
             (B.IDENTIFIER_KEYBOARD, B.DEFAULT_KEYBOARD),
             (B.PASSWORD_KEYBOARD, B.DEFAULT_KEYBOARD),
+            (B.IDENTIFIER_BARCODE_FORMAT, B.BARCODE_FORMAT_CODABAR),
         ]
 
     def test_patron_auth_services_post_errors(self):
@@ -3710,6 +3711,7 @@ class TestSettingsController(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             M = MilleniumPatronAPI
             flask.request.form = MultiDict([
+                ("name", "some auth name"),
                 ("id", auth_service.id),
                 ("protocol", MilleniumPatronAPI.__module__),
                 (ExternalIntegration.URL, "url"),
@@ -4218,6 +4220,7 @@ class TestSettingsController(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", service.id),
+                ("name", "analytics name"),
                 ("protocol", GoogleAnalyticsProvider.__module__),
             ])
             response = self.manager.admin_settings_controller.analytics_services()
@@ -4227,6 +4230,7 @@ class TestSettingsController(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("id", service.id),
                 ("protocol", GoogleAnalyticsProvider.__module__),
+                ("name", "some other analytics name"),
                 (ExternalIntegration.URL, "url"),
                 ("libraries", json.dumps([{"short_name": "not-a-library"}])),
             ])
@@ -4241,7 +4245,8 @@ class TestSettingsController(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("id", service.id),
                 ("protocol", GoogleAnalyticsProvider.__module__),
-                (ExternalIntegration.URL, "url"),
+                ("name", "some other name"),
+                (ExternalIntegration.URL, ""),
                 ("libraries", json.dumps([{"short_name": library.short_name}])),
             ])
             response = self.manager.admin_settings_controller.analytics_services()
@@ -4263,6 +4268,7 @@ class TestSettingsController(SettingsControllerTest):
         )
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
+                ("name", "analytics name"),
                 ("protocol", GoogleAnalyticsProvider.__module__),
                 (ExternalIntegration.URL, "url"),
                 ("libraries", json.dumps([{"short_name": "L", "tracking_id": "trackingid"}])),
@@ -4298,6 +4304,7 @@ class TestSettingsController(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", ga_service.id),
+                ("name", "some other analytics name"),
                 ("protocol", GoogleAnalyticsProvider.__module__),
                 (ExternalIntegration.URL, "url"),
                 ("libraries", json.dumps([{"short_name": "L2", "tracking_id": "l2id"}])),
