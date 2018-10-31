@@ -2227,7 +2227,7 @@ class SettingsController(AdminCirculationManagerController):
                     "The configuration value for %(setting)s is invalid.",
                     setting=setting.get("label"),
                 ))
-        if not value and not setting.get("optional"):
+        if not value and setting.get("required"):
             # Roll back any changes to the integration that have already been made.
             self._db.rollback()
             return INCOMPLETE_CONFIGURATION.detailed(
@@ -2253,7 +2253,7 @@ class SettingsController(AdminCirculationManagerController):
                     "The configuration value for %(setting)s is invalid.",
                     setting=setting.get("label"),
                 ))
-            if not value and not setting.get("optional"):
+            if not value and setting.get("required"):
                 self._db.rollback()
                 return INCOMPLETE_CONFIGURATION.detailed(
                     _("The configuration is missing a required setting: %(setting)s for library %(library)s",
@@ -2515,7 +2515,7 @@ class SettingsController(AdminCirculationManagerController):
             key = setting.get("key")
             if key == "external_account_id":
                 value = flask.request.form.get(key)
-                if not value and not setting.get("optional"):
+                if not value and setting.get("required"):
                     # Roll back any changes to the collection that have already been made.
                     self._db.rollback()
                     return INCOMPLETE_CONFIGURATION.detailed(
@@ -3097,6 +3097,8 @@ class SettingsController(AdminCirculationManagerController):
                 return service
 
         name = flask.request.form.get("name")
+        if not name:
+            return MISSING_ANALYTICS_NAME
         if name:
             if service.name != name:
                 service_with_name = get_one(self._db, ExternalIntegration, name=name)
@@ -3127,8 +3129,8 @@ class SettingsController(AdminCirculationManagerController):
                 "name": ExternalIntegration.CDN,
                 "sitewide": True,
                 "settings": [
-                    { "key": ExternalIntegration.URL, "label": _("CDN URL") },
-                    { "key": Configuration.CDN_MIRRORED_DOMAIN_KEY, "label": _("Mirrored domain") },
+                    { "key": ExternalIntegration.URL, "label": _("CDN URL"), "required": True },
+                    { "key": Configuration.CDN_MIRRORED_DOMAIN_KEY, "label": _("Mirrored domain"), "required": True },
                 ],
             }
         ]
@@ -3278,7 +3280,7 @@ class SettingsController(AdminCirculationManagerController):
                 "name": opds_registration,
                 "sitewide": True,
                 "settings": [
-                    { "key": ExternalIntegration.URL, "label": _("URL") },
+                    { "key": ExternalIntegration.URL, "label": _("URL"), "required": True },
                 ],
                 "supports_registration": True,
                 "supports_staging": True,

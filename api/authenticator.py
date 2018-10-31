@@ -1088,7 +1088,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
     # setting in the database, and a label that is displayed when configuring
     # the authentication mechanism in the admin interface.
     # For example: { "key": "username", "label": _("Client ID") }.
-    # A setting is required by default, but may have "optional" set to True.
+    # A setting is optional by default, but may have "required" set to True.
 
     SETTINGS = []
 
@@ -1123,7 +1123,6 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         { "key": EXTERNAL_TYPE_REGULAR_EXPRESSION,
           "label": _("External Type Regular Expression"),
           "description": _("Derive a patron's type from their identifier."),
-          "optional": True,
         },
         { "key": LIBRARY_IDENTIFIER_RESTRICTION_TYPE,
           "label": _("Library Identifier Restriction Type"),
@@ -1162,7 +1161,6 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
                            "using the method chosen in <em>Library Identifier Restriction Type</em>. " +
                            "This value is not used if <em>Library Identifier Restriction Type</em> " +
                            "is set to 'No restriction'."),
-          "optional": True,
         }
     ]
 
@@ -1541,9 +1539,11 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         { "key": TEST_IDENTIFIER,
           "label": _("Test Identifier"),
           "description": _("A valid identifier that can be used to test that patron authentication is working."),
+          "required": True,
         },
-        { "key": TEST_PASSWORD, "label": _("Test Password"), "description": _("The password for the test identifier."),
-          "optional": True,
+        { "key": TEST_PASSWORD,
+          "label": _("Test Password"),
+          "description": _("The password for the test identifier."),
         },
         { "key" : IDENTIFIER_BARCODE_FORMAT,
           "label": _("Patron identifier barcode format"),
@@ -1554,17 +1554,15 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
               { "key": BARCODE_FORMAT_NONE, "label": _("Patron identifiers are not rendered as barcodes") },
           ],
           "default": BARCODE_FORMAT_NONE,
-          "optional": True,
+          "required": True,
         },
         { "key": IDENTIFIER_REGULAR_EXPRESSION,
           "label": _("Identifier Regular Expression"),
           "description": _("A patron's identifier will be immediately rejected if it doesn't match this regular expression."),
-          "optional": True,
         },
         { "key": PASSWORD_REGULAR_EXPRESSION,
           "label": _("Password Regular Expression"),
           "description": _("A patron's password will be immediately rejected if it doesn't match this regular expression."),
-          "optional": True,
         },
         { "key": IDENTIFIER_KEYBOARD,
           "label": _("Keyboard for identifier entry"),
@@ -1575,7 +1573,8 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
                 "label": _("Email address entry") },
               { "key": NUMBER_PAD, "label": _("Number pad") },
           ],
-          "default": DEFAULT_KEYBOARD
+          "default": DEFAULT_KEYBOARD,
+          "required": True,
         },
         { "key": PASSWORD_KEYBOARD,
           "label": _("Keyboard for password entry"),
@@ -1590,20 +1589,16 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         { "key": IDENTIFIER_MAXIMUM_LENGTH,
           "label": _("Maximum identifier length"),
           "type": "number",
-          "optional": True,
         },
         { "key": PASSWORD_MAXIMUM_LENGTH,
           "label": _("Maximum password length"),
           "type": "number",
-          "optional": True,
         },
         { "key": IDENTIFIER_LABEL,
           "label": _("Label for identifier entry"),
-          "optional": True,
         },
         { "key": PASSWORD_LABEL,
           "label": _("Label for password entry"),
-          "optional": True,
         },
     ] + AuthenticationProvider.SETTINGS
 
@@ -2062,7 +2057,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     DEFAULT_TOKEN_EXPIRATION_DAYS = 42
 
     SETTINGS = [
-        { "key": OAUTH_TOKEN_EXPIRATION_DAYS, "label": _("Days until OAuth token expires"), "optional": True },
+        { "key": OAUTH_TOKEN_EXPIRATION_DAYS, "label": _("Days until OAuth token expires") },
     ] + AuthenticationProvider.SETTINGS
 
     # Name of the site-wide ConfigurationSetting containing the secret
