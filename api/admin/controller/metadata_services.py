@@ -62,10 +62,20 @@ class MetadataServicesController(SettingsController):
             self._db.rollback()
             return service
 
-        error = self.check_name_unique(service, name) or self.set_protocols(service, protocol) or self.register_with_metadata_wrangler(is_new, service)
-        if error:
+        name_error = self.check_name_unique(service, name)
+        if name_error:
             self._db.rollback()
-            return error
+            return name_error
+
+        protocol_error = self.set_protocols(service, protocol)
+        if protocol_error:
+            self._db.rollback()
+            return protocol_error
+
+        wrangler_error = self.register_with_metadata_wrangler(is_new, service)
+        if wrangler_error:
+            self._db.rollback()
+            return wrangler_error
 
         service.name = name
 
