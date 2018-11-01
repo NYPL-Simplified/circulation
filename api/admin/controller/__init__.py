@@ -170,6 +170,8 @@ def setup_admin_controllers(manager):
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
     manager.admin_patron_controller = PatronController(manager)
+    from api.admin.controller.metadata_services import MetadataServicesController
+    manager.admin_metadata_services_controller = MetadataServicesController(manager)
     from api.admin.controller.patron_auth_services import PatronAuthServicesController
     manager.admin_patron_auth_services_controller = PatronAuthServicesController(manager)
     from api.admin.controller.admin_auth_services import AdminAuthServicesController
@@ -2241,7 +2243,6 @@ class SettingsController(AdminCirculationManagerController):
     def _set_integration_library(self, integration, library_info, protocol):
         library = get_one(self._db, Library, short_name=library_info.get("short_name"))
         if not library:
-            self._db.rollback()
             return NO_SUCH_LIBRARY.detailed(_("You attempted to add the integration to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
 
         integration.libraries += [library]
@@ -2251,13 +2252,11 @@ class SettingsController(AdminCirculationManagerController):
             if value and setting.get("type") == "list" and not setting.get("options"):
                 value = json.dumps(value)
             if setting.get("options") and value not in [option.get("key") for option in setting.get("options")]:
-                self._db.rollback()
                 return INVALID_CONFIGURATION_OPTION.detailed(_(
                     "The configuration value for %(setting)s is invalid.",
                     setting=setting.get("label"),
                 ))
             if not value and setting.get("required"):
-                self._db.rollback()
                 return INCOMPLETE_CONFIGURATION.detailed(
                     _("The configuration is missing a required setting: %(setting)s for library %(library)s",
                       setting=setting.get("label"),
@@ -2544,78 +2543,6 @@ class SettingsController(AdminCirculationManagerController):
     def logging_service(self, service_id):
         return self._delete_integration(
             service_id, ExternalIntegration.LOGGING_GOAL
-        )
-
-    def metadata_services(
-        self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
-    ):
-        self.require_system_admin()
-        provider_apis = [NYTBestSellerAPI,
-                         NoveListAPI,
-                         MetadataWranglerOPDSLookup,
-                        ]
-        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="PROTOCOL")
-
-        if flask.request.method == 'GET':
-            metadata_services = self._get_integration_info(ExternalIntegration.METADATA_GOAL, protocols)
-            return dict(
-                metadata_services=metadata_services,
-                protocols=protocols,
-            )
-
-        id = flask.request.form.get("id")
-
-        protocol = flask.request.form.get("protocol")
-        if protocol and protocol not in [p.get("name") for p in protocols]:
-            return UNKNOWN_PROTOCOL
-
-        is_new = False
-        if id:
-            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.METADATA_GOAL)
-            if not service:
-                return MISSING_SERVICE
-            if protocol != service.protocol:
-                return CANNOT_CHANGE_PROTOCOL
-        else:
-            service, is_new = self._create_integration(
-                protocols, protocol, ExternalIntegration.METADATA_GOAL
-            )
-            if isinstance(service, ProblemDetail):
-                return service
-
-        name = flask.request.form.get("name")
-        if name:
-            if service.name != name:
-                service_with_name = get_one(self._db, ExternalIntegration, name=name)
-                if service_with_name:
-                    self._db.rollback()
-                    return INTEGRATION_NAME_ALREADY_IN_USE
-            service.name = name
-
-        [protocol] = [p for p in protocols if p.get("name") == protocol]
-        result = self._set_integration_settings_and_libraries(service, protocol)
-        if isinstance(result, ProblemDetail):
-            return result
-
-        # Register this site with the Metadata Wrangler.
-        if ((is_new or not service.password) and
-            service.protocol == ExternalIntegration.METADATA_WRANGLER):
-
-            problem_detail = self.sitewide_registration(
-                service, do_get=do_get, do_post=do_post
-            )
-            if problem_detail:
-                self._db.rollback()
-                return problem_detail
-
-        if is_new:
-            return Response(unicode(service.id), 201)
-        else:
-            return Response(unicode(service.id), 200)
-
-    def metadata_service(self, service_id):
-        return self._delete_integration(
-            service_id, ExternalIntegration.METADATA_GOAL
         )
 
     def sitewide_registration(self, integration, do_get=HTTP.debuggable_get,
