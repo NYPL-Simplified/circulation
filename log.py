@@ -241,7 +241,6 @@ class CloudwatchLogs(Logger):
     def from_configuration(cls, _db, testing=False):
         settings = None
         cloudwatch = None
-        from model import (ExternalIntegration, ConfigurationSetting)
 
         app_name = cls.DEFAULT_APP_NAME
         if _db and not testing:
@@ -325,12 +324,6 @@ class LogConfiguration(object):
     ]
 
     @classmethod
-    def _defaults(cls, testing=False):
-        log_level = cls.DEFAULT_LOG_LEVEL
-        database_log_level = cls.DEFAULT_DATABASE_LOG_LEVEL
-        return log_level, database_log_level
-
-    @classmethod
     def initialize(cls, _db, testing=False):
         """Make the logging handlers reflect the current logging rules
         as configured in the database.
@@ -395,7 +388,8 @@ class LogConfiguration(object):
         Handler objects that will be associated with the top-level
         logger.
         """
-        (log_level, database_log_level) = cls._defaults(testing)
+        log_level = cls.DEFAULT_LOG_LEVEL
+        database_log_level = cls.DEFAULT_DATABASE_LOG_LEVEL
 
         if _db and not testing:
             log_level = (

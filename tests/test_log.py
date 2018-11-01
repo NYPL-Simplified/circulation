@@ -159,19 +159,6 @@ class TestLogConfiguration(DatabaseTest):
             cls._defaults(testing=True)
         )
 
-    def test_defaults(self):
-        cls = LogConfiguration
-
-        eq_(
-            (cls.INFO, cls.WARN),
-            cls._defaults(testing=False)
-        )
-
-        eq_(
-            (cls.INFO, cls.WARN),
-            cls._defaults(testing=True)
-        )
-
     def test_set_formatter(self):
         # Create a generic handler.
         handler = logging.StreamHandler()
