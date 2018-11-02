@@ -172,6 +172,8 @@ def setup_admin_controllers(manager):
     manager.admin_patron_controller = PatronController(manager)
     from api.admin.controller.discovery_services import DiscoveryServicesController
     manager.admin_discovery_services_controller = DiscoveryServicesController(manager)
+    from api.admin.controller.discovery_service_library_registrations import DiscoveryServiceLibraryRegistrationsController
+    manager.admin_discovery_service_library_registrations_controller = DiscoveryServiceLibraryRegistrationsController(manager)
     from api.admin.controller.cdn_services import CDNServicesController
     manager.admin_cdn_services_controller = CDNServicesController(manager)
     from api.admin.controller.analytics_services import AnalyticsServicesController
@@ -2738,70 +2740,3 @@ class SettingsController(AdminCirculationManagerController):
         return self._delete_integration(
             service_id, ExternalIntegration.STORAGE_GOAL
         )
-
-    def discovery_service_library_registrations(
-            self, do_get=HTTP.debuggable_get,
-            do_post=HTTP.debuggable_post,
-            registration_class=None
-    ):
-        """List the libraries that have been registered with a specific
-        RemoteRegistry, and allow the admin to register a library with
-        a RemoteRegistry.
-
-        :param registration_class: Mock class to use instead of Registration.
-        """
-
-        registration_class = registration_class or Registration
-        self.require_system_admin()
-        goal = ExternalIntegration.DISCOVERY_GOAL
-        if flask.request.method == "GET":
-            # Make a list of all discovery services, each with the
-            # list of libraries registered with that service and the
-            # status of the registration.
-            services = []
-            for registry in RemoteRegistry.for_protocol_and_goal(
-                    self._db, ExternalIntegration.OPDS_REGISTRATION, goal
-            ):
-                libraries = []
-                for registration in registry.registrations:
-                    library = registration.library
-                    library_info = dict(short_name=library.short_name)
-                    status = registration.status_field.value
-                    stage_field = registration.stage_field.value
-                    if stage_field:
-                        library_info["stage"] = stage_field
-                    if status:
-                        library_info["status"] = status
-                        libraries.append(library_info)
-
-                services.append(
-                    dict(
-                        id=registry.integration.id,
-                        libraries=libraries,
-                    )
-                )
-            return dict(library_registrations=services)
-
-        if flask.request.method == "POST":
-            # Attempt to register a library with a RemoteRegistry.
-            integration_id = flask.request.form.get("integration_id")
-            library_short_name = flask.request.form.get("library_short_name")
-            stage = flask.request.form.get("registration_stage") or Registration.TESTING_STAGE
-
-            registry = RemoteRegistry.for_integration_id(
-                self._db, integration_id, goal
-            )
-            if not registry:
-                return MISSING_SERVICE
-
-            library = get_one(self._db, Library, short_name=library_short_name)
-            if not library:
-                return NO_SUCH_LIBRARY
-
-            registration = registration_class(registry, library)
-            registered = registration.push(
-                stage, self.url_for, do_get=do_get, do_post=do_post
-            )
-            if isinstance(registered, ProblemDetail):
-                return registered
-            return Response(unicode(_("Success")), 200)

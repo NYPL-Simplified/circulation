@@ -553,7 +553,7 @@ def logging_service(key):
 @requires_admin
 @requires_csrf_token
 def discovery_service_library_registrations():
-    return app.manager.admin_settings_controller.discovery_service_library_registrations()
+    return app.manager.admin_discovery_service_library_registrations_controller.process_discovery_service_library_registrations()
 
 @library_route("/admin/custom_lists", methods=["GET", "POST"])
 @has_library
