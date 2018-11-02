@@ -14,13 +14,12 @@ from ..log import (
     JSONFormatter,
     LogglyHandler,
     CloudWatchLogHandler,
-    MockCloudWatchLogHandler,
     LogConfiguration,
     SysLogger,
     Loggly,
     CloudwatchLogs,
     Logger,
-    CannotLoadConfiguration
+    CannotLoadConfiguration,
 )
 from ..model import (
     ExternalIntegration,
@@ -80,9 +79,7 @@ class TestLogConfiguration(DatabaseTest):
             goal=ExternalIntegration.LOGGING_GOAL
         )
 
-        integration.set_setting(CloudwatchLogs.GROUP, "test_group")
-        integration.set_setting(CloudwatchLogs.STREAM, "test_stream")
-        integration.set_setting(CloudwatchLogs.INTERVAL, 60)
+        integration.set_setting(CloudwatchLogs.CREATE_GROUP, "FALSE")
         return integration
 
     def test_from_configuration(self):
@@ -92,24 +89,27 @@ class TestLogConfiguration(DatabaseTest):
 
         # When logging is configured on initial startup, with no
         # database connection, these are the defaults.
-        internal_log_level, database_log_level, [handler] = m(
+        internal_log_level, database_log_level, [handler], errors = m(
             None, testing=False
         )
         eq_(cls.INFO, internal_log_level)
         eq_(cls.WARN, database_log_level)
+        eq_([], errors)
         assert isinstance(handler.formatter, JSONFormatter)
 
         # The same defaults hold when there is a database connection
         # but nothing is actually configured.
-        internal_log_level, database_log_level, [handler] = m(
+        internal_log_level, database_log_level, [handler], errors = m(
             self._db, testing=False
         )
         eq_(cls.INFO, internal_log_level)
         eq_(cls.WARN, database_log_level)
+        eq_([], errors)
         assert isinstance(handler.formatter, JSONFormatter)
 
-        # Let's set up a Loggly integration and change the defaults.
+        # Let's set up a integrations and change the defaults.
         self.loggly_integration()
+        self.cloudwatch_integration()
         internal = self._external_integration(
             protocol=ExternalIntegration.INTERNAL_LOGGING,
             goal=ExternalIntegration.LOGGING_GOAL
@@ -120,7 +120,7 @@ class TestLogConfiguration(DatabaseTest):
         ConfigurationSetting.sitewide(self._db, config.LOG_APP_NAME).value = "test app"
         template = "%(filename)s:%(message)s"
         internal.setting(SysLogger.LOG_MESSAGE_TEMPLATE).value = template
-        internal_log_level, database_log_level, handlers = m(
+        internal_log_level, database_log_level, handlers, errors = m(
             self._db, testing=False
         )
         eq_(cls.ERROR, internal_log_level)
@@ -128,6 +128,11 @@ class TestLogConfiguration(DatabaseTest):
         [loggly_handler] = [x for x in handlers if isinstance(x, LogglyHandler)]
         eq_("http://example.com/a_token/", loggly_handler.url)
         eq_("test app", loggly_handler.formatter.app_name)
+
+        [cloudwatch_handler] = [x for x in handlers if isinstance(x, CloudWatchLogHandler)]
+        eq_("simplified", cloudwatch_handler.stream_name)
+        eq_("simplified", cloudwatch_handler.log_group)
+        eq_(60, cloudwatch_handler.send_interval)
 
         [stream_handler] = [x for x in handlers
                             if isinstance(x, logging.StreamHandler)]
@@ -137,7 +142,7 @@ class TestLogConfiguration(DatabaseTest):
         # If testing=True, then the database configuration is ignored,
         # and the log setup is one that's appropriate for display
         # alongside unit test output.
-        internal_log_level, database_log_level, [handler] = m(
+        internal_log_level, database_log_level, [handler], errors = m(
             self._db, testing=True
         )
         eq_(cls.INFO, internal_log_level)
@@ -216,11 +221,15 @@ class TestLogConfiguration(DatabaseTest):
         """Turn an appropriate ExternalIntegration into a CloudWatchLogHandler."""
 
         integration = self.cloudwatch_integration()
+        integration.set_setting(CloudwatchLogs.GROUP, "test_group")
+        integration.set_setting(CloudwatchLogs.STREAM, "test_stream")
+        integration.set_setting(CloudwatchLogs.INTERVAL, 120)
+        integration.set_setting(CloudwatchLogs.REGION, 'us-east-2')
         handler = CloudwatchLogs.get_handler(integration, testing=True)
-        assert isinstance(handler, MockCloudWatchLogHandler)
+        assert isinstance(handler, CloudWatchLogHandler)
         eq_("test_stream", handler.stream_name)
         eq_("test_group", handler.log_group)
-        eq_(60, handler.send_interval)
+        eq_(120, handler.send_interval)
 
         integration.setting(CloudwatchLogs.INTERVAL).value = -10
         assert_raises(CannotLoadConfiguration, CloudwatchLogs.get_handler, integration, True)
@@ -244,3 +253,14 @@ class TestLogConfiguration(DatabaseTest):
         # exception.
         assert_raises(TypeError, m, "http://%s/%s", "token")
         assert_raises(KeyError, m, "http://%(atoken)s/", "token")
+
+    def test_cloudwatch_initialization_exception(self):
+        """Make sure if an exception is thrown during initalization its caught."""
+
+        integration = self.cloudwatch_integration()
+        integration.set_setting(CloudwatchLogs.CREATE_GROUP, "TRUE")
+        internal_log_level, database_log_level, [handler], [error] = LogConfiguration.from_configuration(
+            self._db, testing=False
+        )
+        assert isinstance(handler, logging.StreamHandler)
+        eq_('Error creating logger AWS Cloudwatch Logs Unable to locate credentials', error)

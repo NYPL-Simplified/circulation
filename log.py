@@ -9,6 +9,7 @@ from config import Configuration
 from StringIO import StringIO
 from loggly.handlers import HTTPSHandler as LogglyHandler
 from watchtower import CloudWatchLogHandler
+from boto3.session import Session as AwsSession
 from config import CannotLoadConfiguration
 from model import ExternalIntegration, ConfigurationSetting
 
@@ -222,17 +223,70 @@ class Loggly(Logger):
 class CloudwatchLogs(Logger):
 
     NAME = "AWS Cloudwatch Logs"
-
     GROUP = 'group'
     STREAM = 'stream'
     INTERVAL = 'interval'
-
+    CREATE_GROUP = 'create_group'
+    REGION = 'region'
+    DEFAULT_REGION = 'us-west-2'
     DEFAULT_INTERVAL = 60
+    DEFAULT_CREATE_GROUP = "TRUE"
+
+    # https://docs.aws.amazon.com/general/latest/gr/rande.html#cwl_region
+    REGIONS = [
+        {"key": "us-east-2",      "label": _("US East (Ohio)")},
+        {"key": "us-east-1",      "label": _("US East (N. Virginia)")},
+        {"key": "us-west-1",      "label": _("US West (N. California)")},
+        {"key": "us-west-2",      "label": _("US West (Oregon)")},
+        {"key": "ap-south-1",     "label": _("Asia Pacific (Mumbai)")},
+        {"key": "ap-northeast-3", "label": _("Asia Pacific (Osaka-Local)")},
+        {"key": "ap-northeast-2", "label": _("Asia Pacific (Seoul)")},
+        {"key": "ap-southeast-1", "label": _("Asia Pacific (Singapore)")},
+        {"key": "ap-southeast-2", "label": _("Asia Pacific (Sydney)")},
+        {"key": "ap-northeast-1", "label": _("Asia Pacific (Tokyo)")},
+        {"key": "ca-central-1",   "label": _("Canada (Central)")},
+        {"key": "cn-north-1",     "label": _("China (Beijing)")},
+        {"key": "cn-northwest-1", "label": _("China (Ningxia)")},
+        {"key": "eu-central-1",   "label": _("EU (Frankfurt)")},
+        {"key": "eu-west-1",      "label": _("EU (Ireland)")},
+        {"key": "eu-west-2",      "label": _("EU (London)")},
+        {"key": "eu-west-3",      "label": _("EU (Paris)")},
+        {"key": "sa-east-1",      "label": _("South America (Sao Paulo)")},
+    ]
 
     SETTINGS = [
-        { "key": GROUP, "label": _("Log Group") },
-        { "key": STREAM, "label": _("Log Stream") },
-        { "key": INTERVAL, "label": _("Update Interval Seconds") },
+        {
+            "key": GROUP,
+            "label": _("Log Group"),
+            "default": Logger.DEFAULT_APP_NAME,
+        },
+        {
+            "key": STREAM,
+            "label": _("Log Stream"),
+            "default": Logger.DEFAULT_APP_NAME,
+        },
+        {
+            "key": INTERVAL,
+            "label": _("Update Interval Seconds"),
+            "default": DEFAULT_INTERVAL,
+        },
+        {
+            "key": REGION,
+            "label": _("AWS Region"),
+            "type": "select",
+            "options": REGIONS,
+            "default": DEFAULT_REGION,
+        },
+        {
+            "key": CREATE_GROUP,
+            "label": _("Automatically Create Log Group"),
+            "type": "select",
+            "options": [
+                { "key": "TRUE", "label": _("Yes") },
+                { "key": "FALSE", "label": _("No") },
+            ],
+            "default": True,
+        },
     ]
 
     SITEWIDE = True
@@ -263,6 +317,9 @@ class CloudwatchLogs(Logger):
         group = settings.setting(cls.GROUP).value or cls.DEFAULT_APP_NAME
         stream = settings.setting(cls.STREAM).value or cls.DEFAULT_APP_NAME
         interval = settings.setting(cls.INTERVAL).value or cls.DEFAULT_INTERVAL
+        region = settings.setting(cls.REGION).value or cls.DEFAULT_REGION
+        create_group = settings.setting(cls.CREATE_GROUP).value or cls.DEFAULT_CREATE_GROUP
+
         try:
             interval = int(interval)
             if interval <= 0:
@@ -273,12 +330,14 @@ class CloudwatchLogs(Logger):
             raise CannotLoadConfiguration(
                 "AWS Cloudwatch Logs interval configuration must be an integer."
             )
-        if testing:
-            cloudwatch = MockCloudWatchLogHandler
-        else:
-            cloudwatch = CloudWatchLogHandler
-
-        return cloudwatch(log_group=group, stream_name=stream, send_interval=interval)
+        session = AwsSession(region_name=region)
+        return CloudWatchLogHandler(
+            log_group=group,
+            stream_name=stream,
+            send_interval=interval,
+            boto3_session=session,
+            create_log_group=create_group == "TRUE"
+        )
 
 class LogConfiguration(object):
     """Configures the active Python logging handlers based on logging
@@ -334,7 +393,7 @@ class LogConfiguration(object):
         :param testing: True if unit tests are currently running; otherwise
         False.
         """
-        log_level, database_log_level, new_handlers = (
+        log_level, database_log_level, new_handlers, errors = (
             cls.from_configuration(_db, testing)
         )
 
@@ -366,6 +425,12 @@ class LogConfiguration(object):
             loop_prevention_log_level = cls.WARN
         for logger in ['urllib3.connectionpool']:
             logging.getLogger(logger).setLevel(loop_prevention_log_level)
+
+        # If we had an error creating any log handlers report it
+        if errors:
+            for error in errors:
+                logging.getLogger().error(error)
+
         return log_level
 
     @classmethod
@@ -403,25 +468,14 @@ class LogConfiguration(object):
 
         loggers = [SysLogger, Loggly, CloudwatchLogs]
         handlers = []
+        errors = []
 
         for logger in loggers:
-            handler = logger.from_configuration(_db, testing)
-            if handler:
-                handlers.append(handler)
+            try:
+                handler = logger.from_configuration(_db, testing)
+                if handler:
+                    handlers.append(handler)
+            except Exception, e:
+                errors.append("Error creating logger %s %s" % (logger.NAME, e.message))
 
-        return log_level, database_log_level, handlers
-
-
-class MockCloudWatchLogHandler(CloudWatchLogHandler):
-    """
-    Mock handler used during unit testing.
-    """
-
-    def __init__(self, log_group=__name__, stream_name=None, use_queues=True, send_interval=60,
-                 max_batch_size=1024*1024, max_batch_count=10000):
-        self.log_group = log_group
-        self.stream_name = stream_name
-        self.use_queues = use_queues
-        self.send_interval = send_interval
-        self.max_batch_size = max_batch_size
-        self.max_batch_count = max_batch_count
+        return log_level, database_log_level, handlers, errors
