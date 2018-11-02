@@ -96,12 +96,12 @@ class AnalyticsServicesController(SettingsController):
             return CANNOT_CHANGE_PROTOCOL
         return service
 
-    def check_name_unique(self, service, name, id):
+    def check_name_unique(self, new_service, name, id):
         """A service cannot be created with, or edited to have, the same name
         as a service that already exists."""
 
-        service_with_name = get_one(self._db, ExternalIntegration, name=name)
-        if service_with_name and not service_with_name.id == service.id:
+        existing_service = get_one(self._db, ExternalIntegration, name=name)
+        if existing_service and not existing_service.id == new_service.id:
             # Without checking that the IDs are different, you can't save
             # changes to an existing service unless you've also changed its name.
             return INTEGRATION_NAME_ALREADY_IN_USE

@@ -202,6 +202,32 @@ class TestMetadataServices(SettingsControllerTest):
         eq_("pass", novelist_service.password)
         eq_([l2], novelist_service.libraries)
 
+    def test_check_name_unique(self):
+       kwargs = dict(protocol=ExternalIntegration.NYT,
+                    goal=ExternalIntegration.METADATA_GOAL)
+
+       existing_service, ignore = create(self._db, ExternalIntegration, name="existing service", **kwargs)
+       new_service, ignore = create(self._db, ExternalIntegration, name="new service", **kwargs)
+
+       m = self.manager.admin_metadata_services_controller.check_name_unique
+
+       # Try to change new service so that it has the same name as existing service
+       # -- this is not allowed.
+       result = m(new_service, existing_service.name)
+       eq_(result, INTEGRATION_NAME_ALREADY_IN_USE)
+
+       # Try to edit existing service without changing its name -- this is fine.
+       eq_(
+           None,
+           m(existing_service, existing_service.name)
+       )
+
+       # Changing the existing service's name is also fine.
+       eq_(
+            None,
+            m(existing_service, "new name")
+       )
+
     def test_metadata_service_delete(self):
         l1, ignore = create(
             self._db, Library, name="Library 1", short_name="L1",

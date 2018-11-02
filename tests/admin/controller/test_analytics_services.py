@@ -240,6 +240,31 @@ class TestAnalyticsServices(SettingsControllerTest):
         eq_("l2id", ConfigurationSetting.for_library_and_externalintegration(
                 self._db, GoogleAnalyticsProvider.TRACKING_ID, l2, ga_service).value)
 
+    def test_check_name_unique(self):
+       kwargs = dict(protocol=GoogleAnalyticsProvider.__module__,
+                      goal=ExternalIntegration.ANALYTICS_GOAL)
+       existing_service, ignore = create(self._db, ExternalIntegration, name="existing service", **kwargs)
+       new_service, ignore = create(self._db, ExternalIntegration, name="new service", **kwargs)
+
+       m = self.manager.admin_analytics_services_controller.check_name_unique
+
+       # Try to change new service so that it has the same name as existing service
+       # -- this is not allowed.
+       result = m(new_service, existing_service.name, new_service.id)
+       eq_(result, INTEGRATION_NAME_ALREADY_IN_USE)
+
+       # Try to edit existing service without changing its name -- this is fine.
+       eq_(
+           None,
+           m(existing_service, existing_service.name, existing_service.id)
+       )
+
+       # Changing the existing service's name is also fine.
+       eq_(
+            None,
+            m(existing_service, "new name", existing_service.id)
+       )
+
     def test_analytics_service_delete(self):
         l1, ignore = create(
             self._db, Library, name="Library 1", short_name="L1",
