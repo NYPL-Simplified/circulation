@@ -2138,6 +2138,10 @@ class SettingsController(AdminCirculationManagerController):
             if description != None:
                 protocol["description"] = description
 
+            instructions = getattr(api, "INSTRUCTIONS", None)
+            if instructions != None:
+                protocol["instructions"] = instructions
+
             sitewide = getattr(api, "SITEWIDE", None)
             if sitewide != None:
                 protocol["sitewide"] = sitewide
