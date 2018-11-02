@@ -1,39 +1,46 @@
 from nose.tools import set_trace
 import flask
 from flask import Response
+from flask_babel import lazy_gettext as _
 from api.admin.problem_details import *
-from api.google_analytics_provider import GoogleAnalyticsProvider
-from core.local_analytics_provider import LocalAnalyticsProvider
 from core.model import (
+    Configuration,
     ExternalIntegration,
     get_one,
 )
 from core.util.problem_detail import ProblemDetail
+
 from . import SettingsController
 
-class AnalyticsServicesController(SettingsController):
+class CDNServicesController(SettingsController):
 
     def __init__(self, manager):
-        super(AnalyticsServicesController, self).__init__(manager)
-        provider_apis = [GoogleAnalyticsProvider,
-                         LocalAnalyticsProvider,
-                        ]
-        self.protocols = self._get_integration_protocols(provider_apis)
+        super(CDNServicesController, self).__init__(manager)
+        self.protocols = [
+            {
+                "name": ExternalIntegration.CDN,
+                "sitewide": True,
+                "settings": [
+                    { "key": ExternalIntegration.URL, "label": _("CDN URL"), "required": True },
+                    { "key": Configuration.CDN_MIRRORED_DOMAIN_KEY, "label": _("Mirrored domain"), "required": True },
+                ],
+            }
+        ]
 
-    def process_analytics_services(self):
+    def process_cdn_services(self):
         self.require_system_admin()
         if flask.request.method == 'GET':
             return self.process_get()
         else:
             return self.process_post()
 
+
     def process_get(self):
-        if flask.request.method == 'GET':
-            services = self._get_integration_info(ExternalIntegration.ANALYTICS_GOAL, self.protocols)
-            return dict(
-                analytics_services=services,
-                protocols=self.protocols,
-            )
+        services = self._get_integration_info(ExternalIntegration.CDN_GOAL, self.protocols)
+        return dict(
+            cdn_services=services,
+            protocols=self.protocols,
+        )
 
     def process_post(self):
         name = flask.request.form.get("name")
@@ -45,11 +52,12 @@ class AnalyticsServicesController(SettingsController):
 
         is_new = False
         id = flask.request.form.get("id")
+
         if id:
             service = self.look_up_service_by_id(id, protocol)
         else:
             service, is_new = self._create_integration(
-                self.protocols, protocol, ExternalIntegration.ANALYTICS_GOAL
+                self.protocols, protocol, ExternalIntegration.CDN_GOAL
             )
 
         if isinstance(service, ProblemDetail):
@@ -81,7 +89,7 @@ class AnalyticsServicesController(SettingsController):
         protocol = fields.get("protocol")
 
         if not name:
-            return MISSING_ANALYTICS_NAME
+            return INCOMPLETE_CONFIGURATION
         if protocol and protocol not in [p.get("name") for p in self.protocols]:
             return UNKNOWN_PROTOCOL
 
@@ -89,7 +97,7 @@ class AnalyticsServicesController(SettingsController):
         """Find an existing service, and make sure that the user is not trying to edit
         its protocol."""
 
-        service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.ANALYTICS_GOAL)
+        service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.CDN_GOAL)
         if not service:
             return MISSING_SERVICE
         if protocol != service.protocol:
@@ -108,7 +116,7 @@ class AnalyticsServicesController(SettingsController):
 
     def set_protocols(self, service, protocol):
         """Validate the protocol that the user has submitted; depending on whether
-        the validations pass, either save it to this analytics service or
+        the validations pass, either save it to this CDN service or
         return an error message."""
 
         [protocol] = [p for p in self.protocols if p.get("name") == protocol]
@@ -118,5 +126,5 @@ class AnalyticsServicesController(SettingsController):
 
     def process_delete(self, service_id):
         return self._delete_integration(
-            service_id, ExternalIntegration.ANALYTICS_GOAL
+            service_id, ExternalIntegration.CDN_GOAL
         )

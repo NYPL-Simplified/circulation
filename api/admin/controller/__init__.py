@@ -170,6 +170,8 @@ def setup_admin_controllers(manager):
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
     manager.admin_patron_controller = PatronController(manager)
+    from api.admin.controller.cdn_services import CDNServicesController
+    manager.admin_cdn_services_controller = CDNServicesController(manager)
     from api.admin.controller.analytics_services import AnalyticsServicesController
     manager.admin_analytics_services_controller = AnalyticsServicesController(manager)
     from api.admin.controller.metadata_services import MetadataServicesController
@@ -2649,70 +2651,6 @@ class SettingsController(AdminCirculationManagerController):
         # Sign a JWT with the private key to prove ownership of the site.
         token = jwt.encode(payload, private_key, algorithm='RS256')
         return dict(url=public_key_url, jwt=token)
-
-    def cdn_services(self):
-        self.require_system_admin()
-        protocols = [
-            {
-                "name": ExternalIntegration.CDN,
-                "sitewide": True,
-                "settings": [
-                    { "key": ExternalIntegration.URL, "label": _("CDN URL"), "required": True },
-                    { "key": Configuration.CDN_MIRRORED_DOMAIN_KEY, "label": _("Mirrored domain"), "required": True },
-                ],
-            }
-        ]
-
-        if flask.request.method == 'GET':
-            services = self._get_integration_info(ExternalIntegration.CDN_GOAL, protocols)
-            return dict(
-                cdn_services=services,
-                protocols=protocols,
-            )
-
-        id = flask.request.form.get("id")
-
-        protocol = flask.request.form.get("protocol")
-        if protocol and protocol not in [p.get("name") for p in protocols]:
-            return UNKNOWN_PROTOCOL
-
-        is_new = False
-        if id:
-            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.CDN_GOAL)
-            if not service:
-                return MISSING_SERVICE
-            if protocol != service.protocol:
-                return CANNOT_CHANGE_PROTOCOL
-        else:
-            service, is_new = self._create_integration(
-                protocols, protocol, ExternalIntegration.CDN_GOAL
-            )
-            if isinstance(service, ProblemDetail):
-                return service
-
-        name = flask.request.form.get("name")
-        if name:
-            if service.name != name:
-                service_with_name = get_one(self._db, ExternalIntegration, name=name)
-                if service_with_name:
-                    self._db.rollback()
-                    return INTEGRATION_NAME_ALREADY_IN_USE
-            service.name = name
-
-        [protocol] = [p for p in protocols if p.get("name") == protocol]
-        result = self._set_integration_settings_and_libraries(service, protocol)
-        if isinstance(result, ProblemDetail):
-            return result
-
-        if is_new:
-            return Response(unicode(service.id), 201)
-        else:
-            return Response(unicode(service.id), 200)
-
-    def cdn_service(self, service_id):
-        return self._delete_integration(
-            service_id, ExternalIntegration.CDN_GOAL
-        )
 
     def _manage_sitewide_service(
             self, goal, provider_apis, service_key_name,
