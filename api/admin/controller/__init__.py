@@ -170,6 +170,8 @@ def setup_admin_controllers(manager):
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
     manager.admin_patron_controller = PatronController(manager)
+    from api.admin.controller.discovery_services import DiscoveryServicesController
+    manager.admin_discovery_services_controller = DiscoveryServicesController(manager)
     from api.admin.controller.cdn_services import CDNServicesController
     manager.admin_cdn_services_controller = CDNServicesController(manager)
     from api.admin.controller.analytics_services import AnalyticsServicesController
@@ -2735,96 +2737,6 @@ class SettingsController(AdminCirculationManagerController):
     def storage_service(self, service_id):
         return self._delete_integration(
             service_id, ExternalIntegration.STORAGE_GOAL
-        )
-
-    def discovery_services(self):
-        """List discovery services, and allow the admin to create new ones."""
-        self.require_system_admin()
-        opds_registration = ExternalIntegration.OPDS_REGISTRATION
-        protocols = [
-            {
-                "name": opds_registration,
-                "sitewide": True,
-                "settings": [
-                    { "key": ExternalIntegration.URL, "label": _("URL"), "required": True },
-                ],
-                "supports_registration": True,
-                "supports_staging": True,
-            }
-        ]
-
-        goal = ExternalIntegration.DISCOVERY_GOAL
-        if flask.request.method == 'GET':
-            registries = list(
-                RemoteRegistry.for_protocol_and_goal(
-                    self._db, opds_registration, goal
-                )
-            )
-            if not registries:
-                # There are no registries at all. Set up the default
-                # library registry.
-                integration, is_new = get_one_or_create(
-                    self._db, ExternalIntegration, protocol=opds_registration,
-                    goal=goal
-                )
-                if is_new:
-                    integration.url = (
-                        RemoteRegistry.DEFAULT_LIBRARY_REGISTRY_URL
-                    )
-
-            services = self._get_integration_info(goal, protocols)
-            return dict(
-                discovery_services=services,
-                protocols=protocols,
-            )
-
-        # Beyond this point the user wants to create a new discovery service,
-        # or edit an existing one.
-        id = flask.request.form.get("id")
-
-        protocol = flask.request.form.get("protocol")
-        if protocol and protocol not in [p.get("name") for p in protocols]:
-            return UNKNOWN_PROTOCOL
-
-        is_new = False
-        if id:
-            registry = RemoteRegistry.for_integration_id(self._db, id, goal)
-            if not registry:
-                return MISSING_SERVICE
-            integration = registry.integration
-            if protocol != integration.protocol:
-                return CANNOT_CHANGE_PROTOCOL
-        else:
-            integration, is_new = self._create_integration(
-                protocols, protocol, goal
-            )
-            if isinstance(integration, ProblemDetail):
-                return integration
-
-        name = flask.request.form.get("name")
-        if name:
-            if integration.name != name:
-                # Change the name if possible.
-                service_with_name = get_one(self._db, ExternalIntegration, name=name)
-                if service_with_name:
-                    self._db.rollback()
-                    return INTEGRATION_NAME_ALREADY_IN_USE
-            integration.name = name
-
-        [protocol] = [p for p in protocols if p.get("name") == protocol]
-        result = self._set_integration_settings_and_libraries(integration, protocol)
-        if isinstance(result, ProblemDetail):
-            return result
-
-        if is_new:
-            return Response(unicode(integration.id), 201)
-        else:
-            return Response(unicode(integration.id), 200)
-
-    def discovery_service(self, service_id):
-        """Delete a discover service."""
-        return self._delete_integration(
-            service_id, ExternalIntegration.DISCOVERY_GOAL
         )
 
     def discovery_service_library_registrations(
