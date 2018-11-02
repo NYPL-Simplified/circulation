@@ -452,28 +452,28 @@ def metadata_service(service_id):
 @requires_admin
 @requires_csrf_token
 def analytics_services():
-    return app.manager.admin_analytics_services.process_analytics_services()
+    return app.manager.admin_analytics_services_controller.process_analytics_services()
 
 @app.route("/admin/analytics_service/<service_id>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def analytics_service(service_id):
-    return app.manager.admin_analytics_services.process_delete(service_id)
+    return app.manager.admin_analytics_services_controller.process_delete(service_id)
 
 @app.route("/admin/cdn_services", methods=["GET", "POST"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def cdn_services():
-    return app.manager.admin_settings_controller.cdn_services()
+    return app.manager.admin_cdn_services_controller.process_cdn_services()
 
 @app.route("/admin/cdn_service/<service_id>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def cdn_service(service_id):
-    return app.manager.admin_settings_controller.cdn_service(service_id)
+    return app.manager.admin_cdn_services_controller.process_delete(service_id)
 
 @app.route("/admin/search_services", methods=["GET", "POST"])
 @returns_json_or_response_or_problem_detail
