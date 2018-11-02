@@ -508,14 +508,14 @@ def storage_service(service_id):
 @requires_admin
 @requires_csrf_token
 def discovery_services():
-    return app.manager.admin_settings_controller.discovery_services()
+    return app.manager.admin_discovery_services_controller.process_discovery_services()
 
 @app.route("/admin/discovery_service/<service_id>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def discovery_service(service_id):
-    return app.manager.admin_settings_controller.discovery_service(service_id)
+    return app.manager.admin_discovery_services_controller.process_delete(service_id)
 
 @app.route("/admin/sitewide_settings", methods=['GET', 'POST'])
 @returns_json_or_response_or_problem_detail
