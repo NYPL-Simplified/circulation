@@ -259,16 +259,19 @@ class CloudwatchLogs(Logger):
             "key": GROUP,
             "label": _("Log Group"),
             "default": Logger.DEFAULT_APP_NAME,
+            "required": True,
         },
         {
             "key": STREAM,
             "label": _("Log Stream"),
             "default": Logger.DEFAULT_APP_NAME,
+            "required": True,
         },
         {
             "key": INTERVAL,
             "label": _("Update Interval Seconds"),
             "default": DEFAULT_INTERVAL,
+            "required": True,
         },
         {
             "key": REGION,
@@ -276,6 +279,7 @@ class CloudwatchLogs(Logger):
             "type": "select",
             "options": REGIONS,
             "default": DEFAULT_REGION,
+            "required": True,
         },
         {
             "key": CREATE_GROUP,
@@ -286,6 +290,7 @@ class CloudwatchLogs(Logger):
                 { "key": "FALSE", "label": _("No") },
             ],
             "default": True,
+            "required": True,
         },
     ]
 
