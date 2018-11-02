@@ -46,6 +46,7 @@ class AnalyticsServicesController(SettingsController):
         is_new = False
         id = flask.request.form.get("id")
         if id:
+            # Find an existing service in order to edit it
             service = self.look_up_service_by_id(id, protocol)
         else:
             service, is_new = self._create_integration(
