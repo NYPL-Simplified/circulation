@@ -427,9 +427,8 @@ class LogConfiguration(object):
             logging.getLogger(logger).setLevel(loop_prevention_log_level)
 
         # If we had an error creating any log handlers report it
-        if errors:
-            for error in errors:
-                logging.getLogger().error(error)
+        for error in errors:
+            logging.getLogger().error(error)
 
         return log_level
 
