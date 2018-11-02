@@ -29,3 +29,6 @@ pymarc
 # for author name manipulations
 nameparser>=0.5.1
 fuzzywuzzy
+
+# for cloudwatch logs integration
+watchtower

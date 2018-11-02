@@ -160,6 +160,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     # Integrations with LOGGING_GOAL
     INTERNAL_LOGGING = u'Internal logging'
     LOGGLY = u"Loggly"
+    CLOUDWATCH = u"AWS Cloudwatch Logs"
 
     # Keys for common configuration settings
 
