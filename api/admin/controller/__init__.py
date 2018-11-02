@@ -60,7 +60,7 @@ from core.model import (
     WorkGenre,
 )
 from core.lane import (Lane, WorkList)
-from core.log import (LogConfiguration, SysLogger, Loggly)
+from core.log import (LogConfiguration, SysLogger, Loggly, CloudwatchLogs)
 from core.util.problem_detail import (
     ProblemDetail,
     JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
@@ -2542,7 +2542,7 @@ class SettingsController(AdminCirculationManagerController):
         detail = _("You tried to create a new logging service, but a logging service is already configured.")
         return self._manage_sitewide_service(
             ExternalIntegration.LOGGING_GOAL,
-            [Loggly, SysLogger],
+            [Loggly, SysLogger, CloudwatchLogs],
             'logging_services', detail
         )
 
