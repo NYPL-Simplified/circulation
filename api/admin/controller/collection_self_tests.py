@@ -8,6 +8,7 @@ from core.model import (
     Collection
 )
 from core.selftest import HasSelfTests
+from core.util.problem_detail import ProblemDetail
 from . import SettingsController
 
 class CollectionSelfTestsController(SettingsController):
@@ -26,12 +27,19 @@ class CollectionSelfTestsController(SettingsController):
 
     def process_get(self, identifier):
         collection = self.look_up_collection_by_id(identifier)
+        if isinstance(collection, ProblemDetail):
+            return collection
         collection_info = self.get_collection_info(collection)
         return dict(collection=collection_info)
 
     def look_up_collection_by_id(self, identifier):
-        """Find the collection to display self test results or run self tests for"""
-        return self._db.query(Collection).filter(Collection.id==int(identifier))[0]
+        """Find the collection to display self test results or run self tests for;
+        display an error message if a collection with this ID turns out not to exist"""
+
+        collection = Collection.by_id(self._db, identifier)
+        if not collection:
+            return NO_SUCH_COLLECTION
+        return collection
 
     def get_collection_info(self, collection):
         """Compile information about this collection, including the results from the last time, if ever,
@@ -60,6 +68,8 @@ class CollectionSelfTestsController(SettingsController):
 
     def process_post(self, identifier):
         collection = self.look_up_collection_by_id(identifier)
+        if isinstance(collection, ProblemDetail):
+            return collection
         collectionProtocol = collection.protocol or None
         protocolClass = self.find_protocol_class(collectionProtocol) or None
 

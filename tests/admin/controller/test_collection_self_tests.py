@@ -17,6 +17,12 @@ class TestSelfTests(SettingsControllerTest):
             eq_(response, MISSING_COLLECTION_IDENTIFIER)
             eq_(response.status_code, 400)
 
+    def test_collection_self_tests_with_no_collection_found(self):
+        with self.request_context_with_admin("/"):
+            response = self.manager.admin_collection_self_tests_controller.process_collection_self_tests(-1)
+            eq_(response, NO_SUCH_COLLECTION)
+            eq_(response.status_code, 404)
+
     def test_collection_self_tests_test_get(self):
         old_prior_test_results = HasSelfTests.prior_test_results
         HasSelfTests.prior_test_results = self.mock_prior_test_results
