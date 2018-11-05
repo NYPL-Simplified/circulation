@@ -61,7 +61,8 @@ class DiscoveryServiceLibraryRegistrationsController(SettingsController):
                     id=registry.integration.id,
                     libraries=libraries,
                 )
-            
+            )
+
         return dict(library_registrations=services)
 
     def get_library_info(self, registration):
