@@ -188,6 +188,8 @@ def setup_admin_controllers(manager):
     manager.admin_collection_settings_controller = CollectionSettingsController(manager)
     from api.admin.controller.collection_self_tests import CollectionSelfTestsController
     manager.admin_collection_self_tests_controller = CollectionSelfTestsController(manager)
+    from api.admin.controller.collection_library_registrations import CollectionLibraryRegistrationsController
+    manager.admin_collection_library_registrations_controller = CollectionLibraryRegistrationsController(manager)
     from api.admin.controller.sitewide_settings import SitewideConfigurationSettingsController
     manager.admin_sitewide_configuration_settings_controller = SitewideConfigurationSettingsController(manager)
     from api.admin.controller.library_settings import LibrarySettingsController
@@ -2360,66 +2362,6 @@ class SettingsController(AdminCirculationManagerController):
                 self_test_results = dict(exception=message % args)
 
         return self_test_results
-
-
-    def collection_library_registrations(
-            self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
-            key=None, registration_class=Registration
-    ):
-        """Use the ODPS Directory Registration Protocol to register a
-        Collection with its remote source of truth.
-
-        :param registration_class: Mock class to use instead of Registration.
-        """
-        self.require_system_admin()
-        # TODO: This method can share some code with
-        # discovery_service_library_registrations.
-        shared_collection_provider_apis = [SharedODLAPI]
-
-        if flask.request.method == "GET":
-            collections = []
-            for collection in self._db.query(Collection):
-                libraries = []
-                for library in collection.libraries:
-                    library_info = dict(short_name=library.short_name)
-                    status = ConfigurationSetting.for_library_and_externalintegration(
-                        self._db, Registration.LIBRARY_REGISTRATION_STATUS, library, collection.external_integration,
-                    ).value
-                    if status:
-                        library_info["status"] = status
-                        libraries.append(library_info)
-                collections.append(
-                    dict(
-                        id=collection.id,
-                        libraries=libraries,
-                    )
-                )
-            return dict(library_registrations=collections)
-
-        if flask.request.method == "POST":
-            collection_id = flask.request.form.get("collection_id")
-            library_short_name = flask.request.form.get("library_short_name")
-
-            collection = get_one(self._db, Collection, id=collection_id)
-            if not collection:
-                return MISSING_COLLECTION
-            if collection.protocol not in [api.NAME for api in shared_collection_provider_apis]:
-                return COLLECTION_DOES_NOT_SUPPORT_REGISTRATION
-
-            library = get_one(self._db, Library, short_name=library_short_name)
-            if not library:
-                return NO_SUCH_LIBRARY
-
-            registry = RemoteRegistry(collection.external_integration)
-            registration = registration_class(registry, library)
-            registered = registration.push(
-                Registration.PRODUCTION_STAGE, self.url_for,
-                catalog_url=collection.external_account_id,
-                do_get=do_get, do_post=do_post
-            )
-            if isinstance(registered, ProblemDetail):
-                return registered
-        return Response(unicode(_("Success")), 200)
 
     def _mirror_integration_setting(self):
         """Create a setting interface for selecting a storage integration to
