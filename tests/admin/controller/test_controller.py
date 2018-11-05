@@ -3048,6 +3048,62 @@ class SettingsControllerTest(AdminControllerTest):
 
         return self_test_results
 
+    def mock_run_self_tests(self, *args, **kwargs):
+        self.run_self_tests_called_with = (args, kwargs)
+        return ("value", "results")
+
+    def mock_failed_run_self_tests(self, *args, **kwargs):
+        self.failed_run_self_tests_called_with = (args, kwargs)
+        return (None, None)
+
+    def test_get_prior_test_results(self):
+        controller = SettingsController(self.manager)
+        old_prior_test_results = HasSelfTests.prior_test_results
+        HasSelfTests.prior_test_results = self.mock_prior_test_results
+
+        collectionNoProtocol = self._collection()
+        collectionNoProtocol.protocol = ""
+
+        # No collection or collection with protocol passed
+        self_test_results = controller._get_prior_test_results({}, {})
+        eq_(None, self_test_results)
+        self_test_results = controller._get_prior_test_results(collectionNoProtocol, {})
+        eq_(None, self_test_results)
+
+        collection = MockAxis360API.mock_collection(self._db)
+        # Test that a collection's protocol calls HasSelfTests.prior_test_results
+        self_test_results = controller._get_prior_test_results(collection, Axis360API)
+        args = self.prior_test_results_called_with[0]
+        eq_(args[1], Axis360API)
+        eq_(args[3], collection)
+
+        OPDSCollection = self._collection()
+        # If a collection's protocol is OPDSImporter, make sure that
+        # OPDSImportMonitor.prior_test_results is called
+        self_test_results = controller._get_prior_test_results(OPDSCollection, OPDSImporter)
+        args = self.prior_test_results_called_with[0]
+        eq_(args[1], OPDSImportMonitor)
+        eq_(args[3], OPDSCollection)
+
+        # We don't crash if there's a problem getting the prior test
+        # results -- _get_prior_test_results just returns None.
+        @classmethod
+        def oops(cls, *args, **kwargs):
+            raise Exception("Test result disaster!")
+        HasSelfTests.prior_test_results = oops
+        self_test_results = controller._get_prior_test_results(
+            OPDSCollection, OPDSImporter
+        )
+        eq_(
+            "Exception getting self-test results for collection %s: Test result disaster!" % (
+                OPDSCollection.name
+            ),
+            self_test_results["exception"]
+        )
+
+        HasSelfTests.prior_test_results = old_prior_test_results
+
+
 class TestSettingsController(SettingsControllerTest):
 
     def test_get_integration_protocols(self):
@@ -3140,154 +3196,6 @@ class TestSettingsController(SettingsControllerTest):
         i2, is_new2 = m(protocol_definitions, "allow one", goal)
         eq_(False, is_new2)
         eq_(DUPLICATE_INTEGRATION, i2)
-
-    def mock_run_self_tests(self, *args, **kwargs):
-        self.run_self_tests_called_with = (args, kwargs)
-        return ("value", "results")
-
-    def mock_failed_run_self_tests(self, *args, **kwargs):
-        self.failed_run_self_tests_called_with = (args, kwargs)
-        return (None, None)
-
-    def test_get_prior_test_results(self):
-        controller = SettingsController(self.manager)
-        old_prior_test_results = HasSelfTests.prior_test_results
-        HasSelfTests.prior_test_results = self.mock_prior_test_results
-
-        collectionNoProtocol = self._collection()
-        collectionNoProtocol.protocol = ""
-
-        # No collection or collection with protocol passed
-        self_test_results = controller._get_prior_test_results({}, {})
-        eq_(None, self_test_results)
-        self_test_results = controller._get_prior_test_results(collectionNoProtocol, {})
-        eq_(None, self_test_results)
-
-        collection = MockAxis360API.mock_collection(self._db)
-        # Test that a collection's protocol calls HasSelfTests.prior_test_results
-        self_test_results = controller._get_prior_test_results(collection, Axis360API)
-        args = self.prior_test_results_called_with[0]
-        eq_(args[1], Axis360API)
-        eq_(args[3], collection)
-
-        OPDSCollection = self._collection()
-        # If a collection's protocol is OPDSImporter, make sure that
-        # OPDSImportMonitor.prior_test_results is called
-        self_test_results = controller._get_prior_test_results(OPDSCollection, OPDSImporter)
-        args = self.prior_test_results_called_with[0]
-        eq_(args[1], OPDSImportMonitor)
-        eq_(args[3], OPDSCollection)
-
-        # We don't crash if there's a problem getting the prior test
-        # results -- _get_prior_test_results just returns None.
-        @classmethod
-        def oops(cls, *args, **kwargs):
-            raise Exception("Test result disaster!")
-        HasSelfTests.prior_test_results = oops
-        self_test_results = controller._get_prior_test_results(
-            OPDSCollection, OPDSImporter
-        )
-        eq_(
-            "Exception getting self-test results for collection %s: Test result disaster!" % (
-                OPDSCollection.name
-            ),
-            self_test_results["exception"]
-        )
-
-        HasSelfTests.prior_test_results = old_prior_test_results
-
-    def test_collection_self_tests_with_no_identifier(self):
-        with self.request_context_with_admin("/"):
-            response = self.manager.admin_settings_controller.collection_self_tests(None)
-            eq_(response, MISSING_COLLECTION_IDENTIFIER)
-            eq_(response.status_code, 400)
-
-    def test_collection_self_tests_test_get(self):
-        old_prior_test_results = HasSelfTests.prior_test_results
-        HasSelfTests.prior_test_results = self.mock_prior_test_results
-        collection = MockAxis360API.mock_collection(self._db)
-
-        # Make sure that HasSelfTest.prior_test_results() was called and that
-        # it is in the response's collection object.
-        with self.request_context_with_admin("/"):
-            response = self.manager.admin_settings_controller.collection_self_tests(collection.id)
-
-            responseCollection = response.get("collection")
-
-            eq_(responseCollection.get("id"), collection.id)
-            eq_(responseCollection.get("name"), collection.name)
-            eq_(responseCollection.get("protocol"), collection.protocol)
-            eq_(responseCollection.get("self_test_results"), self.self_test_results)
-
-        HasSelfTests.prior_test_results = old_prior_test_results
-
-    def test_collection_self_tests_failed_post(self):
-        # This makes HasSelfTests.run_self_tests return no values
-        old_run_self_tests = HasSelfTests.run_self_tests
-        HasSelfTests.run_self_tests = self.mock_failed_run_self_tests
-
-        collection = MockAxis360API.mock_collection(self._db)
-
-        # Failed to run self tests
-        with self.request_context_with_admin("/", method="POST"):
-            response = self.manager.admin_settings_controller.collection_self_tests(collection.id)
-
-            (run_self_tests_args, run_self_tests_kwargs) = self.failed_run_self_tests_called_with
-            eq_(response, FAILED_TO_RUN_SELF_TESTS)
-            eq_(response.status_code, 400)
-
-        HasSelfTests.run_self_tests = old_run_self_tests
-
-    def test_collection_self_tests_post(self):
-        old_run_self_tests = HasSelfTests.run_self_tests
-        HasSelfTests.run_self_tests = self.mock_run_self_tests
-
-        collection = self._collection()
-        # Successfully ran new self tests for the OPDSImportMonitor provider API
-        with self.request_context_with_admin("/", method="POST"):
-            response = self.manager.admin_settings_controller.collection_self_tests(collection.id)
-
-            (run_self_tests_args, run_self_tests_kwargs) = self.run_self_tests_called_with
-            eq_(response.response, _("Successfully ran new self tests"))
-            eq_(response._status, "200 OK")
-
-            # The provider API class and the collection should be passed to
-            # the run_self_tests method of the provider API class.
-            eq_(run_self_tests_args[1], OPDSImportMonitor)
-            eq_(run_self_tests_args[3], collection)
-
-
-        collection = MockAxis360API.mock_collection(self._db)
-        # Successfully ran new self tests
-        with self.request_context_with_admin("/", method="POST"):
-            response = self.manager.admin_settings_controller.collection_self_tests(collection.id)
-
-            (run_self_tests_args, run_self_tests_kwargs) = self.run_self_tests_called_with
-            eq_(response.response, _("Successfully ran new self tests"))
-            eq_(response._status, "200 OK")
-
-            # The provider API class and the collection should be passed to
-            # the run_self_tests method of the provider API class.
-            eq_(run_self_tests_args[1], Axis360API)
-            eq_(run_self_tests_args[3], collection)
-
-        collection = MockAxis360API.mock_collection(self._db)
-        collection.protocol = "Non existing protocol"
-        # clearing out previous call to mocked run_self_tests
-        self.run_self_tests_called_with = (None, None)
-
-        # No protocol found so run_self_tests was not called
-        with self.request_context_with_admin("/", method="POST"):
-            response = self.manager.admin_settings_controller.collection_self_tests(collection.id)
-
-            (run_self_tests_args, run_self_tests_kwargs) = self.run_self_tests_called_with
-            eq_(response, FAILED_TO_RUN_SELF_TESTS)
-            eq_(response.status_code, 400)
-
-            # The method returns None but it was not called
-            eq_(run_self_tests_args, None)
-
-        HasSelfTests.run_self_tests = old_run_self_tests
 
     def test_search_services_get_with_no_services(self):
         with self.request_context_with_admin("/"):

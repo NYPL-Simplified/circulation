@@ -186,6 +186,8 @@ def setup_admin_controllers(manager):
     manager.admin_auth_services_controller = AdminAuthServicesController(manager)
     from api.admin.controller.collection_settings import CollectionSettingsController
     manager.admin_collection_settings_controller = CollectionSettingsController(manager)
+    from api.admin.controller.collection_self_tests import CollectionSelfTestsController
+    manager.admin_collection_self_tests_controller = CollectionSelfTestsController(manager)
     from api.admin.controller.sitewide_settings import SitewideConfigurationSettingsController
     manager.admin_sitewide_configuration_settings_controller = SitewideConfigurationSettingsController(manager)
     from api.admin.controller.library_settings import LibrarySettingsController
@@ -2322,7 +2324,8 @@ class SettingsController(AdminCirculationManagerController):
 
     def _get_prior_test_results(self, collection, protocolClass):
         """This helper function returns previous self test results for a given
-        collection if it has a protocol.
+        collection if it has a protocol.  Used by both SelfTestsController and
+        CollectionSettingsController
         """
         provider_apis = list(self.PROVIDER_APIS)
         provider_apis.append(OPDSImportMonitor)
@@ -2358,57 +2361,6 @@ class SettingsController(AdminCirculationManagerController):
 
         return self_test_results
 
-    def collection_self_tests(self, identifier):
-        protocols = self._get_collection_protocols(self.PROVIDER_APIS)
-
-        if not identifier:
-            return MISSING_COLLECTION_IDENTIFIER
-
-        if flask.request.method == 'GET':
-            collection = dict()
-            protocolClass = None
-            for col in self._db.query(Collection).filter(Collection.id==int(identifier)):
-                collection = dict(
-                    id=col.id,
-                    name=col.name,
-                    protocol=col.protocol,
-                    parent_id=col.parent_id,
-                    settings=dict(external_account_id=col.external_account_id),
-                )
-
-                if col.protocol in [p.get("name") for p in protocols]:
-                    protocolClassFound = [p for p in self.PROVIDER_APIS if p.NAME == col.protocol]
-                    if len(protocolClassFound) == 1:
-                        [protocolClass] = protocolClassFound
-
-                collection["self_test_results"] = self._get_prior_test_results(col, protocolClass)
-            return dict(collection=collection)
-
-        if flask.request.method == "POST":
-            collection = dict()
-            collectionProtocol = None
-            protocolClass = None
-            for col in self._db.query(Collection).filter(Collection.id==int(identifier)):
-                collection = col
-                collectionProtocol = col.protocol
-
-                if collectionProtocol in [p.get("name") for p in protocols]:
-                    protocolClassFound = [p for p in self.PROVIDER_APIS if p.NAME == col.protocol]
-                    if len(protocolClassFound) == 1:
-                        [protocolClass] = protocolClassFound
-
-            if protocolClass:
-                value = None
-                if (collectionProtocol == OPDSImportMonitor.PROTOCOL):
-                    protocolClass = OPDSImportMonitor
-                    value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, collection, OPDSImporter)
-                elif issubclass(protocolClass, HasSelfTests):
-                    value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, collection)
-
-                if (value):
-                    return Response(_("Successfully ran new self tests"), 200)
-
-            return FAILED_TO_RUN_SELF_TESTS
 
     def collection_library_registrations(
             self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
