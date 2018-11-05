@@ -369,7 +369,7 @@ def collection(collection_id):
 @requires_admin
 @requires_csrf_token
 def collection_library_registrations():
-    return app.manager.admin_settings_controller.collection_library_registrations()
+    return app.manager.admin_collection_library_registrations_controller.process_collection_library_registrations()
 
 @app.route("/admin/admin_auth_services", methods=['GET', 'POST'])
 @returns_json_or_response_or_problem_detail
