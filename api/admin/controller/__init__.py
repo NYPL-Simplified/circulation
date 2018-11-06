@@ -196,6 +196,8 @@ def setup_admin_controllers(manager):
     manager.admin_library_settings_controller = LibrarySettingsController(manager)
     from api.admin.controller.individual_admin_settings import IndividualAdminSettingsController
     manager.admin_individual_admin_settings_controller = IndividualAdminSettingsController(manager)
+    from api.admin.controller.sitewide_registration import SitewideRegistrationController
+    manager.admin_sitewide_registration_controller = SitewideRegistrationController(manager)
 
 
 class AdminController(object):
@@ -2450,109 +2452,6 @@ class SettingsController(AdminCirculationManagerController):
         return self._delete_integration(
             service_id, ExternalIntegration.LOGGING_GOAL
         )
-
-    def sitewide_registration(self, integration, do_get=HTTP.debuggable_get,
-                              do_post=HTTP.debuggable_post
-    ):
-        """Performs a sitewide registration for a particular service, currently
-        only the Metadata Wrangler.
-
-        :return: A ProblemDetail or, if successful, None
-        """
-        self.require_system_admin()
-        if not integration:
-            return MISSING_SERVICE
-
-        # Get the catalog for this service.
-        try:
-            response = do_get(integration.url)
-        except Exception as e:
-            return REMOTE_INTEGRATION_FAILED.detailed(e.message)
-
-        if isinstance(response, ProblemDetail):
-            return response
-
-        content_type = response.headers.get('Content-Type')
-        if content_type != 'application/opds+json':
-            return REMOTE_INTEGRATION_FAILED.detailed(
-                _('The service did not provide a valid catalog.')
-            )
-
-        catalog = response.json()
-        links = catalog.get('links', [])
-
-        # Get the link for registration from the catalog.
-        register_link_filter = lambda l: (
-            l.get('rel')=='register' and
-            l.get('type')==self.METADATA_SERVICE_URI_TYPE
-        )
-        register_urls = filter(register_link_filter, links)
-        if not register_urls:
-            return REMOTE_INTEGRATION_FAILED.detailed(
-                _('The service did not provide a register link.')
-            )
-
-        # Get the full registration url.
-        register_url = register_urls[0].get('href')
-        if not register_url.startswith('http'):
-            # We have a relative path. Create a full registration url.
-            base_url = catalog.get('id')
-            register_url = urlparse.urljoin(base_url, register_url)
-
-        # If the integration has an existing shared_secret, use it to access the
-        # server and update it.
-        #
-        # NOTE: This is no longer technically necessary since we prove
-        # ownership with a signed JWT.
-        headers = { 'Content-Type' : 'application/x-www-form-urlencoded' }
-        if integration.password:
-            token = base64.b64encode(integration.password.encode('utf-8'))
-            headers['Authorization'] = 'Bearer ' + token
-
-        # Register this server using the sitewide registration document
-        try:
-            body = self.sitewide_registration_document()
-            response = do_post(
-                register_url, body, allowed_response_codes=['2xx'],
-                headers=headers
-            )
-        except Exception as e:
-            return REMOTE_INTEGRATION_FAILED.detailed(e.message)
-
-        if isinstance(response, ProblemDetail):
-            return response
-        registration_info = response.json()
-        shared_secret = registration_info.get('metadata', {}).get('shared_secret')
-
-        if not shared_secret:
-            return REMOTE_INTEGRATION_FAILED.detailed(
-                _('The service did not provide registration information.')
-            )
-
-        ignore, private_key = self.manager.sitewide_key_pair
-        decryptor = Configuration.cipher(private_key)
-        shared_secret = decryptor.decrypt(base64.b64decode(shared_secret))
-        integration.password = unicode(shared_secret)
-
-    def sitewide_registration_document(self):
-        """Generate the document to be sent as part of a sitewide registration
-        request.
-
-        :return: A dictionary with keys 'url' and 'jwt'. 'url' is the URL to
-            this site's public key document, and 'jwt' is a JSON Web Token
-            proving control over that URL.
-        """
-
-        public_key, private_key = self.manager.sitewide_key_pair
-        # Advertise the public key so that the foreign site can encrypt
-        # things for us.
-        public_key_dict = dict(type='RSA', value=public_key)
-        public_key_url = self.url_for('public_key_document')
-        in_one_minute = datetime.utcnow() + timedelta(seconds=60)
-        payload = {'exp': in_one_minute}
-        # Sign a JWT with the private key to prove ownership of the site.
-        token = jwt.encode(payload, private_key, algorithm='RS256')
-        return dict(url=public_key_url, jwt=token)
 
     def _manage_sitewide_service(
             self, goal, provider_apis, service_key_name,
