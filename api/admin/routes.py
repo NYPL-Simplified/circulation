@@ -480,28 +480,28 @@ def cdn_service(service_id):
 @requires_admin
 @requires_csrf_token
 def search_services():
-    return app.manager.admin_settings_controller.search_services()
+    return app.manager.admin_search_services_controller.process_search_services()
 
 @app.route("/admin/search_service/<service_id>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def search_service(service_id):
-    return app.manager.admin_settings_controller.search_service(service_id)
+    return app.manager.admin_search_services_controller.delete_search_service(service_id)
 
 @app.route("/admin/storage_services", methods=["GET", "POST"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def storage_services():
-    return app.manager.admin_settings_controller.storage_services()
+    return app.manager.admin_storage_services_controller.process_storage_services()
 
 @app.route("/admin/storage_service/<service_id>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def storage_service(service_id):
-    return app.manager.admin_settings_controller.storage_service(service_id)
+    return app.manager.admin_storage_services_controller.delete_storage_service(service_id)
 
 @app.route("/admin/discovery_services", methods=["GET", "POST"])
 @returns_json_or_response_or_problem_detail
@@ -539,14 +539,14 @@ def sitewide_setting(key):
 @requires_admin
 @requires_csrf_token
 def logging_services():
-    return app.manager.admin_settings_controller.logging_services()
+    return app.manager.admin_logging_services_controller.process_logging_services()
 
 @app.route("/admin/logging_service/<key>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def logging_service(key):
-    return app.manager.admin_settings_controller.logging_service(key)
+    return app.manager.admin_settings_controller.delete_logging_service(key)
 
 @app.route("/admin/discovery_service_library_registrations", methods=['GET', 'POST'])
 @returns_json_or_response_or_problem_detail
