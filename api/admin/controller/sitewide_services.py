@@ -128,7 +128,7 @@ class SitewideServicesController(SettingsController):
 
 
 class LoggingServicesController(SitewideServicesController):
-    def process_logging_services(self):
+    def process_services(self):
         detail = _("You tried to create a new logging service, but a logging service is already configured.")
         return self._manage_sitewide_service(
             ExternalIntegration.LOGGING_GOAL,
@@ -136,26 +136,26 @@ class LoggingServicesController(SitewideServicesController):
             'logging_services', detail
         )
 
-    def delete_logging_service(self, service_id):
+    def process_delete(self, service_id):
         return self._delete_integration(
             service_id, ExternalIntegration.LOGGING_GOAL
         )
 
 class SearchServicesController(SitewideServicesController):
-    def process_search_services(self):
+    def process_services(self):
         detail = _("You tried to create a new search service, but a search service is already configured.")
         return self._manage_sitewide_service(
             ExternalIntegration.SEARCH_GOAL, [ExternalSearchIndex],
             'search_services', detail
         )
 
-    def delete_search_service(self, service_id):
+    def process_delete(self, service_id):
         return self._delete_integration(
             service_id, ExternalIntegration.SEARCH_GOAL
         )
 
 class StorageServicesController(SitewideServicesController):
-    def process_storage_services(self):
+    def process_services(self):
         detail = _("You tried to create a new storage service, but a storage service is already configured.")
         return self._manage_sitewide_service(
             ExternalIntegration.STORAGE_GOAL,
@@ -163,7 +163,7 @@ class StorageServicesController(SitewideServicesController):
             'storage_services', detail
         )
 
-    def delete_storage_service(self, service_id):
+    def process_delete(self, service_id):
         return self._delete_integration(
             service_id, ExternalIntegration.STORAGE_GOAL
         )

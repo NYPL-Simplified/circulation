@@ -31,7 +31,7 @@ class TestSitewideServices(SettingsControllerTest):
         controller = MockStorage(self.manager)
         EI = ExternalIntegration
         with self.request_context_with_admin("/"):
-            controller.process_storage_services()
+            controller.process_services()
             goal, apis, key_name, problem = controller.manage_called_with
             eq_(EI.STORAGE_GOAL, goal)
             assert S3Uploader in apis
@@ -40,7 +40,7 @@ class TestSitewideServices(SettingsControllerTest):
 
         with self.request_context_with_admin("/"):
             id = object()
-            controller.delete_storage_service(id)
+            controller.process_delete(id)
             eq_((id, EI.STORAGE_GOAL), controller.delete_called_with)
 
         # Search services work the same way but pass in different
@@ -55,7 +55,7 @@ class TestSitewideServices(SettingsControllerTest):
         controller = MockSearch(self.manager)
 
         with self.request_context_with_admin("/"):
-            controller.process_search_services()
+            controller.process_services()
             goal, apis, key_name, problem = controller.manage_called_with
             eq_(EI.SEARCH_GOAL, goal)
             assert ExternalSearchIndex in apis
@@ -64,6 +64,6 @@ class TestSitewideServices(SettingsControllerTest):
 
         with self.request_context_with_admin("/"):
             id = object()
-            controller.delete_search_service(id)
+            controller.process_delete(id)
             eq_((id, EI.SEARCH_GOAL),
                 controller.delete_called_with)

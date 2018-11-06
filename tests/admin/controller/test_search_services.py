@@ -18,7 +18,7 @@ from test_controller import SettingsControllerTest
 class SearchServicesController(SettingsControllerTest):
     def test_search_services_get_with_no_services(self):
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_search_services_controller.process_search_services()
+            response = self.manager.admin_search_services_controller.process_services()
             eq_(response.get("search_services"), [])
             protocols = response.get("protocols")
             assert ExternalIntegration.ELASTICSEARCH in [p.get("name") for p in protocols]
@@ -27,7 +27,7 @@ class SearchServicesController(SettingsControllerTest):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
             assert_raises(AdminNotAuthorized,
-                          self.manager.admin_search_services_controller.process_search_services)
+                          self.manager.admin_search_services_controller.process_services)
 
     def test_search_services_get_with_one_service(self):
         search_service, ignore = create(
@@ -39,7 +39,7 @@ class SearchServicesController(SettingsControllerTest):
         search_service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value = "works-index-prefix"
 
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_search_services_controller.process_search_services()
+            response = self.manager.admin_search_services_controller.process_services()
             [service] = response.get("search_services")
 
             eq_(search_service.id, service.get("id"))
@@ -55,12 +55,12 @@ class SearchServicesController(SettingsControllerTest):
                 ("name", "Name"),
                 ("protocol", "Unknown"),
             ])
-            response = controller.process_search_services()
+            response = controller.process_services()
             eq_(response, UNKNOWN_PROTOCOL)
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([("name", "Name")])
-            response = controller.process_search_services()
+            response = controller.process_services()
             eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
         with self.request_context_with_admin("/", method="POST"):
@@ -68,7 +68,7 @@ class SearchServicesController(SettingsControllerTest):
                 ("name", "Name"),
                 ("id", "123"),
             ])
-            response = controller.process_search_services()
+            response = controller.process_services()
             eq_(response, MISSING_SERVICE)
 
         service, ignore = create(
@@ -82,7 +82,7 @@ class SearchServicesController(SettingsControllerTest):
                 ("name", "Name"),
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
             ])
-            response = controller.process_search_services()
+            response = controller.process_services()
             eq_(response.uri, MULTIPLE_SITEWIDE_SERVICES.uri)
 
         self._db.delete(service)
@@ -98,7 +98,7 @@ class SearchServicesController(SettingsControllerTest):
                 ("name", service.name),
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
             ])
-            response = controller.process_search_services()
+            response = controller.process_services()
             eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
 
         service, ignore = create(
@@ -113,7 +113,7 @@ class SearchServicesController(SettingsControllerTest):
                 ("id", service.id),
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
             ])
-            response = controller.process_search_services()
+            response = controller.process_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
@@ -124,7 +124,7 @@ class SearchServicesController(SettingsControllerTest):
                 (ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, "works-index-prefix"),
             ])
             assert_raises(AdminNotAuthorized,
-                         controller.process_search_services)
+                         controller.process_services)
 
     def test_search_services_post_create(self):
         with self.request_context_with_admin("/", method="POST"):
@@ -134,7 +134,7 @@ class SearchServicesController(SettingsControllerTest):
                 (ExternalIntegration.URL, "search url"),
                 (ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, "works-index-prefix"),
             ])
-            response = self.manager.admin_search_services_controller.process_search_services()
+            response = self.manager.admin_search_services_controller.process_services()
             eq_(response.status_code, 201)
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.SEARCH_GOAL)
@@ -160,7 +160,7 @@ class SearchServicesController(SettingsControllerTest):
                 (ExternalIntegration.URL, "new search url"),
                 (ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, "new-works-index-prefix")
             ])
-            response = self.manager.admin_search_services_controller.process_search_services()
+            response = self.manager.admin_search_services_controller.process_services()
             eq_(response.status_code, 200)
 
         eq_(search_service.id, int(response.response[0]))
@@ -180,11 +180,11 @@ class SearchServicesController(SettingsControllerTest):
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             assert_raises(AdminNotAuthorized,
-                          self.manager.admin_search_services_controller.delete_search_service,
+                          self.manager.admin_search_services_controller.process_delete,
                           search_service.id)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_search_services_controller.delete_search_service(search_service.id)
+            response = self.manager.admin_search_services_controller.process_delete(search_service.id)
             eq_(response.status_code, 200)
 
         service = get_one(self._db, ExternalIntegration, id=search_service.id)
