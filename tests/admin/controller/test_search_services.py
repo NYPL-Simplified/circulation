@@ -15,7 +15,7 @@ from core.model import (
 )
 from test_controller import SettingsControllerTest
 
-class SearchServicesController(SettingsControllerTest):
+class TestSearchServices(SettingsControllerTest):
     def test_search_services_get_with_no_services(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_search_services_controller.process_services()
