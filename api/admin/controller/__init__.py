@@ -198,6 +198,11 @@ def setup_admin_controllers(manager):
     manager.admin_individual_admin_settings_controller = IndividualAdminSettingsController(manager)
     from api.admin.controller.sitewide_registration import SitewideRegistrationController
     manager.admin_sitewide_registration_controller = SitewideRegistrationController(manager)
+    from api.admin.controller.sitewide_services import *
+    manager.admin_sitewide_services_controller = SitewideServicesController(manager)
+    manager.admin_logging_services_controller = LoggingServicesController(manager)
+    manager.admin_search_services_controller = SearchServicesController(manager)
+    manager.admin_storage_services_controller = StorageServicesController(manager)
 
 
 class AdminController(object):
@@ -2439,101 +2444,3 @@ class SettingsController(AdminCirculationManagerController):
         result = self._set_integration_settings_and_libraries(auth_service, protocol)
         if isinstance(result, ProblemDetail):
             return result
-
-    def logging_services(self):
-        detail = _("You tried to create a new logging service, but a logging service is already configured.")
-        return self._manage_sitewide_service(
-            ExternalIntegration.LOGGING_GOAL,
-            [Loggly, SysLogger, CloudwatchLogs],
-            'logging_services', detail
-        )
-
-    def logging_service(self, service_id):
-        return self._delete_integration(
-            service_id, ExternalIntegration.LOGGING_GOAL
-        )
-
-    def _manage_sitewide_service(
-            self, goal, provider_apis, service_key_name,
-            multiple_sitewide_services_detail, protocol_name_attr='NAME'
-    ):
-        self.require_system_admin()
-        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr=protocol_name_attr)
-
-        if flask.request.method == 'GET':
-            services = self._get_integration_info(goal, protocols)
-            return {
-                service_key_name : services,
-                'protocols' : protocols,
-            }
-
-        id = flask.request.form.get("id")
-
-        protocol = flask.request.form.get("protocol")
-        if protocol and protocol not in [p.get("name") for p in protocols]:
-            return UNKNOWN_PROTOCOL
-
-        is_new = False
-        if id:
-            service = get_one(self._db, ExternalIntegration, id=id, goal=goal)
-            if not service:
-                return MISSING_SERVICE
-            if protocol != service.protocol:
-                return CANNOT_CHANGE_PROTOCOL
-        else:
-            if protocol:
-                service, is_new = get_one_or_create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=goal
-                )
-                if not is_new:
-                    self._db.rollback()
-                    return MULTIPLE_SITEWIDE_SERVICES.detailed(
-                        multiple_sitewide_services_detail
-                    )
-            else:
-                return NO_PROTOCOL_FOR_NEW_SERVICE
-
-        name = flask.request.form.get("name")
-        if name:
-            if service.name != name:
-                service_with_name = get_one(self._db, ExternalIntegration, name=name)
-                if service_with_name:
-                    self._db.rollback()
-                    return INTEGRATION_NAME_ALREADY_IN_USE
-            service.name = name
-
-        [protocol] = [p for p in protocols if p.get("name") == protocol]
-        result = self._set_integration_settings_and_libraries(service, protocol)
-        if isinstance(result, ProblemDetail):
-            return result
-
-        if is_new:
-            return Response(unicode(service.id), 201)
-        else:
-            return Response(unicode(service.id), 200)
-
-    def search_services(self):
-        detail = _("You tried to create a new search service, but a search service is already configured.")
-        return self._manage_sitewide_service(
-            ExternalIntegration.SEARCH_GOAL, [ExternalSearchIndex],
-            'search_services', detail
-        )
-
-    def search_service(self, service_id):
-        return self._delete_integration(
-            service_id, ExternalIntegration.SEARCH_GOAL
-        )
-
-    def storage_services(self):
-        detail = _("You tried to create a new storage service, but a storage service is already configured.")
-        return self._manage_sitewide_service(
-            ExternalIntegration.STORAGE_GOAL,
-            MirrorUploader.IMPLEMENTATION_REGISTRY.values(),
-            'storage_services', detail
-        )
-
-    def storage_service(self, service_id):
-        return self._delete_integration(
-            service_id, ExternalIntegration.STORAGE_GOAL
-        )
