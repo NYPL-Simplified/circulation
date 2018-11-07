@@ -4,9 +4,7 @@ import sys
 import os
 import base64
 import random
-import uuid
 import json
-import re
 import urllib
 import urlparse
 
@@ -16,8 +14,6 @@ from flask import (
     redirect,
 )
 from flask_babel import lazy_gettext as _
-import jwt
-from sqlalchemy.exc import ProgrammingError
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 from StringIO import StringIO
@@ -61,10 +57,7 @@ from core.model import (
 )
 from core.lane import (Lane, WorkList)
 from core.log import (LogConfiguration, SysLogger, Loggly, CloudwatchLogs)
-from core.util.problem_detail import (
-    ProblemDetail,
-    JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
-)
+from core.util.problem_detail import ProblemDetail
 from core.metadata_layer import (
     Metadata,
     LinkData,
@@ -74,21 +67,13 @@ from core.mirror import MirrorUploader
 from core.util.http import HTTP
 from api.problem_details import *
 from api.admin.exceptions import *
-from core.util import (
-    fast_query_count,
-    LanguageCodes,
-)
+from core.util import LanguageCodes
 
 from api.config import (
     Configuration,
     CannotLoadConfiguration
 )
 from api.lanes import create_default_lanes
-from api.registry import (
-    RemoteRegistry,
-    Registration,
-)
-
 from api.admin.google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
 from api.admin.password_admin_authentication_provider import PasswordAdminAuthenticationProvider
 
@@ -114,17 +99,7 @@ from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, sele
 from sqlalchemy.orm import lazyload
 
 from api.admin.templates import admin as admin_template
-
-from api.authenticator import (
-    AuthenticationProvider,
-    LibraryAuthenticator
-)
-
-from api.simple_authentication import SimpleAuthenticationProvider
-from api.millenium_patron import MilleniumPatronAPI
-from api.sip import SIP2AuthenticationProvider
-from api.firstbook import FirstBookAuthenticationAPI
-from api.clever import CleverAuthenticationAPI
+from api.authenticator import LibraryAuthenticator
 
 from core.opds_import import (OPDSImporter, OPDSImportMonitor)
 from api.feedbooks import FeedbooksOPDSImporter
@@ -136,21 +111,11 @@ from api.axis import Axis360API
 from api.rbdigital import RBDigitalAPI
 from api.enki import EnkiAPI
 from api.odl import ODLWithConsolidatedCopiesAPI, SharedODLAPI
-
-from api.nyt import NYTBestSellerAPI
-from api.novelist import NoveListAPI
-from core.opds_import import MetadataWranglerOPDSLookup
-
-from api.google_analytics_provider import GoogleAnalyticsProvider
 from core.local_analytics_provider import LocalAnalyticsProvider
 
 from api.adobe_vendor_id import AuthdataUtility
 
-from core.external_search import ExternalSearchIndex
-
 from core.selftest import HasSelfTests
-
-from core.util.opds_writer import OPDSFeed
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
@@ -198,6 +163,11 @@ def setup_admin_controllers(manager):
     manager.admin_individual_admin_settings_controller = IndividualAdminSettingsController(manager)
     from api.admin.controller.sitewide_registration import SitewideRegistrationController
     manager.admin_sitewide_registration_controller = SitewideRegistrationController(manager)
+    from api.admin.controller.sitewide_services import *
+    manager.admin_sitewide_services_controller = SitewideServicesController(manager)
+    manager.admin_logging_services_controller = LoggingServicesController(manager)
+    manager.admin_search_services_controller = SearchServicesController(manager)
+    manager.admin_storage_services_controller = StorageServicesController(manager)
 
 
 class AdminController(object):
@@ -2440,100 +2410,48 @@ class SettingsController(AdminCirculationManagerController):
         if isinstance(result, ProblemDetail):
             return result
 
-    def logging_services(self):
-        detail = _("You tried to create a new logging service, but a logging service is already configured.")
-        return self._manage_sitewide_service(
-            ExternalIntegration.LOGGING_GOAL,
-            [Loggly, SysLogger, CloudwatchLogs],
-            'logging_services', detail
-        )
+    def check_name_unique(self, new_service, name):
+        """A service cannot be created with, or edited to have, the same name
+        as a service that already exists.
+        This method is used by analytics_services, cdn_services, discovery_services,
+        metadata_services, and sitewide_services.
+        """
 
-    def logging_service(self, service_id):
-        return self._delete_integration(
-            service_id, ExternalIntegration.LOGGING_GOAL
-        )
+        existing_service = get_one(self._db, ExternalIntegration, name=name)
+        if existing_service and not existing_service.id == new_service.id:
+            # Without checking that the IDs are different, you can't save
+            # changes to an existing service unless you've also changed its name.
+            return INTEGRATION_NAME_ALREADY_IN_USE
 
-    def _manage_sitewide_service(
-            self, goal, provider_apis, service_key_name,
-            multiple_sitewide_services_detail, protocol_name_attr='NAME'
-    ):
-        self.require_system_admin()
-        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr=protocol_name_attr)
+    def look_up_service_by_id(self, id, protocol, goal=None):
+        """Find an existing service, and make sure that the user is not trying to edit
+        its protocol.
+        This method is used by analytics_services, cdn_services, metadata_services,
+        and sitewide_services.
+        """
 
-        if flask.request.method == 'GET':
-            services = self._get_integration_info(goal, protocols)
-            return {
-                service_key_name : services,
-                'protocols' : protocols,
-            }
+        if not goal:
+            goal = self.goal
 
-        id = flask.request.form.get("id")
+        service = get_one(self._db, ExternalIntegration, id=id, goal=goal)
+        if not service:
+            return MISSING_SERVICE
+        if protocol != service.protocol:
+            return CANNOT_CHANGE_PROTOCOL
+        return service
 
-        protocol = flask.request.form.get("protocol")
-        if protocol and protocol not in [p.get("name") for p in protocols]:
-            return UNKNOWN_PROTOCOL
+    def set_protocols(self, service, protocol, protocols=None):
+        """Validate the protocol that the user has submitted; depending on whether
+        the validations pass, either save it to this metadata service or
+        return an error message.
+        This method is used by analytics_services, cdn_services, discovery_services,
+        metadata_services, and sitewide_services.
+        """
 
-        is_new = False
-        if id:
-            service = get_one(self._db, ExternalIntegration, id=id, goal=goal)
-            if not service:
-                return MISSING_SERVICE
-            if protocol != service.protocol:
-                return CANNOT_CHANGE_PROTOCOL
-        else:
-            if protocol:
-                service, is_new = get_one_or_create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=goal
-                )
-                if not is_new:
-                    self._db.rollback()
-                    return MULTIPLE_SITEWIDE_SERVICES.detailed(
-                        multiple_sitewide_services_detail
-                    )
-            else:
-                return NO_PROTOCOL_FOR_NEW_SERVICE
-
-        name = flask.request.form.get("name")
-        if name:
-            if service.name != name:
-                service_with_name = get_one(self._db, ExternalIntegration, name=name)
-                if service_with_name:
-                    self._db.rollback()
-                    return INTEGRATION_NAME_ALREADY_IN_USE
-            service.name = name
+        if not protocols:
+            protocols = self.protocols
 
         [protocol] = [p for p in protocols if p.get("name") == protocol]
         result = self._set_integration_settings_and_libraries(service, protocol)
         if isinstance(result, ProblemDetail):
             return result
-
-        if is_new:
-            return Response(unicode(service.id), 201)
-        else:
-            return Response(unicode(service.id), 200)
-
-    def search_services(self):
-        detail = _("You tried to create a new search service, but a search service is already configured.")
-        return self._manage_sitewide_service(
-            ExternalIntegration.SEARCH_GOAL, [ExternalSearchIndex],
-            'search_services', detail
-        )
-
-    def search_service(self, service_id):
-        return self._delete_integration(
-            service_id, ExternalIntegration.SEARCH_GOAL
-        )
-
-    def storage_services(self):
-        detail = _("You tried to create a new storage service, but a storage service is already configured.")
-        return self._manage_sitewide_service(
-            ExternalIntegration.STORAGE_GOAL,
-            MirrorUploader.IMPLEMENTATION_REGISTRY.values(),
-            'storage_services', detail
-        )
-
-    def storage_service(self, service_id):
-        return self._delete_integration(
-            service_id, ExternalIntegration.STORAGE_GOAL
-        )

@@ -164,19 +164,19 @@ class TestCDNServices(SettingsControllerTest):
 
        # Try to change new service so that it has the same name as existing service
        # -- this is not allowed.
-       result = m(new_service, existing_service.name, new_service.id)
+       result = m(new_service, existing_service.name)
        eq_(result, INTEGRATION_NAME_ALREADY_IN_USE)
 
        # Try to edit existing service without changing its name -- this is fine.
        eq_(
            None,
-           m(existing_service, existing_service.name, existing_service.id)
+           m(existing_service, existing_service.name)
        )
 
        # Changing the existing service's name is also fine.
        eq_(
             None,
-            m(existing_service, "new name", existing_service.id)
+            m(existing_service, "new name")
        )
 
     def test_cdn_service_delete(self):
