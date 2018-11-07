@@ -17,6 +17,7 @@ from model import (
     ExternalIntegration,
     Identifier,
     LicensePool,
+    PresentationCalculationPolicy,
     Timestamp,
     Work,
     WorkCoverageRecord,
@@ -1325,23 +1326,105 @@ class PresentationReadyWorkCoverageProvider(WorkCoverageProvider):
         return qu
 
 
-class OPDSEntryWorkCoverageProvider(PresentationReadyWorkCoverageProvider):
+class WorkPresentationProvider(PresentationReadyWorkCoverageProvider):
+    """Recalculate some part of presentation for works that are
+    presentation-ready.
+
+    A Work's presentation is set when it's made presentation-ready
+    (thus the name). When that happens, a number of WorkCoverageRecords
+    are set for that Work.
+
+    A migration script may remove a coverage record if it knows a work
+    needs to have some aspect of its presentation recalculated. These
+    providers give back the 'missing' coverage.
+    """
+    DEFAULT_BATCH_SIZE = 1000
+
+
+class OPDSEntryWorkCoverageProvider(WorkPresentationProvider):
     """Make sure all presentation-ready works have an up-to-date OPDS
     entry.
-
-    Normally this coverage is provided by the process of making a work
-    presentation-ready, but a migration script may strip that coverage
-    if it knows a work will need to have its OPDS entry recalculated.
 
     This is different from the OPDSEntryCacheMonitor, which sweeps
     over all presentation-ready works, even ones which are already
     covered.
     """
-
     SERVICE_NAME = "OPDS Entry Work Coverage Provider"
     OPERATION = WorkCoverageRecord.GENERATE_OPDS_OPERATION
-    DEFAULT_BATCH_SIZE = 1000
 
     def process_item(self, work):
         work.calculate_opds_entries()
         return work
+
+
+class WorkPresentationEditionCoverageProvider(WorkPresentationProvider):
+    """Make sure all Works have up-to-date presentation edition.
+
+    This basically means comparing all the Editions associated with the
+    Work and building a composite Edition.
+
+    Expensive operations -- calculating work quality, summary, and presentation
+    -- are reserved for WorkClassificationCoverageProvider
+    """
+    SERVICE_NAME = 'Calculated presentation coverage provider'
+
+    OPERATION = WorkCoverageRecord.CHOOSE_EDITION_OPERATION
+
+    POLICY = PresentationCalculationPolicy(
+        choose_edition=True, set_edition_metadata=True, verbose=True,
+
+        # These are the expensive ones, and they're covered by
+        # WorkSummaryQualityClassificationCoverageProvider.
+        classify=False, choose_summary=False, calculate_quality=False,
+
+        # It would be better if there were a separate class for this
+        # operation (COVER_OPERATION), but it's a little complicated because
+        # that's not a WorkCoverageRecord operation.
+        choose_cover=True,
+
+        # We do this even though it's redundant with
+        # OPDSEntryWorkCoverageProvider. If you change a
+        # Work's presentation edition but don't update its OPDS entry,
+        # it effectively didn't happen.
+        regenerate_opds_entries=True,
+
+        # Same logic for the search index. This will flag the Work as
+        # needing a search index update, and SearchIndexCoverageProvider
+        # will take care of it.
+        update_search_index=True,
+    )
+
+    def process_item(self, work):
+        """Recalculate the presentation for a Work."""
+
+        # Calling calculate_presentation_edition won't, on its own,
+        # regenerate the OPDS feeds or update the search index.
+        # So we call calculate_presentation in a way where the only actual
+        # change made will be
+        return work.calculate_presentation(self.POLICY)
+
+
+class WorkClassificationCoverageProvider(
+    WorkPresentationEditionCoverageProvider
+):
+    """Calculates the 'expensive' parts of a work's presentation:
+    classifications, summary, and quality.
+
+    We do all three at once because these gathering together all
+    equivalent identifiers for the work, which can be, by far, the
+    most expensive part of the work.
+
+    This is called 'classification' because that's the most likely use
+    of this coverage provider. If you want to make sure a bunch of
+    works get their summaries recalculated, you need to remember that
+    the coverage record to delete is CLASSIFY_OPERATION.
+    """
+    SERVICE_NAME = "Work classification coverage provider"
+
+    DEFAULT_BATCH_SIZE = 20
+
+    OPERATION = WorkCoverageRecord.CLASSIFY_OPERATION
+
+    # This is going to be expensive -- we might as well recalculate
+    # everything.
+    POLICY = PresentationCalculationPolicy.recalculate_everything()
