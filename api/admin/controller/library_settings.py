@@ -7,7 +7,7 @@ from StringIO import StringIO
 import uuid
 import wcag_contrast_ratio
 
-from . import AdminCirculationManagerController
+from . import SettingsController
 from api.config import Configuration
 from api.lanes import create_default_lanes
 from core.model import (
@@ -23,7 +23,7 @@ from api.admin.problem_details import *
 from core.util.problem_detail import ProblemDetail
 from nose.tools import set_trace
 
-class LibrarySettingsController(AdminCirculationManagerController):
+class LibrarySettingsController(SettingsController):
 
     def process_get(self):
         libraries = []
@@ -133,9 +133,18 @@ class LibrarySettingsController(AdminCirculationManagerController):
                 setting=missing[0].get("label"))
             )
 
+    def check_email_format(self, settings):
+        # Find the fields that have to do with email addresses
+        email_fields = filter(lambda s: s.get("format") == "email" and flask.request.form.get(s.get("key")), settings)
+        # Narrow the email-related fields down to the ones for which the user actually entered a value
+        email_inputs = [flask.request.form.get(field.get("key")) for field in email_fields]
+        for email in email_inputs:
+            is_email = self.is_email(email)
+            if not is_email:
+                return INVALID_EMAIL
+
     def check_input_type(self, settings):
-        # Once there are validations for email address, URL, etc., they'll get called
-        # from here; for now, it's just image type.
+        return self.check_email_format(settings)
         for setting in settings:
             if setting.get("type") == "image":
                 return self.check_image_type(setting)

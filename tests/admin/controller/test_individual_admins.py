@@ -119,23 +119,32 @@ class TestIndividualAdmins(SettingsControllerTest):
             response = self.manager.admin_individual_admin_settings_controller.process_post()
             eq_(response.uri, UNKNOWN_ROLE.uri)
 
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("email", "wrong!"),
+                ("password", "pass"),
+                ("roles", json.dumps([{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }])),
+            ])
+            response = self.manager.admin_individual_admin_settings_controller.process_post()
+            eq_(response.uri, INVALID_EMAIL.uri)
+
     def test_individual_admins_post_permissions(self):
         l1 = self._library()
         l2 = self._library()
-        system, ignore = create(self._db, Admin, email="system")
+        system, ignore = create(self._db, Admin, email="system@example.com")
         system.add_role(AdminRole.SYSTEM_ADMIN)
-        sitewide_manager, ignore = create(self._db, Admin, email="sitewide manager")
+        sitewide_manager, ignore = create(self._db, Admin, email="sitewide_manager@example.com")
         sitewide_manager.add_role(AdminRole.SITEWIDE_LIBRARY_MANAGER)
-        sitewide_librarian, ignore = create(self._db, Admin, email="sitewide librarian")
+        sitewide_librarian, ignore = create(self._db, Admin, email="sitewide_librarian@example.com")
         sitewide_librarian.add_role(AdminRole.SITEWIDE_LIBRARIAN)
-        manager1, ignore = create(self._db, Admin, email="library manager l1")
+        manager1, ignore = create(self._db, Admin, email="library_manager_l1@example.com")
         manager1.add_role(AdminRole.LIBRARY_MANAGER, l1)
-        librarian1, ignore = create(self._db, Admin, email="librarian l1")
+        librarian1, ignore = create(self._db, Admin, email="librarian_l1@example.com")
         librarian1.add_role(AdminRole.LIBRARIAN, l1)
         l2 = self._library()
-        manager2, ignore = create(self._db, Admin, email="library manager l2")
+        manager2, ignore = create(self._db, Admin, email="library_manager_l2@example.com")
         manager2.add_role(AdminRole.LIBRARY_MANAGER, l2)
-        librarian2, ignore = create(self._db, Admin, email="librarian l2")
+        librarian2, ignore = create(self._db, Admin, email="librarian_l2@example.com")
         librarian2.add_role(AdminRole.LIBRARIAN, l2)
 
         def test_changing_roles(admin_making_request, target_admin, roles=None, allowed=False):

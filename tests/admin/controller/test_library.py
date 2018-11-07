@@ -8,14 +8,7 @@ import flask
 import json
 from StringIO import StringIO
 from werkzeug import ImmutableMultiDict, MultiDict
-from api.admin.exceptions import AdminNotAuthorized
-from api.admin.problem_details import (
-    INCOMPLETE_CONFIGURATION,
-    INVALID_CONFIGURATION_OPTION,
-    LIBRARY_NOT_FOUND,
-    MISSING_LIBRARY_SHORT_NAME,
-    LIBRARY_SHORT_NAME_ALREADY_IN_USE,
-)
+from api.admin.exceptions import *
 from api.config import Configuration
 from core.facets import FacetConstants
 from core.model import (
@@ -150,6 +143,18 @@ class TestLibrarySettings(SettingsControllerTest):
             ])
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "The New York Public Library"),
+                ("short_name", "nypl"),
+                ("library_description", "Short description of library"),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "wrong!"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+             ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, INVALID_EMAIL.uri)
 
         # Test a bad contrast ratio between the web foreground and
         # web background colors.

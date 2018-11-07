@@ -2458,5 +2458,5 @@ class SettingsController(AdminCirculationManagerController):
             return result
 
     def is_email(self, email):
-        email_characters = re.compile("^@")
+        email_characters = ".+\@.+\..+"
         return re.search(email_characters, email)
