@@ -160,6 +160,7 @@ class TestLibrarySettings(SettingsControllerTest):
                 ("short_name", library.short_name),
                 (Configuration.WEBSITE_URL, "https://library.library/"),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
                 (Configuration.WEB_BACKGROUND_COLOR, "#000000"),
                 (Configuration.WEB_FOREGROUND_COLOR, "#010101"),
             ])
@@ -177,6 +178,7 @@ class TestLibrarySettings(SettingsControllerTest):
                 ("short_name", library.short_name),
                 (Configuration.WEBSITE_URL, "https://library.library/"),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
                 (Configuration.WEB_HEADER_LINKS, "http://library.com/1"),
                 (Configuration.WEB_HEADER_LINKS, "http://library.com/2"),
                 (Configuration.WEB_HEADER_LABELS, "One"),
@@ -198,6 +200,7 @@ class TestLibrarySettings(SettingsControllerTest):
                 (Configuration.WEBSITE_URL, "https://library.library/"),
                 (Configuration.TINY_COLLECTION_LANGUAGES, 'ger'),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
                 (Configuration.FEATURED_LANE_SIZE, "5"),
                 (Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
                  FacetConstants.ORDER_RANDOM),
@@ -266,6 +269,7 @@ class TestLibrarySettings(SettingsControllerTest):
                 (Configuration.MINIMUM_FEATURED_QUALITY, "0.9"),
                 (Configuration.WEBSITE_URL, "https://library.library/"),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
                 (Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
                  FacetConstants.ORDER_AUTHOR),
                 (Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME + "_" + FacetConstants.ORDER_AUTHOR,
@@ -288,6 +292,7 @@ class TestLibrarySettings(SettingsControllerTest):
             return ConfigurationSetting.for_library(x, library).value
         eq_("https://library.library/", val(Configuration.WEBSITE_URL))
         eq_("email@example.com", val(Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS))
+        eq_("help@example.com", val(Configuration.HELP_EMAIL))
         eq_("20", val(Configuration.FEATURED_LANE_SIZE))
         eq_("0.9", val(Configuration.MINIMUM_FEATURED_QUALITY))
         eq_(FacetConstants.ORDER_AUTHOR,
