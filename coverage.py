@@ -1338,7 +1338,7 @@ class WorkPresentationProvider(PresentationReadyWorkCoverageProvider):
     needs to have some aspect of its presentation recalculated. These
     providers give back the 'missing' coverage.
     """
-    DEFAULT_BATCH_SIZE = 1000
+    DEFAULT_BATCH_SIZE = 100
 
 
 class OPDSEntryWorkCoverageProvider(WorkPresentationProvider):
@@ -1351,6 +1351,7 @@ class OPDSEntryWorkCoverageProvider(WorkPresentationProvider):
     """
     SERVICE_NAME = "OPDS Entry Work Coverage Provider"
     OPERATION = WorkCoverageRecord.GENERATE_OPDS_OPERATION
+    DEFAULT_BATCH_SIZE = 1000
 
     def process_item(self, work):
         work.calculate_opds_entries()
@@ -1401,7 +1402,8 @@ class WorkPresentationEditionCoverageProvider(WorkPresentationProvider):
         # regenerate the OPDS feeds or update the search index.
         # So we call calculate_presentation in a way where the only actual
         # change made will be
-        return work.calculate_presentation(self.POLICY)
+        work.calculate_presentation(self.POLICY)
+        return work
 
 
 class WorkClassificationCoverageProvider(
