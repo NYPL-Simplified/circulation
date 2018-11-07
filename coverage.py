@@ -1399,9 +1399,10 @@ class WorkPresentationEditionCoverageProvider(WorkPresentationProvider):
         """Recalculate the presentation for a Work."""
 
         # Calling calculate_presentation_edition won't, on its own,
-        # regenerate the OPDS feeds or update the search index.
-        # So we call calculate_presentation in a way where the only actual
-        # change made will be
+        # regenerate the OPDS feeds or update the search index.  So we
+        # call calculate_presentation with a policy that ensures the
+        # presentation edition will be reevaluated, but nothing
+        # expensive will happen.
         work.calculate_presentation(self.POLICY)
         return work
 
