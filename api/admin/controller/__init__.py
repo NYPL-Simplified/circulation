@@ -5,6 +5,7 @@ import os
 import base64
 import random
 import json
+import re
 import urllib
 import urlparse
 
@@ -2455,3 +2456,7 @@ class SettingsController(AdminCirculationManagerController):
         result = self._set_integration_settings_and_libraries(service, protocol)
         if isinstance(result, ProblemDetail):
             return result
+
+    def is_email(self, email):
+        email_characters = re.compile("^@")
+        return re.search(email_characters, email)

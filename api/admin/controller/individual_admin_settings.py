@@ -1,4 +1,4 @@
-from . import AdminCirculationManagerController
+from . import SettingsController
 import flask
 from flask import Response
 from flask_babel import lazy_gettext as _
@@ -15,7 +15,7 @@ from core.util.problem_detail import ProblemDetail
 from api.admin.exceptions import *
 from api.admin.problem_details import *
 
-class IndividualAdminSettingsController(AdminCirculationManagerController):
+class IndividualAdminSettingsController(SettingsController):
 
     def process_get(self):
         admins = []
@@ -83,6 +83,8 @@ class IndividualAdminSettingsController(AdminCirculationManagerController):
         # eventually also check whether the input is formatted as a valid email address.
         if not email:
             return INCOMPLETE_CONFIGURATION
+        if not self.is_email(email):
+            return INVALID_EMAIL
 
     def validate_role_exists(self, role):
         if role.get("role") not in AdminRole.ROLES:

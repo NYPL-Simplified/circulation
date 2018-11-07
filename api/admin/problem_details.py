@@ -303,6 +303,13 @@ INVALID_CONFIGURATION_OPTION = pd(
     detail=_("The configuration has an invalid value."),
 )
 
+INVALID_EMAIL = pd(
+    "http://librarysimplified.org/terms/problem/invalid-configuration-option",
+    status_code=400,
+    title=_("Invalid email format"),
+    detail=_("You must enter a valid email address."),
+)
+
 INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION = pd(
     "http://librarysimplified.org/terms/problem/invalid-external-type-regular-expression",
     status_code=400,
