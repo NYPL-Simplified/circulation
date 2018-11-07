@@ -38,7 +38,7 @@ from model import (
 from monitor import WorkSweepMonitor
 from coverage import (
     CoverageFailure,
-    WorkCoverageProvider,
+    WorkPresentationProvider,
 )
 import os
 import logging
@@ -1468,7 +1468,7 @@ class SearchIndexMonitor(WorkSweepMonitor):
             return 0
 
 
-class SearchIndexCoverageProvider(WorkCoverageProvider):
+class SearchIndexCoverageProvider(WorkPresentationProvider):
     """Make sure all Works have up-to-date representation in the
     search index.
     """

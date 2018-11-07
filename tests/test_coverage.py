@@ -60,6 +60,8 @@ from ..coverage import (
     IdentifierCoverageProvider,
     OPDSEntryWorkCoverageProvider,
     PresentationReadyWorkCoverageProvider,
+    WorkClassificationCoverageProvider,
+    WorkPresentationEditionCoverageProvider,
 )
 
 class TestCoverageFailure(DatabaseTest):
@@ -1881,6 +1883,54 @@ class TestPresentationReadyWorkCoverageProvider(DatabaseTest):
         # Make it presentation ready, and it needs coverage.
         work.presentation_ready = True
         eq_([work], provider.items_that_need_coverage().all())
+
+
+class MockWork(object):
+    """A Work-like object that keeps track of the policy that was used
+    to recalculate its presentation.
+    """
+    def calculate_presentation(self, policy):
+        self.calculate_presentation_called_with = policy
+
+
+class TestWorkPresentationEditionCoverageProvider(DatabaseTest):
+
+    def test_process_item(self):
+        work = MockWork()
+        provider = WorkPresentationEditionCoverageProvider(self._db)
+        provider.process_item(work)
+
+        policy = work.calculate_presentation_called_with
+
+        # Verify that the policy is configured correctly. It does
+        # all the work that's not expensive.
+        assert all(
+            [policy.choose_edition, policy.set_edition_metadata,
+             policy.choose_cover, policy.regenerate_opds_entries,
+             policy.update_search_index]
+        )
+        assert not any(
+            [policy.classify, policy.choose_summary,
+             policy.calculate_quality]
+        )
+
+
+class TestWorkClassificationCoverageProvider(DatabaseTest):
+
+    def test_process_item(self):
+        work = MockWork()
+        provider = WorkClassificationCoverageProvider(self._db)
+        provider.process_item(work)
+
+        # This coverage provider does all the work, even the expensive
+        # work.
+        policy = work.calculate_presentation_called_with
+        assert all(
+            [policy.choose_edition, policy.set_edition_metadata,
+             policy.choose_cover, policy.regenerate_opds_entries,
+             policy.update_search_index, policy.classify,
+             policy.choose_summary, policy.calculate_quality]
+        )
 
 
 class TestOPDSEntryWorkCoverageProvider(DatabaseTest):
