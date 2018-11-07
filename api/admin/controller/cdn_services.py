@@ -26,6 +26,7 @@ class CDNServicesController(SettingsController):
                 ],
             }
         ]
+        self.goal = ExternalIntegration.CDN_GOAL
 
     def process_cdn_services(self):
         self.require_system_admin()
@@ -36,7 +37,7 @@ class CDNServicesController(SettingsController):
 
 
     def process_get(self):
-        services = self._get_integration_info(ExternalIntegration.CDN_GOAL, self.protocols)
+        services = self._get_integration_info(self.goal, self.protocols)
         return dict(
             cdn_services=services,
             protocols=self.protocols,
@@ -58,14 +59,14 @@ class CDNServicesController(SettingsController):
             service = self.look_up_service_by_id(id, protocol)
         else:
             service, is_new = self._create_integration(
-                self.protocols, protocol, ExternalIntegration.CDN_GOAL
+                self.protocols, protocol, self.goal
             )
 
         if isinstance(service, ProblemDetail):
             self._db.rollback()
             return service
 
-        name_error = self.check_name_unique(service, name, id)
+        name_error = self.check_name_unique(service, name)
         if name_error:
             self._db.rollback()
             return name_error
@@ -94,38 +95,7 @@ class CDNServicesController(SettingsController):
         if protocol and protocol not in [p.get("name") for p in self.protocols]:
             return UNKNOWN_PROTOCOL
 
-    def look_up_service_by_id(self, id, protocol):
-        """Find an existing service, and make sure that the user is not trying to edit
-        its protocol."""
-
-        service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.CDN_GOAL)
-        if not service:
-            return MISSING_SERVICE
-        if protocol != service.protocol:
-            return CANNOT_CHANGE_PROTOCOL
-        return service
-
-    def check_name_unique(self, new_service, name, id):
-        """A service cannot be created with, or edited to have, the same name
-        as a service that already exists."""
-
-        existing_service = get_one(self._db, ExternalIntegration, name=name)
-        if existing_service and not existing_service.id == new_service.id:
-            # Without checking that the IDs are different, you can't save
-            # changes to an existing service unless you've also changed its name.
-            return INTEGRATION_NAME_ALREADY_IN_USE
-
-    def set_protocols(self, service, protocol):
-        """Validate the protocol that the user has submitted; depending on whether
-        the validations pass, either save it to this CDN service or
-        return an error message."""
-
-        [protocol] = [p for p in self.protocols if p.get("name") == protocol]
-        result = self._set_integration_settings_and_libraries(service, protocol)
-        if isinstance(result, ProblemDetail):
-            return result
-
     def process_delete(self, service_id):
         return self._delete_integration(
-            service_id, ExternalIntegration.CDN_GOAL
+            service_id, self.goal
         )

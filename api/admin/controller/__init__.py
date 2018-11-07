@@ -4,9 +4,7 @@ import sys
 import os
 import base64
 import random
-import uuid
 import json
-import re
 import urllib
 import urlparse
 
@@ -16,8 +14,6 @@ from flask import (
     redirect,
 )
 from flask_babel import lazy_gettext as _
-import jwt
-from sqlalchemy.exc import ProgrammingError
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 from StringIO import StringIO
@@ -61,10 +57,7 @@ from core.model import (
 )
 from core.lane import (Lane, WorkList)
 from core.log import (LogConfiguration, SysLogger, Loggly, CloudwatchLogs)
-from core.util.problem_detail import (
-    ProblemDetail,
-    JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
-)
+from core.util.problem_detail import ProblemDetail
 from core.metadata_layer import (
     Metadata,
     LinkData,
@@ -74,21 +67,13 @@ from core.mirror import MirrorUploader
 from core.util.http import HTTP
 from api.problem_details import *
 from api.admin.exceptions import *
-from core.util import (
-    fast_query_count,
-    LanguageCodes,
-)
+from core.util import LanguageCodes
 
 from api.config import (
     Configuration,
     CannotLoadConfiguration
 )
 from api.lanes import create_default_lanes
-from api.registry import (
-    RemoteRegistry,
-    Registration,
-)
-
 from api.admin.google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
 from api.admin.password_admin_authentication_provider import PasswordAdminAuthenticationProvider
 
@@ -114,17 +99,7 @@ from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct, sele
 from sqlalchemy.orm import lazyload
 
 from api.admin.templates import admin as admin_template
-
-from api.authenticator import (
-    AuthenticationProvider,
-    LibraryAuthenticator
-)
-
-from api.simple_authentication import SimpleAuthenticationProvider
-from api.millenium_patron import MilleniumPatronAPI
-from api.sip import SIP2AuthenticationProvider
-from api.firstbook import FirstBookAuthenticationAPI
-from api.clever import CleverAuthenticationAPI
+from api.authenticator import LibraryAuthenticator
 
 from core.opds_import import (OPDSImporter, OPDSImportMonitor)
 from api.feedbooks import FeedbooksOPDSImporter
@@ -136,21 +111,11 @@ from api.axis import Axis360API
 from api.rbdigital import RBDigitalAPI
 from api.enki import EnkiAPI
 from api.odl import ODLWithConsolidatedCopiesAPI, SharedODLAPI
-
-from api.nyt import NYTBestSellerAPI
-from api.novelist import NoveListAPI
-from core.opds_import import MetadataWranglerOPDSLookup
-
-from api.google_analytics_provider import GoogleAnalyticsProvider
 from core.local_analytics_provider import LocalAnalyticsProvider
 
 from api.adobe_vendor_id import AuthdataUtility
 
-from core.external_search import ExternalSearchIndex
-
 from core.selftest import HasSelfTests
-
-from core.util.opds_writer import OPDSFeed
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
@@ -2442,5 +2407,51 @@ class SettingsController(AdminCirculationManagerController):
 
         [protocol] = [p for p in protocols if p.get("name") == protocol]
         result = self._set_integration_settings_and_libraries(auth_service, protocol)
+        if isinstance(result, ProblemDetail):
+            return result
+
+    def check_name_unique(self, new_service, name):
+        """A service cannot be created with, or edited to have, the same name
+        as a service that already exists.
+        This method is used by analytics_services, cdn_services, discovery_services,
+        metadata_services, and sitewide_services.
+        """
+
+        existing_service = get_one(self._db, ExternalIntegration, name=name)
+        if existing_service and not existing_service.id == new_service.id:
+            # Without checking that the IDs are different, you can't save
+            # changes to an existing service unless you've also changed its name.
+            return INTEGRATION_NAME_ALREADY_IN_USE
+
+    def look_up_service_by_id(self, id, protocol, goal=None):
+        """Find an existing service, and make sure that the user is not trying to edit
+        its protocol.
+        This method is used by analytics_services, cdn_services, metadata_services,
+        and sitewide_services.
+        """
+
+        if not goal:
+            goal = self.goal
+
+        service = get_one(self._db, ExternalIntegration, id=id, goal=goal)
+        if not service:
+            return MISSING_SERVICE
+        if protocol != service.protocol:
+            return CANNOT_CHANGE_PROTOCOL
+        return service
+
+    def set_protocols(self, service, protocol, protocols=None):
+        """Validate the protocol that the user has submitted; depending on whether
+        the validations pass, either save it to this metadata service or
+        return an error message.
+        This method is used by analytics_services, cdn_services, discovery_services,
+        metadata_services, and sitewide_services.
+        """
+
+        if not protocols:
+            protocols = self.protocols
+
+        [protocol] = [p for p in protocols if p.get("name") == protocol]
+        result = self._set_integration_settings_and_libraries(service, protocol)
         if isinstance(result, ProblemDetail):
             return result

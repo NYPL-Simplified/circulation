@@ -8,7 +8,6 @@ import json
 import os
 import re
 import feedparser
-import jwt
 from werkzeug import ImmutableMultiDict, MultiDict
 from werkzeug.http import dump_cookie
 from StringIO import StringIO
@@ -73,7 +72,7 @@ from core.model import (
     WorkGenre
 )
 from core.lane import Lane
-from core.s3 import S3Uploader, MockS3Uploader
+from core.s3 import MockS3Uploader
 from core.testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
@@ -85,32 +84,16 @@ from core.classifier import (
     genres,
     SimplifiedGenreClassifier
 )
-from core.opds import AcquisitionFeed
-from core.facets import FacetConstants
 from datetime import date, datetime, timedelta
 
 from api.authenticator import (
     AuthenticationProvider,
-    BasicAuthenticationProvider,
     PatronData,
 )
-from api.registry import Registration
-from api.simple_authentication import SimpleAuthenticationProvider
-from api.millenium_patron import MilleniumPatronAPI
-from api.sip import SIP2AuthenticationProvider
-from api.firstbook import FirstBookAuthenticationAPI
-from api.clever import CleverAuthenticationAPI
 
-from api.novelist import NoveListAPI
-
-from api.odl import SharedODLAPI
-
-from api.google_analytics_provider import GoogleAnalyticsProvider
 from core.local_analytics_provider import LocalAnalyticsProvider
 
 from api.adobe_vendor_id import AuthdataUtility
-
-from core.external_search import ExternalSearchIndex
 
 from api.axis import (Axis360API, MockAxis360API)
 from core.selftest import HasSelfTests
@@ -3196,10 +3179,3 @@ class TestSettingsController(SettingsControllerTest):
         i2, is_new2 = m(protocol_definitions, "allow one", goal)
         eq_(False, is_new2)
         eq_(DUPLICATE_INTEGRATION, i2)
-
-
-
-
-
-
-    

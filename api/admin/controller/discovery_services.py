@@ -78,7 +78,7 @@ class DiscoveryServicesController(SettingsController):
         is_new = False
         if id:
             # Find an existing service in order to edit it
-            service = self.look_up_service_by_id(protocol, id)
+            service = self.look_up_service_from_registry(protocol, id)
         else:
             service, is_new = self._create_integration(
                 self.protocols, protocol, self.goal
@@ -118,7 +118,7 @@ class DiscoveryServicesController(SettingsController):
         if protocol not in [p.get("name") for p in self.protocols]:
             return UNKNOWN_PROTOCOL
 
-    def look_up_service_by_id(self, protocol, id):
+    def look_up_service_from_registry(self, protocol, id):
         """Find an existing service, and make sure that the user is not trying to edit
         its protocol."""
 
@@ -129,26 +129,6 @@ class DiscoveryServicesController(SettingsController):
         if protocol != service.protocol:
             return CANNOT_CHANGE_PROTOCOL
         return service
-
-    def check_name_unique(self, new_service, name):
-        """A service cannot be created with, or edited to have, the same name
-        as a service that already exists."""
-
-        existing_service = get_one(self._db, ExternalIntegration, name=name)
-        if existing_service and not existing_service.id == new_service.id:
-            # Without checking that the IDs are different, you can't save
-            # changes to an existing service unless you've also changed its name.
-            return INTEGRATION_NAME_ALREADY_IN_USE
-
-    def set_protocols(self, service, protocol):
-        """Validate the protocol that the user has submitted; depending on whether
-        the validations pass, either save it to this discovery service or
-        return an error message."""
-
-        [protocol] = [p for p in self.protocols if p.get("name") == protocol]
-        result = self._set_integration_settings_and_libraries(service, protocol)
-        if isinstance(result, ProblemDetail):
-            return result
 
     def process_delete(self, service_id):
         return self._delete_integration(
