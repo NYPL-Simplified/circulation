@@ -1358,7 +1358,7 @@ class OPDSEntryWorkCoverageProvider(WorkPresentationProvider):
 
 
 class WorkPresentationEditionCoverageProvider(WorkPresentationProvider):
-    """Make sure all Works have up-to-date presentation edition.
+    """Make sure each Work has an up-to-date presentation edition.
 
     This basically means comparing all the Editions associated with the
     Work and building a composite Edition.
