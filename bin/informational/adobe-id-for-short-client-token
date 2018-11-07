@@ -8,7 +8,7 @@ import base64
 import re
 import sys
 
-base_url = "https://circulation.librarysimplified.org"
+base_url = "https://libraryregistry.librarysimplified.org"
 
 if len(sys.argv) != 2:
     print "Usage: %s [Short Client Token]" % sys.argv[0]
