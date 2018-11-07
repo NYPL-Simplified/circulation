@@ -173,6 +173,7 @@ class Configuration(CoreConfiguration):
             "key": HELP_EMAIL,
             "label": _("Patron support email address"),
             "description": _("An email address a patron can use if they need help, e.g. 'simplyehelp@yourlibrary.org'."),
+            "required": True,
         },
         {
             "key": HELP_WEB,
