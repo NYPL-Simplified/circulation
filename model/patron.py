@@ -137,8 +137,19 @@ class Patron(Base):
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
 
     def __repr__(self):
-        return '<Patron authentication_identifier=%s last_external_sync=%s>' % (
-            self.authorization_identifier, self.last_external_sync
+        def date(d):
+            """Format an object that might be a datetime as a date.
+
+            This keeps a patron representation short.
+            """
+            if d is None:
+                return None
+            if isinstance(d, datetime.datetime):
+                return d.date()
+            return d
+        return '<Patron authentication_identifier=%s expires=%s sync=%s>' % (
+            self.authorization_identifier, date(self.authorization_expires),
+            date(self.last_external_sync)
         )
 
     def identifier_to_remote_service(self, remote_data_source, generator=None):
