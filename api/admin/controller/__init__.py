@@ -2458,6 +2458,9 @@ class SettingsController(AdminCirculationManagerController):
             return result
 
     def validate_email(self, email):
+        """Validate that the email address which the user has submitted is in the format 'x@y.z'
+        This method is used by individual_admin_settings and library_settings.
+        """
         email_characters = ".+\@.+\..+"
         is_valid = re.search(email_characters, email)
         if not is_valid:
