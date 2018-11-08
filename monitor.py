@@ -680,8 +680,12 @@ class ReaperMonitor(Monitor):
         return self.timestamp_field < self.cutoff
 
     def run_once(self, *args, **kwargs):
-        rows_deleted = self.query().delete(synchronize_session=False)
-        self.log.info("Deleted %d row(s)", rows_deleted)
+        rows_deleted = 0
+        qu = self.query()
+        self.log.info("Deleting %d row(s)", qu.count())
+        for i in qu:
+            self.log.info("Deleting %r", i)
+            self._db.delete(i)
 
     def query(self):
         return self._db.query(self.MODEL_CLASS).filter(self.where_clause)
@@ -703,9 +707,9 @@ class CredentialReaper(ReaperMonitor):
     MAX_AGE = 1
 ReaperMonitor.REGISTRY.append(CredentialReaper)
 
-class PatronReaper(ReaperMonitor):
+class PatronRecordReaper(ReaperMonitor):
     """Remove patron records that expired more than 60 days ago"""
     MODEL_CLASS = Patron
     TIMESTAMP_FIELD = 'authorization_expires'
     MAX_AGE = 60
-ReaperMonitor.REGISTRY.append(PatronReaper)
+ReaperMonitor.REGISTRY.append(PatronRecordReaper)
