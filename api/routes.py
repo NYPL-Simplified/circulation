@@ -113,10 +113,10 @@ def allows_patron_web(f):
         else:
             resp = make_response(f(*args, **kwargs))
 
-        patron_web_client_url = app.manager.patron_web_client_url
-        if patron_web_client_url:
+        patron_web_domains = app.manager.patron_web_domains
+        if patron_web_domains:
             options = get_cors_options(
-                app, dict(origins=[patron_web_client_url],
+                app, dict(origins=patron_web_domains,
                           supports_credentials=True)
             )
             set_cors_headers(resp, options)
@@ -225,6 +225,14 @@ def acquisition_groups(lane_identifier):
 @returns_problem_detail
 def feed(lane_identifier):
     return app.manager.opds_feeds.feed(lane_identifier)
+
+@library_dir_route('/navigation', defaults=dict(lane_identifier=None))
+@library_route('/navigation/<lane_identifier>')
+@has_library
+@allows_patron_web
+@returns_problem_detail
+def navigation_feed(lane_identifier):
+    return app.manager.opds_feeds.navigation(lane_identifier)
 
 @library_route('/crawlable')
 @has_library

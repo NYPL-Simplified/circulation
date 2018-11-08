@@ -3,6 +3,7 @@ import json
 import logging
 import sys
 import urllib
+import urlparse
 import datetime
 import base64
 from wsgiref.handlers import format_date_time
@@ -78,6 +79,7 @@ from core.model import (
 )
 from core.opds import (
     AcquisitionFeed,
+    NavigationFeed,
 )
 from core.util.opds_writer import (
      OPDSFeed,
@@ -234,8 +236,27 @@ class CirculationManager(object):
             Configuration.policy('lending', {})
         )
 
-        self.patron_web_client_url = ConfigurationSetting.sitewide(
+        # Assemble the list of patron web client domains from individual
+        # library registration settings as well as a sitewide setting.
+        patron_web_domains = set()
+
+        def get_domain(url):
+            scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
+            return scheme + "://" + netloc
+
+        sitewide_patron_web_client_url = ConfigurationSetting.sitewide(
             self._db, Configuration.PATRON_WEB_CLIENT_URL).value
+        if sitewide_patron_web_client_url:
+            patron_web_domains.add(get_domain(sitewide_patron_web_client_url))
+
+        from registry import Registration
+        for setting in self._db.query(
+            ConfigurationSetting).filter(
+            ConfigurationSetting.key==Registration.LIBRARY_REGISTRATION_WEB_CLIENT):
+            if setting.value:
+                patron_web_domains.add(get_domain(setting.value))
+
+        self.patron_web_domains = patron_web_domains
 
         self.setup_configuration_dependent_controllers()
         self.authentication_for_opds_documents = {}
@@ -692,6 +713,33 @@ class OPDSFeedController(CirculationManagerController):
             self._db, title, url, lane, annotator=annotator,
             facets=facets,
             pagination=pagination,
+        )
+        return feed_response(feed)
+
+    def navigation(self, lane_identifier):
+        """Build or retrieve a navigation feed, for clients that do not support groups."""
+
+        lane = self.load_lane(lane_identifier)
+        if isinstance(lane, ProblemDetail):
+            return lane
+        library = flask.request.library
+        library_short_name = library.short_name
+        url = self.cdn_url_for(
+            "navigation_feed", lane_identifier=lane_identifier, library_short_name=library_short_name,
+        )
+
+        title = lane.display_name
+        facet_class_kwargs = dict(
+            minimum_featured_quality=library.minimum_featured_quality,
+            uses_customlists=lane.uses_customlists
+        )
+        facets = load_facets_from_request(
+            worklist=lane, base_class=FeaturedFacets,
+            base_class_constructor_kwargs=facet_class_kwargs
+        )
+        annotator = self.manager.annotator(lane, facets)
+        feed = NavigationFeed.navigation(
+            self._db, title, url, lane, annotator, facets=facets
         )
         return feed_response(feed)
 

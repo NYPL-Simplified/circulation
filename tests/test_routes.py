@@ -35,7 +35,7 @@ class MockManager(object):
         self._cache = {}
 
         # This is used by the allows_patron_web annotator.
-        self.patron_web_client_url = "http://patron/web"
+        self.patron_web_domains = set(["http://patron/web"])
 
     def __getattr__(self, controller_name):
         return self._cache.setdefault(
@@ -285,6 +285,16 @@ class TestOPDSFeed(RouteTest):
         url = '/feed/<lane_identifier>'
         self.assert_request_calls(
             url, self.controller.feed, '<lane_identifier>'
+        )
+
+    def test_navigation_feed(self):
+        # An incoming lane identifier is passed in to the navigation_feed()
+        # method.
+        url = '/navigation'
+        self.assert_request_calls(url, self.controller.navigation, None)
+        url = '/navigation/<lane_identifier>'
+        self.assert_request_calls(
+            url, self.controller.navigation, '<lane_identifier>'
         )
 
     def test_crawlable_library_feed(self):
