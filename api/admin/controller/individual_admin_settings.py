@@ -79,8 +79,8 @@ class IndividualAdminSettingsController(SettingsController):
             self.require_system_admin()
 
     def validate_form_fields(self, email):
-        # At the moment, this just checks whether the email field is blank. It will
-        # eventually also check whether the input is formatted as a valid email address.
+        """Check that 1) the user has entered something into the required email field,
+        and 2) if so, the input is formatted as a valid email address."""
         if not email:
             return INCOMPLETE_CONFIGURATION
         if not self.is_email(email):
