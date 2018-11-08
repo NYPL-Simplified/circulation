@@ -2457,6 +2457,8 @@ class SettingsController(AdminCirculationManagerController):
         if isinstance(result, ProblemDetail):
             return result
 
-    def is_email(self, email):
+    def validate_email(self, email):
         email_characters = ".+\@.+\..+"
-        return re.search(email_characters, email)
+        is_valid = re.search(email_characters, email)
+        if not is_valid:
+            return INVALID_EMAIL.detailed(_('"{email}" is not a valid email address.'.format(email=email)))

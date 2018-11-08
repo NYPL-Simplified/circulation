@@ -138,10 +138,11 @@ class LibrarySettingsController(SettingsController):
         email_fields = filter(lambda s: s.get("format") == "email" and flask.request.form.get(s.get("key")), settings)
         # Narrow the email-related fields down to the ones for which the user actually entered a value
         email_inputs = [flask.request.form.get(field.get("key")) for field in email_fields]
+        # Now check that each email input is in a valid format
         for email in email_inputs:
-            is_email = self.is_email(email)
-            if not is_email:
-                return INVALID_EMAIL
+            email_error = self.validate_email(email)
+            if email_error:
+                return email_error
 
     def check_input_type(self, settings):
         return self.check_email_format(settings)

@@ -127,6 +127,7 @@ class TestIndividualAdmins(SettingsControllerTest):
             ])
             response = self.manager.admin_individual_admin_settings_controller.process_post()
             eq_(response.uri, INVALID_EMAIL.uri)
+            assert "wrong!" in response.detail
 
     def test_individual_admins_post_permissions(self):
         l1 = self._library()

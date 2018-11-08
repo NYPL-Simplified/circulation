@@ -83,8 +83,9 @@ class IndividualAdminSettingsController(SettingsController):
         and 2) if so, the input is formatted as a valid email address."""
         if not email:
             return INCOMPLETE_CONFIGURATION
-        if not self.is_email(email):
-            return INVALID_EMAIL
+        email_error = self.validate_email(email)
+        if email_error:
+            return email_error
 
     def validate_role_exists(self, role):
         if role.get("role") not in AdminRole.ROLES:
