@@ -174,6 +174,7 @@ class Configuration(CoreConfiguration):
             "label": _("Patron support email address"),
             "description": _("An email address a patron can use if they need help, e.g. 'simplyehelp@yourlibrary.org'."),
             "required": True,
+            "format": "email"
         },
         {
             "key": HELP_WEB,
@@ -189,17 +190,20 @@ class Configuration(CoreConfiguration):
             "key": COPYRIGHT_DESIGNATED_AGENT_EMAIL,
             "label": _("Copyright designated agent email"),
             "description": _("Patrons of this library should use this email address to send a DMCA notification (or other copyright complaint) to the library.<br/>If no value is specified here, the general patron support address will be used."),
+            "format": "email",
         },
         {
             "key": CONFIGURATION_CONTACT_EMAIL,
             "label": _("A point of contact for the organization reponsible for configuring this library."),
             "description": _("This email address will be shared as part of integrations that you set up through this interface. It will not be shared with the general public. This gives the administrator of the remote integration a way to contact you about problems with this library's use of that integration.<br/>If no value is specified here, the general patron support address will be used."),
+            "format": "email",
         },
         {
             "key": DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
             "label": _("Default email address to use when sending vendor hold notifications"),
             "description": _('This should be an address controlled by the library which rejects or trashes all email sent to it. Vendor hold notifications contain sensitive patron information, but <a href="https://confluence.nypl.org/display/SIM/About+Hold+Notifications" target="_blank">cannot be forwarded to patrons</a> because they contain vendor-specific instructions.'),
             "required": True,
+            "format": "email",
         },
         {
             "key": COLOR_SCHEME,

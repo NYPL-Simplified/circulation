@@ -1,4 +1,4 @@
-from . import AdminCirculationManagerController
+from . import SettingsController
 import flask
 from flask import Response
 from flask_babel import lazy_gettext as _
@@ -15,7 +15,7 @@ from core.util.problem_detail import ProblemDetail
 from api.admin.exceptions import *
 from api.admin.problem_details import *
 
-class IndividualAdminSettingsController(AdminCirculationManagerController):
+class IndividualAdminSettingsController(SettingsController):
 
     def process_get(self):
         admins = []
@@ -40,7 +40,6 @@ class IndividualAdminSettingsController(AdminCirculationManagerController):
         # which the user is submitting the form in order to create/edit.)
 
         user = flask.request.admin
-
         email = flask.request.form.get("email")
         error = self.validate_form_fields(email)
         if error:
@@ -79,10 +78,13 @@ class IndividualAdminSettingsController(AdminCirculationManagerController):
             self.require_system_admin()
 
     def validate_form_fields(self, email):
-        # At the moment, this just checks whether the email field is blank. It will
-        # eventually also check whether the input is formatted as a valid email address.
+        """Check that 1) the user has entered something into the required email field,
+        and 2) if so, the input is formatted as a valid email address."""
         if not email:
             return INCOMPLETE_CONFIGURATION
+        email_error = self.validate_email(email)
+        if email_error:
+            return email_error
 
     def validate_role_exists(self, role):
         if role.get("role") not in AdminRole.ROLES:

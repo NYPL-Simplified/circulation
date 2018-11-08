@@ -5,6 +5,7 @@ import os
 import base64
 import random
 import json
+import re
 import urllib
 import urlparse
 
@@ -2455,3 +2456,30 @@ class SettingsController(AdminCirculationManagerController):
         result = self._set_integration_settings_and_libraries(service, protocol)
         if isinstance(result, ProblemDetail):
             return result
+
+    def validate_email(self, settings):
+        """Find any email addresses that the user has submitted, and make sure that
+        they are in a valid format.
+        This method is used by individual_admin_settings and library_settings.
+        """
+        # If :param settings is a list of objects--i.e. the LibrarySettingsController
+        # is calling this method--then we need to pull out the relevant input strings
+        # to validate.
+        if isinstance(settings, (list,)):
+            # Find the fields that have to do with email addresses
+            email_fields = filter(lambda s: s.get("format") == "email" and flask.request.form.get(s.get("key")), settings)
+            # Narrow the email-related fields down to the ones for which the user actually entered a value
+            email_inputs = [flask.request.form.get(field.get("key")) for field in email_fields]
+            # Now check that each email input is in a valid format
+        else:
+        # If the IndividualAdminSettingsController is calling this method, then we already have the
+        # input string; it was passed in directly. 
+            email_inputs = [settings]
+        for email in email_inputs:
+            if not self._is_email(email):
+                return INVALID_EMAIL.detailed(_('"%(email)s" is not a valid email address.', email=email))
+
+    def _is_email(self, email):
+        """Email addresses must be in the format 'x@y.z'."""
+        email_format = ".+\@.+\..+"
+        return re.search(email_format, email)
