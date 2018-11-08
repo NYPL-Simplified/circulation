@@ -40,7 +40,6 @@ class IndividualAdminSettingsController(SettingsController):
         # which the user is submitting the form in order to create/edit.)
 
         user = flask.request.admin
-
         email = flask.request.form.get("email")
         error = self.validate_form_fields(email)
         if error:

@@ -109,7 +109,8 @@ class LibrarySettingsController(SettingsController):
             self.check_for_missing_fields,
             self.check_input_type,
             self.check_web_color_contrast,
-            self.check_header_links
+            self.check_header_links,
+            self.validate_email,
         ]
         for validation in validations:
             result = validation(settings)
@@ -133,19 +134,7 @@ class LibrarySettingsController(SettingsController):
                 setting=missing[0].get("label"))
             )
 
-    def check_email_format(self, settings):
-        # Find the fields that have to do with email addresses
-        email_fields = filter(lambda s: s.get("format") == "email" and flask.request.form.get(s.get("key")), settings)
-        # Narrow the email-related fields down to the ones for which the user actually entered a value
-        email_inputs = [flask.request.form.get(field.get("key")) for field in email_fields]
-        # Now check that each email input is in a valid format
-        for email in email_inputs:
-            email_error = self.validate_email(email)
-            if email_error:
-                return email_error
-
     def check_input_type(self, settings):
-        return self.check_email_format(settings)
         for setting in settings:
             if setting.get("type") == "image":
                 return self.check_image_type(setting)
