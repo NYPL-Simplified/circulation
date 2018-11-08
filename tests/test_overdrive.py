@@ -22,6 +22,8 @@ from ..coverage import (
 
 from ..config import CannotLoadConfiguration
 
+from ..metadata_layer import LinkData
+
 from ..model import (
     Collection,
     Contributor,
@@ -411,6 +413,35 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         eq_(1, awards.value)
         eq_(1, awards.weight)
 
+    def test_image_link_to_linkdata(self):
+        def m(link):
+            return OverdriveRepresentationExtractor.image_link_to_linkdata(
+                link, "rel"
+            )
+
+        # Test missing data.
+        eq_(None, m(None))
+        eq_(None, m(dict()))
+
+        # Test an ordinary success case.
+        url = "http://images.overdrive.com/image.png"
+        type = "image/type"
+        data = m(dict(href=url, type=type))
+        assert isinstance(data, LinkData)
+        eq_(url, data.href)
+        eq_(type, data.media_type)
+
+        # Test a case where no media type is provided.
+        data = m(dict(href=url))
+        eq_(None, data.media_type)
+
+        # Verify that invalid URLs are made link-safe.
+        data = m(dict(href="http://api.overdrive.com/v1/foo:bar"))
+        eq_("http://api.overdrive.com/v1/foo%3Abar", data.href)
+
+        # Stand-in cover images are detected and filtered out.
+        data = m(dict(href="https://img1.od-cdn.com/ImageType-100/0293-1/{00000000-0000-0000-0000-000000000002}Img100.jpg"))
+        eq_(None, data)
 
 class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
 
