@@ -10,6 +10,11 @@ from core.model import (
     get_one,
     get_one_or_create,
 )
+from core.log import (
+    Loggly,
+    SysLogger,
+    CloudwatchLogs,
+)
 from core.util.problem_detail import ProblemDetail
 from . import SettingsController
 
