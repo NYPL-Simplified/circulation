@@ -60,7 +60,7 @@ class ExternalSearchIndex(object):
     VERSION_RE = re.compile('-v([0-9]+)$')
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "label": _("URL"), "required": True },
+        { "key": ExternalIntegration.URL, "label": _("URL"), "required": True, "format": "url" },
         { "key": WORKS_INDEX_PREFIX_KEY, "label": _("Index prefix"),
           "default": DEFAULT_WORKS_INDEX_PREFIX,
           "required": True,

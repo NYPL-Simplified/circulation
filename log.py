@@ -158,7 +158,7 @@ class Loggly(Logger):
     SETTINGS = [
         { "key": USER, "label": _("Username"), "required": True },
         { "key": PASSWORD, "label": _("Password"), "required": True },
-        { "key": URL, "label": _("URL"), "required": True },
+        { "key": URL, "label": _("URL"), "required": True, "format": "url" },
     ]
 
     SITEWIDE = True
