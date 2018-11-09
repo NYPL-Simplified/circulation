@@ -186,6 +186,7 @@ class Configuration(object):
             "key": BASE_URL_KEY,
             "label": _("Base url of the application"),
             "required": True,
+            "format": "url",
         },
         {
             "key": LOG_LEVEL, "label": _("Log Level"), "type": "select",
@@ -218,6 +219,7 @@ class Configuration(object):
             "label": _("URL of the library's website"),
             "description": _("The library's main website, e.g. \"https://www.nypl.org/\" (not this Circulation Manager's URL)."),
             "required": True,
+            "format": "url"
         },
         {
             "key": ALLOW_HOLDS,

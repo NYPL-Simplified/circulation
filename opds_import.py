@@ -132,7 +132,12 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
     CARDINALITY = 1
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "label": _("URL"), "default": "http://metadata.librarysimplified.org/", "required": True },
+        { "key": ExternalIntegration.URL,
+          "label": _("URL"),
+          "default": "http://metadata.librarysimplified.org/",
+          "required": True,
+          "format": "url",
+        },
     ]
 
     SITEWIDE = True
@@ -358,6 +363,7 @@ class OPDSImporter(object):
             "key": Collection.EXTERNAL_ACCOUNT_ID_KEY,
             "label": _("URL"),
             "required": True,
+            "format": "url"
         },
         {
             "key": Collection.DATA_SOURCE_NAME_SETTING,
