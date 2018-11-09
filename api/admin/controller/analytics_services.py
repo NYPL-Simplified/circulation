@@ -87,14 +87,15 @@ class AnalyticsServicesController(SettingsController):
 
         if not name:
             return MISSING_ANALYTICS_NAME
-        if protocol and protocol not in [p.get("name") for p in self.protocols]:
-            return UNKNOWN_PROTOCOL
+        if protocol:
+            if protocol not in [p.get("name") for p in self.protocols]:
+                return UNKNOWN_PROTOCOL
+            else:
+                wrong_format = self.validate_formats()
+                if wrong_format:
+                    return wrong_format
         if not url:
             return INCOMPLETE_CONFIGURATION
-
-        url_error = self.validate_url(url)
-        if url_error:
-            return url_error
 
     def process_delete(self, service_id):
         return self._delete_integration(

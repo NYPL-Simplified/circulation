@@ -168,23 +168,29 @@ class CollectionSettingsController(SettingsController):
 
     def validate_form_fields(self, is_new, protocols, **fields):
         """Check that 1) the required fields aren't blank, 2) the protocol is on the
-        list of recognized protocols, and 3) the collection (if there is one) is valid"""
-
+        list of recognized protocols, 3) the collection (if there is one) is valid, and
+        4) the URL is valid"""
         if not fields.get("name"):
             return MISSING_COLLECTION_NAME
-        if fields.get("protocol") and fields.get("protocol") not in [p.get("name") for p in protocols]:
-            return UNKNOWN_PROTOCOL
-        if not fields.get("protocol"):
+        if "collection" in fields:
+            if fields.get("collection"):
+                return self.validate_collection(**fields)
+            else:
+                return MISSING_COLLECTION
+        if fields.get("protocol"):
+            if fields.get("protocol") not in [p.get("name") for p in protocols]:
+                return UNKNOWN_PROTOCOL
+            else:
+                [protocol] = [p for p in protocols if p.get("name") == fields.get("protocol")]
+                wrong_format = self.validate_formats(protocol.get("settings"))
+                if wrong_format:
+                    return wrong_format
+        else:
             return NO_PROTOCOL_FOR_NEW_SERVICE
-        if "collection" in fields and not fields.get("collection"):
-            return MISSING_COLLECTION
-        if fields.get("collection"):
-            return self.validate_collection(**fields)
 
     def validate_collection(self, **fields):
         """The protocol of an existing collection cannot be changed, and
         collections must have unique names."""
-
         if fields.get("protocol") != fields.get("collection").protocol:
             return CANNOT_CHANGE_PROTOCOL
         if fields.get("name") != fields.get("collection").name:
@@ -221,9 +227,6 @@ class CollectionSettingsController(SettingsController):
             return INCOMPLETE_CONFIGURATION.detailed(
                 _("The collection configuration is missing a required setting: %(setting)s",
                   setting=setting.get("label")))
-        url_error = self.validate_url([setting])
-        if url_error:
-            return url_error
 
     def get_mirror_integration_id(self, value):
         """If the user is trying to set up a mirror integration, check that the

@@ -100,8 +100,10 @@ class MetadataServicesController(SettingsController):
             return NO_PROTOCOL_FOR_NEW_SERVICE
         if protocol not in [p.get("name") for p in self.protocols]:
             return UNKNOWN_PROTOCOL
-        if url and self.validate_url(url):
-            return self.validate_url(url)
+
+        wrong_format = self.validate_formats()
+        if wrong_format:
+            return wrong_format
 
     def register_with_metadata_wrangler(self, is_new, service):
         """Register this site with the Metadata Wrangler."""

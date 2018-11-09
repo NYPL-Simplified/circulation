@@ -92,13 +92,13 @@ class CDNServicesController(SettingsController):
 
         if not name:
             return INCOMPLETE_CONFIGURATION
-        if protocol and protocol not in [p.get("name") for p in self.protocols]:
-            return UNKNOWN_PROTOCOL
-
-        settings = self.protocols[0].get("settings")
-        url_error = self.validate_url(settings)
-        if url_error:
-            return url_error
+        if protocol:
+            if protocol not in [p.get("name") for p in self.protocols]:
+                return UNKNOWN_PROTOCOL
+            else:
+                wrong_format = self.validate_formats()
+                if wrong_format:
+                    return wrong_format
 
     def process_delete(self, service_id):
         return self._delete_integration(

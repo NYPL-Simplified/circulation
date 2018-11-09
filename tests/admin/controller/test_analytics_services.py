@@ -110,7 +110,7 @@ class TestAnalyticsServices(SettingsControllerTest):
                 ("url", "http://test"),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response, MISSING_SERVICE)
+            eq_(response.uri, MISSING_SERVICE.uri)
 
         service, ignore = create(
             self._db, ExternalIntegration,

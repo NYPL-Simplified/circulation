@@ -2457,6 +2457,24 @@ class SettingsController(AdminCirculationManagerController):
         if isinstance(result, ProblemDetail):
             return result
 
+    def _get_settings(self):
+        [protocol] = [p for p in self.protocols if p.get("name") == flask.request.form.get("protocol")]
+        return protocol.get("settings")
+
+    def validate_formats(self, settings=None):
+        # If the service has self.protocols set, we can extract the list of settings here;
+        # otherwise, the settings have to be passed in as an argument--either a list or
+        # a string.
+        settings = settings or self._get_settings()
+        validators = [
+            self.validate_email,
+            self.validate_url,
+        ]
+        for validator in validators:
+            error = validator(settings)
+            if error:
+                return error
+
     def validate_email(self, settings):
         """Find any email addresses that the user has submitted, and make sure that
         they are in a valid format.
@@ -2485,11 +2503,16 @@ class SettingsController(AdminCirculationManagerController):
         return re.search(email_format, email)
 
     def validate_url(self, settings):
-        # libraries, collections, admin_auth, sitewide_settings
+        """Find any URLs that the user has submitted, and make sure that
+        they are in a valid format."""
+        settings = settings or self._get_settings()
         if isinstance(settings, (list,)):
-            url_fields = filter(lambda s: s.get("format") == "url" and flask.request.form.get(s.get("key")), settings)
+            # Find the fields that have to do with URLs
+            url_fields = filter(lambda s: (s.get("format") == "url" or s.get("key") == "url") and flask.request.form.get(s.get("key")), settings)
+            # Narrow the URL-related fields down to the ones for which the user actually entered a value
             url_inputs = [flask.request.form.get(field.get("key")) for field in url_fields]
         else:
+            # The SitewideSettingsController passes in a string
             url_inputs = [settings]
         for url in url_inputs:
             if not self._is_url(url):

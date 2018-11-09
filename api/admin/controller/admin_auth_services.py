@@ -57,9 +57,6 @@ class AdminAuthServicesController(SettingsController):
         auth_service.name = name
 
         [protocol] = [p for p in self.protocols if p.get("name") == protocol]
-        url_error = self.validate_url(protocol.get("settings"))
-        if url_error:
-            return url_error
         result = self._set_integration_settings_and_libraries(auth_service, protocol)
         if isinstance(result, ProblemDetail):
             return result
@@ -78,8 +75,13 @@ class AdminAuthServicesController(SettingsController):
         auth_service = fields.get("auth_service")
         id = fields.get("id")
 
-        if protocol and protocol not in ExternalIntegration.ADMIN_AUTH_PROTOCOLS:
-            return UNKNOWN_PROTOCOL
+        if protocol:
+            if protocol not in ExternalIntegration.ADMIN_AUTH_PROTOCOLS:
+                return UNKNOWN_PROTOCOL
+            else:
+                wrong_format = self.validate_formats()
+                if wrong_format:
+                    return wrong_format
         if auth_service:
             if id and int(id) != auth_service.id:
                 return MISSING_SERVICE

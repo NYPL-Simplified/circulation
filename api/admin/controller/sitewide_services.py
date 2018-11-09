@@ -47,6 +47,11 @@ class SitewideServicesController(SettingsController):
         if form_field_error:
             return form_field_error
 
+        settings = protocols[0].get("settings")
+        wrong_format = self.validate_formats(settings)
+        if wrong_format:
+            return wrong_format
+
         is_new = False
         id = flask.request.form.get("id")
 
