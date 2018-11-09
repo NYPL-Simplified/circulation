@@ -90,6 +90,7 @@ class TestAnalyticsServices(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("name", "Name"),
                 ("protocol", "Unknown"),
+                ("url", "http://test"),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
             eq_(response, UNKNOWN_PROTOCOL)
@@ -97,6 +98,7 @@ class TestAnalyticsServices(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Name"),
+                ("url", "http://test"),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
             eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
@@ -105,6 +107,7 @@ class TestAnalyticsServices(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("name", "Name"),
                 ("id", "123"),
+                ("url", "http://test"),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
             eq_(response, MISSING_SERVICE)
@@ -120,6 +123,7 @@ class TestAnalyticsServices(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("name", service.name),
                 ("protocol", GoogleAnalyticsProvider.__module__),
+                ("url", "http://test"),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
             eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
@@ -135,6 +139,7 @@ class TestAnalyticsServices(SettingsControllerTest):
                 ("name", "Name"),
                 ("id", service.id),
                 ("protocol", "core.local_analytics_provider"),
+                ("url", "http://test"),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
             eq_(response, CANNOT_CHANGE_PROTOCOL)
@@ -151,9 +156,20 @@ class TestAnalyticsServices(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", service.id),
+                ("name", "analytics name"),
+                ("protocol", GoogleAnalyticsProvider.__module__),
+                ("url", "bad_url")
+            ])
+            response = self.manager.admin_analytics_services_controller.process_analytics_services()
+            eq_(response.uri, INVALID_URL.uri)
+            assert "bad_url" in response.detail
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", service.id),
                 ("protocol", GoogleAnalyticsProvider.__module__),
                 ("name", "some other analytics name"),
-                (ExternalIntegration.URL, "url"),
+                (ExternalIntegration.URL, "http://test"),
                 ("libraries", json.dumps([{"short_name": "not-a-library"}])),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
@@ -192,7 +208,7 @@ class TestAnalyticsServices(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("name", "analytics name"),
                 ("protocol", GoogleAnalyticsProvider.__module__),
-                (ExternalIntegration.URL, "url"),
+                (ExternalIntegration.URL, "http://test"),
                 ("libraries", json.dumps([{"short_name": "L", "tracking_id": "trackingid"}])),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
@@ -201,7 +217,7 @@ class TestAnalyticsServices(SettingsControllerTest):
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.ANALYTICS_GOAL)
         eq_(service.id, int(response.response[0]))
         eq_(GoogleAnalyticsProvider.__module__, service.protocol)
-        eq_("url", service.url)
+        eq_("http://test", service.url)
         eq_([library], service.libraries)
         eq_("trackingid", ConfigurationSetting.for_library_and_externalintegration(
                 self._db, GoogleAnalyticsProvider.TRACKING_ID, library, service).value)
@@ -227,7 +243,7 @@ class TestAnalyticsServices(SettingsControllerTest):
                 ("id", ga_service.id),
                 ("name", "some other analytics name"),
                 ("protocol", GoogleAnalyticsProvider.__module__),
-                (ExternalIntegration.URL, "url"),
+                (ExternalIntegration.URL, "http://test"),
                 ("libraries", json.dumps([{"short_name": "L2", "tracking_id": "l2id"}])),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
@@ -235,7 +251,7 @@ class TestAnalyticsServices(SettingsControllerTest):
 
         eq_(ga_service.id, int(response.response[0]))
         eq_(GoogleAnalyticsProvider.__module__, ga_service.protocol)
-        eq_("url", ga_service.url)
+        eq_("http://test", ga_service.url)
         eq_([l2], ga_service.libraries)
         eq_("l2id", ConfigurationSetting.for_library_and_externalintegration(
                 self._db, GoogleAnalyticsProvider.TRACKING_ID, l2, ga_service).value)

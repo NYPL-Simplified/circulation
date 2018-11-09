@@ -65,6 +65,15 @@ class TestSitewideSettings(SettingsControllerTest):
             response = self.manager.admin_sitewide_configuration_settings_controller.process_post()
             eq_(response, MISSING_SITEWIDE_SETTING_VALUE)
 
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("key", Configuration.BASE_URL_KEY),
+                ("value", "bad_url")
+            ])
+            response = self.manager.admin_sitewide_configuration_settings_controller.process_post()
+            eq_(response.uri, INVALID_URL.uri)
+            assert "bad_url" in response.detail
+
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([

@@ -57,6 +57,9 @@ class AdminAuthServicesController(SettingsController):
         auth_service.name = name
 
         [protocol] = [p for p in self.protocols if p.get("name") == protocol]
+        url_error = self.validate_url(protocol.get("settings"))
+        if url_error:
+            return url_error
         result = self._set_integration_settings_and_libraries(auth_service, protocol)
         if isinstance(result, ProblemDetail):
             return result

@@ -111,6 +111,7 @@ class LibrarySettingsController(SettingsController):
             self.check_web_color_contrast,
             self.check_header_links,
             self.validate_email,
+            self.validate_url,
         ]
         for validation in validations:
             result = validation(settings)

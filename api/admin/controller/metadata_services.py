@@ -44,7 +44,8 @@ class MetadataServicesController(SettingsController):
     def process_post(self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post):
         name = flask.request.form.get("name")
         protocol = flask.request.form.get("protocol")
-        fields = {"name": name, "protocol": protocol}
+        url = flask.request.form.get("url")
+        fields = {"name": name, "protocol": protocol, "url": url}
         form_field_error = self.validate_form_fields(**fields)
         if form_field_error:
             return form_field_error
@@ -87,10 +88,11 @@ class MetadataServicesController(SettingsController):
 
     def validate_form_fields(self, **fields):
         """The 'name' and 'protocol' fields cannot be blank, and the protocol must
-        be selected from the list of recognized protocols."""
+        be selected from the list of recognized protocols.  The URL must be valid."""
 
         name = fields.get("name")
         protocol = fields.get("protocol")
+        url = fields.get("url")
 
         if not name:
             return INCOMPLETE_CONFIGURATION
@@ -98,6 +100,8 @@ class MetadataServicesController(SettingsController):
             return NO_PROTOCOL_FOR_NEW_SERVICE
         if protocol not in [p.get("name") for p in self.protocols]:
             return UNKNOWN_PROTOCOL
+        if url and self.validate_url(url):
+            return self.validate_url(url)
 
     def register_with_metadata_wrangler(self, is_new, service):
         """Register this site with the Metadata Wrangler."""

@@ -274,7 +274,7 @@ class TestCollectionSettings(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("name", "collection"),
                 ("protocol", "OPDS Import"),
-                ("external_account_id", "test.com"),
+                ("external_account_id", "http://url.test"),
                 ("data_source", "test"),
                 ("libraries", json.dumps([{"short_name": "nosuchlibrary"}])),
             ])
@@ -329,6 +329,17 @@ class TestCollectionSettings(SettingsControllerTest):
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "collection1"),
+                ("protocol", ExternalIntegration.RB_DIGITAL),
+                ("password", "password"),
+                ("external_account_id", "bad_url"),
+            ])
+            response = self.manager.admin_collection_settings_controller.process_collections()
+            eq_(response.uri, INVALID_URL.uri)
+            assert "bad_url" in response.detail
 
     def test_collections_post_create(self):
         l1, ignore = create(
@@ -505,7 +516,7 @@ class TestCollectionSettings(SettingsControllerTest):
             ("id", collection.id),
             ("name", "Collection 1"),
             ("protocol", ExternalIntegration.RB_DIGITAL),
-            ("external_account_id", "1234"),
+            ("external_account_id", "http://1234"),
             ("username", "user2"),
             ("password", "password"),
             ("url", "http://rb/"),
@@ -603,7 +614,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("id", collection.id),
                 ("name", "Collection 1"),
                 ("protocol", ExternalIntegration.RB_DIGITAL),
-                ("external_account_id", "1234"),
+                ("external_account_id", "http://rbtest/"),
                 ("username", "user2"),
                 ("password", "password"),
                 ("url", "http://rb/"),
@@ -631,7 +642,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("id", collection.id),
                 ("name", "Collection 1"),
                 ("protocol", ExternalIntegration.RB_DIGITAL),
-                ("external_account_id", "1234"),
+                ("external_account_id", "http://rbtest/"),
                 ("username", "user2"),
                 ("password", "password"),
                 ("url", "http://rb/"),

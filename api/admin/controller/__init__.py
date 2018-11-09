@@ -2223,7 +2223,7 @@ class SettingsController(AdminCirculationManagerController):
                     "The configuration value for %(setting)s is invalid.",
                     setting=setting.get("label"),
                 ))
-        if not value and setting.get("required"):
+        if not value and setting.get("required") and not setting.get("default"):
             return INCOMPLETE_CONFIGURATION.detailed(
                 _("The configuration is missing a required setting: %(setting)s",
                   setting=setting.get("label")))
@@ -2473,7 +2473,7 @@ class SettingsController(AdminCirculationManagerController):
             # Now check that each email input is in a valid format
         else:
         # If the IndividualAdminSettingsController is calling this method, then we already have the
-        # input string; it was passed in directly. 
+        # input string; it was passed in directly.
             email_inputs = [settings]
         for email in email_inputs:
             if not self._is_email(email):
@@ -2483,3 +2483,18 @@ class SettingsController(AdminCirculationManagerController):
         """Email addresses must be in the format 'x@y.z'."""
         email_format = ".+\@.+\..+"
         return re.search(email_format, email)
+
+    def validate_url(self, settings):
+        # libraries, collections, admin_auth, sitewide_settings
+        if isinstance(settings, (list,)):
+            url_fields = filter(lambda s: s.get("format") == "url" and flask.request.form.get(s.get("key")), settings)
+            url_inputs = [flask.request.form.get(field.get("key")) for field in url_fields]
+        else:
+            url_inputs = [settings]
+        for url in url_inputs:
+            if not self._is_url(url):
+                return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=url))
+
+    def _is_url(self, url):
+        url_format = "(localhost|http[s]?://)(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+        return re.search(url_format, url)

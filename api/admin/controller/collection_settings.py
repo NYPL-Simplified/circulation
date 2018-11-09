@@ -216,12 +216,14 @@ class CollectionSettingsController(SettingsController):
     def validate_external_account_id_setting(self, value, setting):
         """Check that the user has submitted any required values for associating
         this collection with an external account."""
-
         if not value and not setting.get("optional"):
             # Roll back any changes to the collection that have already been made.
             return INCOMPLETE_CONFIGURATION.detailed(
                 _("The collection configuration is missing a required setting: %(setting)s",
                   setting=setting.get("label")))
+        url_error = self.validate_url([setting])
+        if url_error:
+            return url_error
 
     def get_mirror_integration_id(self, value):
         """If the user is trying to set up a mirror integration, check that the
