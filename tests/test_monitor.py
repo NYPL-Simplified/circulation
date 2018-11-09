@@ -43,7 +43,7 @@ from ..monitor import (
     Monitor,
     NotPresentationReadyWorkSweepMonitor,
     OPDSEntryCacheMonitor,
-    PatronReaper,
+    PatronRecordReaper,
     PermanentWorkIDRefreshMonitor,
     PresentationReadyWorkSweepMonitor,
     ReaperMonitor,
@@ -728,8 +728,8 @@ class TestReaperMonitor(DatabaseTest):
         eq_(30, CachedFeedReaper.MAX_AGE)
         eq_(Credential.expires, CredentialReaper(self._db).timestamp_field)
         eq_(1, CredentialReaper.MAX_AGE)
-        eq_(Patron.authorization_expires, PatronReaper(self._db).timestamp_field)
-        eq_(60, PatronReaper.MAX_AGE)
+        eq_(Patron.authorization_expires, PatronRecordReaper(self._db).timestamp_field)
+        eq_(60, PatronRecordReaper.MAX_AGE)
 
     def test_where_clause(self):
         m = CachedFeedReaper(self._db)
@@ -759,16 +759,19 @@ class TestReaperMonitor(DatabaseTest):
         eq_(set([active, eternal]), remaining)
 
     def test_reap_patrons(self):
-        m = PatronReaper(self._db)
+        m = PatronRecordReaper(self._db)
         expired = self._patron()
+        credential = self._credential(patron=expired)
         now = datetime.datetime.utcnow()
         expired.authorization_expires = now - datetime.timedelta(
-            days=PatronReaper.MAX_AGE + 1
+            days=PatronRecordReaper.MAX_AGE + 1
         )
         active = self._patron()
         active.expires = now - datetime.timedelta(
-            days=PatronReaper.MAX_AGE - 1
+            days=PatronRecordReaper.MAX_AGE - 1
         )
         m.run_once()
         remaining = self._db.query(Patron).all()
         eq_([active], remaining)
+
+        eq_([], self._db.query(Credential).all())

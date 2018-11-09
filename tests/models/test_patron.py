@@ -377,6 +377,17 @@ class TestLoans(DatabaseTest):
 
 class TestPatron(DatabaseTest):
 
+    def test_repr(self):
+
+        patron = self._patron(external_identifier="a patron")
+
+        patron.authorization_expires=datetime.datetime(2018, 1, 2, 3, 4, 5)
+        patron.last_external_sync=None
+        eq_(
+            "<Patron authentication_identifier=None expires=2018-01-02 sync=None>",
+            repr(patron)
+        )
+
     def test_identifier_to_remote_service(self):
 
         # Here's a patron.

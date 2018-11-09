@@ -719,7 +719,13 @@ class OverdriveRepresentationExtractor(object):
     def image_link_to_linkdata(cls, link, rel):
         if not link or not 'href' in link:
             return None
-        href = OverdriveAPI.make_link_safe(link['href'])
+        href = link['href']
+        if '00000000-0000-0000-0000' in href:
+            # This is a stand-in cover for preorders. It's better not
+            # to have a cover at all -- we might be able to get one
+            # later, or from another source.
+            return None
+        href = OverdriveAPI.make_link_safe(href)
         media_type = link.get('type', None)
         return LinkData(rel=rel, href=href, media_type=media_type)
 
