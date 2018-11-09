@@ -100,6 +100,18 @@ class TestAdminAuthServices(SettingsControllerTest):
             response = self.manager.admin_auth_services_controller.process_admin_auth_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "oauth"),
+                ("protocol", "Google OAuth"),
+                ("url", "bad_url"),
+                ("username", "username"),
+                ("password", "password"),
+            ])
+            response = self.manager.admin_auth_services_controller.process_admin_auth_services()
+            eq_(response.uri, INVALID_URL.uri)
+            assert "bad_url" in response.detail
+
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         self._db.flush()
         with self.request_context_with_admin("/", method="POST"):
@@ -119,7 +131,7 @@ class TestAdminAuthServices(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("name", "oauth"),
                 ("protocol", "Google OAuth"),
-                ("url", "url"),
+                ("url", "http://url2"),
                 ("username", "username"),
                 ("password", "password"),
                 ("libraries", json.dumps([{ "short_name": self._default_library.short_name,
@@ -132,7 +144,7 @@ class TestAdminAuthServices(SettingsControllerTest):
         auth_service = ExternalIntegration.admin_authentication(self._db)
         eq_(auth_service.protocol, response.response[0])
         eq_("oauth", auth_service.name)
-        eq_("url", auth_service.url)
+        eq_("http://url2", auth_service.url)
         eq_("username", auth_service.username)
         eq_("password", auth_service.password)
 
@@ -162,7 +174,7 @@ class TestAdminAuthServices(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("name", "oauth"),
                 ("protocol", "Google OAuth"),
-                ("url", "url2"),
+                ("url", "http://url2"),
                 ("username", "user2"),
                 ("password", "pass2"),
                 ("libraries", json.dumps([{ "short_name": self._default_library.short_name,
@@ -173,7 +185,7 @@ class TestAdminAuthServices(SettingsControllerTest):
 
         eq_(auth_service.protocol, response.response[0])
         eq_("oauth", auth_service.name)
-        eq_("url2", auth_service.url)
+        eq_("http://url2", auth_service.url)
         eq_("user2", auth_service.username)
         eq_("domains", setting.key)
         eq_(["library2.org"], json.loads(setting.value))

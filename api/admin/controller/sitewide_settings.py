@@ -1,13 +1,13 @@
 from nose.tools import set_trace
 from core.model import ConfigurationSetting
-from . import AdminCirculationManagerController
+from . import SettingsController
 from api.config import Configuration
 from flask import Response
 from api.admin.problem_details import *
 import flask
 from flask_babel import lazy_gettext as _
 
-class SitewideConfigurationSettingsController(AdminCirculationManagerController):
+class SitewideConfigurationSettingsController(SettingsController):
 
     def process_get(self):
         self.require_system_admin()
@@ -26,7 +26,9 @@ class SitewideConfigurationSettingsController(AdminCirculationManagerController)
 
     def process_post(self):
         self.require_system_admin()
-        error = self.validate_form_fields(flask.request.form.keys())
+        setting = ConfigurationSetting.sitewide(self._db, flask.request.form.get("key"))
+
+        error = self.validate_form_fields(setting, flask.request.form.keys())
         if error:
             return error
 
@@ -40,7 +42,7 @@ class SitewideConfigurationSettingsController(AdminCirculationManagerController)
         setting.value = None
         return Response(unicode(_("Deleted")), 200)
 
-    def validate_form_fields(self, fields):
+    def validate_form_fields(self, setting, fields):
 
         MISSING_FIELD_MESSAGES = dict(
             key = MISSING_SITEWIDE_SETTING_KEY,
@@ -50,3 +52,9 @@ class SitewideConfigurationSettingsController(AdminCirculationManagerController)
         for field in fields:
             if not flask.request.form.get(field):
                 return MISSING_FIELD_MESSAGES.get(field)
+
+        [setting] = filter(lambda s: s.get("key") == setting.key, Configuration.SITEWIDE_SETTINGS)
+        if setting.get("format") == "url":
+            url_error = self.validate_url(flask.request.form.get("value"))
+            if url_error:
+                return url_error

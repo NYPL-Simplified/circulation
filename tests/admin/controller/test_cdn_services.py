@@ -100,6 +100,17 @@ class TestCDNServices(SettingsControllerTest):
             response = self.manager.admin_cdn_services_controller.process_cdn_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Name"),
+                ("protocol", ExternalIntegration.CDN),
+                (ExternalIntegration.URL, "bad url"),
+                (Configuration.CDN_MIRRORED_DOMAIN_KEY, "mirrored domain"),
+            ])
+            response = self.manager.admin_cdn_services_controller.process_cdn_services()
+            eq_(response.uri, INVALID_URL.uri)
+            assert "bad url" in response.detail
+
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -116,7 +127,7 @@ class TestCDNServices(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("name", "Name"),
                 ("protocol", ExternalIntegration.CDN),
-                (ExternalIntegration.URL, "cdn url"),
+                (ExternalIntegration.URL, "http://cdn_url"),
                 (Configuration.CDN_MIRRORED_DOMAIN_KEY, "mirrored domain"),
             ])
             response = self.manager.admin_cdn_services_controller.process_cdn_services()
@@ -125,7 +136,7 @@ class TestCDNServices(SettingsControllerTest):
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.CDN_GOAL)
         eq_(service.id, int(response.response[0]))
         eq_(ExternalIntegration.CDN, service.protocol)
-        eq_("cdn url", service.url)
+        eq_("http://cdn_url", service.url)
         eq_("mirrored domain", service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value)
 
     def test_cdn_services_post_edit(self):
@@ -142,7 +153,7 @@ class TestCDNServices(SettingsControllerTest):
                 ("name", "Name"),
                 ("id", cdn_service.id),
                 ("protocol", ExternalIntegration.CDN),
-                (ExternalIntegration.URL, "new cdn url"),
+                (ExternalIntegration.URL, "http://new_cdn_url"),
                 (Configuration.CDN_MIRRORED_DOMAIN_KEY, "new mirrored domain")
             ])
             response = self.manager.admin_cdn_services_controller.process_cdn_services()
@@ -150,7 +161,7 @@ class TestCDNServices(SettingsControllerTest):
 
         eq_(cdn_service.id, int(response.response[0]))
         eq_(ExternalIntegration.CDN, cdn_service.protocol)
-        eq_("new cdn url", cdn_service.url)
+        eq_("http://new_cdn_url", cdn_service.url)
         eq_("new mirrored domain", cdn_service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value)
 
     def test_check_name_unique(self):

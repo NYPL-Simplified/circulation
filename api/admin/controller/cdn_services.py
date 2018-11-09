@@ -21,7 +21,7 @@ class CDNServicesController(SettingsController):
                 "name": ExternalIntegration.CDN,
                 "sitewide": True,
                 "settings": [
-                    { "key": ExternalIntegration.URL, "label": _("CDN URL"), "required": True },
+                    { "key": ExternalIntegration.URL, "label": _("CDN URL"), "required": True, "format": "url" },
                     { "key": Configuration.CDN_MIRRORED_DOMAIN_KEY, "label": _("Mirrored domain"), "required": True },
                 ],
             }
@@ -85,15 +85,20 @@ class CDNServicesController(SettingsController):
 
     def validate_form_fields(self, **fields):
         """The 'name' and 'protocol' fields cannot be blank, and the protocol must
-        be selected from the list of recognized protocols."""
+        be selected from the list of recognized protocols.  The URL must be valid."""
 
         name = fields.get("name")
         protocol = fields.get("protocol")
 
         if not name:
             return INCOMPLETE_CONFIGURATION
-        if protocol and protocol not in [p.get("name") for p in self.protocols]:
-            return UNKNOWN_PROTOCOL
+        if protocol:
+            if protocol not in [p.get("name") for p in self.protocols]:
+                return UNKNOWN_PROTOCOL
+            else:
+                wrong_format = self.validate_formats()
+                if wrong_format:
+                    return wrong_format
 
     def process_delete(self, service_id):
         return self._delete_integration(

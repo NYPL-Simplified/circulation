@@ -114,8 +114,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
     SETTINGS = [
         { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token"), "required": True },
-        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID"), "required": True },
-        { "key": ExternalIntegration.URL, "label": _("URL"), "default": PRODUCTION_BASE_URL, "required": True },
+        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID"), "required": True, "format": "url" },
+        { "key": ExternalIntegration.URL, "label": _("URL"), "default": PRODUCTION_BASE_URL, "required": True, "format": "url" },
     ] + BASE_SETTINGS
 
     my_audiobook_setting = dict(

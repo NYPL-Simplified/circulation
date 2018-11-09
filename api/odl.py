@@ -103,6 +103,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             "key": Collection.EXTERNAL_ACCOUNT_ID_KEY,
             "label": _("Metadata URL (ODL feed)"),
             "required": True,
+            "format": "url",
         },
         {
             "key": CONSOLIDATED_COPIES_URL_KEY,

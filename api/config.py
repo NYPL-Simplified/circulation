@@ -155,6 +155,7 @@ class Configuration(CoreConfiguration):
             "key": PATRON_WEB_CLIENT_URL,
             "label": _("URL of the web catalog for patrons"),
             "required": True,
+            "format": "url",
         },
         {
             "key": STATIC_FILE_CACHE_TIME,
@@ -180,6 +181,7 @@ class Configuration(CoreConfiguration):
             "key": HELP_WEB,
             "label": _("Patron support web site"),
             "description": _("A URL for patrons to get help."),
+            "format": "url"
         },
         {
             "key": HELP_URI,
@@ -294,27 +296,33 @@ class Configuration(CoreConfiguration):
         {
             "key": TERMS_OF_SERVICE,
             "label": _("Terms of Service URL"),
+            "format": "url"
         },
         {
             "key": PRIVACY_POLICY,
             "label": _("Privacy Policy URL"),
+            "format": "url"
         },
         {
             "key": COPYRIGHT,
             "label": _("Copyright URL"),
+            "format": "url"
         },
         {
             "key": ABOUT,
             "label": _("About URL"),
+            "format": "url"
         },
         {
             "key": LICENSE,
             "label": _("License URL"),
+            "format": "url"
         },
         {
             "key": REGISTER,
             "label": _("Patron registration URL"),
             "description": _("A URL where someone who doesn't have a library card yet can sign up for one."),
+            "format": "url"
         },
         {
             "key": LARGE_COLLECTION_LANGUAGES,

@@ -39,7 +39,8 @@ class AnalyticsServicesController(SettingsController):
     def process_post(self):
         name = flask.request.form.get("name")
         protocol = flask.request.form.get("protocol")
-        fields = {"name": name, "protocol": protocol}
+        url = flask.request.form.get("url")
+        fields = {"name": name, "protocol": protocol, "url": url}
         form_field_error = self.validate_form_fields(**fields)
         if form_field_error:
             return form_field_error
@@ -77,16 +78,24 @@ class AnalyticsServicesController(SettingsController):
             return Response(unicode(service.id), 200)
 
     def validate_form_fields(self, **fields):
-        """The 'name' and 'protocol' fields cannot be blank, and the protocol must
-        be selected from the list of recognized protocols."""
+        """The 'name' and 'URL' fields cannot be blank, the URL must be valid,
+        and the protocol must be selected from the list of recognized protocols."""
 
         name = fields.get("name")
         protocol = fields.get("protocol")
+        url = fields.get("url")
 
         if not name:
             return MISSING_ANALYTICS_NAME
-        if protocol and protocol not in [p.get("name") for p in self.protocols]:
-            return UNKNOWN_PROTOCOL
+        if protocol:
+            if protocol not in [p.get("name") for p in self.protocols]:
+                return UNKNOWN_PROTOCOL
+            else:
+                wrong_format = self.validate_formats()
+                if wrong_format:
+                    return wrong_format
+        if not url:
+            return INCOMPLETE_CONFIGURATION
 
     def process_delete(self, service_id):
         return self._delete_integration(

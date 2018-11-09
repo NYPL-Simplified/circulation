@@ -75,8 +75,13 @@ class AdminAuthServicesController(SettingsController):
         auth_service = fields.get("auth_service")
         id = fields.get("id")
 
-        if protocol and protocol not in ExternalIntegration.ADMIN_AUTH_PROTOCOLS:
-            return UNKNOWN_PROTOCOL
+        if protocol:
+            if protocol not in ExternalIntegration.ADMIN_AUTH_PROTOCOLS:
+                return UNKNOWN_PROTOCOL
+            else:
+                wrong_format = self.validate_formats()
+                if wrong_format:
+                    return wrong_format
         if auth_service:
             if id and int(id) != auth_service.id:
                 return MISSING_SERVICE

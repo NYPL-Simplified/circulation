@@ -172,6 +172,19 @@ class TestLibrarySettings(SettingsControllerTest):
             eq_(response.uri, INVALID_EMAIL.uri)
             assert "also_wrong" in response.detail
 
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "The New York Public Library"),
+                ("short_name", "nypl"),
+                ("library_description", "Short description of library"),
+                (Configuration.WEBSITE_URL, "bad_url"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "default@example.com"),
+             ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, INVALID_URL.uri)
+            assert "bad_url" in response.detail
+
         # Test a bad contrast ratio between the web foreground and
         # web background colors.
         with self.request_context_with_admin("/", method="POST"):
