@@ -2519,5 +2519,5 @@ class SettingsController(AdminCirculationManagerController):
                 return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=url))
 
     def _is_url(self, url):
-        url_format = "(localhost|http[s]?://)(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+        url_format = "(http[s]?://)+"
         return re.search(url_format, url)
