@@ -98,8 +98,10 @@ class MetadataServicesController(SettingsController):
             return INCOMPLETE_CONFIGURATION
         if not protocol:
             return NO_PROTOCOL_FOR_NEW_SERVICE
-        if protocol not in [p.get("name") for p in self.protocols]:
-            return UNKNOWN_PROTOCOL
+
+        error = self.validate_protocol()
+        if error:
+            return error
 
         wrong_format = self.validate_formats()
         if wrong_format:

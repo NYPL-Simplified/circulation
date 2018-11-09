@@ -2457,6 +2457,11 @@ class SettingsController(AdminCirculationManagerController):
         if isinstance(result, ProblemDetail):
             return result
 
+    def validate_protocol(self, protocols=None):
+        protocols = protocols or self.protocols
+        if flask.request.form.get("protocol") not in [p.get("name") for p in protocols]:
+            return UNKNOWN_PROTOCOL
+
     def _get_settings(self):
         [protocol] = [p for p in self.protocols if p.get("name") == flask.request.form.get("protocol")]
         return protocol.get("settings")
