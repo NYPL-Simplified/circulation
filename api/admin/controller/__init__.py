@@ -2519,5 +2519,4 @@ class SettingsController(AdminCirculationManagerController):
                 return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=url))
 
     def _is_url(self, url):
-        url_format = "(http[s]?://)+"
-        return re.search(url_format, url)
+        return any([url.startswith(protocol + "://") for protocol in "http", "https"])

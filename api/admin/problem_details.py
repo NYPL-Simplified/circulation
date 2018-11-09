@@ -304,14 +304,14 @@ INVALID_CONFIGURATION_OPTION = pd(
 )
 
 INVALID_EMAIL = pd(
-    "http://librarysimplified.org/terms/problem/invalid-email",
+    "http://librarysimplified.org/terms/problem/invalid-format",
     status_code=400,
     title=_("Invalid email format"),
     detail=_("You must enter a valid email address."),
 )
 
 INVALID_URL = pd(
-    "http://librarysimplified.org/terms/problem/invalid-url",
+    "http://librarysimplified.org/terms/problem/invalid-format",
     status_code=400,
     title=_("Invalid URL format"),
     detail=_("You must enter a valid URL."),
