@@ -8,3 +8,5 @@ update licensepooldeliveries set delivery_mechanism_id=(
 
 -- Then delete it.
 delete from deliverymechanisms where content_type='audio/mpeg' and drm_scheme='application/vnd.librarysimplified.findaway.license+json';
+
+update deliverymechanisms set default_client_can_fulfill='t' where content_type is null and drm_scheme='application/vnd.librarysimplified.findaway.license+json';
