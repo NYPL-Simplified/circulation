@@ -81,36 +81,36 @@ class TestAnalyticsServices(SettingsControllerTest):
             eq_(self._default_library.short_name, library.get("short_name"))
 
     def test_analytics_services_post_errors(self):
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([])
-        #     response = self.manager.admin_analytics_services_controller.process_analytics_services()
-        #     eq_(response, MISSING_ANALYTICS_NAME)
-        #
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("name", "Name"),
-        #         ("protocol", "Unknown"),
-        #         ("url", "http://test"),
-        #     ])
-        #     response = self.manager.admin_analytics_services_controller.process_analytics_services()
-        #     eq_(response, UNKNOWN_PROTOCOL)
-        #
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("name", "Name"),
-        #         ("url", "http://test"),
-        #     ])
-        #     response = self.manager.admin_analytics_services_controller.process_analytics_services()
-        #     eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
-        #
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("name", "Name"),
-        #         ("id", "123"),
-        #         ("url", "http://test"),
-        #     ])
-        #     response = self.manager.admin_analytics_services_controller.process_analytics_services()
-        #     eq_(response.uri, MISSING_SERVICE.uri)
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([])
+            response = self.manager.admin_analytics_services_controller.process_analytics_services()
+            eq_(response, MISSING_ANALYTICS_NAME)
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Name"),
+                ("protocol", "Unknown"),
+                ("url", "http://test"),
+            ])
+            response = self.manager.admin_analytics_services_controller.process_analytics_services()
+            eq_(response, UNKNOWN_PROTOCOL)
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Name"),
+                ("url", "http://test"),
+            ])
+            response = self.manager.admin_analytics_services_controller.process_analytics_services()
+            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Name"),
+                ("id", "123"),
+                ("url", "http://test"),
+            ])
+            response = self.manager.admin_analytics_services_controller.process_analytics_services()
+            eq_(response.uri, MISSING_SERVICE.uri)
 
         service, ignore = create(
             self._db, ExternalIntegration,
