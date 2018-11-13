@@ -27,6 +27,10 @@ from psycopg2.extras import NumericRange
 from core import log
 from core.cdn import cdnify
 from core.entrypoint import EntryPoint
+from core.external_search import (
+    ExternalSearchIndex,
+    Query,
+)
 from core.lane import Lane
 from core.classifier import Classifier
 from core.metadata_layer import (
@@ -1537,6 +1541,47 @@ class NovelistSnapshotScript(LibraryInputScript):
                 result += str(response)
 
                 output.write(result)
+
+class RawSearchScript(LibraryInputScript):
+    """Diagnose search problems by observing the raw data to and
+    from the search index.
+    """
+
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = LibraryInputScript.arg_parser(_db, multiple_libraries=False)
+        parser.add_argument(
+            '--query',
+            help='A search query to run.',
+            metavar='QUERY',
+            required=True
+        )
+        return parser
+
+    def parse_command_line(self, _db, *args, **kwargs):
+        parsed = super(RawSearchScript, self).parse_command_line(
+            _db, *args, **kwargs
+        )
+        self.query = parsed.query
+        return parsed
+
+    def process_library(self, library):
+        # Get the search engine
+        index = ExternalSearchIndex(self._db)
+        if not index:
+            self.log.error(
+                "No external search server configured, cannot continue."
+            )
+            return
+        query = Query(self.query, filter=None)
+        query = index.search.query(query.build())
+        query = query.extra(explain=True)
+        results = query[start:stop]
+        for i in results:
+            print i
+        #search.index.query_works(query, filter=self.filter, 
+        #                              debug=True, return_raw_results=True)
+
 
 class ODLBibliographicImportScript(OPDSImportScript):
     """Import bibliographic information from the feed associated
