@@ -2474,6 +2474,7 @@ class SettingsController(AdminCirculationManagerController):
         validators = [
             self.validate_email,
             self.validate_url,
+            self.validate_number,
         ]
         for validator in validators:
             error = validator(settings)
@@ -2489,7 +2490,7 @@ class SettingsController(AdminCirculationManagerController):
         # is calling this method--then we need to pull out the relevant input strings
         # to validate.
         if isinstance(settings, (list,)):
-            # Find the fields that have to do with email addresses
+            # Find the fields that have to do with email addresses and are not blank
             email_fields = filter(lambda s: s.get("format") == "email" and flask.request.form.get(s.get("key")), settings)
             # Narrow the email-related fields down to the ones for which the user actually entered a value
             email_inputs = [flask.request.form.get(field.get("key")) for field in email_fields]
@@ -2510,18 +2511,46 @@ class SettingsController(AdminCirculationManagerController):
     def validate_url(self, settings):
         """Find any URLs that the user has submitted, and make sure that
         they are in a valid format."""
-        settings = settings or self._get_settings()
-        if isinstance(settings, (list,)):
-            # Find the fields that have to do with URLs
-            url_fields = filter(lambda s: (s.get("format") == "url" or s.get("key") == "url") and flask.request.form.get(s.get("key")), settings)
-            # Narrow the URL-related fields down to the ones for which the user actually entered a value
-            url_inputs = [flask.request.form.get(field.get("key")) for field in url_fields]
-        else:
-            # The SitewideSettingsController passes in a string
-            url_inputs = [settings]
+        # Find the fields that have to do with URLs and are not blank.
+        # If this is a sitewide setting, then the user input needs to be accessed
+        # via "value" rather than via the setting's key.
+        url_fields = filter(lambda s: s.get("format") == "url" and
+                            (flask.request.form.get(s.get("key")) or flask.request.form.get("value"))
+                            , settings)
+        # Narrow the URL-related fields down to the ones for which the user actually entered a value
+        url_inputs = [(flask.request.form.get(field.get("key")) or flask.request.form.get("value")) for field in url_fields]
+
         for url in url_inputs:
             if not self._is_url(url):
                 return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=url))
 
     def _is_url(self, url):
         return any([url.startswith(protocol + "://") for protocol in "http", "https"])
+
+    def validate_number(self, settings):
+        """Find any numbers that the user has submitted, and make sure that they are 1) actually numbers,
+        2) positive, and 3) lower than the specified maximum, if there is one."""
+        # Find the fields that should have numeric input and are not blank.
+        number_fields = filter(
+                            lambda s: (s.get("type") == "number") and
+                            (flask.request.form.get(s.get("key")) or flask.request.form.get("value"))
+                            , settings
+                        )
+
+        for field in number_fields:
+            if self._number_error(field):
+                return self._number_error(field)
+
+    def _number_error(self, field):
+        input = flask.request.form.get(field.get("key")) or flask.request.form.get("value")
+        max = field.get("max")
+
+        try:
+            input = float(input)
+        except ValueError:
+            return INVALID_NUMBER.detailed(_('"%(input)s" is not a number.', input=input))
+
+        if input < 0:
+            return INVALID_NUMBER.detailed(_('%(field)s must be greater than 0.', field=field.get("label")))
+        if max and input > max:
+            return INVALID_NUMBER.detailed(_('%(field)s cannot be greater than %(max)s.', field=field.get("label"), max=max))

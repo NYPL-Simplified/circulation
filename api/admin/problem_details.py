@@ -317,6 +317,13 @@ INVALID_URL = pd(
     detail=_("You must enter a valid URL."),
 )
 
+INVALID_NUMBER = pd(
+    "http://librarysimplified.org/terms/problem/invalid-format",
+    status_code=400,
+    title=_("Invalid number format"),
+    detail=_("You must enter a number."),
+)
+
 INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION = pd(
     "http://librarysimplified.org/terms/problem/invalid-external-type-regular-expression",
     status_code=400,
