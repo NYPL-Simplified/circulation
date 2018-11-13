@@ -93,8 +93,9 @@ class CDNServicesController(SettingsController):
         if not name:
             return INCOMPLETE_CONFIGURATION
         if protocol:
-            if protocol not in [p.get("name") for p in self.protocols]:
-                return UNKNOWN_PROTOCOL
+            error = self.validate_protocol()
+            if error:
+                return error
             else:
                 wrong_format = self.validate_formats()
                 if wrong_format:
