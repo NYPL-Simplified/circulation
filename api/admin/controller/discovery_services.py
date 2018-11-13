@@ -22,7 +22,7 @@ class DiscoveryServicesController(SettingsController):
                 "name": self.opds_registration,
                 "sitewide": True,
                 "settings": [
-                    { "key": ExternalIntegration.URL, "label": _("URL"), "required": True },
+                    { "key": ExternalIntegration.URL, "label": _("URL"), "required": True, "format": "url" },
                 ],
                 "supports_registration": True,
                 "supports_staging": True,
@@ -107,7 +107,7 @@ class DiscoveryServicesController(SettingsController):
 
     def validate_form_fields(self, **fields):
         """The 'name' and 'protocol' fields cannot be blank, and the protocol must
-        be selected from the list of recognized protocols."""
+        be selected from the list of recognized protocols.  The URL must be valid."""
 
         name = fields.get("name")
         protocol = fields.get("protocol")
@@ -115,8 +115,14 @@ class DiscoveryServicesController(SettingsController):
             return INCOMPLETE_CONFIGURATION
         if not protocol:
             return NO_PROTOCOL_FOR_NEW_SERVICE
-        if protocol not in [p.get("name") for p in self.protocols]:
-            return UNKNOWN_PROTOCOL
+
+        error = self.validate_protocol()
+        if error:
+            return error
+
+        wrong_format = self.validate_formats()
+        if wrong_format:
+            return wrong_format
 
     def look_up_service_from_registry(self, protocol, id):
         """Find an existing service, and make sure that the user is not trying to edit

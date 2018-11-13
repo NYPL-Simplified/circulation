@@ -10,6 +10,11 @@ from core.model import (
     get_one,
     get_one_or_create,
 )
+from core.log import (
+    Loggly,
+    SysLogger,
+    CloudwatchLogs,
+)
 from core.util.problem_detail import ProblemDetail
 from . import SettingsController
 
@@ -41,6 +46,11 @@ class SitewideServicesController(SettingsController):
         form_field_error = self.validate_form_fields(protocols, **fields)
         if form_field_error:
             return form_field_error
+
+        settings = protocols[0].get("settings")
+        wrong_format = self.validate_formats(settings)
+        if wrong_format:
+            return wrong_format
 
         is_new = False
         id = flask.request.form.get("id")

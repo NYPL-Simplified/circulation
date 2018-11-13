@@ -155,6 +155,7 @@ class Configuration(CoreConfiguration):
             "key": PATRON_WEB_CLIENT_URL,
             "label": _("URL of the web catalog for patrons"),
             "required": True,
+            "format": "url",
         },
         {
             "key": STATIC_FILE_CACHE_TIME,
@@ -174,11 +175,13 @@ class Configuration(CoreConfiguration):
             "label": _("Patron support email address"),
             "description": _("An email address a patron can use if they need help, e.g. 'simplyehelp@yourlibrary.org'."),
             "required": True,
+            "format": "email"
         },
         {
             "key": HELP_WEB,
             "label": _("Patron support web site"),
             "description": _("A URL for patrons to get help."),
+            "format": "url"
         },
         {
             "key": HELP_URI,
@@ -189,17 +192,20 @@ class Configuration(CoreConfiguration):
             "key": COPYRIGHT_DESIGNATED_AGENT_EMAIL,
             "label": _("Copyright designated agent email"),
             "description": _("Patrons of this library should use this email address to send a DMCA notification (or other copyright complaint) to the library.<br/>If no value is specified here, the general patron support address will be used."),
+            "format": "email",
         },
         {
             "key": CONFIGURATION_CONTACT_EMAIL,
             "label": _("A point of contact for the organization reponsible for configuring this library."),
             "description": _("This email address will be shared as part of integrations that you set up through this interface. It will not be shared with the general public. This gives the administrator of the remote integration a way to contact you about problems with this library's use of that integration.<br/>If no value is specified here, the general patron support address will be used."),
+            "format": "email",
         },
         {
             "key": DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
             "label": _("Default email address to use when sending vendor hold notifications"),
             "description": _('This should be an address controlled by the library which rejects or trashes all email sent to it. Vendor hold notifications contain sensitive patron information, but <a href="https://confluence.nypl.org/display/SIM/About+Hold+Notifications" target="_blank">cannot be forwarded to patrons</a> because they contain vendor-specific instructions.'),
             "required": True,
+            "format": "email",
         },
         {
             "key": COLOR_SCHEME,
@@ -290,27 +296,33 @@ class Configuration(CoreConfiguration):
         {
             "key": TERMS_OF_SERVICE,
             "label": _("Terms of Service URL"),
+            "format": "url"
         },
         {
             "key": PRIVACY_POLICY,
             "label": _("Privacy Policy URL"),
+            "format": "url"
         },
         {
             "key": COPYRIGHT,
             "label": _("Copyright URL"),
+            "format": "url"
         },
         {
             "key": ABOUT,
             "label": _("About URL"),
+            "format": "url"
         },
         {
             "key": LICENSE,
             "label": _("License URL"),
+            "format": "url"
         },
         {
             "key": REGISTER,
             "label": _("Patron registration URL"),
             "description": _("A URL where someone who doesn't have a library card yet can sign up for one."),
+            "format": "url"
         },
         {
             "key": LARGE_COLLECTION_LANGUAGES,

@@ -5,6 +5,7 @@ import os
 import base64
 import random
 import json
+import re
 import urllib
 import urlparse
 
@@ -2222,7 +2223,7 @@ class SettingsController(AdminCirculationManagerController):
                     "The configuration value for %(setting)s is invalid.",
                     setting=setting.get("label"),
                 ))
-        if not value and setting.get("required"):
+        if not value and setting.get("required") and not setting.get("default"):
             return INCOMPLETE_CONFIGURATION.detailed(
                 _("The configuration is missing a required setting: %(setting)s",
                   setting=setting.get("label")))
@@ -2455,3 +2456,72 @@ class SettingsController(AdminCirculationManagerController):
         result = self._set_integration_settings_and_libraries(service, protocol)
         if isinstance(result, ProblemDetail):
             return result
+
+    def validate_protocol(self, protocols=None):
+        protocols = protocols or self.protocols
+        if flask.request.form.get("protocol") not in [p.get("name") for p in protocols]:
+            return UNKNOWN_PROTOCOL
+
+    def _get_settings(self):
+        [protocol] = [p for p in self.protocols if p.get("name") == flask.request.form.get("protocol")]
+        return protocol.get("settings")
+
+    def validate_formats(self, settings=None):
+        # If the service has self.protocols set, we can extract the list of settings here;
+        # otherwise, the settings have to be passed in as an argument--either a list or
+        # a string.
+        settings = settings or self._get_settings()
+        validators = [
+            self.validate_email,
+            self.validate_url,
+        ]
+        for validator in validators:
+            error = validator(settings)
+            if error:
+                return error
+
+    def validate_email(self, settings):
+        """Find any email addresses that the user has submitted, and make sure that
+        they are in a valid format.
+        This method is used by individual_admin_settings and library_settings.
+        """
+        # If :param settings is a list of objects--i.e. the LibrarySettingsController
+        # is calling this method--then we need to pull out the relevant input strings
+        # to validate.
+        if isinstance(settings, (list,)):
+            # Find the fields that have to do with email addresses
+            email_fields = filter(lambda s: s.get("format") == "email" and flask.request.form.get(s.get("key")), settings)
+            # Narrow the email-related fields down to the ones for which the user actually entered a value
+            email_inputs = [flask.request.form.get(field.get("key")) for field in email_fields]
+            # Now check that each email input is in a valid format
+        else:
+        # If the IndividualAdminSettingsController is calling this method, then we already have the
+        # input string; it was passed in directly.
+            email_inputs = [settings]
+        for email in email_inputs:
+            if not self._is_email(email):
+                return INVALID_EMAIL.detailed(_('"%(email)s" is not a valid email address.', email=email))
+
+    def _is_email(self, email):
+        """Email addresses must be in the format 'x@y.z'."""
+        email_format = ".+\@.+\..+"
+        return re.search(email_format, email)
+
+    def validate_url(self, settings):
+        """Find any URLs that the user has submitted, and make sure that
+        they are in a valid format."""
+        settings = settings or self._get_settings()
+        if isinstance(settings, (list,)):
+            # Find the fields that have to do with URLs
+            url_fields = filter(lambda s: (s.get("format") == "url" or s.get("key") == "url") and flask.request.form.get(s.get("key")), settings)
+            # Narrow the URL-related fields down to the ones for which the user actually entered a value
+            url_inputs = [flask.request.form.get(field.get("key")) for field in url_fields]
+        else:
+            # The SitewideSettingsController passes in a string
+            url_inputs = [settings]
+        for url in url_inputs:
+            if not self._is_url(url):
+                return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=url))
+
+    def _is_url(self, url):
+        return any([url.startswith(protocol + "://") for protocol in "http", "https"])

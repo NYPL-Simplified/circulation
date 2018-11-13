@@ -7,7 +7,7 @@ from StringIO import StringIO
 import uuid
 import wcag_contrast_ratio
 
-from . import AdminCirculationManagerController
+from . import SettingsController
 from api.config import Configuration
 from api.lanes import create_default_lanes
 from core.model import (
@@ -23,7 +23,7 @@ from api.admin.problem_details import *
 from core.util.problem_detail import ProblemDetail
 from nose.tools import set_trace
 
-class LibrarySettingsController(AdminCirculationManagerController):
+class LibrarySettingsController(SettingsController):
 
     def process_get(self):
         libraries = []
@@ -109,7 +109,8 @@ class LibrarySettingsController(AdminCirculationManagerController):
             self.check_for_missing_fields,
             self.check_input_type,
             self.check_web_color_contrast,
-            self.check_header_links
+            self.check_header_links,
+            self.validate_formats,
         ]
         for validation in validations:
             result = validation(settings)
@@ -134,8 +135,6 @@ class LibrarySettingsController(AdminCirculationManagerController):
             )
 
     def check_input_type(self, settings):
-        # Once there are validations for email address, URL, etc., they'll get called
-        # from here; for now, it's just image type.
         for setting in settings:
             if setting.get("type") == "image":
                 return self.check_image_type(setting)

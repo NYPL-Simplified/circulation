@@ -101,6 +101,16 @@ class TestDiscoveryServices(SettingsControllerTest):
             response = self.manager.admin_discovery_services_controller.process_discovery_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Name"),
+                ("protocol", ExternalIntegration.OPDS_REGISTRATION),
+                (ExternalIntegration.URL, "bad_url"),
+            ])
+            response = self.manager.admin_discovery_services_controller.process_discovery_services()
+            eq_(response.uri, INVALID_URL.uri)
+            assert "bad_url" in response.detail
+
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -115,7 +125,7 @@ class TestDiscoveryServices(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ("name", "Name"),
                 ("protocol", ExternalIntegration.OPDS_REGISTRATION),
-                (ExternalIntegration.URL, "registry url"),
+                (ExternalIntegration.URL, "http://registry_url"),
             ])
             response = self.manager.admin_discovery_services_controller.process_discovery_services()
             eq_(response.status_code, 201)
@@ -123,7 +133,7 @@ class TestDiscoveryServices(SettingsControllerTest):
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.DISCOVERY_GOAL)
         eq_(service.id, int(response.response[0]))
         eq_(ExternalIntegration.OPDS_REGISTRATION, service.protocol)
-        eq_("registry url", service.url)
+        eq_("http://registry_url", service.url)
 
     def test_discovery_services_post_edit(self):
         discovery_service, ignore = create(
@@ -138,14 +148,14 @@ class TestDiscoveryServices(SettingsControllerTest):
                 ("name", "Name"),
                 ("id", discovery_service.id),
                 ("protocol", ExternalIntegration.OPDS_REGISTRATION),
-                (ExternalIntegration.URL, "new registry url"),
+                (ExternalIntegration.URL, "http://new_registry_url"),
             ])
             response = self.manager.admin_discovery_services_controller.process_discovery_services()
             eq_(response.status_code, 200)
 
         eq_(discovery_service.id, int(response.response[0]))
         eq_(ExternalIntegration.OPDS_REGISTRATION, discovery_service.protocol)
-        eq_("new registry url", discovery_service.url)
+        eq_("http://new_registry_url", discovery_service.url)
 
     def test_check_name_unique(self):
        kwargs = dict(protocol=ExternalIntegration.OPDS_REGISTRATION,
