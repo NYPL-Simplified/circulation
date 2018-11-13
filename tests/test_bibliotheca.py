@@ -1254,7 +1254,7 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
         _check_format("EPUB", book, rep.EPUB_MEDIA_TYPE, adobe)
         _check_format("EPUB3", book, rep.EPUB_MEDIA_TYPE, adobe)
         _check_format("PDF", book, rep.PDF_MEDIA_TYPE, adobe)
-        _check_format("MP3", Edition.AUDIO_MEDIUM, rep.MP3_MEDIA_TYPE, findaway)
+        _check_format("MP3", Edition.AUDIO_MEDIUM, None, findaway)
 
         # Now Try a string we don't recognize from Bibliotheca.
         medium, formats = m("Unknown")
