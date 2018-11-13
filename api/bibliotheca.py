@@ -681,7 +681,7 @@ class ItemListParser(XMLParser):
             Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM
         ),
         "MP3" : (
-            Representation.MP3_MEDIA_TYPE, DeliveryMechanism.FINDAWAY_DRM
+            None, DeliveryMechanism.FINDAWAY_DRM
         ),
     }
 
