@@ -27,3 +27,4 @@ delete from workcoveragerecords where operation='choose-edition' and
 	     where e.medium != 'Book'
           )
     )
+;
