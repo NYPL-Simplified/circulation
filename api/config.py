@@ -330,6 +330,7 @@ class Configuration(CoreConfiguration):
             "key": LARGE_COLLECTION_LANGUAGES,
             "label": _("The primary languages represented in this library's collection"),
             "type": "list",
+            "format": "language-code",
             "description": LANGUAGE_DESCRIPTION,
             "optional": True
         },
@@ -337,6 +338,7 @@ class Configuration(CoreConfiguration):
             "key": SMALL_COLLECTION_LANGUAGES,
             "label": _("Other major languages represented in this library's collection"),
             "type": "list",
+            "format": "language-code",
             "description": LANGUAGE_DESCRIPTION,
             "optional": True,
         },
@@ -344,6 +346,7 @@ class Configuration(CoreConfiguration):
             "key": TINY_COLLECTION_LANGUAGES,
             "label": _("Other languages in this library's collection"),
             "type": "list",
+            "format": "language-code",
             "description": LANGUAGE_DESCRIPTION,
             "optional": True,
         },

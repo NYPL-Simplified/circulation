@@ -2475,6 +2475,7 @@ class SettingsController(AdminCirculationManagerController):
             self.validate_email,
             self.validate_url,
             self.validate_number,
+            self.validate_language_code,
         ]
         for validator in validators:
             error = validator(settings)
@@ -2555,3 +2556,21 @@ class SettingsController(AdminCirculationManagerController):
             return INVALID_NUMBER.detailed(_('%(field)s must be greater than %(min)s.', field=field.get("label"), min=min))
         if max and input > max:
             return INVALID_NUMBER.detailed(_('%(field)s cannot be greater than %(max)s.', field=field.get("label"), max=max))
+
+    def validate_language_code(self, settings):
+        # Find the fields that should contain language codes and are not blank.
+        language_fields = filter(lambda s: s.get("format") == "language-code" and
+                            (flask.request.form.get(s.get("key")))
+                            , settings)
+        # Get the language codes that the user entered; this produces a nested list.
+        language_inputs = [flask.request.form.getlist(field.get("key")) for field in language_fields]
+        # Flatten the nested list of language codes so that it can be iterated over.
+        flattened_list = [language for list in language_inputs for language in list]
+
+        for language in flattened_list:
+            if language and not self._is_language(language):
+                return UNKNOWN_LANGUAGE.detailed(_('"%(language)s" is not a valid language code.', language=language))
+
+    def _is_language(self, language):
+        # Check that the input string is in the list of recognized language codes.
+        return LanguageCodes.string_to_alpha_3(language)
