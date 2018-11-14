@@ -95,6 +95,9 @@ class AnalyticsServicesController(SettingsController):
                 wrong_format = self.validate_formats()
                 if wrong_format:
                     return wrong_format
+
+        # The URL is only relevant, and required, if the user is creating a Google Analytics
+        # integration; the local analytics form doesn't have a URL field.
         if "url" in flask.request.form.keys() and not url:
             return INCOMPLETE_CONFIGURATION
 
