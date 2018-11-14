@@ -95,7 +95,7 @@ class AnalyticsServicesController(SettingsController):
                 wrong_format = self.validate_formats()
                 if wrong_format:
                     return wrong_format
-        if not url:
+        if "url" in flask.request.form.keys() and not url:
             return INCOMPLETE_CONFIGURATION
 
     def process_delete(self, service_id):
