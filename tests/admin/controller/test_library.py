@@ -77,141 +77,141 @@ class TestLibrarySettings(SettingsControllerTest):
                settings.get(Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
 
     def test_libraries_post_errors(self):
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("name", "Brooklyn Public Library"),
-        #     ])
-        #     response = self.manager.admin_library_settings_controller.process_post()
-        #     eq_(response, MISSING_LIBRARY_SHORT_NAME)
-        #
-        # self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("name", "Brooklyn Public Library"),
-        #         ("short_name", "bpl"),
-        #     ])
-        #     assert_raises(AdminNotAuthorized,
-        #       self.manager.admin_library_settings_controller.process_post)
-        #
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Brooklyn Public Library"),
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response, MISSING_LIBRARY_SHORT_NAME)
+
+        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Brooklyn Public Library"),
+                ("short_name", "bpl"),
+            ])
+            assert_raises(AdminNotAuthorized,
+              self.manager.admin_library_settings_controller.process_post)
+
         library = self._library()
         self.admin.add_role(AdminRole.LIBRARIAN, library)
-        #
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("uuid", library.uuid),
-        #         ("name", "Brooklyn Public Library"),
-        #         ("short_name", library.short_name),
-        #     ])
-        #     assert_raises(AdminNotAuthorized,
-        #         self.manager.admin_library_settings_controller.process_post)
-        #
-        # self.admin.add_role(AdminRole.SYSTEM_ADMIN)
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("uuid", "1234"),
-        #         ("name", "Brooklyn Public Library"),
-        #         ("short_name", "bpl"),
-        #     ])
-        #     response = self.manager.admin_library_settings_controller.process_post()
-        #     eq_(response.uri, LIBRARY_NOT_FOUND.uri)
-        #
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("name", "Brooklyn Public Library"),
-        #         ("short_name", library.short_name),
-        #     ])
-        #     response = self.manager.admin_library_settings_controller.process_post()
-        #     eq_(response, LIBRARY_SHORT_NAME_ALREADY_IN_USE)
-        #
-        # bpl, ignore = get_one_or_create(
-        #     self._db, Library, short_name="bpl"
-        # )
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("uuid", bpl.uuid),
-        #         ("name", "Brooklyn Public Library"),
-        #         ("short_name", library.short_name),
-        #     ])
-        #     response = self.manager.admin_library_settings_controller.process_post()
-        #     eq_(response, LIBRARY_SHORT_NAME_ALREADY_IN_USE)
-        #
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("uuid", library.uuid),
-        #         ("name", "The New York Public Library"),
-        #         ("short_name", library.short_name),
-        #     ])
-        #     response = self.manager.admin_library_settings_controller.process_post()
-        #     eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-        #
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("name", "The New York Public Library"),
-        #         ("short_name", "nypl"),
-        #         ("library_description", "Short description of library"),
-        #         (Configuration.WEBSITE_URL, "https://library.library/"),
-        #         (Configuration.HELP_EMAIL, "wrong_email_format"),
-        #         (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "also_wrong"),
-        #      ])
-        #     response = self.manager.admin_library_settings_controller.process_post()
-        #     eq_(response.uri, INVALID_EMAIL.uri)
-        #     assert "wrong_email_format" in response.detail
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "Brooklyn Public Library"),
+                ("short_name", library.short_name),
+            ])
+            assert_raises(AdminNotAuthorized,
+                self.manager.admin_library_settings_controller.process_post)
+
+        self.admin.add_role(AdminRole.SYSTEM_ADMIN)
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", "1234"),
+                ("name", "Brooklyn Public Library"),
+                ("short_name", "bpl"),
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, LIBRARY_NOT_FOUND.uri)
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "Brooklyn Public Library"),
+                ("short_name", library.short_name),
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response, LIBRARY_SHORT_NAME_ALREADY_IN_USE)
+
+        bpl, ignore = get_one_or_create(
+            self._db, Library, short_name="bpl"
+        )
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", bpl.uuid),
+                ("name", "Brooklyn Public Library"),
+                ("short_name", library.short_name),
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response, LIBRARY_SHORT_NAME_ALREADY_IN_USE)
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "The New York Public Library"),
+                ("short_name", "nypl"),
+                ("library_description", "Short description of library"),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.HELP_EMAIL, "wrong_email_format"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "also_wrong"),
+             ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, INVALID_EMAIL.uri)
+            assert "wrong_email_format" in response.detail
 
         # If you fix the first invalid email address, you proceed to getting an error
         # message about the next one
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("name", "The New York Public Library"),
-        #         ("short_name", "nypl"),
-        #         ("library_description", "Short description of library"),
-        #         (Configuration.WEBSITE_URL, "https://library.library/"),
-        #         (Configuration.HELP_EMAIL, "help@example.com"),
-        #         (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "also_wrong"),
-        #      ])
-        #     response = self.manager.admin_library_settings_controller.process_post()
-        #     eq_(response.uri, INVALID_EMAIL.uri)
-        #     assert "also_wrong" in response.detail
-        #
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("name", "The New York Public Library"),
-        #         ("short_name", "nypl"),
-        #         ("library_description", "Short description of library"),
-        #         (Configuration.WEBSITE_URL, "bad_url"),
-        #         (Configuration.HELP_EMAIL, "help@example.com"),
-        #         (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "default@example.com"),
-        #      ])
-        #     response = self.manager.admin_library_settings_controller.process_post()
-        #     eq_(response.uri, INVALID_URL.uri)
-        #     assert "bad_url" in response.detail
-        #
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("uuid", library.uuid),
-        #         ("name", "The New York Public Library"),
-        #         ("short_name", library.short_name),
-        #         (Configuration.WEBSITE_URL, "https://library.library/"),
-        #         (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
-        #         (Configuration.HELP_EMAIL, "help@example.com"),
-        #         (Configuration.LOAN_LIMIT, "not a number!"),
-        #     ])
-        #     response = self.manager.admin_library_settings_controller.process_post()
-        #     eq_(response.uri, INVALID_NUMBER.uri)
-        #     assert "not a number!" in response.detail
-        #
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("uuid", library.uuid),
-        #         ("name", "The New York Public Library"),
-        #         ("short_name", library.short_name),
-        #         (Configuration.WEBSITE_URL, "https://library.library/"),
-        #         (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
-        #         (Configuration.HELP_EMAIL, "help@example.com"),
-        #         (Configuration.HOLD_LIMIT, "-5"),
-        #     ])
-        #     response = self.manager.admin_library_settings_controller.process_post()
-        #     eq_(response.uri, INVALID_NUMBER.uri)
-        #     eq_(response.detail, "Maximum number of books a patron can have on hold at once must be greater than 0.")
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "The New York Public Library"),
+                ("short_name", "nypl"),
+                ("library_description", "Short description of library"),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "also_wrong"),
+             ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, INVALID_EMAIL.uri)
+            assert "also_wrong" in response.detail
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "The New York Public Library"),
+                ("short_name", "nypl"),
+                ("library_description", "Short description of library"),
+                (Configuration.WEBSITE_URL, "bad_url"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "default@example.com"),
+             ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, INVALID_URL.uri)
+            assert "bad_url" in response.detail
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.LOAN_LIMIT, "not a number!"),
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, INVALID_NUMBER.uri)
+            assert "not a number!" in response.detail
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.HOLD_LIMIT, "-5"),
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, INVALID_NUMBER.uri)
+            eq_(response.detail, "Maximum number of books a patron can have on hold at once must be greater than 0.")
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -229,39 +229,39 @@ class TestLibrarySettings(SettingsControllerTest):
 
         # Test a bad contrast ratio between the web foreground and
         # web background colors.
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("uuid", library.uuid),
-        #         ("name", "The New York Public Library"),
-        #         ("short_name", library.short_name),
-        #         (Configuration.WEBSITE_URL, "https://library.library/"),
-        #         (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
-        #         (Configuration.HELP_EMAIL, "help@example.com"),
-        #         (Configuration.WEB_BACKGROUND_COLOR, "#000000"),
-        #         (Configuration.WEB_FOREGROUND_COLOR, "#010101"),
-        #     ])
-        #     response = self.manager.admin_library_settings_controller.process_post()
-        #     eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
-        #     assert "contrast-ratio.com/#%23010101-on-%23000000" in response.detail
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.WEB_BACKGROUND_COLOR, "#000000"),
+                (Configuration.WEB_FOREGROUND_COLOR, "#010101"),
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
+            assert "contrast-ratio.com/#%23010101-on-%23000000" in response.detail
 
         # Test a list of web header links and a list of labels that
         # aren't the same length.
-        # library = self._library()
-        # with self.request_context_with_admin("/", method="POST"):
-        #     flask.request.form = MultiDict([
-        #         ("uuid", library.uuid),
-        #         ("name", "The New York Public Library"),
-        #         ("short_name", library.short_name),
-        #         (Configuration.WEBSITE_URL, "https://library.library/"),
-        #         (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
-        #         (Configuration.HELP_EMAIL, "help@example.com"),
-        #         (Configuration.WEB_HEADER_LINKS, "http://library.com/1"),
-        #         (Configuration.WEB_HEADER_LINKS, "http://library.com/2"),
-        #         (Configuration.WEB_HEADER_LABELS, "One"),
-        #     ])
-        #     response = self.manager.admin_library_settings_controller.process_post()
-        #     eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
-        #
+        library = self._library()
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.WEB_HEADER_LINKS, "http://library.com/1"),
+                (Configuration.WEB_HEADER_LINKS, "http://library.com/2"),
+                (Configuration.WEB_HEADER_LABELS, "One"),
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
+
 
     def test_libraries_post_create(self):
         class TestFileUpload(StringIO):
