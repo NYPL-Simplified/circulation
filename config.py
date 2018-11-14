@@ -255,6 +255,7 @@ class Configuration(object):
             "label": _("Minimum quality for books that show up in 'featured' lanes"),
             "description": _("Between 0 and 1."),
             "type": "number",
+            "max": 1,
             "default": 0.65,
         },
     ] + [
