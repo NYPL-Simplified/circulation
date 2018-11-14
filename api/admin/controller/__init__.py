@@ -2543,6 +2543,7 @@ class SettingsController(AdminCirculationManagerController):
 
     def _number_error(self, field):
         input = flask.request.form.get(field.get("key")) or flask.request.form.get("value")
+        min = field.get("min") or 0
         max = field.get("max")
 
         try:
@@ -2550,7 +2551,7 @@ class SettingsController(AdminCirculationManagerController):
         except ValueError:
             return INVALID_NUMBER.detailed(_('"%(input)s" is not a number.', input=input))
 
-        if input < 0:
-            return INVALID_NUMBER.detailed(_('%(field)s must be greater than 0.', field=field.get("label")))
+        if input < min:
+            return INVALID_NUMBER.detailed(_('%(field)s must be greater than %(min)s.', field=field.get("label"), min=min))
         if max and input > max:
             return INVALID_NUMBER.detailed(_('%(field)s cannot be greater than %(max)s.', field=field.get("label"), max=max))
