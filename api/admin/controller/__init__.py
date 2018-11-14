@@ -2471,6 +2471,7 @@ class SettingsController(AdminCirculationManagerController):
         # otherwise, the settings have to be passed in as an argument--either a list or
         # a string.
         settings = settings or self._get_settings()
+
         validators = [
             self.validate_email,
             self.validate_url,

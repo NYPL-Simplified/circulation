@@ -149,6 +149,7 @@ class TestAnalyticsServices(SettingsControllerTest):
                 ("id", service.id),
                 ("name", "analytics name"),
                 ("protocol", GoogleAnalyticsProvider.__module__),
+                ("url", None),
             ])
             response = self.manager.admin_analytics_services_controller.process_analytics_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
@@ -206,7 +207,7 @@ class TestAnalyticsServices(SettingsControllerTest):
         )
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
-                ("name", "analytics name"),
+                ("name", "Google analytics name"),
                 ("protocol", GoogleAnalyticsProvider.__module__),
                 (ExternalIntegration.URL, "http://test"),
                 ("libraries", json.dumps([{"short_name": "L", "tracking_id": "trackingid"}])),
@@ -221,6 +222,16 @@ class TestAnalyticsServices(SettingsControllerTest):
         eq_([library], service.libraries)
         eq_("trackingid", ConfigurationSetting.for_library_and_externalintegration(
                 self._db, GoogleAnalyticsProvider.TRACKING_ID, library, service).value)
+
+        # Creating a local analytics service doesn't require a URL.
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "local analytics name"),
+                ("protocol", LocalAnalyticsProvider.__module__),
+                ("libraries", json.dumps([{"short_name": "L", "tracking_id": "trackingid"}])),
+            ])
+            response = self.manager.admin_analytics_services_controller.process_analytics_services()
+            eq_(response.status_code, 201)
 
     def test_analytics_services_post_edit(self):
         l1, ignore = create(
