@@ -54,7 +54,6 @@ class SitewideConfigurationSettingsController(SettingsController):
                 return MISSING_FIELD_MESSAGES.get(field)
 
         [setting] = filter(lambda s: s.get("key") == setting.key, Configuration.SITEWIDE_SETTINGS)
-        if setting.get("format") == "url":
-            url_error = self.validate_url(flask.request.form.get("value"))
-            if url_error:
-                return url_error
+        error = self.validate_formats([setting])
+        if error:
+            return error
