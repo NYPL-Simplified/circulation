@@ -31,7 +31,11 @@ from core.external_search import (
     ExternalSearchIndex,
     Query,
 )
-from core.lane import Lane
+from core.lane import (
+    Pagination,
+    Lane,
+    WorkList,
+)
 from core.classifier import Classifier
 from core.metadata_layer import (
     CirculationData,
@@ -1542,47 +1546,6 @@ class NovelistSnapshotScript(LibraryInputScript):
 
                 output.write(result)
 
-class RawSearchScript(LibraryInputScript):
-    """Diagnose search problems by observing the raw data to and
-    from the search index.
-    """
-
-    @classmethod
-    def arg_parser(cls, _db):
-        parser = LibraryInputScript.arg_parser(_db, multiple_libraries=False)
-        parser.add_argument(
-            '--query',
-            help='A search query to run.',
-            metavar='QUERY',
-            required=True
-        )
-        return parser
-
-    def parse_command_line(self, _db, *args, **kwargs):
-        parsed = super(RawSearchScript, self).parse_command_line(
-            _db, *args, **kwargs
-        )
-        self.query = parsed.query
-        return parsed
-
-    def process_library(self, library):
-        # Get the search engine
-        index = ExternalSearchIndex(self._db)
-        if not index:
-            self.log.error(
-                "No external search server configured, cannot continue."
-            )
-            return
-        query = Query(self.query, filter=None)
-        query = index.search.query(query.build())
-        query = query.extra(explain=True)
-        results = query[start:stop]
-        for i in results:
-            print i
-        #search.index.query_works(query, filter=self.filter, 
-        #                              debug=True, return_raw_results=True)
-
-
 class ODLBibliographicImportScript(OPDSImportScript):
     """Import bibliographic information from the feed associated
     with an ODL collection."""
@@ -1595,3 +1558,92 @@ class SharedODLImportScript(OPDSImportScript):
     IMPORTER_CLASS = SharedODLImporter
     MONITOR_CLASS = SharedODLImportMonitor
     PROTOCOL = SharedODLImporter.NAME
+
+
+class RawSearchScript(LibraryInputScript):
+    """Diagnose search problems by running a raw Elasticsearch search and
+    comparing it to the results when running a search constrained by a
+    library's top-level lane.
+    """
+
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = LibraryInputScript.arg_parser(_db, multiple_libraries=False)
+        parser.add_argument(
+            '--query',
+            help='A search query to run.',
+            metavar='QUERY',
+            required=True
+        )
+        parser.add_argument(
+            '--offset',
+            help='Start at this search result.',
+            metavar='NUM',
+            default=0,
+        )
+        parser.add_argument(
+            '--size',
+            help='Show this many search results.',
+            metavar='NUM',
+            default=20,
+        )
+
+        return parser
+
+    def parse_command_line(self, _db, *args, **kwargs):
+        parsed = super(RawSearchScript, self).parse_command_line(
+            _db, *args, **kwargs
+        )
+        self.query = parsed.query
+        self.offset = parsed.offset
+        self.size = parsed.size
+        return parsed
+
+    def process_library(self, library):
+        # Get the search engine
+        from lane import Pagination, WorkList
+        index = ExternalSearchIndex(self._db)
+        if not index:
+            self.log.error(
+                "No external search server configured, cannot continue."
+            )
+            return
+        query = Query(self.query, filter=None).build()
+        runnable = index.search.query(query)
+        runnable = runnable.extra(explain=True)
+        integration = index.search_integration(self._db)
+
+        base_url = integration.url + index.works_index
+
+        print 'Running raw Elasticsearch query for "%s"' % self.query
+        results = runnable[self.offset:self.offset+self.size]
+        template = '#%(work_id)s "%(title)s" (%(author)s) collection=%(collection)s'
+        for i in results:
+            print template % dict(
+                work_id=i.meta.id, title=i.title, author=i.author,
+                collection=i.collections
+            )
+            # Print the Elasticsearch permalink for this document.
+            print " %s/%s/%s" % (
+                base_url, index.work_document_type, i.meta.id
+            )
+        print
+
+        print "Re-running search from the library's top-level lane."
+        pagination = Pagination(offset=self.offset, size=self.size)
+        worklist = WorkList.top_level_for_library(self._db, library)
+        for mw in worklist.search(
+                self._db, self.query, index, pagination=pagination
+        ):
+            print template % dict(
+                work_id=mw.works_id, title=mw.sort_title, author=mw.sort_author,
+                collection=mw.collection_id,
+            )
+
+        print
+        print "Reproduce this search with curl:"
+        print "curl %(url)s/_search --data '%(data)s'" % dict(
+
+            url=base_url,
+            data=json.dumps(dict(query=query.to_dict()))
+        )
