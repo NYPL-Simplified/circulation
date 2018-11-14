@@ -176,11 +176,13 @@ class Configuration(object):
             "key": NONGROUPED_MAX_AGE_POLICY,
             "label": _("Cache time for paginated OPDS feeds"),
             "required": True,
+            "type": "number",
         },
         {
             "key": GROUPED_MAX_AGE_POLICY,
             "label": _("Cache time for grouped OPDS feeds"),
             "required": True,
+            "type": "number",
         },
         {
             "key": BASE_URL_KEY,
@@ -252,6 +254,7 @@ class Configuration(object):
             "key": MINIMUM_FEATURED_QUALITY,
             "label": _("Minimum quality for books that show up in 'featured' lanes"),
             "description": _("Between 0 and 1."),
+            "type": "number",
             "default": 0.65,
         },
     ] + [
