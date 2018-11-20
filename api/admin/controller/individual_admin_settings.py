@@ -81,7 +81,7 @@ class IndividualAdminSettingsController(SettingsController):
             # If we've hit this point, then the user isn't a system admin.  If the
             # admin is a system admin, the user won't be able to do anything.
             if admin.is_system_admin():
-                raise AdminNotAuthorized
+                raise AdminNotAuthorized()
 
             # By this point, we know no one is a system admin.
             if user.is_sitewide_library_manager():
@@ -89,7 +89,7 @@ class IndividualAdminSettingsController(SettingsController):
 
             # The user isn't a system admin or a sitewide manager.
             if admin.is_sitewide_library_manager():
-                raise AdminNotAuthorized
+                raise AdminNotAuthorized()
 
     def validate_form_fields(self, email):
         """Check that 1) the user has entered something into the required email field,
