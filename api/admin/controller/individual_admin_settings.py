@@ -35,11 +35,7 @@ class IndividualAdminSettingsController(SettingsController):
         )
 
     def process_post(self):
-        # For readability: the person who is submitting the form is referred to as "user"
-        # rather than as something that could be confused with "admin" (the admin
-        # which the user is submitting the form in order to create/edit.)
 
-        user = flask.request.admin
         email = flask.request.form.get("email")
         error = self.validate_form_fields(email)
         if error:
@@ -49,6 +45,7 @@ class IndividualAdminSettingsController(SettingsController):
         settingUp = (self._db.query(Admin).count() == 0)
 
         admin, is_new = get_one_or_create(self._db, Admin, email=email)
+
         self.check_permissions(admin, settingUp)
 
         roles = flask.request.form.get("roles")
@@ -57,25 +54,42 @@ class IndividualAdminSettingsController(SettingsController):
         else:
             roles = []
 
-        roles_error = self.handle_roles(user, admin, roles, settingUp)
+        roles_error = self.handle_roles(admin, roles, settingUp)
         if roles_error:
             return roles_error
 
         password = flask.request.form.get("password")
-        self.handle_password(password, admin, is_new, user)
+        self.handle_password(password, admin, is_new, settingUp)
 
         return self.response(admin, is_new)
 
     def check_permissions(self, admin, settingUp):
         """Before going any further, check that the user actually has permission
          to create/edit this type of admin"""
-        # User must be a sitewide library manager in order to create/edit
-        # a sitewide library manager.
-        if admin.is_sitewide_library_manager() and not settingUp:
-            self.require_sitewide_library_manager()
-        # User must be a system admin in order to create/edit a system admin.
-        if admin.is_system_admin() and not settingUp:
-            self.require_system_admin()
+
+         # For readability: the person who is submitting the form is referred to as "user"
+         # rather than as something that could be confused with "admin" (the admin
+         # which the user is submitting the form in order to create/edit.)
+
+        if not settingUp:
+            user = flask.request.admin
+
+            # System admin has all permissions.
+            if user.is_system_admin():
+                return
+
+            # If we've hit this point, then the user isn't a system admin.  If the
+            # admin is a system admin, the user won't be able to do anything.
+            if admin.is_system_admin():
+                raise AdminNotAuthorized()
+
+            # By this point, we know no one is a system admin.
+            if user.is_sitewide_library_manager():
+                return
+
+            # The user isn't a system admin or a sitewide manager.
+            if admin.is_sitewide_library_manager():
+                raise AdminNotAuthorized()
 
     def validate_form_fields(self, email):
         """Check that 1) the user has entered something into the required email field,
@@ -101,9 +115,18 @@ class IndividualAdminSettingsController(SettingsController):
                 return LIBRARY_NOT_FOUND.detailed(_("Library \"%(short_name)s\" does not exist.", short_name=library_short_name))
         return library
 
-    def handle_roles(self, user, admin, roles, settingUp):
+    def handle_roles(self, admin, roles, settingUp):
         """Compare the admin's existing set of roles against the roles submitted in the form, and,
         unless there's a problem with the roles or the permissions, modify the admin's roles accordingly"""
+
+        # User = person submitting the form; admin = person who the form is about
+
+        if settingUp:
+            # There are no admins yet; the user and the new system admin are the same person.
+            user = admin
+        else:
+            user = flask.request.admin
+
         old_roles = admin.roles
         old_roles_set = set((role.role, role.library) for role in old_roles)
 
@@ -147,8 +170,16 @@ class IndividualAdminSettingsController(SettingsController):
                     # including this library's roles. Leave the non-visible roles alone.
                     continue
 
-    def handle_password(self, password, admin, is_new, user):
+    def handle_password(self, password, admin, is_new, settingUp):
         """Check that the user has permission to change this type of admin's password"""
+
+        # User = person submitting the form; admin = person who the form is about
+        if settingUp:
+            # There are no admins yet; the user and the new system admin are the same person.
+            user = admin
+        else:
+            user = flask.request.admin
+
         if password:
             # If the admin we're editing has a sitewide manager role, we've already verified
             # the current admin's role in check_permissions. Otherwise, an admin can only change that
