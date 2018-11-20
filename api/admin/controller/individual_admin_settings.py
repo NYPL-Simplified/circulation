@@ -38,8 +38,7 @@ class IndividualAdminSettingsController(SettingsController):
         # For readability: the person who is submitting the form is referred to as "user"
         # rather than as something that could be confused with "admin" (the admin
         # which the user is submitting the form in order to create/edit.)
-
-        user = flask.request.admin
+        user = None
         email = flask.request.form.get("email")
         error = self.validate_form_fields(email)
         if error:
@@ -56,6 +55,9 @@ class IndividualAdminSettingsController(SettingsController):
             roles = json.loads(roles)
         else:
             roles = []
+
+        if 'admin' in flask.request.args:
+            user = flask.request.admin
 
         roles_error = self.handle_roles(user, admin, roles, settingUp)
         if roles_error:
