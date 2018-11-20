@@ -394,10 +394,9 @@ class TestIndividualAdmins(SettingsControllerTest):
     def test_individual_admins_post_create_on_setup(self):
         for admin in self._db.query(Admin):
             self._db.delete(admin)
-        self.admin = None
 
         # Creating an admin that's not a system admin will fail.
-        with self.request_context_with_admin("/", method="POST"):
+        with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("email", "admin@nypl.org"),
                 ("password", "pass"),
@@ -407,7 +406,7 @@ class TestIndividualAdmins(SettingsControllerTest):
             self._db.rollback()
 
         # But creating a system admin works.
-        with self.request_context_with_admin("/", method="POST"):
+        with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("email", "admin@nypl.org"),
                 ("password", "pass"),
