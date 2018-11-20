@@ -398,7 +398,7 @@ class TestIndividualAdmins(SettingsControllerTest):
         # Creating an admin that's not a system admin will fail.
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
-                ("email", "admin@nypl.org"),
+                ("email", "first_admin@nypl.org"),
                 ("password", "pass"),
                 ("roles", json.dumps([{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }])),
             ])
@@ -408,7 +408,7 @@ class TestIndividualAdmins(SettingsControllerTest):
         # But creating a system admin works.
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
-                ("email", "admin@nypl.org"),
+                ("email", "first_admin@nypl.org"),
                 ("password", "pass"),
                 ("roles", json.dumps([{ "role": AdminRole.SYSTEM_ADMIN }])),
             ])
@@ -416,7 +416,7 @@ class TestIndividualAdmins(SettingsControllerTest):
             eq_(201, response.status_code)
 
         # The admin was created.
-        admin_match = Admin.authenticate(self._db, "admin@nypl.org", "pass")
+        admin_match = Admin.authenticate(self._db, "first_admin@nypl.org", "pass")
         eq_(admin_match.email, response.response[0])
         assert admin_match
         assert admin_match.has_password("pass")

@@ -73,9 +73,6 @@ class IndividualAdminSettingsController(SettingsController):
 
         if not settingUp:
             user = flask.request.admin
-            library = None
-            if admin.roles:
-                library = admin.roles[0].library
 
             # System admin has all permissions.
             if user.is_system_admin():
@@ -93,19 +90,6 @@ class IndividualAdminSettingsController(SettingsController):
             # The user isn't a system admin or a sitewide manager.
             if admin.is_sitewide_library_manager():
                 raise AdminNotAuthorized
-
-            # By process of elimination, the admin must be either a librarian or
-            # a (non-sitewide) library manager.
-
-            # Is the user a library manager?
-            user_manages_admin_library = library and user.is_library_manager(library)
-            manager_role = (not library and filter(lambda role: role.role == AdminRole.LIBRARY_MANAGER, user.roles))
-            user_is_library_manager = (user_manages_admin_library or manager_role)
-
-            if user_is_library_manager:
-                return
-
-            raise AdminNotAuthorized
 
     def validate_form_fields(self, email):
         """Check that 1) the user has entered something into the required email field,
