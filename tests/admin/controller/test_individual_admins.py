@@ -129,6 +129,7 @@ class TestIndividualAdmins(SettingsControllerTest):
             eq_(response.uri, INVALID_EMAIL.uri)
             assert "wrong!" in response.detail
 
+
     def test_individual_admins_post_permissions(self):
         l1 = self._library()
         l2 = self._library()
