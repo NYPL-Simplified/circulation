@@ -727,6 +727,9 @@ class SearchFacets(FacetsWithEntryPoint):
             media = None
         extra['media'] = media
         languageQuery = get_argument("language", None)
+        # Currently, the only value passed to the language query from the client is
+        # `all`. This will remove the default browser's Accept-Language header value
+        # in the search request.
         if languageQuery != "all" :
             extra['languages'] = languages
 
