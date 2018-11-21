@@ -405,7 +405,17 @@ class TestIndividualAdmins(SettingsControllerTest):
             assert_raises(AdminNotAuthorized, self.manager.admin_individual_admin_settings_controller.process_post)
             self._db.rollback()
 
-        # But creating a system admin works.
+        # The password is required.
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("email", "first_admin@nypl.org"),
+                ("roles", json.dumps([{ "role": AdminRole.SYSTEM_ADMIN }])),
+            ])
+            response = self.manager.admin_individual_admin_settings_controller.process_post()
+            eq_(400, response.status_code)
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+
+        # Creating a system admin with a password works.
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("email", "first_admin@nypl.org"),
