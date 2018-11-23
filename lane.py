@@ -726,7 +726,13 @@ class SearchFacets(FacetsWithEntryPoint):
         if media not in EditionConstants.KNOWN_MEDIA:
             media = None
         extra['media'] = media
-        extra['languages'] = languages
+        languageQuery = get_argument("language", None)
+        # Currently, the only value passed to the language query from the client is
+        # `all`. This will remove the default browser's Accept-Language header value
+        # in the search request.
+        if languageQuery != "all" :
+            extra['languages'] = languages
+
         return cls._from_request(
             config, get_argument, get_header, worklist, default_entrypoint,
             **extra
@@ -2434,7 +2440,7 @@ class Lane(Base, WorkList):
         if facets and facets.entrypoint:
             entrypoint_name = facets.entrypoint.URI
 
-        if (self.size_by_entrypoint 
+        if (self.size_by_entrypoint
             and entrypoint_name in self.size_by_entrypoint):
             size = self.size_by_entrypoint[entrypoint_name]
         return size
