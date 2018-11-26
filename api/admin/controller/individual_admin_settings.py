@@ -43,6 +43,8 @@ class IndividualAdminSettingsController(SettingsController):
 
         # If there are no admins yet, anyone can create the first system admin.
         settingUp = (self._db.query(Admin).count() == 0)
+        if settingUp and not flask.request.form.get("password"):
+            return INCOMPLETE_CONFIGURATION.detailed(_("The password field cannot be blank."))
 
         admin, is_new = get_one_or_create(self._db, Admin, email=email)
 
