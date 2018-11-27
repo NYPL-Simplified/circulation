@@ -89,6 +89,7 @@ from core.metadata_layer import (
     IdentifierData,
     FormatData,
     MeasurementData,
+    ReplacementPolicy,
     SubjectData,
 )
 
@@ -254,10 +255,15 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         """Make an HTTP request to look up current bibliographic and
         circulation information for the given `identifiers`.
 
-        :param identifiers: Strings containing Bibliotheca identifiers..
+        :param identifiers: Strings containing Bibliotheca identifiers.
+        :return: A string containing an XML document, or None if there was
+           an error not handled as an exception.
         """
         url = "/items/" + ",".join(identifiers)
-        return self.request(url)
+        response = self.request(url)
+        if not response:
+            return None
+        return response.content
 
     def bibliographic_lookup(self, identifiers):
         """Look up current bibliographic and circulation information for the
@@ -266,7 +272,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         :param identifiers: A list containing either Identifier
             objects or Bibliotheca identifier strings.
         """
-        if not isinstance(identifiers, list):
+        if isinstance(identifiers, Identifier) or isinstance(identifiers, basestring):
             identifiers = [identifiers]
         identifier_strings = []
         for i in identifiers:
@@ -276,11 +282,9 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         
         data = self.bibliographic_lookup_request(identifier_strings)
         response = list(self.item_list_parser.parse(data))
-        if not response:
-            return None
-        else:
-            [metadata] = response
-        return metadata
+        if response:
+            for metadata in response:
+                yield metadata
 
     def _request_with_timeout(self, method, url, *args, **kwargs):
         """This will be overridden in MockBibliothecaAPI."""
@@ -1144,6 +1148,7 @@ class EventParser(BibliothecaParser):
         return (bibliotheca_id, isbn, patron_id, start_time, end_time,
                 internal_event_type)
 
+
 class BibliothecaCirculationSweep(IdentifierSweepMonitor):
     """Check on the current circulation status of each Bibliotheca book in our
     collection.
@@ -1152,6 +1157,13 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
     because this monitor and the main Bibliotheca circulation monitor will
     count the same event.  However it will greatly improve our current
     view of our Bibliotheca circulation, which is more important.
+
+    If Bibliotheca has updated its metadata for a book, that update will
+    also take effect during the circulation sweep.
+
+    If a Bibliotheca license has expired, and we didn't hear about it for
+    whatever reason, we'll find out about it here, through process of
+    elimination.
     """
     SERVICE_NAME = "Bibliotheca Circulation Sweep"
     DEFAULT_BATCH_SIZE = 25
@@ -1166,7 +1178,19 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
             self.api = api_class
         else:
             self.api = api_class(_db, collection)
-        self.analytics = Analytics(_db)
+        self.replacement_policy = ReplacementPolicy.from_license_source(_db)
+        self.analytics = self.replacement_policy.analytics
+
+    def _get_license_pool(self, identifier):
+        """Find the LicensePool for the given Identifier in the
+        Collection under consideration.
+        """
+        pools = [lp for lp in identifier.licensed_through
+                 if lp.data_source.name==DataSource.BIBLIOTHECA
+                 and lp.collection == self.collection]
+        if not pools:
+            return None
+        return pools[0]
 
     def process_items(self, identifiers):
         identifiers_by_bibliotheca_id = dict()
@@ -1178,9 +1202,9 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
         identifiers_not_mentioned_by_bibliotheca = set(identifiers)
         now = datetime.utcnow()
 
-        metadatas = list(self.api.get_bibliographic_info_for(bibliotheca_ids))
+        metadatas = list(self.api.bibliographic_lookup(bibliotheca_ids))
         for metadata in metadatas:
-            self._process_metadatadata(
+            self._process_metadata(
                 metadata, identifiers_by_bibliotheca_id,
                 identifiers_not_mentioned_by_bibliotheca,
             )
@@ -1190,23 +1214,18 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
         # indication that we no longer own any licenses to the
         # book.
         for identifier in identifiers_not_mentioned_by_bibliotheca:
-            pools = [lp for lp in identifier.licensed_through
-                     if lp.data_source.name==DataSource.BIBLIOTHECA
-                     and lp.collection == self.collection]
-            if not pools:
-                continue
-            for pool in pools:
-                if pool.licenses_owned > 0:
-                    if pool.presentation_edition:
-                        self.log.warn("Removing %s (%s) from circulation",
-                                      pool.presentation_edition.title, pool.presentation_edition.author)
-                    else:
-                        self.log.warn(
-                            "Removing unknown work %s from circulation.",
-                            identifier.identifier
-                        )
-                pool.update_availability(0, 0, 0, 0, self.analytics)
-                pool.last_checked = now
+            pool = self._get_license_pool(identifier)
+            if pool.licenses_owned > 0:
+                if pool.presentation_edition:
+                    self.log.warn("Removing %s (%s) from circulation",
+                                  pool.presentation_edition.title, pool.presentation_edition.author)
+                else:
+                    self.log.warn(
+                        "Removing unknown work %s from circulation.",
+                        identifier.identifier
+                    )
+            pool.update_availability(0, 0, 0, 0, self.analytics)
+            pool.last_checked = now
 
     def _process_metadata(
         self, metadata, identifiers_by_bibliotheca_id,
@@ -1215,16 +1234,14 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
         """Process a single Metadata object (containing CirculationData)
         retrieved from Bibliotheca.
         """
-        bibliotheca_id = metadata._primary_identifier.identifier
+        bibliotheca_id = metadata.primary_identifier.identifier
         identifier = identifiers_by_bibliotheca_id[bibliotheca_id]
         if identifier in identifiers_not_mentioned_by_bibliotheca:
             # Bibliotheca mentioned this identifier. Remove it from
             # this list so we know the title is still in the collection.
             identifiers_not_mentioned_by_bibliotheca.remove(identifier)
-        pools = [lp for lp in identifier.licensed_through
-                 if lp.data_source.name==DataSource.BIBLIOTHECA
-                 and lp.collection == self.collection]
-        if not pools:
+        pool = self._get_license_pool(identifier)
+        if not pool:
             # We don't have a license pool for this work. That
             # shouldn't happen--how did we know about the
             # identifier?--but it shouldn't be a big deal to
@@ -1242,11 +1259,9 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
                     library, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD,
                     datetime.utcnow()
                 )
-        else:
-            [pool] = pools
-
-
-        metadata.apply(pool, replace)
+        edition, is_new = metadata.edition(self._db)
+        metadata.apply(edition, collection=self.collection,
+                       replace=self.replacement_policy)
 
 
 class BibliothecaEventMonitor(CollectionMonitor):
