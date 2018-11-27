@@ -46,7 +46,7 @@ class GoogleAnalyticsProvider(object):
     DEFAULT_URL = "http://www.google-analytics.com/collect"
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "label": _("URL"), "default": DEFAULT_URL, "required": True },
+        { "key": ExternalIntegration.URL, "label": _("URL"), "default": DEFAULT_URL, "required": True, "format": "url" },
     ]
 
     LIBRARY_SETTINGS = [

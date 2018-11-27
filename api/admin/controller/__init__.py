@@ -2471,9 +2471,12 @@ class SettingsController(AdminCirculationManagerController):
         # otherwise, the settings have to be passed in as an argument--either a list or
         # a string.
         settings = settings or self._get_settings()
+
         validators = [
             self.validate_email,
             self.validate_url,
+            self.validate_number,
+            self.validate_language_code,
         ]
         for validator in validators:
             error = validator(settings)
@@ -2489,7 +2492,7 @@ class SettingsController(AdminCirculationManagerController):
         # is calling this method--then we need to pull out the relevant input strings
         # to validate.
         if isinstance(settings, (list,)):
-            # Find the fields that have to do with email addresses
+            # Find the fields that have to do with email addresses and are not blank
             email_fields = filter(lambda s: s.get("format") == "email" and flask.request.form.get(s.get("key")), settings)
             # Narrow the email-related fields down to the ones for which the user actually entered a value
             email_inputs = [flask.request.form.get(field.get("key")) for field in email_fields]
@@ -2510,18 +2513,65 @@ class SettingsController(AdminCirculationManagerController):
     def validate_url(self, settings):
         """Find any URLs that the user has submitted, and make sure that
         they are in a valid format."""
-        settings = settings or self._get_settings()
-        if isinstance(settings, (list,)):
-            # Find the fields that have to do with URLs
-            url_fields = filter(lambda s: (s.get("format") == "url" or s.get("key") == "url") and flask.request.form.get(s.get("key")), settings)
-            # Narrow the URL-related fields down to the ones for which the user actually entered a value
-            url_inputs = [flask.request.form.get(field.get("key")) for field in url_fields]
-        else:
-            # The SitewideSettingsController passes in a string
-            url_inputs = [settings]
+        # Find the fields that have to do with URLs and are not blank.
+        # If this is a sitewide setting, then the user input needs to be accessed
+        # via "value" rather than via the setting's key.
+        url_fields = filter(lambda s: s.get("format") == "url" and
+                            (flask.request.form.get(s.get("key")) or flask.request.form.get("value"))
+                            , settings)
+        # Narrow the URL-related fields down to the ones for which the user actually entered a value
+        url_inputs = [(flask.request.form.get(field.get("key")) or flask.request.form.get("value")) for field in url_fields]
+
         for url in url_inputs:
             if not self._is_url(url):
                 return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=url))
 
     def _is_url(self, url):
         return any([url.startswith(protocol + "://") for protocol in "http", "https"])
+
+    def validate_number(self, settings):
+        """Find any numbers that the user has submitted, and make sure that they are 1) actually numbers,
+        2) positive, and 3) lower than the specified maximum, if there is one."""
+        # Find the fields that should have numeric input and are not blank.
+        number_fields = filter(
+                            lambda s: (s.get("type") == "number") and
+                            (flask.request.form.get(s.get("key")) or flask.request.form.get("value"))
+                            , settings
+                        )
+
+        for field in number_fields:
+            if self._number_error(field):
+                return self._number_error(field)
+
+    def _number_error(self, field):
+        input = flask.request.form.get(field.get("key")) or flask.request.form.get("value")
+        min = field.get("min") or 0
+        max = field.get("max")
+
+        try:
+            input = float(input)
+        except ValueError:
+            return INVALID_NUMBER.detailed(_('"%(input)s" is not a number.', input=input))
+
+        if input < min:
+            return INVALID_NUMBER.detailed(_('%(field)s must be greater than %(min)s.', field=field.get("label"), min=min))
+        if max and input > max:
+            return INVALID_NUMBER.detailed(_('%(field)s cannot be greater than %(max)s.', field=field.get("label"), max=max))
+
+    def validate_language_code(self, settings):
+        # Find the fields that should contain language codes and are not blank.
+        language_fields = filter(lambda s: s.get("format") == "language-code" and
+                            (flask.request.form.get(s.get("key")))
+                            , settings)
+        # Get the language codes that the user entered; this produces a nested list.
+        language_inputs = [flask.request.form.getlist(field.get("key")) for field in language_fields]
+        # Flatten the nested list of language codes so that it can be iterated over.
+        flattened_list = [language for list in language_inputs for language in list]
+
+        for language in flattened_list:
+            if language and not self._is_language(language):
+                return UNKNOWN_LANGUAGE.detailed(_('"%(language)s" is not a valid language code.', language=language))
+
+    def _is_language(self, language):
+        # Check that the input string is in the list of recognized language codes.
+        return LanguageCodes.string_to_alpha_3(language)

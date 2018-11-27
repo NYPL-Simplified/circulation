@@ -185,6 +185,62 @@ class TestLibrarySettings(SettingsControllerTest):
             eq_(response.uri, INVALID_URL.uri)
             assert "bad_url" in response.detail
 
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.LOAN_LIMIT, "not a number!"),
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, INVALID_NUMBER.uri)
+            assert "not a number!" in response.detail
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.HOLD_LIMIT, "-5"),
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, INVALID_NUMBER.uri)
+            eq_(response.detail, "Maximum number of books a patron can have on hold at once must be greater than 0.")
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.MINIMUM_FEATURED_QUALITY, "2"),
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, INVALID_NUMBER.uri)
+            eq_(response.detail, "Minimum quality for books that show up in 'featured' lanes cannot be greater than 1.")
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.LARGE_COLLECTION_LANGUAGES, "xyz")
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, UNKNOWN_LANGUAGE.uri)
+            eq_(response.detail, '"xyz" is not a valid language code.')
+
         # Test a bad contrast ratio between the web foreground and
         # web background colors.
         with self.request_context_with_admin("/", method="POST"):
