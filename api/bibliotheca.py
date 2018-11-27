@@ -1445,12 +1445,7 @@ class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
             self.api = api_class(_db, collection)
 
     def process_item(self, identifier):
-        # We don't accept a representation from the cache because
-        # either this is being run for the first time (in which case
-        # there is nothing in the cache) or it's being run to correct
-        # for an earlier failure (in which case the representation
-        # in the cache might be wrong).
-        metadata = self.api.bibliographic_lookup(identifier, max_age=0)
+        metadata = self.api.bibliographic_lookup(identifier)
         if not metadata:
             return self.failure(
                 identifier, "Bibliotheca bibliographic lookup failed."

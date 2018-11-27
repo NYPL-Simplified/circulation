@@ -178,7 +178,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             self.api.full_url("/foo"))
 
     def test_request_signing(self):
-        """Confirm a known correct result for the 3M request signing
+        """Confirm a known correct result for the Bibliotheca request signing
         algorithm.
         """
         self.api.queue_response(200)
@@ -187,7 +187,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         headers = request[-1]['headers']
         eq_('Fri, 01 Jan 2016 00:00:00 GMT', headers['3mcl-Datetime'])
         eq_('2.0', headers['3mcl-Version'])
-        expect = '3MCLAUTH a:HZHNGfn6WVceakGrwXaJQ9zIY0Ai5opGct38j9/bHrE='
+        expect = 'BibliothecaCLAUTH a:HZHNGfn6WVceakGrwXaJQ9zIY0Ai5opGct38j9/bHrE='
         eq_(expect, headers['3mcl-Authorization'])
 
         # Tweak one of the variables that go into the signature, and
@@ -300,25 +300,8 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             self.api.get_events_between, an_hour_ago, now
         )
 
-    def test_get_circulation_for_success(self):
-        self.api.queue_response(200, content=self.sample_data("item_circulation.xml"))
-        data = list(self.api.get_circulation_for(['id1', 'id2']))
-        eq_(2, len(data))
-
-    def test_get_circulation_for_returns_empty_list(self):
-        self.api.queue_response(200, content=self.sample_data("empty_item_circulation.xml"))
-        data = list(self.api.get_circulation_for(['id1', 'id2']))
-        eq_(0, len(data))
-
-    def test_get_circulation_for_failure(self):
-        self.api.queue_response(500)
-        assert_raises(
-            BadResponseException,
-            list, self.api.get_circulation_for(['id1', 'id2'])
-        )
-
     def test_update_availability(self):
-        """Test the 3M implementation of the update_availability
+        """Test the Bibliotheca implementation of the update_availability
         method defined by the CirculationAPI interface.
         """
 
@@ -561,7 +544,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             encrypted['scheme'])
         eq_(u'abcdef01234789abcdef0123', encrypted[u'findaway:checkoutId'])
         eq_(u'1234567890987654321ababa', encrypted[u'findaway:licenseId'])
-        eq_(u'3M', encrypted[u'findaway:accountId'])
+        eq_(u'Bibliotheca', encrypted[u'findaway:accountId'])
         eq_(u'123456', encrypted[u'findaway:fulfillmentId'])
         eq_(u'aaaaaaaa-4444-cccc-dddd-666666666666',
             encrypted[u'findaway:sessionKey'])
@@ -762,7 +745,7 @@ class TestErrorParser(BibliothecaAPITest):
         eq_(msg, error.message)
         doc = error.as_problem_detail_document()
         eq_(502, doc.status_code)
-        eq_("Integration error communicating with 3M", doc.detail)
+        eq_("Integration error communicating with Bibliotheca", doc.detail)
 
     def test_unknown_error_becomes_remote_initiated_server_error(self):
         """Simulate the message we get when ¯\_(ツ)_/¯."""
@@ -784,7 +767,7 @@ class TestErrorParser(BibliothecaAPITest):
         eq_("Authentication failed", error.message)
 
     def test_malformed_error_message_becomes_remote_initiated_server_error(self):
-        msg = """<weird>This error does not follow the standard set out by 3M.</weird>"""
+        msg = """<weird>This error does not follow the standard set out by Bibliotheca.</weird>"""
         error = ErrorParser().process_all(msg)
         assert isinstance(error, RemoteInitiatedServerError)
         eq_(BibliothecaAPI.SERVICE_NAME, error.service_name)
@@ -797,7 +780,7 @@ class TestErrorParser(BibliothecaAPITest):
         eq_(BibliothecaAPI.SERVICE_NAME, error.service_name)
         eq_("Unknown error", error.message)
 
-class Test3MEventParser(object):
+class TestBibliothecaEventParser(object):
 
     # Sample event feed to test out the parser.
     TWO_EVENTS = """<LibraryEventBatch xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
@@ -1151,7 +1134,7 @@ class TestItemListParser(BibliothecaAPITest):
 
 class TestBibliographicCoverageProvider(TestBibliothecaAPI):
 
-    """Test the code that looks up bibliographic information from 3M."""
+    """Test the code that looks up bibliographic information from Bibliotheca."""
 
     def test_script_instantiation(self):
         """Test that RunCollectionCoverageProviderScript can instantiate
@@ -1167,8 +1150,8 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
         assert isinstance(provider.api, MockBibliothecaAPI)
 
     def test_process_item_creates_presentation_ready_work(self):
-        """Test the normal workflow where we ask 3M for data,
-        3M provides it, and we create a presentation-ready work.
+        """Test the normal workflow where we ask Bibliotheca for data,
+        Bibliotheca provides it, and we create a presentation-ready work.
         """
         identifier = self._identifier(identifier_type=Identifier.BIBLIOTHECA_ID)
         identifier.identifier = 'ddf4gr9'
