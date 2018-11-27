@@ -56,6 +56,7 @@ from core.model import (
     Session,
     Subject,
     Timestamp,
+    WorkCoverageRecord,
 )
 
 from core.config import (
@@ -769,8 +770,9 @@ class ItemListParser(XMLParser):
                                 value=pages)
             )
 
-        book_format = value("BookFormat")
-        medium, formats = self.internal_formats(book_format)
+        circulation, medium = self._make_circulation_data(
+            tag, namespaces, primary_identifier
+        )
 
         metadata = Metadata(
             data_source=DataSource.BIBLIOTHECA,
@@ -786,18 +788,47 @@ class ItemListParser(XMLParser):
             contributors=authors+narrators,
             measurements=measurements,
             links=links,
+            circulation=circulation,
         )
+        return metadata
 
-        # Also make a CirculationData so we can write the formats,
-        circulationdata = CirculationData(
+    def _make_circulation_data(self, tag, namespaces, primary_identifier):
+        """Parse out a CirculationData containing current circulation
+        and formatting information.
+        """
+
+        def value(bibliotheca_key):
+            return self.text_of_subtag(tag, bibliotheca_key)
+
+        def intvalue(key):
+            return self.int_of_subtag(tag, key)
+
+        book_format = value("BookFormat")
+        medium, formats = self.internal_formats(book_format)
+
+        licenses_owned = intvalue("TotalCopies")
+        try:
+            licenses_available = intvalue("AvailableCopies")
+        except IndexError:
+            logging.warn(
+                "No information on available copies for %s",
+                primary_identifier.identifier
+            )
+            licenses_available = 0
+
+        patrons_in_hold_queue = intvalue("OnHoldCount")
+        licenses_reserved = 0
+
+        circulation = CirculationData(
             data_source=DataSource.BIBLIOTHECA,
             primary_identifier=primary_identifier,
+            licenses_owned=licenses_owned,
+            licenses_available=licenses_available,
+            licenses_reserved=licenses_reserved,
+            patrons_in_hold_queue=patrons_in_hold_queue,
             formats=formats,
-            links=links,
         )
-
-        metadata.circulation = circulationdata
-        return metadata
+        return circulation, medium
 
     @classmethod
     def internal_formats(cls, book_format):
@@ -853,59 +884,9 @@ class BibliothecaParser(XMLParser):
         return self.parse_date(value)
 
 
-class CirculationParser(BibliothecaParser):
-
-    """Parse Bibliotheca's circulation XML dialect into something we can apply to a LicensePool."""
-
-    def process_all(self, string):
-        for i in super(CirculationParser, self).process_all(
-                string, "//ItemCirculation"):
-            yield i
-
-    def process_one(self, tag, namespaces):
-        if not tag.xpath("ItemId"):
-            # This happens for events associated with books
-            # no longer in our collection.
-            return None
-
-        def value(key):
-            return self.text_of_subtag(tag, key)
-
-        def intvalue(key):
-            return self.int_of_subtag(tag, key)
-
-        identifiers = {}
-        item = { Identifier : identifiers }
-
-        identifiers[Identifier.BIBLIOTHECA_ID] = value("ItemId")
-        identifiers[Identifier.ISBN] = value("ISBN13")
-
-        item[LicensePool.licenses_owned] = intvalue("TotalCopies")
-        try:
-            item[LicensePool.licenses_available] = intvalue("AvailableCopies")
-        except IndexError:
-            logging.warn("No information on available copies for %s",
-                         identifiers[Identifier.BIBLIOTHECA_ID]
-                     )
-
-        # Counts of patrons who have the book in a certain state.
-        for bibliotheca_key, simplified_key in [
-                ("Holds", LicensePool.patrons_in_hold_queue),
-                ("Reserves", LicensePool.licenses_reserved)
-        ]:
-            t = tag.xpath(bibliotheca_key)
-            if t:
-                t = t[0]
-                value = int(t.xpath("count(Patron)"))
-                item[simplified_key] = value
-            else:
-                logging.warn("No circulation information provided for %s %s",
-                             identifiers[Identifier.BIBLIOTHECA_ID], bibliotheca_key)
-        return item
-
-
 class BibliothecaException(Exception):
     pass
+
 
 class WorkflowException(BibliothecaException):
     def __init__(self, actual_status, statuses_that_would_work):
@@ -1162,8 +1143,8 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
     also take effect during the circulation sweep.
 
     If a Bibliotheca license has expired, and we didn't hear about it for
-    whatever reason, we'll find out about it here, through process of
-    elimination.
+    whatever reason, we'll find out about it here, because Bibliotheca
+    will act like they never heard of it.
     """
     SERVICE_NAME = "Bibliotheca Circulation Sweep"
     DEFAULT_BATCH_SIZE = 25
@@ -1180,17 +1161,6 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
             self.api = api_class(_db, collection)
         self.replacement_policy = ReplacementPolicy.from_license_source(_db)
         self.analytics = self.replacement_policy.analytics
-
-    def _get_license_pool(self, identifier):
-        """Find the LicensePool for the given Identifier in the
-        Collection under consideration.
-        """
-        pools = [lp for lp in identifier.licensed_through
-                 if lp.data_source.name==DataSource.BIBLIOTHECA
-                 and lp.collection == self.collection]
-        if not pools:
-            return None
-        return pools[0]
 
     def process_items(self, identifiers):
         identifiers_by_bibliotheca_id = dict()
@@ -1214,18 +1184,19 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
         # indication that we no longer own any licenses to the
         # book.
         for identifier in identifiers_not_mentioned_by_bibliotheca:
-            pool = self._get_license_pool(identifier)
+            pools = [lp for lp in identifier.licensed_through
+                     if lp.data_source.name==DataSource.BIBLIOTHECA
+                     and lp.collection == self.collection]
+            if pools:
+                [pool] = pools
+            else:
+                continue
             if pool.licenses_owned > 0:
-                if pool.presentation_edition:
-                    self.log.warn("Removing %s (%s) from circulation",
-                                  pool.presentation_edition.title, pool.presentation_edition.author)
-                else:
-                    self.log.warn(
-                        "Removing unknown work %s from circulation.",
-                        identifier.identifier
-                    )
-            pool.update_availability(0, 0, 0, 0, self.analytics)
-            pool.last_checked = now
+                self.log.warn(
+                    "Removing %s from circulation.",
+                    identifier.identifier
+                )
+            pool.update_availability(0, 0, 0, 0, self.analytics, as_of=now)
 
     def _process_metadata(
         self, metadata, identifiers_by_bibliotheca_id,
@@ -1240,28 +1211,30 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
             # Bibliotheca mentioned this identifier. Remove it from
             # this list so we know the title is still in the collection.
             identifiers_not_mentioned_by_bibliotheca.remove(identifier)
-        pool = self._get_license_pool(identifier)
-        if not pool:
-            # We don't have a license pool for this work. That
+
+        edition, is_new = metadata.edition(self._db)
+        pool, is_new = metadata.circulation.license_pool(self._db, self.collection)
+        if is_new:
+            # We didn't have a license pool for this work. That
             # shouldn't happen--how did we know about the
-            # identifier?--but it shouldn't be a big deal to
-            # create one.
-            pool, ignore = LicensePool.for_foreign_id(
-                self._db, self.collection.data_source, identifier.type,
-                identifier.identifier, collection=self.collection
-            )
-
-            # Bibliotheca books are never open-access.
-            pool.open_access = False
-
+            # identifier?--but now we do.
             for library in self.collection.libraries:
                 self.analytics.collect_event(
                     library, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD,
                     datetime.utcnow()
                 )
-        edition, is_new = metadata.edition(self._db)
-        metadata.apply(edition, collection=self.collection,
-                       replace=self.replacement_policy)
+        edition, changed = metadata.apply(edition, collection=self.collection,
+                                          replace=self.replacement_policy)
+        if changed:
+            # Bibliotheca's metadata for this work has changed.
+            work = pool.work
+            if work:
+                # The work's presentation will be completely
+                # recalculated the next time work_classification runs.
+                WorkCoverageRecord.add_for(
+                    work, WorkCoverageRecord.CLASSIFY_OPERATION,
+                    status=WorkCoverageRecord.REGISTERED
+                )
 
 
 class BibliothecaEventMonitor(CollectionMonitor):
