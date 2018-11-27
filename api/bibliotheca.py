@@ -250,14 +250,31 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
                 results[identifier] = (edition, metadata)
         return results
 
-    def bibliographic_lookup_request(self, identifier, max_age=None):
-        return self.request(
-            "/items/%s" % identifier.identifier,
-            max_age=max_age or self.MAX_METADATA_AGE
-        )
+    def bibliographic_lookup_request(self, identifiers):
+        """Make an HTTP request to look up current bibliographic and
+        circulation information for the given `identifiers`.
 
-    def bibliographic_lookup(self, identifier, max_age=None):
-        data = self.bibliographic_lookup_request(identifier, max_age)
+        :param identifiers: Strings containing Bibliotheca identifiers..
+        """
+        url = "/items/" + ",".join(identifiers)
+        return self.request(url)
+
+    def bibliographic_lookup(self, identifiers):
+        """Look up current bibliographic and circulation information for the
+        given `identifiers`.
+
+        :param identifiers: A list containing either Identifier
+            objects or Bibliotheca identifier strings.
+        """
+        if not isinstance(identifiers, list):
+            identifiers = [identifiers]
+        identifier_strings = []
+        for i in identifiers:
+            if isinstance(i, Identifier):
+                i = i.identifier
+            identifier_strings.append(i)
+        
+        data = self.bibliographic_lookup_request(identifier_strings)
         response = list(self.item_list_parser.parse(data))
         if not response:
             return None
@@ -322,22 +339,6 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             )
             raise e
         return events
-
-    def circulation_request(self, identifiers):
-        url = "/circulation/items/" + ",".join(identifiers)
-        response = self.request(url)
-        if response.status_code != 200:
-            raise BadResponseException.bad_status_code(
-                self.full_url(url), response
-            )
-        return response
-
-    def get_circulation_for(self, identifiers):
-        """Return circulation objects for the selected identifiers."""
-        response = self.circulation_request(identifiers)
-        for circ in CirculationParser().process_all(response.content):
-            if circ:
-                yield circ
 
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool."""
@@ -506,30 +507,6 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             return True
         else:
             raise CannotReleaseHold()
-
-    def apply_circulation_information_to_licensepool(self, circ, pool, analytics=None):
-        """Apply the output of CirculationParser.process_one() to a
-        LicensePool.
-
-        TODO: It should be possible to have CirculationParser yield
-        CirculationData objects instead and to replace this code with
-        CirculationData.apply(pool)
-        """
-        if pool.presentation_edition:
-            e = pool.presentation_edition
-            self.log.info("Updating %s (%s)", e.title, e.author)
-        else:
-            self.log.info(
-                "Updating unknown work %s", pool.identifier
-            )
-        # Update availability and send out notifications.
-        pool.update_availability(
-            circ.get(LicensePool.licenses_owned, 0),
-            circ.get(LicensePool.licenses_available, 0),
-            circ.get(LicensePool.licenses_reserved, 0),
-            circ.get(LicensePool.patrons_in_hold_queue, 0),
-            analytics,
-        )
 
     @classmethod
     def findaway_license_to_webpub_manifest(
@@ -1201,11 +1178,10 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
         identifiers_not_mentioned_by_bibliotheca = set(identifiers)
         now = datetime.utcnow()
 
-        for circ in self.api.get_circulation_for(bibliotheca_ids):
-            if not circ:
-                continue
-            self._process_circulation_data(
-                circ, identifiers_by_bibliotheca_id,
+        metadatas = list(self.api.get_bibliographic_info_for(bibliotheca_ids))
+        for metadata in metadatas:
+            self._process_metadatadata(
+                metadata, identifiers_by_bibliotheca_id,
                 identifiers_not_mentioned_by_bibliotheca,
             )
 
@@ -1232,16 +1208,19 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
                 pool.update_availability(0, 0, 0, 0, self.analytics)
                 pool.last_checked = now
 
-    def _process_circulation_data(
-        self, circ, identifiers_by_bibliotheca_id,
+    def _process_metadata(
+        self, metadata, identifiers_by_bibliotheca_id,
         identifiers_not_mentioned_by_bibliotheca
     ):
-        """Process a single CirculationData object retrieved from
-        Bibliotheca.
+        """Process a single Metadata object (containing CirculationData)
+        retrieved from Bibliotheca.
         """
-        bibliotheca_id = circ[Identifier][Identifier.BIBLIOTHECA_ID]
+        bibliotheca_id = metadata._primary_identifier.identifier
         identifier = identifiers_by_bibliotheca_id[bibliotheca_id]
-        identifiers_not_mentioned_by_bibliotheca.remove(identifier)
+        if identifier in identifiers_not_mentioned_by_bibliotheca:
+            # Bibliotheca mentioned this identifier. Remove it from
+            # this list so we know the title is still in the collection.
+            identifiers_not_mentioned_by_bibliotheca.remove(identifier)
         pools = [lp for lp in identifier.licensed_through
                  if lp.data_source.name==DataSource.BIBLIOTHECA
                  and lp.collection == self.collection]
@@ -1266,9 +1245,8 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
         else:
             [pool] = pools
 
-        self.api.apply_circulation_information_to_licensepool(
-            circ, pool, self.analytics
-        )
+
+        metadata.apply(pool, replace)
 
 
 class BibliothecaEventMonitor(CollectionMonitor):
