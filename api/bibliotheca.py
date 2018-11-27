@@ -1173,9 +1173,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
 
         identifiers_not_mentioned_by_bibliotheca = set(identifiers)
         now = datetime.utcnow()
-
-        metadatas = list(self.api.bibliographic_lookup(bibliotheca_ids))
-        for metadata in metadatas:
+        for metadata in self.api.bibliographic_lookup(bibliotheca_ids):
             self._process_metadata(
                 metadata, identifiers_by_bibliotheca_id,
                 identifiers_not_mentioned_by_bibliotheca,

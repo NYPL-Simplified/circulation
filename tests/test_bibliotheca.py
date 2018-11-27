@@ -17,6 +17,7 @@ from . import (
     sample_data
 )
 
+from core.metadata_layer import ReplacementPolicy
 from core.mock_analytics_provider import MockAnalyticsProvider
 from core.model import (
     CirculationEvent,
@@ -37,6 +38,7 @@ from core.model import (
     Subject,
     Timestamp,
     Work,
+    WorkCoverageRecord,
     create,
 )
 from core.util.http import (
@@ -199,6 +201,12 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         headers = request[-1]['headers']
         assert headers['3mcl-Authorization'] != expect
 
+    def test_replacement_policy(self):
+        mock_analytics = object()
+        policy = self.api.replacement_policy(self._db, analytics=mock_analytics)
+        assert isinstance(policy, ReplacementPolicy)
+        eq_(mock_analytics, policy.analytics)
+
     def test_bibliographic_lookup_request(self):
         self.api.queue_response(200, content="some data")
         response = self.api.bibliographic_lookup_request(["id1", "id2"])
@@ -328,6 +336,14 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         pool.patrons_in_hold_queue = 3
         eq_(None, pool.last_checked)
 
+        # We do have a Work hanging around, but things are about to
+        # change for it.
+        work, is_new = pool.calculate_work()
+        assert any(
+            x for x in work.coverage_records
+            if x.operation==WorkCoverageRecord.CLASSIFY_OPERATION
+        )
+
         # Prepare availability information.
         data = self.sample_data("item_metadata_single.xml")
         # Change the ID in the test data so it looks like it's talking
@@ -354,6 +370,14 @@ class TestBibliothecaAPI(BibliothecaAPITest):
 
         old_last_checked = pool.last_checked
         assert old_last_checked is not None
+
+        # The work's CLASSIFY_OPERATION coverage record has been
+        # removed. In the near future its coverage will be
+        # recalculated to accommodate the new metadata.
+        assert any(
+            x for x in work.coverage_records
+            if x.operation==WorkCoverageRecord.CLASSIFY_OPERATION
+        )
 
         # Now let's try update_availability again, with a file that
         # makes it look like the book has been removed from the
@@ -1077,6 +1101,7 @@ class TestItemListParser(BibliothecaAPITest):
 
         eq_("The Incense Game", cooked.title)
         eq_("A Novel of Feudal Japan", cooked.subtitle)
+        eq_(Edition.BOOK_MEDIUM, cooked.medium)
         eq_("eng", cooked.language)
         eq_("St. Martin's Press", cooked.publisher)
         eq_(datetime(year=2012, month=9, day=17),
