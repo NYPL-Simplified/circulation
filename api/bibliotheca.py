@@ -262,8 +262,6 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         """
         url = "/items/" + ",".join(identifiers)
         response = self.request(url)
-        if not response:
-            return None
         return response.content
 
     def bibliographic_lookup(self, identifiers):
@@ -273,7 +271,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         :param identifiers: A list containing either Identifier
             objects or Bibliotheca identifier strings.
         """
-        if isinstance(identifiers, Identifier) or isinstance(identifiers, basestring):
+        if any(isinstance(identifiers, x) for x in (Identifier, basestring)):
             identifiers = [identifiers]
         identifier_strings = []
         for i in identifiers:
@@ -282,10 +280,8 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             identifier_strings.append(i)
 
         data = self.bibliographic_lookup_request(identifier_strings)
-        response = list(self.item_list_parser.parse(data))
-        if response:
-            for metadata in response:
-                yield metadata
+        for metadata in self.item_list_parser.parse(data):
+            yield metadata
 
     def _request_with_timeout(self, method, url, *args, **kwargs):
         """This will be overridden in MockBibliothecaAPI."""

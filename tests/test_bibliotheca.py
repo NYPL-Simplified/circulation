@@ -199,13 +199,60 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         headers = request[-1]['headers']
         assert headers['3mcl-Authorization'] != expect
 
+    def test_bibliographic_lookup_request(self):
+        self.api.queue_response(200, content="some data")
+        response = self.api.bibliographic_lookup_request(["id1", "id2"])
+        [[request]] = [self.api.requests]
+        url = request[1]
+
+        # The IDs are concatenated.
+        assert url.endswith("/items/id1,id2")
+
+        # The response string is returned directly.
+        eq_("some data", response)
+
     def test_bibliographic_lookup(self):
-        data = self.sample_data("item_metadata_single.xml")
-        metadata = []
-        self.api.queue_response(200, content=data)
+
+        class MockItemListParser(object):
+            def parse(self, data):
+                self.parse_called_with = data
+                yield "item1"
+                yield "item2"
+
+        class Mock(MockBibliothecaAPI):
+            """Mock the functionality used by bibliographic_lookup_request."""
+            def __init__(self):
+                self.item_list_parser = MockItemListParser()
+
+            def bibliographic_lookup_request(self, identifier_strings):
+                self.bibliographic_lookup_request_called_with = identifier_strings
+                return "parse me"
+        api = Mock()
+
         identifier = self._identifier()
-        metadata = self.api.bibliographic_lookup(identifier)
-        eq_("The Incense Game", metadata.title)
+        # We can pass in a list of identifier strings, a list of
+        # Identifier objects, or a single example of each:
+        for identifier, identifier_string in (
+                ("id1", "id1"),
+                (identifier, identifier.identifier)
+        ):
+            for identifier_list in ([identifier], identifier):
+                api.item_list_parser.parse_called_with = None
+
+                results = list(api.bibliographic_lookup(identifier_list))
+
+                # A list of identifier strings is passed into
+                # bibliographic_lookup_request().
+                eq_(
+                    [identifier_string],
+                    api.bibliographic_lookup_request_called_with
+                )
+
+                # The response content is passed into parse()
+                eq_("parse me", api.item_list_parser.parse_called_with)
+
+                # The results of parse() are yielded.
+                eq_(["item1", "item2"], results)
 
     def test_bad_response_raises_exception(self):
         self.api.queue_response(500, content="oops")
