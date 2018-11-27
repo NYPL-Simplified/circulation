@@ -219,6 +219,13 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             path = "/cirrus/library/%s%s" % (self.library_id, path)
         return path
 
+    @classmethod
+    def replacement_policy(cls, _db, analytics=None):
+        policy = ReplacementPolicy.from_license_source(_db)
+        if analytics:
+            policy.analytics = analytics
+        return policy
+
     def request(self, path, body=None, method="GET", identifier=None,
                 max_age=None):
         path = self.full_path(path)
@@ -1154,7 +1161,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
             self.api = api_class
         else:
             self.api = api_class(_db, collection)
-        self.replacement_policy = ReplacementPolicy.from_license_source(_db)
+        self.replacement_policy = BibliothecaAPI.replacement_policy(_db)
         self.analytics = self.replacement_policy.analytics
 
     def process_items(self, identifiers):
@@ -1262,8 +1269,11 @@ class BibliothecaEventMonitor(CollectionMonitor):
             self.api = api_class
         else:
             self.api = api_class(_db, collection)
+        self.replacement_policy = BibliothecaAPI.replacement_policy(
+            _db, self.analytics
+        )
         self.bibliographic_coverage_provider = BibliothecaBibliographicCoverageProvider(
-            collection, self.api
+            collection, self.api, replacement_policy=self.replacement_policy
         )
         if cli_date:
             self.default_start_time = self.create_default_start_time(

@@ -579,9 +579,8 @@ class TestBibliothecaAPI(BibliothecaAPITest):
 class TestBibliothecaCirculationSweep(BibliothecaAPITest):
 
     def test_circulation_sweep_discovers_work(self):
-        """Test what happens when BibliothecaCirculationSweep discovers a new
-        work.
-        """
+        # Test what happens when BibliothecaCirculationSweep discovers a new
+        # work.
 
         # Create an analytics integration so we can make sure
         # events are tracked.
@@ -593,12 +592,12 @@ class TestBibliothecaCirculationSweep(BibliothecaAPITest):
 
         # We know about an identifier, but nothing else.
         identifier = self._identifier(
-            identifier_type=Identifier.BIBLIOTHECA_ID, foreign_id="d5rf89"
+            identifier_type=Identifier.BIBLIOTHECA_ID, foreign_id="ddf4gr9"
         )
 
         # We're about to get information about that identifier from
         # the API.
-        data = self.sample_data("item_circulation_single.xml")
+        data = self.sample_data("item_metadata_single.xml")
 
         # Update availability using that data.
         self.api.queue_response(200, content=data)
@@ -1016,11 +1015,13 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         eq_(1, pool.licenses_owned)
         eq_(1, pool.licenses_available)
 
-        # Three analytics events were collected: one for the license add
+        # Four analytics events were collected: one for the license add
         # event itself, one for the 'checkin' that made the new
-        # license available, and one for the first appearance of a new
-        # LicensePool.
-        eq_(3, analytics.count)
+        # license available, one for the first appearance of a new
+        # LicensePool, and a redundant 'license add' event
+        # which was registered with analytics but which did not
+        # affect the counts.
+        eq_(4, analytics.count)
 
 
 class TestItemListParser(BibliothecaAPITest):
