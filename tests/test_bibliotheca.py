@@ -301,9 +301,8 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         )
 
     def test_update_availability(self):
-        """Test the Bibliotheca implementation of the update_availability
-        method defined by the CirculationAPI interface.
-        """
+        # Test the Bibliotheca implementation of the update_availability
+        # method defined by the CirculationAPI interface.
 
         # Create an analytics integration so we can make sure
         # events are tracked.
@@ -330,10 +329,10 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         eq_(None, pool.last_checked)
 
         # Prepare availability information.
-        data = self.sample_data("item_circulation_single.xml")
+        data = self.sample_data("item_metadata_single.xml")
         # Change the ID in the test data so it looks like it's talking
         # about the LicensePool we just created.
-        data = data.replace("d5rf89", pool.identifier.identifier)
+        data = data.replace("ddf4gr9", pool.identifier.identifier)
 
         # Update availability using that data.
         self.api.queue_response(200, content=data)
@@ -359,7 +358,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         # Now let's try update_availability again, with a file that
         # makes it look like the book has been removed from the
         # collection.
-        data = self.sample_data("empty_item_circulation.xml")
+        data = self.sample_data("empty_item_bibliographic.xml")
         self.api.queue_response(200, content=data)
 
         self.api.update_availability(pool)
@@ -544,7 +543,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             encrypted['scheme'])
         eq_(u'abcdef01234789abcdef0123', encrypted[u'findaway:checkoutId'])
         eq_(u'1234567890987654321ababa', encrypted[u'findaway:licenseId'])
-        eq_(u'Bibliotheca', encrypted[u'findaway:accountId'])
+        eq_(u'3M', encrypted[u'findaway:accountId'])
         eq_(u'123456', encrypted[u'findaway:fulfillmentId'])
         eq_(u'aaaaaaaa-4444-cccc-dddd-666666666666',
             encrypted[u'findaway:sessionKey'])
@@ -1150,9 +1149,8 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
         assert isinstance(provider.api, MockBibliothecaAPI)
 
     def test_process_item_creates_presentation_ready_work(self):
-        """Test the normal workflow where we ask Bibliotheca for data,
-        Bibliotheca provides it, and we create a presentation-ready work.
-        """
+        # Test the normal workflow where we ask Bibliotheca for data,
+        # Bibliotheca provides it, and we create a presentation-ready work.
         identifier = self._identifier(identifier_type=Identifier.BIBLIOTHECA_ID)
         identifier.identifier = 'ddf4gr9'
 
@@ -1172,12 +1170,11 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
         [result] = provider.process_batch([identifier])
         eq_(identifier, result)
 
-        # A LicensePool was created, not because we know anything
-        # about how we've licensed this book, but to have a place to
-        # store the information about what formats the book is
-        # available in.
+        # A LicensePool was created and populated with format and availability
+        # information.
         [pool] = identifier.licensed_through
-        eq_(0, pool.licenses_owned)
+        eq_(1, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
         [lpdm] = pool.delivery_mechanisms
         eq_(
             'application/epub+zip (application/vnd.adobe.adept+xml)',

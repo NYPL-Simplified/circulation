@@ -280,8 +280,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             identifier_strings.append(i)
 
         data = self.bibliographic_lookup_request(identifier_strings)
-        for metadata in self.item_list_parser.parse(data):
-            yield metadata
+        return [metadata for metadata in self.item_list_parser.parse(data)]
 
     def _request_with_timeout(self, method, url, *args, **kwargs):
         """This will be overridden in MockBibliothecaAPI."""
@@ -1450,4 +1449,5 @@ class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
             return self.failure(
                 identifier, "Bibliotheca bibliographic lookup failed."
             )
+        [metadata] = metadata
         return self.set_metadata(identifier, metadata)
