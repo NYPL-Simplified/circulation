@@ -1935,4 +1935,3 @@ class StaticFileController(CirculationManagerController):
     def image(self, filename):
         directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
         return self.static_file(directory, filename)
-    
