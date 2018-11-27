@@ -56,7 +56,6 @@ from api.circulation_exceptions import *
 from api.bibliotheca import (
     BibliothecaCirculationSweep,
     CheckoutResponseParser,
-    CirculationParser,
     ErrorParser,
     EventParser,
     MockBibliothecaAPI,
@@ -810,81 +809,6 @@ class Test3MEventParser(object):
         correct_end = datetime(2014, 4, 2, 23, 57, 37)
         eq_(correct_start, start_time)
         eq_(correct_end, end_time)
-
-
-class Test3MCirculationParser(object):
-
-    # Sample circulation feed for testing the parser.
-
-    TWO_CIRCULATION_STATUSES = """
-<ArrayOfItemCirculation xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-<ItemCirculation>
-  <ItemId>item1</ItemId>
-  <ISBN13>900isbn1</ISBN13>
-  <TotalCopies>2</TotalCopies>
-  <AvailableCopies>0</AvailableCopies>
-  <Checkouts>
-    <Patron>
-      <PatronId>patron1</PatronId>
-      <EventStartDateInUTC>2014-03-24T13:10:51</EventStartDateInUTC>
-      <EventEndDateInUTC>2014-04-15T13:10:51</EventEndDateInUTC>
-      <Position>1</Position>
-    </Patron>
-  </Checkouts>
-  <Holds/>
-  <Reserves>
-    <Patron>
-      <PatronId>patron2</PatronId>
-      <EventStartDateInUTC>2014-03-24T13:10:51</EventStartDateInUTC>
-      <EventEndDateInUTC>2014-04-15T13:10:51</EventEndDateInUTC>
-      <Position>1</Position>
-    </Patron>
-  </Reserves>
-</ItemCirculation>
-
-<ItemCirculation>
-  <ItemId>item2</ItemId>
-  <ISBN13>900isbn2</ISBN13>
-  <TotalCopies>1</TotalCopies>
-  <AvailableCopies>0</AvailableCopies>
-  <Checkouts>
-    <Patron>
-      <PatronId>patron3</PatronId>
-      <EventStartDateInUTC>2014-04-23T22:14:02</EventStartDateInUTC>
-      <EventEndDateInUTC>2014-05-14T22:14:02</EventEndDateInUTC>
-      <Position>1</Position>
-    </Patron>
-  </Checkouts>
-  <Holds>
-    <Patron>
-      <PatronId>patron4</PatronId>
-      <EventStartDateInUTC>2014-04-24T18:10:44</EventStartDateInUTC>
-      <EventEndDateInUTC>2014-04-24T18:11:02</EventEndDateInUTC>
-      <Position>1</Position>
-    </Patron>
-  </Holds>
-  <Reserves/>
-</ItemCirculation>
-</ArrayOfItemCirculation>
-"""
-
-    def test_parse_circulation_batch(self):
-        event1, event2 = CirculationParser().process_all(
-            self.TWO_CIRCULATION_STATUSES)
-
-        eq_('item1', event1[Identifier][Identifier.THREEM_ID])
-        eq_('900isbn1', event1[Identifier][Identifier.ISBN])
-        eq_(2, event1[LicensePool.licenses_owned])
-        eq_(0, event1[LicensePool.licenses_available])
-        eq_(1, event1[LicensePool.licenses_reserved])
-        eq_(0, event1[LicensePool.patrons_in_hold_queue])
-
-        eq_('item2', event2[Identifier][Identifier.THREEM_ID])
-        eq_('900isbn2', event2[Identifier][Identifier.ISBN])
-        eq_(1, event2[LicensePool.licenses_owned])
-        eq_(0, event2[LicensePool.licenses_available])
-        eq_(0, event2[LicensePool.licenses_reserved])
-        eq_(1, event2[LicensePool.patrons_in_hold_queue])
 
 
 class TestErrorParser(object):

@@ -280,7 +280,7 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             if isinstance(i, Identifier):
                 i = i.identifier
             identifier_strings.append(i)
-        
+
         data = self.bibliographic_lookup_request(identifier_strings)
         response = list(self.item_list_parser.parse(data))
         if response:
