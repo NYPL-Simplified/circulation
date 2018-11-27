@@ -187,7 +187,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         headers = request[-1]['headers']
         eq_('Fri, 01 Jan 2016 00:00:00 GMT', headers['3mcl-Datetime'])
         eq_('2.0', headers['3mcl-Version'])
-        expect = 'BibliothecaCLAUTH a:HZHNGfn6WVceakGrwXaJQ9zIY0Ai5opGct38j9/bHrE='
+        expect = '3MCLAUTH a:HZHNGfn6WVceakGrwXaJQ9zIY0Ai5opGct38j9/bHrE='
         eq_(expect, headers['3mcl-Authorization'])
 
         # Tweak one of the variables that go into the signature, and
