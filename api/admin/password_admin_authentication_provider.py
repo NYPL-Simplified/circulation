@@ -8,18 +8,20 @@ from core.model import (
     Session,
 )
 from problem_details import *
+from template_styles import *
 
 class PasswordAdminAuthenticationProvider(AdminAuthenticationProvider):
 
     NAME = "Password Auth"
 
     TEMPLATE = """
+
 <form action="%(password_sign_in_url)s" method="post">
 <input type="hidden" name="redirect" value="%(redirect)s"/>
-<label>Email <input type="text" name="email" /></label>
-<label>Password <input type="password" name="password" /></label>
-<button type="submit">Sign In</button>
-</form>"""
+<label style="{}">Email <input type="text" name="email" style="{}" /></label>
+<label style="{}">Password <input type="password" name="password" style="{}" /></label>
+<button type="submit" style="{}">Sign In</button>
+</form>""".format(label_style, input_style, label_style, input_style, button_style)
 
     def sign_in_template(self, redirect):
         password_sign_in_url = url_for("password_auth")

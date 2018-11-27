@@ -115,6 +115,7 @@ from api.odl import ODLWithConsolidatedCopiesAPI, SharedODLAPI
 from core.local_analytics_provider import LocalAnalyticsProvider
 
 from api.adobe_vendor_id import AuthdataUtility
+from api.admin.template_styles import *
 
 from core.selftest import HasSelfTests
 
@@ -376,7 +377,7 @@ class SignInController(AdminController):
     ERROR_RESPONSE_TEMPLATE = """<!DOCTYPE HTML>
 <html lang="en">
 <head><meta charset="utf8"></head>
-</body>
+<body>
 <p><strong>%(status_code)d ERROR:</strong> %(message)s</p>
 </body>
 </html>"""
@@ -384,12 +385,12 @@ class SignInController(AdminController):
     SIGN_IN_TEMPLATE = """<!DOCTYPE HTML>
 <html lang="en">
 <head><meta charset="utf8"></head>
-<body>
+<body style="{}">
 %(auth_provider_html)s
 </body>
-</html>"""
+</html>""".format(body_style)
 
-
+# style="margin:20px auto; font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:20px; width:50vw; color:#403d37; border:1px solid #DDD;"
     def sign_in(self):
         """Redirects admin if they're signed in, or shows the sign in page."""
         if not self.admin_auth_providers:
