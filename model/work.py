@@ -1086,15 +1086,25 @@ class Work(Base):
         """
         self.external_index_needs_updating()
 
-    def needs_presentation_recalculation(self):
-        """Mark this work as needing to have its presentation
-        recalculated. This shifts the time spent recalculating
-        presentation to a script dedicated to this purpose, rather
-        than a script that interacts with APIs. It's also more
-        efficient, since a work might be flagged multiple times before
-        we actually get around to recalculating the presentation.
+    def needs_full_presentation_recalculation(self):
+        """Mark this work as needing to have its presentation completely
+        recalculated.
+
+        This shifts the time spent recalculating presentation to a
+        script dedicated to this purpose, rather than a script that
+        interacts with APIs. It's also more efficient, since a work
+        might be flagged multiple times before we actually get around
+        to recalculating the presentation.
         """
         return self._reset_coverage(WorkCoverageRecord.CLASSIFY_OPERATION)
+
+    def needs_presentation_edition_recalculation(self):
+        """Mark this work as needing to have its presentation edition
+        regenerated. This is significantly less work than
+        calling needs_full_presentation_recalculation, but it will
+        not update a Work's quality score, summary, or genre classification.
+        """
+        return self._reset_coverage(WorkCoverageRecord.CHOOSE_EDITION_OPERATION)
 
     def set_presentation_ready(
         self, as_of=None, search_index_client=None, exclude_search=False
