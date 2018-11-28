@@ -1364,8 +1364,8 @@ class WorkPresentationEditionCoverageProvider(WorkPresentationProvider):
     This basically means comparing all the Editions associated with the
     Work and building a composite Edition.
 
-    Expensive operations -- calculating work quality, summary, and presentation
-    -- are reserved for WorkClassificationCoverageProvider
+    Expensive operations -- calculating work quality, summary, and genre
+    classification -- are reserved for WorkClassificationCoverageProvider
     """
     SERVICE_NAME = 'Calculated presentation coverage provider'
 
