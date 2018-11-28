@@ -15,13 +15,12 @@ class PasswordAdminAuthenticationProvider(AdminAuthenticationProvider):
     NAME = "Password Auth"
 
     TEMPLATE = """
-
 <form action="%(password_sign_in_url)s" method="post">
 <input type="hidden" name="redirect" value="%(redirect)s"/>
-<label style="{}">Email <input type="text" name="email" style="{}" /></label>
-<label style="{}">Password <input type="password" name="password" style="{}" /></label>
-<button type="submit" style="{}">Sign In</button>
-</form>""".format(label_style, input_style, label_style, input_style, button_style)
+<label style="{label}">Email <input type="text" name="email" style="{input}" /></label>
+<label style="{label}">Password <input type="password" name="password" style="{input}" /></label>
+<button type="submit" style="{button}">Sign In</button>
+</form>""".format(label=label_style, input=input_style, button=button_style)
 
     def sign_in_template(self, redirect):
         password_sign_in_url = url_for("password_auth")

@@ -386,11 +386,11 @@ class SignInController(AdminController):
 <html lang="en">
 <head><meta charset="utf8"></head>
 <body style="{}">
+<h1>Library Simplified</h1>
 %(auth_provider_html)s
 </body>
 </html>""".format(body_style)
 
-# style="margin:20px auto; font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:20px; width:50vw; color:#403d37; border:1px solid #DDD;"
     def sign_in(self):
         """Redirects admin if they're signed in, or shows the sign in page."""
         if not self.admin_auth_providers:
@@ -401,7 +401,12 @@ class SignInController(AdminController):
         if isinstance(admin, ProblemDetail):
             redirect_url = flask.request.args.get("redirect")
             auth_provider_html = [auth.sign_in_template(redirect_url) for auth in self.admin_auth_providers]
-            auth_provider_html = "<br/><hr/>or<br/><br/>".join(auth_provider_html)
+            auth_provider_html = """
+                <section style="{section}">
+                <hr style="{hr}">or<hr style="{hr}">
+                </section>
+            """.format(section=section_style, hr=hr_style).join(auth_provider_html)
+
             html = self.SIGN_IN_TEMPLATE % dict(
                 auth_provider_html=auth_provider_html
             )
