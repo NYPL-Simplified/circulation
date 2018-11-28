@@ -1099,7 +1099,7 @@ class Work(Base):
         """
         return self._reset_coverage(WorkCoverageRecord.CLASSIFY_OPERATION)
 
-    def needs_presentation_edition_recalculation(self):
+    def needs_new_presentation_edition(self):
         """Mark this work as needing to have its presentation edition
         regenerated. This is significantly less work than
         calling needs_full_presentation_recalculation, but it will

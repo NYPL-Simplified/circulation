@@ -1429,7 +1429,17 @@ class Metadata(MetaToModelUtility):
         so work.simple_opds_feed refresh can be triggered.
         """
         _db = Session.object_session(edition)
-        made_core_changes = False
+
+        # If summary, subjects, or measurements change, then any Work
+        # associated with this edition will need a full presentation
+        # recalculation.
+        work_requires_full_recalculation = False
+
+        # If any other data changes, then any Work associated with
+        # this edition will need to have its presentation edition
+        # regenerated, but we can do it on the cheap.
+        work_requires_new_presentation_edition = False
+
         if replace is None:
             replace = ReplacementPolicy(
                 identifiers=replace_identifiers,
@@ -1483,15 +1493,14 @@ class Metadata(MetaToModelUtility):
                 if new_metadata_value in [NO_VALUE, NO_NUMBER]:
                     new_metadata_value = None
                 setattr(edition, field, new_metadata_value)
-                made_core_changes = True
-
+                work_requires_new_presentation_edition = True
 
         # Create equivalencies between all given identifiers and
         # the edition's primary identifier.
         contributors_changed = self.update_contributions(_db, edition,
                                   metadata_client, replace.contributions)
         if contributors_changed:
-            made_core_changes = True
+            work_requires_new_presentation_edition = True
 
         # TODO: remove equivalencies when replace.identifiers is True.
         if self.identifiers is not None:
@@ -1529,6 +1538,7 @@ class Metadata(MetaToModelUtility):
                         # The data source has stopped claiming that
                         # this classification should exist.
                         _db.delete(classification)
+                        work_requires_full_recalculation = True
                     else:
                         # The data source maintains that this
                         # classification is a good idea. We don't have
@@ -1546,6 +1556,7 @@ class Metadata(MetaToModelUtility):
             identifier.classify(
                 data_source, subject.type, subject.identifier,
                 subject.name, weight=subject.weight)
+            work_requires_full_recalculation = True
 
         # Associate all links with the primary identifier.
         if replace.links and self.links is not None:
@@ -1587,6 +1598,8 @@ class Metadata(MetaToModelUtility):
                     original_resource=original_resource,
                     transformation_settings=link.transformation_settings,
                 )
+                work_requires_new_presentation_edition = True
+
             link_objects[link] = link_obj
             if link.thumbnail:
                 if link.thumbnail.rel == Hyperlink.THUMBNAIL_IMAGE:
@@ -1597,6 +1610,7 @@ class Metadata(MetaToModelUtility):
                         media_type=thumbnail.guessed_media_type,
                         content=thumbnail.content
                     )
+                    work_requires_new_presentation_edition = True
                     if (thumbnail_obj.resource
                         and thumbnail_obj.resource.representation):
                         thumbnail_obj.resource.representation.thumbnail_of = (
@@ -1618,6 +1632,7 @@ class Metadata(MetaToModelUtility):
 
         # Apply all measurements to the primary identifier
         for measurement in self.measurements:
+            work_requires_full_recalculation = True
             identifier.add_measurement(
                 data_source, measurement.quantity_measured,
                 measurement.value, measurement.weight,
@@ -1637,7 +1652,7 @@ class Metadata(MetaToModelUtility):
                 )
                 edition.sort_author = primary_author.sort_name
                 edition.display_author = primary_author.display_name
-                made_core_changes = True
+                work_requires_new_presentation_edition = True
 
         # The Metadata object may include a CirculationData object which
         # contains information about availability such as open-access
@@ -1673,7 +1688,7 @@ class Metadata(MetaToModelUtility):
             policy=replace.presentation_calculation_policy
         )
         if made_changes:
-            made_core_changes = True
+            work_requires_new_presentation_edition = True
 
         # The metadata wrangler doesn't need information from these data sources.
         # We don't need to send it information it originally provided, and
@@ -1687,7 +1702,7 @@ class Metadata(MetaToModelUtility):
             DataSource.BIBLIOTHECA,
             DataSource.AXIS_360,
         ]
-        if made_core_changes and (not data_source.integration_client) and (data_source.name not in METADATA_UPLOAD_BLACKLIST):
+        if work_requires_new_presentation_edition and (not data_source.integration_client) and (data_source.name not in METADATA_UPLOAD_BLACKLIST):
             # Create a transient failure CoverageRecord for this edition
             # so it will be processed by the MetadataUploadCoverageProvider.
             internal_processing = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
@@ -1702,15 +1717,31 @@ class Metadata(MetaToModelUtility):
                                        operation=CoverageRecord.METADATA_UPLOAD_OPERATION,
                                        status=CoverageRecord.TRANSIENT_FAILURE)
 
-        # Finally, update the coverage record for this edition
-        # and data source. We omit the collection information,
-        # even if we know which collection this is, because
-        # we only changed metadata.
+        # Update the coverage record for this edition and data
+        # source. We omit the collection information, even if we know
+        # which collection this is, because we only changed metadata.
         CoverageRecord.add_for(
             edition, data_source, timestamp=self.data_source_last_updated,
             collection=None
         )
-        return edition, made_core_changes
+
+        if work_requires_full_recalculation or work_requires_new_presentation_edition:
+            # If there is a Work associated with the Edition's primary
+            # identifier, mark it for recalculation.
+
+            # Any LicensePool will do here, since all LicensePools for
+            # a given Identifier have the same Work.
+            pool = get_one(
+                self._db, LicensePool, identifier=edition.primary_identifier,
+                on_multiple='interchangeable'
+            )
+            if pool.work:
+                if work_requires_full_recalculation:
+                    work.needs_full_presentation_recalculation()
+                else:
+                    work.needs_new_presentation_edition()
+
+        return edition, work_requires_new_presentation_edition
 
 
     def make_thumbnail(self, data_source, link, link_obj):
