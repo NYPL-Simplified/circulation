@@ -41,6 +41,7 @@ from model import (
     Identifier,
     LicensePool,
     LicensePoolDeliveryMechanism,
+    LinkRelations,
     Subject,
     Hyperlink,
     PresentationCalculationPolicy,
@@ -1405,6 +1406,10 @@ class Metadata(MetaToModelUtility):
                     success = True
         return success
 
+    REL_REQUIRES_NEW_PRESENTATION_EDITION = [
+        LinkRelations.IMAGE, LinkRelations.THUMBNAIL_IMAGE
+    ]
+    REL_REQUIRES_FULL_RECALCULATION = [LinkRelations.DESCRIPTION]
 
     # TODO: We need to change all calls to apply() to use a ReplacementPolicy
     # instead of passing in individual `replace` arguments. Once that's done,
@@ -1598,7 +1603,10 @@ class Metadata(MetaToModelUtility):
                     original_resource=original_resource,
                     transformation_settings=link.transformation_settings,
                 )
-                work_requires_new_presentation_edition = True
+                if link.rel in self.REL_REQUIRES_NEW_PRESENTATION_EDITION:
+                    work_requires_new_presentation_edition = True
+                elif link.rel in self.REL_REQUIRES_FULL_RECALCULATION:
+                    work_requires_full_recalculation = True
 
             link_objects[link] = link_obj
             if link.thumbnail:
