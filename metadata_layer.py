@@ -1735,7 +1735,8 @@ class Metadata(MetaToModelUtility):
                 _db, LicensePool, identifier=edition.primary_identifier,
                 on_multiple='interchangeable'
             )
-            if pool.work:
+            if pool and pool.work:
+                work = pool.work
                 if work_requires_full_recalculation:
                     work.needs_full_presentation_recalculation()
                 else:

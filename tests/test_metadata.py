@@ -38,6 +38,8 @@ from ..model import (
     Representation,
     RightsStatus,
     Subject,
+    Work,
+    WorkCoverageRecord,
 )
 
 from . import (
@@ -997,6 +999,47 @@ class TestMetadata(DatabaseTest):
         edition_new, changed = metadata.apply(edition_new, pool.collection)
         eq_(changed, True)
         eq_(edition_new.series_position, 0)
+
+        # Metadata.apply() does not create a Work if no Work exists.
+        eq_(0, self._db.query(Work).count())
+
+    def test_apply_wipes_presentation_calculation_records(self):
+        # We have a work.
+        work = self._work(title="The Wrong Title", with_license_pool=True)
+
+        # We learn some more information about the work's identifier.
+        metadata = Metadata(
+            data_source=DataSource.OVERDRIVE,
+            primary_identifier=work.presentation_edition.primary_identifier,
+            title=u"The Harry Otter and the Seaweed of Ages",
+        )
+        edition, ignore = metadata.edition(self._db)
+        metadata.apply(edition, None)
+
+        # The work still has the wrong title.
+        eq_("The Wrong Title", work.title)
+
+        # However, the work is now slated to have its presentation
+        # edition recalculated -- that will fix it.
+        [record] = [
+            x for x in work.coverage_records
+            if x.operation == WorkCoverageRecord.CHOOSE_EDITION_OPERATION
+        ]
+        eq_(WorkCoverageRecord.REGISTERED, record.status)
+
+        # We then learn about a subject under which the work
+        # is classified.
+        metadata.title = None
+        metadata.subjects = [SubjectData(Subject.TAG, "subject")]
+        metadata.apply(edition, None)
+
+        # The work is now slated to have its presentation completely
+        # recalculated.
+        [record] = [
+            x for x in work.coverage_records
+            if x.operation == WorkCoverageRecord.CLASSIFY_OPERATION
+        ]
+        eq_(WorkCoverageRecord.REGISTERED, record.status)
 
     def test_apply_identifier_equivalency(self):
 
