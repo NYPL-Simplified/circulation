@@ -210,11 +210,11 @@ class TestBibliothecaAPI(BibliothecaAPITest):
     def test_bibliographic_lookup_request(self):
         self.api.queue_response(200, content="some data")
         response = self.api.bibliographic_lookup_request(["id1", "id2"])
-        [[request]] = [self.api.requests]
+        [request] = self.api.requests
         url = request[1]
 
-        # The IDs are concatenated.
-        assert url.endswith("/items/id1,id2")
+        # The request URL is the /items endpoint with the IDs concatenated.
+        eq_(url, self.api.full_url("items") + "/id1,id2")
 
         # The response string is returned directly.
         eq_("some data", response)
@@ -629,6 +629,11 @@ class TestBibliothecaCirculationSweep(BibliothecaAPITest):
             self._db, self.collection, api_class=self.api
         )
         monitor.process_items([identifier])
+
+        # Validate that the HTTP request went to the /items endpoint.
+        request = self.api.requests.pop()
+        url = request[1]
+        eq_(url, self.api.full_url("items") + "/" + identifier.identifier)
 
         # A LicensePool has been created for the previously mysterious
         # identifier.

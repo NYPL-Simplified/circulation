@@ -107,8 +107,6 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
     AUTHORIZATION_HEADER = "3mcl-Authorization"
     VERSION_HEADER = "3mcl-Version"
 
-    MAX_METADATA_AGE = timedelta(days=180)
-
     log = logging.getLogger("Bibliotheca API")
 
     DEFAULT_VERSION = "2.0"
@@ -1223,19 +1221,8 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
                     library, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD,
                     datetime.utcnow()
                 )
-        edition, changed = metadata.apply(edition, collection=self.collection,
-                                          replace=self.replacement_policy)
-        if changed:
-            # Bibliotheca's metadata for this work has changed.
-            work = pool.work
-            if work:
-                # The work's presentation will be completely
-                # recalculated the next time work_classification runs.
-                WorkCoverageRecord.add_for(
-                    work, WorkCoverageRecord.CLASSIFY_OPERATION,
-                    status=WorkCoverageRecord.REGISTERED
-                )
-
+        edition, ignore = metadata.apply(edition, collection=self.collection,
+                                         replace=self.replacement_policy)
 
 class BibliothecaEventMonitor(CollectionMonitor):
 
