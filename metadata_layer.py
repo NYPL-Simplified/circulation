@@ -1732,7 +1732,7 @@ class Metadata(MetaToModelUtility):
             # Any LicensePool will do here, since all LicensePools for
             # a given Identifier have the same Work.
             pool = get_one(
-                self._db, LicensePool, identifier=edition.primary_identifier,
+                _db, LicensePool, identifier=edition.primary_identifier,
                 on_multiple='interchangeable'
             )
             if pool.work:
