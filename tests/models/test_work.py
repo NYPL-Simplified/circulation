@@ -1064,7 +1064,7 @@ class TestWork(DatabaseTest):
         for method, operation in (
             (work.needs_full_presentation_recalculation,
              WCR.CLASSIFY_OPERATION),
-            (work.needs_presentation_edition_recalculation,
+            (work.needs_new_presentation_edition,
              WCR.CHOOSE_EDITION_OPERATION),
             (work.external_index_needs_updating,
              WCR.UPDATE_SEARCH_INDEX_OPERATION)
