@@ -1068,6 +1068,7 @@ class Work(Base):
         record, is_new = WorkCoverageRecord.add_for(
             self, operation=operation, status=CoverageRecord.REGISTERED
         )
+        return record
 
     def external_index_needs_updating(self):
         """Mark this work as needing to have its search document reindexed.
