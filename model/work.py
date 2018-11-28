@@ -966,6 +966,11 @@ class Work(Base):
                 representation = repr(self)
             logging.info("Presentation %s for work: %s", changed, representation)
 
+        # We want works to be presentation-ready as soon as possible,
+        # unless they are missing crucial information like language or
+        # title.
+        self.set_presentation_ready_based_on_content()
+
     @property
     def detailed_representation(self):
         """A description of this work more detailed than repr()"""

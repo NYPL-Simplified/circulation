@@ -155,6 +155,7 @@ class TestWork(DatabaseTest):
         # - there can be only one edition that thinks it's the presentation edition for this work.
         # - time stamps are stamped.
         # - higher-standard sources (library staff) can replace, but not delete, authors.
+        # - works are made presentation-ready as soon as possible
 
         gutenberg_source = DataSource.GUTENBERG
         gitenberg_source = DataSource.PROJECT_GITENBERG
@@ -317,6 +318,23 @@ class TestWork(DatabaseTest):
         # The author of the Work is still the author of edition2 and was not clobbered.
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
+
+    def test_calculate_presentation_sets_presentation_ready_based_on_content(self):
+
+        # This work is incorrectly presentation-ready; its presentation
+        # edition has no language.
+        work = self._work(with_license_pool=True)
+        edition = work.presentation_edition
+        edition.language = None
+
+        eq_(True, work.presentation_ready)
+        work.calculate_presentation()
+        eq_(False, work.presentation_ready)
+
+        # Give it a language, and it becomes presentation-ready again.
+        edition.language = "eng"
+        work.calculate_presentation()
+        eq_(True, work.presentation_ready)
 
     def test_set_presentation_ready(self):
 
