@@ -1044,19 +1044,28 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         LicensePool to use is provided.) This method will not create
         new LicensePools.
 
+        If the work is newly created or an existing work is not
+        presentation-ready, a new Work will be created by calling
+        LicensePool.calculate_work(). If there is an existing
+        presentation-ready work, calculate_work() will not be called;
+        instead, the work will be slated for recalculation when its
+        metadata changes through Metadata.apply().
+
+        :param calculate_work_kwargs: Keyword arguments to pass into
+            calculate_work() if and when it is called.
+
         :return: A Work, if possible. Otherwise, a CoverageFailure explaining
         why no Work could be created.
+
         """
         work = identifier.work
-        if work:
-            # There is already a Work associated with this Identifier.
-            # Return it.
-            return identifier.work
+        if work and work.presentation_ready:
+            # There is already a presentation-ready Work associated
+            # with this Identifier.  Return it.
+            return work
 
-        # There is no Work associated with this Identifier. This means
-        # we need to create one. Since we can only create a Work from
-        # a LicensePool, beyond this point the CoverageProvider
-        # needs to have a Collection associated with it.
+        # There is no presentation-ready Work associated with this
+        # Identifier. We need to create one, if possible.
         error = None
         if not license_pool:
             license_pool, ignore = LicensePool.for_foreign_id(
@@ -1066,14 +1075,20 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             )
 
         if license_pool:
-            for (v, default) in (
-                ('exclude_search', self.EXCLUDE_SEARCH_INDEX),
-            ):
-                if not v in calculate_work_kwargs:
-                    calculate_work_kwargs[v] = default
-            work, created = license_pool.calculate_work(
-                **calculate_work_kwargs
-            )
+            if (not license_pool.work
+                or not license_pool.work.presentation_ready):
+                for (v, default) in (
+                    ('exclude_search', self.EXCLUDE_SEARCH_INDEX),
+                ):
+                    if not v in calculate_work_kwargs:
+                        calculate_work_kwargs[v] = default
+
+                # Calling calculate_work will calculate the work's
+                # presentation and make it presentation-ready if
+                # possible.
+                work, created = license_pool.calculate_work(
+                    **calculate_work_kwargs
+                )
             if not work:
                 error = "Work could not be calculated"
         else:

@@ -629,12 +629,16 @@ class OPDSImporter(object):
         return edition
 
     def update_work_for_edition(self, edition):
+        """If possible, ensure that there is a presentation-ready Work for the
+        given edition's primary identifier.
+        """
         work = None
 
-        # Find a pool for this edition's primary identifier. Any
-        # LicensePool will do--the collection doesn't have to match,
-        # since all LicensePools for a given identifier have the same
-        # Work. If we have CirculationData, a pool was created when we
+        # Find a LicensePool for the primary identifier. Any LicensePool will
+        # do--the collection doesn't have to match, since all
+        # LicensePools for a given identifier have the same Work.
+        #
+        # If we have CirculationData, a pool was created when we
         # imported the edition. If there was already a pool from a
         # different data source or a different collection, that's fine
         # too.
@@ -643,18 +647,16 @@ class OPDSImporter(object):
             on_multiple='interchangeable'
         )
 
-        if pool:
-            # Note: pool.calculate_work will call self.set_presentation_edition(),
-            # which will find editions attached to same Identifier.
-            work, is_new_work = pool.calculate_work()
-            # Note: if pool.calculate_work found or made a work, it already called work.calculate_presentation()
-            if work:
-                # We want this book to be presentation-ready
-                # immediately upon import. As long as no crucial
-                # information is missing (like language or title),
-                # this will do it.
-                work.set_presentation_ready_based_on_content()
+        if pool and (not pool.work or not pool.work.presentation_ready):
+            # There is no presentation-ready Work for this
+            # LicensePool. Try to create one.
+            work, ignore = pool.calculate_work()
 
+        # If a presentation-ready Work already exists, there's no
+        # rush. We might have new metadata that will change the Work's
+        # presentation, but when we called Metadata.apply() the work
+        # was set up to have its presentation recalculated in the
+        # background, and that's good enough.
         return pool, work
 
     @classmethod
