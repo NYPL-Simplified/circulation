@@ -60,7 +60,7 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
     SITEWIDE = True
 
     TEMPLATE = """
-        <a style='{}' href=%(auth_uri)s>Sign In With Google</a>
+        <a style='{}' href=%(auth_uri)s>Sign in with Google</a>
     """.format(link_style)
 
     def __init__(self, integration, redirect_uri, test_mode=False):
