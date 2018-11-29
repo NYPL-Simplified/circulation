@@ -45,10 +45,10 @@ button_style = """
 """
 
 link_style = """
-    background: #008918;
+    background: #3a7dfd;
     text-align: center;
     text-decoration: none;
-    border-color: #008918;
+    border-color: #3a7dfd;
     color: #fff;
     padding: 10px;
     font-size: 1rem;
