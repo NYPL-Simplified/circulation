@@ -852,6 +852,7 @@ class OverdriveRepresentationExtractor(object):
                 for new_id in format.get('identifiers', []):
                     t = new_id['type']
                     v = new_id['value']
+                    orig_v = v
                     type_key = None
                     if t == 'ASIN':
                         type_key = Identifier.ASIN
@@ -859,11 +860,16 @@ class OverdriveRepresentationExtractor(object):
                         type_key = Identifier.ISBN
                         if len(v) == 10:
                             v = isbnlib.to_isbn13(v)
-                        if not isbnlib.is_isbn13(v):
+                        if v is None or not isbnlib.is_isbn13(v):
                             # Overdrive sometimes uses invalid values
                             # like "n/a" as placeholders. Ignore such
                             # values to avoid a situation where hundreds of
-                            # books appear to have the same ISBN.
+                            # books appear to have the same ISBN. ISBNs
+                            # which fail check digit checks or are invalid
+                            # also can occur. Log them for review.
+                            cls.log.info(
+                                "Bad ISBN value provided: %s", orig_v
+                            )
                             continue
                     elif t == 'DOI':
                         type_key = Identifier.DOI
