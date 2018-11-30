@@ -155,6 +155,7 @@ class TestWork(DatabaseTest):
         # - there can be only one edition that thinks it's the presentation edition for this work.
         # - time stamps are stamped.
         # - higher-standard sources (library staff) can replace, but not delete, authors.
+        # - works are made presentation-ready as soon as possible
 
         gutenberg_source = DataSource.GUTENBERG
         gitenberg_source = DataSource.PROJECT_GITENBERG
@@ -318,6 +319,23 @@ class TestWork(DatabaseTest):
         # The author of the Work is still the author of edition2 and was not clobbered.
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
+
+    def test_calculate_presentation_sets_presentation_ready_based_on_content(self):
+
+        # This work is incorrectly presentation-ready; its presentation
+        # edition has no language.
+        work = self._work(with_license_pool=True)
+        edition = work.presentation_edition
+        edition.language = None
+
+        eq_(True, work.presentation_ready)
+        work.calculate_presentation()
+        eq_(False, work.presentation_ready)
+
+        # Give it a language, and it becomes presentation-ready again.
+        edition.language = "eng"
+        work.calculate_presentation()
+        eq_(True, work.presentation_ready)
 
     def test_set_presentation_ready(self):
 
@@ -1036,30 +1054,47 @@ class TestWork(DatabaseTest):
         record = find_record(work)
         eq_(registered, record.status)
 
-
-    def test_update_external_index(self):
-        """Test the deprecated update_external_index method."""
+    def test_reset_coverage(self):
+        # Test the methods that reset coverage for works, indicating
+        # that some task needs to be performed again.
+        WCR = WorkCoverageRecord
         work = self._work()
         work.presentation_ready = True
-        records = [
-            x for x in work.coverage_records
-            if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
-        ]
         index = MockExternalSearchIndex()
-        work.update_external_index(index)
 
-        # A WorkCoverageRecord was created to register the work that
-        # needs to be done.
-        [record] = [
-            x for x in work.coverage_records
-            if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
-        ]
-        eq_(WorkCoverageRecord.REGISTERED, record.status)
+        # Calling _reset_coverage when there is no coverage creates
+        # a new WorkCoverageRecord in the REGISTERED state
+        operation = "an operation"
+        record = work._reset_coverage(operation)
+        eq_(WCR.REGISTERED, record.status)
 
-        # The work was not added to the search index -- that happens
-        # later, when the WorkCoverageRecord is processed.
+        # Calling _reset_coverage when the WorkCoverageRecord already
+        # exists sets the state back to REGISTERED.
+        record.state = WCR.SUCCESS
+        work._reset_coverage(operation)
+        eq_(WCR.REGISTERED, record.status)
+
+        # A number of methods with helpful names all call _reset_coverage
+        # for some specific operation.
+        def mock_reset_coverage(operation):
+            work.coverage_reset_for = operation
+        work._reset_coverage = mock_reset_coverage
+
+        for method, operation in (
+            (work.needs_full_presentation_recalculation,
+             WCR.CLASSIFY_OPERATION),
+            (work.needs_new_presentation_edition,
+             WCR.CHOOSE_EDITION_OPERATION),
+            (work.external_index_needs_updating,
+             WCR.UPDATE_SEARCH_INDEX_OPERATION)
+        ):
+            method()
+            eq_(operation, work.coverage_reset_for)
+
+        # The work was not added to the search index when we called
+        # external_index_needs_updating. That happens later, when the
+        # WorkCoverageRecord is processed.
         eq_([], index.docs.values())
-
 
     def test_for_unchecked_subjects(self):
 

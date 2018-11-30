@@ -1169,6 +1169,51 @@ class TestOPDSImporter(OPDSImporterTest):
         importer.build_identifier_mapping([isbn1])
         eq_(None, importer.identifier_mapping)
 
+    def test_update_work_for_edition_having_no_work(self):
+        # We have an Edition and a LicensePool but no Work.
+        edition, lp = self._edition(with_license_pool=True)
+        eq_(None, lp.work)
+
+        importer = OPDSImporter(self._db, None)
+        importer.update_work_for_edition(edition)
+
+        # We now have a presentation-ready work.
+        work = lp.work
+        eq_(True, work.presentation_ready)
+
+        # That happened because LicensePool.calculate_work() was
+        # called. But now that there's a presentation-ready work,
+        # further presentation recalculation happens in the
+        # background. Calling update_work_for_edition() will not
+        # immediately call LicensePool.calculate_work().
+        def explode():
+            raise Exception("boom!")
+        lp.calculate_work = explode
+        importer.update_work_for_edition(edition)
+
+    def test_update_work_for_edition_having_incomplete_work(self):
+        # We have a work, but it's not presentation-ready because
+        # the title is missing.
+        work = self._work(with_license_pool=True)
+        edition = work.presentation_edition
+        edition.title = None
+        work.presentation_ready = False
+
+        # Fortunately, new data has come in that includes a title.
+        i = edition.primary_identifier
+        new_edition = self._edition(
+            data_source_name=DataSource.METADATA_WRANGLER,
+            identifier_type=i.type, identifier_id=i.identifier,
+            title="A working title"
+        )
+
+        importer = OPDSImporter(self._db, None)
+        importer.update_work_for_edition(edition)
+
+        # We now have a presentation-ready work.
+        eq_("A working title", work.title)
+        eq_(True, work.presentation_ready)
+
     def test_update_work_for_edition_having_multiple_license_pools(self):
         # There are two collections with a LicensePool associated with
         # this Edition.

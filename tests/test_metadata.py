@@ -38,6 +38,8 @@ from ..model import (
     Representation,
     RightsStatus,
     Subject,
+    Work,
+    WorkCoverageRecord,
 )
 
 from . import (
@@ -997,6 +999,85 @@ class TestMetadata(DatabaseTest):
         edition_new, changed = metadata.apply(edition_new, pool.collection)
         eq_(changed, True)
         eq_(edition_new.series_position, 0)
+
+        # Metadata.apply() does not create a Work if no Work exists.
+        eq_(0, self._db.query(Work).count())
+
+    def test_apply_wipes_presentation_calculation_records(self):
+        # We have a work.
+        work = self._work(title="The Wrong Title", with_license_pool=True)
+
+        # We learn some more information about the work's identifier.
+        metadata = Metadata(
+            data_source=DataSource.OVERDRIVE,
+            primary_identifier=work.presentation_edition.primary_identifier,
+            title=u"The Harry Otter and the Seaweed of Ages",
+        )
+        edition, ignore = metadata.edition(self._db)
+        metadata.apply(edition, None)
+
+        # The work still has the wrong title.
+        eq_("The Wrong Title", work.title)
+
+        # However, the work is now slated to have its presentation
+        # edition recalculated -- that will fix it.
+        def assert_registered(full):
+            """Verify that the WorkCoverageRecord for a full (full=True) or
+            partial (full=false) presentation recalculation operation
+            is in the 'registered' state, and that the
+            WorkCoverageRecord for the other presentation
+            recalculation operation is in the 'success' state.
+
+            The verified WorkCoverageRecord will be reset to the 'success'
+            state so that this can be called over and over without any
+            extra setup.
+            """
+            WCR = WorkCoverageRecord
+            for x in work.coverage_records:
+                if x.operation == WCR.CLASSIFY_OPERATION:
+                    if full:
+                        eq_(WCR.REGISTERED, x.status)
+                        x.status = WCR.SUCCESS
+                    else:
+                        eq_(WCR.SUCCESS, x.status)
+                elif x.operation == WCR.CHOOSE_EDITION_OPERATION:
+                    if full:
+                        eq_(WCR.SUCCESS, x.status)
+                    else:
+                        eq_(WCR.REGISTERED, x.status)
+                        x.status = WCR.SUCCESS
+        assert_registered(full=False)
+
+        # We then learn about a subject under which the work
+        # is classified.
+        metadata.title = None
+        metadata.subjects = [SubjectData(Subject.TAG, "subject")]
+        metadata.apply(edition, None)
+
+        # The work is now slated to have its presentation completely
+        # recalculated.
+        record = assert_registered(full=True)
+
+        # We then find a new description for the work.
+        metadata.subjects = None
+        metadata.links = [
+            LinkData(rel=Hyperlink.DESCRIPTION, content="a description")
+        ]
+        metadata.apply(edition, None)
+
+        # We need to do a full recalculation again.
+        assert_registered(full=True)
+
+        # We then find a new cover image for the work.
+        metadata.subjects = None
+        metadata.links = [
+            LinkData(rel=Hyperlink.IMAGE, href="http://image/")
+        ]
+        metadata.apply(edition, None)
+
+        # We need to choose a new presentation edition.
+        assert_registered(full=False)
+
 
     def test_apply_identifier_equivalency(self):
 

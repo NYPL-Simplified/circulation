@@ -1025,6 +1025,14 @@ class TestSearchFacets(DatabaseTest):
         eq_(None, facets.media)
         eq_(None, facets.languages)
 
+        # Reading the language query with acceptable Accept-Language header
+        # but not passing that value through.
+        arguments['language'] = 'all'
+        headers['Accept-Language'] = "da, en-gb;q=0.8"
+
+        facets = from_request()
+        eq_(None, facets.languages)
+
         # Try again with no information.
         del arguments['media']
         del headers['Accept-Language']

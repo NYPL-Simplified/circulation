@@ -802,7 +802,6 @@ class LicensePool(Base):
         else:
             self.set_presentation_edition()
             presentation_edition = self.presentation_edition
-
         if presentation_edition:
             if self not in presentation_edition.is_presentation_for:
                 raise ValueError(
@@ -935,16 +934,11 @@ class LicensePool(Base):
             work.license_pools.append(self)
             licensepools_changed = True
 
-        # Recalculate the display information for the Work, since the
+        # Recalculate the display information for the Work. Either the
         # associated LicensePools have changed, which may have caused
-        # the Work's presentation Edition to change.
-        #
-        # TODO: In theory we can speed things up by only calling
-        # calculate_presentation if licensepools_changed is
-        # True. However, some bits of other code call calculate_work()
-        # under the assumption that it always calls
-        # calculate_presentation(), so we'd need to evaluate those
-        # call points first.
+        # the Work's presentation Edition to change, or
+        # the caller has reason to believe that the presentation Edition
+        # is changing for some other reason.
         work.calculate_presentation(exclude_search=exclude_search)
 
         # Ensure that all LicensePools with this Identifier share

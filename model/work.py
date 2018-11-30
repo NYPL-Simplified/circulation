@@ -974,6 +974,11 @@ class Work(Base):
                 representation = repr(self)
             logging.info("Presentation %s for work: %s", changed, representation)
 
+        # We want works to be presentation-ready as soon as possible,
+        # unless they are missing crucial information like language or
+        # title.
+        self.set_presentation_ready_based_on_content()
+
     @property
     def detailed_representation(self):
         """A description of this work more detailed than repr()"""
@@ -1094,17 +1099,30 @@ class Work(Base):
         return active_license_pool
 
 
+    def _reset_coverage(self, operation):
+        """Put this work's WorkCoverageRecord for the given `operation`
+        into the REGISTERED state.
+
+        This is useful for erasing the record of work that was done,
+        so that automated scripts know the work needs to be done
+        again.
+
+        :return: A WorkCoverageRecord.
+        """
+        _db = Session.object_session(self)
+        record, is_new = WorkCoverageRecord.add_for(
+            self, operation=operation, status=CoverageRecord.REGISTERED
+        )
+        return record
+
     def external_index_needs_updating(self):
         """Mark this work as needing to have its search document reindexed.
         This is a more efficient alternative to reindexing immediately,
         since these WorkCoverageRecords are handled in large batches.
         """
-        _db = Session.object_session(self)
-        operation = WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
-        record, is_new = WorkCoverageRecord.add_for(
-            self, operation=operation, status=CoverageRecord.REGISTERED
+        return self._reset_coverage(
+            WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
         )
-        return record
 
     def update_external_index(self, client, add_coverage_record=True):
         """Create a WorkCoverageRecord so that this work's
@@ -1113,6 +1131,26 @@ class Work(Base):
         external_index_needs_updating() instead.
         """
         self.external_index_needs_updating()
+
+    def needs_full_presentation_recalculation(self):
+        """Mark this work as needing to have its presentation completely
+        recalculated.
+
+        This shifts the time spent recalculating presentation to a
+        script dedicated to this purpose, rather than a script that
+        interacts with APIs. It's also more efficient, since a work
+        might be flagged multiple times before we actually get around
+        to recalculating the presentation.
+        """
+        return self._reset_coverage(WorkCoverageRecord.CLASSIFY_OPERATION)
+
+    def needs_new_presentation_edition(self):
+        """Mark this work as needing to have its presentation edition
+        regenerated. This is significantly less work than
+        calling needs_full_presentation_recalculation, but it will
+        not update a Work's quality score, summary, or genre classification.
+        """
+        return self._reset_coverage(WorkCoverageRecord.CHOOSE_EDITION_OPERATION)
 
     def set_presentation_ready(
         self, as_of=None, search_index_client=None, exclude_search=False

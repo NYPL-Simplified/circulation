@@ -1503,6 +1503,24 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         assert isinstance(work, Work)
         eq_(None, work.title)
 
+        # If a work exists but is not presentation-ready,
+        # CollectionCoverageProvider.work() will call calculate_work()
+        # in an attempt to fix it.
+        edition.title = u'Finally a title'
+        work2 = provider.work(pool.identifier, pool)
+        eq_(work2, work)
+        eq_(u'Finally a title', work.title)
+        eq_(True, work.presentation_ready)
+
+        # Once the work is presentation_ready, calling
+        # CollectionCoverageProvider.work() will no longer call
+        # calculate_work() -- it will just return the work.
+        def explode():
+            raise Exception("don't call me!")
+        pool.calculate_work = explode
+        work2 = provider.work(pool.identifier, pool)
+        eq_(work2, work)
+
     def test_set_metadata_and_circulationdata(self):
         """Verify that a CollectionCoverageProvider can set both
         metadata (on an Edition) and circulation data (on a LicensePool).
