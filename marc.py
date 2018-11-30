@@ -133,9 +133,11 @@ class Annotator(object):
         # this yet, assume everything was published in the US.
         data += "xxu"
         data += "                 "
-        data += edition.language or "eng"
+        language = "eng"
+        if edition.language and len(edition.language) == 3:
+            language = edition.language
+        data += language
         data += "  "
-        assert len(data) == 40
         record.add_field(
             Field(tag="008", data=data))
 
