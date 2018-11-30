@@ -2,42 +2,126 @@ from nose.tools import (
     eq_,
     set_trace,
 )
-import StringIO
-import os
+from pymarc import Record
 
-from . import sample_data
-
-from api.marc import MARCExtractor
+from . import DatabaseTest
 from core.model import (
-    Edition,
-    Identifier,
+    ConfigurationSetting,
+    ExternalIntegration,
 )
 
-class TestMARCExtractor(object):
+from api.marc import LibraryAnnotator
+from core.marc import MARCExporter
+from api.registry import Registration
 
-    def sample_data(self, filename):
-        return sample_data(filename, "marc")
+class TestLibraryAnnotator(DatabaseTest):
 
-    def test_parser(self):
-        """Parse a MARC file into Metadata objects."""
+    def test_annotate_work_record(self):
+        # Mock class to verify that the correct metnods
+        # are called by annotate_work_record.
+        class MockAnnotator(LibraryAnnotator):
+            called_with = dict()
+            def add_marc_organization_code(self, record, marc_org):
+                self.called_with['add_marc_organization_code'] = [record, marc_org]
 
-        file = self.sample_data("ils_plympton_01.mrc")
-        metadata_records = MARCExtractor().parse(file, "Plympton")
+            def add_summary(self, record, work):
+                self.called_with['add_summary'] = [record, work]
 
-        eq_(36, len(metadata_records))
+            def add_simplified_genres(self, record, work):
+                self.called_with['add_simplified_genres'] = [record, work]
 
-        record = metadata_records[1]
-        eq_("Strange Case of Dr Jekyll and Mr Hyde", record.title)
-        assert "Stevenson" in record.contributors[0].sort_name
-        assert "Recovering the Classics" in record.publisher
-        eq_("9781682280041", record.primary_identifier.identifier)
-        eq_(Identifier.ISBN, record.primary_identifier.type)
-        subjects = record.subjects
-        eq_(2, len(subjects))
-        assert "Canon" in subjects[0].identifier
-        eq_(Edition.BOOK_MEDIUM, record.medium)
-        eq_(2015, record.issued.year)
-        eq_('eng', record.language)
+            def add_web_client_urls(self, record, library, identifier):
+                self.called_with['add_web_client_urls'] = [record, library, identifier]
 
-        eq_(1, len(record.links))
-        assert "Utterson and Enfield are worried about their friend" in record.links[0].content
+            # Also check that the parent class annotate_work_record is called.
+            def add_distributor(self, record, pool):
+                self.called_with['add_distributor'] = [record, pool]
+
+            def add_formats(self, record, pool):
+                self.called_with['add_formats'] = [record, pool]
+
+        annotator = MockAnnotator(self._default_library)
+        record = Record()
+        work = self._work(with_license_pool=True)
+        pool = work.license_pools[0]
+        edition = pool.presentation_edition
+        identifier = pool.identifier
+
+        integration = self._external_integration(
+            ExternalIntegration.MARC_EXPORT, ExternalIntegration.CATALOG_GOAL,
+            libraries=[self._default_library])
+
+        annotator.annotate_work_record(work, pool, edition, identifier, record, integration)
+
+        # If there are no settings, the only methods called will be add_web_client_urls
+        # and the parent class methods.
+        assert 'add_marc_organization_code' not in annotator.called_with
+        assert 'add_summary' not in annotator.called_with
+        assert 'add_simplified_genres' not in annotator.called_with
+        eq_([record, self._default_library, identifier], annotator.called_with.get('add_web_client_urls'))
+        eq_([record, pool], annotator.called_with.get('add_distributor'))
+        eq_([record, pool], annotator.called_with.get('add_formats'))
+
+        # If settings are false, the methods still won't be called.
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, MARCExporter.INCLUDE_SUMMARY,
+            self._default_library, integration).value = "false"
+
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, MARCExporter.INCLUDE_SIMPLIFIED_GENRES,
+            self._default_library, integration).value = "false"
+
+        annotator = MockAnnotator(self._default_library)
+        annotator.annotate_work_record(work, pool, edition, identifier, record, integration)
+
+        assert 'add_marc_organization_code' not in annotator.called_with
+        assert 'add_summary' not in annotator.called_with
+        assert 'add_simplified_genres' not in annotator.called_with
+        eq_([record, self._default_library, identifier], annotator.called_with.get('add_web_client_urls'))
+        eq_([record, pool], annotator.called_with.get('add_distributor'))
+        eq_([record, pool], annotator.called_with.get('add_formats'))
+
+        # Once the include settings are true and the marc organization code is set,
+        # all methods are called.
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, MARCExporter.INCLUDE_SUMMARY,
+            self._default_library, integration).value = "true"
+
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, MARCExporter.INCLUDE_SIMPLIFIED_GENRES,
+            self._default_library, integration).value = "true"
+
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, MARCExporter.MARC_ORGANIZATION_CODE,
+            self._default_library, integration).value = "marc org"
+
+        annotator = MockAnnotator(self._default_library)
+        annotator.annotate_work_record(work, pool, edition, identifier, record, integration)
+
+        eq_([record, "marc org"], annotator.called_with.get("add_marc_organization_code"))
+        eq_([record, work], annotator.called_with.get("add_summary"))
+        eq_([record, work], annotator.called_with.get("add_simplified_genres"))
+        eq_([record, self._default_library, identifier], annotator.called_with.get('add_web_client_urls'))
+        eq_([record, pool], annotator.called_with.get('add_distributor'))
+        eq_([record, pool], annotator.called_with.get('add_formats'))
+
+    def test_add_web_client_urls(self):
+        # If no web catalog URLs are set for the library, nothing will be changed.
+        record = Record()
+        identifier = self._identifier(foreign_id="identifier")
+        LibraryAnnotator.add_web_client_urls(record, self._default_library, identifier)
+        eq_([], record.get_fields("856"))
+
+        registry = self._external_integration(
+            ExternalIntegration.OPDS_REGISTRATION, ExternalIntegration.DISCOVERY_GOAL,
+            libraries=[self._default_library])
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, Registration.LIBRARY_REGISTRATION_WEB_CLIENT,
+            self._default_library, registry).value = "http://web_catalog"
+
+        LibraryAnnotator.add_web_client_urls(record, self._default_library, identifier)
+        [field] = record.get_fields("856")
+        eq_(["4", "0"], field.indicators)
+        eq_("http://web_catalog/book/Gutenberg%20ID%2Fidentifier",
+            field.get_subfields("u")[0])
+

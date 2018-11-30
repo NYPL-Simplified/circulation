@@ -298,6 +298,12 @@ def shared_collection_hold_info(collection_name, hold_id):
 def shared_collection_revoke_hold(collection_name, hold_id):
     return app.manager.shared_collection_controller.revoke_hold(collection_name, hold_id)
 
+@library_route('/marc')
+@has_library
+@returns_problem_detail
+def marc_page():
+    return app.manager.marc_records.download_page()
+
 @library_dir_route('/search', defaults=dict(lane_identifier=None))
 @library_route('/search/<lane_identifier>')
 @has_library

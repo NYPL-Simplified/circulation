@@ -373,6 +373,13 @@ MULTIPLE_SITEWIDE_SERVICES = pd(
     detail=_("You tried to create a new sitewide service, but a sitewide service of the same type is already configured."),
 )
 
+MULTIPLE_MARC_EXPORT_SERVICES = pd(
+    "http://librarysimplified.org/terms/problem/multiple-marc-export-services",
+    status_code=400,
+    title=_("Multiple MARC export services"),
+    detail=_("Each library can only have one MARC export service."),
+)
+
 MISSING_CUSTOM_LIST = pd(
     "http://librarysimplified.org/terms/problem/missing-custom-list",
     status_code=404,

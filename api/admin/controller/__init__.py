@@ -169,6 +169,8 @@ def setup_admin_controllers(manager):
     manager.admin_logging_services_controller = LoggingServicesController(manager)
     manager.admin_search_services_controller = SearchServicesController(manager)
     manager.admin_storage_services_controller = StorageServicesController(manager)
+    from api.admin.controller.catalog_services import *
+    manager.admin_catalog_services_controller = CatalogServicesController(manager)
 
 
 class AdminController(object):
@@ -762,6 +764,7 @@ class WorkController(AdminCirculationManagerController):
             policy = PresentationCalculationPolicy(
                 classify=True,
                 regenerate_opds_entries=True,
+                regenerate_marc_record=True,
                 update_search_index=True,
                 calculate_quality=changed_rating,
                 choose_summary=changed_summary,
@@ -1053,6 +1056,7 @@ class WorkController(AdminCirculationManagerController):
         policy = PresentationCalculationPolicy(
             classify=True,
             regenerate_opds_entries=True,
+            regenerate_marc_record=True,
             update_search_index=True
         )
         work.calculate_presentation(policy=policy)
@@ -1270,6 +1274,7 @@ class WorkController(AdminCirculationManagerController):
             calculate_quality=False,
             choose_cover=True,
             regenerate_opds_entries=True,
+            regenerate_marc_record=True,
             update_search_index=False,
         )
 
