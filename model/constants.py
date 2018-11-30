@@ -227,6 +227,7 @@ class MediaTypes(object):
     OCTET_STREAM_MEDIA_TYPE = u"application/octet-stream"
     TEXT_PLAIN = u"text/plain"
     AUDIOBOOK_MANIFEST_MEDIA_TYPE = u"application/audiobook+json"
+    MARC_MEDIA_TYPE = u"application/marc"
 
     BOOK_MEDIA_TYPES = [
         EPUB_MEDIA_TYPE,

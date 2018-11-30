@@ -86,6 +86,10 @@ class ExternalIntegration(Base, HasFullTableCache):
     # collect logs of server-side events.
     LOGGING_GOAL = u'logging'
 
+    # These integrations are associated with external services that
+    # a library uses to manage its catalog.
+    CATALOG_GOAL = u'ils_catalog'
+
     # Supported protocols for ExternalIntegrations with LICENSE_GOAL.
     OPDS_IMPORT = u'OPDS Import'
     OVERDRIVE = DataSourceConstants.OVERDRIVE
@@ -161,6 +165,9 @@ class ExternalIntegration(Base, HasFullTableCache):
     INTERNAL_LOGGING = u'Internal logging'
     LOGGLY = u"Loggly"
     CLOUDWATCH = u"AWS Cloudwatch Logs"
+
+    # Integrations with CATALOG_GOAL
+    MARC_EXPORT = u"MARC Export"
 
     # Keys for common configuration settings
 

@@ -175,6 +175,7 @@ class PresentationCalculationPolicy(object):
                  calculate_quality=True,
                  choose_cover=True,
                  regenerate_opds_entries=False,
+                 regenerate_marc_record=False,
                  update_search_index=False,
                  verbose=True,
     ):
@@ -189,7 +190,11 @@ class PresentationCalculationPolicy(object):
         # changes, but if regenerate_opds_entries is True we will
         # _always_ do so. This is so we can regenerate _all_ the OPDS
         # entries if the OPDS presentation algorithm changes.
+        # The same is true for the MARC records, except that they will
+        # never be generated unless a MARC organization code is set
+        # in a sitewide configuration setting.
         self.regenerate_opds_entries = regenerate_opds_entries
+        self.regenerate_marc_record = regenerate_marc_record
 
         # Similarly for update_search_index.
         self.update_search_index = update_search_index
@@ -203,6 +208,7 @@ class PresentationCalculationPolicy(object):
         """
         return PresentationCalculationPolicy(
             regenerate_opds_entries=True,
+            regenerate_marc_record=True,
             update_search_index=True,
         )
 
@@ -455,6 +461,7 @@ from coverage import (
 from cachedfeed import (
     CachedFeed,
     WillNotGenerateExpensiveFeed,
+    CachedMARCFile,
 )
 from circulationevent import CirculationEvent
 from classification import (

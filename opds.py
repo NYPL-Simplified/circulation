@@ -413,8 +413,6 @@ class Annotator(object):
         """Which license pool would be/has been used to issue a license for
         this work?
         """
-        active_license_pool = None
-
         if not work:
             return None
 
@@ -422,22 +420,7 @@ class Annotator(object):
             # Active license pool is preloaded from database.
             return work.license_pool
 
-        # The active license pool is the one that *would* be
-        # associated with a loan, were a loan to be issued right
-        # now.
-        for p in work.license_pools:
-            if p.superceded:
-                continue
-            edition = p.presentation_edition
-            if p.open_access:
-                if p.best_open_access_link:
-                    active_license_pool = p
-                    # We have an unlimited source for this book.
-                    # There's no need to keep looking.
-                    break
-            elif edition and edition.title and p.licenses_owned > 0:
-                active_license_pool = p
-        return active_license_pool
+        return work.active_license_pool()
 
     def sort_works_for_groups_feed(self, works, **kwargs):
         return works

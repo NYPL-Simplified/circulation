@@ -28,6 +28,7 @@ class S3Uploader(MirrorUploader):
 
     BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
     OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
+    MARC_BUCKET_KEY = u'marc_bucket'
 
     URL_TEMPLATE_KEY = u'bucket_name_transform'
     URL_TEMPLATE_HTTP = u'http'
@@ -48,6 +49,9 @@ class S3Uploader(MirrorUploader):
         },
         { "key": OA_CONTENT_BUCKET_KEY, "label": _("Open Access Content Bucket"),
           "description" : _("All open-access books encountered will be uploaded to this S3 bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
+        },
+        { "key": MARC_BUCKET_KEY, "label": _("MARC File Bucket"),
+          "description" : _("All generated MARC files will be uploaded to this S3 bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
         },
         { "key": URL_TEMPLATE_KEY, "label": _("URL format"),
           "type": "select",
@@ -156,6 +160,13 @@ class S3Uploader(MirrorUploader):
         return cls.url(bucket, '/')
 
     @classmethod
+    def marc_file_root(cls, bucket, library):
+        url = cls.url(bucket, [library.short_name])
+        if not url.endswith("/"):
+            url += "/"
+        return url
+
+    @classmethod
     def key_join(self, key):
         """Quote the path portions of an S3 key while leaving the path
         characters themselves alone.
@@ -208,6 +219,14 @@ class S3Uploader(MirrorUploader):
         root = self.cover_image_root(bucket, data_source, scaled_size)
         parts = [identifier.type, identifier.identifier, filename]
         return root + self.key_join(parts)
+
+    def marc_file_url(self, library, lane):
+        """The path to the hosted MARC file for the given library, lane,
+        and date range."""
+        bucket = self.get_bucket(self.MARC_BUCKET_KEY)
+        root = self.marc_file_root(bucket, library)
+        parts = [lane.display_name]
+        return root + self.key_join(parts) + ".mrc"
 
     @classmethod
     def bucket_and_filename(cls, url, unquote=True):
@@ -295,6 +314,7 @@ class MockS3Uploader(S3Uploader):
     buckets = {
        S3Uploader.BOOK_COVERS_BUCKET_KEY : 'test.cover.bucket',
        S3Uploader.OA_CONTENT_BUCKET_KEY : 'test.content.bucket',
+       S3Uploader.MARC_BUCKET_KEY: 'test.marc.bucket',
     }
 
     def __init__(self, fail=False, *args, **kwargs):

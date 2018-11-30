@@ -213,6 +213,11 @@ class Work(Base):
     # integration context.
     verbose_opds_entry = Column(Unicode, default=None)
 
+    # A precalculated MARC record containing metadata about this
+    # work that would be relevant to display in a library's public
+    # catalog.
+    marc_record = Column(Unicode, default=None)
+
     @property
     def title(self):
         if self.presentation_edition:
@@ -952,6 +957,9 @@ class Work(Base):
         if changed or policy.regenerate_opds_entries:
             self.calculate_opds_entries()
 
+        if changed or policy.regenerate_marc_record:
+            self.calculate_marc_record()
+
         if (changed or policy.update_search_index) and not exclude_search:
             self.external_index_needs_updating()
 
@@ -1053,6 +1061,38 @@ class Work(Base):
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
         )
+
+    def calculate_marc_record(self):
+        from ..marc import (
+            Annotator,
+            MARCExporter
+        )
+        _db = Session.object_session(self)
+        record = MARCExporter.create_record(
+            self, annotator=Annotator, force_create=True)
+        WorkCoverageRecord.add_for(
+            self, operation=WorkCoverageRecord.GENERATE_MARC_OPERATION
+        )
+
+    def active_license_pool(self):
+        # The active license pool is the one that *would* be
+        # associated with a loan, were a loan to be issued right
+        # now.
+        active_license_pool = None
+        for p in self.license_pools:
+            if p.superceded:
+                continue
+            edition = p.presentation_edition
+            if p.open_access:
+                if p.best_open_access_link:
+                    active_license_pool = p
+                    # We have an unlimited source for this book.
+                    # There's no need to keep looking.
+                    break
+            elif edition and edition.title and p.licenses_owned > 0:
+                active_license_pool = p
+        return active_license_pool
+
 
     def external_index_needs_updating(self):
         """Mark this work as needing to have its search document reindexed.
@@ -1598,6 +1638,7 @@ class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
         Column('last_update_time', DateTime),
         Column('simple_opds_entry', Unicode),
         Column('verbose_opds_entry', Unicode),
+        Column('marc_record', Unicode),
         Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
         Column('open_access_download_url', Unicode),
         Column('availability_time', DateTime),

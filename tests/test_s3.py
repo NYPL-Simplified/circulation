@@ -164,6 +164,13 @@ class TestS3Uploader(S3UploaderTest):
             m, bucket, open_access=False
         )
 
+    def test_marc_file_root(self):
+        bucket = u'test-marc-s3-bucket'
+        m = S3Uploader.marc_file_root
+        library = self._library(short_name="SHORT")
+        eq_("https://s3.amazonaws.com/test-marc-s3-bucket/SHORT/",
+            m(bucket, library))
+
     def test_book_url(self):
         identifier = self._identifier(foreign_id="ABOOK")
         buckets = {S3Uploader.OA_CONTENT_BUCKET_KEY : 'thebooks'}
@@ -206,6 +213,15 @@ class TestS3Uploader(S3UploaderTest):
         identifier = self._identifier(foreign_id="ABOOK")
         eq_(u'https://s3.amazonaws.com/thecovers/scaled/601/unglue.it/Gutenberg+ID/ABOOK/filename',
             m(unglueit, identifier, "filename", scaled_size=601))
+
+    def test_marc_file_url(self):
+        library = self._library(short_name="SHORT")
+        lane = self._lane(display_name="Lane")
+        buckets = {S3Uploader.MARC_BUCKET_KEY : 'marc'}
+        uploader = self._uploader(**buckets)
+        m = uploader.marc_file_url
+        eq_(u'https://s3.amazonaws.com/marc/SHORT/Lane.mrc',
+            m(library, lane))
 
     def test_bucket_and_filename(self):
         m = S3Uploader.bucket_and_filename

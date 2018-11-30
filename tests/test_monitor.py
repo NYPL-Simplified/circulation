@@ -43,6 +43,7 @@ from ..monitor import (
     Monitor,
     NotPresentationReadyWorkSweepMonitor,
     OPDSEntryCacheMonitor,
+    MARCRecordCacheMonitor,
     PatronRecordReaper,
     PermanentWorkIDRefreshMonitor,
     PresentationReadyWorkSweepMonitor,
@@ -567,6 +568,20 @@ class TestOPDSEntryCacheMonitor(DatabaseTest):
         monitor.process_item(work)
         assert work.simple_opds_entry != None
         assert work.verbose_opds_entry != None
+
+
+class TestMARCRecordCacheMonitor(DatabaseTest):
+
+    def test_process_item(self):
+        """This Monitor calculates MARC records for works."""
+        class Mock(MARCRecordCacheMonitor):
+            SERVICE_NAME = "Mock"
+        monitor = Mock(self._db)
+        work = self._work(with_license_pool=True)
+        eq_(None, work.marc_record)
+
+        monitor.process_item(work)
+        assert work.marc_record != None
 
 
 class TestPermanentWorkIDRefresh(DatabaseTest):

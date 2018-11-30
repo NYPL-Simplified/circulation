@@ -1,3 +1,5 @@
+drop materialized view mv_works_for_lanes;
+
 -- Create the materialized view with no data.
 create materialized view mv_works_for_lanes
 as
@@ -145,5 +147,7 @@ create index mv_works_for_lanes_ya_nonfiction_by_title on mv_works_for_lanes (so
 
 create index mv_works_for_lanes_ya_nonfiction_by_availability on mv_works_for_lanes (availability_time DESC, sort_author, sort_title, language, works_id) WHERE audience in ('Children', 'Young Adult') AND fiction = false;
 
--- The materialized view will be refreshed as part of initialization.
+-- Refresh the new materialized view.
+refresh materialized view mv_works_for_lanes;
+
 

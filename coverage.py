@@ -1358,6 +1358,23 @@ class OPDSEntryWorkCoverageProvider(WorkPresentationProvider):
         return work
 
 
+class MARCRecordWorkCoverageProvider(WorkPresentationProvider):
+    """Make sure all presentation-ready works have an up-to-date MARC
+    record.
+
+    This is different from the MARCRecordCacheMonitor, which sweeps
+    over all presentation-ready works, even ones which are already
+    covered.
+    """
+    SERVICE_NAME = "MARC Record Work Coverage Provider"
+    OPERATION = WorkCoverageRecord.GENERATE_MARC_OPERATION
+    DEFAULT_BATCH_SIZE = 1000
+
+    def process_item(self, work):
+        work.calculate_marc_record()
+        return work
+
+
 class WorkPresentationEditionCoverageProvider(WorkPresentationProvider):
     """Make sure each Work has an up-to-date presentation edition.
 
