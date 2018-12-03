@@ -651,6 +651,10 @@ class OPDSImporter(object):
             # There is no presentation-ready Work for this
             # LicensePool. Try to create one.
             work, ignore = pool.calculate_work()
+        else:
+            # There is a presentation-ready Work for this LicensePool.
+            # Use it.
+            work = pool.work
 
         # If a presentation-ready Work already exists, there's no
         # rush. We might have new metadata that will change the Work's
