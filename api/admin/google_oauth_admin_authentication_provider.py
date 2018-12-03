@@ -2,6 +2,7 @@ import json
 from nose.tools import set_trace
 from collections import defaultdict
 
+from api.admin.template_styles import *
 from admin_authentication_provider import AdminAuthenticationProvider
 from problem_details import GOOGLE_OAUTH_FAILURE, INVALID_ADMIN_CREDENTIALS
 from oauth2client import client as GoogleClient
@@ -59,8 +60,8 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
     SITEWIDE = True
 
     TEMPLATE = """
-<a href=%(auth_uri)s>Sign In With Google</a>
-"""
+        <a style='{}' href=%(auth_uri)s>Sign in with Google</a>
+    """.format(link_style)
 
     def __init__(self, integration, redirect_uri, test_mode=False):
         super(GoogleOAuthAdminAuthenticationProvider, self).__init__(integration)
