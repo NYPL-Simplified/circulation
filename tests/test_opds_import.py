@@ -56,6 +56,7 @@ from ..model import (
     RightsStatus,
     Subject,
     Work,
+    WorkCoverageRecord,
 )
 from ..coverage import CoverageFailure
 
@@ -1175,11 +1176,16 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(None, lp.work)
 
         importer = OPDSImporter(self._db, None)
-        importer.update_work_for_edition(edition)
+        returned_pool, returned_work = importer.update_work_for_edition(edition)
 
         # We now have a presentation-ready work.
         work = lp.work
         eq_(True, work.presentation_ready)
+
+        # The return value of update_work_for_edition is the affected
+        # LicensePool and Work.
+        eq_(returned_pool, lp)
+        eq_(returned_work, work)
 
         # That happened because LicensePool.calculate_work() was
         # called. But now that there's a presentation-ready work,
@@ -1195,6 +1201,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # We have a work, but it's not presentation-ready because
         # the title is missing.
         work = self._work(with_license_pool=True)
+        [pool] = work.license_pools
         edition = work.presentation_edition
         edition.title = None
         work.presentation_ready = False
@@ -1208,10 +1215,44 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         importer = OPDSImporter(self._db, None)
-        importer.update_work_for_edition(edition)
+        returned_pool, returned_work = importer.update_work_for_edition(
+            edition
+        )
+        eq_(returned_pool, pool)
+        eq_(returned_work, work)
 
         # We now have a presentation-ready work.
         eq_("A working title", work.title)
+        eq_(True, work.presentation_ready)
+
+    def test_update_work_for_edition_having_presentation_ready_work(self):
+        # We have a presentation-ready work.
+        work = self._work(with_license_pool=True, title="The old title")
+        edition = work.presentation_edition
+        [pool] = work.license_pools
+
+        # The work's presentation edition has been chosen.
+        work.calculate_presentation()
+        op = WorkCoverageRecord.CHOOSE_EDITION_OPERATION
+
+        # But we're about to find out a new title for the book.
+        i = edition.primary_identifier
+        new_edition = self._edition(
+            data_source_name=DataSource.LIBRARY_STAFF,
+            identifier_type=i.type, identifier_id=i.identifier,
+            title="A new title"
+        )
+
+        importer = OPDSImporter(self._db, None)
+        returned_pool, returned_work = importer.update_work_for_edition(
+            new_edition
+        )
+
+        # The existing LicensePool and Work were returned.
+        eq_(returned_pool, pool)
+        eq_(returned_work, work)
+
+        # The work is still presentation-ready.
         eq_(True, work.presentation_ready)
 
     def test_update_work_for_edition_having_multiple_license_pools(self):
