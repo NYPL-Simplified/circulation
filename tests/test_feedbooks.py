@@ -329,8 +329,6 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             content=feed
         )
 
-        response = self.importer.import_from_feed(feed)
-
         [edition], [pool], [work], failures = self.importer.import_from_feed(feed)
 
         # The work has been created and has metadata.

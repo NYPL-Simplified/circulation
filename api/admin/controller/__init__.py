@@ -115,6 +115,7 @@ from api.odl import ODLWithConsolidatedCopiesAPI, SharedODLAPI
 from core.local_analytics_provider import LocalAnalyticsProvider
 
 from api.adobe_vendor_id import AuthdataUtility
+from api.admin.template_styles import *
 
 from core.selftest import HasSelfTests
 
@@ -376,7 +377,7 @@ class SignInController(AdminController):
     ERROR_RESPONSE_TEMPLATE = """<!DOCTYPE HTML>
 <html lang="en">
 <head><meta charset="utf8"></head>
-</body>
+<body>
 <p><strong>%(status_code)d ERROR:</strong> %(message)s</p>
 </body>
 </html>"""
@@ -384,11 +385,11 @@ class SignInController(AdminController):
     SIGN_IN_TEMPLATE = """<!DOCTYPE HTML>
 <html lang="en">
 <head><meta charset="utf8"></head>
-<body>
+<body style="{}">
+<h1>Library Simplified</h1>
 %(auth_provider_html)s
 </body>
-</html>"""
-
+</html>""".format(body_style)
 
     def sign_in(self):
         """Redirects admin if they're signed in, or shows the sign in page."""
@@ -400,7 +401,12 @@ class SignInController(AdminController):
         if isinstance(admin, ProblemDetail):
             redirect_url = flask.request.args.get("redirect")
             auth_provider_html = [auth.sign_in_template(redirect_url) for auth in self.admin_auth_providers]
-            auth_provider_html = "<br/><hr/>or<br/><br/>".join(auth_provider_html)
+            auth_provider_html = """
+                <section style="{section}">
+                <hr style="{hr}">or<hr style="{hr}">
+                </section>
+            """.format(section=section_style, hr=hr_style).join(auth_provider_html)
+
             html = self.SIGN_IN_TEMPLATE % dict(
                 auth_provider_html=auth_provider_html
             )
