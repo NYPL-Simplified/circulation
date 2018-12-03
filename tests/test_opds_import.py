@@ -1184,7 +1184,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # The return value of update_work_for_edition is the affected
         # LicensePool and Work.
-        eq_(returned_pool, lp.work)
+        eq_(returned_pool, lp)
         eq_(returned_work, work)
 
         # That happened because LicensePool.calculate_work() was
