@@ -187,9 +187,9 @@ class Annotator(object):
                 tag="245",
                 indicators=["0", non_filing_characters],
                 subfields=[
-                    "a", unicode(edition.title) or "",
-                    "b", unicode(edition.subtitle) or "",
-                    "c", unicode(edition.author) or "",
+                    "a", unicode(edition.title or ""),
+                    "b", unicode(edition.subtitle or ""),
+                    "c", unicode(edition.author or ""),
                 ]))
 
     @classmethod
@@ -235,7 +235,7 @@ class Annotator(object):
                     indicators=[" ", "1"],
                     subfields=[
                         "a", "[Place of publication not identified]",
-                        "b", unicode(edition.publisher) or "",
+                        "b", unicode(edition.publisher or ""),
                         "c", year,
                     ]))
 
