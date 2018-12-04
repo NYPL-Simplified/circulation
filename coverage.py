@@ -1376,10 +1376,6 @@ class OPDSEntryWorkCoverageProvider(WorkPresentationProvider):
 class MARCRecordWorkCoverageProvider(WorkPresentationProvider):
     """Make sure all presentation-ready works have an up-to-date MARC
     record.
-
-    This is different from the MARCRecordCacheMonitor, which sweeps
-    over all presentation-ready works, even ones which are already
-    covered.
     """
     SERVICE_NAME = "MARC Record Work Coverage Provider"
     OPERATION = WorkCoverageRecord.GENERATE_MARC_OPERATION
