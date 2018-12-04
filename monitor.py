@@ -498,20 +498,6 @@ class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
     def process_item(self, work):
         work.calculate_opds_entries()
 
-class MARCRecordCacheMonitor(PresentationReadyWorkSweepMonitor):
-    """A Monitor that recalculates the MARC records for every
-    presentation-ready work.
-
-    This is different from the MARCRecordWorkCoverateProvider,
-    which only processes works that are missing a WorkCoverageRecord
-    with the 'generate-marc' operation.
-    """
-    SERVICE_NAME = "MARC Record Cache Monitor"
-
-    def process_item(self, work):
-        work.calculate_marc_record()
-
-
 class PermanentWorkIDRefreshMonitor(EditionSweepMonitor):
     """A monitor that calculates or recalculates the permanent work ID for
     every edition.
