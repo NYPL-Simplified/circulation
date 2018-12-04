@@ -158,7 +158,8 @@ class Annotator(object):
             identifier_ids = identifier.equivalent_identifier_ids()[identifier.id]
             isbn = _db.query(Identifier).filter(
                 Identifier.type==Identifier.ISBN).filter(
-                Identifier.id.in_(identifier_ids)).first()
+                Identifier.id.in_(identifier_ids)).order_by(
+                Identifier.id).first()
         if isbn:
             record.add_field(
                 Field(
