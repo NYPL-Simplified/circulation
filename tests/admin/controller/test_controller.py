@@ -1659,7 +1659,7 @@ class TestSignInController(AdminControllerTest):
             response = self.manager.admin_sign_in_controller.sign_in()
             eq_(200, response.status_code)
             assert "GOOGLE REDIRECT" in response.data
-            assert "Sign In With Google" in response.data
+            assert "Sign in with Google" in response.data
             assert "Email" not in response.data
             assert "Password" not in response.data
 
@@ -1670,7 +1670,7 @@ class TestSignInController(AdminControllerTest):
             response = self.manager.admin_sign_in_controller.sign_in()
             eq_(200, response.status_code)
             assert "GOOGLE REDIRECT" in response.data
-            assert "Sign In With Google" in response.data
+            assert "Sign in with Google" in response.data
             assert "Email" in response.data
             assert "Password" in response.data
 
