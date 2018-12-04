@@ -2482,7 +2482,6 @@ class SettingsController(AdminCirculationManagerController):
         # otherwise, the settings have to be passed in as an argument--either a list or
         # a string.
         settings = settings or self._get_settings()
-
         validators = [
             self.validate_email,
             self.validate_url,
@@ -2545,7 +2544,7 @@ class SettingsController(AdminCirculationManagerController):
         2) positive, and 3) lower than the specified maximum, if there is one."""
         # Find the fields that should have numeric input and are not blank.
         number_fields = filter(
-                            lambda s: (s.get("type") == "number") and
+                            lambda s: ("number" in [s.get("type"), s.get("format")]) and
                             (flask.request.form.get(s.get("key")) or flask.request.form.get("value"))
                             , settings
                         )

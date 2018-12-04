@@ -174,7 +174,9 @@ class CollectionSettingsController(SettingsController):
             return MISSING_COLLECTION_NAME
         if "collection" in fields:
             if fields.get("collection"):
-                return self.validate_collection(**fields)
+                invalid_collection = self.validate_collection(**fields)
+                if invalid_collection:
+                    return invalid_collection
             else:
                 return MISSING_COLLECTION
         if fields.get("protocol"):
