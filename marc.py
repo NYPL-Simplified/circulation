@@ -175,9 +175,7 @@ class Annotator(object):
         # the title and the sort_title.
         non_filing_characters = 0
         if edition.title != edition.sort_title and ("," in edition.sort_title):
-            sort_title = edition.sort_title
-            last_comma = len(sort_title) - sort_title[::-1].index(",")
-            stemmed = edition.sort_title[:last_comma-1]
+            stemmed = edition.sort_title[:edition.sort_title.rindex(",")]
             non_filing_characters = edition.title.index(stemmed)
         # MARC only supports up to 9 non-filing characters, but if we got more
         # something is probably wrong anyway.
