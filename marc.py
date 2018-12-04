@@ -31,6 +31,7 @@ from model import (
 from classifier import Classifier
 from s3 import S3Uploader
 from lane import Lane
+from util import LanguageCodes
 
 class Annotator(object):
     """The Annotator knows how to add information about a Work to
@@ -134,8 +135,8 @@ class Annotator(object):
         data += "xxu"
         data += "                 "
         language = "eng"
-        if edition.language and len(edition.language) == 3:
-            language = edition.language
+        if edition.language:
+            language = LanguageCodes.string_to_alpha_3(edition.language)
         data += language
         data += "  "
         record.add_field(
@@ -154,11 +155,10 @@ class Annotator(object):
             isbn = identifier
         if not isbn:
             _db = Session.object_session(identifier)
-            for identifier_id in identifier.equivalent_identifier_ids()[identifier.id]:
-                equivalent = get_one(_db, Identifier, id=identifier_id)
-                if equivalent.type == Identifier.ISBN:
-                    isbn = equivalent
-                    break
+            identifier_ids = identifier.equivalent_identifier_ids()[identifier.id]
+            isbn = _db.query(Identifier).filter(
+                Identifier.type==Identifier.ISBN).filter(
+                Identifier.id.in_(identifier_ids)).first()
         if isbn:
             record.add_field(
                 Field(
