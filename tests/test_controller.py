@@ -2986,12 +2986,16 @@ class TestFeedController(CirculationControllerTest):
 
 
 class TestMARCRecordController(CirculationControllerTest):
-    def test_download_page(self):
+    def test_download_page_with_exporter_and_files(self):
         now = datetime.datetime.now()
         yesterday = now - datetime.timedelta(days=1)
 
         library = self._default_library
         lane = self._lane(display_name="Test Lane")
+
+        exporter = self._external_integration(
+            ExternalIntegration.MARC_EXPORT, ExternalIntegration.CATALOG_GOAL,
+            libraries=[self._default_library])
 
         rep1, ignore = create(
             self._db, Representation, 
@@ -3020,6 +3024,55 @@ class TestMARCRecordController(CirculationControllerTest):
             assert ("Download MARC files for %s" % library.name) in html
             assert '<a href="http://mirror1">All Books</a>' in html
             assert '<a href="http://mirror2">Test Lane</a>' in html
+            assert ("Last update: %s" % now.strftime("%B %-d, %Y")) in html
+
+    def test_download_page_with_exporter_but_no_files(self):
+        now = datetime.datetime.now()
+        yesterday = now - datetime.timedelta(days=1)
+
+        library = self._default_library
+
+        exporter = self._external_integration(
+            ExternalIntegration.MARC_EXPORT, ExternalIntegration.CATALOG_GOAL,
+            libraries=[self._default_library])
+
+        with self.request_context_with_library("/"):
+            response = self.manager.marc_records.download_page()
+            eq_(200, response.status_code)
+            html = response.data
+            assert ("Download MARC files for %s" % library.name) in html
+            assert "MARC files aren't ready" in html
+
+    def test_download_page_no_exporter(self):
+        library = self._default_library
+
+        with self.request_context_with_library("/"):
+            response = self.manager.marc_records.download_page()
+            eq_(200, response.status_code)
+            html = response.data
+            assert ("Download MARC files for %s" % library.name) in html
+            assert ("No MARC exporter is currently configured") in html
+
+        # If the exporter was deleted after some MARC files were cached,
+        # they will still be available to download.
+        now = datetime.datetime.now()
+        rep, ignore = create(
+            self._db, Representation, 
+            url="http://mirror1", mirror_url="http://mirror1",
+            media_type=Representation.MARC_MEDIA_TYPE,
+            mirrored_at=now)
+        cache, ignore = create(
+            self._db, CachedMARCFile,
+            library=self._default_library, lane=None,
+            representation=rep)
+
+        with self.request_context_with_library("/"):
+            response = self.manager.marc_records.download_page()
+            eq_(200, response.status_code)
+            html = response.data
+            assert ("Download MARC files for %s" % library.name) in html
+            assert "No MARC exporter is currently configured" in html
+            assert '<a href="http://mirror1">All Books</a>' in html
             assert ("Last update: %s" % now.strftime("%B %-d, %Y")) in html
 
 
