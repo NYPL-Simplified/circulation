@@ -170,7 +170,7 @@ class TestCatalogServicesController(SettingsControllerTest):
                 }])),
             ])
             response = self.manager.admin_catalog_services_controller.process_catalog_services()
-            eq_(response.uri, MULTIPLE_MARC_EXPORT_SERVICES.uri)
+            eq_(response.uri, MULTIPLE_SERVICES_FOR_LIBRARY.uri)
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         self._db.flush()

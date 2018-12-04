@@ -113,7 +113,7 @@ class CatalogServicesController(SettingsController):
                 if integration.goal == ExternalIntegration.CATALOG_GOAL and integration.protocol == ExternalIntegration.MARC_EXPORT:
                     marc_export_count += 1
                     if marc_export_count > 1:
-                        return MULTIPLE_MARC_EXPORT_SERVICES.detailed(_(
+                        return MULTIPLE_SERVICES_FOR_LIBRARY.detailed(_(
                             "You tried to add a MARC export service to %(library)s, but it already has one.",
                             library=library.short_name,
                         ))
