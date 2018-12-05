@@ -323,6 +323,12 @@ class TestOPDSFeed(RouteTest):
             url, self.controller.search, "<lane_identifier>"
         )
 
+class TestMARCRecord(RouteTest):
+    CONTROLLER_NAME = 'marc_records'
+
+    def test_marc_page(self):
+        url = "/marc"
+        self.assert_request_calls(url, self.controller.download_page)
 
 class TestSharedCollection(RouteTest):
 

@@ -503,6 +503,20 @@ def storage_services():
 def storage_service(service_id):
     return app.manager.admin_storage_services_controller.process_delete(service_id)
 
+@app.route("/admin/catalog_services", methods=['GET', 'POST'])
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def catalog_services():
+    return app.manager.admin_catalog_services_controller.process_catalog_services()
+
+@app.route("/admin/catalog_service/<service_id>", methods=["DELETE"])
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def catalog_service(service_id):
+    return app.manager.admin_catalog_services_controller.process_delete(service_id)
+
 @app.route("/admin/discovery_services", methods=["GET", "POST"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
