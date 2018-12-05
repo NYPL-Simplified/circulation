@@ -29,7 +29,7 @@ class TestMeasurement(DatabaseTest):
         )
         self.source = obj
 
-        Measurement.POPULARITY_PERCENTILES[self.SOURCE_NAME] = [
+        Measurement.PERCENTILE_SCALES[Measurement.POPULARITY][self.SOURCE_NAME] = [
             1, 1, 1, 2, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 9, 10, 10, 11, 12, 13, 14, 15, 15, 16, 18, 19, 20, 21, 22, 24, 25, 26, 28, 30, 31, 33, 35, 37, 39, 41, 43, 46, 48, 51, 53, 56, 59, 63, 66, 70, 74, 78, 82, 87, 92, 97, 102, 108, 115, 121, 128, 135, 142, 150, 159, 168, 179, 190, 202, 216, 230, 245, 260, 277, 297, 319, 346, 372, 402, 436, 478, 521, 575, 632, 702, 777, 861, 965, 1100, 1248, 1428, 1665, 2020, 2560, 3535, 5805]
         Measurement.RATING_SCALES[self.SOURCE_NAME] = [1, 10]
 
@@ -81,7 +81,7 @@ class TestMeasurement(DatabaseTest):
 
     def test_normalized_popularity(self):
         # Here's a very popular book on the scale defined in
-        # POPULARITY_PERCENTILES.
+        # PERCENTILE_SCALES[POPULARITY].
         p = self._popularity(6000)
         eq_(1.0, p.normalized_value)
 
@@ -96,6 +96,28 @@ class TestMeasurement(DatabaseTest):
         # Here's a book in the middle.
         p = self._popularity(59)
         eq_(0.5, p.normalized_value)
+
+        # So long as the data source and the quantity measured can be
+        # found in PERCENTILE_SCALES, the data can be normalized.
+
+        # This book is extremely unpopular.
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        m = self._measurement(Measurement.POPULARITY, 0, overdrive, 10)
+        eq_(0, m.normalized_value)
+
+        # For some other data source, we don't know whether popularity=0
+        # means 'very popular' or 'very unpopular'.
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        m = self._measurement(Measurement.POPULARITY, 0, gutenberg, 10)
+        eq_(None, m.normalized_value)
+
+        # We also don't know what it means if Overdrive were to say
+        # that a book got 200 downloads. Is that a lot? Compared to
+        # what? In what time period? We would have to measure it to
+        # find out -- at that point we would put the percentile list
+        # in PERCENTILE_SCALES and this would start working.
+        m = self._measurement(Measurement.DOWNLOADS, 0, overdrive, 10)
+        eq_(None, m.normalized_value)
 
     def test_normalized_rating(self):
         # Here's a very good book on the scale defined in
