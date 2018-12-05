@@ -317,8 +317,11 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
 
         ids = [(x.type, x.identifier) for x in metadata.identifiers]
 
-        # The original data contains a blank ASIN and an invalid ISBN
-        # in addition to the actual ASIN and ISBN, but they don't show up here.
+        # The original data contains an actual ASIN and ISBN, plus a blank
+        # ASIN and three invalid ISBNs: one which is common placeholder
+        # text, one which is mis-typed and has a bad check digit, and one
+        # which has an invalid character; the bad identifiers do not show
+        # up here.
         eq_(
             [
                 (Identifier.ASIN, "B000VI88N2"),

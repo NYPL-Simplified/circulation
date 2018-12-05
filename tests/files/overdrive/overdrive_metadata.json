@@ -60,6 +60,14 @@
                 {
                     "type": "ISBN",
                     "value": "n/a"
+                },
+                {
+                    "type": "ISBN",
+                    "value": "0971089750"
+                },
+                {
+                    "type": "ISBN",
+                    "value": "07613911R2"
                 }
             ],
             "name": "Kindle Book",
