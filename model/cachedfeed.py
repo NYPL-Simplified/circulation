@@ -201,3 +201,24 @@ class WillNotGenerateExpensiveFeed(Exception):
     expensive to generate.
     """
     pass
+
+class CachedMARCFile(Base):
+    """A record that a MARC file has been created and cached for a particular lane."""
+
+    __tablename__ = 'cachedmarcfiles'
+    id = Column(Integer, primary_key=True)
+
+    # Every MARC file is associated with a library and a lane. If the
+    # lane is null, the file is for the top-level WorkList.
+    library_id = Column(
+        Integer, ForeignKey('libraries.id'),
+        nullable=False, index=True)
+
+    lane_id = Column(
+        Integer, ForeignKey('lanes.id'),
+        nullable=True, index=True)
+
+    # The representation for this file stores the URL where it was mirrored.
+    representation_id = Column(
+        Integer, ForeignKey('representations.id'),
+        nullable=False)

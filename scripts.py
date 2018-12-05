@@ -1479,6 +1479,7 @@ class AddClassificationScript(IdentifierInputScript):
             calculate_quality=False,
             choose_cover=False,
             regenerate_opds_entries=True,
+            regenerate_marc_record=True,
             update_search_index=True,
             verbose=True,
         )
@@ -1638,6 +1639,7 @@ class WorkClassificationScript(WorkPresentationScript):
         calculate_quality=False,
         choose_cover=False,
         regenerate_opds_entries=False,
+        regenerate_marc_record=False,
         update_search_index=False,
     )
 
@@ -1661,10 +1663,11 @@ class ReclassifyWorksForUncheckedSubjectsScript(WorkClassificationScript):
 
 
 class WorkOPDSScript(WorkPresentationScript):
-    """Recalculate the OPDS entries and search index entries for Work objects.
+    """Recalculate the OPDS entries, MARC record, and search index entries
+    for Work objects.
 
     This is intended to verify that a problem has already been resolved and just
-    needs to be propagated to these two 'caches'.
+    needs to be propagated to these three 'caches'.
     """
     policy = PresentationCalculationPolicy(
         choose_edition=False,
@@ -1674,6 +1677,7 @@ class WorkOPDSScript(WorkPresentationScript):
         calculate_quality=False,
         choose_cover=False,
         regenerate_opds_entries=True,
+        regenerate_marc_record=True,
         update_search_index=True,
     )
 

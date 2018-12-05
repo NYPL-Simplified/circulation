@@ -28,6 +28,7 @@ as
     works.random,
     works.last_update_time,
     works.simple_opds_entry,
+    works.marc_record,
     licensepools.id AS license_pool_id
    FROM works
      JOIN editions ON editions.work_id = works.id AND editions.is_primary_for_work = true

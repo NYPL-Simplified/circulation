@@ -83,6 +83,12 @@ class Library(Base, HasFullTableCache):
         cascade="all, delete-orphan",
     )
 
+    # A Library may have many CachedMARCFiles.
+    cachedmarcfiles = relationship(
+        "CachedMARCFile", backref="library",
+        cascade="all, delete-orphan",
+    )
+
     # A Library may have many CustomLists.
     custom_lists = relationship(
         "CustomList", backref="library", lazy='joined',

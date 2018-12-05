@@ -2047,6 +2047,11 @@ class Lane(Base, WorkList):
         cascade="all, delete-orphan",
     )
 
+    # A Lane may have many CachedMARCFiles.
+    cachedmarcfiles = relationship(
+        "CachedMARCFile", backref="lane",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         UniqueConstraint('parent_id', 'display_name'),

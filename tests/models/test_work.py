@@ -261,6 +261,7 @@ class TestWork(DatabaseTest):
             (wcr.SUMMARY_OPERATION, success),
             (wcr.QUALITY_OPERATION, success),
             (wcr.GENERATE_OPDS_OPERATION, success),
+            (wcr.GENERATE_MARC_OPERATION, success),
             (wcr.UPDATE_SEARCH_INDEX_OPERATION, wcr.REGISTERED),
         ])
         eq_(expect, set([(x.operation, x.status) for x in records]))
@@ -1143,6 +1144,79 @@ class TestWork(DatabaseTest):
         # The verbose OPDS entry is longer than the simple one.
         assert work.verbose_opds_entry.startswith('<entry')
         assert len(work.verbose_opds_entry) > len(simple_entry)
+
+    def test_calculate_marc_record(self):
+        work = self._work(with_license_pool=True)
+        work.marc_record = None
+
+        work.calculate_marc_record()
+        assert work.title in work.marc_record
+        assert "online resource" in work.marc_record
+
+    def test_active_licensepool_ignores_superceded_licensepools(self):
+        work = self._work(with_license_pool=True,
+                          with_open_access_download=True)
+        [pool1] = work.license_pools
+        edition, pool2 = self._edition(with_license_pool=True)
+        work.license_pools.append(pool2)
+
+        # Start off with neither LicensePool being open-access. pool1
+        # will become open-access later on, which is why we created an
+        # open-access download for it.
+        pool1.open_access = False
+        pool1.licenses_owned = 1
+
+        pool2.open_access = False
+        pool2.licenses_owned = 1
+
+        # If there are multiple non-superceded non-open-access license
+        # pools for a work, the active license pool is one of them,
+        # though we don't really know or care which one.
+        assert work.active_license_pool() is not None
+
+        # Neither license pool is open-access, and pool1 is superceded.
+        # The active license pool is pool2.
+        pool1.superceded = True
+        eq_(pool2, work.active_license_pool())
+
+        # pool2 is superceded and pool1 is not. The active licensepool
+        # is pool1.
+        pool1.superceded = False
+        pool2.superceded = True
+        eq_(pool1, work.active_license_pool())
+
+        # If both license pools are superceded, there is no active license
+        # pool for the book.
+        pool1.superceded = True
+        eq_(None, work.active_license_pool())
+        pool1.superceded = False
+        pool2.superceded = False
+
+        # If one license pool is open-access and the other is not, the
+        # open-access pool wins.
+        pool1.open_access = True
+        eq_(pool1, work.active_license_pool())
+        pool1.open_access = False
+
+        # pool2 is open-access but has no usable download. The other
+        # pool wins.
+        pool2.open_access = True
+        eq_(pool1, work.active_license_pool())
+        pool2.open_access = False
+
+        # If one license pool has no owned licenses and the other has
+        # owned licenses, the one with licenses wins.
+        pool1.licenses_owned = 0
+        pool2.licenses_owned = 1
+        eq_(pool2, work.active_license_pool())
+        pool1.licenses_owned = 1
+
+        # If one license pool has a presentation edition that's missing
+        # a title, and the other pool has a presentation edition with a title,
+        # the one with a title wins.
+        pool2.presentation_edition.title = None
+        eq_(pool1, work.active_license_pool())
+
 
 class TestWorkConsolidation(DatabaseTest):
 

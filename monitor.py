@@ -498,7 +498,6 @@ class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
     def process_item(self, work):
         work.calculate_opds_entries()
 
-
 class PermanentWorkIDRefreshMonitor(EditionSweepMonitor):
     """A monitor that calculates or recalculates the permanent work ID for
     every edition.

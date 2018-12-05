@@ -572,6 +572,12 @@ class Representation(Base, MediaTypes):
     # data root.
     local_content_path = Column(Unicode)
 
+    # A Representation may be a CachedMARCFile.
+    marc_file = relationship(
+        "CachedMARCFile", backref="representation",
+        cascade="all, delete-orphan",
+    )
+
     # At any given time, we will have a single representation for a
     # given URL and media type.
     __table_args__ = (

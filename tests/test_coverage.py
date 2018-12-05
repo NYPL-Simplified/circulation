@@ -59,6 +59,7 @@ from ..coverage import (
     CoverageFailure,
     IdentifierCoverageProvider,
     OPDSEntryWorkCoverageProvider,
+    MARCRecordWorkCoverageProvider,
     PresentationReadyWorkCoverageProvider,
     WorkClassificationCoverageProvider,
     WorkPresentationEditionCoverageProvider,
@@ -1971,4 +1972,24 @@ class TestOPDSEntryWorkCoverageProvider(DatabaseTest):
         provider.run()
         assert work.simple_opds_entry.startswith('<entry')
         assert work.verbose_opds_entry.startswith('<entry')
+
+class TestMARCRecordWorkCoverageProvider(DatabaseTest):
+
+    def test_run(self):
+
+        provider = MARCRecordWorkCoverageProvider(self._db)
+        work = self._work(with_license_pool=True)
+        work.marc_record = 'old junk'
+        work.presentation_ready = False
+
+        # The work is not presentation-ready, so nothing happens.
+        provider.run()
+        eq_('old junk', work.marc_record)
+
+        # The work is presentation-ready, so its MARC record is
+        # regenerated.
+        work.presentation_ready = True
+        provider.run()
+        assert work.title in work.marc_record
+        assert "online resource" in work.marc_record
 

@@ -387,6 +387,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
     SUMMARY_OPERATION = u'summary'
     QUALITY_OPERATION = u'quality'
     GENERATE_OPDS_OPERATION = u'generate-opds'
+    GENERATE_MARC_OPERATION = u'generate-marc'
     UPDATE_SEARCH_INDEX_OPERATION = u'update-search-index'
 
     id = Column(Integer, primary_key=True)
