@@ -158,3 +158,25 @@ class TestConfiguration(DatabaseTest):
         eq_([['fre', 'jpn'], ['spa', 'ukr', 'ira'], ['nav']],
             m(different_sizes))
 
+    def test_max_outstanding_fines(self):
+        m = Configuration.max_outstanding_fines
+
+        # By default, fines are not enforced.
+        eq_(None, m(self._default_library))
+
+        # The maximum fine value is determined by this
+        # ConfigurationSetting.
+        setting = ConfigurationSetting.for_library(
+            Configuration.MAX_OUTSTANDING_FINES,
+            self._default_library
+        )
+
+        # Any amount of fines is too much.
+        setting.value = "$0"
+        max_fines = m(self._default_library)
+        eq_(0, max_fines.amount)
+
+        # A more lenient approach.
+        setting.value = "100"
+        max_fines = m(self._default_library)
+        eq_(100, max_fines.amount)

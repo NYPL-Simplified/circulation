@@ -500,7 +500,7 @@ class CirculationAPI(object):
 
         if patron.fines:
             max_fines = Configuration.max_outstanding_fines(patron.library)
-            if max_fines and patron.fines >= max_fines.amount:
+            if max_fines is not None and patron.fines > max_fines.amount:
                 raise OutstandingFines()
 
         # Do we (think we) already have this book out on loan?
