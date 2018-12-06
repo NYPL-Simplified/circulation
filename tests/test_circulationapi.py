@@ -375,11 +375,16 @@ class TestCirculationAPI(DatabaseTest):
         old_fines = self.patron.fines
         self.patron.fines = 1000
 
-        ConfigurationSetting.for_library(
+        setting = ConfigurationSetting.for_library(
             Configuration.MAX_OUTSTANDING_FINES,
-            self._default_library).value = "$0.50"
+            self._default_library
+        )
+        setting.value = "$0.50"
         assert_raises(OutstandingFines, self.borrow)
         self.patron.fines = old_fines
+        setting.value = None
+
+        response = self.borrow()
 
     def test_borrow_with_block_fails(self):
         # This checkout would succeed...

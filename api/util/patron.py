@@ -66,7 +66,7 @@ class PatronUtility(object):
 
         if patron.fines:
             max_fines = Configuration.max_outstanding_fines(patron.library)
-            if patron.fines >= max_fines.amount:
+            if max_fines and patron.fines >= max_fines.amount:
                 raise OutstandingFines()
 
         from api.authenticator import PatronData
