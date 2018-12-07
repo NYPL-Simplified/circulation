@@ -360,7 +360,7 @@ class TestCirculationAPI(DatabaseTest):
         assert_raises(AuthorizationExpired, self.borrow)
         self.patron.authorization_expires = old_expires
 
-    def test_borrow_with_fines_fails(self):
+    def test_borrow_with_outstanding_fines(self):
         # This checkout would succeed...
         now = datetime.now()
         loaninfo = LoanInfo(
@@ -374,11 +374,24 @@ class TestCirculationAPI(DatabaseTest):
         # ...except the patron has too many fines.
         old_fines = self.patron.fines
         self.patron.fines = 1000
-
-        ConfigurationSetting.for_library(
+        setting = ConfigurationSetting.for_library(
             Configuration.MAX_OUTSTANDING_FINES,
-            self._default_library).value = "$0.50"
+            self._default_library
+        )
+        setting.value = "$0.50"
+
         assert_raises(OutstandingFines, self.borrow)
+
+        # Test the case where any amount of fines are too much.
+        setting.value = "$0"
+        assert_raises(OutstandingFines, self.borrow)
+
+
+        # Remove the fine policy, and borrow succeeds.
+        setting.value = None
+        loan, i1, i2 = self.borrow()
+        assert isinstance(loan, Loan)
+
         self.patron.fines = old_fines
 
     def test_borrow_with_block_fails(self):

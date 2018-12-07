@@ -149,6 +149,7 @@ from novelist import (
 from base_controller import BaseCirculationManagerController
 from testing import MockCirculationAPI, MockSharedCollectionAPI
 from core.analytics import Analytics
+from core.marc import MARCExporter
 
 class CirculationManager(object):
 
@@ -333,6 +334,7 @@ class CirculationManager(object):
         """
         self.index_controller = IndexController(self)
         self.opds_feeds = OPDSFeedController(self)
+        self.marc_records = MARCRecordController(self)
         self.loans = LoanController(self)
         self.annotations = AnnotationController(self)
         self.urn_lookup = URNLookupController(self)
@@ -871,6 +873,44 @@ class OPDSFeedController(CirculationManagerController):
 
         return feed_response(opds_feed)
 
+class MARCRecordController(CirculationManagerController):
+    DOWNLOAD_TEMPLATE = """
+<html lang="en">
+<head><meta charset="utf8"></head>
+<body>
+%(body)s
+</body>
+</html>"""
+
+    def download_page(self):
+        library = flask.request.library
+        last_update = None
+        body = "<h2>Download MARC files for %s</h2>" % library.name
+
+        # Check if a MARC exporter is configured so we can show a
+        # message if it's not.
+        exporter = None
+        try:
+            exporter = MARCExporter.from_config(library)
+        except CannotLoadConfiguration, e:
+            body += "<p>" + _("No MARC exporter is currently configured for this library.") + "</p>"
+
+        if len(library.cachedmarcfiles) < 1 and exporter:
+            body += "<p>" + _("MARC files aren't ready to download yet.") + "</p>"
+
+        if library.cachedmarcfiles:
+            body += "<ul>"
+            for file in library.cachedmarcfiles:
+                if last_update is None or file.representation.mirrored_at > last_update:
+                    last_update = file.representation.mirrored_at
+                body += '<li><a href="%s">%s</a></li>' % (file.representation.mirror_url, file.lane.display_name if file.lane else "All Books")
+            body += "</ul>"
+        if last_update:
+            body += "<p>Last update: %s</p>" % last_update.strftime("%B %-d, %Y")
+        html = self.DOWNLOAD_TEMPLATE % dict(body=body)
+        headers = dict()
+        headers['Content-Type'] = "text/html"
+        return Response(html, 200, headers)
 
 class LoanController(CirculationManagerController):
 
