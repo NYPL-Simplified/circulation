@@ -36,6 +36,7 @@ before_script:
 
 env:
   - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_circulation_test"
+  - ELASTICSEARCH_VERSION="1"
 
 script:
   - ./verbose-test
