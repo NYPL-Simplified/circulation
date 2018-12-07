@@ -126,8 +126,10 @@ from core.scripts import OPDSImportScript
 from api.novelist import (
     NoveListAPI
 )
-from api.marc import MARCExtractor
+from core.metadata_layer import MARCExtractor
 from api.onix import ONIXExtractor
+from core.marc import MARCExporter
+from api.marc import LibraryAnnotator as MARCLibraryAnnotator
 
 class Script(CoreScript):
     def load_config(self):
@@ -694,6 +696,60 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
             )
             yield facets
 
+class CacheMARCFiles(LaneSweeperScript):
+    """Generate and cache MARC files for each input library."""
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = LaneSweeperScript.arg_parser(_db)
+        parser.add_argument(
+            '--max-depth',
+            help='Stop processing lanes once you reach this depth.',
+            type=int,
+            default=0,
+        )
+        return parser
+
+    def __init__(self, _db=None, cmd_args=None, *args, **kwargs):
+        super(CacheMARCFiles, self).__init__(_db, *args, **kwargs)
+        self.parse_args(cmd_args)
+
+    def parse_args(self, cmd_args=None):
+        parser = self.arg_parser(self._db)
+        parsed = parser.parse_args(cmd_args)
+        self.max_depth = parsed.max_depth
+        return parsed
+
+    def should_process_library(self, library):
+        integration = ExternalIntegration.lookup(
+            self._db, ExternalIntegration.MARC_EXPORT,
+            ExternalIntegration.CATALOG_GOAL, library)
+        return (integration is not None)
+
+    def process_library(self, library):
+        if self.should_process_library(library):
+            super(CacheMARCFiles, self).process_library(library)
+            self.log.info("Processed library %s" % library.name)
+
+    def should_process_lane(self, lane):
+        if isinstance(lane, Lane):
+            if self.max_depth is not None and lane.depth > self.max_depth:
+                return False
+            if lane.size == 0:
+                return False
+        return True
+
+    def process_lane(self, lane, exporter=None):
+        # Generate a MARC file for this lane.
+        if isinstance(lane, Lane):
+            library = lane.library
+        else:
+            library = lane.get_library(self._db)
+        
+        annotator = MARCLibraryAnnotator(library)
+        exporter = exporter or MARCExporter.from_config(library)
+        records = exporter.records(
+            lane, annotator=annotator,
+        )
 
 class AdobeAccountIDResetScript(PatronInputScript):
 

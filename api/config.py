@@ -170,6 +170,7 @@ class Configuration(CoreConfiguration):
             "key": LIBRARY_DESCRIPTION,
             "label": _("A short description of this library."),
             "description": _("This will be shown to people who aren't sure they've chosen the right library."),
+            "category": "Additional Information",
         },
         {
             "key": HELP_EMAIL,
@@ -182,24 +183,28 @@ class Configuration(CoreConfiguration):
             "key": HELP_WEB,
             "label": _("Patron support web site"),
             "description": _("A URL for patrons to get help."),
-            "format": "url"
+            "format": "url",
+            "category": "Patron Support",
         },
         {
             "key": HELP_URI,
             "label": _("Patron support custom integration URI"),
             "description": _("A custom help integration like Helpstack, e.g. 'helpstack:nypl.desk.com'."),
+            "category": "Patron Support",
         },
         {
             "key": COPYRIGHT_DESIGNATED_AGENT_EMAIL,
             "label": _("Copyright designated agent email"),
             "description": _("Patrons of this library should use this email address to send a DMCA notification (or other copyright complaint) to the library.<br/>If no value is specified here, the general patron support address will be used."),
             "format": "email",
+            "category": "Patron Support"
         },
         {
             "key": CONFIGURATION_CONTACT_EMAIL,
             "label": _("A point of contact for the organization reponsible for configuring this library."),
             "description": _("This email address will be shared as part of integrations that you set up through this interface. It will not be shared with the general public. This gives the administrator of the remote integration a way to contact you about problems with this library's use of that integration.<br/>If no value is specified here, the general patron support address will be used."),
             "format": "email",
+            "category": "Patron Support",
         },
         {
             "key": DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
@@ -233,6 +238,7 @@ class Configuration(CoreConfiguration):
             ],
             "type": "select",
             "default": DEFAULT_COLOR_SCHEME,
+            "category": "Client Interface Customization",
         },
         {
             "key": WEB_BACKGROUND_COLOR,
@@ -240,6 +246,7 @@ class Configuration(CoreConfiguration):
             "description": _("This tells web applications what background color to use. Must have sufficient contrast with the foreground color."),
             "type": "color-picker",
             "default": DEFAULT_WEB_BACKGROUND_COLOR,
+            "category": "Client Interface Customization",
         },
         {
             "key": WEB_FOREGROUND_COLOR,
@@ -247,84 +254,99 @@ class Configuration(CoreConfiguration):
             "description": _("This tells web applications what foreground color to use. Must have sufficient contrast with the background color."),
             "type": "color-picker",
             "default": DEFAULT_WEB_FOREGROUND_COLOR,
+            "category": "Client Interface Customization",
         },
         {
             "key": WEB_HEADER_LINKS,
             "label": _("Web header links"),
             "description": _("This gives web applications a list of links to display in the header. Specify labels for each link in the same order under 'Web header labels'."),
             "type": "list",
+            "category": "Client Interface Customization",
         },
         {
             "key": WEB_HEADER_LABELS,
             "label": _("Web header labels"),
             "description": _("Labels for each link under 'Web header links'."),
             "type": "list",
+            "category": "Client Interface Customization",
         },
         {
             "key": LOGO,
             "label": _("Logo image"),
             "type": "image",
             "description": _("The image must be in GIF, PNG, or JPG format, approximately square, no larger than 135x135 pixels, and look good on a white background."),
+            "category": "Client Interface Customization",
         },
         {
             "key": LIBRARY_FOCUS_AREA,
             "label": _("Focus area"),
             "type": "text",
             "description": _("The library focuses on serving patrons in this geographic area. In most cases this will be a city name like <code>Springfield, OR</code>."),
+            "category": "Additional Information",
         },
         {
             "key": LIBRARY_SERVICE_AREA,
             "label": _("Service area"),
             "type": "text",
             "description": _("The full geographic area served by this library. In most cases this is the same as the focus area and can be left blank, but it may be a larger area such as a US state (which should be indicated by its abbreviation, like <code>OR</code>)."),
+            "category": "Additional Information",
         },
         {
             "key": MAX_OUTSTANDING_FINES,
             "label": _("Maximum amount of fines a patron can have before losing lending privileges"),
-            "type": "number",
+            "format": "number",
+            "category": "Loans, Holds, & Fines",
         },
         {
             "key": LOAN_LIMIT,
             "label": _("Maximum number of books a patron can have on loan at once"),
             "description": _("(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor's app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)"),
-            "type": "number",
+            "format": "number",
+            "category": "Loans, Holds, & Fines",
         },
         {
             "key": HOLD_LIMIT,
             "label": _("Maximum number of books a patron can have on hold at once"),
             "description": _("(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor's app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)"),
-            "type": "number",
+            "format": "number",
+            "category": "Loans, Holds, & Fines",
         },
         {
             "key": TERMS_OF_SERVICE,
             "label": _("Terms of Service URL"),
-            "format": "url"
+            "format": "url",
+            "category": "Links",
         },
         {
             "key": PRIVACY_POLICY,
             "label": _("Privacy Policy URL"),
-            "format": "url"
+            "format": "url",
+            "category": "Links",
         },
         {
             "key": COPYRIGHT,
             "label": _("Copyright URL"),
-            "format": "url"
+            "format": "url",
+            "category": "Links",
         },
         {
             "key": ABOUT,
             "label": _("About URL"),
-            "format": "url"
+            "format": "url",
+            "category": "Links",
         },
         {
             "key": LICENSE,
             "label": _("License URL"),
-            "format": "url"
+            "format": "url",
+            "category": "Links",
         },
         {
             "key": REGISTER,
             "label": _("Patron registration URL"),
             "description": _("A URL where someone who doesn't have a library card yet can sign up for one."),
-            "format": "url"
+            "format": "url",
+            "category": "Patron Support",
         },
         {
             "key": LARGE_COLLECTION_LANGUAGES,
@@ -332,7 +354,8 @@ class Configuration(CoreConfiguration):
             "type": "list",
             "format": "language-code",
             "description": LANGUAGE_DESCRIPTION,
-            "optional": True
+            "optional": True,
+            "category": "Languages",
         },
         {
             "key": SMALL_COLLECTION_LANGUAGES,
@@ -341,6 +364,7 @@ class Configuration(CoreConfiguration):
             "format": "language-code",
             "description": LANGUAGE_DESCRIPTION,
             "optional": True,
+            "category": "Languages",
         },
         {
             "key": TINY_COLLECTION_LANGUAGES,
@@ -349,6 +373,7 @@ class Configuration(CoreConfiguration):
             "format": "language-code",
             "description": LANGUAGE_DESCRIPTION,
             "optional": True,
+            "category": "Languages",
         },
     ]
 
@@ -400,8 +425,10 @@ class Configuration(CoreConfiguration):
     def max_outstanding_fines(cls, library):
         max_fines = ConfigurationSetting.for_library(
             cls.MAX_OUTSTANDING_FINES, library
-        ).value
-        return MoneyUtility.parse(max_fines)
+        )
+        if max_fines.value is None:
+            return None
+        return MoneyUtility.parse(max_fines.value)
 
     @classmethod
     def load(cls, _db=None):

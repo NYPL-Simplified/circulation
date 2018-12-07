@@ -69,6 +69,9 @@ from core.s3 import MockS3Uploader
 
 from core.mirror import MirrorUploader
 
+from core.marc import MARCExporter
+from api.marc import LibraryAnnotator as  MARCLibraryAnnotator
+
 from . import (
     DatabaseTest,
 )
@@ -78,6 +81,7 @@ from scripts import (
     CacheRepresentationPerLane,
     CacheFacetListsPerLane,
     CacheOPDSGroupFeedPerLane,
+    CacheMARCFiles,
     DirectoryImportScript,
     InstanceInitializationScript,
     LanguageListScript,
@@ -530,6 +534,56 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
         assert "Science Fiction" in feed.content
         assert work.title in feed.content
 
+class TestCacheMARCFiles(TestLaneScript):
+
+    def test_should_process_library(self):
+        script = CacheMARCFiles(self._db, cmd_args=[])
+        eq_(False, script.should_process_library(self._default_library))
+        integration = self._external_integration(
+            ExternalIntegration.MARC_EXPORT, ExternalIntegration.CATALOG_GOAL,
+            libraries=[self._default_library])
+        eq_(True, script.should_process_library(self._default_library))
+
+    def test_should_process_lane(self):
+        parent = self._lane()
+        parent.size = 100
+        child = self._lane(parent=parent)
+        child.size = 10
+        grandchild = self._lane(parent=child)
+        grandchild.size = 1
+        wl = WorkList()
+        empty = self._lane(fiction=False)
+        empty.size = 0
+
+        script = CacheMARCFiles(self._db, cmd_args=[])
+        script.max_depth = 1
+        eq_(True, script.should_process_lane(parent))
+        eq_(True, script.should_process_lane(child))
+        eq_(False, script.should_process_lane(grandchild))
+        eq_(True, script.should_process_lane(wl))
+        eq_(False, script.should_process_lane(empty))
+
+        script.max_depth = 0
+        eq_(True, script.should_process_lane(parent))
+        eq_(False, script.should_process_lane(child))
+        eq_(False, script.should_process_lane(grandchild))
+        eq_(True, script.should_process_lane(wl))
+        eq_(False, script.should_process_lane(empty))
+
+    def test_process_lane(self):
+        lane = self._lane(genres=["Science Fiction"])
+        
+        class MockMARCExporter(MARCExporter):
+            called_with = None
+
+            def records(self, lane, annotator):
+                self.called_with = [lane, annotator]
+
+        exporter = MockMARCExporter(None, None, None)
+        script = CacheMARCFiles(self._db, cmd_args=[])
+        script.process_lane(lane, exporter)
+        eq_(lane, exporter.called_with[0])
+        assert isinstance(exporter.called_with[1], MARCLibraryAnnotator)
 
 class TestInstanceInitializationScript(DatabaseTest):
 

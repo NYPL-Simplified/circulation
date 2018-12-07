@@ -373,6 +373,13 @@ MULTIPLE_SITEWIDE_SERVICES = pd(
     detail=_("You tried to create a new sitewide service, but a sitewide service of the same type is already configured."),
 )
 
+MULTIPLE_SERVICES_FOR_LIBRARY = pd(
+    "http://librarysimplified.org/terms/problem/multiple-services-for-library",
+    status_code=400,
+    title=_("Multiple services for library"),
+    detail=_("Each library can only have one service of this type."),
+)
+
 MISSING_CUSTOM_LIST = pd(
     "http://librarysimplified.org/terms/problem/missing-custom-list",
     status_code=404,

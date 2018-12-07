@@ -333,9 +333,10 @@ class TestCollectionSettings(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "collection1"),
-                ("protocol", ExternalIntegration.RB_DIGITAL),
+                ("protocol", "Axis 360"),
                 ("password", "password"),
-                ("external_account_id", "bad_url"),
+                ("external_account_id", "account_id"),
+                ("url", "bad_url")
             ])
             response = self.manager.admin_collection_settings_controller.process_collections()
             eq_(response.uri, INVALID_URL.uri)
@@ -516,7 +517,7 @@ class TestCollectionSettings(SettingsControllerTest):
             ("id", collection.id),
             ("name", "Collection 1"),
             ("protocol", ExternalIntegration.RB_DIGITAL),
-            ("external_account_id", "http://1234"),
+            ("external_account_id", "1234"),
             ("username", "user2"),
             ("password", "password"),
             ("url", "http://rb/"),
@@ -614,7 +615,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("id", collection.id),
                 ("name", "Collection 1"),
                 ("protocol", ExternalIntegration.RB_DIGITAL),
-                ("external_account_id", "http://rbtest/"),
+                ("external_account_id", "1234"),
                 ("username", "user2"),
                 ("password", "password"),
                 ("url", "http://rb/"),
@@ -642,7 +643,7 @@ class TestCollectionSettings(SettingsControllerTest):
                 ("id", collection.id),
                 ("name", "Collection 1"),
                 ("protocol", ExternalIntegration.RB_DIGITAL),
-                ("external_account_id", "http://rbtest/"),
+                ("external_account_id", "1234"),
                 ("username", "user2"),
                 ("password", "password"),
                 ("url", "http://rb/"),
