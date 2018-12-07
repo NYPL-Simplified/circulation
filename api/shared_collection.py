@@ -209,6 +209,7 @@ class BaseSharedCollectionAPI(object):
             "default": Collection.STANDARD_DEFAULT_LOAN_PERIOD,
             "description": _("When a patron from another library borrows an ebook from this collection, the circulation manager will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor."),
             "format": "number",
+            "type": "number",
         }
     ]
 

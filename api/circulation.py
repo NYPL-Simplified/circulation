@@ -1128,6 +1128,7 @@ class BaseCirculationAPI(object):
         "label": _("Ebook Loan Duration (in Days)"),
         "default": Collection.STANDARD_DEFAULT_LOAN_PERIOD,
         "format": "number",
+        "type": "number",
         "description": _("When a patron uses SimplyE to borrow an ebook from this collection, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.")
     }
 
@@ -1138,6 +1139,7 @@ class BaseCirculationAPI(object):
         "key" : Collection.AUDIOBOOK_LOAN_DURATION_KEY,
         "label": _("Audiobook Loan Duration (in Days)"),
         "default": Collection.STANDARD_DEFAULT_LOAN_PERIOD,
+        "type": "number",
         "format": "number",
         "description": _("When a patron uses SimplyE to borrow an audiobook from this collection, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.")
     }
@@ -1151,6 +1153,7 @@ class BaseCirculationAPI(object):
         "label": _("Default Loan Period (in Days)"),
         "default": Collection.STANDARD_DEFAULT_LOAN_PERIOD,
         "format": "number",
+        "type": "number",
         "description": _("Until it hears otherwise from the distributor, this server will assume that any given loan for this library from this collection will last this number of days. This number is usually a negotiated value between the library and the distributor. This only affects estimates&mdash;it cannot affect the actual length of loans.")
     }
 
