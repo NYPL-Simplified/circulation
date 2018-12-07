@@ -22,6 +22,7 @@ from flask_sqlalchemy_session import (
     flask_scoped_session,
 )
 from werkzeug import ImmutableMultiDict
+from werkzeug.exceptions import NotFound
 
 from . import DatabaseTest
 from api.app import app, initialize_database
@@ -42,6 +43,7 @@ from api.authenticator import (
     LibraryAuthenticator,
 )
 from core.app_server import (
+    cdn_url_for,
     load_lending_policy,
     load_facets_from_request,
 )
@@ -123,6 +125,7 @@ import base64
 import feedparser
 from core.opds import (
     AcquisitionFeed,
+    NavigationFeed,
 )
 from core.util.opds_writer import (
     OPDSFeed,
@@ -139,6 +142,7 @@ import json
 import urllib
 from core.analytics import Analytics
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
+from api.registry import Registration
 
 class ControllerTest(VendorIDTest):
     """A test that requires a functional app server."""
@@ -341,6 +345,7 @@ class TestCirculationManager(CirculationControllerTest):
         manager.lending_policy = object()
         manager.shared_collection_api = object()
         manager.new_custom_index_views = object()
+        manager.patron_web_domains = object()
 
         # But some fields are _not_ about to be reloaded
         index_controller = manager.index_controller
@@ -368,6 +373,17 @@ class TestCirculationManager(CirculationControllerTest):
             return None
         old_for_library = CustomIndexView.for_library
         CustomIndexView.for_library = mock_for_library
+
+        # We also set up some patron web client settings that will
+        # be loaded.
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.PATRON_WEB_CLIENT_URL).value = "http://sitewide/1234"
+        registry = self._external_integration(
+            protocol="some protocol", goal=ExternalIntegration.DISCOVERY_GOAL
+        )
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, Registration.LIBRARY_REGISTRATION_WEB_CLIENT,
+            library, registry).value = "http://registration"
 
         # Then reload the CirculationManager...
         self.manager.load_settings()
@@ -405,6 +421,10 @@ class TestCirculationManager(CirculationControllerTest):
         # So has the SharecCollectionAPI.
         assert isinstance(manager.shared_collection_api,
                           SharedCollectionAPI)
+
+        # So have the patron web domains, and their paths have been
+        # removed.
+        eq_(set(["http://sitewide", "http://registration"]), manager.patron_web_domains)
 
         # Controllers that don't depend on site configuration
         # have not been reloaded.
@@ -968,7 +988,7 @@ class TestIndexController(CirculationControllerTest):
         ConfigurationSetting.for_library(
             Configuration.KEY_PAIR, self.library
         ).value = u'ignore me'
-            
+
         with self.app.test_request_context('/'):
             response = self.manager.index_controller.public_key_document()
 
@@ -2668,6 +2688,39 @@ class TestFeedController(CirculationControllerTest):
         eq_(lane.uses_customlists, facets.uses_customlists)
         AcquisitionFeed.groups = old_groups
 
+    def test_navigation(self):
+        library = self._default_library
+        lane = self.manager.top_level_lanes[library.id]
+        lane = self._db.merge(lane)
+
+        # Mock NavigationFeed.navigation so we can see the arguments going
+        # into it.
+        old_navigation = NavigationFeed.navigation
+        @classmethod
+        def mock_navigation(cls, *args, **kwargs):
+            self.called_with = (args, kwargs)
+            return old_navigation(*args, **kwargs)
+        NavigationFeed.navigation = mock_navigation
+
+        with self.request_context_with_library("/"):
+            response = self.manager.opds_feeds.navigation(lane.id)
+
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
+            # The default top-level lane is "World Languages", which contains
+            # sublanes for English, Spanish, Chinese, and French.
+            eq_(len(lane.sublanes), len(entries))
+
+        # A FeaturedFacets object was created from a combination of
+        # library configuration and lane configuration, and passed in
+        # to NavigationFeed.navigation().
+        args, kwargs = self.called_with
+        facets = kwargs['facets']
+        assert isinstance(facets, FeaturedFacets)
+        eq_(library.minimum_featured_quality, facets.minimum_featured_quality)
+        eq_(lane.uses_customlists, facets.uses_customlists)
+        NavigationFeed.navigation = old_navigation
+
     def _set_update_times(self):
         """Set the last update times so we can create a crawlable feed."""
         now = datetime.datetime.now()
@@ -3608,6 +3661,30 @@ class TestSharedCollectionController(ControllerTest):
             response = self.manager.shared_collection_controller.revoke_hold(self.collection.name, hold.id)
             eq_(NO_ACTIVE_HOLD.uri, response.uri)
 
+
+class TestURLLookupController(ControllerTest):
+    """Test that a client can look up data on specific works."""
+
+    def test_get(self):
+        # Look up a work.
+        work = self._work(with_license_pool=True)
+        [pool] = work.license_pools
+        urn = pool.identifier.urn
+        with self.request_context_with_library("/?urn=%s" % urn):
+            route_name = "work"
+            response = self.manager.urn_lookup.work_lookup(route_name)
+            feed = feedparser.parse(response.data)
+
+            # The route name we passed into work_lookup shows up in
+            # the feed-level link with rel="self".
+            [self_link] = feed['feed']['links']
+            assert '/' + route_name in self_link['href']
+
+            # The work we looked up has an OPDS entry.
+            [entry] = feed['entries']
+            eq_(work.title, entry['title'])
+
+
 class TestProfileController(ControllerTest):
     """Test that a client can interact with the User Profile Management
     Protocol.
@@ -3845,3 +3922,39 @@ class TestScopedSession(ControllerTest):
         # which is the same as self._db, the unscoped database session
         # used by most other unit tests.
         assert session1 != session2
+
+class TestStaticFileController(CirculationControllerTest):
+    def test_static_file(self):
+        cache_timeout = ConfigurationSetting.sitewide(
+            self._db, Configuration.STATIC_FILE_CACHE_TIME
+        )
+        cache_timeout.value = 10
+
+        directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "files", "images")
+        filename = "blue.jpg"
+        with open(os.path.join(directory, filename)) as f:
+            expected_content = f.read()
+
+        with self.app.test_request_context("/"):
+            response = self.app.manager.static_files.static_file(directory, filename)
+
+        eq_(200, response.status_code)
+        eq_('public, max-age=10', response.headers.get('Cache-Control'))
+        eq_(expected_content, response.response.file.read())
+
+        with self.app.test_request_context("/"):
+            assert_raises(NotFound, self.app.manager.static_files.static_file,
+                          directory, "missing.png")
+
+    def test_image(self):
+        directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
+        filename = "CleverLoginButton280.png"
+        with open(os.path.join(directory, filename)) as f:
+            expected_content = f.read()
+
+        with self.app.test_request_context("/"):
+            response = self.app.manager.static_files.image(filename)
+
+        eq_(200, response.status_code)
+        eq_(expected_content, response.response.file.read())
+        

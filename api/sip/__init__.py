@@ -22,13 +22,13 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     FIELD_SEPARATOR = "field separator"
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "label": _("Server") },
-        { "key": PORT, "label": _("Port") },
-        { "key": ExternalIntegration.USERNAME, "label": _("Login User ID"), "optional": True },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Login Password"), "optional": True },
-        { "key": LOCATION_CODE, "label": _("Location Code"), "optional": True },
+        { "key": ExternalIntegration.URL, "label": _("Server"), "required": True },
+        { "key": PORT, "label": _("Port"), "required": True },
+        { "key": ExternalIntegration.USERNAME, "label": _("Login User ID") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Login Password") },
+        { "key": LOCATION_CODE, "label": _("Location Code") },
         { "key": FIELD_SEPARATOR, "label": _("Field Separator"),
-          "default": "|",
+          "default": "|", "required": True,
         },
     ] + BasicAuthenticationProvider.SETTINGS
 
@@ -84,36 +84,42 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         super(SIP2AuthenticationProvider, self).__init__(
             library, integration, analytics
         )
+
+        self.server = integration.url
+        self.port = integration.setting(self.PORT).int_value
+        self.login_user_id = integration.username
+        self.login_password = integration.password
+        self.location_code = integration.setting(self.LOCATION_CODE).value
+        self.field_separator = integration.setting(self.FIELD_SEPARATOR).value or '|'
+        self.client = client
+
+    def patron_information(self, username, password):
         try:
-            server = None
-            if client:
-                if callable(client):
-                    client = client()
+            if self.client:
+                sip = self.client
             else:
-                server = integration.url
-                port = integration.setting(self.PORT).int_value
-                login_user_id = integration.username
-                login_password = integration.password
-                location_code = integration.setting(self.LOCATION_CODE).value
-                field_separator = integration.setting(
-                    self.FIELD_SEPARATOR).value or '|'
-                client = SIPClient(
-                    target_server=server, target_port=port,
-                    login_user_id=login_user_id, login_password=login_password,
-                    location_code=location_code, separator=field_separator,
-                    connect=connect
+                sip = SIPClient(
+                    target_server=self.server, target_port=self.port,
+                    login_user_id=self.login_user_id, login_password=self.login_password,
+                    location_code=self.location_code, separator=self.field_separator
                 )
+            sip.connect()
+            sip.login()
+            info = sip.patron_information(username, password)
+            sip.end_session(username, password)
+            sip.disconnect()
+            return info
 
         except IOError, e:
             raise RemoteIntegrationException(
-                server or 'unknown server', e.message
+                self.server or 'unknown server', e.message
             )
-        self.client = client
 
     def _remote_patron_lookup(self, patron_or_patrondata):
-        return self.client.patron_information(
+        info = self.patron_information(
             patron_or_patrondata.authorization_identifier, None
         )
+        return self.info_to_patrondata(info, False)
 
     def remote_authenticate(self, username, password):
         """Authenticate a patron with the SIP2 server.
@@ -126,17 +132,11 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             # Even if we were somehow given a password, we won't be
             # passing it on.
             password = None
-        try:
-            info = self.client.patron_information(username, password)
-        except IOError, e:
-            raise RemoteIntegrationException(
-                self.client.target_server or 'unknown server',
-                e.message
-            )
+        info = self.patron_information(username, password)
         return self.info_to_patrondata(info)
 
     @classmethod
-    def info_to_patrondata(cls, info):
+    def info_to_patrondata(cls, info, validate_password=True):
 
         """Convert the SIP-specific dictionary obtained from
         SIPClient.patron_information() to an abstract,
@@ -147,7 +147,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             # library. Don't return any data.
             return None
 
-        if info.get('valid_patron_password') == 'N':
+        if info.get('valid_patron_password') == 'N' and validate_password:
             # The patron did not authenticate correctly. Don't
             # return any data.
             return None

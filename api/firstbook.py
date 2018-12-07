@@ -27,7 +27,9 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
         An authentication service for Open eBooks that authenticates
         using access codes and PINs.""")
 
-    LOGIN_LABEL = _("Access Code")
+    DISPLAY_NAME = NAME
+    DEFAULT_IDENTIFIER_LABEL = _("Access Code")
+    LOGIN_BUTTON_IMAGE = "FirstBookLoginButton280.png"
 
     # If FirstBook sends this message it means they accepted the
     # patron's credentials.
@@ -40,8 +42,8 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     DEFAULT_PASSWORD_REGULAR_EXPRESSION = '^[0-9]+$'
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "label": _("URL") },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Key") },
+        { "key": ExternalIntegration.URL, "label": _("URL"), "required": True },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Key"), "required": True },
     ] + BasicAuthenticationProvider.SETTINGS
 
     log = logging.getLogger("First Book authentication API")

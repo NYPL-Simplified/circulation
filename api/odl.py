@@ -102,26 +102,33 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         {
             "key": Collection.EXTERNAL_ACCOUNT_ID_KEY,
             "label": _("Metadata URL (ODL feed)"),
+            "required": True,
+            "format": "url",
         },
         {
             "key": CONSOLIDATED_COPIES_URL_KEY,
             "label": _("Consolidated Copies URL"),
+            "required": True,
         },
         {
             "key": CONSOLIDATED_LOAN_URL_KEY,
             "label": _("Consolidated Loan URL"),
+            "required": True,
         },
         {
             "key": ExternalIntegration.USERNAME,
             "label": _("Library's API username"),
+            "required": True,
         },
         {
             "key": ExternalIntegration.PASSWORD,
             "label": _("Library's API password"),
+            "required": True,
         },
         {
             "key": Collection.DATA_SOURCE_NAME_SETTING,
             "label": _("Data source name"),
+            "required": True,
         },
         {
             "key": Collection.DEFAULT_RESERVATION_PERIOD_KEY,
@@ -974,14 +981,17 @@ class SharedODLAPI(BaseCirculationAPI):
             "key": Collection.EXTERNAL_ACCOUNT_ID_KEY,
             "label": _("Base URL"),
             "description": _("The base URL for the collection on the other circulation manager."),
+            "required": True,
         },
         {
             "key": Collection.DATA_SOURCE_NAME_SETTING,
             "label": _("Data source name"),
+            "required": True,
         },
     ]
 
     SUPPORTS_REGISTRATION = True
+    SUPPORTS_STAGING = False
 
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 

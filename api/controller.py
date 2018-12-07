@@ -3,10 +3,12 @@ import json
 import logging
 import sys
 import urllib
+import urlparse
 import datetime
 import base64
 from wsgiref.handlers import format_date_time
 from time import mktime
+import os
 
 from lxml import etree
 from sqlalchemy.orm import eagerload
@@ -30,7 +32,7 @@ from core.app_server import (
     load_pagination_from_request,
     ComplaintController,
     HeartbeatController,
-    URNLookupController,
+    URNLookupController as CoreURNLookupController,
 )
 from core.entrypoint import EverythingEntryPoint
 from core.external_search import (
@@ -77,6 +79,7 @@ from core.model import (
 )
 from core.opds import (
     AcquisitionFeed,
+    NavigationFeed,
 )
 from core.util.opds_writer import (
      OPDSFeed,
@@ -233,8 +236,27 @@ class CirculationManager(object):
             Configuration.policy('lending', {})
         )
 
-        self.patron_web_client_url = ConfigurationSetting.sitewide(
+        # Assemble the list of patron web client domains from individual
+        # library registration settings as well as a sitewide setting.
+        patron_web_domains = set()
+
+        def get_domain(url):
+            scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
+            return scheme + "://" + netloc
+
+        sitewide_patron_web_client_url = ConfigurationSetting.sitewide(
             self._db, Configuration.PATRON_WEB_CLIENT_URL).value
+        if sitewide_patron_web_client_url:
+            patron_web_domains.add(get_domain(sitewide_patron_web_client_url))
+
+        from registry import Registration
+        for setting in self._db.query(
+            ConfigurationSetting).filter(
+            ConfigurationSetting.key==Registration.LIBRARY_REGISTRATION_WEB_CLIENT):
+            if setting.value:
+                patron_web_domains.add(get_domain(setting.value))
+
+        self.patron_web_domains = patron_web_domains
 
         self.setup_configuration_dependent_controllers()
         self.authentication_for_opds_documents = {}
@@ -313,13 +335,14 @@ class CirculationManager(object):
         self.opds_feeds = OPDSFeedController(self)
         self.loans = LoanController(self)
         self.annotations = AnnotationController(self)
-        self.urn_lookup = URNLookupController(self._db)
+        self.urn_lookup = URNLookupController(self)
         self.work_controller = WorkController(self)
         self.analytics_controller = AnalyticsController(self)
         self.profiles = ProfileController(self)
         self.heartbeat = HeartbeatController()
         self.odl_notification_controller = ODLNotificationController(self)
         self.shared_collection_controller = SharedCollectionController(self)
+        self.static_files = StaticFileController(self)
 
     def setup_configuration_dependent_controllers(self):
         """Set up all the controllers that depend on the
@@ -690,6 +713,33 @@ class OPDSFeedController(CirculationManagerController):
             self._db, title, url, lane, annotator=annotator,
             facets=facets,
             pagination=pagination,
+        )
+        return feed_response(feed)
+
+    def navigation(self, lane_identifier):
+        """Build or retrieve a navigation feed, for clients that do not support groups."""
+
+        lane = self.load_lane(lane_identifier)
+        if isinstance(lane, ProblemDetail):
+            return lane
+        library = flask.request.library
+        library_short_name = library.short_name
+        url = self.cdn_url_for(
+            "navigation_feed", lane_identifier=lane_identifier, library_short_name=library_short_name,
+        )
+
+        title = lane.display_name
+        facet_class_kwargs = dict(
+            minimum_featured_quality=library.minimum_featured_quality,
+            uses_customlists=lane.uses_customlists
+        )
+        facets = load_facets_from_request(
+            worklist=lane, base_class=FeaturedFacets,
+            base_class_constructor_kwargs=facet_class_kwargs
+        )
+        annotator = self.manager.annotator(lane, facets)
+        feed = NavigationFeed.navigation(
+            self._db, title, url, lane, annotator, facets=facets
         )
         return feed_response(feed)
 
@@ -1590,6 +1640,25 @@ class ProfileController(CirculationManagerController):
         return make_response(*result)
 
 
+class URNLookupController(CoreURNLookupController):
+
+    def __init__(self, manager):
+        self.manager = manager
+        super(URNLookupController, self).__init__(manager._db)
+
+    def work_lookup(self, route_name):
+        """Build a CirculationManagerAnnotor based on the current library's
+        top-level WorkList, and use it to generate an OPDS lookup
+        feed.
+        """
+        library = flask.request.library
+        top_level_worklist = self.manager.top_level_lanes[library.id]
+        annotator = CirculationManagerAnnotator(top_level_worklist)
+        return super(URNLookupController, self).work_lookup(
+            annotator, route_name
+        )
+
+
 class AnalyticsController(CirculationManagerController):
 
     def track_event(self, identifier_type, identifier, event_type):
@@ -1855,3 +1924,14 @@ class SharedCollectionController(CirculationManagerController):
         except CannotReleaseHold, e:
             return CANNOT_RELEASE_HOLD.detailed(str(e))
         return Response(_("Success"), 200)
+
+class StaticFileController(CirculationManagerController):
+    def static_file(self, directory, filename):
+        cache_timeout = ConfigurationSetting.sitewide(
+            self._db, Configuration.STATIC_FILE_CACHE_TIME
+        ).int_value
+        return flask.send_from_directory(directory, filename, cache_timeout=cache_timeout)
+
+    def image(self, filename):
+        directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "resources", "images")
+        return self.static_file(directory, filename)

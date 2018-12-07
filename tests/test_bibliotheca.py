@@ -17,6 +17,7 @@ from . import (
     sample_data
 )
 
+from core.metadata_layer import ReplacementPolicy
 from core.mock_analytics_provider import MockAnalyticsProvider
 from core.model import (
     CirculationEvent,
@@ -37,6 +38,7 @@ from core.model import (
     Subject,
     Timestamp,
     Work,
+    WorkCoverageRecord,
     create,
 )
 from core.util.http import (
@@ -56,7 +58,6 @@ from api.circulation_exceptions import *
 from api.bibliotheca import (
     BibliothecaCirculationSweep,
     CheckoutResponseParser,
-    CirculationParser,
     ErrorParser,
     EventParser,
     MockBibliothecaAPI,
@@ -67,6 +68,7 @@ from api.bibliotheca import (
     ItemListParser,
     BibliothecaBibliographicCoverageProvider,
 )
+from api.web_publication_manifest import FindawayManifest
 
 
 class BibliothecaAPITest(DatabaseTest):
@@ -178,7 +180,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             self.api.full_url("/foo"))
 
     def test_request_signing(self):
-        """Confirm a known correct result for the 3M request signing
+        """Confirm a known correct result for the Bibliotheca request signing
         algorithm.
         """
         self.api.queue_response(200)
@@ -199,13 +201,66 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         headers = request[-1]['headers']
         assert headers['3mcl-Authorization'] != expect
 
+    def test_replacement_policy(self):
+        mock_analytics = object()
+        policy = self.api.replacement_policy(self._db, analytics=mock_analytics)
+        assert isinstance(policy, ReplacementPolicy)
+        eq_(mock_analytics, policy.analytics)
+
+    def test_bibliographic_lookup_request(self):
+        self.api.queue_response(200, content="some data")
+        response = self.api.bibliographic_lookup_request(["id1", "id2"])
+        [request] = self.api.requests
+        url = request[1]
+
+        # The request URL is the /items endpoint with the IDs concatenated.
+        eq_(url, self.api.full_url("items") + "/id1,id2")
+
+        # The response string is returned directly.
+        eq_("some data", response)
+
     def test_bibliographic_lookup(self):
-        data = self.sample_data("item_metadata_single.xml")
-        metadata = []
-        self.api.queue_response(200, content=data)
+
+        class MockItemListParser(object):
+            def parse(self, data):
+                self.parse_called_with = data
+                yield "item1"
+                yield "item2"
+
+        class Mock(MockBibliothecaAPI):
+            """Mock the functionality used by bibliographic_lookup_request."""
+            def __init__(self):
+                self.item_list_parser = MockItemListParser()
+
+            def bibliographic_lookup_request(self, identifier_strings):
+                self.bibliographic_lookup_request_called_with = identifier_strings
+                return "parse me"
+        api = Mock()
+
         identifier = self._identifier()
-        metadata = self.api.bibliographic_lookup(identifier)
-        eq_("The Incense Game", metadata.title)
+        # We can pass in a list of identifier strings, a list of
+        # Identifier objects, or a single example of each:
+        for identifier, identifier_string in (
+                ("id1", "id1"),
+                (identifier, identifier.identifier)
+        ):
+            for identifier_list in ([identifier], identifier):
+                api.item_list_parser.parse_called_with = None
+
+                results = list(api.bibliographic_lookup(identifier_list))
+
+                # A list of identifier strings is passed into
+                # bibliographic_lookup_request().
+                eq_(
+                    [identifier_string],
+                    api.bibliographic_lookup_request_called_with
+                )
+
+                # The response content is passed into parse()
+                eq_("parse me", api.item_list_parser.parse_called_with)
+
+                # The results of parse() are yielded.
+                eq_(["item1", "item2"], results)
 
     def test_bad_response_raises_exception(self):
         self.api.queue_response(500, content="oops")
@@ -253,27 +308,9 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             self.api.get_events_between, an_hour_ago, now
         )
 
-    def test_get_circulation_for_success(self):
-        self.api.queue_response(200, content=self.sample_data("item_circulation.xml"))
-        data = list(self.api.get_circulation_for(['id1', 'id2']))
-        eq_(2, len(data))
-
-    def test_get_circulation_for_returns_empty_list(self):
-        self.api.queue_response(200, content=self.sample_data("empty_item_circulation.xml"))
-        data = list(self.api.get_circulation_for(['id1', 'id2']))
-        eq_(0, len(data))
-
-    def test_get_circulation_for_failure(self):
-        self.api.queue_response(500)
-        assert_raises(
-            BadResponseException,
-            list, self.api.get_circulation_for(['id1', 'id2'])
-        )
-
     def test_update_availability(self):
-        """Test the 3M implementation of the update_availability
-        method defined by the CirculationAPI interface.
-        """
+        # Test the Bibliotheca implementation of the update_availability
+        # method defined by the CirculationAPI interface.
 
         # Create an analytics integration so we can make sure
         # events are tracked.
@@ -299,11 +336,19 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         pool.patrons_in_hold_queue = 3
         eq_(None, pool.last_checked)
 
+        # We do have a Work hanging around, but things are about to
+        # change for it.
+        work, is_new = pool.calculate_work()
+        assert any(
+            x for x in work.coverage_records
+            if x.operation==WorkCoverageRecord.CLASSIFY_OPERATION
+        )
+
         # Prepare availability information.
-        data = self.sample_data("item_circulation_single.xml")
+        data = self.sample_data("item_metadata_single.xml")
         # Change the ID in the test data so it looks like it's talking
         # about the LicensePool we just created.
-        data = data.replace("d5rf89", pool.identifier.identifier)
+        data = data.replace("ddf4gr9", pool.identifier.identifier)
 
         # Update availability using that data.
         self.api.queue_response(200, content=data)
@@ -326,10 +371,18 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         old_last_checked = pool.last_checked
         assert old_last_checked is not None
 
+        # The work's CLASSIFY_OPERATION coverage record has been
+        # removed. In the near future its coverage will be
+        # recalculated to accommodate the new metadata.
+        assert any(
+            x for x in work.coverage_records
+            if x.operation==WorkCoverageRecord.CLASSIFY_OPERATION
+        )
+
         # Now let's try update_availability again, with a file that
         # makes it look like the book has been removed from the
         # collection.
-        data = self.sample_data("empty_item_circulation.xml")
+        data = self.sample_data("empty_item_bibliographic.xml")
         self.api.queue_response(200, content=data)
 
         self.api.update_availability(pool)
@@ -495,7 +548,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         context = manifest['@context']
         default, findaway = context
         eq_(AudiobookManifest.DEFAULT_CONTEXT, default)
-        eq_({"findaway" : BibliothecaAPI.FINDAWAY_EXTENSION_CONTEXT},
+        eq_({"findaway" : FindawayManifest.FINDAWAY_EXTENSION_CONTEXT},
            findaway)
 
         metadata = manifest['metadata']
@@ -550,9 +603,8 @@ class TestBibliothecaAPI(BibliothecaAPITest):
 class TestBibliothecaCirculationSweep(BibliothecaAPITest):
 
     def test_circulation_sweep_discovers_work(self):
-        """Test what happens when BibliothecaCirculationSweep discovers a new
-        work.
-        """
+        # Test what happens when BibliothecaCirculationSweep discovers a new
+        # work.
 
         # Create an analytics integration so we can make sure
         # events are tracked.
@@ -564,12 +616,12 @@ class TestBibliothecaCirculationSweep(BibliothecaAPITest):
 
         # We know about an identifier, but nothing else.
         identifier = self._identifier(
-            identifier_type=Identifier.BIBLIOTHECA_ID, foreign_id="d5rf89"
+            identifier_type=Identifier.BIBLIOTHECA_ID, foreign_id="ddf4gr9"
         )
 
         # We're about to get information about that identifier from
         # the API.
-        data = self.sample_data("item_circulation_single.xml")
+        data = self.sample_data("item_metadata_single.xml")
 
         # Update availability using that data.
         self.api.queue_response(200, content=data)
@@ -577,6 +629,11 @@ class TestBibliothecaCirculationSweep(BibliothecaAPITest):
             self._db, self.collection, api_class=self.api
         )
         monitor.process_items([identifier])
+
+        # Validate that the HTTP request went to the /items endpoint.
+        request = self.api.requests.pop()
+        url = request[1]
+        eq_(url, self.api.full_url("items") + "/" + identifier.identifier)
 
         # A LicensePool has been created for the previously mysterious
         # identifier.
@@ -715,7 +772,7 @@ class TestErrorParser(BibliothecaAPITest):
         eq_(msg, error.message)
         doc = error.as_problem_detail_document()
         eq_(502, doc.status_code)
-        eq_("Integration error communicating with 3M", doc.detail)
+        eq_("Integration error communicating with Bibliotheca", doc.detail)
 
     def test_unknown_error_becomes_remote_initiated_server_error(self):
         """Simulate the message we get when ¯\_(ツ)_/¯."""
@@ -737,7 +794,7 @@ class TestErrorParser(BibliothecaAPITest):
         eq_("Authentication failed", error.message)
 
     def test_malformed_error_message_becomes_remote_initiated_server_error(self):
-        msg = """<weird>This error does not follow the standard set out by 3M.</weird>"""
+        msg = """<weird>This error does not follow the standard set out by Bibliotheca.</weird>"""
         error = ErrorParser().process_all(msg)
         assert isinstance(error, RemoteInitiatedServerError)
         eq_(BibliothecaAPI.SERVICE_NAME, error.service_name)
@@ -750,7 +807,7 @@ class TestErrorParser(BibliothecaAPITest):
         eq_(BibliothecaAPI.SERVICE_NAME, error.service_name)
         eq_("Unknown error", error.message)
 
-class Test3MEventParser(object):
+class TestBibliothecaEventParser(object):
 
     # Sample event feed to test out the parser.
     TWO_EVENTS = """<LibraryEventBatch xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
@@ -809,81 +866,6 @@ class Test3MEventParser(object):
         correct_end = datetime(2014, 4, 2, 23, 57, 37)
         eq_(correct_start, start_time)
         eq_(correct_end, end_time)
-
-
-class Test3MCirculationParser(object):
-
-    # Sample circulation feed for testing the parser.
-
-    TWO_CIRCULATION_STATUSES = """
-<ArrayOfItemCirculation xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-<ItemCirculation>
-  <ItemId>item1</ItemId>
-  <ISBN13>900isbn1</ISBN13>
-  <TotalCopies>2</TotalCopies>
-  <AvailableCopies>0</AvailableCopies>
-  <Checkouts>
-    <Patron>
-      <PatronId>patron1</PatronId>
-      <EventStartDateInUTC>2014-03-24T13:10:51</EventStartDateInUTC>
-      <EventEndDateInUTC>2014-04-15T13:10:51</EventEndDateInUTC>
-      <Position>1</Position>
-    </Patron>
-  </Checkouts>
-  <Holds/>
-  <Reserves>
-    <Patron>
-      <PatronId>patron2</PatronId>
-      <EventStartDateInUTC>2014-03-24T13:10:51</EventStartDateInUTC>
-      <EventEndDateInUTC>2014-04-15T13:10:51</EventEndDateInUTC>
-      <Position>1</Position>
-    </Patron>
-  </Reserves>
-</ItemCirculation>
-
-<ItemCirculation>
-  <ItemId>item2</ItemId>
-  <ISBN13>900isbn2</ISBN13>
-  <TotalCopies>1</TotalCopies>
-  <AvailableCopies>0</AvailableCopies>
-  <Checkouts>
-    <Patron>
-      <PatronId>patron3</PatronId>
-      <EventStartDateInUTC>2014-04-23T22:14:02</EventStartDateInUTC>
-      <EventEndDateInUTC>2014-05-14T22:14:02</EventEndDateInUTC>
-      <Position>1</Position>
-    </Patron>
-  </Checkouts>
-  <Holds>
-    <Patron>
-      <PatronId>patron4</PatronId>
-      <EventStartDateInUTC>2014-04-24T18:10:44</EventStartDateInUTC>
-      <EventEndDateInUTC>2014-04-24T18:11:02</EventEndDateInUTC>
-      <Position>1</Position>
-    </Patron>
-  </Holds>
-  <Reserves/>
-</ItemCirculation>
-</ArrayOfItemCirculation>
-"""
-
-    def test_parse_circulation_batch(self):
-        event1, event2 = CirculationParser().process_all(
-            self.TWO_CIRCULATION_STATUSES)
-
-        eq_('item1', event1[Identifier][Identifier.THREEM_ID])
-        eq_('900isbn1', event1[Identifier][Identifier.ISBN])
-        eq_(2, event1[LicensePool.licenses_owned])
-        eq_(0, event1[LicensePool.licenses_available])
-        eq_(1, event1[LicensePool.licenses_reserved])
-        eq_(0, event1[LicensePool.patrons_in_hold_queue])
-
-        eq_('item2', event2[Identifier][Identifier.THREEM_ID])
-        eq_('900isbn2', event2[Identifier][Identifier.ISBN])
-        eq_(1, event2[LicensePool.licenses_owned])
-        eq_(0, event2[LicensePool.licenses_available])
-        eq_(0, event2[LicensePool.licenses_reserved])
-        eq_(1, event2[LicensePool.patrons_in_hold_queue])
 
 
 class TestErrorParser(object):
@@ -1062,11 +1044,13 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         eq_(1, pool.licenses_owned)
         eq_(1, pool.licenses_available)
 
-        # Three analytics events were collected: one for the license add
+        # Four analytics events were collected: one for the license add
         # event itself, one for the 'checkin' that made the new
-        # license available, and one for the first appearance of a new
-        # LicensePool.
-        eq_(3, analytics.count)
+        # license available, one for the first appearance of a new
+        # LicensePool, and a redundant 'license add' event
+        # which was registered with analytics but which did not
+        # affect the counts.
+        eq_(4, analytics.count)
 
 
 class TestItemListParser(BibliothecaAPITest):
@@ -1122,6 +1106,7 @@ class TestItemListParser(BibliothecaAPITest):
 
         eq_("The Incense Game", cooked.title)
         eq_("A Novel of Feudal Japan", cooked.subtitle)
+        eq_(Edition.BOOK_MEDIUM, cooked.medium)
         eq_("eng", cooked.language)
         eq_("St. Martin's Press", cooked.publisher)
         eq_(datetime(year=2012, month=9, day=17),
@@ -1179,7 +1164,7 @@ class TestItemListParser(BibliothecaAPITest):
 
 class TestBibliographicCoverageProvider(TestBibliothecaAPI):
 
-    """Test the code that looks up bibliographic information from 3M."""
+    """Test the code that looks up bibliographic information from Bibliotheca."""
 
     def test_script_instantiation(self):
         """Test that RunCollectionCoverageProviderScript can instantiate
@@ -1195,9 +1180,8 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
         assert isinstance(provider.api, MockBibliothecaAPI)
 
     def test_process_item_creates_presentation_ready_work(self):
-        """Test the normal workflow where we ask 3M for data,
-        3M provides it, and we create a presentation-ready work.
-        """
+        # Test the normal workflow where we ask Bibliotheca for data,
+        # Bibliotheca provides it, and we create a presentation-ready work.
         identifier = self._identifier(identifier_type=Identifier.BIBLIOTHECA_ID)
         identifier.identifier = 'ddf4gr9'
 
@@ -1217,12 +1201,11 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
         [result] = provider.process_batch([identifier])
         eq_(identifier, result)
 
-        # A LicensePool was created, not because we know anything
-        # about how we've licensed this book, but to have a place to
-        # store the information about what formats the book is
-        # available in.
+        # A LicensePool was created and populated with format and availability
+        # information.
         [pool] = identifier.licensed_through
-        eq_(0, pool.licenses_owned)
+        eq_(1, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
         [lpdm] = pool.delivery_mechanisms
         eq_(
             'application/epub+zip (application/vnd.adobe.adept+xml)',
@@ -1253,7 +1236,7 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
         _check_format("EPUB", book, rep.EPUB_MEDIA_TYPE, adobe)
         _check_format("EPUB3", book, rep.EPUB_MEDIA_TYPE, adobe)
         _check_format("PDF", book, rep.PDF_MEDIA_TYPE, adobe)
-        _check_format("MP3", Edition.AUDIO_MEDIUM, rep.MP3_MEDIA_TYPE, findaway)
+        _check_format("MP3", Edition.AUDIO_MEDIUM, None, findaway)
 
         # Now Try a string we don't recognize from Bibliotheca.
         medium, formats = m("Unknown")

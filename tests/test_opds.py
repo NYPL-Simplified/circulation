@@ -4,6 +4,7 @@ import contextlib
 import datetime
 import os
 import re
+import json
 from lxml import etree
 from nose.tools import (
     set_trace,
@@ -149,6 +150,11 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         assert str(self.lane.id) in feed_url_fantasy
         assert self._default_library.name not in feed_url_fantasy
 
+    def test_navigation_url(self):
+        navigation_url_fantasy = self.annotator.navigation_url(self.lane)
+        assert "navigation" in navigation_url_fantasy
+        assert str(self.lane.id) in navigation_url_fantasy
+
     def test_rights_attributes(self):
         m = self.annotator.rights_attributes
 
@@ -212,27 +218,42 @@ class TestLibraryAnnotator(VendorIDTest):
         for rel, value in link_config.iteritems():
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
+        # Set up settings for navigation links.
+        ConfigurationSetting.for_library(
+            Configuration.WEB_HEADER_LINKS, self._default_library
+        ).value = json.dumps(["http://example.com/1", "http://example.com/2"])
+        ConfigurationSetting.for_library(
+            Configuration.WEB_HEADER_LABELS, self._default_library
+        ).value = json.dumps(["one", "two"])
+
         self.annotator.add_configuration_links(mock_feed)
 
-        # Eight links were added to the "feed"
-        eq_(8, len(mock_feed))
+        # Ten links were added to the "feed"
+        eq_(10, len(mock_feed))
 
         # They are the links we'd expect.
         links = {}
         for link in mock_feed:
             rel = link.attrib['rel']
             href = link.attrib['href']
-            if rel == 'help':
+            if rel == 'help' or rel == 'related':
                 continue # Tested below
             # Check that the configuration value made it into the link.
             eq_(href, link_config[rel])
             eq_("text/html", link.attrib['type'])
-
+                
         # There are three help links using different protocols.
         help_links = [x.attrib['href'] for x in mock_feed
                       if x.attrib['rel'] == 'help']
         eq_(set(["mailto:help@me", "http://help/", "uri:help"]),
             set(help_links))
+
+        # There are two navigation links.
+        navigation_links = [x for x in mock_feed if x.attrib['rel'] == 'related']
+        eq_(set(["navigation"]), set([x.attrib["role"] for x in navigation_links]))
+        eq_(set(["http://example.com/1", "http://example.com/2"]),
+            set([x.attrib["href"] for x in navigation_links]))
+        eq_(set(["one", "two"]), set([x.attrib["title"] for x in navigation_links]))
 
     def test_top_level_title(self):
         eq_("Test Top Level Title", self.annotator.top_level_title())

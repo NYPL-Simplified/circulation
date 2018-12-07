@@ -324,9 +324,11 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
                        "key": LIBRARY_API_BASE_URL,
                        "label": _("Library API base URL"),
                        "description": _("This might look like <code>https://[library].odilo.us/api/v2</code>."),
+                       "required": True,
+                       "format": "url",
                    },
-                   {"key": ExternalIntegration.USERNAME, "label": _("Client Key")},
-                   {"key": ExternalIntegration.PASSWORD, "label": _("Client Secret")},
+                   { "key": ExternalIntegration.USERNAME, "label": _("Client Key"), "required": True },
+                   { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret"), "required": True },
                ] + BaseCirculationAPI.SETTINGS
 
 

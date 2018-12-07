@@ -177,6 +177,13 @@ MISSING_COLLECTION_NAME = pd(
     detail=_("You must identify the collection by its name."),
 )
 
+MISSING_ANALYTICS_NAME = pd(
+    "http://librarysimplified.org/terms/problem/missing-analytics-name",
+    status_code=400,
+    title=_("Missing analytics name."),
+    detail=_("You must identify the analytics service by its name."),
+)
+
 COLLECTION_NAME_ALREADY_IN_USE = pd(
     "http://librarysimplified.org/terms/problem/collection-name-already-in-use",
     status_code=400,
@@ -294,6 +301,27 @@ INVALID_CONFIGURATION_OPTION = pd(
     status_code=400,
     title=_("Invalid configuration option"),
     detail=_("The configuration has an invalid value."),
+)
+
+INVALID_EMAIL = pd(
+    "http://librarysimplified.org/terms/problem/invalid-format",
+    status_code=400,
+    title=_("Invalid email format"),
+    detail=_("You must enter a valid email address."),
+)
+
+INVALID_URL = pd(
+    "http://librarysimplified.org/terms/problem/invalid-format",
+    status_code=400,
+    title=_("Invalid URL format"),
+    detail=_("You must enter a valid URL."),
+)
+
+INVALID_NUMBER = pd(
+    "http://librarysimplified.org/terms/problem/invalid-format",
+    status_code=400,
+    title=_("Invalid number format"),
+    detail=_("You must enter a number."),
 )
 
 INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION = pd(

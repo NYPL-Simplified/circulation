@@ -114,6 +114,7 @@ class MockBasic(BasicAuthenticationProvider):
     the workflow around Basic Auth.
     """
     NAME = 'Mock Basic Auth provider'
+    LOGIN_BUTTON_IMAGE = "BasicButton.png"
     def __init__(self, library, integration, analytics=None, patrondata=None,
                  remote_patron_lookup_patrondata=None,
                  *args, **kwargs):
@@ -153,6 +154,7 @@ class MockOAuth(OAuthAuthenticationProvider):
     NAME = "Mock provider"
     TOKEN_TYPE = "test token"
     TOKEN_DATA_SOURCE_NAME = DataSource.MANUAL
+    LOGIN_BUTTON_IMAGE = "OAuthButton.png"
 
     def __init__(self, library, name="Mock OAuth", integration=None, analytics=None):
         _db = Session.object_session(library)
@@ -714,12 +716,11 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
     def test_register_provider_fails_but_does_not_explode_on_remote_integration_error(self):
         library = self._default_library
-        # We're going to instantiate the SIP2 client but since we're not
-        # specifying a server or a port, it will raise an IOError immediately,
-        # which will become a RemoteIntegrationException, which will become
+        # We're going to instantiate the a mock authentication provider that
+        # immediately raises a RemoteIntegrationException, which will become
         # a CannotLoadConfiguration.
         integration = self._external_integration(
-            "api.sip", ExternalIntegration.PATRON_AUTH_GOAL
+            "tests.mock_authentication_provider", ExternalIntegration.PATRON_AUTH_GOAL
         )
         library.integrations.append(integration)
         auth = LibraryAuthenticator(_db=self._db, library=library)
@@ -1163,9 +1164,15 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         ConfigurationSetting.for_library(
             Configuration.WEBSITE_URL, library).value = "http://library/"
 
-        # Set the color scheme a client should use.
+        # Set the color scheme a mobile client should use.
         ConfigurationSetting.for_library(
             Configuration.COLOR_SCHEME, library).value = "plaid"
+
+        # Set the colors a web client should use.
+        ConfigurationSetting.for_library(
+            Configuration.WEB_BACKGROUND_COLOR, library).value = "#012345"
+        ConfigurationSetting.for_library(
+            Configuration.WEB_FOREGROUND_COLOR, library).value = "#abcdef"
 
         # Configure the various ways a patron can get help.
         ConfigurationSetting.for_library(
@@ -1203,8 +1210,10 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("Just the best.", doc['service_description'])
             eq_(url, doc['id'])
 
-            # The color scheme is correctly reported.
+            # The mobile color scheme and web colors are correctly reported.
             eq_("plaid", doc['color_scheme'])
+            eq_("#012345", doc['web_color_scheme']['background'])
+            eq_("#abcdef", doc['web_color_scheme']['foreground'])
 
             # _geographic_areas was called and provided the library's
             # focus area and service area.
@@ -2036,26 +2045,38 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         provider.identifier_maximum_length=22
         provider.password_maximum_length=7
         provider.identifier_barcode_format = provider.BARCODE_FORMAT_CODABAR
-        doc = provider.authentication_flow_document(self._db)
-        eq_(_(provider.DISPLAY_NAME), doc['description'])
-        eq_(provider.FLOW_TYPE, doc['type'])
 
-        labels = doc['labels']
-        eq_(provider.identifier_label, labels['login'])
-        eq_(provider.password_label, labels['password'])
+        # We're about to call url_for, so we must create an
+        # application context.
+        os.environ['AUTOINITIALIZE'] = "False"
+        from api.app import app
+        self.app = app
+        del os.environ['AUTOINITIALIZE']
+        with self.app.test_request_context("/"):
+            doc = provider.authentication_flow_document(self._db)
+            eq_(_(provider.DISPLAY_NAME), doc['description'])
+            eq_(provider.FLOW_TYPE, doc['type'])
 
-        inputs = doc['inputs']
-        eq_(provider.identifier_keyboard,
-            inputs['login']['keyboard'])
-        eq_(provider.password_keyboard,
-            inputs['password']['keyboard'])
+            labels = doc['labels']
+            eq_(provider.identifier_label, labels['login'])
+            eq_(provider.password_label, labels['password'])
 
-        eq_(provider.BARCODE_FORMAT_CODABAR, inputs['login']['barcode_format'])
+            inputs = doc['inputs']
+            eq_(provider.identifier_keyboard,
+                inputs['login']['keyboard'])
+            eq_(provider.password_keyboard,
+                inputs['password']['keyboard'])
 
-        eq_(provider.identifier_maximum_length,
-            inputs['login']['maximum_length'])
-        eq_(provider.password_maximum_length,
-            inputs['password']['maximum_length'])
+            eq_(provider.BARCODE_FORMAT_CODABAR, inputs['login']['barcode_format'])
+
+            eq_(provider.identifier_maximum_length,
+                inputs['login']['maximum_length'])
+            eq_(provider.password_maximum_length,
+                inputs['password']['maximum_length'])
+
+            [logo_link] = doc['links']
+            eq_("logo", logo_link["rel"])
+            eq_("http://localhost/images/" + MockBasic.LOGIN_BUTTON_IMAGE, logo_link["href"])
 
     def test_remote_patron_lookup(self):
         #remote_patron_lookup does the lookup by calling _remote_patron_lookup,
@@ -2421,8 +2442,11 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
 
             # To authenticate with this provider, you must follow the
             # 'authenticate' link.
-            [link] = [x for x in doc['links'] if x['rel'] == 'authenticate']
-            eq_(link['href'], provider._internal_authenticate_url(self._db))
+            [auth_link] = [x for x in doc['links'] if x['rel'] == 'authenticate']
+            eq_(auth_link['href'], provider._internal_authenticate_url(self._db))
+
+            [logo_link] = [x for x in doc['links'] if x['rel'] == 'logo']
+            eq_("http://localhost/images/" + MockOAuth.LOGIN_BUTTON_IMAGE, logo_link["href"])
 
     def test_token_data_source_can_create_new_data_source(self):
         class OAuthWithUnusualDataSource(MockOAuth):

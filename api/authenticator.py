@@ -921,11 +921,19 @@ class LibraryAuthenticator(object):
             links=links
         ).to_dict(self._db)
 
-        # Add the library's color scheme, if it has one.
+        # Add the library's mobile color scheme, if it has one.
         description = ConfigurationSetting.for_library(
             Configuration.COLOR_SCHEME, library).value
         if description:
             doc['color_scheme'] = description
+
+        # Add the library's web colors, if it has any.
+        background = ConfigurationSetting.for_library(
+            Configuration.WEB_BACKGROUND_COLOR, library).value
+        foreground = ConfigurationSetting.for_library(
+            Configuration.WEB_FOREGROUND_COLOR, library).value
+        if background or foreground:
+            doc["web_color_scheme"] = dict(background=background, foreground=foreground)
 
         # Add the description of the library as the OPDS feed's
         # service_description.
@@ -1066,6 +1074,13 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
     # it should override this value and set it to False.
     IDENTIFIES_INDIVIDUALS = True
 
+    # An AuthenticationProvider may define a custom button image for
+    # clients to display when letting a user choose between different
+    # AuthenticationProviders. Image files MUST be stored in the
+    # `resources/images` directory - the value here should be the
+    # file name.
+    LOGIN_BUTTON_IMAGE = None
+
     # Each authentication mechanism may have a list of SETTINGS that
     # must be configured for that mechanism, and may have a list of
     # LIBRARY_SETTINGS that must be configured for each library using that
@@ -1073,7 +1088,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
     # setting in the database, and a label that is displayed when configuring
     # the authentication mechanism in the admin interface.
     # For example: { "key": "username", "label": _("Client ID") }.
-    # A setting is required by default, but may have "optional" set to True.
+    # A setting is optional by default, but may have "required" set to True.
 
     SETTINGS = []
 
@@ -1108,7 +1123,6 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         { "key": EXTERNAL_TYPE_REGULAR_EXPRESSION,
           "label": _("External Type Regular Expression"),
           "description": _("Derive a patron's type from their identifier."),
-          "optional": True,
         },
         { "key": LIBRARY_IDENTIFIER_RESTRICTION_TYPE,
           "label": _("Library Identifier Restriction Type"),
@@ -1147,7 +1161,6 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
                            "using the method chosen in <em>Library Identifier Restriction Type</em>. " +
                            "This value is not used if <em>Library Identifier Restriction Type</em> " +
                            "is set to 'No restriction'."),
-          "optional": True,
         }
     ]
 
@@ -1526,9 +1539,11 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         { "key": TEST_IDENTIFIER,
           "label": _("Test Identifier"),
           "description": _("A valid identifier that can be used to test that patron authentication is working."),
+          "required": True,
         },
-        { "key": TEST_PASSWORD, "label": _("Test Password"), "description": _("The password for the test identifier."),
-          "optional": True,
+        { "key": TEST_PASSWORD,
+          "label": _("Test Password"),
+          "description": _("The password for the test identifier."),
         },
         { "key" : IDENTIFIER_BARCODE_FORMAT,
           "label": _("Patron identifier barcode format"),
@@ -1539,17 +1554,15 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
               { "key": BARCODE_FORMAT_NONE, "label": _("Patron identifiers are not rendered as barcodes") },
           ],
           "default": BARCODE_FORMAT_NONE,
-          "optional": True,
+          "required": True,
         },
         { "key": IDENTIFIER_REGULAR_EXPRESSION,
           "label": _("Identifier Regular Expression"),
           "description": _("A patron's identifier will be immediately rejected if it doesn't match this regular expression."),
-          "optional": True,
         },
         { "key": PASSWORD_REGULAR_EXPRESSION,
           "label": _("Password Regular Expression"),
           "description": _("A patron's password will be immediately rejected if it doesn't match this regular expression."),
-          "optional": True,
         },
         { "key": IDENTIFIER_KEYBOARD,
           "label": _("Keyboard for identifier entry"),
@@ -1560,7 +1573,8 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
                 "label": _("Email address entry") },
               { "key": NUMBER_PAD, "label": _("Number pad") },
           ],
-          "default": DEFAULT_KEYBOARD
+          "default": DEFAULT_KEYBOARD,
+          "required": True,
         },
         { "key": PASSWORD_KEYBOARD,
           "label": _("Keyboard for password entry"),
@@ -1575,20 +1589,16 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         { "key": IDENTIFIER_MAXIMUM_LENGTH,
           "label": _("Maximum identifier length"),
           "type": "number",
-          "optional": True,
         },
         { "key": PASSWORD_MAXIMUM_LENGTH,
           "label": _("Maximum password length"),
           "type": "number",
-          "optional": True,
         },
         { "key": IDENTIFIER_LABEL,
           "label": _("Label for identifier entry"),
-          "optional": True,
         },
         { "key": PASSWORD_LABEL,
           "label": _("Label for password entry"),
-          "optional": True,
         },
     ] + AuthenticationProvider.SETTINGS
 
@@ -1979,13 +1989,19 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             self.password_label,
             self.password_label
         )
-        return dict(
+        flow_doc = dict(
             description=unicode(self.DISPLAY_NAME),
             labels=dict(login=unicode(localized_identifier_label),
                         password=unicode(localized_password_label)),
             inputs = dict(login=login_inputs,
                           password=password_inputs)
         )
+        if self.LOGIN_BUTTON_IMAGE:
+            # TODO: I'm not sure if logo is appropriate for this, since it's a button
+            # with the logo on it rather than a plain logo. Perhaps we should use plain
+            # logos instead.
+            flow_doc["links"] = [dict(rel="logo", href=url_for("static_image", filename=self.LOGIN_BUTTON_IMAGE, _external=True))]
+        return flow_doc
 
 
 class OAuthAuthenticationProvider(AuthenticationProvider):
@@ -2041,7 +2057,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     DEFAULT_TOKEN_EXPIRATION_DAYS = 42
 
     SETTINGS = [
-        { "key": OAUTH_TOKEN_EXPIRATION_DAYS, "label": _("Days until OAuth token expires"), "optional": True },
+        { "key": OAUTH_TOKEN_EXPIRATION_DAYS, "label": _("Days until OAuth token expires") },
     ] + AuthenticationProvider.SETTINGS
 
     # Name of the site-wide ConfigurationSetting containing the secret
@@ -2254,6 +2270,11 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             links=[dict(rel="authenticate",
                         href=self._internal_authenticate_url(_db))]
         )
+        if self.LOGIN_BUTTON_IMAGE:
+            # TODO: I'm not sure if logo is appropriate for this, since it's a button
+            # with the logo on it rather than a plain logo. Perhaps we should use plain
+            # logos instead.
+            flow_doc["links"] += [dict(rel="logo", href=url_for("static_image", filename=self.LOGIN_BUTTON_IMAGE, _external=True))]
         return flow_doc
 
     def token_data_source(self, _db):

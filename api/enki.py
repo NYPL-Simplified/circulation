@@ -70,8 +70,8 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     DESCRIPTION = _("Integrate an Enki collection.")
     SETTINGS = [
-        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
-        { "key": ExternalIntegration.URL, "label": _("URL"), "default": PRODUCTION_BASE_URL },
+        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID"), "required": True },
+        { "key": ExternalIntegration.URL, "label": _("URL"), "default": PRODUCTION_BASE_URL, "required": True, "format": "url" },
     ] + BaseCirculationAPI.SETTINGS
 
     list_endpoint = "ListAPI"

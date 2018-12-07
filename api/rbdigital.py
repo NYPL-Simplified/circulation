@@ -13,6 +13,7 @@ from sqlalchemy.orm.session import Session
 import uuid
 
 from circulation import (
+    APIAwareFulfillmentInfo,
     BaseCirculationAPI,
     FulfillmentInfo,
     HoldInfo,
@@ -112,9 +113,9 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                      if x['key'] != BaseCirculationAPI.DEFAULT_LOAN_PERIOD]
 
     SETTINGS = [
-        { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token") },
-        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
-        { "key": ExternalIntegration.URL, "label": _("URL"), "default": PRODUCTION_BASE_URL },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token"), "required": True },
+        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID"), "required": True, "format": "url" },
+        { "key": ExternalIntegration.URL, "label": _("URL"), "default": PRODUCTION_BASE_URL, "required": True, "format": "url" },
     ] + BASE_SETTINGS
 
     my_audiobook_setting = dict(
@@ -833,7 +834,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         fulfillment_info = RBFulfillmentInfo(
             self,
             DataSource.RB_DIGITAL,
-            identifier,
+            identifier.type,
+            identifier.identifier,
             item,
         )
 
@@ -1381,7 +1383,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         response = self.request(url, params=args, verbosity=verbosity)
         return response
 
-class RBFulfillmentInfo(object):
+class RBFulfillmentInfo(APIAwareFulfillmentInfo):
     """An RBdigital-specific FulfillmentInfo implementation.
 
     We use these instead of real FulfillmentInfo objects because
@@ -1389,48 +1391,9 @@ class RBFulfillmentInfo(object):
     and there's often no need to make that request.
     """
 
-    def __init__(self, api, data_source_name, identifier,
-                 raw_data):
-        self.api = api
-        self.collection = api.collection
-        self.data_source_name = data_source_name
-        self._identifier = identifier
-        self.identifier_type = identifier.type
-        self.identifier = identifier.identifier
-        self.raw_data = raw_data
-
-        self._fetched = False
-        self._content_link = None
-        self._content_type = None
-        self._content = None
-        self._content_expires = None
-
-    @property
-    def content_link(self):
-        self.fetch()
-        return self._content_link
-
-    @property
-    def content_type(self):
-        self.fetch()
-        return self._content_type
-
-    @property
-    def content(self):
-        self.fetch()
-        return self._content
-
-    @property
-    def content_expires(self):
-        self.fetch()
-        return self._content_expires
-
-    def fetch(self):
-        if self._fetched:
-            return
-
+    def do_fetch(self):
         # Get a list of files associated with this loan.
-        files = self.raw_data.get('files', [])
+        files = self.key.get('files', [])
 
         # Determine if we're fulfilling an audiobook (which means sending a
         # manifest) or an ebook (which means sending a download link).
@@ -1453,7 +1416,7 @@ class RBFulfillmentInfo(object):
 
         if self._content_type == Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
             # We have an audiobook.
-            self._content = self.process_audiobook_manifest(self.raw_data)
+            self._content = self.process_audiobook_manifest(self.key)
         else:
             # We have some other kind of file. Follow the download
             # link, which will return a JSON-based access document
@@ -1468,7 +1431,6 @@ class RBFulfillmentInfo(object):
             self._content_type, self._content_link, self._content_expires = self.process_access_document(
                 access_document
             )
-        self._fetched = True
 
     @classmethod
     def process_audiobook_manifest(self, rb_data):
@@ -1608,9 +1570,22 @@ class RBDigitalRepresentationExtractor(object):
             Identifier.RB_DIGITAL_ID, rbdigital_id
         )
 
+        # medium is both bibliographic and format information.
+
+        # options are: "eBook", "eAudio"
+        rbdigital_medium = book.get('mediaType', None)
+        if rbdigital_medium and rbdigital_medium not in cls.rbdigital_medium_to_simplified_medium:
+            cls.log.error(
+                "Could not process medium %s for %s", rbdigital_medium, rbdigital_id)
+
+        medium = cls.rbdigital_medium_to_simplified_medium.get(
+            rbdigital_medium, Edition.BOOK_MEDIUM
+        )
+
         metadata = Metadata(
             data_source=DataSource.RB_DIGITAL,
             primary_identifier=primary_identifier,
+            medium=medium,
         )
 
         if include_bibliographic:
@@ -1706,16 +1681,6 @@ class RBDigitalRepresentationExtractor(object):
                 )
                 subjects.append(subject)
 
-            # options are: "eBook", "eAudio"
-            rbdigital_medium = book.get('mediaType', None)
-            if rbdigital_medium and rbdigital_medium not in cls.rbdigital_medium_to_simplified_medium:
-                cls.log.error(
-                    "Could not process medium %s for %s", rbdigital_medium, rbdigital_id)
-
-            medium = cls.rbdigital_medium_to_simplified_medium.get(
-                rbdigital_medium, Edition.BOOK_MEDIUM
-            )
-
             # passed to metadata.apply, the isbn_identifier will create an equivalency
             # between the RBDigital-labeled and the ISBN-labeled identifier rows, which
             # will in turn allow us to ask the MetadataWrangler for more info about the book.
@@ -1760,7 +1725,6 @@ class RBDigitalRepresentationExtractor(object):
 
             metadata.title = title
             metadata.language = language
-            metadata.medium = medium
             metadata.series = series_name
             metadata.series_position = series_position
             metadata.publisher = publisher
@@ -1781,7 +1745,7 @@ class RBDigitalRepresentationExtractor(object):
                 drm_scheme = DeliveryMechanism.NO_DRM
                 formats.append(FormatData(content_type, drm_scheme))
             else:
-                cls.log.warn("Unfamiliar format: %s", format_id)
+                cls.log.warn("Unfamiliar format: %s", metadata.medium)
 
             # Make a CirculationData so we can write the formats,
             circulationdata = CirculationData(

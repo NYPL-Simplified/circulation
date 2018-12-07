@@ -10,6 +10,7 @@ from flask import (
     make_response,
 )
 from flask_cors.core import get_cors_options, set_cors_headers
+from werkzeug.exceptions import HTTPException
 
 from app import app, babel
 
@@ -20,9 +21,6 @@ from core.app_server import (
 )
 from core.model import ConfigurationSetting
 from core.util.problem_detail import ProblemDetail
-from opds import (
-    CirculationManagerAnnotator,
-)
 from controller import CirculationManager
 from problem_details import REMOTE_INTEGRATION_FAILED
 from flask_babel import lazy_gettext as _
@@ -115,10 +113,10 @@ def allows_patron_web(f):
         else:
             resp = make_response(f(*args, **kwargs))
 
-        patron_web_client_url = app.manager.patron_web_client_url
-        if patron_web_client_url:
+        patron_web_domains = app.manager.patron_web_domains
+        if patron_web_domains:
             options = get_cors_options(
-                app, dict(origins=[patron_web_client_url],
+                app, dict(origins=patron_web_domains,
                           supports_credentials=True)
             )
             set_cors_headers(resp, options)
@@ -130,6 +128,11 @@ h = ErrorHandler(app, app.config['DEBUG'])
 @app.errorhandler(Exception)
 @allows_patron_web
 def exception_handler(exception):
+    if isinstance(exception, HTTPException):
+        # This isn't an exception we need to handle, it's werkzeug's way
+        # of interrupting normal control flow with a specific HTTP response.
+        # Return the exception and it will be used as the response.
+        return exception
     return h.handle(exception)
 
 def has_library(f):
@@ -222,6 +225,14 @@ def acquisition_groups(lane_identifier):
 @returns_problem_detail
 def feed(lane_identifier):
     return app.manager.opds_feeds.feed(lane_identifier)
+
+@library_dir_route('/navigation', defaults=dict(lane_identifier=None))
+@library_route('/navigation/<lane_identifier>')
+@has_library
+@allows_patron_web
+@returns_problem_detail
+def navigation_feed(lane_identifier):
+    return app.manager.opds_feeds.navigation(lane_identifier)
 
 @library_route('/crawlable')
 @has_library
@@ -374,8 +385,7 @@ def loan_or_hold_detail(identifier_type, identifier):
 @allows_patron_web
 @returns_problem_detail
 def work():
-    annotator = CirculationManagerAnnotator(app.manager.circulation, None)
-    return app.manager.urn_lookup.work_lookup(annotator, 'work')
+    return app.manager.urn_lookup.work_lookup('work')
 
 @library_dir_route('/works/contributor/<contributor_name>', defaults=dict(languages=None, audiences=None))
 @library_dir_route('/works/contributor/<contributor_name>/<languages>', defaults=dict(audiences=None))
@@ -500,15 +510,10 @@ def odl_notify(loan_id):
 def heartbeat():
     return app.manager.heartbeat.heartbeat()
 
-@app.route('/loadstorm-<code>.html')
-@returns_problem_detail
-def loadstorm_verify(code):
-    c = Configuration.integration("Loadstorm", required=True)
-    if code == c['verification_code']:
-        return Response("", 200)
-    else:
-        return Response("", 404)
-
 @app.route('/healthcheck.html')
 def health_check():
     return Response("", 200)
+
+@app.route("/images/<filename>")
+def static_image(filename):
+    return app.manager.static_files.image(filename)

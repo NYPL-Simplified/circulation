@@ -30,6 +30,7 @@ from core.model import (
     get_one_or_create,
     CustomList,
     DataSource,
+    Edition,
     ExternalIntegration,
     Identifier,
     Representation,
@@ -57,7 +58,7 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTests):
     CARDINALITY = 1
 
     SETTINGS = [
-        { "key": ExternalIntegration.PASSWORD, "label": _("API key") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("API key"), "required": True },
     ]
 
     # An NYT integration is shared by all libraries in a circulation manager.
@@ -201,6 +202,22 @@ class NYTBestSellerList(list):
         self.log = logging.getLogger("NYT Best-seller list %s" % self.name)
 
     @property
+    def medium(self):
+        """What medium are the books on this list?
+
+        Lists like "Audio Fiction" contain audiobooks; all others
+        contain normal books. (TODO: this isn't quite right; the
+        distinction between ebooks and print books here exists in a
+        way it doesn't with most other sources of Editions.)
+        """
+        name = self.name
+        if not name:
+            return None
+        if name.startswith("Audio "):
+            return Edition.AUDIO_MEDIUM
+        return Edition.BOOK_MEDIUM
+
+    @property
     def all_dates(self):
         """Yield a list of estimated dates when new editions of this list were
         probably published.
@@ -226,7 +243,7 @@ class NYTBestSellerList(list):
                     item = self.items_by_isbn[key]
                     self.log.debug("Previously seen ISBN: %r", key)
                 else:
-                    item = NYTBestSellerListTitle(li_data)
+                    item = NYTBestSellerListTitle(li_data, self.medium)
                     self.items_by_isbn[key] = item
                     self.append(item)
                     # self.log.debug("Newly seen ISBN: %r, %s", key, len(self))
@@ -279,7 +296,7 @@ class NYTBestSellerList(list):
 
 class NYTBestSellerListTitle(TitleFromExternalList):
 
-    def __init__(self, data):
+    def __init__(self, data, medium):
         data = data
         try:
             bestsellers_date = NYTAPI.parse_date(data.get('bestsellers_date'))
@@ -333,6 +350,7 @@ class NYTBestSellerListTitle(TitleFromExternalList):
         metadata = Metadata(
             data_source=DataSource.NYT,
             title=title,
+            medium=medium,
             language='eng',
             published=published_date,
             publisher=publisher,
