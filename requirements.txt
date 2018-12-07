@@ -1,6 +1,5 @@
 # Core requirements
 boto3
--r elasticsearch-requirements-${ELASTICSEARCH_VERSION}.txt
 pillow
 psycopg2
 requests==2.18.4
