@@ -232,6 +232,7 @@ class Configuration(object):
                 { "key": "false", "label": _("Disable holds") },
             ],
             "default": "true",
+            "category": "Loans, Holds, & Fines",
         },
         { "key": EntryPoint.ENABLED_SETTING,
           "label": _("Enabled entry points"),
@@ -243,20 +244,23 @@ class Configuration(object):
               for entrypoint in EntryPoint.ENTRY_POINTS
           ],
           "default": [x.INTERNAL_NAME for x in EntryPoint.DEFAULT_ENABLED],
+          "category": "Lanes & Filters",
         },
         {
             "key": FEATURED_LANE_SIZE,
             "label": _("Maximum number of books in the 'featured' lanes"),
-            "type": "number",
+            "format": "number",
             "default": 15,
+            "category": "Lanes & Filters",
         },
         {
             "key": MINIMUM_FEATURED_QUALITY,
             "label": _("Minimum quality for books that show up in 'featured' lanes"),
             "description": _("Between 0 and 1."),
-            "type": "number",
+            "format": "number",
             "max": 1,
             "default": 0.65,
+            "category": "Lanes & Filters",
         },
     ] + [
         { "key": ENABLED_FACETS_KEY_PREFIX + group,
@@ -267,6 +271,7 @@ class Configuration(object):
               for facet in FacetConstants.FACETS_BY_GROUP.get(group)
           ],
           "default": FacetConstants.FACETS_BY_GROUP.get(group),
+          "category": "Lanes & Filters",
         } for group, description in FacetConstants.GROUP_DESCRIPTIONS.iteritems()
     ] + [
         { "key": DEFAULT_FACET_KEY_PREFIX + group,
@@ -276,7 +281,8 @@ class Configuration(object):
               { "key": facet, "label": FacetConstants.FACET_DISPLAY_TITLES.get(facet) }
               for facet in FacetConstants.FACETS_BY_GROUP.get(group)
           ],
-          "default": FacetConstants.DEFAULT_FACET.get(group)
+          "default": FacetConstants.DEFAULT_FACET.get(group),
+          "category": "Lanes & Filters",
         } for group, display_name in FacetConstants.GROUP_DISPLAY_TITLES.iteritems()
     ]
 
