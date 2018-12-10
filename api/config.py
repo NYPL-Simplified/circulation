@@ -425,8 +425,10 @@ class Configuration(CoreConfiguration):
     def max_outstanding_fines(cls, library):
         max_fines = ConfigurationSetting.for_library(
             cls.MAX_OUTSTANDING_FINES, library
-        ).value
-        return MoneyUtility.parse(max_fines)
+        )
+        if max_fines.value is None:
+            return None
+        return MoneyUtility.parse(max_fines.value)
 
     @classmethod
     def load(cls, _db=None):
