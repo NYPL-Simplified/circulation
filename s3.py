@@ -220,12 +220,12 @@ class S3Uploader(MirrorUploader):
         parts = [identifier.type, identifier.identifier, filename]
         return root + self.key_join(parts)
 
-    def marc_file_url(self, library, lane):
+    def marc_file_url(self, library, lane, start_time=None, end_time=None):
         """The path to the hosted MARC file for the given library, lane,
         and date range."""
         bucket = self.get_bucket(self.MARC_BUCKET_KEY)
         root = self.marc_file_root(bucket, library)
-        parts = [lane.display_name]
+        parts = [start_time, end_time, lane.display_name]
         return root + self.key_join(parts) + ".mrc"
 
     @classmethod
