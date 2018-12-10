@@ -56,6 +56,7 @@ from core.model import (
     Admin,
     Annotation,
     CachedFeed,
+    CachedMARCFile,
     CirculationEvent,
     Collection,
     Complaint,
@@ -884,8 +885,8 @@ class MARCRecordController(CirculationManagerController):
 
     def download_page(self):
         library = flask.request.library
-        last_update = None
         body = "<h2>Download MARC files for %s</h2>" % library.name
+        time_format = "%B %-d, %Y"
 
         # Check if a MARC exporter is configured so we can show a
         # message if it's not.
@@ -898,15 +899,33 @@ class MARCRecordController(CirculationManagerController):
         if len(library.cachedmarcfiles) < 1 and exporter:
             body += "<p>" + _("MARC files aren't ready to download yet.") + "</p>"
 
-        if library.cachedmarcfiles:
-            body += "<ul>"
-            for file in library.cachedmarcfiles:
-                if last_update is None or file.representation.mirrored_at > last_update:
-                    last_update = file.representation.mirrored_at
-                body += '<li><a href="%s">%s</a></li>' % (file.representation.mirror_url, file.lane.display_name if file.lane else "All Books")
-            body += "</ul>"
-        if last_update:
-            body += "<p>Last update: %s</p>" % last_update.strftime("%B %-d, %Y")
+        full_files = self._db.query(CachedMARCFile).filter(
+            CachedMARCFile.library==library
+        ).filter(
+            CachedMARCFile.start_time==None
+        )
+
+        updates = self._db.query(CachedMARCFile).filter(
+            CachedMARCFile.library==library
+        ).filter(
+            CachedMARCFile.start_time!=None
+        ).order_by(CachedMARCFile.end_time.desc())
+
+        for (files, label) in [(full_files, _("All records")), (updates, _("Updates"))]:
+            if files:
+                body += "<h3>%s</h3>" % label
+                body += "<ul>"
+                for file in files:
+                    if file.representation.mirrored_at:
+                        body += '<li>'
+                        body += '<a href="%s">%s</a>' % (file.representation.mirror_url, file.lane.display_name if file.lane else "All Books")
+                        if file.start_time and file.end_time:
+                            body += " - from %s to %s" % (file.start_time.strftime(time_format), file.end_time.strftime(time_format))
+                        elif file.end_time:
+                            body += " (last update: %s)" % file.end_time.strftime(time_format)
+                        body += '</li>'
+                body += "</ul>"
+                body += "<br />"
         html = self.DOWNLOAD_TEMPLATE % dict(body=body)
         headers = dict()
         headers['Content-Type'] = "text/html"
