@@ -176,14 +176,12 @@ class Configuration(object):
             "key": NONGROUPED_MAX_AGE_POLICY,
             "label": _("Cache time for paginated OPDS feeds (in seconds)"),
             "required": True,
-            "format": "number",
             "type": "number",
         },
         {
             "key": GROUPED_MAX_AGE_POLICY,
             "label": _("Cache time for grouped OPDS feeds (in seconds)"),
             "required": True,
-            "format": "number",
             "type": "number",
         },
         {
@@ -251,7 +249,6 @@ class Configuration(object):
         {
             "key": FEATURED_LANE_SIZE,
             "label": _("Maximum number of books in the 'featured' lanes"),
-            "format": "number",
             "type": "number",
             "default": 15,
             "category": "Lanes & Filters",
@@ -260,7 +257,6 @@ class Configuration(object):
             "key": MINIMUM_FEATURED_QUALITY,
             "label": _("Minimum quality for books that show up in 'featured' lanes"),
             "description": _("Between 0 and 1."),
-            "format": "number",
             "type": "number",
             "max": 1,
             "default": 0.65,
