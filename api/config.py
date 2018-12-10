@@ -159,10 +159,10 @@ class Configuration(CoreConfiguration):
         },
         {
             "key": STATIC_FILE_CACHE_TIME,
-            "label": _("Cache time for static images and JS and CSS files"),
+            "label": _("Cache time for static images and JS and CSS files (in seconds)"),
             "required": True,
-            "type": "number",
             "format": "number",
+            "type": "number",
         },
     ]
 

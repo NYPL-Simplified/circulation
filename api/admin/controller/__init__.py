@@ -2548,7 +2548,6 @@ class SettingsController(AdminCirculationManagerController):
                             (flask.request.form.get(s.get("key")) or flask.request.form.get("value"))
                             , settings
                         )
-        set_trace()
         for field in number_fields:
             if self._number_error(field):
                 return self._number_error(field)

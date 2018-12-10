@@ -1139,8 +1139,8 @@ class BaseCirculationAPI(object):
         "key" : Collection.AUDIOBOOK_LOAN_DURATION_KEY,
         "label": _("Audiobook Loan Duration (in Days)"),
         "default": Collection.STANDARD_DEFAULT_LOAN_PERIOD,
-        "type": "number",
         "format": "number",
+        "type": "number",
         "description": _("When a patron uses SimplyE to borrow an audiobook from this collection, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.")
     }
 
