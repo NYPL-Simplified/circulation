@@ -161,7 +161,6 @@ class Configuration(CoreConfiguration):
             "key": STATIC_FILE_CACHE_TIME,
             "label": _("Cache time for static images and JS and CSS files (in seconds)"),
             "required": True,
-            "format": "number",
             "type": "number",
         },
     ]
@@ -295,7 +294,6 @@ class Configuration(CoreConfiguration):
         {
             "key": MAX_OUTSTANDING_FINES,
             "label": _("Maximum amount in fines a patron can have before losing lending privileges"),
-            "format": "number",
             "type": "number",
             "category": "Loans, Holds, & Fines",
         },
@@ -303,7 +301,6 @@ class Configuration(CoreConfiguration):
             "key": LOAN_LIMIT,
             "label": _("Maximum number of books a patron can have on loan at once"),
             "description": _("(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor's app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)"),
-            "format": "number",
             "type": "number",
             "category": "Loans, Holds, & Fines",
         },
@@ -311,7 +308,6 @@ class Configuration(CoreConfiguration):
             "key": HOLD_LIMIT,
             "label": _("Maximum number of books a patron can have on hold at once"),
             "description": _("(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor's app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)"),
-            "format": "number",
             "type": "number",
             "category": "Loans, Holds, & Fines",
         },
