@@ -457,9 +457,10 @@ class MARCExporter(object):
 
     DESCRIPTION = _("Export metadata into MARC files that can be imported into an ILS manually.")
 
-    # This controls how often MARC files should be automatically updated.
-    # Since the crontab in docker isn't easily configurable, we can run a script
-    # daily but check this to decide whether to do anything.
+    # This setting (in days) controls how often MARC files should be
+    # automatically updated. Since the crontab in docker isn't easily
+    # configurable, we can run a script daily but check this to decide
+    # whether to do anything.
     UPDATE_FREQUENCY = "marc_update_frequency"
     DEFAULT_UPDATE_FREQUENCY = 30
 
