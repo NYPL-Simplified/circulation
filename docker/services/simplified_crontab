@@ -46,14 +46,18 @@ HOME=/var/www/circulation
 # those works.
 30 22 * * * root core/bin/run work_classify_unchecked_subjects >> /var/log/cron.log 2>&1
 
-# If any works have out-of-date OPDS entries, rebuild them,
+# If any works have out-of-date OPDS entries or MARC records, rebuild them,
 40 22 * * * root core/bin/run opds_entry_coverage >> /var/log/cron.log 2>&1
+40 23 * * * root core/bin/run marc_record_coverage >> /var/log/cron.log 2>&1
 
 # Remove miscellaneous expired things from the database
 0 2 * * * root core/bin/run database_reaper >> /var/log/cron.log 2>&1
 
 # Sync a library's collection with NoveList
 0 0 * * 0 root core/bin/run novelist_update >> /var/log/cron.log 2>&1
+
+# Generate MARC files for libraries that have a MARC exporter configured.
+0 1 * * * root core/bin/run cache_marc_files >> /var/log/cron.log 2>&1
 
 # The remaining scripts keep the circulation manager in sync with
 # specific types of collections.
