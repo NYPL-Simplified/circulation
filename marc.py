@@ -477,7 +477,7 @@ class MARCExporter(object):
         { "key": UPDATE_FREQUENCY,
           "label": _("Update frequency (in days)"),
           "description": _("The circulation manager will wait this number of days between generating MARC files."),
-          "format": "number",
+          "type": "number",
           "default": DEFAULT_UPDATE_FREQUENCY,
         },
         { "key": MARC_ORGANIZATION_CODE,
