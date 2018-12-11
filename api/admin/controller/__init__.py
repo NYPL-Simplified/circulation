@@ -2544,11 +2544,10 @@ class SettingsController(AdminCirculationManagerController):
         2) positive, and 3) lower than the specified maximum, if there is one."""
         # Find the fields that should have numeric input and are not blank.
         number_fields = filter(
-                            lambda s: ("number" in [s.get("type"), s.get("format")]) and
+                            lambda s: s.get("type") == "number" and
                             (flask.request.form.get(s.get("key")) or flask.request.form.get("value"))
                             , settings
                         )
-
         for field in number_fields:
             if self._number_error(field):
                 return self._number_error(field)

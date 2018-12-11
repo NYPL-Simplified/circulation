@@ -134,7 +134,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             "key": Collection.DEFAULT_RESERVATION_PERIOD_KEY,
             "label": _("Default Reservation Period (in Days)"),
             "description": _("The number of days a patron has to check out a book after a hold becomes available."),
-            "format": "number",
+            "type": "number",
             "default": Collection.STANDARD_DEFAULT_RESERVATION_PERIOD,
         },
     ] + BaseSharedCollectionAPI.SETTINGS
