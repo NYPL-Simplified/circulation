@@ -548,8 +548,8 @@ class TestMARCExporter(DatabaseTest):
         eq_(mirror.uploaded[0], cache.representation)
         eq_(None, cache.representation.content)
         eq_(content, mirror.content[0])
-        eq_("https://s3.amazonaws.com/test.marc.bucket/%s/%s/%s/%s.mrc" % (
-                self._default_library.short_name, None,
+        eq_("https://s3.amazonaws.com/test.marc.bucket/%s/%s/%s.mrc" % (
+                self._default_library.short_name,
                 urllib.quote_plus(str(cache.representation.fetched_at)),
                 urllib.quote_plus(lane.display_name)),
             mirror.uploaded[0].mirror_url)
@@ -573,8 +573,8 @@ class TestMARCExporter(DatabaseTest):
         eq_(mirror.uploaded[0], cache.representation)
         eq_(None, cache.representation.content)
         eq_(content, mirror.content[0])
-        eq_("https://s3.amazonaws.com/test.marc.bucket/%s/%s/%s/%s.mrc" % (
-                self._default_library.short_name, None, 
+        eq_("https://s3.amazonaws.com/test.marc.bucket/%s/%s/%s.mrc" % (
+                self._default_library.short_name,
                 urllib.quote_plus(str(cache.representation.fetched_at)),
                 urllib.quote_plus(worklist.display_name)),
             mirror.uploaded[0].mirror_url)
@@ -599,7 +599,7 @@ class TestMARCExporter(DatabaseTest):
         eq_(mirror.uploaded[0], cache.representation)
         eq_(None, cache.representation.content)
         eq_(content, mirror.content[0])
-        eq_("https://s3.amazonaws.com/test.marc.bucket/%s/%s/%s/%s.mrc" % (
+        eq_("https://s3.amazonaws.com/test.marc.bucket/%s/%s-%s/%s.mrc" % (
                 self._default_library.short_name, urllib.quote_plus(str(start_time)), 
                 urllib.quote_plus(str(cache.representation.fetched_at)),
                 urllib.quote_plus(worklist.display_name)),
