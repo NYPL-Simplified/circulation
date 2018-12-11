@@ -225,7 +225,11 @@ class S3Uploader(MirrorUploader):
         and date range."""
         bucket = self.get_bucket(self.MARC_BUCKET_KEY)
         root = self.marc_file_root(bucket, library)
-        parts = [start_time, end_time, lane.display_name]
+        if start_time:
+            time_part = str(start_time) + "-" + str(end_time)
+        else:
+            time_part = str(end_time)
+        parts = [time_part, lane.display_name]
         return root + self.key_join(parts) + ".mrc"
 
     @classmethod

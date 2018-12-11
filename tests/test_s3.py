@@ -221,11 +221,11 @@ class TestS3Uploader(S3UploaderTest):
         buckets = {S3Uploader.MARC_BUCKET_KEY : 'marc'}
         uploader = self._uploader(**buckets)
         m = uploader.marc_file_url
-        eq_(u'https://s3.amazonaws.com/marc/SHORT/None/None/Lane.mrc',
-            m(library, lane, None, None))
         now = datetime.datetime.utcnow()
         yesterday = now - datetime.timedelta(days=1)
-        eq_(u'https://s3.amazonaws.com/marc/SHORT/%s/%s/Lane.mrc' % (
+        eq_(u'https://s3.amazonaws.com/marc/SHORT/%s/Lane.mrc' % urllib.quote_plus(str(now)),
+            m(library, lane, None, now))
+        eq_(u'https://s3.amazonaws.com/marc/SHORT/%s-%s/Lane.mrc' % (
                 urllib.quote_plus(str(yesterday)),
                 urllib.quote_plus(str(now)),
             ),
