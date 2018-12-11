@@ -231,5 +231,6 @@ class IndividualAdminSettingsController(SettingsController):
             self.require_system_admin()
         if not admin:
             return MISSING_ADMIN
-        self._db.delete(admin)
-        return Response(unicode(_("Deleted")), 200)
+        # self._db.delete(admin)
+        # return Response(unicode(_("Deleted")), 200)
+        return MISSING_ADMIN
