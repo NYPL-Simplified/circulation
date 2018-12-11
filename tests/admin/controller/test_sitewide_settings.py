@@ -90,7 +90,7 @@ class TestSitewideSettings(SettingsControllerTest):
             ])
             response = self.manager.admin_sitewide_configuration_settings_controller.process_post()
             eq_(response.uri, INVALID_NUMBER.uri)
-            eq_("Cache time for static images and JS and CSS files must be greater than 0.", response.detail)
+            eq_("Cache time for static images and JS and CSS files (in seconds) must be greater than 0.", response.detail)
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):

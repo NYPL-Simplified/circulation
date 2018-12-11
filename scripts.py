@@ -744,7 +744,7 @@ class CacheMARCFiles(LaneSweeperScript):
             library = lane.library
         else:
             library = lane.get_library(self._db)
-        
+
         annotator = MARCLibraryAnnotator(library)
         exporter = exporter or MARCExporter.from_config(library)
         records = exporter.records(
