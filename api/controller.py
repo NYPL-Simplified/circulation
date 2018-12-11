@@ -9,6 +9,7 @@ import base64
 from wsgiref.handlers import format_date_time
 from time import mktime
 import os
+from collections import defaultdict
 
 from lxml import etree
 from sqlalchemy.orm import eagerload
@@ -899,33 +900,44 @@ class MARCRecordController(CirculationManagerController):
         if len(library.cachedmarcfiles) < 1 and exporter:
             body += "<p>" + _("MARC files aren't ready to download yet.") + "</p>"
 
-        full_files = self._db.query(CachedMARCFile).filter(
-            CachedMARCFile.library==library
-        ).filter(
-            CachedMARCFile.start_time==None
-        )
+        files_by_lane = defaultdict(dict)
+        for file in library.cachedmarcfiles:
+            if file.start_time == None:
+                files_by_lane[file.lane]["full"] = file
+            else:
+                if not files_by_lane[file.lane].get("updates"):
+                    files_by_lane[file.lane]["updates"] = []
+                files_by_lane[file.lane]["updates"].append(file)
 
-        updates = self._db.query(CachedMARCFile).filter(
-            CachedMARCFile.library==library
-        ).filter(
-            CachedMARCFile.start_time!=None
-        ).order_by(CachedMARCFile.end_time.desc())
+        # TODO: By default the MARC script only caches one level of lanes,
+        # so sorting by priority is good enough.
+        lanes = sorted(files_by_lane.keys(), key=lambda x: x.priority if x else -1)
 
-        for (files, label) in [(full_files, _("All records")), (updates, _("Updates"))]:
-            if files:
-                body += "<h3>%s</h3>" % label
-                body += "<ul>"
-                for file in files:
-                    if file.representation.mirrored_at:
-                        body += '<li>'
-                        body += '<a href="%s">%s</a>' % (file.representation.mirror_url, file.lane.display_name if file.lane else "All Books")
-                        if file.start_time and file.end_time:
-                            body += " - from %s to %s" % (file.start_time.strftime(time_format), file.end_time.strftime(time_format))
-                        elif file.end_time:
-                            body += " (last update: %s)" % file.end_time.strftime(time_format)
-                        body += '</li>'
-                body += "</ul>"
-                body += "<br />"
+        for lane in lanes:
+            files = files_by_lane[lane]
+            body += "<section>"
+            body += "<h3>%s</h3>" % (lane.display_name if lane else _("All Books"))
+            if files.get("full"):
+                file = files.get("full")
+                full_url = file.representation.mirror_url
+                full_label = _("Full file - last updated %(update_time)s", update_time=file.end_time.strftime(time_format))
+                body += '<a href="%s">%s</a>' % (files.get("full").representation.mirror_url, full_label)
+
+                if files.get("updates"):
+                    body += "<h4>%s</h4>" % _("Update-only files")
+                    body += "<ul>"
+                    files.get("updates").sort(key=lambda x: x.end_time)
+                    for update in files.get("updates"):
+                        update_url = update.representation.mirror_url
+                        update_label = _("Updates from %(start_time)s to %(end_time)s",
+                                         start_time=update.start_time.strftime(time_format),
+                                         end_time=update.end_time.strftime(time_format))
+                        body += '<li><a href="%s">%s</a></li>' % (update_url, update_label)
+                    body += "</ul>"
+
+            body += "</section>"
+            body += "<br />"
+
         html = self.DOWNLOAD_TEMPLATE % dict(body=body)
         headers = dict()
         headers['Content-Type'] = "text/html"

@@ -3034,14 +3034,14 @@ class TestMARCRecordController(CirculationControllerTest):
             eq_(200, response.status_code)
             html = response.data
             assert ("Download MARC files for %s" % library.name) in html
-            assert "All records" in html
-            assert '<a href="http://mirror1">All Books</a>' in html
-            assert ("(last update: %s)" % now.strftime("%B %-d, %Y")) in html
-            assert '<a href="http://mirror2">Test Lane</a>' in html
-            assert ("(last update: %s)" % yesterday.strftime("%B %-d, %Y")) in html
-            assert "Updates" in html
-            assert '<a href="http://mirror3">All Books</a>' in html
-            assert "- from %s to %s" % (yesterday.strftime("%B %-d, %Y"), now.strftime("%B %-d, %Y")) in html
+
+            assert "<h3>All Books</h3>" in html
+            assert '<a href="http://mirror1">Full file - last updated %s</a>' % now.strftime("%B %-d, %Y") in html
+            assert "<h4>Update-only files</h4>" in html
+            assert '<a href="http://mirror3">Updates from %s to %s</a>' % (yesterday.strftime("%B %-d, %Y"), now.strftime("%B %-d, %Y")) in html
+
+            assert '<h3>Test Lane</h3>' in html
+            assert '<a href="http://mirror2">Full file - last updated %s</a>' % yesterday.strftime("%B %-d, %Y") in html
 
     def test_download_page_with_exporter_but_no_files(self):
         now = datetime.datetime.now()
@@ -3089,8 +3089,8 @@ class TestMARCRecordController(CirculationControllerTest):
             html = response.data
             assert ("Download MARC files for %s" % library.name) in html
             assert "No MARC exporter is currently configured" in html
-            assert '<a href="http://mirror1">All Books</a>' in html
-            assert ("(last update: %s)" % now.strftime("%B %-d, %Y")) in html
+            assert '<h3>All Books</h3>' in html
+            assert '<a href="http://mirror1">Full file - last updated %s</a>' % now.strftime("%B %-d, %Y") in html
 
 
 class TestAnalyticsController(CirculationControllerTest):
