@@ -9,6 +9,7 @@ import base64
 from wsgiref.handlers import format_date_time
 from time import mktime
 import os
+from collections import defaultdict
 
 from lxml import etree
 from sqlalchemy.orm import eagerload
@@ -56,6 +57,7 @@ from core.model import (
     Admin,
     Annotation,
     CachedFeed,
+    CachedMARCFile,
     CirculationEvent,
     Collection,
     Complaint,
@@ -884,8 +886,8 @@ class MARCRecordController(CirculationManagerController):
 
     def download_page(self):
         library = flask.request.library
-        last_update = None
         body = "<h2>Download MARC files for %s</h2>" % library.name
+        time_format = "%B %-d, %Y"
 
         # Check if a MARC exporter is configured so we can show a
         # message if it's not.
@@ -898,15 +900,44 @@ class MARCRecordController(CirculationManagerController):
         if len(library.cachedmarcfiles) < 1 and exporter:
             body += "<p>" + _("MARC files aren't ready to download yet.") + "</p>"
 
-        if library.cachedmarcfiles:
-            body += "<ul>"
-            for file in library.cachedmarcfiles:
-                if last_update is None or file.representation.mirrored_at > last_update:
-                    last_update = file.representation.mirrored_at
-                body += '<li><a href="%s">%s</a></li>' % (file.representation.mirror_url, file.lane.display_name if file.lane else "All Books")
-            body += "</ul>"
-        if last_update:
-            body += "<p>Last update: %s</p>" % last_update.strftime("%B %-d, %Y")
+        files_by_lane = defaultdict(dict)
+        for file in library.cachedmarcfiles:
+            if file.start_time == None:
+                files_by_lane[file.lane]["full"] = file
+            else:
+                if not files_by_lane[file.lane].get("updates"):
+                    files_by_lane[file.lane]["updates"] = []
+                files_by_lane[file.lane]["updates"].append(file)
+
+        # TODO: By default the MARC script only caches one level of lanes,
+        # so sorting by priority is good enough.
+        lanes = sorted(files_by_lane.keys(), key=lambda x: x.priority if x else -1)
+
+        for lane in lanes:
+            files = files_by_lane[lane]
+            body += "<section>"
+            body += "<h3>%s</h3>" % (lane.display_name if lane else _("All Books"))
+            if files.get("full"):
+                file = files.get("full")
+                full_url = file.representation.mirror_url
+                full_label = _("Full file - last updated %(update_time)s", update_time=file.end_time.strftime(time_format))
+                body += '<a href="%s">%s</a>' % (files.get("full").representation.mirror_url, full_label)
+
+                if files.get("updates"):
+                    body += "<h4>%s</h4>" % _("Update-only files")
+                    body += "<ul>"
+                    files.get("updates").sort(key=lambda x: x.end_time)
+                    for update in files.get("updates"):
+                        update_url = update.representation.mirror_url
+                        update_label = _("Updates from %(start_time)s to %(end_time)s",
+                                         start_time=update.start_time.strftime(time_format),
+                                         end_time=update.end_time.strftime(time_format))
+                        body += '<li><a href="%s">%s</a></li>' % (update_url, update_label)
+                    body += "</ul>"
+
+            body += "</section>"
+            body += "<br />"
+
         html = self.DOWNLOAD_TEMPLATE % dict(body=body)
         headers = dict()
         headers['Content-Type'] = "text/html"

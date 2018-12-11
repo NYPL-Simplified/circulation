@@ -3005,7 +3005,7 @@ class TestMARCRecordController(CirculationControllerTest):
         cache1, ignore = create(
             self._db, CachedMARCFile,
             library=self._default_library, lane=None,
-            representation=rep1)
+            representation=rep1, end_time=now)
 
         rep2, ignore = create(
             self._db, Representation, 
@@ -3015,16 +3015,33 @@ class TestMARCRecordController(CirculationControllerTest):
         cache2, ignore = create(
             self._db, CachedMARCFile,
             library=self._default_library, lane=lane,
-            representation=rep2)
+            representation=rep2, end_time=yesterday)
+
+        rep3, ignore = create(
+            self._db, Representation, 
+            url="http://mirror3", mirror_url="http://mirror3",
+            media_type=Representation.MARC_MEDIA_TYPE,
+            mirrored_at=now)
+        cache3, ignore = create(
+            self._db, CachedMARCFile,
+            library=self._default_library, lane=None,
+            representation=rep3, end_time=now,
+            start_time=yesterday)
+
 
         with self.request_context_with_library("/"):
             response = self.manager.marc_records.download_page()
             eq_(200, response.status_code)
             html = response.data
             assert ("Download MARC files for %s" % library.name) in html
-            assert '<a href="http://mirror1">All Books</a>' in html
-            assert '<a href="http://mirror2">Test Lane</a>' in html
-            assert ("Last update: %s" % now.strftime("%B %-d, %Y")) in html
+
+            assert "<h3>All Books</h3>" in html
+            assert '<a href="http://mirror1">Full file - last updated %s</a>' % now.strftime("%B %-d, %Y") in html
+            assert "<h4>Update-only files</h4>" in html
+            assert '<a href="http://mirror3">Updates from %s to %s</a>' % (yesterday.strftime("%B %-d, %Y"), now.strftime("%B %-d, %Y")) in html
+
+            assert '<h3>Test Lane</h3>' in html
+            assert '<a href="http://mirror2">Full file - last updated %s</a>' % yesterday.strftime("%B %-d, %Y") in html
 
     def test_download_page_with_exporter_but_no_files(self):
         now = datetime.datetime.now()
@@ -3064,7 +3081,7 @@ class TestMARCRecordController(CirculationControllerTest):
         cache, ignore = create(
             self._db, CachedMARCFile,
             library=self._default_library, lane=None,
-            representation=rep)
+            representation=rep, end_time=now)
 
         with self.request_context_with_library("/"):
             response = self.manager.marc_records.download_page()
@@ -3072,8 +3089,8 @@ class TestMARCRecordController(CirculationControllerTest):
             html = response.data
             assert ("Download MARC files for %s" % library.name) in html
             assert "No MARC exporter is currently configured" in html
-            assert '<a href="http://mirror1">All Books</a>' in html
-            assert ("Last update: %s" % now.strftime("%B %-d, %Y")) in html
+            assert '<h3>All Books</h3>' in html
+            assert '<a href="http://mirror1">Full file - last updated %s</a>' % now.strftime("%B %-d, %Y") in html
 
 
 class TestAnalyticsController(CirculationControllerTest):

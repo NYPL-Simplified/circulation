@@ -36,6 +36,7 @@ from core.metadata_layer import (
     LinkData,
 )
 from core.model import (
+    CachedMARCFile,
     CirculationEvent,
     Collection,
     ConfigurationSetting,
@@ -707,6 +708,11 @@ class CacheMARCFiles(LaneSweeperScript):
             type=int,
             default=0,
         )
+        parser.add_argument(
+            '--force',
+            help="Generate new MARC files even if MARC files have already been generated recently enough",
+            dest='force', action='store_true',
+        )
         return parser
 
     def __init__(self, _db=None, cmd_args=None, *args, **kwargs):
@@ -717,6 +723,7 @@ class CacheMARCFiles(LaneSweeperScript):
         parser = self.arg_parser(self._db)
         parsed = parser.parse_args(cmd_args)
         self.max_depth = parsed.max_depth
+        self.force = parsed.force
         return parsed
 
     def should_process_library(self, library):
@@ -739,7 +746,7 @@ class CacheMARCFiles(LaneSweeperScript):
         return True
 
     def process_lane(self, lane, exporter=None):
-        # Generate a MARC file for this lane.
+        # Generate a MARC file for this lane, if one has not been generated recently enough.
         if isinstance(lane, Lane):
             library = lane.library
         else:
@@ -747,9 +754,39 @@ class CacheMARCFiles(LaneSweeperScript):
 
         annotator = MARCLibraryAnnotator(library)
         exporter = exporter or MARCExporter.from_config(library)
+
+        update_frequency = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, MARCExporter.UPDATE_FREQUENCY, library, exporter.integration
+        ).int_value or MARCExporter.DEFAULT_UPDATE_FREQUENCY
+
+        last_update = None
+        files_q = self._db.query(CachedMARCFile).filter(
+            CachedMARCFile.library==library
+        ).filter(
+            CachedMARCFile.lane==(lane if isinstance(lane, Lane) else None),
+        ).order_by(CachedMARCFile.end_time.desc())
+
+        if files_q.count() > 0:
+            last_update = files_q.first().end_time
+        if not self.force and last_update and (last_update > datetime.utcnow() - timedelta(days=update_frequency)):
+            self.log.info("Skipping lane %s because last update was less than %d days ago" % (lane.display_name, update_frequency))
+            return
+
+        # First update the file with ALL the records.
         records = exporter.records(
             lane, annotator=annotator,
         )
+
+        # Then create a new file with changes since the last update.
+        start_time = None
+        if last_update:
+            # Allow one day of overlap to ensure we don't miss anything due to script timing.
+            start_time = last_update - timedelta(days=1)
+
+            records = exporter.records(
+                lane, annotator=annotator, start_time=start_time,
+            )
+
 
 class AdobeAccountIDResetScript(PatronInputScript):
 
