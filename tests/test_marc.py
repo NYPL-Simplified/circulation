@@ -497,13 +497,32 @@ class TestMARCExporter(DatabaseTest):
 
         content.close()
 
+        # If a start time is set, only records updated since that time are included.
+        now = datetime.datetime.utcnow()
+        w1.last_update_time = now - datetime.timedelta(days=30)
+        w2.last_update_time = now - datetime.timedelta(days=2)
+        self.add_to_materialized_view([w1, w2])
+        start_time = now - datetime.timedelta(days=3)
+
+        content = StringIO()
+        content.write(exporter.records(lane, annotator, start_time))
+        records = list(MARCReader(content.getvalue()))
+        eq_(1, len(records))
+
+        [record] = records
+        eq_(w2.title, record.get_fields("245")[0].get_subfields("a")[0])
+
+        content.close()
+
+
     def test_records_mirrors_files_if_storage_configured(self):
+        now = datetime.datetime.utcnow()
         integration = self._integration()
         exporter = MARCExporter.from_config(self._default_library)
         annotator = Annotator()
-        lane = self._lane("Test Lane", genres=["Mystery"])
-        w1 = self._work(genre="Mystery", with_open_access_download=True)
-        w2 = self._work(genre="Mystery", with_open_access_download=True)
+        lane = self._lane("Test Lane", genres=["Mystery"], fiction=True)
+        w1 = self._work(genre="Mystery", fiction=True, with_open_access_download=True)
+        w2 = self._work(genre="Mystery", fiction=True, with_open_access_download=True)
         self.add_to_materialized_view([w1, w2])
 
         integration.setting(MARCExporter.STORAGE_PROTOCOL).value = ExternalIntegration.S3
@@ -521,17 +540,22 @@ class TestMARCExporter(DatabaseTest):
         mirror = MockS3Uploader()
         content = exporter.records(lane, annotator, mirror=mirror)
 
+        # The file was mirrored and a CachedMARCFile was created to track the mirrored file.
         eq_(1, len(mirror.uploaded))
-        eq_(content, mirror.content[0])
-        eq_("https://s3.amazonaws.com/test.marc.bucket/%s/%s.mrc" % (self._default_library.short_name, urllib.quote_plus(lane.display_name)),
-            mirror.uploaded[0].mirror_url)
-
-        # A CachedMARCFile was created to track the mirrored file.
         [cache] = self._db.query(CachedMARCFile).all()
         eq_(self._default_library, cache.library)
         eq_(lane, cache.lane)
         eq_(mirror.uploaded[0], cache.representation)
         eq_(None, cache.representation.content)
+        eq_(content, mirror.content[0])
+        eq_("https://s3.amazonaws.com/test.marc.bucket/%s/%s/%s.mrc" % (
+                self._default_library.short_name,
+                urllib.quote_plus(str(cache.representation.fetched_at)),
+                urllib.quote_plus(lane.display_name)),
+            mirror.uploaded[0].mirror_url)
+        eq_(None, cache.start_time)
+        assert cache.end_time > now
+
         self._db.delete(cache)
 
         # It also works with a WorkList instead of a Lane, in which case
@@ -543,13 +567,63 @@ class TestMARCExporter(DatabaseTest):
         content = exporter.records(worklist, annotator, mirror=mirror)
 
         eq_(1, len(mirror.uploaded))
-        eq_(content, mirror.content[0])
-        eq_("https://s3.amazonaws.com/test.marc.bucket/%s/%s.mrc" % (self._default_library.short_name, urllib.quote_plus(worklist.display_name)),
-            mirror.uploaded[0].mirror_url)
-
         [cache] = self._db.query(CachedMARCFile).all()
         eq_(self._default_library, cache.library)
         eq_(None, cache.lane)
         eq_(mirror.uploaded[0], cache.representation)
         eq_(None, cache.representation.content)
+        eq_(content, mirror.content[0])
+        eq_("https://s3.amazonaws.com/test.marc.bucket/%s/%s/%s.mrc" % (
+                self._default_library.short_name,
+                urllib.quote_plus(str(cache.representation.fetched_at)),
+                urllib.quote_plus(worklist.display_name)),
+            mirror.uploaded[0].mirror_url)
+        eq_(None, cache.start_time)
+        assert cache.end_time > now
+
+        self._db.delete(cache)
+
+        # If a start time was used, it will be in the mirror URL.
+        w1.last_update_time = now - datetime.timedelta(days=30)
+        w2.last_update_time = now - datetime.timedelta(days=2)
+        self.add_to_materialized_view([w1, w2])
+        start_time = now - datetime.timedelta(days=3)
+
+        mirror = MockS3Uploader()
+        content = exporter.records(worklist, annotator, mirror=mirror, start_time=start_time)
+
+        eq_(1, len(mirror.uploaded))
+        [cache] = self._db.query(CachedMARCFile).all()
+        eq_(self._default_library, cache.library)
+        eq_(None, cache.lane)
+        eq_(mirror.uploaded[0], cache.representation)
+        eq_(None, cache.representation.content)
+        eq_(content, mirror.content[0])
+        eq_("https://s3.amazonaws.com/test.marc.bucket/%s/%s-%s/%s.mrc" % (
+                self._default_library.short_name, urllib.quote_plus(str(start_time)), 
+                urllib.quote_plus(str(cache.representation.fetched_at)),
+                urllib.quote_plus(worklist.display_name)),
+            mirror.uploaded[0].mirror_url)
+        eq_(start_time, cache.start_time)
+        assert cache.end_time > now
+
+        self._db.delete(cache)
+
+        # If the lane is empty, nothing will be mirrored, but a CachedMARCFile
+        # is still created to track that we checked for updates.
+        empty_lane = self._lane("Test Lane", genres=["History"], fiction=False)
+        
+        mirror = MockS3Uploader()
+        content = exporter.records(empty_lane, annotator, mirror=mirror)
+
+        eq_('', content)
+        eq_(0, len(mirror.uploaded))
+        [cache] = self._db.query(CachedMARCFile).all()
+        eq_(self._default_library, cache.library)
+        eq_(empty_lane, cache.lane)
+        eq_(None, cache.representation.content)
+        eq_(None, cache.start_time)
+        assert cache.end_time > now
+
+        self._db.delete(cache)
 

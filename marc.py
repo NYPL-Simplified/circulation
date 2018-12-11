@@ -24,6 +24,7 @@ from model import (
     Edition,
     ExternalIntegration,
     Identifier,
+    MaterializedWorkWithGenre,
     Representation,
     Session,
     Work,
@@ -456,6 +457,13 @@ class MARCExporter(object):
 
     DESCRIPTION = _("Export metadata into MARC files that can be imported into an ILS manually.")
 
+    # This setting (in days) controls how often MARC files should be
+    # automatically updated. Since the crontab in docker isn't easily
+    # configurable, we can run a script daily but check this to decide
+    # whether to do anything.
+    UPDATE_FREQUENCY = "marc_update_frequency"
+    DEFAULT_UPDATE_FREQUENCY = 30
+
     # MARC organization codes are assigned by the
     # Library of Congress and can be found here:
     # http://www.loc.gov/marc/organizations/org-search.php
@@ -466,6 +474,12 @@ class MARCExporter(object):
     STORAGE_PROTOCOL = u'storage_protocol'
 
     LIBRARY_SETTINGS = [
+        { "key": UPDATE_FREQUENCY,
+          "label": _("Update frequency (in days)"),
+          "description": _("The circulation manager will wait this number of days between generating MARC files."),
+          "type": "number",
+          "default": DEFAULT_UPDATE_FREQUENCY,
+        },
         { "key": MARC_ORGANIZATION_CODE,
           "label": _("The MARC organization code for this library (003 field)."),
           "description": _("MARC organization codes are assigned by the Library of Congress."),
@@ -539,7 +553,7 @@ class MARCExporter(object):
         record = None
         existing_record = getattr(work, annotator.marc_cache_field)
         if existing_record and not force_create:
-            record = Record(data=existing_record, force_utf8=True)
+            record = Record(data=existing_record.encode('utf-8'), force_utf8=True)
 
         if not record:
             record = Record(leader=annotator.leader(work), force_utf8=True)
@@ -559,7 +573,6 @@ class MARCExporter(object):
             annotator.add_system_details(record)
             annotator.add_ebooks_subject(record)
 
-
             data = record.as_marc()
             if isinstance(work, BaseMaterializedWork):
                 setattr(pool.work, annotator.marc_cache_field, data)
@@ -571,10 +584,12 @@ class MARCExporter(object):
 
         return record
 
-    def records(self, lane, annotator, force_refresh=False, mirror=None):
+    def records(self, lane, annotator, start_time=None, force_refresh=False, mirror=None):
         output = StringIO()
 
         works_q = lane.works(self._db)
+        if start_time:
+            works_q = works_q.filter(MaterializedWorkWithGenre.last_update_time>=start_time)
         for work in works_q:
             record = self.create_record(
                 work, annotator, force_refresh, self.integration)
@@ -584,7 +599,10 @@ class MARCExporter(object):
         content = output.getvalue()
         output.close()
 
-        # Mirror the content.
+        end_time = datetime.datetime.utcnow()
+
+        # Mirror the content, if it's not empty. If it's empty, create a CachedMARCFile
+        # and Representation, but don't actually mirror it.
         storage_protocol = self.integration.setting(self.STORAGE_PROTOCOL).value
         if storage_protocol == ExternalIntegration.S3:
             mirror_integration = ExternalIntegration.lookup(
@@ -593,18 +611,24 @@ class MARCExporter(object):
                 raise Exception("No mirror integration for configured protocol %s" % storage_protocol)
 
             mirror = mirror or S3Uploader(mirror_integration)
-            url = mirror.marc_file_url(self.library, lane)
+            url = mirror.marc_file_url(self.library, lane, end_time, start_time)
             representation, ignore = get_one_or_create(
                 self._db, Representation, url=url, media_type=Representation.MARC_MEDIA_TYPE)
-            representation.fetched_at = datetime.datetime.utcnow()
+            representation.fetched_at = end_time
             representation.content = content
-            mirror.mirror_one(representation, url)
+            if content:
+                mirror.mirror_one(representation, url)
             if not representation.mirror_exception:
                 representation.content = None
-                cached, ignore = get_one_or_create(
+                cached, is_new = get_one_or_create(
                     self._db, CachedMARCFile, library=self.library,
                     lane=(lane if isinstance(lane, Lane) else None),
-                    representation=representation)
+                    start_time=start_time,
+                    create_method_kwargs=dict(representation=representation))
+                if not is_new:
+                    cached.representation = representation
+                cached.end_time = end_time
+
 
         return content
         

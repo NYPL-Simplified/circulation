@@ -3,6 +3,7 @@ import os
 import datetime
 from PIL import Image
 from StringIO import StringIO
+import urllib
 from botocore.exceptions import (
     BotoCoreError,
     ClientError,
@@ -220,8 +221,15 @@ class TestS3Uploader(S3UploaderTest):
         buckets = {S3Uploader.MARC_BUCKET_KEY : 'marc'}
         uploader = self._uploader(**buckets)
         m = uploader.marc_file_url
-        eq_(u'https://s3.amazonaws.com/marc/SHORT/Lane.mrc',
-            m(library, lane))
+        now = datetime.datetime.utcnow()
+        yesterday = now - datetime.timedelta(days=1)
+        eq_(u'https://s3.amazonaws.com/marc/SHORT/%s/Lane.mrc' % urllib.quote_plus(str(now)),
+            m(library, lane, now))
+        eq_(u'https://s3.amazonaws.com/marc/SHORT/%s-%s/Lane.mrc' % (
+                urllib.quote_plus(str(yesterday)),
+                urllib.quote_plus(str(now)),
+            ),
+            m(library, lane, now, yesterday))
 
     def test_bucket_and_filename(self):
         m = S3Uploader.bucket_and_filename

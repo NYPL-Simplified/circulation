@@ -22,6 +22,7 @@ from model import (
     PresentationCalculationPolicy,
     SessionManager,
     get_one_or_create,
+    create,
 )
 
 from model import (
@@ -387,11 +388,11 @@ class DatabaseTest(object):
     ):
         display_name = display_name or self._str
         library = library or self._default_library
-        lane, is_new = get_one_or_create(
+        lane, is_new = create(
             self._db, Lane,
             library=library,
             parent=parent, display_name=display_name,
-            create_method_kwargs=dict(fiction=fiction)
+            fiction=fiction
         )
         if is_new and parent:
             lane.priority = len(parent.sublanes)-1

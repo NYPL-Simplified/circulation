@@ -222,3 +222,6 @@ class CachedMARCFile(Base):
     representation_id = Column(
         Integer, ForeignKey('representations.id'),
         nullable=False)
+
+    start_time = Column(DateTime, nullable=True, index=True)
+    end_time = Column(DateTime, nullable=True, index=True)
