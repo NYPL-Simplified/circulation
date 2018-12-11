@@ -224,12 +224,12 @@ class TestS3Uploader(S3UploaderTest):
         now = datetime.datetime.utcnow()
         yesterday = now - datetime.timedelta(days=1)
         eq_(u'https://s3.amazonaws.com/marc/SHORT/%s/Lane.mrc' % urllib.quote_plus(str(now)),
-            m(library, lane, None, now))
+            m(library, lane, now))
         eq_(u'https://s3.amazonaws.com/marc/SHORT/%s-%s/Lane.mrc' % (
                 urllib.quote_plus(str(yesterday)),
                 urllib.quote_plus(str(now)),
             ),
-            m(library, lane, yesterday, now))
+            m(library, lane, now, yesterday))
 
     def test_bucket_and_filename(self):
         m = S3Uploader.bucket_and_filename

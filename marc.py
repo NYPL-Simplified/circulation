@@ -611,7 +611,7 @@ class MARCExporter(object):
                 raise Exception("No mirror integration for configured protocol %s" % storage_protocol)
 
             mirror = mirror or S3Uploader(mirror_integration)
-            url = mirror.marc_file_url(self.library, lane, start_time, end_time)
+            url = mirror.marc_file_url(self.library, lane, end_time, start_time)
             representation, ignore = get_one_or_create(
                 self._db, Representation, url=url, media_type=Representation.MARC_MEDIA_TYPE)
             representation.fetched_at = end_time
