@@ -49,6 +49,7 @@ from core.metadata_layer import (
 
 from core.model import (
     CachedFeed,
+    CachedMARCFile,
     ConfigurationSetting,
     create,
     Credential,
@@ -572,18 +573,75 @@ class TestCacheMARCFiles(TestLaneScript):
 
     def test_process_lane(self):
         lane = self._lane(genres=["Science Fiction"])
-        
+        integration = self._external_integration(
+            ExternalIntegration.MARC_EXPORT, ExternalIntegration.CATALOG_GOAL)
+
         class MockMARCExporter(MARCExporter):
-            called_with = None
+            called_with = []
 
-            def records(self, lane, annotator):
-                self.called_with = [lane, annotator]
+            def records(self, lane, annotator, start_time=None):
+                self.called_with += [(lane, annotator, start_time)]
 
-        exporter = MockMARCExporter(None, None, None)
+        exporter = MockMARCExporter(None, None, integration)
         script = CacheMARCFiles(self._db, cmd_args=[])
         script.process_lane(lane, exporter)
-        eq_(lane, exporter.called_with[0])
-        assert isinstance(exporter.called_with[1], MARCLibraryAnnotator)
+
+        # If the script has never been run before, it runs the exporter once
+        # to create a file with all records.
+        eq_(1, len(exporter.called_with))
+
+        eq_(lane, exporter.called_with[0][0])
+        assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
+        eq_(None, exporter.called_with[0][2])
+
+        # If we have a cached file already, and it's old enough, the script will
+        # run the exporter twice, first to update that file and second to create
+        # a file with changes since that first file was originally created.
+        exporter.called_with = []
+        now = datetime.datetime.utcnow()
+        yesterday = now - datetime.timedelta(days=1)
+        last_week = now - datetime.timedelta(days=7)
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, MARCExporter.UPDATE_FREQUENCY, self._default_library,
+            integration).value = 3
+        representation, ignore = self._representation()
+        cached, ignore = create(
+            self._db, CachedMARCFile, library=self._default_library,
+            lane=lane, representation=representation, end_time=last_week)
+
+        script.process_lane(lane, exporter)
+
+        eq_(2, len(exporter.called_with))
+
+        eq_(lane, exporter.called_with[0][0])
+        assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
+        eq_(None, exporter.called_with[0][2])
+
+        eq_(lane, exporter.called_with[1][0])
+        assert isinstance(exporter.called_with[1][1], MARCLibraryAnnotator)
+        assert exporter.called_with[1][2] < last_week
+
+        # If we already have a recent cached file, the script won't do anything.
+        cached.end_time = yesterday
+        exporter.called_with = []
+        script.process_lane(lane, exporter)
+        eq_([], exporter.called_with)
+
+        # But we can force it to run anyway.
+        script = CacheMARCFiles(self._db, cmd_args=["--force"])
+        script.process_lane(lane, exporter)
+
+        eq_(2, len(exporter.called_with))
+
+        eq_(lane, exporter.called_with[0][0])
+        assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
+        eq_(None, exporter.called_with[0][2])
+
+        eq_(lane, exporter.called_with[1][0])
+        assert isinstance(exporter.called_with[1][1], MARCLibraryAnnotator)
+        assert exporter.called_with[1][2] < yesterday
+        assert exporter.called_with[1][2] > last_week
+
 
 class TestInstanceInitializationScript(DatabaseTest):
 
