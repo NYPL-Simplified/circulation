@@ -2554,6 +2554,8 @@ class SettingsController(AdminCirculationManagerController):
 
     def _number_error(self, field):
         input = flask.request.form.get(field.get("key")) or flask.request.form.get("value")
+        # It's possible that the string would start with a dollar sign; disregard that!
+        input = input.replace("$", "");
         min = field.get("min") or 0
         max = field.get("max")
 
