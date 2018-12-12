@@ -635,7 +635,6 @@ class ConfigurationSetting(Base, HasFullTableCache):
     # lanes.
     EXCLUDED_AUDIO_DATA_SOURCES_DEFAULT = [
         DataSourceConstants.OVERDRIVE,
-        DataSourceConstants.AXIS_360,
         DataSourceConstants.RB_DIGITAL
     ]
 
