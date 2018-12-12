@@ -345,7 +345,7 @@ class TestAnnotator(DatabaseTest):
 
         record = Record()
         Annotator.add_summary(record, work)
-        self._check_field(record, "520", {"a": "Summary"})
+        self._check_field(record, "520", {"a": " Summary "})
 
         # It also works with a materialized work.
         self.add_to_materialized_view([work])
@@ -353,7 +353,7 @@ class TestAnnotator(DatabaseTest):
 
         record = Record()
         Annotator.add_summary(record, mw)
-        self._check_field(record, "520", {"a": "Summary"})
+        self._check_field(record, "520", {"a": " Summary "})
 
     def test_add_simplified_genres(self):
         work = self._work(with_license_pool=True)
