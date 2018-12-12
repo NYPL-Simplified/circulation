@@ -409,7 +409,7 @@ class Annotator(object):
         else:
             summary = work.summary_text
         if summary:
-            stripped = re.sub('<[^>]+?>', '', summary)
+            stripped = re.sub('<[^>]+?>', ' ', summary)
             record.add_field(
                 Field(
                     tag="520",
