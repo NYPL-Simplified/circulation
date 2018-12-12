@@ -90,7 +90,10 @@ from selftest import (
     SelfTestResult,
 )
 
-from web_publication_manifest import FindawayManifest
+from web_publication_manifest import (
+    FindawayManifest,
+    SpineItem,
+)
 
 
 class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
@@ -122,6 +125,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
     access_token_endpoint = 'accesstoken'
     availability_endpoint = 'availability/v2'
     fulfillment_endpoint = 'getfullfillmentInfo/v2'
+    audiobook_metadata_endpoint = 'getaudiobookmetedata/v2'
 
     log = logging.getLogger("Axis 360 API")
 
@@ -287,13 +291,21 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         params = dict(TransactionID=transaction_id)
         return self.request(url, "POST", params=params)
 
+    def get_audiobook_metadata(self, findaway_content_id):
+        """Make a call to the getaudiobookmetadata endpoint."""
+        base_url = self.base_url
+        url = base_url + self.audiobook_metadata_endpoint
+        params = dict(fndcontentid=findaway_content_id)
+        response = self.request(url, "POST", params=params)
+        return response
+
     def checkout(self, patron, pin, licensepool, internal_format):
         title_id = licensepool.identifier.identifier
         patron_id = patron.authorization_identifier
         response = self._checkout(title_id, patron_id, internal_format)
         try:
             return CheckoutResponseParser(
-                licensepool.collection).process_all(response.content)
+                self, licensepool.collection).process_all(response.content)
         except etree.XMLSyntaxError, e:
             raise RemoteInitiatedServerError(
                 response.content, self.SERVICE_NAME
@@ -345,7 +357,9 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         params = dict(titleId=title_id, patronId=patron_id,
                       email=hold_notification_email)
         response = self.request(url, params=params)
-        hold_info = HoldResponseParser(licensepool.collection).process_all(
+        hold_info = HoldResponseParser(
+            self, licensepool.collection
+        ).process_all(
             response.content)
         if not hold_info.identifier:
             # The Axis 360 API doesn't return the identifier of the
@@ -363,7 +377,9 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         params = dict(titleId=title_id, patronId=patron_id)
         response = self.request(url, params=params)
         try:
-            HoldReleaseResponseParser(licensepool.collection).process_all(
+            HoldReleaseResponseParser(
+                self, licensepool.collection
+            ).process_all(
                 response.content)
         except NotOnHold:
             # Fine, it wasn't on hold and now it's still not on hold.
@@ -379,7 +395,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         availability = self.availability(
             patron_id=patron.authorization_identifier,
             title_ids=title_ids)
-        return list(AvailabilityResponseParser(self.collection).process_all(
+        return list(AvailabilityResponseParser(self).process_all(
             availability.content))
 
     def update_availability(self, licensepool):
@@ -419,7 +435,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         """
         identifier_strings = self.create_identifier_strings(identifiers)
         response = self.availability(title_ids=identifier_strings)
-        parser = BibliographicParser(self.collection)
+        parser = BibliographicParser(self)
         return parser.process_all(response.content)
 
     def _reap(self, identifier):
@@ -460,7 +476,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         """
         availability = self.availability(since=since)
         content = availability.content
-        for bibliographic, circulation in BibliographicParser(self.collection).process_all(
+        for bibliographic, circulation in BibliographicParser().process_all(
                 content):
             yield bibliographic, circulation
 
@@ -1084,8 +1100,9 @@ class ResponseParser(Axis360Parser):
         5004 : LibraryInvalidInputException, # Missing TransactionID
     }
 
-    def __init__(self, collection):
-        self.collection = collection
+    def __init__(self, api, collection=None):
+        self.api = api
+        self.collection = collection or api.collection
 
     def raise_exception_on_error(self, e, ns, custom_error_classes={}):
         """Raise an error if the given lxml node represents an Axis 360 error
@@ -1281,7 +1298,7 @@ class AvailabilityResponseParser(ResponseParser):
                 # turn the transaction ID into a Findaway
                 # audio manifest.
                 fulfillment = AudiobookFulfillmentInfo(
-                    api=self, key=transaction_id, **kwargs
+                    api=self.api, key=transaction_id, **kwargs
                 )
             else:
                 fulfillment = None
@@ -1319,36 +1336,17 @@ class AvailabilityResponseParser(ResponseParser):
         return info
 
 
-class FulfillmentInfoResponseParser(ResponseParser):
-    """Most ResponseParsers parse XML documents into LoanInfo-type
-    objects. This one parses JSON documents into Findaway audiobook
-    manifests.
+class JSONResponseParser(ResponseParser):
+    """Most ResponseParsers parse XML documents; subclasses of
+    JSONResponseParser parse JSON documents.
 
-    We mainly subclass ResponseParser so we can reuse
+    This only subclasses ResponseParser so it can reuse
     _raise_exception_on_error.
     """
-    def parse(self, license_pool, data):
-        """Parse a FulfillmentInfo response into a FindawayManifest
-        object.
-
-        :return: A 2-tuple (FindawayManifest, expiration_date)
-        """
-        if isinstance(data, dict):
-            parsed = data # already parsed
-        else:
-            try:
-                parsed = json.loads(data)
-            except ValueError, e:
-                # It's not JSON.
-                raise RemoteInitiatedServerError(
-                    "Invalid response from Axis 360 (was expecting JSON): %s" % data,
-                    self.SERVICE_NAME
-                )
-
-        return self._extract(license_pool, parsed)
 
     @classmethod
     def _required_key(cls, key, json_obj):
+
         """Raise an exception if the given key is not present in the given
         object.
         """
@@ -1362,20 +1360,19 @@ class FulfillmentInfoResponseParser(ResponseParser):
         return json_obj[key]
 
     @classmethod
-    def _extract(cls, license_pool, parsed):
-        """Extract all useful information from a parsed FulfillmentInfo
+    def verify_status_code(cls, parsed):
+        """Assert that the incoming JSON document represents a successful
         response.
-
-        :param license_pool: The LicensePool for the book that's
-        being fulfilled.
-
-        :param parsed: A dictionary corresponding to a parsed JSON
-        document.
-
-        :return: A 2-tuple (FindawayManifest, expiration_date)
         """
         k = cls._required_key
-        status = k('Status', parsed)
+        status = None
+        for key in ('Status', 'status'):
+            status = parsed.get(key, None)
+            if status:
+                break
+        if not status:
+            # This will raise an appropriate exception.
+            k('Status', parsed)
         code = k('Code', status)
         message = status.get('Message')
 
@@ -1383,11 +1380,54 @@ class FulfillmentInfoResponseParser(ResponseParser):
         # an appropriate exception immediately.
         cls._raise_exception_on_error(code, message)
 
-        # The mobile client only uses the session key and license key,
-        # so those are the only fields we'll treat as required.
-        accountId = parsed.get('FNDAccountID')
+    def parse(self, data, *args, **kwargs):
+        """Parse a JSON document."""
+        if isinstance(data, dict):
+            parsed = data # already parsed
+        else:
+            try:
+                parsed = json.loads(data)
+            except ValueError, e:
+                # It's not JSON.
+                raise RemoteInitiatedServerError(
+                    "Invalid response from Axis 360 (was expecting JSON): %s" % data,
+                    self.SERVICE_NAME
+                )
+
+        # If the response indicates an error condition, don't continue --
+        # raise an exception immediately.
+        self.verify_status_code(parsed)
+        return self._extract(parsed, *args, **kwargs)
+
+    @classmethod
+    def _extract(cls, parsed, *args, **kwargs):
+        """Parse a document we know to represent success on the
+        API level.
+        """
+        raise NotImplentedError()
+
+
+class FulfillmentInfoResponseParser(JSONResponseParser):
+    """Parse JSON documents into Findaway audiobook manifests."""
+
+    def _extract(self, parsed, license_pool):
+        """Extract all useful information from a parsed FulfillmentInfo
+        response.
+
+        :param parsed: A dictionary corresponding to a parsed JSON
+        document.
+
+        :param license_pool: The LicensePool for the book that's
+        being fulfilled.
+
+        :return: A 2-tuple (FindawayManifest, expiration_date)
+        """
+        # Some pieces of information are unused by us or by the
+        # mobile client. There's no need to treat these fields as
+        # required.
+        k = self._required_key
         checkoutId = parsed.get('FNDTransactionID')
-        fulfillmentId = parsed.get('FNDContentID')
+        fulfillmentId = k('FNDContentID', parsed)
         licenseId = k('FNDLicenseID', parsed)
         sessionKey = k('FNDSessionKey', parsed)
         expiration_date = k('ExpirationDate', parsed)
@@ -1405,20 +1445,51 @@ class FulfillmentInfoResponseParser(ResponseParser):
                 "Could not parse expiration date: %s" % expiration_date,
                 cls.SERVICE_NAME
             )
+
+        # Acquire the TOC information
+        metadata_response = self.api.get_audiobook_metadata(fulfillmentId)
+        parser = AudiobookMetadataParser(self.api)
+        accountId, spine_items = parser.parse(metadata_response.content)
+
         manifest = FindawayManifest(
             license_pool, accountId=accountId, checkoutId=checkoutId,
             fulfillmentId=fulfillmentId, licenseId=licenseId,
-            sessionKey=sessionKey
+            sessionKey=sessionKey, spine_items=spine_items
         )
         return manifest, expiration_date
+
+
+class AudiobookMetadataParser(JSONResponseParser):
+    """Parse the results of Axis 360's audiobook metadata API call.
+    """
+
+    @classmethod
+    def _extract(cls, parsed):
+        spine_items = []
+        accountId = parsed.get('fndaccountid', None)
+        for item in parsed.get('readingOrder', []):
+            spine_item = cls._extract_spine_item(item)
+            if spine_item:
+                spine_items.append(spine_item)
+        return accountId, spine_items
+
+    @classmethod
+    def _extract_spine_item(cls, part):
+        """Convert an element of the 'readingOrder' list to a SpineItem."""
+        title = part.get('title')
+        # Incoming duration is measured in seconds.
+        duration = part.get('duration', 0)
+        part_number = int(part.get('fndpart', 0))
+        sequence = int(part.get('fndsequence', 0))
+        return SpineItem(title, duration, part_number, sequence)
 
 
 class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):
     """An Axis 360-specific FulfillmentInfo implementation for audiobooks.
 
     We use these instead of real FulfillmentInfo objects because
-    generating a real FulfillmentInfo object would require an extra
-    HTTP request, and there's often no need to make that request.
+    generating a real FulfillmentInfo object would require two extra
+    HTTP requests, and there's often no need to make those requests.
     """
     def do_fetch(self):
         _db = self.api._db
@@ -1426,8 +1497,8 @@ class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):
         collection = self.collection(_db)
         transaction_id = self.key
         response = self.api.get_fulfillment_info(transaction_id)
-        parser = FulfillmentInfoResponseParser(collection)
-        manifest, expires = parser.parse(license_pool, response.content)
+        parser = FulfillmentInfoResponseParser(self.api, collection)
+        manifest, expires = parser.parse(response.content, license_pool)
         self._content = unicode(manifest)
         self._content_type = DeliveryMechanism.FINDAWAY_DRM
         self._content_expires = expires
