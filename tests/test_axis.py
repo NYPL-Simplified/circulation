@@ -203,6 +203,16 @@ class TestAxis360API(Axis360Test):
         values = Axis360API.create_identifier_strings(["foo", identifier])
         eq_(["foo", identifier.identifier], values)
 
+    def test_availability_no_timeout(self):
+        # The availability API request has no timeout set, because it
+        # may take time proportinate to the total size of the
+        # collection.
+        self.api.queue_response(200)
+        self.api.availability()
+        request = self.api.requests.pop()
+        kwargs = request[-1]
+        eq_(None, kwargs['timeout'])
+
     def test_availability_exception(self):
 
         self.api.queue_response(500)
