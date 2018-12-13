@@ -125,7 +125,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
     access_token_endpoint = 'accesstoken'
     availability_endpoint = 'availability/v2'
     fulfillment_endpoint = 'getfullfillmentInfo/v2'
-    audiobook_metadata_endpoint = 'getaudiobookmetedata/v2'
+    audiobook_metadata_endpoint = 'getaudiobookmetadata/v2'
 
     log = logging.getLogger("Axis 360 API")
 
