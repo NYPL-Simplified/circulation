@@ -558,8 +558,6 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
             # needs to be explicitly verified.
             duration = part.get('duration', 0) / 1000.0
 
-            spine_kwargs = {}
-
             part_number = int(part.get('part', 0))
 
             sequence = int(part.get('sequence', 0))
