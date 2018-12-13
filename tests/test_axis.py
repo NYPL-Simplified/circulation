@@ -760,18 +760,22 @@ class TestParsers(Axis360Test):
         eq_(0, av1.patrons_in_hold_queue)
 
 
-class TestResponseParser(object):
+class BaseParserTest(object):
 
     @classmethod
     def sample_data(self, filename):
         return sample_data(filename, 'axis')
 
+
+class TestResponseParser(BaseParserTest):
+
     def setup(self):
-        # We don't need an actual Collection object to test this
-        # class, but we do need to test that whatever object we
-        # _claim_ is a Collection will have its id put into the
+        # We don't need an actual Collection object to test most of
+        # these classes, but we do need to test that whatever object
+        # we _claim_ is a Collection will have its id put into the
         # right spot of HoldInfo and LoanInfo objects.
         class MockCollection(object):
+            protocol = ExternalIntegration.AXIS_360
             pass
         self._default_collection = MockCollection()
         self._default_collection.id = object()
@@ -861,7 +865,11 @@ class TestHoldReleaseResponseParser(TestResponseParser):
         parser = HoldReleaseResponseParser()
         assert_raises(NotOnHold, parser.process_all, data)
 
-class TestAvailabilityResponseParser(TestResponseParser):
+class TestAvailabilityResponseParser(DatabaseTest, BaseParserTest):
+    """Unlike other response parser tests, this one needs 
+    access to a real database session, because it needs a real Collection
+    to put into its MockAxis360API.
+    """
 
     def test_parse_loan_and_hold(self):
         data = self.sample_data("availability_with_loan_and_hold.xml")
@@ -896,18 +904,22 @@ class TestAvailabilityResponseParser(TestResponseParser):
 
     def test_parse_audiobook_fulfillmentinfo(self):
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
-        parser = AvailabilityResponseParser(api=self.api)
+        collection = MockAxis360API.mock_collection(self._db)
+        api = MockAxis360API(self._db, collection)
+        parser = AvailabilityResponseParser(api=api)
         [loan] = list(parser.process_all(data))
         fulfillment = loan.fulfillment_info
         assert isinstance(fulfillment, AudiobookFulfillmentInfo)
-
-        set_trace()
 
         # The transaction ID is stored as the .key. If we actually
         # need to make a manifest for this audiobook, the key will be
         # used in one more API request. (See TestAudiobookFulfillmentInfo
         # for that.)
         eq_("C3F71F8D-1883-2B34-068F-96570678AEB0", fulfillment.key)
+
+        # The API object is present in the FulfillmentInfo and ready to go.
+        eq_(api, fulfillment.api)
+
 
 class TestJSONResponseParser(object):
 
@@ -993,18 +1005,29 @@ class TestFulfillmentInfoResponseParser(Axis360Test):
         # _parse will create a valid FindawayManifest given a
         # complete document.
 
-        m = FulfillmentInfoResponseParser._parse
+        parser = FulfillmentInfoResponseParser(api=self.api)
+        m = parser._parse
 
         edition, pool = self._edition(with_license_pool=True)
-        parser = (self._default_collection)
         def get_data():
             # We'll be modifying this document to simulate failures,
             # so make it easy to load a fresh copy.
             return json.loads(
                 self.sample_data("audiobook_fulfillment_info.json")
             )
+
+        # This is the data we just got from a call to Axis 360's
+        # getfulfillmentInfo endpoint.
         data = get_data()
-        manifest, expires = m(pool, data)
+
+        # When we call _parse, the API is going to fire off an
+        # additional request to the getaudiobookmetadata endpoint, so
+        # it can create a complete FindawayManifest. Queue up the
+        # response to that request.
+        audiobook_metadata = self.sample_data("audiobook_metadata.json")
+        self.api.queue_response(200, {}, audiobook_metadata)
+
+        manifest, expires = m(data, pool)
 
         assert isinstance(manifest, FindawayManifest)
         metadata = manifest.metadata
@@ -1024,9 +1047,10 @@ class TestFulfillmentInfoResponseParser(Axis360Test):
         eq_('04960', encrypted['findaway:fulfillmentId'])
         eq_('58ee81c6d3d8eb3b05597cdc', encrypted['findaway:licenseId'])
 
-        # There are no spine items and the book is of unknown duration.
-        assert 'duration' not in metadata
-        eq_([], manifest.readingOrder)
+        # The spine items and duration have been filled in by the call to 
+        # the getaudiobookmetadata endpoint.
+        eq_(8150.87, metadata['duration'])
+        eq_(5, len(manifest.readingOrder))
 
         # We also know when the licensing document expires.
         eq_(datetime.datetime(2018, 9, 29, 18, 34), expires)
@@ -1034,38 +1058,17 @@ class TestFulfillmentInfoResponseParser(Axis360Test):
         # Now strategically remove required information from the
         # document and verify that extraction fails.
         #
-        no_status_code = get_data()
-        del no_status_code['Status']['Code']
-        assert_raises_regexp(
-            RemoteInitiatedServerError, "Required key Code not present",
-            m, pool, no_status_code
-        )
-
-        no_status = get_data()
-        del no_status['Status']
-        assert_raises_regexp(
-            RemoteInitiatedServerError, "Required key Status not present",
-            m, pool, no_status
-        )
-
-        for field in ('Status', 'FNDLicenseID', 'FNDSessionKey', 'ExpirationDate'):
+        for field in (
+                'FNDContentID', 'FNDLicenseID', 'FNDSessionKey',
+                'ExpirationDate'
+        ):
             missing_field = get_data()
             del missing_field[field]
             assert_raises_regexp(
                 RemoteInitiatedServerError,
                 "Required key %s not present" % field,
-                m, pool, missing_field
+                m, missing_field, pool
             )
-
-        # Try with a response indicating an error condition.
-        error_condition = get_data()
-        error_condition['Status']['Code'] = 5004
-        error_condition['Status']['Message'] = "missing transaction id"
-        assert_raises_regexp(
-            LibraryInvalidInputException,
-            "missing transaction id",
-            m, pool, error_condition
-        )
 
         # Try with a bad expiration date.
         bad_date = get_data()
@@ -1073,7 +1076,7 @@ class TestFulfillmentInfoResponseParser(Axis360Test):
         assert_raises_regexp(
             RemoteInitiatedServerError,
             "Could not parse expiration date: not-a-date",
-            m, pool, bad_date
+            m, bad_date, pool
         )
 
 
@@ -1107,7 +1110,7 @@ class TestAudiobookFulfillmentInfo(Axis360Test):
         # fulfillment document and the metadata document.
         for required in (
             '"findaway:sessionKey": "0f547af1-38c1-4b1c-8a1a-169d353065d0"',
-            '"duration": 8150.87"',
+            '"duration": 8150.87',
         ):
             assert required in fulfillment.content
 

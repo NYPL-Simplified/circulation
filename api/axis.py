@@ -122,6 +122,8 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         BaseCirculationAPI.DEFAULT_LOAN_DURATION_SETTING
     ]
 
+    DEFAULT_TIMEOUT = 600
+
     access_token_endpoint = 'accesstoken'
     availability_endpoint = 'availability/v2'
     fulfillment_endpoint = 'getfullfillmentInfo/v2'
@@ -282,7 +284,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
             args['patronId'] = patron_id
         if title_ids:
             args['titleIds'] = ','.join(title_ids)
-        response = self.request(url, params=args)
+        response = self.request(url, params=args, timeout=None)
         return response
 
     def get_fulfillment_info(self, transaction_id):
@@ -1448,7 +1450,7 @@ class FulfillmentInfoResponseParser(JSONResponseParser):
         except ValueError:
             raise RemoteInitiatedServerError(
                 "Could not parse expiration date: %s" % expiration_date,
-                cls.SERVICE_NAME
+                self.SERVICE_NAME
             )
 
         # Acquire the TOC information
