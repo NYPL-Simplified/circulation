@@ -3,6 +3,7 @@ import base64
 from datetime import datetime, timedelta
 from flask_babel import lazy_gettext as _
 import jwt
+import urlparse
 from api.admin.problem_details import *
 from api.config import Configuration
 from core.util.http import HTTP
@@ -35,7 +36,7 @@ class SitewideRegistrationController(SettingsController):
         catalog = catalog_response.json()
         links = catalog.get('links', [])
 
-        register_url = self.get_registration_link(links)
+        register_url = self.get_registration_link(catalog, links)
         if isinstance(register_url, ProblemDetail):
             return register_url
 
@@ -77,7 +78,7 @@ class SitewideRegistrationController(SettingsController):
                 _('The service did not provide a valid catalog.')
             )
 
-    def get_registration_link(self, links):
+    def get_registration_link(self, catalog, links):
         """Get the link for registration from the catalog."""
 
         register_link_filter = lambda l: (
@@ -110,6 +111,7 @@ class SitewideRegistrationController(SettingsController):
         if integration.password:
             token = base64.b64encode(integration.password.encode('utf-8'))
             headers['Authorization'] = 'Bearer ' + token
+        return headers
 
     def register(self, register_url, headers, do_post):
         """Register this server using the sitewide registration document."""
