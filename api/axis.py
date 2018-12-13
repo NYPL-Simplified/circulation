@@ -307,7 +307,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         response = self._checkout(title_id, patron_id, internal_format)
         try:
             return CheckoutResponseParser(
-                collection=licensepool.collection).process_all(response.content)
+                licensepool.collection).process_all(response.content)
         except etree.XMLSyntaxError, e:
             raise RemoteInitiatedServerError(
                 response.content, self.SERVICE_NAME
@@ -359,9 +359,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         params = dict(titleId=title_id, patronId=patron_id,
                       email=hold_notification_email)
         response = self.request(url, params=params)
-        hold_info = HoldResponseParser(
-            collection=licensepool.collection
-        ).process_all(
+        hold_info = HoldResponseParser(licensepool.collection).process_all(
             response.content)
         if not hold_info.identifier:
             # The Axis 360 API doesn't return the identifier of the
@@ -379,9 +377,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         params = dict(titleId=title_id, patronId=patron_id)
         response = self.request(url, params=params)
         try:
-            HoldReleaseResponseParser(
-                collection=licensepool.collection
-            ).process_all(
+            HoldReleaseResponseParser(licensepool.collection).process_all(
                 response.content)
         except NotOnHold:
             # Fine, it wasn't on hold and now it's still not on hold.
@@ -397,8 +393,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         availability = self.availability(
             patron_id=patron.authorization_identifier,
             title_ids=title_ids)
-        return list(AvailabilityResponseParser(
-            collection=self.collection).process_all(
+        return list(AvailabilityResponseParser(self.collection).process_all(
                 availability.content)
         )
 
@@ -480,7 +475,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         """
         availability = self.availability(since=since)
         content = availability.content
-        for bibliographic, circulation in BibliographicParser().process_all(
+        for bibliographic, circulation in BibliographicParser(self.collection).process_all(
                 content):
             yield bibliographic, circulation
 
@@ -664,7 +659,7 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
             # will put a non-scoped session in the mix.
             _db = Session.object_session(collection)
             self.api = api_class(_db, collection)
-        self.parser = BibliographicParser()
+        self.parser = BibliographicParser(self.collection)
 
     def process_batch(self, identifiers):
         identifier_strings = self.api.create_identifier_strings(identifiers)
