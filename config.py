@@ -236,7 +236,7 @@ class Configuration(object):
         },
         { "key": EntryPoint.ENABLED_SETTING,
           "label": _("Enabled entry points"),
-          "description": _("Patrons will see the selected entry points at the top level and in search results. <p>Currently supported audiobook vendors: Bibliotheca"),
+          "description": _("Patrons will see the selected entry points at the top level and in search results. <p>Currently supported audiobook vendors: Bibliotheca, Axis 360"),
           "type": "list",
           "options": [
               { "key": entrypoint.INTERNAL_NAME,
