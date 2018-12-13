@@ -1104,20 +1104,12 @@ class ResponseParser(Axis360Parser):
         5004 : LibraryInvalidInputException, # Missing TransactionID
     }
 
-    def __init__(self, api=None, collection=None):
+    def __init__(self, collection=None):
         """Constructor.
 
-        :param api: An Axis360API instance, in case parsing this document
-        triggers additional API requests.
-
         :param collection: A Collection, in case parsing this document
-        results in the creation of LoanInfo or HoldInfo objects. If this
-        is not provided but `api` is, then `api.collection` will be used
-        as the Collection.
+        results in the creation of LoanInfo or HoldInfo objects.
         """
-        self.api = api
-        if api and not collection:
-            collection = api.collection
         self.collection = collection
 
     def raise_exception_on_error(self, e, ns, custom_error_classes={}):
@@ -1261,6 +1253,15 @@ class HoldReleaseResponseParser(ResponseParser):
         return True
 
 class AvailabilityResponseParser(ResponseParser):
+
+    def __init__(self, api):
+        """Constructor.
+
+        :param api: An Axis360API instance, in case the parsing of an
+        availability document triggers additional API requests.
+        """
+        self.api = api
+        super(AvailabilityResponseParser, self).__init__(api.collection)
 
     def process_all(self, string):
         for info in super(AvailabilityResponseParser, self).process_all(
@@ -1419,6 +1420,17 @@ class JSONResponseParser(ResponseParser):
 class FulfillmentInfoResponseParser(JSONResponseParser):
     """Parse JSON documents into Findaway audiobook manifests."""
 
+    def __init__(self, api):
+        """Constructor.
+
+        :param api: An Axis360API instance, in case the parsing of
+        a fulfillment document triggers additional API requests.
+        """
+        self.api = api
+        super(FulfillmentInfoResponseParser, self).__init__(
+            self.api.collection
+        )
+
     def _parse(self, parsed, license_pool):
         """Extract all useful information from a parsed FulfillmentInfo
         response.
@@ -1457,7 +1469,7 @@ class FulfillmentInfoResponseParser(JSONResponseParser):
 
         # Acquire the TOC information
         metadata_response = self.api.get_audiobook_metadata(fulfillmentId)
-        parser = AudiobookMetadataParser(self.api)
+        parser = AudiobookMetadataParser(None)
         accountId, spine_items = parser.parse(metadata_response.content)
 
         manifest = FindawayManifest(
@@ -1503,10 +1515,9 @@ class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):
     def do_fetch(self):
         _db = self.api._db
         license_pool = self.license_pool(_db)
-        collection = self.collection(_db)
         transaction_id = self.key
         response = self.api.get_fulfillment_info(transaction_id)
-        parser = FulfillmentInfoResponseParser(self.api, collection)
+        parser = FulfillmentInfoResponseParser(self.api)
         manifest, expires = parser.parse(response.content, license_pool)
         self._content = unicode(manifest)
         self._content_type = DeliveryMechanism.FINDAWAY_DRM

@@ -810,29 +810,6 @@ class TestResponseParser(BaseParserTest):
         self._default_collection = MockCollection()
         self._default_collection.id = object()
 
-    def test_constructor(self):
-        class MockAPI(object):
-            collection = object()
-        api = MockAPI()
-        collection = object()
-
-        # Specify both API and collection
-        parser = ResponseParser(api, collection)
-        eq_(api, parser.api)
-        eq_(collection, parser.collection)
-
-        # Specify neither -- neither value is set. This is okay
-        # for most parsers.
-        parser = ResponseParser()
-        eq_(None, parser.api)
-        eq_(None, parser.collection)
-
-        # Specify an API but no Collection -- the API's collection is
-        # used.
-        parser = ResponseParser(api)
-        eq_(api, parser.api)
-        eq_(api.collection, parser.collection)
-
 class TestRaiseExceptionOnError(TestResponseParser):
 
     def test_internal_server_error(self):
@@ -917,7 +894,7 @@ class TestHoldReleaseResponseParser(TestResponseParser):
         parser = HoldReleaseResponseParser()
         assert_raises(NotOnHold, parser.process_all, data)
 
-class TestAvailabilityResponseParser(DatabaseTest, BaseParserTest):
+class TestAvailabilityResponseParser(Axis360Test, BaseParserTest):
     """Unlike other response parser tests, this one needs
     access to a real database session, because it needs a real Collection
     to put into its MockAxis360API.
@@ -925,40 +902,38 @@ class TestAvailabilityResponseParser(DatabaseTest, BaseParserTest):
 
     def test_parse_loan_and_hold(self):
         data = self.sample_data("availability_with_loan_and_hold.xml")
-        parser = AvailabilityResponseParser(collection=self._default_collection)
+        parser = AvailabilityResponseParser(self.api)
         activity = list(parser.process_all(data))
         hold, loan, reserved = sorted(activity, key=lambda x: x.identifier)
-        eq_(self._default_collection.id, hold.collection_id)
+        eq_(self.api.collection.id, hold.collection_id)
         eq_(Identifier.AXIS_360_ID, hold.identifier_type)
         eq_("0012533119", hold.identifier)
         eq_(1, hold.hold_position)
         eq_(None, hold.end_date)
 
-        eq_(self._default_collection.id, loan.collection_id)
+        eq_(self.api.collection.id, loan.collection_id)
         eq_("0015176429", loan.identifier)
         eq_("http://fulfillment/", loan.fulfillment_info.content_link)
         eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
 
-        eq_(self._default_collection.id, reserved.collection_id)
+        eq_(self.api.collection.id, reserved.collection_id)
         eq_("1111111111", reserved.identifier)
         eq_(datetime.datetime(2015, 1, 1, 13, 11, 11), reserved.end_date)
         eq_(0, reserved.hold_position)
 
     def test_parse_loan_no_availability(self):
         data = self.sample_data("availability_without_fulfillment.xml")
-        parser = AvailabilityResponseParser(collection=self._default_collection)
+        parser = AvailabilityResponseParser(self.api)
         [loan] = list(parser.process_all(data))
 
-        eq_(self._default_collection.id, loan.collection_id)
+        eq_(self.api.collection.id, loan.collection_id)
         eq_("0015176429", loan.identifier)
         eq_(None, loan.fulfillment_info)
         eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
 
     def test_parse_audiobook_fulfillmentinfo(self):
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
-        collection = MockAxis360API.mock_collection(self._db)
-        api = MockAxis360API(self._db, collection)
-        parser = AvailabilityResponseParser(api=api)
+        parser = AvailabilityResponseParser(self.api)
         [loan] = list(parser.process_all(data))
         fulfillment = loan.fulfillment_info
         assert isinstance(fulfillment, AudiobookFulfillmentInfo)
@@ -970,7 +945,7 @@ class TestAvailabilityResponseParser(DatabaseTest, BaseParserTest):
         eq_("C3F71F8D-1883-2B34-068F-96570678AEB0", fulfillment.key)
 
         # The API object is present in the FulfillmentInfo and ready to go.
-        eq_(api, fulfillment.api)
+        eq_(self.api, fulfillment.api)
 
 
 class TestJSONResponseParser(object):
@@ -1022,7 +997,7 @@ class TestJSONResponseParser(object):
                 self.called_with = parsed, args, kwargs
                 return "success"
 
-        parser = Mock(object(), object())
+        parser = Mock(object())
 
         # Test success.
         doc = dict(Status=dict(Code=0000))
