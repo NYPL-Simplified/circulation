@@ -394,7 +394,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
             patron_id=patron.authorization_identifier,
             title_ids=title_ids)
         return list(AvailabilityResponseParser(self.collection).process_all(
-                availability.content)
+            availability.content)
         )
 
     def update_availability(self, licensepool):
@@ -434,7 +434,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         """
         identifier_strings = self.create_identifier_strings(identifiers)
         response = self.availability(title_ids=identifier_strings)
-        parser = BibliographicParser()
+        parser = BibliographicParser(self.collection)
         return parser.process_all(response.content)
 
     def _reap(self, identifier):
@@ -659,7 +659,7 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
             # will put a non-scoped session in the mix.
             _db = Session.object_session(collection)
             self.api = api_class(_db, collection)
-        self.parser = BibliographicParser(self.collection)
+        self.parser = BibliographicParser()
 
     def process_batch(self, identifiers):
         identifier_strings = self.api.create_identifier_strings(identifiers)
@@ -1099,7 +1099,7 @@ class ResponseParser(Axis360Parser):
         5004 : LibraryInvalidInputException, # Missing TransactionID
     }
 
-    def __init__(self, collection=None):
+    def __init__(self, collection):
         """Constructor.
 
         :param collection: A Collection, in case parsing this document
@@ -1358,7 +1358,6 @@ class JSONResponseParser(ResponseParser):
 
     @classmethod
     def _required_key(cls, key, json_obj):
-
         """Raise an exception if the given key is not present in the given
         object.
         """
@@ -1464,7 +1463,7 @@ class FulfillmentInfoResponseParser(JSONResponseParser):
 
         # Acquire the TOC information
         metadata_response = self.api.get_audiobook_metadata(fulfillmentId)
-        parser = AudiobookMetadataParser(None)
+        parser = AudiobookMetadataParser(self.api.collection)
         accountId, spine_items = parser.parse(metadata_response.content)
 
         manifest = FindawayManifest(

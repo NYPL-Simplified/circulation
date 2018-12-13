@@ -814,7 +814,7 @@ class TestRaiseExceptionOnError(TestResponseParser):
 
     def test_internal_server_error(self):
         data = self.sample_data("internal_server_error.xml")
-        parser = HoldReleaseResponseParser()
+        parser = HoldReleaseResponseParser(None)
         assert_raises_regexp(
             RemoteInitiatedServerError, "Internal Server Error",
             parser.process_all, data
@@ -822,7 +822,7 @@ class TestRaiseExceptionOnError(TestResponseParser):
 
     def test_internal_server_error(self):
         data = self.sample_data("invalid_error_code.xml")
-        parser = HoldReleaseResponseParser()
+        parser = HoldReleaseResponseParser(None)
         assert_raises_regexp(
             RemoteInitiatedServerError, "Invalid response code from Axis 360: abcd",
             parser.process_all, data
@@ -830,21 +830,21 @@ class TestRaiseExceptionOnError(TestResponseParser):
 
     def test_missing_error_code(self):
         data = self.sample_data("missing_error_code.xml")
-        parser = HoldReleaseResponseParser()
+        parser = HoldReleaseResponseParser(None)
         assert_raises_regexp(
             RemoteInitiatedServerError, "No status code!",
             parser.process_all, data
         )
 
 
-class TestCheckoutResponseParser(TestResponseParser):
+class TestCheckoutResponseParser(Axis360Test, TestResponseParser):
 
     def test_parse_checkout_success(self):
         data = self.sample_data("checkout_success.xml")
-        parser = CheckoutResponseParser(collection=self._default_collection)
+        parser = CheckoutResponseParser(self.collection)
         parsed = parser.process_all(data)
         assert isinstance(parsed, LoanInfo)
-        eq_(self._default_collection.id, parsed.collection_id)
+        eq_(self.api.collection.id, parsed.collection_id)
         eq_(DataSource.AXIS_360, parsed.data_source_name)
         eq_(Identifier.AXIS_360_ID, parsed.identifier_type)
         eq_(datetime.datetime(2015, 8, 11, 18, 57, 42),
@@ -856,12 +856,12 @@ class TestCheckoutResponseParser(TestResponseParser):
 
     def test_parse_already_checked_out(self):
         data = self.sample_data("already_checked_out.xml")
-        parser = CheckoutResponseParser()
+        parser = CheckoutResponseParser(None)
         assert_raises(AlreadyCheckedOut, parser.process_all, data)
 
     def test_parse_not_found_on_remote(self):
         data = self.sample_data("not_found_on_remote.xml")
-        parser = CheckoutResponseParser()
+        parser = CheckoutResponseParser(None)
         assert_raises(NotFoundOnRemote, parser.process_all, data)
 
 class TestHoldResponseParser(TestResponseParser):
@@ -879,19 +879,19 @@ class TestHoldResponseParser(TestResponseParser):
 
     def test_parse_already_on_hold(self):
         data = self.sample_data("already_on_hold.xml")
-        parser = HoldResponseParser()
+        parser = HoldResponseParser(None)
         assert_raises(AlreadyOnHold, parser.process_all, data)
 
 class TestHoldReleaseResponseParser(TestResponseParser):
 
     def test_success(self):
         data = self.sample_data("release_hold_success.xml")
-        parser = HoldReleaseResponseParser()
+        parser = HoldReleaseResponseParser(None)
         eq_(True, parser.process_all(data))
 
     def test_failure(self):
         data = self.sample_data("release_hold_failure.xml")
-        parser = HoldReleaseResponseParser()
+        parser = HoldReleaseResponseParser(None)
         assert_raises(NotOnHold, parser.process_all, data)
 
 class TestAvailabilityResponseParser(Axis360Test, BaseParserTest):
@@ -1121,7 +1121,7 @@ class TestAudiobookMetadataParser(Axis360Test):
             fndaccountid="An account ID",
             readingOrder=["Spine item 1", "Spine item 2"]
         )
-        account_id, spine_items = Mock()._parse(metadata)
+        account_id, spine_items = Mock(None)._parse(metadata)
 
         eq_("An account ID", account_id)
         eq_(["Spine item 1 (extracted)",
@@ -1130,7 +1130,7 @@ class TestAudiobookMetadataParser(Axis360Test):
         )
 
         # No data? Nothing will be parsed.
-        account_id, spine_items = Mock()._parse({})
+        account_id, spine_items = Mock(None)._parse({})
         eq_(None, account_id)
         eq_([], spine_items)
 
