@@ -775,11 +775,32 @@ class TestResponseParser(BaseParserTest):
         # we _claim_ is a Collection will have its id put into the
         # right spot of HoldInfo and LoanInfo objects.
         class MockCollection(object):
-            protocol = ExternalIntegration.AXIS_360
             pass
         self._default_collection = MockCollection()
         self._default_collection.id = object()
 
+    def test_constructor(self):
+        class MockAPI(object):
+            collection = object()
+        api = MockAPI()
+        collection = object()
+
+        # Specify both API and collection
+        parser = ResponseParser(api, collection)
+        eq_(api, parser.api)
+        eq_(collection, parser.collection)
+
+        # Specify neither -- neither value is set. This is okay
+        # for most parsers.
+        parser = ResponseParser()
+        eq_(None, parser.api)
+        eq_(None, parser.collection)
+
+        # Specify an API but no Collection -- the API's collection is
+        # used.
+        parser = ResponseParser(api)
+        eq_(api, parser.api)
+        eq_(api.collection, parser.collection)
 
 class TestRaiseExceptionOnError(TestResponseParser):
 

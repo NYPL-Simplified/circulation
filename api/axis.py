@@ -122,8 +122,6 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         BaseCirculationAPI.DEFAULT_LOAN_DURATION_SETTING
     ]
 
-    DEFAULT_TIMEOUT = 600
-
     access_token_endpoint = 'accesstoken'
     availability_endpoint = 'availability/v2'
     fulfillment_endpoint = 'getfullfillmentInfo/v2'
