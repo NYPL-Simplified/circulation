@@ -896,10 +896,12 @@ class TestAvailabilityResponseParser(TestResponseParser):
 
     def test_parse_audiobook_fulfillmentinfo(self):
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
-        parser = AvailabilityResponseParser(collection=self._default_collection)
+        parser = AvailabilityResponseParser(api=self.api)
         [loan] = list(parser.process_all(data))
         fulfillment = loan.fulfillment_info
         assert isinstance(fulfillment, AudiobookFulfillmentInfo)
+
+        set_trace()
 
         # The transaction ID is stored as the .key. If we actually
         # need to make a manifest for this audiobook, the key will be
