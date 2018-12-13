@@ -58,6 +58,7 @@ from api.axis import (
     FulfillmentInfoResponseParser,
     HoldReleaseResponseParser,
     HoldResponseParser,
+    JSONResponseParser,
     MockAxis360API,
     ResponseParser,
 )
@@ -780,7 +781,7 @@ class TestRaiseExceptionOnError(TestResponseParser):
 
     def test_internal_server_error(self):
         data = self.sample_data("internal_server_error.xml")
-        parser = HoldReleaseResponseParser(None)
+        parser = HoldReleaseResponseParser()
         assert_raises_regexp(
             RemoteInitiatedServerError, "Internal Server Error",
             parser.process_all, data
@@ -788,7 +789,7 @@ class TestRaiseExceptionOnError(TestResponseParser):
 
     def test_internal_server_error(self):
         data = self.sample_data("invalid_error_code.xml")
-        parser = HoldReleaseResponseParser(None)
+        parser = HoldReleaseResponseParser()
         assert_raises_regexp(
             RemoteInitiatedServerError, "Invalid response code from Axis 360: abcd",
             parser.process_all, data
@@ -796,7 +797,7 @@ class TestRaiseExceptionOnError(TestResponseParser):
 
     def test_missing_error_code(self):
         data = self.sample_data("missing_error_code.xml")
-        parser = HoldReleaseResponseParser(None)
+        parser = HoldReleaseResponseParser()
         assert_raises_regexp(
             RemoteInitiatedServerError, "No status code!",
             parser.process_all, data
@@ -807,7 +808,7 @@ class TestCheckoutResponseParser(TestResponseParser):
 
     def test_parse_checkout_success(self):
         data = self.sample_data("checkout_success.xml")
-        parser = CheckoutResponseParser(self._default_collection)
+        parser = CheckoutResponseParser(collection=self._default_collection)
         parsed = parser.process_all(data)
         assert isinstance(parsed, LoanInfo)
         eq_(self._default_collection.id, parsed.collection_id)
@@ -822,19 +823,19 @@ class TestCheckoutResponseParser(TestResponseParser):
 
     def test_parse_already_checked_out(self):
         data = self.sample_data("already_checked_out.xml")
-        parser = CheckoutResponseParser(None)
+        parser = CheckoutResponseParser()
         assert_raises(AlreadyCheckedOut, parser.process_all, data)
 
     def test_parse_not_found_on_remote(self):
         data = self.sample_data("not_found_on_remote.xml")
-        parser = CheckoutResponseParser(None)
+        parser = CheckoutResponseParser()
         assert_raises(NotFoundOnRemote, parser.process_all, data)
 
 class TestHoldResponseParser(TestResponseParser):
 
     def test_parse_hold_success(self):
         data = self.sample_data("place_hold_success.xml")
-        parser = HoldResponseParser(self._default_collection)
+        parser = HoldResponseParser(collection=self._default_collection)
         parsed = parser.process_all(data)
         assert isinstance(parsed, HoldInfo)
         eq_(1, parsed.hold_position)
@@ -852,19 +853,19 @@ class TestHoldReleaseResponseParser(TestResponseParser):
 
     def test_success(self):
         data = self.sample_data("release_hold_success.xml")
-        parser = HoldReleaseResponseParser(None)
+        parser = HoldReleaseResponseParser(None, None)
         eq_(True, parser.process_all(data))
 
     def test_failure(self):
         data = self.sample_data("release_hold_failure.xml")
-        parser = HoldReleaseResponseParser(None)
+        parser = HoldReleaseResponseParser(None, None)
         assert_raises(NotOnHold, parser.process_all, data)
 
 class TestAvailabilityResponseParser(TestResponseParser):
 
     def test_parse_loan_and_hold(self):
         data = self.sample_data("availability_with_loan_and_hold.xml")
-        parser = AvailabilityResponseParser(self._default_collection)
+        parser = AvailabilityResponseParser(object(), self._default_collection)
         activity = list(parser.process_all(data))
         hold, loan, reserved = sorted(activity, key=lambda x: x.identifier)
         eq_(self._default_collection.id, hold.collection_id)
@@ -885,7 +886,7 @@ class TestAvailabilityResponseParser(TestResponseParser):
 
     def test_parse_loan_no_availability(self):
         data = self.sample_data("availability_without_fulfillment.xml")
-        parser = AvailabilityResponseParser(self._default_collection)
+        parser = AvailabilityResponseParser(object(), self._default_collection)
         [loan] = list(parser.process_all(data))
 
         eq_(self._default_collection.id, loan.collection_id)
@@ -895,7 +896,7 @@ class TestAvailabilityResponseParser(TestResponseParser):
 
     def test_parse_audiobook_fulfillmentinfo(self):
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
-        parser = AvailabilityResponseParser(self._default_collection)
+        parser = AvailabilityResponseParser(object(), self._default_collection)
         [loan] = list(parser.process_all(data))
         fulfillment = loan.fulfillment_info
         assert isinstance(fulfillment, AudiobookFulfillmentInfo)
@@ -906,51 +907,91 @@ class TestAvailabilityResponseParser(TestResponseParser):
         # for that.)
         eq_("C3F71F8D-1883-2B34-068F-96570678AEB0", fulfillment.key)
 
-class TestFulfillmentInfoResponseParser(Axis360Test):
+class TestJSONResponseParser(object):
+
+    def test__required_key(self):
+        m = JSONResponseParser._required_key
+        parsed = dict(key="value")
+
+        # If the value is present, _required_key acts just like get().
+        eq_("value", m("key", parsed))
+
+        # If not, it raises a RemoteInitiatedServerError.
+        assert_raises_regexp(
+            RemoteInitiatedServerError,
+            "Required key absent not present in Axis 360 fulfillment document: {'key': 'value'}",
+            m, "absent", parsed
+        )
+
+    def test_verify_status_code(self):
+        success = dict(Status=dict(Code=0000))
+        failure = dict(Status=dict(Code=1000, Message="A message"))
+        missing = dict()
+
+        m = JSONResponseParser.verify_status_code
+
+        # If the document's Status object indicates success, nothing
+        # happens.
+        m(success)
+
+        # If it indicates failure, an appropriate exception is raised.
+        assert_raises_regexp(
+            PatronAuthorizationFailedException, "A message",
+            m, failure
+        )
+
+        # If the Status object is missing, a more generic exception is
+        # raised.
+        assert_raises_regexp(
+            RemoteInitiatedServerError,
+            "Required key Status not present in Axis 360 fulfillment document",
+            m, missing
+        )
 
     def test_parse(self):
-        # Verify that parse() parses a JSON document
-        # and calls _extract() on it.
-        class Mock(FulfillmentInfoResponseParser):
-            def _extract(self, license_pool, parsed):
-                self.called_with = (license_pool, parsed)
-                return "Extracted document"
 
-        parser = Mock(self._default_collection)
-        license_pool = object()
+        class Mock(JSONResponseParser):
 
-        # This works whether we pass it a JSON document or the object
-        # resulting from parsing such a document.
-        for json_document in ("{}", {}):
-            result = parser.parse(license_pool, "{}")
-            eq_("Extracted document", result)
-            eq_((license_pool, {}), parser.called_with)
-            parser.called_with = None
+            def _parse(self, parsed, *args, **kwargs):
+                self.called_with = parsed, args, kwargs
+                return "success"
 
-        # Any other input causes an error.
+        parser = Mock(object(), object())
+
+        # Test success.
+        doc = dict(Status=dict(Code=0000))
+
+        # The JSON will be parsed and passed in to _parse(); all other
+        # arguments to parse() will be passed through to _parse().
+        result = parser.parse(json.dumps(doc), "value1", arg2="value2")
+        eq_("success", result)
+        eq_(
+            (doc, ("value1",), dict(arg2="value2")),
+            parser.called_with
+        )
+
+        # It also works if the JSON was already parsed.
+        result = parser.parse(doc, "new_value")
+        eq_(
+            (doc, ("new_value",), {}), parser.called_with
+        )
+
+        # Non-JSON input causes an error.
         assert_raises_regexp(
             RemoteInitiatedServerError,
             "Invalid response from Axis 360 \(was expecting JSON\): I'm not JSON",
-            parser.parse, license_pool, "I'm not JSON"
+            parser.parse, "I'm not JSON"
         )
 
-    def test__required_key(self):
-        # Test the _required_key helper method.
-        m = FulfillmentInfoResponseParser._required_key
-        eq_("value", m("thekey", dict(thekey="value")))
+        
 
-        for bad_dict in (None, {}, dict(otherkey="value")):
-            assert_raises_regexp(
-                RemoteInitiatedServerError,
-                "Required key thekey not present in Axis 360 fulfillment document",
-                m, "thekey", bad_dict
-            )
+class TestFulfillmentInfoResponseParser(Axis360Test):
 
-    def test__extract(self):
-        # _extract will create a valid FindawayManifest given a
+    def test__parse(self):
+        # _parse will create a valid FindawayManifest given a
         # complete document.
 
-        m = FulfillmentInfoResponseParser._extract
+        m = FulfillmentInfoResponseParser._parse
 
         edition, pool = self._edition(with_license_pool=True)
         parser = (self._default_collection)
@@ -1036,8 +1077,12 @@ class TestFulfillmentInfoResponseParser(Axis360Test):
 
 class TestAudiobookFulfillmentInfo(Axis360Test):
     def test_fetch(self):
-        data = self.sample_data("audiobook_fulfillment_info.json")
-        self.api.queue_response(200, {}, data)
+
+        fulfillment_info = self.sample_data("audiobook_fulfillment_info.json")
+        self.api.queue_response(200, {}, fulfillment_info)
+
+        metadata = self.sample_data("audiobook_metadata.json")
+        self.api.queue_response(200, {}, metadata)
 
         # Setup.
         edition, pool = self._edition(with_license_pool=True)
@@ -1055,11 +1100,21 @@ class TestAudiobookFulfillmentInfo(Axis360Test):
         # document.
         eq_(DeliveryMechanism.FINDAWAY_DRM, fulfillment.content_type)
         assert isinstance(fulfillment.content, unicode)
-        assert 'findaway:sessionKey' in fulfillment.content
+
+        # The manifest document combines information from the
+        # fulfillment document and the metadata document.
+        for required in (
+            '"findaway:sessionKey": "0f547af1-38c1-4b1c-8a1a-169d353065d0"',
+            '"duration": 8150.87"',
+        ):
+            assert required in fulfillment.content
+
+        # The content expiration date also comes from the fulfillment
+        # document.
         eq_(
             datetime.datetime(2018, 9, 29, 18, 34), fulfillment.content_expires
         )
-
+        
 class TestAxis360BibliographicCoverageProvider(Axis360Test):
     """Test the code that looks up bibliographic information from Axis 360."""
 

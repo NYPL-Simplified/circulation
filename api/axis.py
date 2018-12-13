@@ -1100,9 +1100,21 @@ class ResponseParser(Axis360Parser):
         5004 : LibraryInvalidInputException, # Missing TransactionID
     }
 
-    def __init__(self, api, collection=None):
+    def __init__(self, api=None, collection=None):
+        """Constructor.
+
+        :param api: An Axis360API instance, in case parsing this document
+        triggers additional API requests.
+
+        :param collection: A Collection, in case parsing this document
+        results in the creation of LoanInfo or HoldInfo objects. If this
+        is not provided but `api` is, then `api.collection` will be used
+        as the Collection.
+        """
         self.api = api
-        self.collection = collection or api.collection
+        if api and not collection:
+            collection = api.collection
+        self.collection = collection
 
     def raise_exception_on_error(self, e, ns, custom_error_classes={}):
         """Raise an error if the given lxml node represents an Axis 360 error
@@ -1390,12 +1402,12 @@ class JSONResponseParser(ResponseParser):
         # If the response indicates an error condition, don't continue --
         # raise an exception immediately.
         self.verify_status_code(parsed)
-        return self._extract(parsed, *args, **kwargs)
+        return self._parse(parsed, *args, **kwargs)
 
-    @classmethod
-    def _extract(cls, parsed, *args, **kwargs):
+    def _parse(self, parsed, *args, **kwargs):
         """Parse a document we know to represent success on the
-        API level.
+        API level. Called by parse() once the high-level details
+        have been worked out.
         """
         raise NotImplentedError()
 
@@ -1403,7 +1415,7 @@ class JSONResponseParser(ResponseParser):
 class FulfillmentInfoResponseParser(JSONResponseParser):
     """Parse JSON documents into Findaway audiobook manifests."""
 
-    def _extract(self, parsed, license_pool):
+    def _parse(self, parsed, license_pool):
         """Extract all useful information from a parsed FulfillmentInfo
         response.
 
@@ -1457,7 +1469,7 @@ class AudiobookMetadataParser(JSONResponseParser):
     """
 
     @classmethod
-    def _extract(cls, parsed):
+    def _parse(cls, parsed):
         spine_items = []
         accountId = parsed.get('fndaccountid', None)
         for item in parsed.get('readingOrder', []):
