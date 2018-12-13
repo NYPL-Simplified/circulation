@@ -56,7 +56,7 @@ from api.axis import (
     AxisCollectionReaper,
     BibliographicParser,
     CheckoutResponseParser,
-    FulfillmentInfoResponseParser,
+    AudiobookFulfillmentInfoResponseParser,
     HoldReleaseResponseParser,
     HoldResponseParser,
     JSONResponseParser,
@@ -1026,13 +1026,13 @@ class TestJSONResponseParser(object):
 
 
 
-class TestFulfillmentInfoResponseParser(Axis360Test):
+class TestAudiobookFulfillmentInfoResponseParser(Axis360Test):
 
     def test__parse(self):
         # _parse will create a valid FindawayManifest given a
         # complete document.
 
-        parser = FulfillmentInfoResponseParser(api=self.api)
+        parser = AudiobookFulfillmentInfoResponseParser(api=self.api)
         m = parser._parse
 
         edition, pool = self._edition(with_license_pool=True)

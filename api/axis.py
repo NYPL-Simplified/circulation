@@ -1407,10 +1407,10 @@ class JSONResponseParser(ResponseParser):
         API level. Called by parse() once the high-level details
         have been worked out.
         """
-        raise NotImplentedError()
+        raise NotImplementedError()
 
 
-class FulfillmentInfoResponseParser(JSONResponseParser):
+class AudiobookFulfillmentInfoResponseParser(JSONResponseParser):
     """Parse JSON documents into Findaway audiobook manifests."""
 
     def __init__(self, api):
@@ -1420,7 +1420,7 @@ class FulfillmentInfoResponseParser(JSONResponseParser):
         a fulfillment document triggers additional API requests.
         """
         self.api = api
-        super(FulfillmentInfoResponseParser, self).__init__(
+        super(AudiobookFulfillmentInfoResponseParser, self).__init__(
             self.api.collection
         )
 
@@ -1510,7 +1510,7 @@ class AudiobookFulfillmentInfo(APIAwareFulfillmentInfo):
         license_pool = self.license_pool(_db)
         transaction_id = self.key
         response = self.api.get_fulfillment_info(transaction_id)
-        parser = FulfillmentInfoResponseParser(self.api)
+        parser = AudiobookFulfillmentInfoResponseParser(self.api)
         manifest, expires = parser.parse(response.content, license_pool)
         self._content = unicode(manifest)
         self._content_type = DeliveryMechanism.FINDAWAY_DRM
