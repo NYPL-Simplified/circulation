@@ -865,7 +865,7 @@ class TestAvailabilityResponseParser(TestResponseParser):
 
     def test_parse_loan_and_hold(self):
         data = self.sample_data("availability_with_loan_and_hold.xml")
-        parser = AvailabilityResponseParser(collection=, self._default_collection)
+        parser = AvailabilityResponseParser(collection=self._default_collection)
         activity = list(parser.process_all(data))
         hold, loan, reserved = sorted(activity, key=lambda x: x.identifier)
         eq_(self._default_collection.id, hold.collection_id)
@@ -886,7 +886,7 @@ class TestAvailabilityResponseParser(TestResponseParser):
 
     def test_parse_loan_no_availability(self):
         data = self.sample_data("availability_without_fulfillment.xml")
-        parser = AvailabilityResponseParser(object(), self._default_collection)
+        parser = AvailabilityResponseParser(collection=self._default_collection)
         [loan] = list(parser.process_all(data))
 
         eq_(self._default_collection.id, loan.collection_id)
@@ -896,7 +896,7 @@ class TestAvailabilityResponseParser(TestResponseParser):
 
     def test_parse_audiobook_fulfillmentinfo(self):
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
-        parser = AvailabilityResponseParser(object(), self._default_collection)
+        parser = AvailabilityResponseParser(collection=self._default_collection)
         [loan] = list(parser.process_all(data))
         fulfillment = loan.fulfillment_info
         assert isinstance(fulfillment, AudiobookFulfillmentInfo)
