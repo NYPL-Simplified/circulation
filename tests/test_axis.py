@@ -459,6 +459,23 @@ class TestAxis360API(Axis360Test):
         eq_('POST', kwargs['method'])
         eq_('transaction ID', kwargs['params']['TransactionID'])
 
+    def test_get_audiobook_metadata(self):
+        # Test the get_audiobook_metadata method, which makes an API request.
+
+        api = MockAxis360API(self._db, self.collection)
+        api.queue_response(200, {}, "the response")
+
+        # Make a request and check the response.
+        response = api.audiobook_metadata("Findaway content ID")
+        eq_("the response", response.content)
+
+        # Verify that the 'HTTP request' was made to the right URL
+        # with the right keyword arguments and the right HTTP method.
+        url, args, kwargs = api.requests.pop()
+        assert url.endswith(api.fulfillment_endpoint)
+        eq_('POST', kwargs['method'])
+        eq_('Findaway content ID', kwargs['params']['fndcontentid'])
+
 
 class TestCirculationMonitor(Axis360Test):
 
