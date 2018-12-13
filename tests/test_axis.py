@@ -846,26 +846,26 @@ class TestHoldResponseParser(TestResponseParser):
 
     def test_parse_already_on_hold(self):
         data = self.sample_data("already_on_hold.xml")
-        parser = HoldResponseParser(None)
+        parser = HoldResponseParser()
         assert_raises(AlreadyOnHold, parser.process_all, data)
 
 class TestHoldReleaseResponseParser(TestResponseParser):
 
     def test_success(self):
         data = self.sample_data("release_hold_success.xml")
-        parser = HoldReleaseResponseParser(None, None)
+        parser = HoldReleaseResponseParser()
         eq_(True, parser.process_all(data))
 
     def test_failure(self):
         data = self.sample_data("release_hold_failure.xml")
-        parser = HoldReleaseResponseParser(None, None)
+        parser = HoldReleaseResponseParser()
         assert_raises(NotOnHold, parser.process_all, data)
 
 class TestAvailabilityResponseParser(TestResponseParser):
 
     def test_parse_loan_and_hold(self):
         data = self.sample_data("availability_with_loan_and_hold.xml")
-        parser = AvailabilityResponseParser(object(), self._default_collection)
+        parser = AvailabilityResponseParser(collection=, self._default_collection)
         activity = list(parser.process_all(data))
         hold, loan, reserved = sorted(activity, key=lambda x: x.identifier)
         eq_(self._default_collection.id, hold.collection_id)
