@@ -48,6 +48,7 @@ from api.authenticator import BasicAuthenticationProvider
 
 from api.axis import (
     AudiobookFulfillmentInfo,
+    AudiobookMetadataParser,
     AvailabilityResponseParser,
     Axis360API,
     Axis360BibliographicCoverageProvider,
@@ -81,7 +82,10 @@ from api.config import (
     temp_config,
 )
 
-from api.web_publication_manifest import FindawayManifest
+from api.web_publication_manifest import (
+    FindawayManifest,
+    SpineItem,
+)
 
 
 class Axis360Test(DatabaseTest):
@@ -904,7 +908,7 @@ class TestHoldReleaseResponseParser(TestResponseParser):
         assert_raises(NotOnHold, parser.process_all, data)
 
 class TestAvailabilityResponseParser(DatabaseTest, BaseParserTest):
-    """Unlike other response parser tests, this one needs 
+    """Unlike other response parser tests, this one needs
     access to a real database session, because it needs a real Collection
     to put into its MockAxis360API.
     """
@@ -1035,7 +1039,7 @@ class TestJSONResponseParser(object):
             parser.parse, "I'm not JSON"
         )
 
-        
+
 
 class TestFulfillmentInfoResponseParser(Axis360Test):
 
@@ -1085,7 +1089,7 @@ class TestFulfillmentInfoResponseParser(Axis360Test):
         eq_('04960', encrypted['findaway:fulfillmentId'])
         eq_('58ee81c6d3d8eb3b05597cdc', encrypted['findaway:licenseId'])
 
-        # The spine items and duration have been filled in by the call to 
+        # The spine items and duration have been filled in by the call to
         # the getaudiobookmetadata endpoint.
         eq_(8150.87, metadata['duration'])
         eq_(5, len(manifest.readingOrder))
@@ -1117,6 +1121,58 @@ class TestFulfillmentInfoResponseParser(Axis360Test):
             m, bad_date, pool
         )
 
+
+class TestAudiobookMetadataParser(Axis360Test):
+
+    def test__parse(self):
+        # _parse will find the Findaway account ID and
+        # the spine items.
+        class Mock(AudiobookMetadataParser):
+            @classmethod
+            def _extract_spine_item(self, part):
+                return part + " (extracted)"
+
+        metadata = dict(
+            fndaccountid="An account ID",
+            readingOrder=["Spine item 1", "Spine item 2"]
+        )
+        account_id, spine_items = Mock()._parse(metadata)
+
+        eq_("An account ID", account_id)
+        eq_(["Spine item 1 (extracted)",
+             "Spine item 2 (extracted)"],
+            spine_items
+        )
+
+        # No data? Nothing will be parsed.
+        account_id, spine_items = Mock()._parse({})
+        eq_(None, account_id)
+        eq_([], spine_items)
+
+    def test__extract_spine_item(self):
+        # _extract_spine_item will turn data from Findaway into
+        # a SpineItem object.
+        m = AudiobookMetadataParser._extract_spine_item
+        item = m(
+            dict(duration=100.4, fndpart=2, fndsequence=3,
+                 title="The Gathering Storm"
+            )
+        )
+        assert isinstance(item, SpineItem)
+        eq_("The Gathering Storm", item.title)
+        eq_(2, item.part)
+        eq_(3, item.sequence)
+        eq_(100.4, item.duration)
+        eq_(Representation.MP3_MEDIA_TYPE, item.media_type)
+
+        # We get a SpineItem even if all the data about the spine item
+        # is missing -- these are the default values.
+        item = m({})
+        eq_(None, item.title)
+        eq_(0, item.part)
+        eq_(0, item.sequence)
+        eq_(0, item.duration)
+        eq_(Representation.MP3_MEDIA_TYPE, item.media_type)
 
 class TestAudiobookFulfillmentInfo(Axis360Test):
     def test_fetch(self):
@@ -1157,7 +1213,7 @@ class TestAudiobookFulfillmentInfo(Axis360Test):
         eq_(
             datetime.datetime(2018, 9, 29, 18, 34), fulfillment.content_expires
         )
-        
+
 class TestAxis360BibliographicCoverageProvider(Axis360Test):
     """Test the code that looks up bibliographic information from Axis 360."""
 
