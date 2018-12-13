@@ -1365,14 +1365,7 @@ class JSONResponseParser(ResponseParser):
         response.
         """
         k = cls._required_key
-        status = None
-        for key in ('Status', 'status'):
-            status = parsed.get(key, None)
-            if status:
-                break
-        if not status:
-            # This will raise an appropriate exception.
-            k('Status', parsed)
+        status = k('Status', parsed)
         code = k('Code', status)
         message = status.get('Message')
 
