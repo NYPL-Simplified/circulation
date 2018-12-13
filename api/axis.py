@@ -394,8 +394,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
             patron_id=patron.authorization_identifier,
             title_ids=title_ids)
         return list(AvailabilityResponseParser(self.collection).process_all(
-            availability.content)
-        )
+            availability.content))
 
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool.

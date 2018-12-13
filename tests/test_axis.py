@@ -837,14 +837,14 @@ class TestRaiseExceptionOnError(TestResponseParser):
         )
 
 
-class TestCheckoutResponseParser(Axis360Test, TestResponseParser):
+class TestCheckoutResponseParser(TestResponseParser):
 
     def test_parse_checkout_success(self):
         data = self.sample_data("checkout_success.xml")
-        parser = CheckoutResponseParser(self.collection)
+        parser = CheckoutResponseParser(self._default_collection)
         parsed = parser.process_all(data)
         assert isinstance(parsed, LoanInfo)
-        eq_(self.api.collection.id, parsed.collection_id)
+        eq_(self._default_collection.id, parsed.collection_id)
         eq_(DataSource.AXIS_360, parsed.data_source_name)
         eq_(Identifier.AXIS_360_ID, parsed.identifier_type)
         eq_(datetime.datetime(2015, 8, 11, 18, 57, 42),
@@ -868,7 +868,7 @@ class TestHoldResponseParser(TestResponseParser):
 
     def test_parse_hold_success(self):
         data = self.sample_data("place_hold_success.xml")
-        parser = HoldResponseParser(collection=self._default_collection)
+        parser = HoldResponseParser(self._default_collection)
         parsed = parser.process_all(data)
         assert isinstance(parsed, HoldInfo)
         eq_(1, parsed.hold_position)
