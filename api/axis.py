@@ -240,7 +240,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         return self.parse_token(response.content)
 
     def request(self, url, method='get', extra_headers={}, data=None,
-                params=None, exception_on_401=False):
+                params=None, exception_on_401=False, **kwargs):
         """Make an HTTP request, acquiring/refreshing a bearer token
         if necessary.
         """
@@ -257,7 +257,8 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         response = self._make_request(
             url=url, method=method, headers=headers,
             data=data, params=params,
-            disallowed_response_codes=disallowed_response_codes
+            disallowed_response_codes=disallowed_response_codes,
+            **kwargs
         )
         if response.status_code == 401:
             # This must be our first 401, since our second 401 will
@@ -267,7 +268,8 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
             self.token = None
             return self.request(
                 url=url, method=method, extra_headers=extra_headers,
-                data=data, params=params, exception_on_401=True
+                data=data, params=params, exception_on_401=True,
+                **kwargs
             )
         else:
             return response
@@ -305,7 +307,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         response = self._checkout(title_id, patron_id, internal_format)
         try:
             return CheckoutResponseParser(
-                self, licensepool.collection).process_all(response.content)
+                collection=licensepool.collection).process_all(response.content)
         except etree.XMLSyntaxError, e:
             raise RemoteInitiatedServerError(
                 response.content, self.SERVICE_NAME
@@ -358,7 +360,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
                       email=hold_notification_email)
         response = self.request(url, params=params)
         hold_info = HoldResponseParser(
-            self, licensepool.collection
+            collection=licensepool.collection
         ).process_all(
             response.content)
         if not hold_info.identifier:
@@ -378,7 +380,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         response = self.request(url, params=params)
         try:
             HoldReleaseResponseParser(
-                self, licensepool.collection
+                collection=licensepool.collection
             ).process_all(
                 response.content)
         except NotOnHold:
@@ -395,8 +397,10 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         availability = self.availability(
             patron_id=patron.authorization_identifier,
             title_ids=title_ids)
-        return list(AvailabilityResponseParser(self).process_all(
-            availability.content))
+        return list(AvailabilityResponseParser(
+            collection=self.collection).process_all(
+                availability.content)
+        )
 
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool.
@@ -435,7 +439,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         """
         identifier_strings = self.create_identifier_strings(identifiers)
         response = self.availability(title_ids=identifier_strings)
-        parser = BibliographicParser(self)
+        parser = BibliographicParser()
         return parser.process_all(response.content)
 
     def _reap(self, identifier):

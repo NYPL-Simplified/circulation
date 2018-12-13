@@ -466,13 +466,13 @@ class TestAxis360API(Axis360Test):
         api.queue_response(200, {}, "the response")
 
         # Make a request and check the response.
-        response = api.audiobook_metadata("Findaway content ID")
+        response = api.get_audiobook_metadata("Findaway content ID")
         eq_("the response", response.content)
 
         # Verify that the 'HTTP request' was made to the right URL
         # with the right keyword arguments and the right HTTP method.
         url, args, kwargs = api.requests.pop()
-        assert url.endswith(api.fulfillment_endpoint)
+        assert url.endswith(api.audiobook_metadata_endpoint)
         eq_('POST', kwargs['method'])
         eq_('Findaway content ID', kwargs['params']['fndcontentid'])
 
