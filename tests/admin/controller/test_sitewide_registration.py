@@ -32,7 +32,7 @@ class TestSitewideRegistration(SettingsControllerTest):
             goal=ExternalIntegration.METADATA_GOAL, url=self._url
         )
         default_form = None
-        controller = self.manager.admin_sitewide_registration_controller
+        controller = self.manager.admin_metadata_services_controller
 
         # If ExternalIntegration is given, a ProblemDetail is returned.
         with self.request_context_with_admin("/"):
@@ -173,7 +173,7 @@ class TestSitewideRegistration(SettingsControllerTest):
             flask.request.form = MultiDict([
                 ('integration_id', metadata_wrangler_service.id),
             ])
-            response = self.manager.admin_sitewide_registration_controller.process_sitewide_registration(
+            response = self.manager.admin_metadata_services_controller.process_sitewide_registration(
                 metadata_wrangler_service, do_get=self.do_request,
                 do_post=self.do_request
             )
@@ -198,7 +198,7 @@ class TestSitewideRegistration(SettingsControllerTest):
 
     def test_sitewide_registration_document(self):
         """Test the document sent along to sitewide registration."""
-        controller = self.manager.admin_sitewide_registration_controller
+        controller = self.manager.admin_metadata_services_controller
         with self.request_context_with_admin('/'):
             doc = controller.sitewide_registration_document()
 
