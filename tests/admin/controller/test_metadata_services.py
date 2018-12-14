@@ -23,31 +23,39 @@ class TestMetadataServices(SettingsControllerTest):
 
     def test_process_metadata_services_dispatches_by_request_method(self):
         class Mock(MetadataServicesController):
-            def process_get():
-                self.called = "GET"
-            def process_post():
-                self.called = "POST"
+            def process_get(self):
+                return "GET"
+
+            def process_post(self):
+                return "POST"
                 
+        controller = Mock(self.manager)
+        with self.request_context_with_admin("/"):
+            eq_("GET", controller.process_metadata_services())
+
+        with self.request_context_with_admin("/", method="POST"):
+            eq_("POST", controller.process_metadata_services())
+
+        # This is also where permissions are checked.
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         self._db.flush()
-        
-        # This is also where permissions are checked.
-        assert_raises(
-            AdminNotAuthorized,
-            controller.process_metadata_services()
-        )
-
-
-    def test_metadata_services_get_with_no_services(self):
+       
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_metadata_services_controller.process_metadata_services()
+            assert_raises(
+                AdminNotAuthorized,
+                controller.process_metadata_services
+            )
+
+    def test_process_get_with_no_services(self):
+        with self.request_context_with_admin("/"):
+            response = self.manager.admin_metadata_services_controller.process_get()
             eq_(response.get("metadata_services"), [])
             protocols = response.get("protocols")
             assert NoveListAPI.NAME in [p.get("label") for p in protocols]
             assert "settings" in protocols[0]
 
 
-    def test_metadata_services_get_with_one_service(self):
+    def test_process_get_with_one_service(self):
         novelist_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.NOVELIST,
@@ -56,8 +64,10 @@ class TestMetadataServices(SettingsControllerTest):
         novelist_service.username = "user"
         novelist_service.password = "pass"
 
+        controller = self.manager.admin_metadata_services_controller
+
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_metadata_services_controller.process_metadata_services()
+            response = controller.process_get()
             [service] = response.get("metadata_services")
 
             eq_(novelist_service.id, service.get("id"))
@@ -67,7 +77,7 @@ class TestMetadataServices(SettingsControllerTest):
 
         novelist_service.libraries += [self._default_library]
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_metadata_services_controller.process_metadata_services()
+            response = controller.process_get()
             [service] = response.get("metadata_services")
 
             eq_("user", service.get("settings").get(ExternalIntegration.USERNAME))
@@ -75,24 +85,25 @@ class TestMetadataServices(SettingsControllerTest):
             eq_(self._default_library.short_name, library.get("short_name"))
 
     def test_metadata_services_post_errors(self):
+        controller = self.manager.admin_metadata_services_controller
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Name"),
                 ("protocol", "Unknown"),
             ])
-            response = self.manager.admin_metadata_services_controller.process_metadata_services()
+            response = controller.process_post()
             eq_(response, UNKNOWN_PROTOCOL)
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
-            response = self.manager.admin_metadata_services_controller.process_metadata_services()
+            response = controller.process_post()
             eq_(response, INCOMPLETE_CONFIGURATION)
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Name"),
             ])
-            response = self.manager.admin_metadata_services_controller.process_metadata_services()
+            response = controller.process_post()
             eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
         with self.request_context_with_admin("/", method="POST"):
@@ -101,7 +112,7 @@ class TestMetadataServices(SettingsControllerTest):
                 ("id", "123"),
                 ("protocol", ExternalIntegration.NYT),
             ])
-            response = self.manager.admin_metadata_services_controller.process_metadata_services()
+            response = controller.process_post()
             eq_(response, MISSING_SERVICE)
 
         service, ignore = create(
@@ -116,7 +127,7 @@ class TestMetadataServices(SettingsControllerTest):
                 ("name", service.name),
                 ("protocol", ExternalIntegration.NYT),
             ])
-            response = self.manager.admin_metadata_services_controller.process_metadata_services()
+            response = controller.process_post()
             eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
 
         with self.request_context_with_admin("/", method="POST"):
@@ -125,7 +136,7 @@ class TestMetadataServices(SettingsControllerTest):
                 ("id", service.id),
                 ("protocol", ExternalIntegration.NYT),
             ])
-            response = self.manager.admin_metadata_services_controller.process_metadata_services()
+            response = controller.process_post()
             eq_(response, CANNOT_CHANGE_PROTOCOL)
 
         with self.request_context_with_admin("/", method="POST"):
@@ -133,7 +144,7 @@ class TestMetadataServices(SettingsControllerTest):
                 ("id", service.id),
                 ("protocol", ExternalIntegration.NOVELIST),
             ])
-            response = self.manager.admin_metadata_services_controller.process_metadata_services()
+            response = controller.process_post()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
         with self.request_context_with_admin("/", method="POST"):
@@ -145,20 +156,8 @@ class TestMetadataServices(SettingsControllerTest):
                 (ExternalIntegration.PASSWORD, "pass"),
                 ("libraries", json.dumps([{"short_name": "not-a-library"}])),
             ])
-            response = self.manager.admin_metadata_services_controller.process_metadata_services()
+            response = controller.process_post()
             eq_(response.uri, NO_SUCH_LIBRARY.uri)
-
-        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("name", "Name"),
-                ("protocol", ExternalIntegration.NOVELIST),
-                (ExternalIntegration.USERNAME, "user"),
-                (ExternalIntegration.PASSWORD, "pass"),
-                ("libraries", json.dumps([])),
-            ])
-            assert_raises(AdminNotAuthorized,
-                          self.manager.admin_metadata_services_controller.process_metadata_services)
 
     def test_metadata_services_post_create(self):
 
