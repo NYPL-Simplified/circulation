@@ -12,7 +12,7 @@ from core.model import (
 from core.util.http import HTTP
 from core.util.problem_detail import ProblemDetail
 
-from sitewide_registration import SitewideRegistrationController
+from . import SitewideRegistrationController
 
 class MetadataServicesController(SitewideRegistrationController):
 

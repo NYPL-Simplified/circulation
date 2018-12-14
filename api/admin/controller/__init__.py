@@ -5,6 +5,7 @@ import os
 import base64
 import random
 import json
+import jwt
 import re
 import urllib
 import urlparse
