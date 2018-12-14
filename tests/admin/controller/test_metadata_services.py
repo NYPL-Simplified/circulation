@@ -6,6 +6,7 @@ from nose.tools import (
 import flask
 import json
 from werkzeug import MultiDict
+from core.util.http import HTTP
 from api.admin.exceptions import *
 from api.admin.problem_details import INVALID_URL
 from api.novelist import NoveListAPI
@@ -28,7 +29,7 @@ class TestMetadataServices(SettingsControllerTest):
 
             def process_post(self):
                 return "POST"
-                
+
         controller = Mock(self.manager)
         with self.request_context_with_admin("/"):
             eq_("GET", controller.process_metadata_services())
@@ -39,7 +40,7 @@ class TestMetadataServices(SettingsControllerTest):
         # This is also where permissions are checked.
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         self._db.flush()
-       
+
         with self.request_context_with_admin("/"):
             assert_raises(
                 AdminNotAuthorized,
@@ -53,7 +54,6 @@ class TestMetadataServices(SettingsControllerTest):
             protocols = response.get("protocols")
             assert NoveListAPI.NAME in [p.get("label") for p in protocols]
             assert "settings" in protocols[0]
-
 
     def test_process_get_with_one_service(self):
         novelist_service, ignore = create(
@@ -160,7 +160,7 @@ class TestMetadataServices(SettingsControllerTest):
             eq_(response.uri, NO_SUCH_LIBRARY.uri)
 
     def test_metadata_services_post_create(self):
-
+        controller = self.manager.admin_metadata_services_controller
         library, ignore = create(
             self._db, Library, name="Library", short_name="L",
         )
@@ -172,10 +172,15 @@ class TestMetadataServices(SettingsControllerTest):
                 (ExternalIntegration.PASSWORD, "pass"),
                 ("libraries", json.dumps([{"short_name": "L"}])),
             ])
-            response = self.manager.admin_metadata_services_controller.process_metadata_services()
+            response = controller.process_post()
             eq_(response.status_code, 201)
 
-        service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.METADATA_GOAL)
+        # A new ExternalIntegration has been created based on the submitted
+        # information.
+        service = get_one(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.METADATA_GOAL
+        )
         eq_(service.id, int(response.response[0]))
         eq_(ExternalIntegration.NOVELIST, service.protocol)
         eq_("user", service.username)
@@ -199,6 +204,7 @@ class TestMetadataServices(SettingsControllerTest):
         novelist_service.password = "oldpass"
         novelist_service.libraries = [l1]
 
+        controller = self.manager.admin_metadata_services_controller
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Name"),
@@ -208,25 +214,85 @@ class TestMetadataServices(SettingsControllerTest):
                 (ExternalIntegration.PASSWORD, "pass"),
                 ("libraries", json.dumps([{"short_name": "L2"}])),
             ])
-            response = self.manager.admin_metadata_services_controller.process_metadata_services()
+            response = controller.process_post()
             eq_(response.status_code, 200)
 
-        eq_(novelist_service.id, int(response.response[0]))
-        eq_(ExternalIntegration.NOVELIST, novelist_service.protocol)
-        eq_("user", novelist_service.username)
-        eq_("pass", novelist_service.password)
-        eq_([l2], novelist_service.libraries)
-
-    def test_process_post_calls_register_with_metadata_wrangler(self):
+    def test_metadata_services_post_calls_register_with_metadata_wrangler(self):
+        """Verify that process_post() calls register_with_metadata_wrangler
+        if the rest of the request is handled successfully.
+        """
         class Mock(MetadataServicesController):
             RETURN_VALUE = INVALID_URL
+            called_with = None
             def register_with_metadata_wrangler(
                 self, do_get, do_post, is_new, service
             ):
                 self.called_with = (do_get, do_post, is_new, service)
                 return self.RETURN_VALUE
 
-        
+        controller = Mock(self.manager)
+        library, ignore = create(
+            self._db, Library, name="Library", short_name="L",
+        )
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([])
+            controller.process_post()
+
+            # Since there was an error condition,
+            # register_with_metadata_wrangler was not called.
+            eq_(None, controller.called_with)
+
+        form = MultiDict([
+            ("name", "Name"),
+            ("protocol", ExternalIntegration.NOVELIST),
+            (ExternalIntegration.USERNAME, "user"),
+            (ExternalIntegration.PASSWORD, "pass"),
+        ])
+
+        expect_called_with = (HTTP.debuggable_get, HTTP.debuggable_post, True)
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = form
+            response = controller.process_post()
+
+            # register_with_metadata_wrangler was called, but it
+            # returned a ProblemDetail, so the overall request
+            # failed.
+            eq_(expect_called_with, controller.called_with[:-1])
+            eq_(INVALID_URL, response)
+
+            # We ended up not creating an ExternalIntegration.
+            eq_(None, get_one(self._db, ExternalIntegration,
+                              goal=ExternalIntegration.METADATA_GOAL))
+
+            # But the ExternalIntegration we _would_ have created was
+            # passed in to register_with_metadata_wrangler.
+            bad_integration = controller.called_with[-1]
+
+            # We can tell it's bad because it was disconnected from
+            # our database session.
+            eq_(None, bad_integration._sa_instance_state.session)
+
+        # Now try the same scenario, except that
+        # register_with_metadata_wrangler does _not_ return a
+        # ProblemDetail.
+        Mock.RETURN_VALUE = "It's all good"
+        Mock.called_with = None
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = form
+            response = controller.process_post()
+
+            # This time we successfully created an ExternalIntegration.
+            integration = get_one(
+                self._db, ExternalIntegration,
+                goal=ExternalIntegration.METADATA_GOAL
+            )
+            assert integration != None
+
+            # It was passed in to register_with_metadata_wrangler
+            # along with the rest of the arguments we expect.
+            eq_(expect_called_with + [integration], controller.called_with)
+            eq_(integration, controller.called_with[-1])
+            eq_(self._db, integration._sa_instance_state.session)
 
     def test_register_with_metadata_wrangler(self):
         """Verify that register_with_metadata wrangler calls
