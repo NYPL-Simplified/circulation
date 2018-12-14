@@ -234,9 +234,11 @@ class TestMetadataServices(SettingsControllerTest):
         library, ignore = create(
             self._db, Library, name="Library", short_name="L",
         )
+        do_get = object()
+        do_post = object()
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
-            controller.process_post()
+            controller.process_post(do_get, do_post)
 
             # Since there was an error condition,
             # register_with_metadata_wrangler was not called.
@@ -249,15 +251,14 @@ class TestMetadataServices(SettingsControllerTest):
             (ExternalIntegration.PASSWORD, "pass"),
         ])
 
-        expect_called_with = (HTTP.debuggable_get, HTTP.debuggable_post, True)
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = form
-            response = controller.process_post()
+            response = controller.process_post(do_get=do_get, do_post=do_post)
 
             # register_with_metadata_wrangler was called, but it
             # returned a ProblemDetail, so the overall request
             # failed.
-            eq_(expect_called_with, controller.called_with[:-1])
+            eq_((do_get, do_post, True), controller.called_with[:-1])
             eq_(INVALID_URL, response)
 
             # We ended up not creating an ExternalIntegration.
@@ -279,7 +280,7 @@ class TestMetadataServices(SettingsControllerTest):
         Mock.called_with = None
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = form
-            response = controller.process_post()
+            response = controller.process_post(do_get=do_get, do_post=do_post)
 
             # This time we successfully created an ExternalIntegration.
             integration = get_one(
@@ -290,7 +291,7 @@ class TestMetadataServices(SettingsControllerTest):
 
             # It was passed in to register_with_metadata_wrangler
             # along with the rest of the arguments we expect.
-            eq_(expect_called_with + [integration], controller.called_with)
+            eq_((do_get, do_post, True, integration), controller.called_with)
             eq_(integration, controller.called_with[-1])
             eq_(self._db, integration._sa_instance_state.session)
 
