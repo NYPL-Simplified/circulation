@@ -21,6 +21,23 @@ from test_controller import SettingsControllerTest
 
 class TestMetadataServices(SettingsControllerTest):
 
+    def test_process_metadata_services_dispatches_by_request_method(self):
+        class Mock(MetadataServicesController):
+            def process_get():
+                self.called = "GET"
+            def process_post():
+                self.called = "POST"
+                
+        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+        self._db.flush()
+        
+        # This is also where permissions are checked.
+        assert_raises(
+            AdminNotAuthorized,
+            controller.process_metadata_services()
+        )
+
+
     def test_metadata_services_get_with_no_services(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_metadata_services_controller.process_metadata_services()
@@ -29,10 +46,6 @@ class TestMetadataServices(SettingsControllerTest):
             assert NoveListAPI.NAME in [p.get("label") for p in protocols]
             assert "settings" in protocols[0]
 
-            self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            self._db.flush()
-            assert_raises(AdminNotAuthorized,
-                          self.manager.admin_metadata_services_controller.process_metadata_services)
 
     def test_metadata_services_get_with_one_service(self):
         novelist_service, ignore = create(
@@ -148,6 +161,7 @@ class TestMetadataServices(SettingsControllerTest):
                           self.manager.admin_metadata_services_controller.process_metadata_services)
 
     def test_metadata_services_post_create(self):
+
         library, ignore = create(
             self._db, Library, name="Library", short_name="L",
         )
@@ -203,6 +217,17 @@ class TestMetadataServices(SettingsControllerTest):
         eq_("user", novelist_service.username)
         eq_("pass", novelist_service.password)
         eq_([l2], novelist_service.libraries)
+
+    def test_process_post_calls_register_with_metadata_wrangler(self):
+        class Mock(MetadataServicesController):
+            RETURN_VALUE = INVALID_URL
+            def register_with_metadata_wrangler(
+                self, do_get, do_post, is_new, service
+            ):
+                self.called_with = (do_get, do_post, is_new, service)
+                return self.RETURN_VALUE
+
+        
 
     def test_register_with_metadata_wrangler(self):
         """Verify that register_with_metadata wrangler calls
