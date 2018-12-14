@@ -163,8 +163,6 @@ def setup_admin_controllers(manager):
     manager.admin_library_settings_controller = LibrarySettingsController(manager)
     from api.admin.controller.individual_admin_settings import IndividualAdminSettingsController
     manager.admin_individual_admin_settings_controller = IndividualAdminSettingsController(manager)
-    from api.admin.controller.sitewide_registration import SitewideRegistrationController
-    manager.admin_sitewide_registration_controller = SitewideRegistrationController(manager)
     from api.admin.controller.sitewide_services import *
     manager.admin_sitewide_services_controller = SitewideServicesController(manager)
     manager.admin_logging_services_controller = LoggingServicesController(manager)

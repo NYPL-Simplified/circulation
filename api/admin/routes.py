@@ -625,13 +625,6 @@ def lane_hide(lane_identifier):
 def reset_lanes():
     return app.manager.admin_lanes_controller.reset()
 
-@app.route('/admin/sitewide_registration', methods=['POST'])
-@returns_json_or_response_or_problem_detail
-@requires_admin
-@requires_csrf_token
-def sitewide_registration():
-    return app.manager.admin_sitewide_registration_controller.process_sitewide_registration()
-
 @app.route('/admin/sign_in_again')
 def admin_sign_in_again():
     """Allows an  admin with expired credentials to sign back in

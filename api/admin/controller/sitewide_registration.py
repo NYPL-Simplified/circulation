@@ -11,11 +11,21 @@ from core.util.problem_detail import ProblemDetail
 from . import SettingsController
 
 class SitewideRegistrationController(SettingsController):
+    """A controller for managing a circulation manager's registrations
+    with external services.
+
+    Currently the only supported site-wide registration is with a
+    metadata wrangler. The protocol for registration with library
+    registries is similar, but registration with a library registry
+    happens on the level of the individual library, not on the level
+    of the circulation manager.
+    """
 
     def process_sitewide_registration(self, integration, do_get=HTTP.debuggable_get,
                               do_post=HTTP.debuggable_post
     ):
-        """Performs a sitewide registration for a particular service, currently
+
+    """Performs a sitewide registration for a particular service, currently
         only the Metadata Wrangler.
 
         :return: A ProblemDetail or, if successful, None
