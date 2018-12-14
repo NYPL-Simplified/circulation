@@ -7,7 +7,9 @@ import flask
 import json
 from werkzeug import MultiDict
 from api.admin.exceptions import *
+from api.admin.problem_details import INVALID_URL
 from api.novelist import NoveListAPI
+from api.admin.controller.metadata_services import MetadataServicesController
 from core.model import (
     AdminRole,
     create,
@@ -201,6 +203,50 @@ class TestMetadataServices(SettingsControllerTest):
         eq_("user", novelist_service.username)
         eq_("pass", novelist_service.password)
         eq_([l2], novelist_service.libraries)
+
+    def test_register_with_metadata_wrangler(self):
+        """Verify that register_with_metadata wrangler calls
+        process_sitewide_registration appropriately.
+        """
+        class Mock(MetadataServicesController):
+            called_with = None
+            def process_sitewide_registration(
+                    self, integration, do_get, do_post
+            ):
+                self.called_with = (integration, do_get, do_post)
+
+        controller = Mock(self.manager)
+        m = controller.register_with_metadata_wrangler
+        do_get = object()
+        do_post = object()
+
+        # If register_with_metadata_wrangler is called on an ExternalIntegration
+        # with some other service, nothing happens.
+        integration = self._external_integration(
+            protocol=ExternalIntegration.NOVELIST
+        )
+        m(do_get, do_post, True, integration)
+        eq_(None, controller.called_with)
+
+        # If it's called on an existing metadata wrangler integration
+        # that that already has a password set, nothing happens.
+        integration = self._external_integration(
+            protocol=ExternalIntegration.METADATA_WRANGLER
+        )
+        integration.password = 'already done'
+        m(do_get, do_post, False, integration)
+        eq_(None, controller.called_with)
+
+        # If it's called on a new metadata wrangler integration,
+        # register_with_metadata_wrangler is called.
+        m(do_get, do_post, True, integration)
+        eq_((integration, do_get, do_post), controller.called_with)
+
+        # Same if it's called on an old integration that's missing its
+        # password.
+        controller.called_with = None
+        integration.password = None
+        result = m(do_get, do_post, False, integration)
 
     def test_check_name_unique(self):
        kwargs = dict(protocol=ExternalIntegration.NYT,

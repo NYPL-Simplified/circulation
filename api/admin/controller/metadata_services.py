@@ -77,7 +77,7 @@ class MetadataServicesController(SitewideRegistrationController):
         wrangler_error = self.register_with_metadata_wrangler(
             do_get, do_post, is_new, service
         )
-        if wrangler_error:
+        if isinstance(wrangler_error, ProblemDetail):
             self._db.rollback()
             return wrangler_error
 
@@ -115,11 +115,9 @@ class MetadataServicesController(SitewideRegistrationController):
         if ((is_new or not service.password) and
             service.protocol == ExternalIntegration.METADATA_WRANGLER):
 
-            problem_detail = self.process_sitewide_registration(
-                service, do_get=do_get, do_post=do_post
+            return self.process_sitewide_registration(
+                integration=service, do_get=do_get, do_post=do_post
             )
-            if problem_detail:
-                return problem_detail
 
     def process_delete(self, service_id):
         return self._delete_integration(
