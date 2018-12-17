@@ -1,5 +1,9 @@
 #!/usr/bin/env python
-"""Gather information from the metadata wrangler."""
+"""Gather information from the metadata wrangler.
+
+This script is DEPRECATED. Use metadata_wrangler_collection_registrar
+instead -- it's the same code.
+"""
 import os
 import sys
 bin_dir = os.path.split(__file__)[0]
