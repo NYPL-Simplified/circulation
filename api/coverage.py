@@ -290,7 +290,7 @@ class MetadataWranglerCollectionRegistrar(BaseMetadataWranglerCoverageProvider):
         needs_commit = False
         for identifier in relicensed.all():
             for record in identifier.coverage_records:
-                if (record.data_source==self.data_source and
+                if (record.data_source_id==self.data_source.id and
                     record.collection_id==self.collection_id and
                     record.operation==CoverageRecord.REAP_OPERATION):
                     # Delete any reaper CoverageRecord for this Identifier
