@@ -102,13 +102,13 @@ class TestEnkiAPI(BaseEnkiTest):
     def test__run_self_tests(self):
         # Mock every method that will be called by the self-test.
         class Mock(MockEnkiAPI):
-            def recent_activity(self, minutes):
-                self.recent_activity_called_with = minutes
+            def recent_activity(self, since):
+                self.recent_activity_called_with = since
                 yield 1
                 yield 2
 
-            def updated_titles(self, minutes):
-                self.updated_titles_called_with = minutes
+            def updated_titles(self, since):
+                self.updated_titles_called_with = since
                 yield 1
                 yield 2
                 yield 3
@@ -144,11 +144,14 @@ class TestEnkiAPI(BaseEnkiTest):
 
         # Verify that each test method was called and returned the
         # expected SelfTestResult object.
-        eq_(60, api.recent_activity_called_with)
+        now = datetime.datetime.utcnow()
+        one_hour_ago = now - datetime.timedelta(hours=1)
+        one_day_ago = now - datetime.timedelta(hours=24)
+        assert (api.recent_activity_called_with - one_hour_ago).total_seconds() < 2
         eq_(True, circulation_changes.success)
         eq_("2 circulation events in the last hour", circulation_changes.result)
 
-        eq_(1440, api.updated_titles_called_with)
+        assert (api.updated_titles_called_with - one_day_ago).total_seconds() < 2
         eq_(True, collection_changes.success)
         eq_("3 titles added/updated in the last day", collection_changes.result)
 

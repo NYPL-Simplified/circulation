@@ -124,10 +124,13 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     def _run_self_tests(self, _db):
 
+        now = datetime.datetime.utcnow()
+
         def count_loans_and_holds():
             """Count recent circulation events that affected loans or holds.
             """
-            count = len(list(self.recent_activity(minutes=60)))
+            one_hour_ago = now - datetime.timedelta(hours=1)
+            count = len(list(self.recent_activity(since=one_hour_ago)))
             return "%s circulation events in the last hour" % count
 
         yield self.run_test(
@@ -139,8 +142,9 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             """Count changes to title metadata (usually because of
             new titles).
             """
+            one_day_ago = now - datetime.timedelta(hours=24)
             return "%s titles added/updated in the last day" % (
-                len(list(self.updated_titles(minutes=60*24)))
+                len(list(self.updated_titles(since=one_day_ago)))
             )
 
         yield self.run_test(
