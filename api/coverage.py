@@ -272,7 +272,7 @@ class MetadataWranglerCollectionRegistrar(BaseMetadataWranglerCoverageProvider):
         reaper_covered = self._db.query(Identifier)\
             .join(Identifier.coverage_records)\
             .filter(
-                CoverageRecord.data_source==self.data_source,
+                CoverageRecord.data_source_id==self.data_source.id,
                 CoverageRecord.collection_id==self.collection_id,
                 CoverageRecord.operation==CoverageRecord.REAP_OPERATION
             )
@@ -290,7 +290,7 @@ class MetadataWranglerCollectionRegistrar(BaseMetadataWranglerCoverageProvider):
         needs_commit = False
         for identifier in relicensed.all():
             for record in identifier.coverage_records:
-                if (record.data_source==self.data_source and
+                if (record.data_source_id==self.data_source.id and
                     record.collection_id==self.collection_id and
                     record.operation==CoverageRecord.REAP_OPERATION):
                     # Delete any reaper CoverageRecord for this Identifier
@@ -327,7 +327,7 @@ class MetadataWranglerCollectionReaper(BaseMetadataWranglerCoverageProvider):
             join(LicensePool.identifier).join(CoverageRecord).\
             filter(LicensePool.collection_id==self.collection_id).\
             filter(LicensePool.licenses_owned==0, LicensePool.open_access!=True).\
-            filter(CoverageRecord.data_source==self.data_source).\
+            filter(CoverageRecord.data_source_id==self.data_source.id).\
             filter(CoverageRecord.operation==CoverageRecord.IMPORT_OPERATION).\
             filter(CoverageRecord.status==CoverageRecord.SUCCESS).\
             filter(CoverageRecord.collection==self.collection)
@@ -352,14 +352,14 @@ class MetadataWranglerCollectionReaper(BaseMetadataWranglerCoverageProvider):
 
         # The CoverageRecords were selecting are 'import' records.
         ).filter(
-            CoverageRecord.data_source==self.data_source
+            CoverageRecord.data_source_id==self.data_source.id
         ).filter(
             CoverageRecord.operation==CoverageRecord.IMPORT_OPERATION
 
         # And we're only selecting them if there's also a 'reaper'
         # coverage record.
         ).filter(
-            reaper_coverage.data_source==self.data_source
+            reaper_coverage.data_source_id==self.data_source.id
         ).filter(
             reaper_coverage.operation==CoverageRecord.REAP_OPERATION
         )
