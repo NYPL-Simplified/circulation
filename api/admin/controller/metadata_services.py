@@ -12,9 +12,9 @@ from core.model import (
 from core.util.http import HTTP
 from core.util.problem_detail import ProblemDetail
 
-from . import SettingsController
+from . import SitewideRegistrationController
 
-class MetadataServicesController(SettingsController):
+class MetadataServicesController(SitewideRegistrationController):
 
     def __init__(self, manager):
         super(MetadataServicesController, self).__init__(manager)
@@ -74,8 +74,10 @@ class MetadataServicesController(SettingsController):
             self._db.rollback()
             return protocol_error
 
-        wrangler_error = self.register_with_metadata_wrangler(is_new, service)
-        if wrangler_error:
+        wrangler_error = self.register_with_metadata_wrangler(
+            do_get, do_post, is_new, service
+        )
+        if isinstance(wrangler_error, ProblemDetail):
             self._db.rollback()
             return wrangler_error
 
@@ -107,17 +109,15 @@ class MetadataServicesController(SettingsController):
         if wrong_format:
             return wrong_format
 
-    def register_with_metadata_wrangler(self, is_new, service):
+    def register_with_metadata_wrangler(self, do_get, do_post, is_new, service):
         """Register this site with the Metadata Wrangler."""
 
         if ((is_new or not service.password) and
             service.protocol == ExternalIntegration.METADATA_WRANGLER):
 
-            problem_detail = self.sitewide_registration(
-                service, do_get=do_get, do_post=do_post
+            return self.process_sitewide_registration(
+                integration=service, do_get=do_get, do_post=do_post
             )
-            if problem_detail:
-                return problem_detail
 
     def process_delete(self, service_id):
         return self._delete_integration(

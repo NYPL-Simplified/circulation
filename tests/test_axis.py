@@ -48,6 +48,7 @@ from api.authenticator import BasicAuthenticationProvider
 
 from api.axis import (
     AudiobookFulfillmentInfo,
+    AudiobookMetadataParser,
     AvailabilityResponseParser,
     Axis360API,
     Axis360BibliographicCoverageProvider,
@@ -55,9 +56,10 @@ from api.axis import (
     AxisCollectionReaper,
     BibliographicParser,
     CheckoutResponseParser,
-    FulfillmentInfoResponseParser,
+    AudiobookFulfillmentInfoResponseParser,
     HoldReleaseResponseParser,
     HoldResponseParser,
+    JSONResponseParser,
     MockAxis360API,
     ResponseParser,
 )
@@ -80,7 +82,10 @@ from api.config import (
     temp_config,
 )
 
-from api.web_publication_manifest import FindawayManifest
+from api.web_publication_manifest import (
+    FindawayManifest,
+    SpineItem,
+)
 
 
 class Axis360Test(DatabaseTest):
@@ -197,6 +202,16 @@ class TestAxis360API(Axis360Test):
         identifier = self._identifier()
         values = Axis360API.create_identifier_strings(["foo", identifier])
         eq_(["foo", identifier.identifier], values)
+
+    def test_availability_no_timeout(self):
+        # The availability API request has no timeout set, because it
+        # may take time proportinate to the total size of the
+        # collection.
+        self.api.queue_response(200)
+        self.api.availability()
+        request = self.api.requests.pop()
+        kwargs = request[-1]
+        eq_(None, kwargs['timeout'])
 
     def test_availability_exception(self):
 
@@ -457,6 +472,23 @@ class TestAxis360API(Axis360Test):
         assert url.endswith(api.fulfillment_endpoint)
         eq_('POST', kwargs['method'])
         eq_('transaction ID', kwargs['params']['TransactionID'])
+
+    def test_get_audiobook_metadata(self):
+        # Test the get_audiobook_metadata method, which makes an API request.
+
+        api = MockAxis360API(self._db, self.collection)
+        api.queue_response(200, {}, "the response")
+
+        # Make a request and check the response.
+        response = api.get_audiobook_metadata("Findaway content ID")
+        eq_("the response", response.content)
+
+        # Verify that the 'HTTP request' was made to the right URL
+        # with the right keyword arguments and the right HTTP method.
+        url, args, kwargs = api.requests.pop()
+        assert url.endswith(api.audiobook_metadata_endpoint)
+        eq_('POST', kwargs['method'])
+        eq_('Findaway content ID', kwargs['params']['fndcontentid'])
 
 
 class TestCirculationMonitor(Axis360Test):
@@ -759,22 +791,24 @@ class TestParsers(Axis360Test):
         eq_(0, av1.patrons_in_hold_queue)
 
 
-class TestResponseParser(object):
+class BaseParserTest(object):
 
     @classmethod
     def sample_data(self, filename):
         return sample_data(filename, 'axis')
 
+
+class TestResponseParser(BaseParserTest):
+
     def setup(self):
-        # We don't need an actual Collection object to test this
-        # class, but we do need to test that whatever object we
-        # _claim_ is a Collection will have its id put into the
+        # We don't need an actual Collection object to test most of
+        # these classes, but we do need to test that whatever object
+        # we _claim_ is a Collection will have its id put into the
         # right spot of HoldInfo and LoanInfo objects.
         class MockCollection(object):
             pass
         self._default_collection = MockCollection()
         self._default_collection.id = object()
-
 
 class TestRaiseExceptionOnError(TestResponseParser):
 
@@ -860,42 +894,46 @@ class TestHoldReleaseResponseParser(TestResponseParser):
         parser = HoldReleaseResponseParser(None)
         assert_raises(NotOnHold, parser.process_all, data)
 
-class TestAvailabilityResponseParser(TestResponseParser):
+class TestAvailabilityResponseParser(Axis360Test, BaseParserTest):
+    """Unlike other response parser tests, this one needs
+    access to a real database session, because it needs a real Collection
+    to put into its MockAxis360API.
+    """
 
     def test_parse_loan_and_hold(self):
         data = self.sample_data("availability_with_loan_and_hold.xml")
-        parser = AvailabilityResponseParser(self._default_collection)
+        parser = AvailabilityResponseParser(self.api)
         activity = list(parser.process_all(data))
         hold, loan, reserved = sorted(activity, key=lambda x: x.identifier)
-        eq_(self._default_collection.id, hold.collection_id)
+        eq_(self.api.collection.id, hold.collection_id)
         eq_(Identifier.AXIS_360_ID, hold.identifier_type)
         eq_("0012533119", hold.identifier)
         eq_(1, hold.hold_position)
         eq_(None, hold.end_date)
 
-        eq_(self._default_collection.id, loan.collection_id)
+        eq_(self.api.collection.id, loan.collection_id)
         eq_("0015176429", loan.identifier)
         eq_("http://fulfillment/", loan.fulfillment_info.content_link)
         eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
 
-        eq_(self._default_collection.id, reserved.collection_id)
+        eq_(self.api.collection.id, reserved.collection_id)
         eq_("1111111111", reserved.identifier)
         eq_(datetime.datetime(2015, 1, 1, 13, 11, 11), reserved.end_date)
         eq_(0, reserved.hold_position)
 
     def test_parse_loan_no_availability(self):
         data = self.sample_data("availability_without_fulfillment.xml")
-        parser = AvailabilityResponseParser(self._default_collection)
+        parser = AvailabilityResponseParser(self.api)
         [loan] = list(parser.process_all(data))
 
-        eq_(self._default_collection.id, loan.collection_id)
+        eq_(self.api.collection.id, loan.collection_id)
         eq_("0015176429", loan.identifier)
         eq_(None, loan.fulfillment_info)
         eq_(datetime.datetime(2015, 8, 12, 17, 40, 27), loan.end_date)
 
     def test_parse_audiobook_fulfillmentinfo(self):
         data = self.sample_data("availability_with_audiobook_fulfillment.xml")
-        parser = AvailabilityResponseParser(self._default_collection)
+        parser = AvailabilityResponseParser(self.api)
         [loan] = list(parser.process_all(data))
         fulfillment = loan.fulfillment_info
         assert isinstance(fulfillment, AudiobookFulfillmentInfo)
@@ -906,62 +944,117 @@ class TestAvailabilityResponseParser(TestResponseParser):
         # for that.)
         eq_("C3F71F8D-1883-2B34-068F-96570678AEB0", fulfillment.key)
 
-class TestFulfillmentInfoResponseParser(Axis360Test):
+        # The API object is present in the FulfillmentInfo and ready to go.
+        eq_(self.api, fulfillment.api)
+
+
+class TestJSONResponseParser(object):
+
+    def test__required_key(self):
+        m = JSONResponseParser._required_key
+        parsed = dict(key="value")
+
+        # If the value is present, _required_key acts just like get().
+        eq_("value", m("key", parsed))
+
+        # If not, it raises a RemoteInitiatedServerError.
+        assert_raises_regexp(
+            RemoteInitiatedServerError,
+            "Required key absent not present in Axis 360 fulfillment document: {'key': 'value'}",
+            m, "absent", parsed
+        )
+
+    def test_verify_status_code(self):
+        success = dict(Status=dict(Code=0000))
+        failure = dict(Status=dict(Code=1000, Message="A message"))
+        missing = dict()
+
+        m = JSONResponseParser.verify_status_code
+
+        # If the document's Status object indicates success, nothing
+        # happens.
+        m(success)
+
+        # If it indicates failure, an appropriate exception is raised.
+        assert_raises_regexp(
+            PatronAuthorizationFailedException, "A message",
+            m, failure
+        )
+
+        # If the Status object is missing, a more generic exception is
+        # raised.
+        assert_raises_regexp(
+            RemoteInitiatedServerError,
+            "Required key Status not present in Axis 360 fulfillment document",
+            m, missing
+        )
 
     def test_parse(self):
-        # Verify that parse() parses a JSON document
-        # and calls _extract() on it.
-        class Mock(FulfillmentInfoResponseParser):
-            def _extract(self, license_pool, parsed):
-                self.called_with = (license_pool, parsed)
-                return "Extracted document"
 
-        parser = Mock(self._default_collection)
-        license_pool = object()
+        class Mock(JSONResponseParser):
 
-        # This works whether we pass it a JSON document or the object
-        # resulting from parsing such a document.
-        for json_document in ("{}", {}):
-            result = parser.parse(license_pool, "{}")
-            eq_("Extracted document", result)
-            eq_((license_pool, {}), parser.called_with)
-            parser.called_with = None
+            def _parse(self, parsed, *args, **kwargs):
+                self.called_with = parsed, args, kwargs
+                return "success"
 
-        # Any other input causes an error.
+        parser = Mock(object())
+
+        # Test success.
+        doc = dict(Status=dict(Code=0000))
+
+        # The JSON will be parsed and passed in to _parse(); all other
+        # arguments to parse() will be passed through to _parse().
+        result = parser.parse(json.dumps(doc), "value1", arg2="value2")
+        eq_("success", result)
+        eq_(
+            (doc, ("value1",), dict(arg2="value2")),
+            parser.called_with
+        )
+
+        # It also works if the JSON was already parsed.
+        result = parser.parse(doc, "new_value")
+        eq_(
+            (doc, ("new_value",), {}), parser.called_with
+        )
+
+        # Non-JSON input causes an error.
         assert_raises_regexp(
             RemoteInitiatedServerError,
             "Invalid response from Axis 360 \(was expecting JSON\): I'm not JSON",
-            parser.parse, license_pool, "I'm not JSON"
+            parser.parse, "I'm not JSON"
         )
 
-    def test__required_key(self):
-        # Test the _required_key helper method.
-        m = FulfillmentInfoResponseParser._required_key
-        eq_("value", m("thekey", dict(thekey="value")))
 
-        for bad_dict in (None, {}, dict(otherkey="value")):
-            assert_raises_regexp(
-                RemoteInitiatedServerError,
-                "Required key thekey not present in Axis 360 fulfillment document",
-                m, "thekey", bad_dict
-            )
 
-    def test__extract(self):
-        # _extract will create a valid FindawayManifest given a
+class TestAudiobookFulfillmentInfoResponseParser(Axis360Test):
+
+    def test__parse(self):
+        # _parse will create a valid FindawayManifest given a
         # complete document.
 
-        m = FulfillmentInfoResponseParser._extract
+        parser = AudiobookFulfillmentInfoResponseParser(api=self.api)
+        m = parser._parse
 
         edition, pool = self._edition(with_license_pool=True)
-        parser = (self._default_collection)
         def get_data():
             # We'll be modifying this document to simulate failures,
             # so make it easy to load a fresh copy.
             return json.loads(
                 self.sample_data("audiobook_fulfillment_info.json")
             )
+
+        # This is the data we just got from a call to Axis 360's
+        # getfulfillmentInfo endpoint.
         data = get_data()
-        manifest, expires = m(pool, data)
+
+        # When we call _parse, the API is going to fire off an
+        # additional request to the getaudiobookmetadata endpoint, so
+        # it can create a complete FindawayManifest. Queue up the
+        # response to that request.
+        audiobook_metadata = self.sample_data("audiobook_metadata.json")
+        self.api.queue_response(200, {}, audiobook_metadata)
+
+        manifest, expires = m(data, pool)
 
         assert isinstance(manifest, FindawayManifest)
         metadata = manifest.metadata
@@ -981,9 +1074,10 @@ class TestFulfillmentInfoResponseParser(Axis360Test):
         eq_('04960', encrypted['findaway:fulfillmentId'])
         eq_('58ee81c6d3d8eb3b05597cdc', encrypted['findaway:licenseId'])
 
-        # There are no spine items and the book is of unknown duration.
-        assert 'duration' not in metadata
-        eq_([], manifest.readingOrder)
+        # The spine items and duration have been filled in by the call to
+        # the getaudiobookmetadata endpoint.
+        eq_(8150.87, metadata['duration'])
+        eq_(5, len(manifest.readingOrder))
 
         # We also know when the licensing document expires.
         eq_(datetime.datetime(2018, 9, 29, 18, 34), expires)
@@ -991,38 +1085,17 @@ class TestFulfillmentInfoResponseParser(Axis360Test):
         # Now strategically remove required information from the
         # document and verify that extraction fails.
         #
-        no_status_code = get_data()
-        del no_status_code['Status']['Code']
-        assert_raises_regexp(
-            RemoteInitiatedServerError, "Required key Code not present",
-            m, pool, no_status_code
-        )
-
-        no_status = get_data()
-        del no_status['Status']
-        assert_raises_regexp(
-            RemoteInitiatedServerError, "Required key Status not present",
-            m, pool, no_status
-        )
-
-        for field in ('Status', 'FNDLicenseID', 'FNDSessionKey', 'ExpirationDate'):
+        for field in (
+                'FNDContentID', 'FNDLicenseID', 'FNDSessionKey',
+                'ExpirationDate'
+        ):
             missing_field = get_data()
             del missing_field[field]
             assert_raises_regexp(
                 RemoteInitiatedServerError,
                 "Required key %s not present" % field,
-                m, pool, missing_field
+                m, missing_field, pool
             )
-
-        # Try with a response indicating an error condition.
-        error_condition = get_data()
-        error_condition['Status']['Code'] = 5004
-        error_condition['Status']['Message'] = "missing transaction id"
-        assert_raises_regexp(
-            LibraryInvalidInputException,
-            "missing transaction id",
-            m, pool, error_condition
-        )
 
         # Try with a bad expiration date.
         bad_date = get_data()
@@ -1030,14 +1103,70 @@ class TestFulfillmentInfoResponseParser(Axis360Test):
         assert_raises_regexp(
             RemoteInitiatedServerError,
             "Could not parse expiration date: not-a-date",
-            m, pool, bad_date
+            m, bad_date, pool
         )
 
 
+class TestAudiobookMetadataParser(Axis360Test):
+
+    def test__parse(self):
+        # _parse will find the Findaway account ID and
+        # the spine items.
+        class Mock(AudiobookMetadataParser):
+            @classmethod
+            def _extract_spine_item(self, part):
+                return part + " (extracted)"
+
+        metadata = dict(
+            fndaccountid="An account ID",
+            readingOrder=["Spine item 1", "Spine item 2"]
+        )
+        account_id, spine_items = Mock(None)._parse(metadata)
+
+        eq_("An account ID", account_id)
+        eq_(["Spine item 1 (extracted)",
+             "Spine item 2 (extracted)"],
+            spine_items
+        )
+
+        # No data? Nothing will be parsed.
+        account_id, spine_items = Mock(None)._parse({})
+        eq_(None, account_id)
+        eq_([], spine_items)
+
+    def test__extract_spine_item(self):
+        # _extract_spine_item will turn data from Findaway into
+        # a SpineItem object.
+        m = AudiobookMetadataParser._extract_spine_item
+        item = m(
+            dict(duration=100.4, fndpart=2, fndsequence=3,
+                 title="The Gathering Storm"
+            )
+        )
+        assert isinstance(item, SpineItem)
+        eq_("The Gathering Storm", item.title)
+        eq_(2, item.part)
+        eq_(3, item.sequence)
+        eq_(100.4, item.duration)
+        eq_(Representation.MP3_MEDIA_TYPE, item.media_type)
+
+        # We get a SpineItem even if all the data about the spine item
+        # is missing -- these are the default values.
+        item = m({})
+        eq_(None, item.title)
+        eq_(0, item.part)
+        eq_(0, item.sequence)
+        eq_(0, item.duration)
+        eq_(Representation.MP3_MEDIA_TYPE, item.media_type)
+
 class TestAudiobookFulfillmentInfo(Axis360Test):
     def test_fetch(self):
-        data = self.sample_data("audiobook_fulfillment_info.json")
-        self.api.queue_response(200, {}, data)
+
+        fulfillment_info = self.sample_data("audiobook_fulfillment_info.json")
+        self.api.queue_response(200, {}, fulfillment_info)
+
+        metadata = self.sample_data("audiobook_metadata.json")
+        self.api.queue_response(200, {}, metadata)
 
         # Setup.
         edition, pool = self._edition(with_license_pool=True)
@@ -1055,7 +1184,17 @@ class TestAudiobookFulfillmentInfo(Axis360Test):
         # document.
         eq_(DeliveryMechanism.FINDAWAY_DRM, fulfillment.content_type)
         assert isinstance(fulfillment.content, unicode)
-        assert 'findaway:sessionKey' in fulfillment.content
+
+        # The manifest document combines information from the
+        # fulfillment document and the metadata document.
+        for required in (
+            '"findaway:sessionKey": "0f547af1-38c1-4b1c-8a1a-169d353065d0"',
+            '"duration": 8150.87',
+        ):
+            assert required in fulfillment.content
+
+        # The content expiration date also comes from the fulfillment
+        # document.
         eq_(
             datetime.datetime(2018, 9, 29, 18, 34), fulfillment.content_expires
         )
