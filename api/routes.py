@@ -1,5 +1,6 @@
 from nose.tools import set_trace
 from functools import wraps, update_wrapper
+import logging
 import os
 
 import flask
@@ -40,7 +41,13 @@ def initialize_circulation_manager():
         pass
     else:
         if getattr(app, 'manager', None) is None:
-            app.manager = CirculationManager(app._db)
+            try:
+                app.manager = CirculationManager(app._db)
+            except Exception, e:
+                logging.error(
+                    "Error instantiating circulation manager!", exc_info=e
+                )
+                raise e
             # Make sure that any changes to the database (as might happen
             # on initial setup) are committed before continuing.
             app.manager._db.commit()
