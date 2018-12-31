@@ -156,6 +156,8 @@ class Configuration(CoreConfiguration):
             "label": _("URL of the web catalog for patrons"),
             "required": True,
             "format": "url",
+            "allowed": ["*"],
+            "description": _("You can set this to '*' in development, but you must use a real URL in production in order to prevent unauthorized CORS requests.")
         },
         {
             "key": STATIC_FILE_CACHE_TIME,
