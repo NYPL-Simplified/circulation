@@ -2536,7 +2536,10 @@ class SettingsController(AdminCirculationManagerController):
                 return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=url))
 
     def _is_url(self, url):
-        return any([url.startswith(protocol + "://") for protocol in "http", "https"])
+        # In development, "*" is an acceptable value for a URL field.
+        in_dev = "localhost" in os.environ.get("SIMPLIFIED_PRODUCTION_DATABASE")
+        has_protocol = any([url.startswith(protocol + "://") for protocol in "http", "https"])
+        return (in_dev and url == "*") or has_protocol
 
     def validate_number(self, settings):
         """Find any numbers that the user has submitted, and make sure that they are 1) actually numbers,
