@@ -5,7 +5,9 @@ from nose.tools import (
     set_trace,
     assert_raises,
 )
+import os
 import socket
+import ssl
 from api.sip.client import (
     MockSIPClient,
     SIPClient,
@@ -23,6 +25,14 @@ class MockSocket(object):
 
     def settimeout(self, value):
         self.timeout = value
+
+class MockWrapSocket(object):
+    def __init__(self):
+        self.called_with = None
+
+    def __call__(self, connection, **kwargs):
+        self.called_with = (connection, kwargs)
+        return connection
 
 
 class TestSIPClient(object):
@@ -47,6 +57,59 @@ class TestSIPClient(object):
             # Un-mock the socket.socket function
             socket.socket = old_socket
 
+    def test_secure_connect(self):
+
+        target_server = object()
+        insecure = SIPClient(target_server, 999, use_ssl=False)
+        no_cert = SIPClient(target_server, 999, use_ssl=True)
+        with_cert = SIPClient(
+            target_server, 999, ssl_cert="cert", ssl_key="key"
+        )
+
+        # Mock the socket.socket function.
+        old_socket = socket.socket
+        socket.socket = MockSocket
+
+        # Mock the ssl.wrap_socket function
+        old_wrap_socket = ssl.wrap_socket
+        wrap_socket = MockWrapSocket()
+        ssl.wrap_socket = wrap_socket
+
+        try:
+            # When an insecure connection is created, wrap_socket is
+            # not called.
+            insecure.connect()
+            eq_(None, wrap_socket.called_with)
+
+            # When a secure connection is created with no SSL
+            # certificate, wrap_socket() is called on the connection
+            # (in this case, a MockSocket), but no other arguments are
+            # passed in to wrap_socket().
+            no_cert.connect()
+            connection, kwargs = wrap_socket.called_with
+            assert isinstance(connection, MockSocket)
+            eq_(dict(keyfile=None, certfile=None), kwargs)
+
+            # When a secure connection is created with an SSL
+            # certificate, the certificate and key are written to
+            # temporary files, and the paths to those files are passed
+            # in along with the collection to wrap_socket().
+            wrap_socket.called_with = None
+            with_cert.connect()
+            connection, kwargs = wrap_socket.called_with
+            assert isinstance(connection, MockSocket)
+            eq_(set(['keyfile', 'certfile']), set(kwargs.keys()))
+            for tmpfile in kwargs.values():
+                assert tmpfile.startswith("/tmp")
+                # By the time the SSL socket has been wrapped, the
+                # temporary file has already been removed.  Because of
+                # that we can't verify from within a unit testthat the
+                # correct contents were written to the file.
+                assert not os.path.exists(tmpfile)
+        finally:
+            # Un-mock the old functions.
+            socket.socket = old_socket
+            ssl.wrap_socket = old_wrap_socket
 
 class TestBasicProtocol(object):
 
@@ -102,6 +165,13 @@ class TestLogin(object):
 
     def test_login_success(self):
         sip = MockSIPClient('user_id', 'password')
+        sip.queue_response('941')
+        response = sip.login()
+        eq_({'login_ok': '1', '_status': '94'}, response)
+
+    def test_login_password_is_optional(self):
+        """You can specify a login_id without specifying a login_password."""
+        sip = MockSIPClient('user_id')
         sip.queue_response('941')
         response = sip.login()
         eq_({'login_ok': '1', '_status': '94'}, response)

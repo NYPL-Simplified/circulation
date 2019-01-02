@@ -2127,6 +2127,91 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         # test_local_patron_lookup. This test only covers the case where
         # the server sends back the permanent ID of the patron.
 
+    def _inactive_patron(self):
+        """Simulate a patron who has not logged in for a really long time.
+
+        :return: A 2-tuple (Patron, PatronData). The Patron contains
+        'out-of-date' data and the PatronData containing 'up-to-date'
+        data.
+        """
+        now = datetime.datetime.utcnow()
+        long_ago = now - datetime.timedelta(hours=10000)
+        patron = self._patron()
+        patron.last_external_sync = long_ago
+
+        # All of their authorization information has changed in the
+        # meantime, but -- crucially -- their permanent ID has not.
+        patron.authorization_identifier = "old auth id"
+        patron.username = "old username"
+
+        # Here is the up-to-date information about this patron,
+        # as found in the 'ILS'.
+        patrondata = PatronData(
+            permanent_id=patron.external_identifier,
+            username="new username",
+            authorization_identifier = "new authorization identifier",
+            complete=True
+        )
+
+        return patron, patrondata
+
+    def test_success_but_local_patron_needs_sync(self):
+        # This patron has not logged on in a really long time.
+        patron, complete_patrondata = self._inactive_patron()
+
+        # The 'ILS' will respond to an authentication request with a minimal
+        # set of information.
+        #
+        # It will respond to a patron lookup request with more detailed
+        # information.
+        minimal_patrondata = PatronData(
+            permanent_id=patron.external_identifier,
+            complete=False
+        )
+        provider = self.mock_basic(
+            patrondata=minimal_patrondata,
+            remote_patron_lookup_patrondata=complete_patrondata,
+        )
+
+        # The patron can be authenticated.
+        eq_(patron, provider.authenticate(self._db, self.credentials))
+
+        # The Authenticator noticed that the patron's account was out
+        # of sync, and since the authentication response did not
+        # provide a complete set of patron information, the
+        # Authenticator performed a more detailed lookup to make sure
+        # that the patron's details were correct going forward.
+        eq_("new username", patron.username)
+        eq_("new authorization identifier", patron.authorization_identifier)
+        assert (
+            datetime.datetime.utcnow()-patron.last_external_sync
+        ).total_seconds() < 10
+
+    def test_success_with_immediate_patron_sync(self):
+        # This patron has not logged on in a really long time.
+        patron, complete_patrondata = self._inactive_patron()
+
+        # The 'ILS' will respond to an authentication request with a complete
+        # set of information. If a remote patron lookup were to happen,
+        # it would explode.
+        provider = self.mock_basic(
+            patrondata=complete_patrondata,
+            remote_patron_lookup_patrondata=object()
+        )
+
+        # The patron can be authenticated.
+        eq_(patron, provider.authenticate(self._db, self.credentials))
+
+        # Since the authentication response provided a complete
+        # overview of the patron, the Authenticator was able to sync
+        # the account immediately, without doing a separate remote
+        # patron lookup.
+        eq_("new username", patron.username)
+        eq_("new authorization identifier", patron.authorization_identifier)
+        assert (
+            datetime.datetime.utcnow()-patron.last_external_sync
+        ).total_seconds() < 10
+
     def test_failure_when_remote_authentication_returns_problemdetail(self):
         patron = self._patron()
         patrondata = PatronData(permanent_id=patron.external_identifier)
