@@ -27,8 +27,11 @@ limitations under the License.
 
 import datetime
 import logging
+import os
 import re
 import socket
+import ssl
+import tempfile
 
 # SIP2 defines a large number of fields which are used in request and
 # response messages. This library focuses on defining the response
@@ -231,7 +234,18 @@ class SIPClient(Constants):
     ]
 
     def __init__(self, target_server, target_port, login_user_id=None,
-                 login_password=None, location_code=None, separator=None):
+                 login_password=None, location_code=None, separator=None,
+                 use_ssl=False, ssl_cert=None, ssl_key=None
+    ):
+        """Initialize a client for (but do not connect to) a SIP2 server.
+
+        :param use_ssl: If this is True, all socket connections to the SIP2
+            server will be wrapped with SSL.
+        :param ssl_cert: A string containing an SSL certificate to use when
+            connecting to the SIP server.
+        :param ssl_key: A string containing an SSL certificate to use when
+            connecting to the SIP server.
+        """
         self.target_server = target_server
         if not target_port:
             target_port = 6001
@@ -239,6 +253,10 @@ class SIPClient(Constants):
             self.target_port = int(target_port)
         self.location_code = location_code
         self.separator = separator or '|'
+
+        self.use_ssl = use_ssl or ssl_cert or ssl_key
+        self.ssl_cert = ssl_cert
+        self.ssl_key = ssl_key
 
         # Turn the separator string into a regular expression that splits
         # field name/field value pairs on the separator string.
@@ -251,13 +269,15 @@ class SIPClient(Constants):
         self.sequence_number = 0
         self.connection = None
         self.login_user_id = login_user_id
-        self.login_password = login_password
-        if login_user_id and login_password:
+        if login_user_id:
+            if not login_password:
+                login_password = ''
             # We need to log in before using this server.
             self.must_log_in = True
         else:
             # We're implicitly logged in.
             self.must_log_in = False
+        self.login_password = login_password
 
     def login(self):
         """Log in to the SIP server if required."""
@@ -291,7 +311,10 @@ class SIPClient(Constants):
             if self.connection:
                 # If we are still connected then disconnect.
                 self.disconnect()
-            self.connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            if self.use_ssl:
+                self.connection = self.make_secure_connection()
+            else:
+                self.connection = self.make_insecure_connection()
             self.connection.connect((self.target_server, self.target_port))
         except TypeError:
             raise IOError(
@@ -302,6 +325,46 @@ class SIPClient(Constants):
         self.connection.settimeout(12)
         # Since this is a new socket connection, reset the message count
         self.reset_connection_state()
+
+    def make_insecure_connection(self):
+        """Actually set up a socket connection."""
+        return socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    def make_secure_connection(self):
+        """Create an SSL-enabled socket connection."""
+
+        # If a certificate and/or key were provided, write them to
+        # temporary files so OpenSSL can find them.
+        #
+        # Unfortunately there's no way to get OpenSSL to read a
+        # certificate or key from a string. Alternatives suggested
+        # online include M2Crypt, a pure Python SSL implementation.
+        # M2Crypt seems like it will work, but I couldn't find the
+        # documentation I needed, so for the time being... temporary
+        # files.
+        tmp_ssl_cert_path = None
+        tmp_ssl_key_path = None
+        if self.ssl_cert:
+            fd, tmp_ssl_cert_path = tempfile.mkstemp()
+            os.write(fd, self.ssl_cert)
+            os.close(fd)
+        if self.ssl_key:
+            fd, tmp_ssl_key_path = tempfile.mkstemp()
+            os.write(fd, self.ssl_key)
+            os.close(fd)
+        connection = self.make_insecure_connection()
+        connection = ssl.wrap_socket(
+            connection, certfile=tmp_ssl_cert_path,
+            keyfile=tmp_ssl_key_path
+        )
+
+        # Now that the connection has been established, the temporary
+        # files are no longer needed. Remove them.
+        for path in tmp_ssl_cert_path, tmp_ssl_key_path:
+            if path and os.path.exists(path):
+                os.remove(path)
+
+        return connection
 
     def reset_connection_state(self):
         """Reset connection-specific state.
