@@ -2178,9 +2178,9 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
 
         # The Authenticator noticed that the patron's account was out
         # of sync, and since the authentication response did not
-        # provide a complete the information necessary, it performed a more
-        # detailed lookup to make sure that the patron's details were
-        # correct going forward.
+        # provide a complete set of patron information, the
+        # Authenticator performed a more detailed lookup to make sure
+        # that the patron's details were correct going forward.
         eq_("new username", patron.username)
         eq_("new authorization identifier", patron.authorization_identifier)
         assert (
