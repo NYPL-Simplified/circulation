@@ -2189,7 +2189,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
 
     def test_success_with_immediate_patron_sync(self):
         # This patron has not logged on in a really long time.
-        patron, complete_patrondata = self._set_up_inactive_patron()
+        patron, complete_patrondata = self._inactive_patron()
 
         # The 'ILS' will respond to an authentication request with a complete
         # set of information. If a remote patron lookup were to happen,
