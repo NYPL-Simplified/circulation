@@ -325,6 +325,30 @@ class TestAxis360API(Axis360Test):
         params = request[-1]['params']
         eq_('notifications@example.com', params['email'])
 
+    def test_patron_activity(self):
+        """Test the method that locates all current activity
+        for a patron.
+        """
+        data = self.sample_data("availability_with_loan_and_hold.xml")
+        self.api.queue_response(200, content=data)
+        patron = self._patron()
+        patron.authorization_identifier = "a barcode"
+
+        results = self.api.patron_activity(patron, "pin")
+
+        # We made a request that included the authorization identifier
+        # of the patron in question.
+        [url, args, kwargs] = self.api.requests.pop()
+        eq_(patron.authorization_identifier, kwargs['params']['patronId'])
+
+        # We got three results -- two holds and one loan.
+        [hold1, loan, hold2] = sorted(
+            results, key=lambda x: x.identifier
+        )
+        assert isinstance(hold1, HoldInfo)
+        assert isinstance(hold2, HoldInfo)
+        assert isinstance(loan, LoanInfo)
+
     def test_update_licensepools_for_identifiers(self):
 
         class Mock(MockAxis360API):
