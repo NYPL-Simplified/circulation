@@ -30,8 +30,8 @@ class TestLibraryAnnotator(DatabaseTest):
             def add_simplified_genres(self, record, work):
                 self.called_with['add_simplified_genres'] = [record, work]
 
-            def add_web_client_urls(self, record, library, identifier):
-                self.called_with['add_web_client_urls'] = [record, library, identifier]
+            def add_web_client_urls(self, record, library, identifier, integration):
+                self.called_with['add_web_client_urls'] = [record, library, identifier, integration]
 
             # Also check that the parent class annotate_work_record is called.
             def add_distributor(self, record, pool):
@@ -58,7 +58,7 @@ class TestLibraryAnnotator(DatabaseTest):
         assert 'add_marc_organization_code' not in annotator.called_with
         assert 'add_summary' not in annotator.called_with
         assert 'add_simplified_genres' not in annotator.called_with
-        eq_([record, self._default_library, identifier], annotator.called_with.get('add_web_client_urls'))
+        eq_([record, self._default_library, identifier, integration], annotator.called_with.get('add_web_client_urls'))
         eq_([record, pool], annotator.called_with.get('add_distributor'))
         eq_([record, pool], annotator.called_with.get('add_formats'))
 
@@ -77,7 +77,7 @@ class TestLibraryAnnotator(DatabaseTest):
         assert 'add_marc_organization_code' not in annotator.called_with
         assert 'add_summary' not in annotator.called_with
         assert 'add_simplified_genres' not in annotator.called_with
-        eq_([record, self._default_library, identifier], annotator.called_with.get('add_web_client_urls'))
+        eq_([record, self._default_library, identifier, integration], annotator.called_with.get('add_web_client_urls'))
         eq_([record, pool], annotator.called_with.get('add_distributor'))
         eq_([record, pool], annotator.called_with.get('add_formats'))
 
@@ -101,17 +101,23 @@ class TestLibraryAnnotator(DatabaseTest):
         eq_([record, "marc org"], annotator.called_with.get("add_marc_organization_code"))
         eq_([record, work], annotator.called_with.get("add_summary"))
         eq_([record, work], annotator.called_with.get("add_simplified_genres"))
-        eq_([record, self._default_library, identifier], annotator.called_with.get('add_web_client_urls'))
+        eq_([record, self._default_library, identifier, integration], annotator.called_with.get('add_web_client_urls'))
         eq_([record, pool], annotator.called_with.get('add_distributor'))
         eq_([record, pool], annotator.called_with.get('add_formats'))
 
     def test_add_web_client_urls(self):
+        # Web client URLs can come from either the MARC export integration or
+        # a library registry integration.
+
+        annotator = LibraryAnnotator(self._default_library)
+
         # If no web catalog URLs are set for the library, nothing will be changed.
         record = Record()
         identifier = self._identifier(foreign_id="identifier")
-        LibraryAnnotator.add_web_client_urls(record, self._default_library, identifier)
+        annotator.add_web_client_urls(record, self._default_library, identifier)
         eq_([], record.get_fields("856"))
 
+        # Add a URL from a library registry.
         registry = self._external_integration(
             ExternalIntegration.OPDS_REGISTRATION, ExternalIntegration.DISCOVERY_GOAL,
             libraries=[self._default_library])
@@ -119,9 +125,32 @@ class TestLibraryAnnotator(DatabaseTest):
             self._db, Registration.LIBRARY_REGISTRATION_WEB_CLIENT,
             self._default_library, registry).value = "http://web_catalog"
 
-        LibraryAnnotator.add_web_client_urls(record, self._default_library, identifier)
+        record = Record()
+        annotator.add_web_client_urls(record, self._default_library, identifier)
         [field] = record.get_fields("856")
         eq_(["4", "0"], field.indicators)
         eq_("http://web_catalog/book/Gutenberg%20ID%2Fidentifier",
             field.get_subfields("u")[0])
+
+        # Add a manually configured URL on a MARC export integration.
+        integration = self._external_integration(
+            ExternalIntegration.MARC_EXPORT, ExternalIntegration.CATALOG_GOAL,
+            libraries=[self._default_library])
+
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, MARCExporter.WEB_CLIENT_URL,
+            self._default_library, integration).value = "http://another_web_catalog"
+
+        record = Record()
+        annotator.add_web_client_urls(record, self._default_library, identifier, integration)
+        [field1, field2] = record.get_fields("856")
+        eq_(["4", "0"], field1.indicators)
+        eq_("http://another_web_catalog/book/Gutenberg%20ID%2Fidentifier",
+            field1.get_subfields("u")[0])
+
+        eq_(["4", "0"], field2.indicators)
+        eq_("http://web_catalog/book/Gutenberg%20ID%2Fidentifier",
+            field2.get_subfields("u")[0])
+
+        
 
