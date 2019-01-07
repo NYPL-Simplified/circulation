@@ -431,6 +431,12 @@ class TestCirculationManager(CirculationControllerTest):
         # have not been reloaded.
         eq_(index_controller, manager.index_controller)
 
+        # The sitewide patron web domain can also be set to *.
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.PATRON_WEB_CLIENT_URL).value = "*"
+        self.manager.load_settings()
+        eq_(set(["*", "http://registration"]), manager.patron_web_domains)
+
         # Restore the CustomIndexView.for_library implementation
         CustomIndexView.for_library = old_for_library
 

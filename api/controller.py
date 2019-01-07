@@ -244,6 +244,8 @@ class CirculationManager(object):
         patron_web_domains = set()
 
         def get_domain(url):
+            if url == "*":
+                return url
             scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
             return scheme + "://" + netloc
 
