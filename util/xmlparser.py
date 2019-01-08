@@ -28,9 +28,17 @@ class XMLParser(object):
                                  (0xDFFFE, 0xDFFFF), (0xEFFFE, 0xEFFFF),
                                  (0xFFFFE, 0xFFFFF), (0x10FFFE, 0x10FFFF)])
 
-    _illegal_ranges = ["%s-%s" % (unichr(low), unichr(high))
-                       for (low, high) in _illegal_unichrs]
+    _illegal_entities = []
+    _illegal_ranges = []
+    for (low, high) in _illegal_unichrs:
+        _illegal_ranges.append("%s-%s" % (unichr(low), unichr(high)))
+        for illegal in range(low, high+1):
+            _illegal_entities.append("%02x" % illegal)
+
     _illegal_xml_chars_RE = re.compile(u'[%s]' % u''.join(_illegal_ranges))
+    _illegal_xml_entities_RE = re.compile(
+        "&#x(%s);" % "|".join(_illegal_entities), re.I
+    )
 
     @classmethod
     def _xpath(cls, tag, expression, namespaces=None):
@@ -77,7 +85,8 @@ class XMLParser(object):
         REPLACEMENT_CHARACTER, because they shouldn't have been in the
         XML file in the first place.
         """
-        return self._illegal_xml_chars_RE.sub("", xml)
+        scrubbed = self._illegal_xml_chars_RE.sub("", xml)
+        return self._illegal_xml_entities_RE.sub("", scrubbed)
 
     def process_all(self, xml, xpath, namespaces=None, handler=None, parser=None):
         if not parser:

@@ -23,6 +23,12 @@ class TestXMLParser(object):
         [tag] = parser.process_all(data, "/tag")
         eq_('I enjoy invalid characters, such as  and ', tag.text)
 
+    def test_invalid_entities_are_stripped(self):
+        data = u"<tag>I enjoy invalid entities, such as &#xfdd0; and &#x1F;</tag>"
+        parser = MockParser()
+        [tag] = parser.process_all(data, "/tag")
+        eq_('I enjoy invalid entities, such as  and ', tag.text)
+
     def test_exception_when_scrub_fails(self):
         # Reraise the lxml exception if invalid characters somehow
         # make it through the scrubbing process.
