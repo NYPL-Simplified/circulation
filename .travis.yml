@@ -11,6 +11,8 @@ services:
 
 language: python
 
+tinychange: true
+
 python:
   - "2.7"
 
