@@ -148,16 +148,29 @@ class TestMeasurement(DatabaseTest):
     def test_overall_quality(self):
         popularity = self._popularity(59)
         rating = self._rating(4)
+
         irrelevant = self._measurement("Some other quantity", 42, self.source, 1)
         pop = popularity.normalized_value
         rat = rating.normalized_value
         eq_(0.5, pop)
         eq_(1.0/3, rat)
         l = [popularity, rating, irrelevant]
-        eq_((0.7*rat)+(0.3*pop), Measurement.overall_quality(l))
+        quality = Measurement.overall_quality(l)
+        eq_((0.7*rat)+(0.3*pop), quality)
 
         # Mess with the weights.
         eq_((0.5*rat)+(0.5*pop), Measurement.overall_quality(l, 0.5, 0.5))
+
+        # Adding a non-popularity measurement that is _equated_ to
+        # popularity via a percentile scale modifies the
+        # normalized value -- we don't care exactly how, only that
+        # it's taken into account.
+        oclc = DataSource.lookup(self._db, DataSource.OCLC)
+        popularityish = self._measurement(
+            Measurement.HOLDINGS, 400, oclc, 10
+        )
+        new_quality = Measurement.overall_quality(l + [popularityish])
+        assert quality != new_quality
 
     def test_overall_quality_based_solely_on_popularity_if_no_rating(self):
         pop = self._popularity(59)
