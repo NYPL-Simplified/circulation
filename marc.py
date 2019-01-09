@@ -469,6 +469,7 @@ class MARCExporter(object):
     # http://www.loc.gov/marc/organizations/org-search.php
     MARC_ORGANIZATION_CODE = "marc_organization_code"
 
+    WEB_CLIENT_URL = u'marc_web_client_url'
     INCLUDE_SUMMARY = u'include_summary'
     INCLUDE_SIMPLIFIED_GENRES = u'include_simplified_genres'
     STORAGE_PROTOCOL = u'storage_protocol'
@@ -483,6 +484,11 @@ class MARCExporter(object):
         { "key": MARC_ORGANIZATION_CODE,
           "label": _("The MARC organization code for this library (003 field)."),
           "description": _("MARC organization codes are assigned by the Library of Congress."),
+        },
+        {
+          "key": WEB_CLIENT_URL,
+          "label": _("The base URL for the web catalog for this library, for the 856 field."),
+          "description": _("If using a library registry that provides a web catalog, this can be left blank."),
         },
         { "key": INCLUDE_SUMMARY,
           "label": _("Include summaries in MARC records (520 field)"),
