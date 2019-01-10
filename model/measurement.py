@@ -155,12 +155,14 @@ class Measurement(Base):
         qualities = []
         for m in measurements:
             l = None
-            if m.quantity_measured in (cls.POPULARITY, cls.DOWNLOADS):
-                l = popularities
-            elif m.quantity_measured == cls.RATING:
+            if m.quantity_measured == cls.RATING:
                 l = ratings
             elif m.quantity_measured == cls.QUALITY:
                 l = qualities
+            else:
+                # NOTE: This is assuming that everything in PERCENTILE_SCALES
+                # is an opaque measure of 'popularity'.
+                l = popularities
             if l is not None:
                 l.append(m)
         popularity = cls._average_normalized_value(popularities)

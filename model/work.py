@@ -1189,8 +1189,14 @@ class Work(Base):
 
     def calculate_quality(self, identifier_ids, default_quality=0):
         _db = Session.object_session(self)
-        quantities = [Measurement.POPULARITY, Measurement.RATING,
-                      Measurement.DOWNLOADS, Measurement.QUALITY]
+        # Relevant Measurements are direct measurements of popularity
+        # and quality, plus any quantity that might be mapppable to the 0..1
+        # range -- ratings, and measurements with an associated percentile
+        # score.
+        quantities = set([
+            Measurement.POPULARITY, Measurement.QUALITY, Measurement.RATING
+        ])
+        quantities = quantities.union(Measurement.PERCENTILE_SCALES.keys())
         measurements = _db.query(Measurement).filter(
             Measurement.identifier_id.in_(identifier_ids)).filter(
                 Measurement.is_most_recent==True).filter(

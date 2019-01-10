@@ -154,10 +154,22 @@ class TestMeasurement(DatabaseTest):
         eq_(0.5, pop)
         eq_(1.0/3, rat)
         l = [popularity, rating, irrelevant]
-        eq_((0.7*rat)+(0.3*pop), Measurement.overall_quality(l))
+        quality = Measurement.overall_quality(l)
+        eq_((0.7*rat)+(0.3*pop), quality)
 
         # Mess with the weights.
         eq_((0.5*rat)+(0.5*pop), Measurement.overall_quality(l, 0.5, 0.5))
+
+        # Adding a non-popularity measurement that is _equated_ to
+        # popularity via a percentile scale modifies the
+        # normalized value -- we don't care exactly how, only that
+        # it's taken into account.
+        oclc = DataSource.lookup(self._db, DataSource.OCLC)
+        popularityish = self._measurement(
+            Measurement.HOLDINGS, 400, oclc, 10
+        )
+        new_quality = Measurement.overall_quality(l + [popularityish])
+        assert quality != new_quality
 
     def test_overall_quality_based_solely_on_popularity_if_no_rating(self):
         pop = self._popularity(59)
@@ -219,9 +231,11 @@ class TestMeasurement(DatabaseTest):
         popularity = identifier.add_measurement(
             self.source, Measurement.POPULARITY, 59)
 
-        # This measurement is irrelevant.
+        # This measurement is irrelevant because "Test Data Source"
+        # doesn't have a mapping from number of editions to a
+        # percentile range.
         irrelevant = identifier.add_measurement(
-            self.source, "Some other quantity", 42)
+            self.source, Measurement.PUBLISHED_EDITIONS, 42)
 
         # If we calculate the quality based solely on the primary
         # identifier, only the most recent popularity is considered,
@@ -233,12 +247,15 @@ class TestMeasurement(DatabaseTest):
         old_quality = w.quality
 
         # But let's say there's another identifier that's equivalent,
-        # and it has a rating.
+        # and it has a number of editions that was obtained from
+        # OCLC Classify, which _does_ have a mapping from number
+        # of editions to a percentile range.
         wi = self._identifier()
-        wi.add_measurement(self.source, Measurement.RATING, 8)
+        oclc = DataSource.lookup(self._db, DataSource.OCLC)
+        wi.add_measurement(oclc, Measurement.PUBLISHED_EDITIONS, 800)
 
-        # Now the quality is higher--the high quality measurement
-        # bumped it up.
+        # Now the quality is higher--the large OCLC PUBLISHED_EDITIONS
+        # measurement bumped it up.
         w.calculate_quality([identifier.id, wi.id])
         assert w.quality > old_quality
 
