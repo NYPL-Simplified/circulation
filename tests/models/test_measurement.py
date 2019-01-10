@@ -148,7 +148,6 @@ class TestMeasurement(DatabaseTest):
     def test_overall_quality(self):
         popularity = self._popularity(59)
         rating = self._rating(4)
-
         irrelevant = self._measurement("Some other quantity", 42, self.source, 1)
         pop = popularity.normalized_value
         rat = rating.normalized_value
