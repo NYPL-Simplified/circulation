@@ -250,7 +250,7 @@ class TestMeasurement(DatabaseTest):
         wi = self._identifier()
         wi.add_measurement(self.source, Measurement.RATING, 8)
 
-        # Now the quality is higher--the high quality measurement
+        # Now the quality is higher--the high rating measurement
         # bumped it up.
         w.calculate_quality([identifier.id, wi.id])
         assert w.quality > old_quality
