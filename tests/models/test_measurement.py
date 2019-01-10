@@ -232,8 +232,8 @@ class TestMeasurement(DatabaseTest):
             self.source, Measurement.POPULARITY, 59)
 
         # This measurement is irrelevant because "Test Data Source"
-        # doesn't have a mapping from number of editions to percentile
-        # range.
+        # doesn't have a mapping from number of editions to a
+        # percentile range.
         irrelevant = identifier.add_measurement(
             self.source, Measurement.PUBLISHED_EDITIONS, 42)
 
@@ -248,7 +248,8 @@ class TestMeasurement(DatabaseTest):
 
         # But let's say there's another identifier that's equivalent,
         # and it has a number of editions that was obtained from
-        # OCLC Classify
+        # OCLC Classify, which _does_ have a mapping from number
+        # of editions to a percentile range.
         wi = self._identifier()
         oclc = DataSource.lookup(self._db, DataSource.OCLC)
         wi.add_measurement(oclc, Measurement.PUBLISHED_EDITIONS, 800)
