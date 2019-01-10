@@ -232,9 +232,11 @@ class TestMeasurement(DatabaseTest):
         popularity = identifier.add_measurement(
             self.source, Measurement.POPULARITY, 59)
 
-        # This measurement is irrelevant.
+        # This measurement is irrelevant because "Test Data Source"
+        # doesn't have a mapping from number of editions to percentile
+        # range.
         irrelevant = identifier.add_measurement(
-            self.source, "Some other quantity", 42)
+            self.source, Measurement.PUBLISHED_EDITIONS, 42)
 
         # If we calculate the quality based solely on the primary
         # identifier, only the most recent popularity is considered,
@@ -246,12 +248,14 @@ class TestMeasurement(DatabaseTest):
         old_quality = w.quality
 
         # But let's say there's another identifier that's equivalent,
-        # and it has a rating.
+        # and it has a number of editions that was obtained from
+        # OCLC Classify
         wi = self._identifier()
-        wi.add_measurement(self.source, Measurement.RATING, 8)
+        oclc = DataSource.lookup(self._db, DataSource.OCLC)
+        wi.add_measurement(oclc, Measurement.PUBLISHED_EDITIONS, 800)
 
-        # Now the quality is higher--the high rating measurement
-        # bumped it up.
+        # Now the quality is higher--the large OCLC PUBLISHED_EDITIONS
+        # measurement bumped it up.
         w.calculate_quality([identifier.id, wi.id])
         assert w.quality > old_quality
 
