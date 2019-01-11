@@ -1246,13 +1246,19 @@ class LicensePoolDeliveryMechanism(Base):
                          'delivery_mechanism_id', 'resource_id'),
     )
 
+# The uniqueness constraint doesn't enforce uniqueness when one of the
+# fields is null, and one of these fields -- resource_id -- is
+# _usually_ null. So we also need a unique partial index to properly
+# enforce the constraint.
 Index(
-    "ix_licensepooldeliveries_datasource_identifier_mechanism",
+    'ix_licensepooldeliveries_unique_when_no_resource',
     LicensePoolDeliveryMechanism.data_source_id,
     LicensePoolDeliveryMechanism.identifier_id,
     LicensePoolDeliveryMechanism.delivery_mechanism_id,
-    LicensePoolDeliveryMechanism.resource_id,
+    unique=True,
+    postgresql_where=(LicensePoolDeliveryMechanism.resource_id==None)
 )
+
 
 class DeliveryMechanism(Base, HasFullTableCache):
     """A technique for delivering a book to a patron.
@@ -1305,6 +1311,10 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
+
+    __table_args__ = (
+        UniqueConstraint('content_type', 'drm_scheme'),
+    )
 
     @property
     def name(self):
@@ -1424,10 +1434,17 @@ class DeliveryMechanism(Base, HasFullTableCache):
         # other non-streaming delivery mechanism.
         return False
 
-Index("ix_deliverymechanisms_drm_scheme_content_type",
-      DeliveryMechanism.drm_scheme,
-      DeliveryMechanism.content_type,
-      unique=True)
+# The uniqueness constraint doesn't enforce uniqueness when one of the
+# fields is null, and one of these fields -- drm_scheme -- is
+# frequently null. So we also need a unique partial index to properly
+# enforce the constraint.
+Index(
+    'ix_deliverymechanisms_unique_when_no_drm',
+    DeliveryMechanism.content_type,
+    unique=True,
+    postgresql_where=(DeliveryMechanism.drm_scheme==None)
+)
+
 
 class RightsStatus(Base):
 
