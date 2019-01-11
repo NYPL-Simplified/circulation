@@ -139,6 +139,24 @@ class TestDeliveryMechanism(DatabaseTest):
         eq_(True, epub_no_drm.compatible_with(pdf_no_drm, True))
         eq_(False, epub_no_drm.compatible_with(pdf_adobe, True))
 
+    def test_uniqueness_constraint(self):
+
+        dm = DeliveryMechanism
+
+        # You can't create two DeliveryMechanisms with the same values
+        # for content_type and drm_scheme.
+        with_drm_args = dict(content_type="type1", drm_scheme="scheme1")
+        without_drm_args = dict(content_type="type1", drm_scheme=None)
+        with_drm = create(self._db, dm, **with_drm_args)
+        assert_raises(IntegrityError, create, self._db, dm, **with_drm_args)
+        self._db.rollback()
+
+        # You can't create two DeliveryMechanisms with the same value
+        # for content_type and a null value for drm_scheme.
+        without_drm = create(self._db, dm, **without_drm_args)
+        assert_raises(IntegrityError, create, self._db, dm, **without_drm_args)
+        self._db.rollback()
+
 
 class TestRightsStatus(DatabaseTest):
 
@@ -935,6 +953,29 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         )
         eq_(lpdm2.delivery_mechanism, lpdm.delivery_mechanism)
         assert lpdm2.resource != lpdm.resource
+
+        # We can even create an LPDM with the same data type and DRM
+        # status and _no_ resource.
+        lpdm3 = pool.set_delivery_mechanism(
+            lpdm.delivery_mechanism.content_type,
+            lpdm.delivery_mechanism.drm_scheme,
+            lpdm.rights_status.uri,
+            None
+        )
+        eq_(lpdm3.delivery_mechanism, lpdm.delivery_mechanism)
+        eq_(None, lpdm3.resource)
+
+        # But we can't create a second such LPDM -- it violates a
+        # constraint of a unique index.
+        assert_raises(
+            IntegrityError, create, self._db,
+            LicensePoolDeliveryMechanism,
+            delivery_mechanism=lpdm3.delivery_mechanism,
+            identifier=pool.identifier,
+            data_source=pool.data_source,
+            resource=None
+        )
+        self._db.rollback()
 
     def test_compatible_with(self):
         """Test the rules about which LicensePoolDeliveryMechanisms are
