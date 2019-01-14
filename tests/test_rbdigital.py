@@ -1184,7 +1184,7 @@ class TestAudiobookManifest(RBDigitalAPITest):
         # an MP3 file.
         [alternate] = first['alternates']
         eq_("http://fulfill-part/0", alternate['href'])
-        eq_("audio/meg", alternate['type'])
+        eq_("audio/mpeg", alternate['type'])
 
         # An alternate link and a cover link were imported.
         alternate, cover = manifest.links
@@ -1195,6 +1195,12 @@ class TestAudiobookManifest(RBDigitalAPITest):
         eq_("cover", cover['rel'])
         assert "image_512x512" in cover['href']
         eq_("image/png", cover['type'])
+
+        # If we don't pass in a fulfill_part_url function, then
+        # the parts do not have any 'alternate' representations.
+        manifest = AudiobookManifest(book)
+        first = manifest.readingOrder[0]
+        assert 'alternates' not in first
 
     def test_empty_constructor(self):
         """An empty RBdigital manifest becomes an empty AudioManifest
