@@ -1501,14 +1501,21 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
         An access document is a small JSON document containing a link
         to the URL we actually want to deliver.
         """
-        # We don't send our normal RBdigital credentials with this
-        # request because it's going to a different, publicly
-        # accessible server.
-        access_document = self.api._make_request(url, 'GET', {})
+        access_document = self._raw_request(url)
         return self.process_access_document(access_document)
+
+    def _raw_request(self, url):
+        """Make a request without using our normal RBdigital credentials.
+
+        We do this when we need to access a different, publicly
+        accessible server. Basically this only happens when we are
+        retrieving access documents.
+        """
+        return self.api._make_request(url, 'GET', {})
 
     @classmethod
     def process_audiobook_manifest(self, rb_data, fulfill_part_url=None):
+
         """Convert RBdigital's proprietary manifest format
         into a standard Audiobook Manifest document.
         """

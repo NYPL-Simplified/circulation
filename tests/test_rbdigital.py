@@ -1068,6 +1068,77 @@ class TestCirculationMonitor(RBDigitalAPITest):
         eq_(1, item_count)
         pool_ebook.licenses_available = 0
 
+class TestRBFulfillmentInfo(RBDigitalAPITest):
+
+
+    def test_fulfill_part(self):
+        get_data = self.api.get_data
+
+        ignore, [book] = get_data(
+            "response_patron_checkouts_with_audiobook.json"
+        )
+        manifest = AudiobookManifest(book)
+
+        class Mock(RBFulfillmentInfo):
+            def _raw_request(self, url):
+                self.raw_request_called_with = url
+                data, ignore = get_data(
+                    "audiobook_chapter_access_document.json"
+                )
+                return MockRequestsResponse(200, {}, data)
+
+        # We have an RBFulfillmentInfo object and the underlying
+        # AudiobookManifest has already been created.
+        fulfill_part_url = object()
+        info = Mock(
+            fulfill_part_url, self.api, "data source",
+            "identifier type", "identifier", "key"
+        )
+
+        # We don't be using fulfill_part_url, since it's only used
+        # when we're fulfilling the audiobook as a whole, but let's
+        # check to make sure it was set correctly.
+        eq_(fulfill_part_url, info.fulfill_part_url)
+
+        # Prepopulate the manifest so that we don't go over the
+        # network trying to get it.
+        info._fetched = True
+        info.manifest = manifest
+
+        # Now we're going to try various situations where partial
+        # fulfillment is impossible. Each one will raise
+        # CannotPartiallyFulfill.
+        m = info.fulfill_part
+
+        info._content_type = "not/an/audiobook"
+        assert_raises_regexp(
+            CannotPartiallyFulfill,
+            "This work does not support partial fulfillment."
+        )
+
+        info._content_type = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE
+        assert_raises_regexp(
+            CannotPartiallyFulfill,
+            '"not a number" is not a valid part number', m, "not a number"
+        )
+
+        assert_raises_regexp(
+            CannotPartiallyFulfill, 'Could not locate part number -1', m, -1
+        )
+
+        # There are 21 parts in this audiobook, numbered from 0 to 20.
+        assert_raises_regexp(
+            CannotPartiallyFulfill, 'Could not locate part number 21', m,
+            len(manifest.readingOrder)
+        )
+
+        # Finally, let's fulfill a part that does exist.
+        fulfillment = m(10)
+        assert isinstance(fulfillment, FulfillmentInfo)
+        eq_("http://book/chapter1.mp3", fulfillment.content_link)
+        eq_("audio/mpeg", fulfillment.content_type)
+
+
 class TestAudiobookManifest(RBDigitalAPITest):
 
     def test_constructor(self):
