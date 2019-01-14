@@ -1145,10 +1145,14 @@ class TestAudiobookManifest(RBDigitalAPITest):
         """A reasonable RBdigital manifest becomes a reasonable
         AudiobookManifest object.
         """
+
+        def fulfill_part_url(part):
+            return "http://fulfill-part/%s" % part
+
         ignore, [book] = self.api.get_data(
             "response_patron_checkouts_with_audiobook.json"
         )
-        manifest = AudiobookManifest(book)
+        manifest = AudiobookManifest(book, fulfill_part_url)
 
         # We know about a lot of metadata.
         eq_('http://bib.schema.org/Audiobook', manifest.metadata['@type'])
@@ -1174,6 +1178,13 @@ class TestAudiobookManifest(RBDigitalAPITest):
         eq_(417200, first['schema:contentSize'])
         eq_("Introduction", first['title'])
         eq_(69.0, first['duration'])
+
+        # fulfill_part_url was used to create an alternate link
+        # that goes directly (from the client's perspective) to
+        # an MP3 file.
+        [alternate] = first['alternates']
+        eq_("http://fulfill-part/0", alternate['href'])
+        eq_("audio/meg", alternate['type'])
 
         # An alternate link and a cover link were imported.
         alternate, cover = manifest.links

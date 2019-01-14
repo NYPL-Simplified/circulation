@@ -1483,8 +1483,9 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
             individual_download_url = file.get('downloadUrl', None)
 
         if self._content_type == Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
-            # We have an audiobook.
-            self.manifest = self.process_audiobook_manifest(
+            # We have an audiobook. Convert it from the
+            # proprietary format to the standard format.
+            self.manifest = AudiobookManifest(
                 self.key, self.fulfill_part_url
             )
             self._content = unicode(self.manifest)
@@ -1512,14 +1513,6 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
         retrieving access documents.
         """
         return self.api._make_request(url, 'GET', {})
-
-    @classmethod
-    def process_audiobook_manifest(self, rb_data, fulfill_part_url=None):
-
-        """Convert RBdigital's proprietary manifest format
-        into a standard Audiobook Manifest document.
-        """
-        return AudiobookManifest(rb_data, fulfill_part_url)
 
     @classmethod
     def process_access_document(self, access_document):
