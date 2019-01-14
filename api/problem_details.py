@@ -191,13 +191,6 @@ CANNOT_FULFILL = pd(
       _("Could not fulfill loan."),
 )
 
-NO_ACCEPTABLE_FORMAT = pd(
-    "http://library-simplified.org/terms/problem/no-acceptable-format",
-    502,
-    _("No acceptable format."),
-    _("This book is not available in the requested format."),
-)
-
 DELIVERY_CONFLICT = pd(
       "http://librarysimplified.org/terms/problem/delivery-mechanism-conflict",
       409,

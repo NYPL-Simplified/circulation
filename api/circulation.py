@@ -39,19 +39,23 @@ class CirculationInfo(object):
         """A loan, hold, or whatever.
 
         :param collection: The Collection that gives us the right to
-        borrow this title. This does not have to be specified in the
-        constructor (the code that instantiates CirculationInfo may
-        not have access to a database connection), but it needs to be
-        present by the time the LoanInfo is connected to a
-        LicensePool.
+        borrow this title, or the numeric database ID of the
+        same. This does not have to be specified in the constructor --
+        the code that instantiates CirculationInfo may not have
+        access to a database connection -- but it needs to be present
+        by the time the LoanInfo is connected to a LicensePool.
 
         :param data_source_name: The name of the data source that provides
             the LicencePool.
         :param identifier_type: The type of the Identifier associated
             with the LicensePool.
         :param identifier: The string identifying the LicensePool.
+
         """
-        self.collection_id = collection.id
+        if isinstance(collection, Collection):
+            self.collection_id = collection.id
+        else:
+            self.collection_id = collection
         self.data_source_name = data_source_name
         self.identifier_type = identifier_type
         self.identifier = identifier
@@ -782,7 +786,7 @@ class CirculationAPI(object):
                 part=part, fulfill_part_url=fulfill_part_url
             )
             if not fulfillment or not (
-                    fulfillment.content_link or fulfillment.content
+                fulfillment.content_link or fulfillment.content
             ):
                 raise NoAcceptableFormat()
 

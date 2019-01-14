@@ -1241,7 +1241,8 @@ class LoanController(CirculationManagerController):
         def fulfill_part_url(part):
             return url_for(
                 "fulfill", license_pool_id=requested_license_pool.id,
-                mechanism_id=mechanism.id, part=unicode(part)
+                mechanism_id=mechanism.id, part=unicode(part),
+                _external=True
             )
 
         try:
