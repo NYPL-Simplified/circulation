@@ -405,7 +405,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         self.update_hold_queue(licensepool)
         return loan
 
-    def fulfill(self, patron, pin, licensepool, **kwargs):
+    def fulfill(self, patron, pin, licensepool, internal_format, **kwargs):
         """Get the actual resource file to the patron.
 
         :param kwargs: A container for arguments to fulfill()

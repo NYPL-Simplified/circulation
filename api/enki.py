@@ -354,7 +354,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         response = self.request(url, method='get', params=args)
         return response
 
-    def fulfill(self, patron, pin, licensepool, **kwargs):
+    def fulfill(self, patron, pin, licensepool, internal_format, **kwargs):
         """Get the actual resource file to the patron.
 
         :param kwargs: A container for arguments to fulfill()
