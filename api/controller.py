@@ -1248,7 +1248,7 @@ class LoanController(CirculationManagerController):
         try:
             fulfillment = self.circulation.fulfill(
                 patron, credential, requested_license_pool, mechanism,
-                part, fulfill_part_url=fulfill_part_url
+                part=part, fulfill_part_url=fulfill_part_url
             )
         except DeliveryMechanismConflict, e:
             return DELIVERY_CONFLICT.detailed(e.message)

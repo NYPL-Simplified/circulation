@@ -24,7 +24,6 @@ from circulation_exceptions import *
 from config import Configuration
 
 from core.analytics import Analytics
-from core.app_server import url_for as core_url_for
 
 from core.config import (
     CannotLoadConfiguration,
