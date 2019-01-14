@@ -448,13 +448,19 @@ class TestLoansController(RouteTest):
         # open-access titles.
         url = '/works/<license_pool_id>/fulfill'
         self.assert_request_calls(
-            url, self.controller.fulfill, "<license_pool_id>", None
+            url, self.controller.fulfill, "<license_pool_id>", None, None
         )
 
         url = '/works/<license_pool_id>/fulfill/<mechanism_id>'
         self.assert_request_calls(
             url, self.controller.fulfill, "<license_pool_id>",
-            "<mechanism_id>"
+            "<mechanism_id>", None
+        )
+
+        url = '/works/<license_pool_id>/fulfill/<mechanism_id>/<part>'
+        self.assert_request_calls(
+            url, self.controller.fulfill, "<license_pool_id>",
+            "<mechanism_id>", "<part>"
         )
 
     def test_revoke_loan_or_hold(self):

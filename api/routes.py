@@ -293,8 +293,8 @@ def shared_collection_revoke_loan(collection_name, loan_id):
 @app.route("/collections/<collection_name>/loans/<loan_id>/fulfill/<mechanism_id>")
 @app.route("/collections/<collection_name>/loans/<loan_id>/fulfill/<mechanism_id>")
 @returns_problem_detail
-def shared_collection_fulfill(collection_name, loan_id, mechanism_id, part):
-    return app.manager.shared_collection_controller.fulfill(collection_name, loan_id, mechanism_id, part)
+def shared_collection_fulfill(collection_name, loan_id, mechanism_id):
+    return app.manager.shared_collection_controller.fulfill(collection_name, loan_id, mechanism_id)
 
 @app.route("/collections/<collection_name>/holds/<hold_id>")
 @returns_problem_detail
