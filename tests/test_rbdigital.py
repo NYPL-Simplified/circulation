@@ -1061,7 +1061,7 @@ class TestAudiobookManifest(RBDigitalAPITest):
         first = manifest.readingOrder[0]
         eq_("358456", first['rbdigital:id'])
         eq_("https://download-piece/1", first['href'])
-        eq_("audio/mpeg", first['type'])
+        eq_(manifest.INTERMEDIATE_LINK_MEDIA_TYPE, first['type'])
         eq_(417200, first['schema:contentSize'])
         eq_("Introduction", first['title'])
         eq_(69.0, first['duration'])

@@ -615,8 +615,6 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             # Also, their DRM usage may change in the future.
             drm_scheme = DeliveryMechanism.ADOBE_DRM
         elif medium == 'eaudio':
-            # TODO: we can't deliver on this promise yet, but this is
-            # how we will be delivering audiobook manifests.
             delivery_type = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE
 
         if delivery_type:
@@ -1980,6 +1978,13 @@ class AudiobookManifest(CoreAudiobookManifest):
     # "patronId": 111,
     # "libraryId": 222
 
+    # RBdigital audiobook manifests contain links to JSON documents
+    # that contain links to MP3 files. This is a media type we
+    # invented for these hypermedia documents, so that a client
+    # examining a manifest can distinguish them from random JSON
+    # files.
+    INTERMEDIATE_LINK_MEDIA_TYPE = "vnd.librarysimplified/rbdigital-audiobook-part+json"
+
     def __init__(self, content_dict, **kwargs):
         super(AudiobookManifest, self).__init__(**kwargs)
         self.raw = content_dict
@@ -2061,7 +2066,10 @@ class AudiobookManifest(CoreAudiobookManifest):
         id = file_data.get('id')
         size = file_data.get('size')
         filename = file_data.get('filename')
-        type = Representation.guess_media_type(filename)
+        type = self.INTERMEDIATE_LINK_MEDIA_TYPE
+
+        # TODO: Alternate link would go here. We would need to use
+        # url_for.
 
         extra = {}
         for k, v, transform in (
