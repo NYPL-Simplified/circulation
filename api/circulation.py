@@ -52,10 +52,10 @@ class CirculationInfo(object):
         :param identifier: The string identifying the LicensePool.
 
         """
-        if isinstance(collection, Collection):
-            self.collection_id = collection.id
-        else:
+        if isinstance(collection, int):
             self.collection_id = collection
+        else:
+            self.collection_id = collection.id
         self.data_source_name = data_source_name
         self.identifier_type = identifier_type
         self.identifier = identifier
