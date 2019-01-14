@@ -286,7 +286,6 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             allowed_response_codes=allowed_response_codes,
             disallowed_response_codes=disallowed_response_codes
         )
-
         if (response.content
             and 'Invalid Basic Token or permission denied' in response.content):
             raise BadResponseException(
