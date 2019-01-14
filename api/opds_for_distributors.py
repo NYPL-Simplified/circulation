@@ -194,8 +194,14 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
             end_date=None,
         )
 
-    def fulfill(self, patron, pin, licensepool, internal_format):
-        """Retrieve a bearer token that can be used to download the book."""
+    def fulfill(self, patron, pin, licensepool, internal_format, part=None):
+        """Retrieve a bearer token that can be used to download the book.
+
+        :param part: Ignored -- OPDS For Distributors does not support
+        fulfillment of individual parts of books.
+
+        :return: a FulfillmentInfo object.
+        """
 
         links = licensepool.identifier.links
         # Find the acquisition link with the right media type.

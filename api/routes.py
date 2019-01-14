@@ -291,9 +291,10 @@ def shared_collection_revoke_loan(collection_name, loan_id):
 
 @app.route("/collections/<collection_name>/loans/<loan_id>/fulfill", defaults=dict(mechanism_id=None))
 @app.route("/collections/<collection_name>/loans/<loan_id>/fulfill/<mechanism_id>")
+@app.route("/collections/<collection_name>/loans/<loan_id>/fulfill/<mechanism_id>")
 @returns_problem_detail
-def shared_collection_fulfill(collection_name, loan_id, mechanism_id):
-    return app.manager.shared_collection_controller.fulfill(collection_name, loan_id, mechanism_id)
+def shared_collection_fulfill(collection_name, loan_id, mechanism_id, part):
+    return app.manager.shared_collection_controller.fulfill(collection_name, loan_id, mechanism_id, part)
 
 @app.route("/collections/<collection_name>/holds/<hold_id>")
 @returns_problem_detail
@@ -371,11 +372,12 @@ def borrow(identifier_type, identifier, mechanism_id=None):
 
 @library_route('/works/<license_pool_id>/fulfill')
 @library_route('/works/<license_pool_id>/fulfill/<mechanism_id>')
+@library_route('/works/<license_pool_id>/fulfill/<mechanism_id>/<part>')
 @has_library
 @allows_patron_web
 @returns_problem_detail
-def fulfill(license_pool_id, mechanism_id=None):
-    return app.manager.loans.fulfill(license_pool_id, mechanism_id)
+def fulfill(license_pool_id, mechanism_id=None, part=None):
+    return app.manager.loans.fulfill(license_pool_id, mechanism_id, part)
 
 @library_route('/loans/<license_pool_id>/revoke', methods=['GET', 'PUT'])
 @has_library

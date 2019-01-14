@@ -714,7 +714,7 @@ class CirculationAPI(object):
             return False
         return api.can_fulfill_without_loan(patron, pool, lpdm)
 
-    def fulfill(self, patron, pin, licensepool, delivery_mechanism, sync_on_failure=True):
+    def fulfill(self, patron, pin, licensepool, delivery_mechanism, part=None, sync_on_failure=True):
         """Fulfil a book that a patron has previously checked out.
 
         :param delivery_mechanism: A LicensePoolDeliveryMechanism
@@ -722,6 +722,10 @@ class CirculationAPI(object):
         the book has previously been delivered through some other
         mechanism, this parameter is ignored and the previously used
         mechanism takes precedence.
+
+        :param part: A vendor-specific identifier indicating that the
+        patron wants to fulfill one specific part of the book
+        (e.g. one chapter of an audiobook), not the whole thing.
 
         :return: A FulfillmentInfo object.
         """
@@ -754,13 +758,14 @@ class CirculationAPI(object):
 
         if licensepool.open_access:
             fulfillment = self.fulfill_open_access(
-                licensepool, delivery_mechanism.delivery_mechanism
+                licensepool, delivery_mechanism.delivery_mechanism,
+                part
             )
         else:
             api = self.api_for_license_pool(licensepool)
             internal_format = api.internal_format(delivery_mechanism)
             fulfillment = api.fulfill(
-                patron, pin, licensepool, internal_format
+                patron, pin, licensepool, internal_format, part
             )
             if not fulfillment or not (
                     fulfillment.content_link or fulfillment.content
@@ -787,9 +792,10 @@ class CirculationAPI(object):
             __transaction = self._db.begin_nested()
             loan.fulfillment = delivery_mechanism
             __transaction.commit()
+
         return fulfillment
 
-    def fulfill_open_access(self, licensepool, delivery_mechanism):
+    def fulfill_open_access(self, licensepool, delivery_mechanism, part=None):
         """Fulfill an open-access LicensePool through the requested
         DeliveryMechanism.
 
@@ -1236,9 +1242,9 @@ class BaseCirculationAPI(object):
         """In general, you can't fulfill a book without a loan."""
         return False
 
-    def fulfill(self, patron, pin, licensepool, internal_format):
+    def fulfill(self, patron, pin, licensepool, internal_format, part=None):
         """ Get the actual resource file to the patron.
-        :return a FulfillmentInfo object.
+        :return: a FulfillmentInfo object.
         """
         raise NotImplementedError()
 

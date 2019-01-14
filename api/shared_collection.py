@@ -164,7 +164,7 @@ class SharedCollectionAPI(object):
             raise NotCheckedOut(_("This loan belongs to a different library."))
         return api.checkin_from_external_library(client, loan)
 
-    def fulfill(self, collection, client, loan, mechanism):
+    def fulfill(self, collection, client, loan, mechanism, part=None):
         api = self.api(collection)
         self.check_client_authorization(collection, client)
 
