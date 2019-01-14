@@ -438,8 +438,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         return resp_obj
 
     def fulfill(
-        self, patron, pin, licensepool, internal_format, part,
-        fulfill_part_url
+        self, patron, pin, licensepool, internal_format, part=None,
+        fulfill_part_url=None
     ):
         """Get an actual resource file to the patron. This may
         represent the entire book or only one part of it.
@@ -787,7 +787,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         internal_patron_id = resp_dict.get('patronId', None)
         return internal_patron_id
 
-    def get_patron_checkouts(self, patron_id, fulfill_part_url):
+    def get_patron_checkouts(self, patron_id, fulfill_part_url=None):
         """
         Gets the books and audio the patron currently has checked out.
         Obtains fulfillment info for each item -- the way to fulfill a book
