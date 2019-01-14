@@ -405,11 +405,11 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         self.update_hold_queue(licensepool)
         return loan
 
-    def fulfill(self, patron, pin, licensepool, internal_format, part=None):
+    def fulfill(self, patron, pin, licensepool, **kwargs):
         """Get the actual resource file to the patron.
 
-        :param part: Ignored -- ODL does not support fulfillment of
-        individual parts of books.
+        :param kwargs: A container for arguments to fulfill()
+           which are not relevant to this vendor.
 
         :return: a FulfillmentInfo object.
         """
@@ -1168,11 +1168,11 @@ class SharedODLAPI(BaseCirculationAPI):
             raise CannotReturn()
         return True
 
-    def fulfill(self, patron, pin, licensepool, internal_format, part=None):
+    def fulfill(self, patron, pin, licensepool, internal_format, **kwargs):
         """Get the actual resource file to the patron.
 
-        :param part: Ignored -- Shared ODL collections do not support
-        fulfillment of individual parts of books.
+        :param kwargs: A container for arguments to fulfill()
+           which are not relevant to this vendor.
 
         :return: a FulfillmentInfo object.
         """

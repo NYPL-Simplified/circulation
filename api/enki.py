@@ -354,11 +354,11 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         response = self.request(url, method='get', params=args)
         return response
 
-    def fulfill(self, patron, pin, licensepool, internal_format, part=None):
+    def fulfill(self, patron, pin, licensepool, **kwargs):
         """Get the actual resource file to the patron.
 
-        :param part: Ignored -- Enki does not support fulfillment of
-        individual parts of books.
+        :param kwargs: A container for arguments to fulfill()
+           which are not relevant to this vendor.
 
         :return: a FulfillmentInfo object.
         """

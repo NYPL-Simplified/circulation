@@ -714,7 +714,7 @@ class CirculationAPI(object):
             return False
         return api.can_fulfill_without_loan(patron, pool, lpdm)
 
-    def fulfill(self, patron, pin, licensepool, delivery_mechanism, part=None, sync_on_failure=True):
+    def fulfill(self, patron, pin, licensepool, delivery_mechanism, part=None, fulfill_part_url=None, sync_on_failure=True):
         """Fulfil a book that a patron has previously checked out.
 
         :param delivery_mechanism: A LicensePoolDeliveryMechanism
@@ -727,7 +727,12 @@ class CirculationAPI(object):
         patron wants to fulfill one specific part of the book
         (e.g. one chapter of an audiobook), not the whole thing.
 
+        :param fulfill_part_url: A function that takes one argument (a
+        vendor-specific part identifier) and returns the URL to use
+        when fulfilling that part.
+
         :return: A FulfillmentInfo object.
+
         """
         fulfillment = None
         loan = get_one(
@@ -745,6 +750,7 @@ class CirculationAPI(object):
                 return self.fulfill(
                     patron, pin, licensepool=licensepool,
                     delivery_mechanism=delivery_mechanism,
+                    part=part, fulfill_part_url=fulfill_part_url,
                     sync_on_failure=False
                 )
             else:
@@ -757,15 +763,23 @@ class CirculationAPI(object):
             )
 
         if licensepool.open_access:
+            # We ignore the vendor-specific arguments when doing
+            # open-access fulfillment, because we just don't support
+            # partial fulfillment of open-access content.
             fulfillment = self.fulfill_open_access(
                 licensepool, delivery_mechanism.delivery_mechanism,
-                part
             )
         else:
             api = self.api_for_license_pool(licensepool)
             internal_format = api.internal_format(delivery_mechanism)
+
+            # Here we _do_ pass in the vendor-specific arguments, but
+            # we pass them in as keyword arguments, to minimize the
+            # impact on implementation signatures. Most vendor APIs
+            # will ignore one or more of these arguments.
             fulfillment = api.fulfill(
-                patron, pin, licensepool, internal_format, part
+                patron, pin, licensepool, internal_format=internal_format,
+                part=part, fulfill_part_url=fulfill_part_url
             )
             if not fulfillment or not (
                     fulfillment.content_link or fulfillment.content
@@ -795,7 +809,7 @@ class CirculationAPI(object):
 
         return fulfillment
 
-    def fulfill_open_access(self, licensepool, delivery_mechanism, part=None):
+    def fulfill_open_access(self, licensepool, delivery_mechanism):
         """Fulfill an open-access LicensePool through the requested
         DeliveryMechanism.
 
@@ -1242,8 +1256,25 @@ class BaseCirculationAPI(object):
         """In general, you can't fulfill a book without a loan."""
         return False
 
-    def fulfill(self, patron, pin, licensepool, internal_format, part=None):
+    def fulfill(self, patron, pin, licensepool, internal_format=None,
+                part=None, fulfill_part_url=None):
         """ Get the actual resource file to the patron.
+
+        Implementations are encouraged to define **kwargs as a container
+        for vendor-specific arguments, so that they don't have to change
+        as new arguments are added.
+
+        :param internal_format: A vendor-specific name indicating
+        the format requested by the patron.
+
+        :param part: A vendor-specific identifier indicating that the
+        patron wants to fulfill one specific part of the book
+        (e.g. one chapter of an audiobook), not the whole thing.
+
+        :param fulfill_part_url: A function that takes one argument (a
+        vendor-specific part identifier) and returns the URL to use
+        when fulfilling that part.
+
         :return: a FulfillmentInfo object.
         """
         raise NotImplementedError()

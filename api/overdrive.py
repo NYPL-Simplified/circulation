@@ -431,11 +431,11 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         self.raise_exception_on_error(data)
         return data
 
-    def fulfill(self, patron, pin, licensepool, internal_format, part=None):
+    def fulfill(self, patron, pin, licensepool, internal_format, **kwargs):
         """Get the actual resource file to the patron.
 
-        :param part: Ignored -- Overdrive does not support fulfillment of
-        individual parts of books.
+        :param kwargs: A container for arguments to fulfill()
+           which are not relevant to this vendor.
 
         :return: a FulfillmentInfo object.
         """

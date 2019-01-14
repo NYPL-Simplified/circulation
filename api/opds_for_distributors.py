@@ -194,11 +194,11 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
             end_date=None,
         )
 
-    def fulfill(self, patron, pin, licensepool, internal_format, part=None):
+    def fulfill(self, patron, pin, licensepool, internal_format, **kwargs):
         """Retrieve a bearer token that can be used to download the book.
 
-        :param part: Ignored -- OPDS For Distributors does not support
-        fulfillment of individual parts of books.
+        :param kwargs: A container for arguments to fulfill()
+           which are not relevant to this vendor.
 
         :return: a FulfillmentInfo object.
         """

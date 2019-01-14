@@ -670,11 +670,11 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
 
         raise NotFoundOnRemote("Could not find active hold for patron %s, record %s" % (patron, record_id))
 
-    def fulfill(self, patron, pin, licensepool, internal_format, part=None):
+    def fulfill(self, patron, pin, licensepool, internal_format, **kwargs):
         """Get the actual resource file to the patron.
 
-        :param part: Ignored -- Odilo does not support fulfillment of
-        individual parts of books.
+        :param kwargs: A container for arguments to fulfill()
+           which are not relevant to this vendor.
 
         :return: a FulfillmentInfo object.
         """

@@ -437,13 +437,21 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         return resp_obj
 
-    def fulfill(self, patron, pin, licensepool, internal_format, part=None):
-        """Get the actual resource file to the patron.
+    def fulfill(
+        self, patron, pin, licensepool, internal_format, part,
+        fulfill_part_url
+    ):
+        """Get an actual resource file to the patron. This may
+        represent the entire book or only one part of it.
 
         :param part: When the patron wants to fulfill a specific part
         of the book, rather than the title as a whole, this will be
         set to a string representation of the numeric position of the
         desired part.
+
+        :param fulfill_part_url: When the book can be fulfilled in
+        parts, this function will take a part number and generate the
+        URL to fulfill that specific part.
 
         :return a FulfillmentInfo object.
         """
@@ -451,7 +459,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         patron_rbdigital_id = self.patron_remote_identifier(patron)
         (item_rbdigital_id, item_media) = self.validate_item(licensepool)
 
-        checkouts_list = self.get_patron_checkouts(patron_id=patron_rbdigital_id)
+        checkouts_list = self.get_patron_checkouts(patron_id=patron_rbdigital_id, fulfill_part_url=fulfill_part_url)
 
         # find this licensepool in patron's checkouts
         found_checkout = None
@@ -467,7 +475,13 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 )
             )
 
-        return found_checkout.fulfillment_info
+        fulfillment = found_checkout.fulfillment_info
+        if part is None:
+            # They want the whole thing.
+            return fulfillment
+
+        # They want only one part of the book.
+        return fulfillment.fulfill_part(part)
 
     def place_hold(self, patron, pin, licensepool, notification_email_address):
         """Place a book on hold.

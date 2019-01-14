@@ -131,7 +131,8 @@ class MockRemoteAPI(BaseCirculationAPI):
         # Should be a HoldInfo.
         return self._return_or_raise('hold')
 
-    def fulfill(self, patron, password, pool, delivery_mechanism, part):
+    def fulfill(self, patron, pin, licensepool, internal_format=None,
+                part=None, fulfill_part_url=None):
         # Should be a FulfillmentInfo.
         return self._return_or_raise('fulfill')
 
@@ -271,7 +272,8 @@ class MockSharedCollectionAPI(SharedCollectionAPI):
     def queue_fulfill(self, response):
         self._queue('fulfill', response)
 
-    def fulfill(self, collection, client, loan, mechanism, part):
+    def fulfill(self, patron, pin, licensepool, internal_format=None,
+                part=None, fulfill_part_url=None):
         return self._return_or_raise('fulfill')
 
     def queue_revoke_hold(self, response):
