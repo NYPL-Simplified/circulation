@@ -21,6 +21,7 @@ from api.circulation import (
     APIAwareFulfillmentInfo,
     BaseCirculationAPI,
     CirculationAPI,
+    CirculationInfo,
     DeliveryMechanismInfo,
     FulfillmentInfo,
     LoanInfo,
@@ -84,6 +85,19 @@ class TestCirculationAPI(DatabaseTest):
         return self.circulation.sync_bookshelf(
             self.patron, '1234'
         )
+
+    def test_circulationinfo_collection_id(self):
+        # It's possible to instantiate CirculationInfo (the superclass of all
+        # other circulation-related *Info classes) with either a
+        # Collection-like object or a numeric collection ID.
+        cls = CirculationInfo
+        other_args = [None] * 3
+
+        info = cls(100, *other_args)
+        eq_(100, info.collection_id)
+
+        info = cls(self.pool.collection, *other_args)
+        eq_(self.pool.collection.id, info.collection_id)
 
     def test_borrow_sends_analytics_event(self):
         now = datetime.utcnow()

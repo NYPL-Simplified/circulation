@@ -194,8 +194,14 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
             end_date=None,
         )
 
-    def fulfill(self, patron, pin, licensepool, internal_format):
-        """Retrieve a bearer token that can be used to download the book."""
+    def fulfill(self, patron, pin, licensepool, internal_format, **kwargs):
+        """Retrieve a bearer token that can be used to download the book.
+
+        :param kwargs: A container for arguments to fulfill()
+           which are not relevant to this vendor.
+
+        :return: a FulfillmentInfo object.
+        """
 
         links = licensepool.identifier.links
         # Find the acquisition link with the right media type.

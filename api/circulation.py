@@ -39,19 +39,23 @@ class CirculationInfo(object):
         """A loan, hold, or whatever.
 
         :param collection: The Collection that gives us the right to
-        borrow this title. This does not have to be specified in the
-        constructor (the code that instantiates CirculationInfo may
-        not have access to a database connection), but it needs to be
-        present by the time the LoanInfo is connected to a
-        LicensePool.
+        borrow this title, or the numeric database ID of the
+        same. This does not have to be specified in the constructor --
+        the code that instantiates CirculationInfo may not have
+        access to a database connection -- but it needs to be present
+        by the time the LoanInfo is connected to a LicensePool.
 
         :param data_source_name: The name of the data source that provides
             the LicencePool.
         :param identifier_type: The type of the Identifier associated
             with the LicensePool.
         :param identifier: The string identifying the LicensePool.
+
         """
-        self.collection_id = collection.id
+        if isinstance(collection, int):
+            self.collection_id = collection
+        else:
+            self.collection_id = collection.id
         self.data_source_name = data_source_name
         self.identifier_type = identifier_type
         self.identifier = identifier
@@ -714,7 +718,7 @@ class CirculationAPI(object):
             return False
         return api.can_fulfill_without_loan(patron, pool, lpdm)
 
-    def fulfill(self, patron, pin, licensepool, delivery_mechanism, sync_on_failure=True):
+    def fulfill(self, patron, pin, licensepool, delivery_mechanism, part=None, fulfill_part_url=None, sync_on_failure=True):
         """Fulfil a book that a patron has previously checked out.
 
         :param delivery_mechanism: A LicensePoolDeliveryMechanism
@@ -723,7 +727,16 @@ class CirculationAPI(object):
         mechanism, this parameter is ignored and the previously used
         mechanism takes precedence.
 
+        :param part: A vendor-specific identifier indicating that the
+        patron wants to fulfill one specific part of the book
+        (e.g. one chapter of an audiobook), not the whole thing.
+
+        :param fulfill_part_url: A function that takes one argument (a
+        vendor-specific part identifier) and returns the URL to use
+        when fulfilling that part.
+
         :return: A FulfillmentInfo object.
+
         """
         fulfillment = None
         loan = get_one(
@@ -741,6 +754,7 @@ class CirculationAPI(object):
                 return self.fulfill(
                     patron, pin, licensepool=licensepool,
                     delivery_mechanism=delivery_mechanism,
+                    part=part, fulfill_part_url=fulfill_part_url,
                     sync_on_failure=False
                 )
             else:
@@ -753,17 +767,26 @@ class CirculationAPI(object):
             )
 
         if licensepool.open_access:
+            # We ignore the vendor-specific arguments when doing
+            # open-access fulfillment, because we just don't support
+            # partial fulfillment of open-access content.
             fulfillment = self.fulfill_open_access(
-                licensepool, delivery_mechanism.delivery_mechanism
+                licensepool, delivery_mechanism.delivery_mechanism,
             )
         else:
             api = self.api_for_license_pool(licensepool)
             internal_format = api.internal_format(delivery_mechanism)
+
+            # Here we _do_ pass in the vendor-specific arguments, but
+            # we pass them in as keyword arguments, to minimize the
+            # impact on implementation signatures. Most vendor APIs
+            # will ignore one or more of these arguments.
             fulfillment = api.fulfill(
-                patron, pin, licensepool, internal_format
+                patron, pin, licensepool, internal_format=internal_format,
+                part=part, fulfill_part_url=fulfill_part_url
             )
             if not fulfillment or not (
-                    fulfillment.content_link or fulfillment.content
+                fulfillment.content_link or fulfillment.content
             ):
                 raise NoAcceptableFormat()
 
@@ -787,6 +810,7 @@ class CirculationAPI(object):
             __transaction = self._db.begin_nested()
             loan.fulfillment = delivery_mechanism
             __transaction.commit()
+
         return fulfillment
 
     def fulfill_open_access(self, licensepool, delivery_mechanism):
@@ -1236,9 +1260,26 @@ class BaseCirculationAPI(object):
         """In general, you can't fulfill a book without a loan."""
         return False
 
-    def fulfill(self, patron, pin, licensepool, internal_format):
+    def fulfill(self, patron, pin, licensepool, internal_format=None,
+                part=None, fulfill_part_url=None):
         """ Get the actual resource file to the patron.
-        :return a FulfillmentInfo object.
+
+        Implementations are encouraged to define **kwargs as a container
+        for vendor-specific arguments, so that they don't have to change
+        as new arguments are added.
+
+        :param internal_format: A vendor-specific name indicating
+        the format requested by the patron.
+
+        :param part: A vendor-specific identifier indicating that the
+        patron wants to fulfill one specific part of the book
+        (e.g. one chapter of an audiobook), not the whole thing.
+
+        :param fulfill_part_url: A function that takes one argument (a
+        vendor-specific part identifier) and returns the URL to use
+        when fulfilling that part.
+
+        :return: a FulfillmentInfo object.
         """
         raise NotImplementedError()
 

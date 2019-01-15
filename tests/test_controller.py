@@ -431,6 +431,12 @@ class TestCirculationManager(CirculationControllerTest):
         # have not been reloaded.
         eq_(index_controller, manager.index_controller)
 
+        # The sitewide patron web domain can also be set to *.
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.PATRON_WEB_CLIENT_URL).value = "*"
+        self.manager.load_settings()
+        eq_(set(["*", "http://registration"]), manager.patron_web_domains)
+
         # Restore the CustomIndexView.for_library implementation
         CustomIndexView.for_library = old_for_library
 
@@ -1490,6 +1496,54 @@ class TestLoanController(CirculationControllerTest):
                 self.identifier.type, self.identifier.identifier)
 
             eq_(ALREADY_CHECKED_OUT, response)
+
+    def test_fulfill(self):
+        # Verify that arguments to the fulfill() method are propagated
+        # correctly to the CirculationAPI.
+        class MockCirculationAPI(object):
+            def fulfill(self, patron, credential, requested_license_pool,
+                        mechanism, part, fulfill_part_url):
+                self.called_with = (
+                    patron, credential, requested_license_pool,
+                    mechanism, part, fulfill_part_url
+                )
+                raise CannotFulfill()
+
+        controller = self.manager.loans
+        mock = MockCirculationAPI()
+        controller.manager.circulation_apis[self._default_library.id] = mock
+
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)
+        ):
+            authenticated = controller.authenticated_patron_from_request()
+            loan, ignore = self.pool.loan_to(authenticated)
+
+            # Try to fulfill a certain part of the loan.
+            part = "part 1 million"
+            controller.fulfill(
+                self.pool.id, self.mech2.delivery_mechanism.id, part
+            )
+
+            # Verify that the right arguments were passed into
+            # CirculationAPI.
+            (patron, credential, pool, mechanism, part,
+             fulfill_part_url) = mock.called_with
+            eq_(authenticated, patron)
+            eq_(self.valid_credentials['password'], credential)
+            eq_(self.pool, pool)
+            eq_(self.mech2, mechanism)
+            eq_("part 1 million", part)
+
+            # The last argument is complicated -- it's a function for
+            # generating partial fulfillment URLs. Let's try it out
+            # and make sure it gives the result we expect.
+            expect = url_for(
+                "fulfill", license_pool_id=self.pool.id,
+                mechanism_id=mechanism.id, part=part,
+                _external=True
+            )
+            eq_(expect, fulfill_part_url(part))
 
     def test_fulfill_without_active_loan(self):
 
