@@ -354,7 +354,14 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         response = self.request(url, method='get', params=args)
         return response
 
-    def fulfill(self, patron, pin, licensepool, internal_format):
+    def fulfill(self, patron, pin, licensepool, internal_format, **kwargs):
+        """Get the actual resource file to the patron.
+
+        :param kwargs: A container for arguments to fulfill()
+           which are not relevant to this vendor.
+
+        :return: a FulfillmentInfo object.
+        """
         book_id = licensepool.identifier.identifier
         response = self.loan_request(patron.authorization_identifier, pin, book_id)
         if response.status_code != 200:

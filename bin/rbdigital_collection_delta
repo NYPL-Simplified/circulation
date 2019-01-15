@@ -7,5 +7,5 @@ package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
 
 from core.scripts import RunCollectionMonitorScript
-from core.rbdigital import RBDigitalDeltaMonitor
+from api.rbdigital import RBDigitalDeltaMonitor
 RunCollectionMonitorScript(RBDigitalDeltaMonitor).run()

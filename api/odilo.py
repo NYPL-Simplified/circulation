@@ -670,7 +670,14 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
 
         raise NotFoundOnRemote("Could not find active hold for patron %s, record %s" % (patron, record_id))
 
-    def fulfill(self, patron, pin, licensepool, internal_format):
+    def fulfill(self, patron, pin, licensepool, internal_format, **kwargs):
+        """Get the actual resource file to the patron.
+
+        :param kwargs: A container for arguments to fulfill()
+           which are not relevant to this vendor.
+
+        :return: a FulfillmentInfo object.
+        """
         record_id = licensepool.identifier.identifier
         content_link, content, content_type = self.get_fulfillment_link(patron, pin, record_id, internal_format)
 

@@ -431,7 +431,14 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         self.raise_exception_on_error(data)
         return data
 
-    def fulfill(self, patron, pin, licensepool, internal_format):
+    def fulfill(self, patron, pin, licensepool, internal_format, **kwargs):
+        """Get the actual resource file to the patron.
+
+        :param kwargs: A container for arguments to fulfill()
+           which are not relevant to this vendor.
+
+        :return: a FulfillmentInfo object.
+        """
         try:
             url, media_type = self.get_fulfillment_link(
                 patron, pin, licensepool.identifier.identifier, internal_format)

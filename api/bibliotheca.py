@@ -414,7 +414,14 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         )
         return loan
 
-    def fulfill(self, patron, password, pool, internal_delivery):
+    def fulfill(self, patron, password, pool, internal_delivery, **kwargs):
+        """Get the actual resource file to the patron.
+
+        :param kwargs: A container for standard arguments to fulfill()
+           which are not relevant to this implementation.
+
+        :return: a FulfillmentInfo object.
+        """
         media_type, drm_scheme = self.internal_format_to_delivery_mechanism.get(
             internal_delivery, internal_delivery
         )

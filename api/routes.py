@@ -371,11 +371,12 @@ def borrow(identifier_type, identifier, mechanism_id=None):
 
 @library_route('/works/<license_pool_id>/fulfill')
 @library_route('/works/<license_pool_id>/fulfill/<mechanism_id>')
+@library_route('/works/<license_pool_id>/fulfill/<mechanism_id>/<part>')
 @has_library
 @allows_patron_web
 @returns_problem_detail
-def fulfill(license_pool_id, mechanism_id=None):
-    return app.manager.loans.fulfill(license_pool_id, mechanism_id)
+def fulfill(license_pool_id, mechanism_id=None, part=None):
+    return app.manager.loans.fulfill(license_pool_id, mechanism_id, part)
 
 @library_route('/loans/<license_pool_id>/revoke', methods=['GET', 'PUT'])
 @has_library

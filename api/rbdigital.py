@@ -286,7 +286,6 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             allowed_response_codes=allowed_response_codes,
             disallowed_response_codes=disallowed_response_codes
         )
-
         if (response.content
             and 'Invalid Basic Token or permission denied' in response.content):
             raise BadResponseException(
@@ -437,15 +436,29 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         return resp_obj
 
-    def fulfill(self, patron, pin, licensepool, internal_format):
-        """ Get the actual resource file to the patron.
+    def fulfill(
+        self, patron, pin, licensepool, internal_format, part=None,
+        fulfill_part_url=None
+    ):
+        """Get an actual resource file to the patron. This may
+        represent the entire book or only one part of it.
+
+        :param part: When the patron wants to fulfill a specific part
+        of the book, rather than the title as a whole, this will be
+        set to a string representation of the numeric position of the
+        desired part.
+
+        :param fulfill_part_url: When the book can be fulfilled in
+        parts, this function will take a part number and generate the
+        URL to fulfill that specific part.
+
         :return a FulfillmentInfo object.
         """
 
         patron_rbdigital_id = self.patron_remote_identifier(patron)
         (item_rbdigital_id, item_media) = self.validate_item(licensepool)
 
-        checkouts_list = self.get_patron_checkouts(patron_id=patron_rbdigital_id)
+        checkouts_list = self.get_patron_checkouts(patron_id=patron_rbdigital_id, fulfill_part_url=fulfill_part_url)
 
         # find this licensepool in patron's checkouts
         found_checkout = None
@@ -461,7 +474,13 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 )
             )
 
-        return found_checkout.fulfillment_info
+        fulfillment = found_checkout.fulfillment_info
+        if part is None:
+            # They want the whole thing.
+            return fulfillment
+
+        # They want only one part of the book.
+        return fulfillment.fulfill_part(part)
 
     def place_hold(self, patron, pin, licensepool, notification_email_address):
         """Place a book on hold.
@@ -616,8 +635,6 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             # Also, their DRM usage may change in the future.
             drm_scheme = DeliveryMechanism.ADOBE_DRM
         elif medium == 'eaudio':
-            # TODO: we can't deliver on this promise yet, but this is
-            # how we will be delivering audiobook manifests.
             delivery_type = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE
 
         if delivery_type:
@@ -769,7 +786,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         internal_patron_id = resp_dict.get('patronId', None)
         return internal_patron_id
 
-    def get_patron_checkouts(self, patron_id):
+    def get_patron_checkouts(self, patron_id, fulfill_part_url=None):
         """
         Gets the books and audio the patron currently has checked out.
         Obtains fulfillment info for each item -- the way to fulfill a book
@@ -777,6 +794,9 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         fulfillment endpoints on the individual items.
 
         :param patron_id RBDigital internal id for the patron.
+
+        :param fulfill_part_url: A function that generates circulation
+           manager fulfillment URLs for individual parts of a book.
         """
         url = "%s/libraries/%s/patrons/%s/checkouts/" % (self.base_url, str(self.library_id), patron_id)
         action="patron_checkouts"
@@ -801,14 +821,19 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         # by now we can assume response is either empty or a list
         for item in resp_obj:
-            loan_info = self._make_loan_info(item)
+            loan_info = self._make_loan_info(
+                item, fulfill_part_url=fulfill_part_url
+            )
             if loan_info:
                 loans.append(loan_info)
         return loans
 
-    def _make_loan_info(self, item, fulfill=False):
+    def _make_loan_info(self, item, fulfill_part_url=None):
         """Convert one of the items returned by a request to /checkouts into a
         LoanInfo with an RBFulfillmentInfo.
+
+        :param fulfill_part_url: A function that generates circulation
+           manager fulfillment URLs for individual parts of a book.
         """
 
         media_type = item.get('mediaType', 'eBook')
@@ -832,6 +857,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             return None
 
         fulfillment_info = RBFulfillmentInfo(
+            fulfill_part_url,
             self,
             DataSource.RB_DIGITAL,
             identifier.type,
@@ -1383,6 +1409,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         response = self.request(url, params=args, verbosity=verbosity)
         return response
 
+
 class RBFulfillmentInfo(APIAwareFulfillmentInfo):
     """An RBdigital-specific FulfillmentInfo implementation.
 
@@ -1390,6 +1417,47 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
     generating a FulfillmentInfo object may require an extra HTTP request,
     and there's often no need to make that request.
     """
+
+    def __init__(self, fulfill_part_url, *args, **kwargs):
+        super(RBFulfillmentInfo, self).__init__(*args, **kwargs)
+        self.fulfill_part_url = fulfill_part_url
+
+    def fulfill_part(self, part):
+        """Fulfill a specific part of this book.
+
+        This will navigate the access document and find a link to
+        the actual MP3 file so that a client doesn't know how to
+        parse access documents.
+
+        :return: A FulfillmentInfo if the part could be fulfilled;
+        a ProblemDetail otherwise.
+        """
+        if self.content_type != Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
+            raise CannotPartiallyFulfill(
+                _("This work does not support partial fulfillment.")
+            )
+
+        try:
+            part = int(part)
+        except ValueError, e:
+            raise CannotPartiallyFulfill(
+                _('"%(part)s" is not a valid part number', part=part),
+            )
+
+        order = self.manifest.readingOrder
+        if part < 0 or len(order) <= part:
+            raise CannotPartiallyFulfill(
+                _("Could not locate part number %(part)s", part=part),
+            )
+        part_url = order[part]['href']
+        content_type, content_link, content_expires = (
+            self.fetch_access_document(part_url)
+        )
+        return FulfillmentInfo(
+            self.collection_id, self.data_source_name,
+            self.identifier_type, self.identifier, content_link,
+            content_type, None, content_expires
+        )
 
     def do_fetch(self):
         # Get a list of files associated with this loan.
@@ -1415,29 +1483,36 @@ class RBFulfillmentInfo(APIAwareFulfillmentInfo):
             individual_download_url = file.get('downloadUrl', None)
 
         if self._content_type == Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
-            # We have an audiobook.
-            self._content = self.process_audiobook_manifest(self.key)
-        else:
-            # We have some other kind of file. Follow the download
-            # link, which will return a JSON-based access document
-            # pointing to the 'real' download link.
-            #
-            # We don't send our normal RBdigital credentials with this
-            # request because it's going to a different, publicly
-            # accessible server.
-            access_document = self.api._make_request(
-                individual_download_url, 'GET', {}
+            # We have an audiobook. Convert it from the
+            # proprietary format to the standard format.
+            self.manifest = AudiobookManifest(
+                self.key, self.fulfill_part_url
             )
-            self._content_type, self._content_link, self._content_expires = self.process_access_document(
-                access_document
+            self._content = unicode(self.manifest)
+        else:
+            # We have some other kind of file. The download link
+            # points to an access document for that file.
+            self._content_type, self._content_link, self._content_expires = (
+                self.fetch_access_document(individual_download_url)
             )
 
-    @classmethod
-    def process_audiobook_manifest(self, rb_data):
-        """Convert RBdigital's proprietary manifest format
-        into a standard Audiobook Manifest document.
+    def fetch_access_document(self, url):
+        """Retrieve an access document from RBdigital and process it.
+
+        An access document is a small JSON document containing a link
+        to the URL we actually want to deliver.
         """
-        return unicode(AudiobookManifest(rb_data))
+        access_document = self._raw_request(url)
+        return self.process_access_document(access_document)
+
+    def _raw_request(self, url):
+        """Make a request without using our normal RBdigital credentials.
+
+        We do this when we need to access a different, publicly
+        accessible server. Basically this only happens when we are
+        retrieving access documents.
+        """
+        return self.api._make_request(url, 'GET', {})
 
     @classmethod
     def process_access_document(self, access_document):
@@ -1981,7 +2056,25 @@ class AudiobookManifest(CoreAudiobookManifest):
     # "patronId": 111,
     # "libraryId": 222
 
-    def __init__(self, content_dict, **kwargs):
+    # RBdigital audiobook manifests contain links to JSON documents
+    # that contain links to MP3 files. This is a media type we
+    # invented for these hypermedia documents, so that a client
+    # examining a manifest can distinguish them from random JSON
+    # files.
+    #
+    # Internally to the circulation manager, these documents can be processed
+    # with RBFulfillmentInfo.process_access_document.
+    INTERMEDIATE_LINK_MEDIA_TYPE = "vnd.librarysimplified/rbdigital-access-document+json"
+
+    def __init__(self, content_dict, fulfill_part_url=None, **kwargs):
+        """Create an audiobook manifest from the information provided
+        by RBdigital.
+
+        :param content_dict: A dictionary of data from RBdigital.
+        :param fulfill_part_url: A function that takes a part number
+            and returns a URL for fulfilling that part number on this
+            circulation manager.
+        """
         super(AudiobookManifest, self).__init__(**kwargs)
         self.raw = content_dict
 
@@ -2002,8 +2095,11 @@ class AudiobookManifest(CoreAudiobookManifest):
         self.import_metadata('encryptionKey', 'rbdigital:encryptionKey')
 
         # Spine items.
-        for file_data in self.raw.get('files', []):
-            self.import_spine(file_data)
+        for part_number, file_data in enumerate(self.raw.get('files', [])):
+            alternate_url = None
+            if fulfill_part_url:
+                alternate_url = fulfill_part_url(part_number)
+            self.import_spine(file_data, alternate_url)
 
         # Links.
         download_url = self.raw.get('downloadUrl')
@@ -2051,9 +2147,17 @@ class AudiobookManifest(CoreAudiobookManifest):
             value = transform(value)
         self.metadata[standard_field] = value
 
-    def import_spine(self, file_data):
+    def import_spine(self, file_data, alternate_url=None):
         """Import an RBdigital spine item as a Web Publication Manifest
         spine item.
+
+        :param file_data: A dictionary of information about this spine
+        item, obtained from RBdigital.
+
+        :param alternate_url: A URL generated by the circulation manager
+        (as opposed to being generated by RBdigital) for fulfilling this
+        spine item as an audio file (as opposed to a JSON document that
+        links to an audio file).
         """
         href = file_data.get('downloadUrl')
         duration = file_data.get('minutes') * 60
@@ -2062,9 +2166,16 @@ class AudiobookManifest(CoreAudiobookManifest):
         id = file_data.get('id')
         size = file_data.get('size')
         filename = file_data.get('filename')
-        type = Representation.guess_media_type(filename)
+        type = self.INTERMEDIATE_LINK_MEDIA_TYPE
 
         extra = {}
+        if alternate_url:
+            alternate_link = dict(
+                href=alternate_url,
+                type=Representation.guess_media_type(filename)
+            )
+            extra['alternates'] = [alternate_link]
+
         for k, v, transform in (
                 ('id', 'rbdigital:id', str),
                 ('size', 'schema:contentSize', lambda x: x),
