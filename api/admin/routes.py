@@ -625,6 +625,14 @@ def lane_hide(lane_identifier):
 def reset_lanes():
     return app.manager.admin_lanes_controller.reset()
 
+@library_route("/admin/lanes/change_order", methods=["POST"])
+@has_library
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def change_lane_order():
+    return app.manager.admin_lanes_controller.change_order()
+
 @app.route('/admin/sign_in_again')
 def admin_sign_in_again():
     """Allows an  admin with expired credentials to sign back in
