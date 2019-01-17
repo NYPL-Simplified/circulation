@@ -814,7 +814,6 @@ class TestContributorData(DatabaseTest):
 
         eq_(contributor_new.extra[Contributor.BIRTH_DATE], u"2001-01-01")
         #eq_(contributor_new.contributions, u"Audio")
-        #eq_(contributor_new.work_contributions, u"Audio")
 
         contributor_new, changed = contributor_data.apply(contributor_new)
         eq_(changed, False)

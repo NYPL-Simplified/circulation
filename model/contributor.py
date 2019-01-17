@@ -1,5 +1,5 @@
 # encoding: utf-8
-# Contributor, Contribution, WorkContribution
+# Contributor, Contribution
 from nose.tools import set_trace
 
 from . import (
@@ -65,8 +65,7 @@ class Contributor(Base):
     extra = Column(MutableDict.as_mutable(JSON), default={})
 
     contributions = relationship("Contribution", backref="contributor")
-    work_contributions = relationship("WorkContribution", backref="contributor",
-                                      )
+
     # Types of roles
     AUTHOR_ROLE = u"Author"
     PRIMARY_AUTHOR_ROLE = u"Primary Author"
@@ -343,16 +342,6 @@ class Contributor(Base):
                 _db.delete(contribution)
             else:
                 contribution.contributor_id = destination.id
-        for contribution in self.work_contributions:
-            existing_record = _db.query(WorkContribution).filter(
-                WorkContribution.contributor_id==destination.id,
-                WorkContribution.edition_id==contribution.edition.id,
-                WorkContribution.role==contribution.role)
-            if existing_record.count():
-                _db.delete(contribution)
-            else:
-                contribution.contributor_id = destination.id
-            contribution.contributor_id = destination.id
 
         _db.commit()
         _db.delete(self)
@@ -467,15 +456,3 @@ class Contribution(Base):
         UniqueConstraint('edition_id', 'contributor_id', 'role'),
     )
 
-class WorkContribution(Base):
-    """A contribution made by a Contributor to a Work."""
-    __tablename__ = 'workcontributions'
-    id = Column(Integer, primary_key=True)
-    work_id = Column(Integer, ForeignKey('works.id'), index=True,
-                     nullable=False)
-    contributor_id = Column(Integer, ForeignKey('contributors.id'), index=True,
-                            nullable=False)
-    role = Column(Unicode, index=True, nullable=False)
-    __table_args__ = (
-        UniqueConstraint('work_id', 'contributor_id', 'role'),
-    )
