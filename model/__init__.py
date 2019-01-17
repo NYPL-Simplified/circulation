@@ -483,7 +483,6 @@ from complaint import Complaint
 from contributor import (
     Contribution,
     Contributor,
-    WorkContribution,
 )
 from credential import (
     Credential,
