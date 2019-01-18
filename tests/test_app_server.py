@@ -20,7 +20,10 @@ from . import (
 
 from ..opds import TestAnnotator
 
-from ..model import Identifier
+from ..model import (
+    Identifier,
+    ConfigurationSetting,
+)
 
 from ..lane import (
     Facets,
@@ -39,6 +42,8 @@ from ..app_server import (
 )
 
 from ..config import Configuration
+
+from ..log import LogConfiguration
 
 from ..entrypoint import (
     AudiobooksEntryPoint,
@@ -371,19 +376,49 @@ class TestLoadMethods(DatabaseTest):
             eq_(10, pagination.size)
             eq_(0, pagination.offset)
 
+class CanBeProblemDetailDocument(Exception):
+    """A fake exception that can be represented as a problem
+    detail document.
+    """
 
-class TestErrorHandler(object):
+    def as_problem_detail_document(self, debug):
+        return INVALID_URN.detailed(
+            _("detail info"),
+            debug_message="A debug_message which should only appear in debug mode."
+        )
+
+
+class TestErrorHandler(DatabaseTest):
 
     def setup(self):
+        super(TestErrorHandler, self).setup()
+
+        class MockManager(object):
+            """Simulate an application manager object such as
+            the circulation manager's CirculationManager.
+
+            This gives ErrorHandler access to a database connection.
+            """
+            _db = self._db
+
         self.app = Flask(__name__)
+        self.app.manager = MockManager()
         Babel(self.app)
+
+    def activate_debug_mode(self):
+        """Set a site-wide setting that controls whether
+        detailed exception information is provided.
+        """
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.DATABASE_LOG_LEVEL
+        ).value = LogConfiguration.DEBUG
 
     def raise_exception(self, cls=Exception):
         """Simulate an exception that happens deep within the stack."""
         raise cls()
 
     def test_unhandled_error(self):
-        handler = ErrorHandler(self.app, debug=False)
+        handler = ErrorHandler(self.app)
         with self.app.test_request_context('/'):
             response = None
             try:
@@ -393,9 +428,13 @@ class TestErrorHandler(object):
             eq_(500, response.status_code)
             eq_("An internal error occured", response.data)
 
-        # Try it again with debug=True to get a stack trace instead of
-        # a generic error message.
-        handler = ErrorHandler(self.app, debug=True)
+
+    def test_unhandled_error_debug(self):
+        # Set the sitewide log level to DEBUG to get a stack trace
+        # instead of a generic error message.
+        handler = ErrorHandler(self.app)
+        self.activate_debug_mode()
+
         with self.app.test_request_context('/'):
             response = None
             try:
@@ -407,15 +446,7 @@ class TestErrorHandler(object):
 
 
     def test_handle_error_as_problem_detail_document(self):
-        class CanBeProblemDetailDocument(Exception):
-
-            def as_problem_detail_document(self, debug):
-                return INVALID_URN.detailed(
-                    _("detail info"),
-                    debug_message="A debug_message which should only appear in debug mode."
-                )
-
-        handler = ErrorHandler(self.app, debug=False)
+        handler = ErrorHandler(self.app)
         with self.app.test_request_context('/'):
             try:
                 self.raise_exception(CanBeProblemDetailDocument)
@@ -430,9 +461,11 @@ class TestErrorHandler(object):
             # destroyed.
             assert 'debug_message' not in data
 
-        # Now try it with debug=True and see that the debug_message is
-        # preserved and a stack trace is append it to it.
-        handler = ErrorHandler(self.app, debug=True)
+    def test_handle_error_as_problem_detail_document_debug(self):
+        # When in debug mode, the debug_message is preserved and a
+        # stack trace is appended to it.
+        handler = ErrorHandler(self.app)
+        self.activate_debug_mode()
         with self.app.test_request_context('/'):
             try:
                 self.raise_exception(CanBeProblemDetailDocument)

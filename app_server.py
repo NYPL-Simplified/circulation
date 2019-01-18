@@ -27,6 +27,7 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
+from log import LogConfiguration
 from model import (
     get_one,
     Complaint,
@@ -150,14 +151,43 @@ def returns_problem_detail(f):
         return v
     return decorated
 
+
 class ErrorHandler(object):
-    def __init__(self, app, debug):
+    def __init__(self, app, debug=False):
+        """Constructor.
+
+        :param app: A flask.app object.
+        :param debug: Set this to True to give detailed debugging
+           information on errors, even if the site is not configured
+           to do so.
+        """
         self.app = app
         self.debug = debug
 
     def handle(self, exception):
+        """Something very bad has happened. Notify the client."""
+        # By default, when reporting errors, err on the side of
+        # terseness, to avoid leaking sensitive information.
+        debug = self.app.config['DEBUG'] or self.debug
+
         if hasattr(self.app, 'manager') and hasattr(self.app.manager, '_db'):
-            # There is an active database session. Roll it back.
+            # There is an active database session.
+
+            # Use it to determine whether we are in debug mode, in
+            # which case we _should_ provide the client with a lot of
+            # information about the problem, without worrying
+            # whether it contains sensitive information.
+            _db = self.app.manager._db
+            LogConfiguration.from_configuration(_db)
+            (log_level, database_log_level, handlers,
+             errors) = LogConfiguration.from_configuration(
+                 self.app.manager._db
+             )
+            debug = debug or (
+                LogConfiguration.DEBUG in (log_level, database_log_level)
+            )
+
+            # Then roll the session back.
             self.app.manager._db.rollback()
         tb = traceback.format_exc()
 
@@ -183,8 +213,8 @@ class ErrorHandler(object):
         if hasattr(exception, 'as_problem_detail_document'):
             # This exception can be turned directly into a problem
             # detail document.
-            document = exception.as_problem_detail_document(self.debug)
-            if not self.debug:
+            document = exception.as_problem_detail_document(debug)
+            if not debug:
                 document.debug_message = None
             else:
                 if document.debug_message:
@@ -202,7 +232,7 @@ class ErrorHandler(object):
             # There's no way to turn this exception into a problem
             # document. This is probably indicative of a bug in our
             # software.
-            if self.debug:
+            if debug:
                 body = tb
             else:
                 body = _('An internal error occured')
