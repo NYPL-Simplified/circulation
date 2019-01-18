@@ -159,6 +159,20 @@ class TestAnnotator(DatabaseTest):
                 "c": edition.author,
             }, ["0", "4"])
 
+        # If there's no subtitle or no author, those subfields are left out.
+        edition.subtitle = None
+        edition.author = None
+
+        record = Record()
+        Annotator.add_title(record, edition)
+        [field] = record.get_fields("245")
+        self._check_field(
+            record, "245", {
+                "a": edition.title,
+            }, ["0", "4"])
+        eq_([], field.get_subfields("b"))
+        eq_([], field.get_subfields("c"))
+
     def test_add_contributors(self):
         author = "a"
         author2 = "b"

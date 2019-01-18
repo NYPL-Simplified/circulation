@@ -184,15 +184,17 @@ class Annotator(object):
         if non_filing_characters > 9:
             non_filing_characters = 0
 
+        subfields = ["a", unicode(edition.title or "")]
+        if edition.subtitle:
+            subfields += ["b", unicode(edition.subtitle)]
+        if edition.author:
+            subfields += ["c", unicode(edition.author)]
         record.add_field(
             Field(
                 tag="245",
                 indicators=["0", non_filing_characters],
-                subfields=[
-                    "a", unicode(edition.title or ""),
-                    "b", unicode(edition.subtitle or ""),
-                    "c", unicode(edition.author or ""),
-                ]))
+                subfields=subfields,
+            ))
 
     @classmethod
     def add_contributors(cls, record, edition):
