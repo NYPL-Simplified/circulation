@@ -1540,7 +1540,7 @@ class TestLoanController(CirculationControllerTest):
             # and make sure it gives the result we expect.
             expect = url_for(
                 "fulfill", license_pool_id=self.pool.id,
-                mechanism_id=mechanism.id, part=part,
+                mechanism_id=mechanism.delivery_mechanism.id, part=part,
                 _external=True
             )
             eq_(expect, fulfill_part_url(part))
