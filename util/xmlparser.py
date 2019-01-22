@@ -85,6 +85,10 @@ class XMLParser(object):
         REPLACEMENT_CHARACTER, because they shouldn't have been in the
         XML file in the first place.
         """
+        # Convert the XML to Unicode so we can remove invalid Unicode
+        # characters from the data without worrying about how they're
+        # encoded.
+        xml = xml.decode("utf8")
         scrubbed = self._illegal_xml_chars_RE.sub("", xml)
         return self._illegal_xml_entities_RE.sub("", scrubbed)
 
