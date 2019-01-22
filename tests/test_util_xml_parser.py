@@ -18,10 +18,10 @@ class MockParser(XMLParser):
 class TestXMLParser(object):
 
     def test_invalid_characters_are_stripped(self):
-        data = u"<tag>I enjoy invalid characters, such as \x00 and \x1F</tag>"
+        data = "<tag>I enjoy invalid characters, such as \x00 and \x1F. But I also like \xe2\x80\x9csmart quotes\xe2\x80\x9d.</tag>"
         parser = MockParser()
         [tag] = parser.process_all(data, "/tag")
-        eq_('I enjoy invalid characters, such as  and ', tag.text)
+        eq_(u'I enjoy invalid characters, such as  and . But I also like “smart quotes”.', tag.text)
 
     def test_invalid_entities_are_stripped(self):
         data = u"<tag>I enjoy invalid entities, such as &#xfdd0; and &#x1F;</tag>"
