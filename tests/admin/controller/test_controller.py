@@ -2662,6 +2662,35 @@ class TestLanesController(AdminControllerTest):
             # lanes were created.
             assert 0 < self._db.query(Lane).filter(Lane.library==library).count()
 
+    def test_change_order(self):
+        library = self._library()
+        parent1 = self._lane("parent1", library=library)
+        parent2 = self._lane("parent2", library=library)
+        child1 = self._lane("child1", parent=parent2)
+        child2 = self._lane("child2", parent=parent2)
+        parent1.priority = 0
+        parent2.priority = 1
+        child1.priority = 0
+        child2.priority = 1
+
+        new_order = [{ "id": parent2.id, "sublanes": [{ "id": child2.id }, { "id": child1.id }] },
+                     { "id": parent1.id }]
+
+        with self.request_context_with_library_and_admin("/"):
+            flask.request.library = library
+            flask.request.data = json.dumps(new_order)
+
+            assert_raises(AdminNotAuthorized, self.manager.admin_lanes_controller.change_order)
+
+            self.admin.add_role(AdminRole.LIBRARY_MANAGER, library)
+            response = self.manager.admin_lanes_controller.change_order()
+            eq_(200, response.status_code)
+
+            eq_(0, parent2.priority)
+            eq_(1, parent1.priority)
+            eq_(0, child2.priority)
+            eq_(1, child1.priority)
+
 class TestDashboardController(AdminControllerTest):
 
     # Unlike most of these controllers, we do want to have a book
