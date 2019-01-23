@@ -819,23 +819,32 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
 
     def update_formats(self, licensepool):
         """Update the format information for a single book.
+
+        Incidentally updates the metadata, just in case Overdrive has
+        changed it.
         """
         info = self.metadata_lookup(licensepool.identifier)
 
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(
-            info, include_bibliographic=False, include_formats=True)
+            info, include_bibliographic=True, include_formats=True)
         if not metadata:
             # No work to be done.
             return
-        circulation_data = metadata.circulation
 
-        # The identifier in the CirculationData needs to match the
-        # identifier associated with the LicensePool -- otherwise
-        # a new LicensePool will be created.
-        circulation_data._primary_identifier.identifier = licensepool.identifier.identifier
-        replace = ReplacementPolicy(formats=True)
-        _db = Session.object_session(licensepool)
-        circulation_data.apply(_db, licensepool.collection, replace)
+        edition, ignore = self._edition(licensepool)
+
+        # The identifier in the Metadata and CirculationData need to
+        # match the identifier associated with the LicensePool --
+        # otherwise a new LicensePool will be created.
+        #
+        # TODO: It's not clear to me why this code is necessary -- why
+        # would the identifiers not match, given that we looked up
+        # this identifier? -- but removing it without understanding
+        # why it was added seems dangerous.
+        metadata.primary_identifier.identifier = licensepool.identifier.identifier
+        metadata.circulation._primary_identifier.identifier = licensepool.identifier.identifier
+        replace = ReplacementPolicy.from_license_source(self._db)
+        metadata.apply(edition, self.collection, replace=replace)
 
     def update_licensepool(self, book_id):
         """Update availability information for a single book.
@@ -893,6 +902,15 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
     def update_availability(self, licensepool):
         return self.update_licensepool(licensepool.identifier.identifier)
 
+    def _edition(self, licensepool):
+        """Find or create the Edition that would be used to contain
+        Overdrive metadata for the given LicensePool.
+        """
+        return Edition.for_foreign_id(
+            self._db, self.source, licensepool.identifier.type,
+            licensepool.identifier.identifier
+        )
+
     def update_licensepool_with_book_info(self, book, license_pool, is_new_pool):
         """Update a book's LicensePool with information from a JSON
         representation of its circulation info.
@@ -909,9 +927,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             self._db, license_pool.collection
         )
 
-        edition, is_new_edition = Edition.for_foreign_id(
-            self._db, self.source, license_pool.identifier.type,
-            license_pool.identifier.identifier)
+        edition, is_new_edition = self._edition(license_pool)
 
         # If the pool does not already have a presentation edition,
         # and if this edition is newly made, then associate pool and edition

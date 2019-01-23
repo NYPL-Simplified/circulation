@@ -33,6 +33,7 @@ from core.model import (
     ConfigurationSetting,
     DataSource,
     DeliveryMechanism,
+    Edition,
     ExternalIntegration,
     Identifier,
     LicensePool,
@@ -555,12 +556,14 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_("text/html", type)
 
     def test_update_formats(self):
-        # Create a LicensePool with an inaccurate delivery mechanism.
+        # Create a LicensePool with an inaccurate delivery mechanism
+        # and the wrong medium.
         edition, pool = self._edition(
             data_source_name=DataSource.OVERDRIVE,
             identifier_type=Identifier.OVERDRIVE_ID,
             with_license_pool=True
         )
+        edition.medium = Edition.PERIODICAL_MEDIUM
 
         # Add the bad delivery mechanism.
         pool.set_delivery_mechanism(Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM,
@@ -585,6 +588,9 @@ class TestOverdriveAPI(OverdriveAPITest):
             set([lpdm.delivery_mechanism.content_type for lpdm in pool.delivery_mechanisms]))
         eq_(set([DeliveryMechanism.ADOBE_DRM, DeliveryMechanism.KINDLE_DRM, DeliveryMechanism.OVERDRIVE_DRM]),
             set([lpdm.delivery_mechanism.drm_scheme for lpdm in pool.delivery_mechanisms]))
+
+        # The Edition's medium has been corrected.
+        eq_(Edition.BOOK_MEDIUM, edition.medium)
 
     def test_update_availability(self):
         """Test the Overdrive implementation of the update_availability
