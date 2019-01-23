@@ -833,16 +833,6 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
 
         edition, ignore = self._edition(licensepool)
 
-        # The identifier in the Metadata and CirculationData need to
-        # match the identifier associated with the LicensePool --
-        # otherwise a new LicensePool will be created.
-        #
-        # TODO: It's not clear to me why this code is necessary -- why
-        # would the identifiers not match, given that we looked up
-        # this identifier? -- but removing it without understanding
-        # why it was added seems dangerous.
-        metadata.primary_identifier.identifier = licensepool.identifier.identifier
-        metadata.circulation._primary_identifier.identifier = licensepool.identifier.identifier
         replace = ReplacementPolicy.from_license_source(self._db)
         metadata.apply(edition, self.collection, replace=replace)
 

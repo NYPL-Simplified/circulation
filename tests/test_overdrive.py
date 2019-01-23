@@ -520,6 +520,10 @@ class TestOverdriveAPI(OverdriveAPITest):
             "bibliographic_information.json"
         )
 
+        # To avoid a mismatch, make it look like the information is
+        # for the correct Identifier.
+        bibliographic['id'] = pool.identifier.identifier
+
         # If we have the LicensePool available (as opposed to just the
         # identifier), we will get the loan, try to lock in the
         # format, fail, and then update the bibliographic information.
