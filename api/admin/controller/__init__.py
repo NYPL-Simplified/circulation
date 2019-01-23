@@ -1810,6 +1810,22 @@ class LanesController(AdminCirculationManagerController):
         create_default_lanes(self._db, flask.request.library)
         return Response(unicode(_("Success")), 200)
 
+    def change_order(self):
+        self.require_library_manager(flask.request.library)
+
+        submitted_lanes = json.loads(flask.request.data)
+
+        def update_lane_order(lanes):
+            for index, lane_data in enumerate(lanes):
+                lane_id = lane_data.get("id")
+                lane = self._db.query(Lane).filter(Lane.id==lane_id).one()
+                lane.priority = index
+                update_lane_order(lane_data.get("sublanes", []))
+
+        update_lane_order(submitted_lanes)
+
+        return Response(unicode(_("Success")), 200)
+
 
 class DashboardController(AdminCirculationManagerController):
 
