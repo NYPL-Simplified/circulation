@@ -723,7 +723,11 @@ class TestExceptionHandler(RouteTest):
             eq_(500, result.status_code)
             eq_(expect.status_code, result.status_code)
 
-        # But werkzeug HTTPExceptions are _not_ run through
+        # At this point the database session has been ruined, so
+        # we can't do any more checks in this test.
+
+    def test_exception_handling_http_exception(self):
+        # werkzeug HTTPExceptions are _not_ run through
         # handle(). werkzeug does the conversion to a Response object
         # representing a more specific (and possibly even desirable)
         # HTTP response.
