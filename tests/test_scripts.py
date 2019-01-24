@@ -70,6 +70,7 @@ from ..scripts import (
     ListCollectionMetadataIdentifiersScript,
     MirrorResourcesScript,
     MockStdin,
+    NoTimestampScript,
     OPDSImportScript,
     PatronInputScript,
     ReclassifyWorksForUncheckedSubjectsScript,
@@ -121,6 +122,53 @@ class TestScript(DatabaseTest):
         eq_(Script.parse_time("20160101"), reference_date)
 
         assert_raises(ValueError, Script.parse_time, "201601-01")
+
+
+    def test_script_name(self):
+
+        class Sample(Script):
+            pass
+
+        # If a script does not define .name, its class name
+        # is treated as the script name.
+        script = Sample(self._db)
+        eq_("Sample", script.script_name)
+
+
+        # If a script does define .name, that's used instead.
+        script.name = "I'm a script"
+        eq_(script.name, script.script_name)
+
+    def test_update_timestamp(self):
+        # In most cases, a Timestamp will be set when a script is run.
+        TS = Timestamp
+
+        class Noisy(Script):
+            def do_run(self):
+                pass
+        Noisy(self._db).run()
+        [timestamp] = self._db.query(TS).filter(TS.service=='Noisy').all()
+        now = datetime.datetime.utcnow()
+        assert (now - timestamp.timestamp).total_seconds() < 5
+
+        # Running a NoTimestampScript does _not_ set a Timestamp.
+        class Silent(NoTimestampScript):
+            def do_run(self):
+                pass
+        Silent(self._db).run()
+        eq_([], self._db.query(TS).filter(TS.service=='Silent').all())
+
+        # A script that fails to complete still gets a Timestamp set -- the
+        # timestamp just records the time that the script stopped running.
+        class Broken(Script):
+            def do_run(self):
+                raise Exception("i'm broken")
+
+        script = Broken(self._db)
+        assert_raises_regexp(Exception, "i'm broken", script.run)
+        [timestamp] = self._db.query(TS).filter(TS.service=='Broken').all()
+        now = datetime.datetime.utcnow()
+        assert (now - timestamp.timestamp).total_seconds() < 5
 
 
 class TestCheckContributorNamesInDB(DatabaseTest):
