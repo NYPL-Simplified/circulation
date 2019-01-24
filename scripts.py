@@ -1789,7 +1789,7 @@ class CollectionInputScript(Script):
 class OPDSImportScript(CollectionInputScript):
     """Import all books from the OPDS feed associated with a collection."""
 
-    name = "Import all books from the OPDS feed associated with a collection."""
+    name = "Import all books from the OPDS feed associated with a collection."
 
     IMPORTER_CLASS = OPDSImporter
     MONITOR_CLASS = OPDSImportMonitor
