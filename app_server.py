@@ -23,6 +23,7 @@ from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm.session import Session
 from sqlalchemy.orm.exc import (
     NoResultFound,
@@ -178,14 +179,20 @@ class ErrorHandler(object):
             # information about the problem, without worrying
             # whether it contains sensitive information.
             _db = self.app.manager._db
-            LogConfiguration.from_configuration(_db)
-            (log_level, database_log_level, handlers,
-             errors) = LogConfiguration.from_configuration(
-                 self.app.manager._db
-             )
-            debug = debug or (
-                LogConfiguration.DEBUG in (log_level, database_log_level)
-            )
+            try:
+                LogConfiguration.from_configuration(_db)
+                (log_level, database_log_level, handlers,
+                 errors) = LogConfiguration.from_configuration(
+                     self.app.manager._db
+                 )
+                debug = debug or (
+                    LogConfiguration.DEBUG in (log_level, database_log_level)
+                )
+            except SQLAlchemyError, e:
+                # The database session could not be used, possibly due to
+                # the very error under consideration. Go with the
+                # preexisting value for `debug`.
+                pass
 
             # Then roll the session back.
             self.app.manager._db.rollback()
