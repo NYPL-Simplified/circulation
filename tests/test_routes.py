@@ -9,6 +9,8 @@ import flask
 from flask import Response
 from werkzeug.exceptions import MethodNotAllowed
 
+from core.app_server import ErrorHandler
+
 from api import app
 from api import routes
 from api.opds import CirculationManagerAnnotator
@@ -713,25 +715,37 @@ class TestExceptionHandler(RouteTest):
     def test_exception_handling(self):
         # The exception handler deals with most exceptions by running them
         # through ErrorHandler.handle()
-        value_error = ValueError()
+        assert isinstance(error_handler_object, ErrorHandler)
+
+        # Temporarily replace the ErrorHandler used by the
+        # exception_handler function -- this is what we imported as
+        # error_handler_object.
+        class MockErrorHandler(object):
+            def handle(self, exception):
+                self.handled = exception
+                return Response("handled it", 500)
+        routes.h = MockErrorHandler()
+
+        # Simulate a request that causes an unhandled exception.
         with self.app.test_request_context():
+            value_error = ValueError()
             result = exception_handler(value_error)
 
-            # This generally turns them into Internal Server Errors.
-            expect = error_handler_object.handle(value_error)
-            eq_(expect.data, result.data)
+            # The exception was passed into MockErrorHandler.handle.
+            eq_(value_error, routes.h.handled)
+
+            # The Response is created was passed along.
+            eq_("handled it", result.data)
             eq_(500, result.status_code)
-            eq_(expect.status_code, result.status_code)
 
-        # At this point the database session has been ruined, so
-        # we can't do any more checks in this test.
-
-    def test_exception_handling_http_exception(self):
         # werkzeug HTTPExceptions are _not_ run through
-        # handle(). werkzeug does the conversion to a Response object
-        # representing a more specific (and possibly even desirable)
-        # HTTP response.
+        # handle(). werkzeug handles the conversion to a Response
+        # object representing a more specific (and possibly even
+        # non-error) HTTP response.
         with self.app.test_request_context():
             exception = MethodNotAllowed()
             response = exception_handler(exception)
             eq_(405, response.status_code)
+
+        # Restore the normal error handler.
+        routes.h = error_handler_object
