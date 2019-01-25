@@ -202,18 +202,27 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             def run_once(self, offset, count_as_covered=None):
                 self.run_once_calls.append(count_as_covered)
 
-        # We start with no timestamp value.
+        # We start with no Timestamp.
         service_name = "I do nothing"
-        eq_(None, Timestamp.value(self._db, service_name, collection=None))
+        service_type = Timestamp.COVERAGE_PROVIDER_TYPE
+        timestamp = Timestamp.value(self._db, service_name, service_type,
+                                    collection=None)
+        eq_(None, timestamp)
 
         # Instantiate the Provider, and call
         # run_once_and_update_timestamp.
         provider = MockProvider(self._db)
         provider.run_once_and_update_timestamp()
 
-        # The timestamp is now set to a recent value.
-        value = Timestamp.value(self._db, service_name, collection=None)
-        assert (datetime.datetime.utcnow() - value).total_seconds() < 1
+        # The Timestamp's .start and .timestamp are now set to recent
+        # values -- the start and end points of run_once().
+        timestamp = Timestamp.lookup(
+            self._db, service_name, service_type, collection=None
+        )
+        now = datetime.datetime.utcnow()
+        assert (now - timestamp.timestamp).total_seconds() < 1
+        assert (now - timestamp.start).total_seconds() < 1
+        assert timestamp.start < timestamp.timestamp
 
         # run_once was called twice: once to exclude items that have
         # any coverage record whatsoever (PREVIOUSLY_ATTEMPTED), and again to
@@ -221,6 +230,25 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # success or persistent failure (DEFAULT_COUNT_AS_COVERED).
         eq_([CoverageRecord.PREVIOUSLY_ATTEMPTED,
              CoverageRecord.DEFAULT_COUNT_AS_COVERED], provider.run_once_calls)
+
+    def test_run_once_and_update_timestamp(self):
+        """Test that run_once_and_update_timestamp catches an exception
+        and stores a stack trace in the CoverageProvider's Timestamp.
+        """
+        class MockProvider(BaseCoverageProvider):
+            SERVICE_NAME = "I fail"
+
+            def run_once(self, offset, count_as_covered=None):
+                raise Exception("Unhandled exception")
+
+        provider = MockProvider(self._db)
+        provider.run_once_and_update_timestamp()
+
+        timestamp = Timestamp.lookup(
+            self._db, provider.SERVICE_NAME, Timestamp.COVERAGE_PROVIDER_TYPE,
+            collection=None
+        )
+        assert "Exception: Unhandled exception" in timestamp.exception
 
     def test_run_once(self):
         """Test run_once, showing how it covers items with different types of

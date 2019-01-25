@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 import datetime
 import logging
+import traceback
 
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.functions import func
@@ -197,9 +198,10 @@ class BaseCoverageProvider(object):
                 except Exception, e:
                     logging.error(
                         "CoverageProvider %s raised uncaught exception.",
-                        service_name, exc_info=e
+                        self.service_name, exc_info=e
                     )
                     exception = traceback.format_exc()
+                    break
 
         self.update_timestamp(start=start_time, exception=exception)
 

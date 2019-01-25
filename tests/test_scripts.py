@@ -156,8 +156,13 @@ class TestTimestampScript(DatabaseTest):
         script.run()
 
         timestamp = self._ts(script)
+
+        # The start and end points of do_run() have become
+        # Timestamp.start and Timestamp.timestamp.
         now = datetime.datetime.utcnow()
+        assert (now - timestamp.start).total_seconds() < 5
         assert (now - timestamp.timestamp).total_seconds() < 5
+        assert timestamp.start < timestamp.timestamp
         eq_(None, timestamp.collection)
 
     def test_update_timestamp_with_collection(self):
@@ -184,8 +189,13 @@ class TestTimestampScript(DatabaseTest):
         script = Broken(self._db)
         assert_raises_regexp(Exception, "i'm broken", script.run)
         timestamp = self._ts(script)
+
         now = datetime.datetime.utcnow()
         assert (now - timestamp.timestamp).total_seconds() < 5
+
+        # A stack trace for the exception has been recorded in the
+        # Timestamp object.
+        assert "Exception: i'm broken" in timestamp.exception
 
     def test_normal_script_has_no_timestamp(self):
         # Running a normal script does _not_ set a Timestamp.

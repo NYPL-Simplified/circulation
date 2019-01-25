@@ -162,10 +162,17 @@ class Timestamp(Base):
         return message.encode("utf8")
 
     @classmethod
-    def value(cls, _db, service, collection):
+    def lookup(cls, _db, service, service_type, collection):
+        return get_one(
+            _db, Timestamp, service=service, service_type=service_type,
+            collection=collection
+        )
+
+    @classmethod
+    def value(cls, _db, service, service_type, collection):
         """Return the current value of the given Timestamp, if it exists.
         """
-        stamp = get_one(_db, Timestamp, service=service, collection=collection)
+        stamp = cls.lookup(_db, service, service_type, collection)
         if not stamp:
             return None
         return stamp.timestamp

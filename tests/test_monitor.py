@@ -111,10 +111,11 @@ class TestMonitor(DatabaseTest):
         timestamp = self._db.query(Timestamp).filter(
             Timestamp.service==monitor.service_name).one()
 
-        # The current value of the timestamp later than the
-        # original value, because it was updated after run_once() was
-        # called.
-        assert timestamp.timestamp > monitor.original_timestamp
+        # The current value of .timestamp and .start are later than
+        # the original value, because they were updated to reflect the
+        # time that run_once() was called.
+        assert timestamp.start > monitor.original_timestamp
+        assert timestamp.timestamp > timestamp.start
 
     def test_initial_timestamp(self):
         class NeverRunMonitor(MockMonitor):
@@ -130,9 +131,24 @@ class TestMonitor(DatabaseTest):
             DEFAULT_START_TIME = MockMonitor.ONE_YEAR_AGO
         # The Timestamp object is created, and its .timestamp is long ago.
         m = RunLongAgoMonitor(self._db, self._default_collection)
-        timestamp = m.timestamp().timestamp
+        timestamp = m.timestamp()
         now = datetime.datetime.utcnow()
-        assert timestamp < now
+        assert timestamp.timestamp < now
+        eq_(None, timestamp.start)
+
+    def test_run_once_exception_recorded_in_timestamp(self):
+        # If a Monitor's run_once implementation raises an unhandled
+        # exception, a traceback for that exception is recorded
+        # in the appropriate Timestamp.
+        class DoomedMonitor(MockMonitor):
+            SERVICE_NAME = "Doomed"
+            def run_once(self, *args, **kwargs):
+                raise Exception("I'm doomed")
+
+        m = DoomedMonitor(self._db, self._default_collection)
+        m.run()
+        timestamp = m.timestamp()
+        assert "Exception: I'm doomed" in timestamp.exception
 
     def test_same_monitor_different_collections(self):
         """A single Monitor has different Timestamps when run against
@@ -369,6 +385,15 @@ class TestSweepMonitor(DatabaseTest):
         # this is I2.
         timestamp = monitor.timestamp()
         eq_(i2.id, timestamp.counter)
+
+        # The exception that stopped the run was recorded.
+        assert "Exception: HOW DARE YOU" in timestamp.exception
+
+        # The start and end points of the run were recorded.
+        now = datetime.datetime.utcnow()
+        assert (now - timestamp.start).total_seconds() < 5
+        assert (now - timestamp.timestamp).total_seconds() < 5
+        assert timestamp.start < timestamp.timestamp
 
         # I3 was processed, but the batch did not complete, so any
         # changes wouldn't have been written to the database.
