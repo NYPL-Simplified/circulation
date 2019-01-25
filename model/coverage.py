@@ -174,7 +174,30 @@ class Timestamp(Base):
         cls, _db, service, service_type, collection=None, start=None, date=None,
         achievements=None, counter=None, exception=None
     ):
-        """Set a Timestamp, creating it if necessary."""
+        """Set a Timestamp, creating it if necessary.
+
+        This should be called once a service has stopped running,
+        whether or not it was able to complete its task.
+
+        :param _db: A database connection.
+        :param service: The name of the service associated with the Timestamp.
+
+        :param service_type: The type of the service associated with
+            the Timestamp. This must be one of the values in
+            Timestmap.service_type_enum.
+        :param collection: The Collection, if any, on which this service
+            just ran.
+        :param start: The time at which this service started running.
+            Defaults to now.
+        :param date: The time at which this service stopped running.
+            Defaults to now.
+        :param achievements: The number of distinct things the service
+            did during its run.
+        :param counter: An integer item of state that the service may use
+            to track its progress between runs.
+        :param exception: A stack trace for the exception, if any, which
+            stopped the service from running.
+        """
         timestamp = date or datetime.datetime.utcnow()
         start = start or timestamp
         stamp, was_new = get_one_or_create(
