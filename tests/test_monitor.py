@@ -219,24 +219,32 @@ class TestCollectionMonitor(DatabaseTest):
             PROTOCOL = ExternalIntegration.OPDS_IMPORT
 
         # Here we have three OPDS import Collections...
-        o1 = self._collection()
-        o2 = self._collection()
-        o3 = self._collection()
+        o1 = self._collection("o1")
+        o2 = self._collection("o2")
+        o3 = self._collection("o3")
 
         # ...and a Bibliotheca collection.
         b1 = self._collection(protocol=ExternalIntegration.BIBLIOTHECA)
 
         # o1 just had its Monitor run.
-        Timestamp.stamp(self._db, OPDSCollectionMonitor.SERVICE_NAME, o1)
+        Timestamp.stamp(
+            self._db, OPDSCollectionMonitor.SERVICE_NAME,
+            Timestamp.MONITOR_TYPE, o1
+        )
 
         # o2 and b1 have never had their Monitor run, but o2 has had some other Monitor run.
-        Timestamp.stamp(self._db, "A Different Service", o2)
+        Timestamp.stamp(
+            self._db, "A Different Service", Timestamp.MONITOR_TYPE,
+            o2
+        )
 
         # o3 had its Monitor run an hour ago.
         now = datetime.datetime.utcnow()
         an_hour_ago = now - datetime.timedelta(seconds=3600)
-        Timestamp.stamp(self._db, OPDSCollectionMonitor.SERVICE_NAME,
-                        o3, an_hour_ago)
+        Timestamp.stamp(
+            self._db, OPDSCollectionMonitor.SERVICE_NAME,
+            Timestamp.MONITOR_TYPE, o3, date=an_hour_ago
+        )
 
         monitors = list(OPDSCollectionMonitor.all(self._db))
 
@@ -325,7 +333,9 @@ class TestSweepMonitor(DatabaseTest):
         # The monitor was just run, but it was not able to proceed past
         # i1.
         timestamp = Timestamp.stamp(
-            self._db, self.monitor.service_name, self.monitor.collection
+            self._db, self.monitor.service_name,
+            Timestamp.MONITOR_TYPE,
+            self.monitor.collection
         )
         timestamp.counter = i1.id
 

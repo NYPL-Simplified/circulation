@@ -207,7 +207,7 @@ class Timestamp(Base):
             service_type=service_type,
             collection=collection,
         )
-        self.update(start, timestamp, achievements, counter, exception)
+        stamp.update(start, timestamp, achievements, counter, exception)
 
         # Committing immediately reduces the risk of contention.
         _db.commit()
@@ -218,11 +218,11 @@ class Timestamp(Base):
         """Use a single method to update all the fields that aren't
         used to identify a Timestamp.
         """
-        stamp.start = start
-        stamp.achievements = achievements
-        stamp.counter = counter
-        stamp.timestamp = timestamp
-        stamp.exception = exception
+        self.start = start
+        self.achievements = achievements
+        self.counter = counter
+        self.timestamp = timestamp
+        self.exception = exception
 
 
     __table_args__ = (

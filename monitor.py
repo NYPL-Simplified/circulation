@@ -168,7 +168,8 @@ class Monitor(object):
             self.cleanup()
         except Exception, e:
             self.log.error("Error running %s monitor", exc_info=e)
-            exception = traceback.exc_info()
+            exception = traceback.format_exc()
+            new_timestamp_value = datetime.datetime.utcnow()
 
         duration = datetime.datetime.utcnow() - started_running
         self.log.info(
@@ -300,12 +301,13 @@ class SweepMonitor(CollectionMonitor):
     def run(self):
         timestamp = self.timestamp()
         offset = timestamp.counter
+        new_offset = offset
 
-        started_at = datetime.datetime.utcnow()
+        run_started_at = datetime.datetime.utcnow()
         exception = None
         achievements = 0
         while True:
-            start_time = time.time()
+            batch_started_at = time.time()
             old_offset = offset
             try:
                 # TODO: Change process_batch to return number of
@@ -319,11 +321,11 @@ class SweepMonitor(CollectionMonitor):
             self._db.commit()
 
             if old_offset != new_offset:
-                end_time = time.time()
+                batch_ended_at = time.time()
                 self.log.debug(
                     "%s monitor went from offset %s to %s in %.2f sec",
                     self.service_name, offset, new_offset,
-                    (end_time-start_time)
+                    (batch_ended_at-batch_started_at)
                 )
 
             offset = new_offset
@@ -334,8 +336,9 @@ class SweepMonitor(CollectionMonitor):
        
         # We're done with this run, either because we completed
         # a sweep or because an exception was raised.
+        run_ended_at = datetime.datetime.utcnow()
         timestamp.update(
-            start=start, timestamp=datetime.datetime.utcnow(),
+            start=run_started_at, timestamp=run_ended_at,
             achievements=achievements, counter=new_offset,
             exception=exception
         )

@@ -370,7 +370,7 @@ class DoomedCollectionMonitor(CollectionMonitor):
     """Mock CollectionMonitor that always raises an exception."""
     SERVICE_NAME = "Doomed Monitor"
     PROTOCOL = ExternalIntegration.OPDS_IMPORT
-    def run_once(self, *args, **kwargs):
+    def run(self, *args, **kwargs):
         self.ran = True
         self.collection.doomed = True
         raise Exception("Doomed!")
@@ -683,7 +683,8 @@ class TestRunThreadedCollectionCoverageProviderScript(DatabaseTest):
 
         # Set a timestamp for the provider.
         timestamp = Timestamp.stamp(
-            self._db, provider.SERVICE_NAME, collection
+            self._db, provider.SERVICE_NAME, Timestamp.COVERAGE_PROVIDER_TYPE,
+            collection=collection
         )
         original_timestamp = timestamp.timestamp
         self._db.commit()
@@ -808,7 +809,9 @@ class TestTimestampInfo(DatabaseTest):
     def test_update(self):
         # Create a Timestamp to be updated.
         past = datetime.datetime.strptime('19980101', '%Y%m%d')
-        stamp = Timestamp.stamp(self._db, 'test', None, date=past)
+        stamp = Timestamp.stamp(
+            self._db, 'test', Timestamp.SCRIPT_TYPE, None, date=past
+        )
         timestamp_info = self.TimestampInfo.find(self._db, 'test')
 
         now = datetime.datetime.utcnow()
@@ -1399,12 +1402,12 @@ class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
         self.assert_matches_timestamp(script.python_timestamp, '20350101')
 
     def test_error_raised_when_timestamp_exists(self):
-        Timestamp.stamp(self._db, self.script.name, None)
+        Timestamp.stamp(self._db, self.script.name, Timestamp.SCRIPT_TYPE, None)
         assert_raises(RuntimeError, self.script.run)
 
     def test_error_not_raised_when_timestamp_forced(self):
         past = self.script.parse_time('19951127')
-        Timestamp.stamp(self._db, self.script.name, None, date=past)
+        Timestamp.stamp(self._db, self.script.name, Timestamp.SCRIPT_TYPE, None, date=past)
         self.script.run(['-f'])
         self.assert_matches_latest_migration(self.script.overall_timestamp)
         self.assert_matches_latest_python_migration(self.script.python_timestamp)

@@ -199,14 +199,14 @@ class BaseCoverageProvider(object):
                         "CoverageProvider %s raised uncaught exception.",
                         service_name, exc_info=e
                     )
-                    exception = traceback.exc_info()
+                    exception = traceback.format_exc()
 
         self.update_timestamp(start=start_time, exception=exception)
 
     def update_timestamp(self, **kwargs):
         Timestamp.stamp(
             _db=self._db, service=self.service_name,
-            service_type=Timestamp.COVERAGE_PROVIDER,
+            service_type=Timestamp.COVERAGE_PROVIDER_TYPE,
             collection=self.collection, **kwargs
         )
         self._db.commit()
