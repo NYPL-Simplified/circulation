@@ -71,6 +71,7 @@ from core.scripts import (
     LibraryInputScript,
     PatronInputScript,
     RunMonitorScript,
+    TimestampScript,
 )
 from core.lane import (
     Pagination,
@@ -313,7 +314,7 @@ class UpdateStaffPicksScript(Script):
         return StringIO(representation.content)
 
 
-class CacheRepresentationPerLane(LaneSweeperScript):
+class CacheRepresentationPerLane(TimestampScript, LaneSweeperScript):
 
     name = "Cache one representation per lane"
 
@@ -483,7 +484,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
 class CacheFacetListsPerLane(CacheRepresentationPerLane):
     """Cache the first two pages of every relevant facet list for this lane."""
 
-    name = "Cache OPDS feeds"
+    name = "Cache paginated OPDS feed for each lane"
 
     @classmethod
     def arg_parser(cls, _db):
@@ -646,7 +647,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
 
 class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
 
-    name = "Cache OPDS group feed for each lane"
+    name = "Cache OPDS grouped feed for each lane"
 
     def should_process_lane(self, lane):
         # OPDS group feeds are only generated for lanes that have sublanes.
@@ -699,6 +700,9 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
 
 class CacheMARCFiles(LaneSweeperScript):
     """Generate and cache MARC files for each input library."""
+
+    name = "Cache MARC files"
+
     @classmethod
     def arg_parser(cls, _db):
         parser = LaneSweeperScript.arg_parser(_db)
@@ -924,7 +928,7 @@ class CompileTranslationsScript(Script):
         os.system("pybabel compile -f -d translations")
 
 
-class InstanceInitializationScript(Script):
+class InstanceInitializationScript(TimestampScript):
     """An idempotent script to initialize an instance of the Circulation Manager.
 
     This script is intended for use in servers, Docker containers, etc,
@@ -934,6 +938,8 @@ class InstanceInitializationScript(Script):
     Because it's currently run every time a container is started, it must
     remain idempotent.
     """
+
+    name = "Instance initialization"
 
     def do_run(self, ignore_search=False):
         # Creates a "-current" alias on the Elasticsearch client.
@@ -956,7 +962,7 @@ class InstanceInitializationScript(Script):
         ConfigurationSetting.sitewide_secret(self._db, Configuration.SECRET_KEY)
 
 
-class LoanReaperScript(Script):
+class LoanReaperScript(TimestampScript):
     """Remove expired loans and holds whose owners have not yet synced
     with the loan providers.
 
@@ -966,6 +972,9 @@ class LoanReaperScript(Script):
     If a loan or (more likely) hold is removed incorrectly, it will be
     restored the next time the patron syncs their loans feed.
     """
+
+    name = "Remove expired loans and holds from local database"
+
     def do_run(self):
         now = datetime.utcnow()
 
@@ -1145,7 +1154,9 @@ class DisappearingBookReportScript(Script):
         print "\t".join([unicode(x).encode("utf8") for x in data])
 
 
-class NYTBestSellerListsScript(Script):
+class NYTBestSellerListsScript(TimestampScript):
+
+    name = "Update New York Times best-seller lists"
 
     def __init__(self, include_history=False):
         super(NYTBestSellerListsScript, self).__init__()
@@ -1190,10 +1201,12 @@ class OPDSForDistributorsReaperScript(OPDSImportScript):
     PROTOCOL = OPDSForDistributorsImporter.NAME
 
 
-class DirectoryImportScript(Script):
+class DirectoryImportScript(TimestampScript):
     """Import some books into a collection, based on a file containing
     metadata and directories containing ebook and cover files.
     """
+
+    name = "Import new titles from a directory on disk"
 
     @classmethod
     def arg_parser(cls, _db):
@@ -1270,6 +1283,7 @@ class DirectoryImportScript(Script):
         collection, mirror = self.load_collection(
             collection_name, data_source_name
         )
+        self.timestamp_collection = collection
 
         if dry_run:
             mirror = None
@@ -1339,6 +1353,7 @@ class DirectoryImportScript(Script):
                     collection.name
                 )
         mirror = MirrorUploader.for_collection(collection)
+
         return collection, mirror
 
     def load_metadata(self, metadata_file, metadata_format, data_source_name):
@@ -1617,7 +1632,7 @@ You'll get another chance to back out before the database session is committed."
     def process_library(self, library):
         create_default_lanes(self._db, library)
 
-class NovelistSnapshotScript(LibraryInputScript):
+class NovelistSnapshotScript(TimestampScript, LibraryInputScript):
 
     def do_run(self, output=sys.stdout, *args, **kwargs):
         parsed = self.parse_command_line(self._db, *args, **kwargs)
