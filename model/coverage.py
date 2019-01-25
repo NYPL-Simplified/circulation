@@ -99,11 +99,10 @@ class Timestamp(Base):
     MONITOR_TYPE = "monitor"
     COVERAGE_PROVIDER_TYPE = "coverage_provider"
     SCRIPT_TYPE = "script"
-    OTHER_TYPE = "other"
 
     service_type_enum = Enum(
-        MONITOR_TYPE, COVERAGE_PROVIDER_TYPE,,
-        SCRIPT_TYPE, OTHER_TYPE, name='service_type'
+        MONITOR_TYPE, COVERAGE_PROVIDER_TYPE, SCRIPT_TYPE,
+        name="service_type",
     )
 
     # Unique ID
@@ -112,8 +111,10 @@ class Timestamp(Base):
     # Name of the service.
     service = Column(String(255), index=True, nullable=False)
     
-    # Type of the service -- monitor, coverage provider, script or other.
-    service_type = Column(service_type_enum, index=True, default=OTHER_TYPE)
+    # Type of the service -- monitor, coverage provider, or script.
+    # If the service type does not fit into these categories, this field
+    # can be left null.
+    service_type = Column(service_type_enum, index=True, default=None)
 
     # The collection, if any, associated with this service -- some services
     # run separately on a number of collections.
