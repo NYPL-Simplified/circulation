@@ -2542,10 +2542,12 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
         # Initialize the required timestamps with the Space Jam release date.
         init_timestamp = self.parse_time('1996-11-15')
         overall_timestamp = existing_timestamp or Timestamp.stamp(
-            self._db, self.SERVICE_NAME, None, date=init_timestamp
+            _db=self._db, service=self.SERVICE_NAME,
+            service_type=Timestamp.SCRIPT_TYPE, date=init_timestamp
         )
         python_timestamp = Timestamp.stamp(
-            self._db, self.PY_TIMESTAMP_SERVICE_NAME, None, date=init_timestamp
+            _db=self._db, service=self.PY_TIMESTAMP_SERVICE_NAME,
+            service_type=Timestamp.SCRIPT_TYPE, date=init_timestamp
         )
 
         if last_run_date:

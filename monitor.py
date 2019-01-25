@@ -159,20 +159,27 @@ class Monitor(object):
         if start == self.NEVER:
             start = None
 
+        exception = None
         started_running = datetime.datetime.utcnow()
-        new_timestamp_value = (
-            self.run_once(start, started_running) or started_running
-        )
-        duration = datetime.datetime.utcnow() - started_running
-        self.cleanup()
-        self.log.info(
-            "Ran %s monitor in %.2f sec.", self.service_name,
-            duration.total_seconds()
-        )
+        try:
+            new_timestamp_value = (
+                self.run_once(start, started_running) or started_running
+            )
+            self.cleanup()
+            duration = datetime.datetime.utcnow() - started_running
+            self.log.info(
+                "Ran %s monitor in %.2f sec.", self.service_name,
+                duration.total_seconds()
+            )
+        except Exception, e:
+            self.log.error("Error running %s monitor", exc_info=e)
+            exception = traceback.exc_info()
+
         if self.keep_timestamp:
             # Update the Timestamp values.
-            timestamp.start = start_time
-            timestamp.timestamp = new_timestamp_value
+            timestamp.update(
+                started_running, new_timestamp_value, exception=exception
+            )
         self._db.commit()
 
     def run_once(self, start, cutoff):
@@ -293,6 +300,8 @@ class SweepMonitor(CollectionMonitor):
         offset = timestamp.counter
 
         started_at = datetime.datetime.utcnow()
+        exception = None
+        achievements = 0
         while True:
             start_time = time.time()
             old_offset = offset
@@ -302,11 +311,8 @@ class SweepMonitor(CollectionMonitor):
                 new_offset = self.process_batch(offset)
             except Exception, e:
                 self.log.error("Error during run: %s", e, exc_info=e)
+                exception = traceback.format_exc()
                 break
-
-            # We completed one batch of work. Update the Timestamp so
-            # we don't do the same work again.
-            timestamp.counter = new_offset
 
             self._db.commit()
 
@@ -317,11 +323,20 @@ class SweepMonitor(CollectionMonitor):
                     self.service_name, offset, new_offset,
                     (end_time-start_time)
                 )
+
             offset = new_offset
             if offset == 0:
                 # We completed a sweep. We're done.
                 self.cleanup()
                 break
+       
+        # We're done with this run, either because we completed
+        # a sweep or because an exception was raised.
+        timestamp.update(
+            start=start, timestamp=datetime.datetime.utcnow(),
+            achievements=achievements, counter=new_offset,
+            exception=exception
+        )
 
     def process_batch(self, offset):
         """Process one batch of work."""
