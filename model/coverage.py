@@ -90,15 +90,52 @@ class BaseCoverageRecord(object):
 
 
 class Timestamp(Base):
-    """A general-purpose timestamp for Monitors."""
+    """Tracks the activities of Monitors, CoverageProviders,
+    and general scripts.
+    """
 
     __tablename__ = 'timestamps'
+
+    MONITOR_TYPE = "monitor"
+    COVERAGE_PROVIDER_TYPE = "coverage_provider"
+    SCRIPT_TYPE = "script"
+    OTHER_TYPE = "other"
+
+    service_type_enum = Enum(SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE,
+                             REGISTERED, name='coverage_status')
+
+    # Unique ID
     id = Column(Integer, primary_key=True)
+
+    # Name of the service.
     service = Column(String(255), index=True, nullable=False)
+    
+    # Type of the service -- monitor, coverage provider, script or other.
+    service_type = Column(service_type_enum, index=True)
+
+    # The collection, if any, associated with this service -- some services
+    # run separately on a number of collections.
     collection_id = Column(Integer, ForeignKey('collections.id'),
                            index=True, nullable=True)
+
+    # The last time the service _started_ running.
+    start = Column(DateTime, nullable=True)
+
+    # The last time the service _stopped_ running. This is the 'timestamp'
+    # proper.
     timestamp = Column(DateTime)
-    counter = Column(Integer)
+
+    # The number of distinct things the service did during its last
+    # runn. Each service may decide for itself what counts as an
+    # 'achievement'; this is just a way to distinguish services that
+    # do a lot of things from services that do a few things, or to see
+    # services that run to completion but don't actually do anything.
+    achievements = Column(Integer, nullable=True)
+
+    # This column allows a service to keep one item of state between
+    # runs. For example, a monitor that iterates over a database table
+    # needs to keep track of the last database ID it processed.
+    counter = Column(Integer, nullable=True)
 
     def __repr__(self):
         if self.timestamp:
@@ -127,15 +164,23 @@ class Timestamp(Base):
         return stamp.timestamp
 
     @classmethod
-    def stamp(cls, _db, service, collection, date=None):
-        date = date or datetime.datetime.utcnow()
+    def stamp(
+        cls, _db, service, service_type, collection=None, start=None, date=None,
+        achievements=None, counter=None
+    ):
+        """Set a Timestamp, creating it if necessary."""
+        timestamp = date or datetime.datetime.utcnow()
+        start = start or timestamp
         stamp, was_new = get_one_or_create(
             _db, Timestamp,
             service=service,
+            service_type=service_type,
             collection=collection,
-            create_method_kwargs=dict(timestamp=date))
-        if not was_new:
-            stamp.timestamp = date
+        )
+        stamp.start = start
+        stamp.achievements = achievements
+        stamp.counter = counter
+        stamp.timestamp=timestamp
         # Committing immediately reduces the risk of contention.
         _db.commit()
         return stamp
