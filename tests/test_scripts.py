@@ -70,7 +70,6 @@ from ..scripts import (
     ListCollectionMetadataIdentifiersScript,
     MirrorResourcesScript,
     MockStdin,
-    NoTimestampScript,
     OPDSImportScript,
     PatronInputScript,
     ReclassifyWorksForUncheckedSubjectsScript,
@@ -86,6 +85,7 @@ from ..scripts import (
     ShowIntegrationsScript,
     ShowLanesScript,
     ShowLibrariesScript,
+    TimestampScript,
     WorkClassificationScript,
     WorkProcessingScript,
 )
@@ -139,11 +139,15 @@ class TestScript(DatabaseTest):
         script.name = "I'm a script"
         eq_(script.name, script.script_name)
 
+
+class TestTimestampScript(DatabaseTest):
+
     def test_update_timestamp(self):
-        # In most cases, a Timestamp will be set when a script is run.
+        # Test the Script subclass that sets a timestamp after a
+        # script is run.
         TS = Timestamp
 
-        class Noisy(Script):
+        class Noisy(TimestampScript):
             def do_run(self):
                 pass
         Noisy(self._db).run()
@@ -151,16 +155,10 @@ class TestScript(DatabaseTest):
         now = datetime.datetime.utcnow()
         assert (now - timestamp.timestamp).total_seconds() < 5
 
-        # Running a NoTimestampScript does _not_ set a Timestamp.
-        class Silent(NoTimestampScript):
-            def do_run(self):
-                pass
-        Silent(self._db).run()
-        eq_([], self._db.query(TS).filter(TS.service=='Silent').all())
-
-        # A script that fails to complete still gets a Timestamp set -- the
-        # timestamp just records the time that the script stopped running.
-        class Broken(Script):
+        # A TimestampScript that fails to complete still gets a
+        # Timestamp set -- the timestamp just records the time that
+        # the script stopped running.
+        class Broken(TimestampScript):
             def do_run(self):
                 raise Exception("i'm broken")
 
@@ -169,6 +167,13 @@ class TestScript(DatabaseTest):
         [timestamp] = self._db.query(TS).filter(TS.service=='Broken').all()
         now = datetime.datetime.utcnow()
         assert (now - timestamp.timestamp).total_seconds() < 5
+
+        # Running a normal script does _not_ set a Timestamp.
+        class Silent(Script):
+            def do_run(self):
+                pass
+        Silent(self._db).run()
+        eq_([], self._db.query(TS).filter(TS.service=='Silent').all())
 
 
 class TestCheckContributorNamesInDB(DatabaseTest):

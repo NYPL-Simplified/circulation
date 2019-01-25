@@ -187,30 +187,25 @@ class Script(object):
             Configuration.load(self._db)
 
     def update_timestamp(self):
-        """Update any appropriate Timestamp for this script.
+        """By default scripts have no timestamp of their own.
 
-        Scripts that run Monitors and CoverageProviders will override
-        this with a no-op, since Monitors and CoverageProviders have their
-        own logic for creating Timestamps.
-        """
-        Timestamp.stamp(self._db, self.script_name, collection=None)
-
-
-class NoTimestampScript(Script):
-
-    def update_timestamp(self):
-        """This script doesn't have its own timestamp.
-
-        Instead, it does work through Monitors or CoverageProviders,
-        which have their own logic for creating timestamps.
-
-        Or it can't use the normal Timestamp.stamp method for some
-        other reason.
+        Most scripts either work through Monitors or CoverageProviders,
+        which have their own logic for creating timestamps, or they
+        are designed to be run interactively from the command-line, so
+        facts about when they last ran are not relevant.
         """
         pass
 
 
-class RunMonitorScript(NoTimestampScript):
+class TimestampScript(Script):
+    """A script that automatically records a timestamp whenever it runs."""
+
+    def update_timestamp(self):
+        """Update the appropriate Timestamp for this script."""
+        Timestamp.stamp(self._db, self.script_name, collection=None)
+
+
+class RunMonitorScript(Script):
 
     def __init__(self, monitor, _db=None, **kwargs):
         super(RunMonitorScript, self).__init__(_db)
@@ -239,7 +234,7 @@ class RunMonitorScript(NoTimestampScript):
             ).run()
 
 
-class RunMultipleMonitorsScript(NoTimestampScript):
+class RunMultipleMonitorsScript(Script):
     """Run a number of monitors in sequence.
 
     Currently the Monitors are run one at a time. It should be
@@ -329,7 +324,7 @@ class UpdateSearchIndexScript(RunMonitorScript):
         )
 
 
-class RunCoverageProvidersScript(NoTimestampScript):
+class RunCoverageProvidersScript(Script):
     """Alternate between multiple coverage providers."""
     def __init__(self, providers, _db=None):
         super(RunCoverageProvidersScript, self).__init__(_db=_db)
@@ -376,7 +371,7 @@ class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
         return list(provider_class.all(_db, **kwargs))
 
 
-class RunThreadedCollectionCoverageProviderScript(NoTimestampScript):
+class RunThreadedCollectionCoverageProviderScript(Script):
     """Run coverage providers in multiple threads."""
 
     DEFAULT_WORKER_SIZE = 5
@@ -796,7 +791,7 @@ class SubjectInputScript(Script):
         return parser
 
 
-class RunCoverageProviderScript(NoTimestampScript, IdentifierInputScript):
+class RunCoverageProviderScript(IdentifierInputScript):
     """Run a single coverage provider."""
 
     @classmethod
@@ -2020,14 +2015,14 @@ class RefreshMaterializedViewsScript(Script):
         db.commit()
 
 
-class DatabaseMigrationScript(NoTimestampScript):
+class DatabaseMigrationScript(Script):
     """Runs new migrations.
 
     This script needs to execute without ever loading an ORM object,
     because the database might be in a state that's not compatible
     with the current ORM version.
 
-    This is a NoTimestampScript because it keeps separate Timestamps
+    This is not a TimestampScript because it keeps separate Timestamps
     for the Python and the SQL migrations, and because Timestamps
     are ORM objects, which this script can't touch.
     """
