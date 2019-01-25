@@ -166,19 +166,21 @@ class Monitor(object):
                 self.run_once(start, started_running) or started_running
             )
             self.cleanup()
-            duration = datetime.datetime.utcnow() - started_running
-            self.log.info(
-                "Ran %s monitor in %.2f sec.", self.service_name,
-                duration.total_seconds()
-            )
         except Exception, e:
             self.log.error("Error running %s monitor", exc_info=e)
             exception = traceback.exc_info()
 
+        duration = datetime.datetime.utcnow() - started_running
+        self.log.info(
+            "Ran %s monitor in %.2f sec.", self.service_name,
+            duration.total_seconds()
+        )
+
         if self.keep_timestamp:
             # Update the Timestamp values.
             timestamp.update(
-                started_running, new_timestamp_value, exception=exception
+                start=started_running, timestamp=new_timestamp_value,
+                exception=exception
             )
         self._db.commit()
 
@@ -307,13 +309,13 @@ class SweepMonitor(CollectionMonitor):
             old_offset = offset
             try:
                 # TODO: Change process_batch to return number of
-                # achievements, and keep track of the total.
+                # achievements as well as offset, and keep track of
+                # the total.
                 new_offset = self.process_batch(offset)
             except Exception, e:
                 self.log.error("Error during run: %s", e, exc_info=e)
                 exception = traceback.format_exc()
                 break
-
             self._db.commit()
 
             if old_offset != new_offset:
