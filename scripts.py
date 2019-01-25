@@ -200,9 +200,14 @@ class Script(object):
 class TimestampScript(Script):
     """A script that automatically records a timestamp whenever it runs."""
 
+    def __init__(self, *args, **kwargs):
+        super(TimestampScript, self).__init__(*args, **kwargs)
+        self.timestamp_collection = None
+
     def update_timestamp(self):
         """Update the appropriate Timestamp for this script."""
-        Timestamp.stamp(self._db, self.script_name, collection=None)
+        Timestamp.stamp(self._db, self.script_name,
+                        collection=self.timestamp_collection)
 
 
 class RunMonitorScript(Script):
