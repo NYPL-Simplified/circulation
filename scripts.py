@@ -171,28 +171,34 @@ class Script(object):
     def run(self):
         self.load_configuration()
         DataSource.well_known_sources(self._db)
+        start_time = datetime.datetime.utcnow()
         try:
             self.do_run()
+            self.update_timestamp(start_time, None)
         except Exception, e:
             logging.error(
                 "Fatal exception while running script: %s", e,
                 exc_info=e
             )
+            stack_trace = traceback.format_exc()
+            self.update_timestamp(start_time, stack_trace)
             raise e
-        finally:
-            self.update_timestamp()
 
     def load_configuration(self):
         if not Configuration.cdns_loaded_from_database():
             Configuration.load(self._db)
 
-    def update_timestamp(self):
+    def update_timestamp(self, start_time, exception):
         """By default scripts have no timestamp of their own.
 
         Most scripts either work through Monitors or CoverageProviders,
         which have their own logic for creating timestamps, or they
         are designed to be run interactively from the command-line, so
         facts about when they last ran are not relevant.
+
+        :param start_time: The time the script started running.
+        :param exception: A stack trace for the exception, if any,
+           that stopped the script from running.
         """
         pass
 
@@ -204,10 +210,14 @@ class TimestampScript(Script):
         super(TimestampScript, self).__init__(*args, **kwargs)
         self.timestamp_collection = None
 
-    def update_timestamp(self):
+    def update_timestamp(self, start_time, exception):
         """Update the appropriate Timestamp for this script."""
-        Timestamp.stamp(self._db, self.script_name,
-                        collection=self.timestamp_collection)
+        Timestamp.stamp(
+            _db=self._db, service=self.script_name,
+            service_type=Timestamp.SCRIPT_TYPE,
+            collection=self.timestamp_collection,
+            start=start_time, exception=exception
+        )
 
 
 class RunMonitorScript(Script):

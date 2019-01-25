@@ -136,6 +136,7 @@ class Monitor(object):
         timestamp, new = get_one_or_create(
             self._db, Timestamp,
             service=self.service_name,
+            service_type=Timestamp.MONITOR_TYPE,
             collection=self.collection,
             create_method_kwargs=dict(
                 timestamp=initial_timestamp,
@@ -158,16 +159,19 @@ class Monitor(object):
         if start == self.NEVER:
             start = None
 
-        cutoff = datetime.datetime.utcnow()
-        new_timestamp_value = self.run_once(start, cutoff) or cutoff
-        duration = datetime.datetime.utcnow() - cutoff
+        started_running = datetime.datetime.utcnow()
+        new_timestamp_value = (
+            self.run_once(start, started_running) or started_running
+        )
+        duration = datetime.datetime.utcnow() - started_running
         self.cleanup()
         self.log.info(
             "Ran %s monitor in %.2f sec.", self.service_name,
             duration.total_seconds()
         )
         if self.keep_timestamp:
-            # Update the Timestamp value.
+            # Update the Timestamp values.
+            timestamp.start = start_time
             timestamp.timestamp = new_timestamp_value
         self._db.commit()
 
@@ -293,6 +297,8 @@ class SweepMonitor(CollectionMonitor):
             start_time = time.time()
             old_offset = offset
             try:
+                # TODO: Change process_batch to return number of
+                # achievements, and keep track of the total.
                 new_offset = self.process_batch(offset)
             except Exception, e:
                 self.log.error("Error during run: %s", e, exc_info=e)
@@ -301,6 +307,7 @@ class SweepMonitor(CollectionMonitor):
             # We completed one batch of work. Update the Timestamp so
             # we don't do the same work again.
             timestamp.counter = new_offset
+
             self._db.commit()
 
             if old_offset != new_offset:

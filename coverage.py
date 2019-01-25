@@ -193,7 +193,11 @@ class BaseCoverageProvider(object):
         self.update_timestamp()
 
     def update_timestamp(self):
-        Timestamp.stamp(self._db, self.service_name, self.collection)
+        Timestamp.stamp(
+            _db=self._db, service=self.service_name,
+            service_type=Timestamp.COVERAGE_PROVIDER,
+            collection=self.collection
+        )
         self._db.commit()
 
     def run_once(self, offset, count_as_covered=None):
