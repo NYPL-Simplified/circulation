@@ -545,7 +545,8 @@ class Configuration(object):
         if not known_value:
             from model import Timestamp
             known_value = Timestamp.value(
-                _db, cls.SITE_CONFIGURATION_CHANGED, None
+                _db, cls.SITE_CONFIGURATION_CHANGED, service_type=None,
+                collection=None
             )
         if not known_value:
             # The site configuration has never changed.
