@@ -85,6 +85,7 @@ from ..scripts import (
     ShowIntegrationsScript,
     ShowLanesScript,
     ShowLibrariesScript,
+    TimestampScript,
     WorkClassificationScript,
     WorkProcessingScript,
 )
@@ -121,6 +122,79 @@ class TestScript(DatabaseTest):
         eq_(Script.parse_time("20160101"), reference_date)
 
         assert_raises(ValueError, Script.parse_time, "201601-01")
+
+
+    def test_script_name(self):
+
+        class Sample(Script):
+            pass
+
+        # If a script does not define .name, its class name
+        # is treated as the script name.
+        script = Sample(self._db)
+        eq_("Sample", script.script_name)
+
+
+        # If a script does define .name, that's used instead.
+        script.name = "I'm a script"
+        eq_(script.name, script.script_name)
+
+
+class TestTimestampScript(DatabaseTest):
+
+    def _ts(self, script):
+        """Convenience method to look up the Timestamp for a script."""
+        return get_one(self._db, Timestamp, service=script.script_name)
+
+    def test_update_timestamp(self):
+        # Test the Script subclass that sets a timestamp after a
+        # script is run.
+        class Noisy(TimestampScript):
+            def do_run(self):
+                pass
+        script = Noisy(self._db)
+        script.run()
+
+        timestamp = self._ts(script)
+        now = datetime.datetime.utcnow()
+        assert (now - timestamp.timestamp).total_seconds() < 5
+        eq_(None, timestamp.collection)
+
+    def test_update_timestamp_with_collection(self):
+        # A script can indicate that it is operating on a specific
+        # collection.
+        class MyCollection(TimestampScript):
+            def do_run(self):
+                pass
+
+        script = MyCollection(self._db)
+        script.timestamp_collection = self._default_collection
+        script.run()
+        timestamp = self._ts(script)
+        eq_(self._default_collection, timestamp.collection)
+
+    def test_update_timestamp_on_failure(self):
+        # A TimestampScript that fails to complete still has its
+        # Timestamp set -- the timestamp just records the time that
+        # the script stopped running.
+        class Broken(TimestampScript):
+            def do_run(self):
+                raise Exception("i'm broken")
+
+        script = Broken(self._db)
+        assert_raises_regexp(Exception, "i'm broken", script.run)
+        timestamp = self._ts(script)
+        now = datetime.datetime.utcnow()
+        assert (now - timestamp.timestamp).total_seconds() < 5
+
+    def test_normal_script_has_no_timestamp(self):
+        # Running a normal script does _not_ set a Timestamp.
+        class Silent(Script):
+            def do_run(self):
+                pass
+        script = Silent(self._db)
+        script.run()
+        eq_(None, self._ts(script))
 
 
 class TestCheckContributorNamesInDB(DatabaseTest):

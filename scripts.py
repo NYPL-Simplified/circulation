@@ -115,10 +115,18 @@ class Script(object):
         return self._session
 
     @property
+    def script_name(self):
+        """Find or guess the name of the script.
+
+        This is either the .name of the Script object or the name of
+        the class.
+        """
+        return getattr(self, 'name', self.__class__.__name__)
+
+    @property
     def log(self):
         if not hasattr(self, '_log'):
-            logger_name = getattr(self, 'name', None)
-            self._log = logging.getLogger(logger_name)
+            self._log = logging.getLogger(self.script_name)
         return self._log
 
     @property
@@ -171,10 +179,35 @@ class Script(object):
                 exc_info=e
             )
             raise e
+        finally:
+            self.update_timestamp()
 
     def load_configuration(self):
         if not Configuration.cdns_loaded_from_database():
             Configuration.load(self._db)
+
+    def update_timestamp(self):
+        """By default scripts have no timestamp of their own.
+
+        Most scripts either work through Monitors or CoverageProviders,
+        which have their own logic for creating timestamps, or they
+        are designed to be run interactively from the command-line, so
+        facts about when they last ran are not relevant.
+        """
+        pass
+
+
+class TimestampScript(Script):
+    """A script that automatically records a timestamp whenever it runs."""
+
+    def __init__(self, *args, **kwargs):
+        super(TimestampScript, self).__init__(*args, **kwargs)
+        self.timestamp_collection = None
+
+    def update_timestamp(self):
+        """Update the appropriate Timestamp for this script."""
+        Timestamp.stamp(self._db, self.script_name,
+                        collection=self.timestamp_collection)
 
 
 class RunMonitorScript(Script):
@@ -185,6 +218,7 @@ class RunMonitorScript(Script):
             self.collection_monitor = monitor
             self.collection_monitor_kwargs = kwargs
             self.monitor = None
+            self.name = self.collection_monitor.SERVICE_NAME
         else:
             self.collection_monitor = None
             if callable(monitor):
@@ -1618,8 +1652,10 @@ class WorkConsolidationScript(WorkProcessingScript):
         self._db.commit()
 
 
-class WorkPresentationScript(WorkProcessingScript):
+class WorkPresentationScript(TimestampScript, WorkProcessingScript):
     """Calculate the presentation for Work objects."""
+
+    name = "Recalculate the presentation for works that need it."
 
     # Do a complete recalculation of the presentation.
     policy = PresentationCalculationPolicy()
@@ -1631,6 +1667,8 @@ class WorkPresentationScript(WorkProcessingScript):
 class WorkClassificationScript(WorkPresentationScript):
     """Recalculate the classification--and nothing else--for Work objects.
     """
+    name = "Recalculate the classification for works that need it."""
+
     policy = PresentationCalculationPolicy(
         choose_edition=False,
         set_edition_metadata=False,
@@ -1652,6 +1690,8 @@ class ReclassifyWorksForUncheckedSubjectsScript(WorkClassificationScript):
     Subjects because the rules for processing them changed.
     """
 
+    name = "Reclassify works that use unchecked subjects."""
+
     policy = WorkClassificationScript.policy
 
     batch_size = 100
@@ -1669,6 +1709,9 @@ class WorkOPDSScript(WorkPresentationScript):
     This is intended to verify that a problem has already been resolved and just
     needs to be propagated to these three 'caches'.
     """
+
+    name = "Recalculate OPDS entries, MARC record, and search index entries for works that need it."
+
     policy = PresentationCalculationPolicy(
         choose_edition=False,
         set_edition_metadata=False,
@@ -1745,6 +1788,8 @@ class CollectionInputScript(Script):
 
 class OPDSImportScript(CollectionInputScript):
     """Import all books from the OPDS feed associated with a collection."""
+
+    name = "Import all books from the OPDS feed associated with a collection."
 
     IMPORTER_CLASS = OPDSImporter
     MONITOR_CLASS = OPDSImportMonitor
@@ -1917,7 +1962,7 @@ class MirrorResourcesScript(CollectionInputScript):
         )
 
 
-class RefreshMaterializedViewsScript(Script):
+class RefreshMaterializedViewsScript(TimestampScript):
     """Refresh all materialized views."""
 
     @classmethod
@@ -1981,6 +2026,10 @@ class DatabaseMigrationScript(Script):
     This script needs to execute without ever loading an ORM object,
     because the database might be in a state that's not compatible
     with the current ORM version.
+
+    This is not a TimestampScript because it keeps separate Timestamps
+    for the Python and the SQL migrations, and because Timestamps
+    are ORM objects, which this script can't touch.
     """
 
     SERVICE_NAME = "Database Migration"
@@ -2691,6 +2740,8 @@ class CheckContributorNamesInDB(IdentifierInputScript):
 
 class Explain(IdentifierInputScript):
     """Explain everything known about a given work."""
+
+    name = "Explain everything known about a given work"
 
     # Where to go to get best available metadata about a work.
     METADATA_URL_TEMPLATE = "http://metadata.librarysimplified.org/lookup?urn=%s"
