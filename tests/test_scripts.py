@@ -728,7 +728,8 @@ class TestRunThreadedCollectionCoverageProviderScript(DatabaseTest):
 
         # The timestamp for the provider has been updated.
         new_timestamp = Timestamp.value(
-            self._db, provider.SERVICE_NAME, collection
+            self._db, provider.SERVICE_NAME, Timestamp.COVERAGE_PROVIDER_TYPE,
+            collection
         )
         assert new_timestamp != original_timestamp
         assert new_timestamp > original_timestamp
@@ -1385,14 +1386,20 @@ class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
         eq_(timestamp.timestamp.strftime('%Y%m%d'), migration_date)
 
     def test_accurate_timestamps_created(self):
-        eq_(None, Timestamp.value(self._db, self.script.name, collection=None))
+        eq_(
+            None,
+            Timestamp.value(
+                self._db, self.script.name, Timestamp.SCRIPT_TYPE,
+                collection=None
+            )
+        )
         self.script.run()
         self.assert_matches_latest_migration(self.script.overall_timestamp)
         self.assert_matches_latest_python_migration(self.script.python_timestamp)
 
     def test_accurate_python_timestamp_created_python_later(self):
         script = self.create_mock_script(DatabaseMigrationInitializationScript, self._db)
-        eq_(None, Timestamp.value(self._db, script.name, collection=None))
+        eq_(None, Timestamp.value(self._db, script.name, Timestamp.SCRIPT_TYPE, collection=None))
 
         # If the last python migration and the last SQL migration have
         # different timestamps, they're set accordingly.
@@ -1405,7 +1412,7 @@ class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
 
     def test_accurate_python_timestamp_created_python_earlier(self):
         script = self.create_mock_script(DatabaseMigrationInitializationScript, self._db)
-        eq_(None, Timestamp.value(self._db, script.name, collection=None))
+        eq_(None, Timestamp.value(self._db, script.name, Timestamp.SCRIPT_TYPE, collection=None))
 
         # If the last python migration and the last SQL migration have
         # different timestamps, they're set accordingly.
