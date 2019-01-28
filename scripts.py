@@ -183,6 +183,8 @@ class Script(object):
             stack_trace = traceback.format_exc()
             self.update_timestamp(start_time, stack_trace)
             raise e
+        finally:
+            self.update_timestamp()
 
     def load_configuration(self):
         if not Configuration.cdns_loaded_from_database():
@@ -218,7 +220,7 @@ class TimestampScript(Script):
             collection=self.timestamp_collection,
             start=start_time, exception=exception
         )
-
+        
 
 class RunMonitorScript(Script):
 
@@ -1664,8 +1666,7 @@ class WorkConsolidationScript(WorkProcessingScript):
 
 class WorkPresentationScript(TimestampScript, WorkProcessingScript):
     """Calculate the presentation for Work objects."""
-
-    name = "Recalculate the presentation for works that need it."""
+    name = "Recalculate the presentation for works that need it."
 
     # Do a complete recalculation of the presentation.
     policy = PresentationCalculationPolicy()
