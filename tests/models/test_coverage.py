@@ -22,32 +22,51 @@ class TestTimestamp(DatabaseTest):
         c2 = self._collection()
 
         # Create a timestamp.
-        timestamp = Timestamp.stamp("service", Timestamp.SCRIPT_TYPE, c1)
+        timestamp = Timestamp.stamp(
+            self._db, "service", Timestamp.SCRIPT_TYPE, c1
+        )
 
         # Look it up.
-        eq_(Timestamp, Timestamp.lookup("service", Timestamp.SCRIPT_TYPE, c1))
+        eq_(
+            timestamp,
+            Timestamp.lookup(self._db, "service", Timestamp.SCRIPT_TYPE, c1)
+        )
 
         # There are a number of ways to _fail_ to look up this timestamp.
-        eq_(None, Timestamp.lookup("other service", Timestamp.SCRIPT_TYPE, c1))
-        eq_(None, Timestamp.lookup("service", Timestamp.MONITOR_TYPE, c1))
-        eq_(None, Timestamp.lookup("service", Timestamp.SCRIPT_TYPE, c2))
+        eq_(
+            None,
+            Timestamp.lookup(
+                self._db, "other service", Timestamp.SCRIPT_TYPE, c1
+            )
+        )
+        eq_(
+            None,
+            Timestamp.lookup(self._db, "service", Timestamp.MONITOR_TYPE, c1)
+        )
+        eq_(
+            None,
+            Timestamp.lookup(self._db, "service", Timestamp.SCRIPT_TYPE, c2)
+        )
 
         # value() works the same way as lookup() but returns the actual
         # timestamp value.
-        eq_(timestamp.value,
-            Timestamp.value("service", Timestamp.SCRIPT_TYPE, c1))
-        eq_(None, Timestamp.value("service", Timestamp.SCRIPT_TYPE, c2))
+        eq_(timestamp.timestamp,
+            Timestamp.value(self._db, "service", Timestamp.SCRIPT_TYPE, c1))
+        eq_(
+            None,
+            Timestamp.value(self._db, "service", Timestamp.SCRIPT_TYPE, c2)
+        )
 
     def test_stamp(self):
         service = "service"
-        type = Timestamp.SCRIPT_TYPE,
+        type = Timestamp.SCRIPT_TYPE
 
         # If no date is specified, the value of the timestamp is the time
         # stamp() was called.
         stamp = Timestamp.stamp(self._db, service, type)
         now = datetime.datetime.utcnow()
-        assert (now - stamp.value).total_seconds() < 2
-        eq_(stamp.start, stamp.value)
+        assert (now - stamp.timestamp).total_seconds() < 2
+        eq_(stamp.start, stamp.timestamp)
         eq_(service, stamp.service)
         eq_(type, stamp.service_type)
         eq_(None, stamp.collection)
@@ -62,8 +81,8 @@ class TestTimestamp(DatabaseTest):
         )
         eq_(stamp, stamp2)
         now = datetime.datetime.utcnow()
-        assert (now - stamp.value).total_seconds() < 2
-        eq_(stamp.start, stamp.value)
+        assert (now - stamp.timestamp).total_seconds() < 2
+        eq_(stamp.start, stamp.timestamp)
         eq_(service, stamp.service)
         eq_(type, stamp.service_type)
         eq_(None, stamp.collection)
@@ -76,7 +95,7 @@ class TestTimestamp(DatabaseTest):
             self._db, service, type, collection=self._default_collection
         )
         assert stamp3 != stamp
-        eq_(self._default_collection, stamp3)
+        eq_(self._default_collection, stamp3.collection)
 
     def test_update(self):
         # update() can modify the fields of a Timestamp that aren't
