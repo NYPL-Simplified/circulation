@@ -305,14 +305,13 @@ class SweepMonitor(CollectionMonitor):
 
         run_started_at = datetime.datetime.utcnow()
         exception = None
-        achievements = 0
+        achievements = None
         while True:
             batch_started_at = time.time()
             old_offset = offset
             try:
-                # TODO: Change process_batch to return number of
-                # achievements as well as offset, and keep track of
-                # the total.
+                # TODO: Change process_batch to return achievement
+                # info as well as offset, and keep track of the total.
                 new_offset = self.process_batch(offset)
             except Exception, e:
                 self.log.error("Error during run: %s", e, exc_info=e)

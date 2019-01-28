@@ -128,12 +128,12 @@ class Timestamp(Base):
     # proper.
     timestamp = Column(DateTime)
 
-    # The number of distinct things the service did during its last
-    # runn. Each service may decide for itself what counts as an
+    # A description of the things the service achieved during its last
+    # run. Each service may decide for itself what counts as an
     # 'achievement'; this is just a way to distinguish services that
     # do a lot of things from services that do a few things, or to see
     # services that run to completion but don't actually do anything.
-    achievements = Column(Integer, nullable=True)
+    achievements = Column(Unicode, nullable=True)
 
     # This column allows a service to keep one item of state between
     # runs. For example, a monitor that iterates over a database table
