@@ -143,7 +143,12 @@ class TestScript(DatabaseTest):
 class TestTimestampScript(DatabaseTest):
 
     def _ts(self, script):
-        """Convenience method to look up the Timestamp for a script."""
+        """Convenience method to look up the Timestamp for a script.
+        
+        We don't use Timestamp.stamp() because we want to make sure
+        that Timestamps are being created by the actual code, not test
+        code.
+        """
         return get_one(self._db, Timestamp, service=script.script_name)
 
     def test_update_timestamp(self):

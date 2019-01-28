@@ -110,7 +110,7 @@ class Timestamp(Base):
 
     # Name of the service.
     service = Column(String(255), index=True, nullable=False)
-    
+
     # Type of the service -- monitor, coverage provider, or script.
     # If the service type does not fit into these categories, this field
     # can be left null.
@@ -199,7 +199,7 @@ class Timestamp(Base):
             Defaults to now.
         :param date: The time at which this service stopped running.
             Defaults to now.
-        :param achievements: The number of distinct things the service
+        :param achievements: A human-readable description of what the service
             did during its run.
         :param counter: An integer item of state that the service may use
             to track its progress between runs.

@@ -332,7 +332,7 @@ class SweepMonitor(CollectionMonitor):
                 # We completed a sweep. We're done.
                 self.cleanup()
                 break
-       
+
         # We're done with this run, either because we completed
         # a sweep or because an exception was raised.
         run_ended_at = datetime.datetime.utcnow()

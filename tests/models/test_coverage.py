@@ -88,13 +88,13 @@ class TestTimestamp(DatabaseTest):
         counter = self._id
         exception = self._str
         stamp.update(start, timestamp, achievements, counter, exception)
-        
+
         eq_(start, stamp.start)
         eq_(timestamp, stamp.timestamp)
         eq_(achievements, stamp.achievements)
         eq_(counter, stamp.counter)
         eq_(exception, stamp.exception)
-        
+
 
 class TestBaseCoverageRecord(DatabaseTest):
 
