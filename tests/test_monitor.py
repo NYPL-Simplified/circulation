@@ -115,7 +115,11 @@ class TestMonitor(DatabaseTest):
         # the original value, because they were updated to reflect the
         # time that run_once() was called.
         assert timestamp.start > monitor.original_timestamp
-        assert timestamp.timestamp > timestamp.start
+
+        # The timestamp is set to the time the monitor _started_
+        # running, so that the next time it runs it'll catch any
+        # activity that happened _while_ the monitor was running.
+        assert timestamp.timestamp == timestamp.start
 
     def test_initial_timestamp(self):
         class NeverRunMonitor(MockMonitor):
