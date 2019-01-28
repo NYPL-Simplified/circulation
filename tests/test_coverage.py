@@ -231,7 +231,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         eq_([CoverageRecord.PREVIOUSLY_ATTEMPTED,
              CoverageRecord.DEFAULT_COUNT_AS_COVERED], provider.run_once_calls)
 
-    def test_run_once_and_update_timestamp(self):
+    def test_run_once_and_update_timestamp_catches_exception(self):
         """Test that run_once_and_update_timestamp catches an exception
         and stores a stack trace in the CoverageProvider's Timestamp.
         """
@@ -248,6 +248,11 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             self._db, provider.SERVICE_NAME, Timestamp.COVERAGE_PROVIDER_TYPE,
             collection=None
         )
+        now = datetime.datetime.utcnow()
+        assert (now - timestamp.timestamp).total_seconds() < 1
+        assert (now - timestamp.start).total_seconds() < 1
+        assert timestamp.start < timestamp.timestamp
+
         assert "Exception: Unhandled exception" in timestamp.exception
 
     def test_run_once(self):

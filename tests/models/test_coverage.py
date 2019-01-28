@@ -8,10 +8,93 @@ from .. import DatabaseTest
 from ...model.coverage import (
     BaseCoverageRecord,
     CoverageRecord,
+    Timestamp,
     WorkCoverageRecord,
 )
 from ...model.datasource import DataSource
 from ...model.identifier import Identifier
+
+class TestTimestamp(DatabaseTest):
+
+    def test_lookup(self):
+
+        c1 = self._default_collection
+        c2 = self._collection()
+
+        # Create a timestamp.
+        timestamp = Timestamp.stamp("service", Timestamp.SCRIPT_TYPE, c1)
+
+        # Look it up.
+        eq_(Timestamp, Timestamp.lookup("service", Timestamp.SCRIPT_TYPE, c1))
+
+        # There are a number of ways to _fail_ to look up this timestamp.
+        eq_(None, Timestamp.lookup("other service", Timestamp.SCRIPT_TYPE, c1))
+        eq_(None, Timestamp.lookup("service", Timestamp.MONITOR_TYPE, c1))
+        eq_(None, Timestamp.lookup("service", Timestamp.SCRIPT_TYPE, c2))
+
+        # value() works the same way as lookup() but returns the actual
+        # timestamp value.
+        eq_(timestamp.value,
+            Timestamp.value("service", Timestamp.SCRIPT_TYPE, c1))
+        eq_(None, Timestamp.value("service", Timestamp.SCRIPT_TYPE, c2))
+
+    def test_stamp(self):
+        service = "service"
+        type = Timestamp.SCRIPT_TYPE,
+
+        # If no date is specified, the value of the timestamp is the time
+        # stamp() was called.
+        stamp = Timestamp.stamp(self._db, service, type)
+        now = datetime.datetime.utcnow()
+        assert (now - stamp.value).total_seconds() < 2
+        eq_(stamp.start, stamp.value)
+        eq_(service, stamp.service)
+        eq_(type, stamp.service_type)
+        eq_(None, stamp.collection)
+        eq_(None, stamp.achievements)
+        eq_(None, stamp.counter)
+        eq_(None, stamp.exception)
+
+        # Calling stamp() again will update the Timestamp.
+        stamp2 = Timestamp.stamp(
+            self._db, service, type, achievements="yay",
+            counter=100, exception="boo"
+        )
+        eq_(stamp, stamp2)
+        now = datetime.datetime.utcnow()
+        assert (now - stamp.value).total_seconds() < 2
+        eq_(stamp.start, stamp.value)
+        eq_(service, stamp.service)
+        eq_(type, stamp.service_type)
+        eq_(None, stamp.collection)
+        eq_('yay', stamp.achievements)
+        eq_(100, stamp.counter)
+        eq_('boo', stamp.exception)
+
+        # Passing in a different collection will create a new Timestamp.
+        stamp3 = Timestamp.stamp(
+            self._db, service, type, collection=self._default_collection
+        )
+        assert stamp3 != stamp
+        eq_(self._default_collection, stamp3)
+
+    def test_update(self):
+        # update() can modify the fields of a Timestamp that aren't
+        # used to identify it.
+        stamp = Timestamp.stamp(self._db, "service", Timestamp.SCRIPT_TYPE)
+        start = datetime.datetime(2010, 1, 2)
+        timestamp = datetime.datetime(2018, 3, 4)
+        achievements = self._str
+        counter = self._id
+        exception = self._str
+        stamp.update(start, timestamp, achievements, counter, exception)
+        
+        eq_(start, stamp.start)
+        eq_(timestamp, stamp.timestamp)
+        eq_(achievements, stamp.achievements)
+        eq_(counter, stamp.counter)
+        eq_(exception, stamp.exception)
+        
 
 class TestBaseCoverageRecord(DatabaseTest):
 

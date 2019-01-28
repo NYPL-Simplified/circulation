@@ -189,8 +189,9 @@ class BaseCoverageProvider(object):
         for covered_statuses in covered_status_lists:
             offset = 0
             while offset is not None:
-                # TODO: change run_once to return a number of achievements
-                # (successfully covered records).
+                # TODO: change run_once to return achievement
+                # information (successfully covered records, transient
+                # errors, permanent errors).
                 try:
                     offset = self.run_once(
                         offset, count_as_covered=covered_statuses
