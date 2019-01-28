@@ -1655,7 +1655,7 @@ class WorkConsolidationScript(WorkProcessingScript):
 class WorkPresentationScript(TimestampScript, WorkProcessingScript):
     """Calculate the presentation for Work objects."""
 
-    name = "Recalculate the presentation for works that need it."""
+    name = "Recalculate the presentation for works that need it."
 
     # Do a complete recalculation of the presentation.
     policy = PresentationCalculationPolicy()
