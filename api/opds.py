@@ -254,12 +254,11 @@ class CirculationManagerAnnotator(Annotator):
 
             # Generate the licensing tags that tell you whether the book
             # is available.
-            license_tags = feed.license_tags(
-                active_license_pool, active_loan, active_hold
-            )
             for link in borrow_links:
                 if link:
-                    for t in license_tags:
+                    for t in feed.license_tags(
+                        active_license_pool, active_loan, active_hold
+                    ):
                         link.append(t)
 
         # Add links for fulfilling an active loan.
@@ -835,11 +834,40 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                 d['type'] = type
             _add_link(d)
 
-    def acquisition_links(self, active_license_pool, active_loan, active_hold, active_fulfillment,
-                          feed, identifier, direct_fulfillment_delivery_mechanisms=None):
+    def acquisition_links(
+            self, active_license_pool, active_loan, active_hold,
+            active_fulfillment, feed, identifier,
+            direct_fulfillment_delivery_mechanisms=None, mock_api=None
+    ):
+        """Generate one or more <link> tags that can be used to borrow,
+        reserve, or fulfill a book, depending on the state of the book
+        and the current patron.
+
+        :param active_license_pool: The LicensePool for which we're trying to
+           generate <link> tags.
+        :param active_loan: A Loan object representing the current patron's
+           existing loan for this title, if any.
+        :param active_hold: A Hold object representing the current patron's
+           existing hold on this title, if any.
+        :param active_fulfillment: A LicensePoolDeliveryMechanism object
+           representing the mechanism, if any, which the patron has chosen
+           to fulfill this work.
+        :param feed: The OPDSFeed that will eventually contain these <link>
+           tags.
+        :param identifier: The Identifier of the title for which we're
+           trying to generate <link> tags.
+        :param direct_fulfillment_delivery_mechanisms: A list of
+           LicensePoolDeliveryMechanisms for the given LicensePool
+           that should have fulfillment-type <link> tags generated for
+           them, even if this method wouldn't normally think that
+           makes sense.
+        :param mock_api: A mock object to stand in for the API to the
+           vendor who provided this LicensePool. If this is not provided, a
+           live API for that vendor will be used.
+        """
         direct_fulfillment_delivery_mechanisms = direct_fulfillment_delivery_mechanisms or []
-        api = None
-        if self.circulation and active_license_pool:
+        api = mock_api
+        if not api and self.circulation and active_license_pool:
             api = self.circulation.api_for_license_pool(active_license_pool)
         if api:
             set_mechanism_at_borrow = (
