@@ -156,6 +156,34 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         assert "navigation" in navigation_url_fantasy
         assert str(self.lane.id) in navigation_url_fantasy
 
+    def test_visible_delivery_mechanisms(self):
+
+        # By default, all delivery mechanisms are visible
+        [pool] = self.work.license_pools
+        [epub] = list(self.annotator.visible_delivery_mechanisms(pool))
+        eq_("application/epub+zip", epub.delivery_mechanism.content_type)
+
+        # Create an annotator that hides PDFs.
+        no_pdf = CirculationManagerAnnotator(
+            self.lane, hidden_content_types=["application/pdf"],
+            test_mode=True,
+        )
+
+        # This has no effect on the EPUB.
+        [epub2] = list(no_pdf.visible_delivery_mechanisms(pool))
+        eq_(epub, epub2)
+
+        # Create an annotator that hides EPUBs.
+        no_epub = CirculationManagerAnnotator(
+            self.lane, hidden_content_types=["application/epub+zip"],
+            test_mode=True,
+        )
+
+        # The EPUB is hidden, and this license pool has no delivery
+        # mechanisms.
+        eq_([], list(no_epub.visible_delivery_mechanisms(pool)))
+
+
     def test_rights_attributes(self):
         m = self.annotator.rights_attributes
 
@@ -574,6 +602,7 @@ class TestLibraryAnnotator(VendorIDTest):
         annotator.annotate_work_entry(
             work, None, edition, identifier, feed, entry
         )
+
         parsed = feedparser.parse(etree.tostring(entry))
         [entry_parsed] = parsed['entries']
         links = set([x['rel'] for x in entry_parsed['links']])
@@ -892,7 +921,7 @@ class TestLibraryAnnotator(VendorIDTest):
             x for x in links
             if x['rel'] == 'http://librarysimplified.org/terms/rel/user-profile'
         ]
-        annotator = cls(None, None, patron, test_mode=True)
+        annotator = cls(None, None, library=patron.library, patron=patron, test_mode=True)
         expect_url = annotator.url_for(
             'patron_profile', library_short_name=patron.library.short_name, _external=True
         )
@@ -1048,7 +1077,7 @@ class TestLibraryAnnotator(VendorIDTest):
         copies_re = re.compile('<opds:copies[^>]+total="100"', re.S)
         assert copies_re.search(u) is not None
 
-    def test_loans_feed_includes_fulfill_links_for_streaming(self):
+    def test_loans_feed_includes_fulfill_links(self):
         patron = self._patron()
 
         work = self._work(with_license_pool=True, with_open_access_download=False)
@@ -1084,6 +1113,20 @@ class TestLibraryAnnotator(VendorIDTest):
                  OPDSFeed.ENTRY_TYPE]),
             set([link['type'] for link in fulfill_links]))
 
+        # If one of the content types is hidden, the corresponding
+        # delivery mechanism does not have a link.
+        setting = self._default_library.setting(
+            Configuration.HIDDEN_CONTENT_TYPES
+        )
+        setting.value = json.dumps([mech1.delivery_mechanism.content_type])
+        feed_obj = LibraryLoanAndHoldAnnotator.active_loans_for(
+            None, patron, test_mode=True
+        )
+        eq_(set([mech2.delivery_mechanism.drm_scheme_media_type,
+                 OPDSFeed.ENTRY_TYPE]),
+            set([link['type'] for link in fulfill_links]))
+        setting.value = None
+
         # When the loan is fulfilled, there are only fulfill links for that mechanism
         # and the streaming mechanism.
         loan.fulfillment = mech1
@@ -1109,6 +1152,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         work = self._work(with_license_pool=True, with_open_access_download=False)
         pool = work.license_pools[0]
+        [epub_lpdm] = pool.delivery_mechanisms
         pool.open_access = False
         streaming_mech = pool.set_delivery_mechanism(
             DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM,
@@ -1140,7 +1184,6 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
             fulfill_links[0]['type'])
         eq_("http://streaming_link", fulfill_links[0]['href'])
-
 
     def test_drm_device_registration_feed_tags(self):
         """Check that drm_device_registration_feed_tags returns
@@ -1404,6 +1447,24 @@ class TestLibraryAnnotator(VendorIDTest):
         # The second delivery mechanism doesn't use DRM, so the content
         # type shows up as the first (and only) indirect acquisition type.
         eq_(mech2.delivery_mechanism.content_type, i2.attrib['type'])
+
+        # If we configure the library to hide one of the content types,
+        # we end up with only one link -- the one for the delivery
+        # mechanism that's not hidden.
+        self._default_library.setting(
+            Configuration.HIDDEN_CONTENT_TYPES
+        ).value = json.dumps([mech1.delivery_mechanism.content_type])
+        annotator = LibraryLoanAndHoldAnnotator(
+            None, None, self._default_library, test_mode=True
+        )
+        [link] = annotator.acquisition_links(
+            pool, None, None, None, feed, pool.identifier,
+            mock_api=MockAPI()
+        )
+        [availability, copies, holds, indirect] = sorted(
+            link, key=lambda x: x.tag
+        )
+        eq_(mech2.delivery_mechanism.content_type, indirect.attrib['type'])
 
 class TestSharedCollectionAnnotator(DatabaseTest):
     def setup(self):
