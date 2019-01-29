@@ -146,41 +146,49 @@ class Monitor(object):
         return timestamp
 
     def run(self):
-        """Do the Monitor's work, assuming it's not too soon since
-        the last time.
+        """Do all the work that has piled up since the
+        last time the Monitor ran.
         """
         if self.keep_timestamp:
             timestamp = self.timestamp()
-            start = timestamp.timestamp or self.default_start_time
+            last_run_start = timestamp.start or self.default_start_time
         else:
             timestamp = None
-            start = self.default_start_time
+            last_run_start = self.default_start_time
 
         if start == self.NEVER:
-            start = None
+            last_run_start = None
 
+        this_run_start = datetime.datetime.utcnow()
+
+        # At this point `last_run_start` represents the first moment of the
+        # previous run, the first moment at which something might have
+        # happened that the Monitor hasn't taken into
+        # consideration. `this_run_start` represents the first moment
+        # of _this_ run, which is the _final_ moment the Monitor is
+        # expected to take into consideration right now.
         exception = None
-        started_running = datetime.datetime.utcnow()
         try:
-            new_timestamp_value = (
-                self.run_once(start, started_running) or started_running
+            this_run_finish = (
+                self.run_once(last_run_start, this_run_start)
+                or datetime.datetime.utcnow()
             )
             self.cleanup()
         except Exception, e:
             self.log.error("Error running %s monitor", exc_info=e)
             exception = traceback.format_exc()
-            new_timestamp_value = datetime.datetime.utcnow()
+            this_run_finish = datetime.datetime.utcnow()
 
-        duration = datetime.datetime.utcnow() - started_running
+        duration = this_run_finish - this_run_start
         self.log.info(
             "Ran %s monitor in %.2f sec.", self.service_name,
-            duration.total_seconds()
+            duration.total_seconds(),
         )
 
         if self.keep_timestamp:
             # Update the Timestamp values.
             timestamp.update(
-                start=started_running, timestamp=new_timestamp_value,
+                start=this_run_start, finish=this_run_finish,
                 exception=exception
             )
         self._db.commit()

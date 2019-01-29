@@ -2524,7 +2524,7 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
 
         if last_run_counter and not last_run_date:
             raise ValueError(
-                "Timestamp.counter must be reset alongside Timestamp.timestamp")
+                "Timestamp.counter must be reset alongside Timestamp.finish")
 
         existing_timestamp = get_one(self._db, Timestamp, service=self.name)
         if existing_timestamp and existing_timestamp.timestamp:
@@ -2543,11 +2543,11 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
         init_timestamp = self.parse_time('1996-11-15')
         overall_timestamp = existing_timestamp or Timestamp.stamp(
             _db=self._db, service=self.SERVICE_NAME,
-            service_type=Timestamp.SCRIPT_TYPE, date=init_timestamp
+            service_type=Timestamp.SCRIPT_TYPE, finish=init_timestamp
         )
         python_timestamp = Timestamp.stamp(
             _db=self._db, service=self.PY_TIMESTAMP_SERVICE_NAME,
-            service_type=Timestamp.SCRIPT_TYPE, date=init_timestamp
+            service_type=Timestamp.SCRIPT_TYPE, finish=init_timestamp
         )
 
         if last_run_date:
