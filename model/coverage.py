@@ -124,9 +124,9 @@ class Timestamp(Base):
     # The last time the service _started_ running.
     start = Column(DateTime, nullable=True)
 
-    # The last time the service _stopped_ running. This is the 'timestamp'
-    # proper.
-    timestamp = Column(DateTime)
+    # The last time the service _finished_ running. In most cases this
+    # is the 'timestamp' proper.
+    finish = Column(DateTime)
 
     # A description of the things the service achieved during its last
     # run. Each service may decide for itself what counts as an
@@ -145,10 +145,15 @@ class Timestamp(Base):
     exception = Column(Unicode, nullable=True)
 
     def __repr__(self):
-        if self.timestamp:
-            timestamp = self.timestamp.strftime('%b %d, %Y at %H:%M')
+        format = '%b %d, %Y at %H:%M'
+        if self.finish:
+            finish = self.finish.strftime(format)
         else:
-            timestamp = None
+            finish = None
+        if self.start:
+            start = self.start.strftime(format)
+        else:
+            start = None
         if self.counter:
             timestamp += (' %d' % self.counter)
         if self.collection:
@@ -156,8 +161,8 @@ class Timestamp(Base):
         else:
             collection = None
 
-        message = u"<Timestamp %s: collection=%s, timestamp=%s>" % (
-            self.service, collection, timestamp
+        message = u"<Timestamp %s: collection=%s, start=%s finish=%s>" % (
+            self.service, collection, start, finish
         )
         return message.encode("utf8")
 
@@ -175,12 +180,12 @@ class Timestamp(Base):
         stamp = cls.lookup(_db, service, service_type, collection)
         if not stamp:
             return None
-        return stamp.timestamp
+        return stamp.finish
 
     @classmethod
     def stamp(
-        cls, _db, service, service_type, collection=None, start=None, date=None,
-        achievements=None, counter=None, exception=None
+        cls, _db, service, service_type, collection=None, start=None,
+        finish=None, achievements=None, counter=None, exception=None
     ):
         """Set a Timestamp, creating it if necessary.
 
@@ -197,7 +202,7 @@ class Timestamp(Base):
             just ran.
         :param start: The time at which this service started running.
             Defaults to now.
-        :param date: The time at which this service stopped running.
+        :param finish: The time at which this service stopped running.
             Defaults to now.
         :param achievements: A human-readable description of what the service
             did during its run.
@@ -206,29 +211,29 @@ class Timestamp(Base):
         :param exception: A stack trace for the exception, if any, which
             stopped the service from running.
         """
-        timestamp = date or datetime.datetime.utcnow()
-        start = start or timestamp
+        finish = finish or datetime.datetime.utcnow()
+        start = start or finish
         stamp, was_new = get_one_or_create(
             _db, Timestamp,
             service=service,
             service_type=service_type,
             collection=collection,
         )
-        stamp.update(start, timestamp, achievements, counter, exception)
+        stamp.update(start, finish, achievements, counter, exception)
 
         # Committing immediately reduces the risk of contention.
         _db.commit()
         return stamp
 
-    def update(self, start=None, timestamp=None, achievements=None,
+    def update(self, start=None, finish=None, achievements=None,
                counter=None, exception=None):
         """Use a single method to update all the fields that aren't
         used to identify a Timestamp.
         """
         self.start = start
+        self.finish = finish
         self.achievements = achievements
         self.counter = counter
-        self.timestamp = timestamp
         self.exception = exception
 
 

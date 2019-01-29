@@ -13,6 +13,7 @@ CREATE INDEX ix_timestamps_service_type ON timestamps USING btree (service_type)
 ALTER TABLE timestamps ADD COLUMN start TIMESTAMP WITHOUT TIME ZONE;
 ALTER TABLE timestamps ADD COLUMN achievements CHARACTER VARYING;
 ALTER TABLE timestamps ADD COLUMN exception CHARACTER VARYING;
+ALTER TABLE timestamps RENAME COLUMN timestamp TO finish;
 
 -- Set service_type for all known monitors, coverage providers, and
 -- scripts.
