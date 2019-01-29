@@ -230,6 +230,35 @@ class TestLibraryAnnotator(VendorIDTest):
         # A ContributorLane to test code that handles it differently.
         self.contributor_lane = ContributorLane(self._default_library, "Someone", languages=["eng"], audiences=None)
 
+    def test__hidden_content_types(self):
+
+        def f(value):
+            """Set the default library's HIDDEN_CONTENT_TYPES setting
+            to a specific value and see what _hidden_content_types
+            says.
+            """
+            library = self._default_library
+            library.setting(Configuration.HIDDEN_CONTENT_TYPES).value = value
+            return LibraryAnnotator._hidden_content_types(library)
+
+        # When the value is not set at all, no content types are hidden.
+        eq_(
+            [],
+            list(LibraryAnnotator._hidden_content_types(self._default_library))
+        )
+
+        # Now set various values and see what happens.
+        eq_([], f(None))
+        eq_([], f(""))
+        eq_([], f(json.dumps([])))
+        eq_(["text/html"], f("text/html"))
+        eq_(["text/html"], f(json.dumps("text/html")))
+        eq_(["text/html"], f(json.dumps({"text/html" : "some value"})))
+        eq_(
+            ["text/html", "text/plain"],
+            f(json.dumps(["text/html", "text/plain"]))
+        )
+
     def test_add_configuration_links(self):
         mock_feed = []
         link_config = {

@@ -448,14 +448,14 @@ class LibraryAnnotator(CirculationManagerAnnotator):
           added, for direct acquisition of titles that would normally
           require a loan.
         """
-        self.library = library
         super(LibraryAnnotator, self).__init__(
             lane, active_loans_by_work=active_loans_by_work,
             active_holds_by_work=active_holds_by_work,
             active_fulfillments_by_work=active_fulfillments_by_work,
-            hidden_content_types=self._hidden_content_types,
+            hidden_content_types=self._hidden_content_types(library),
             test_mode=test_mode
         )
+        self.library = library
         self.circulation = circulation
         self.patron = patron
         self.lanes_by_work = defaultdict(list)
@@ -465,17 +465,17 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         self.identifies_patrons = library_identifies_patrons
         self.facets = facets or None
 
-    @property
-    def _hidden_content_types(self):
+    @classmethod
+    def _hidden_content_types(self, library):
         """Find all content types which this library should not be
         presenting to patrons.
 
         This is stored as a per-library setting.
         """
-        if not self.library:
+        if not library:
             # This shouldn't happen, but we shouldn't crash if it does.
             return []
-        setting = self.library.setting(Configuration.HIDDEN_CONTENT_TYPES)
+        setting = library.setting(Configuration.HIDDEN_CONTENT_TYPES)
         if not setting or not setting.value:
             return []
         try:
@@ -483,7 +483,9 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         except ValueError:
             hidden_types = setting.value
         hidden_types = hidden_types or []
-        if not isinstance(hidden_types, list):
+        if isinstance(hidden_types, basestring):
+            hidden_types = [hidden_types]
+        elif not isinstance(hidden_types, list):
             hidden_types = list(hidden_types)
         return hidden_types
 
