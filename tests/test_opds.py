@@ -631,7 +631,6 @@ class TestLibraryAnnotator(VendorIDTest):
         annotator.annotate_work_entry(
             work, None, edition, identifier, feed, entry
         )
-
         parsed = feedparser.parse(etree.tostring(entry))
         [entry_parsed] = parsed['entries']
         links = set([x['rel'] for x in entry_parsed['links']])
@@ -1181,7 +1180,6 @@ class TestLibraryAnnotator(VendorIDTest):
 
         work = self._work(with_license_pool=True, with_open_access_download=False)
         pool = work.license_pools[0]
-        [epub_lpdm] = pool.delivery_mechanisms
         pool.open_access = False
         streaming_mech = pool.set_delivery_mechanism(
             DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM,
@@ -1213,6 +1211,7 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
             fulfill_links[0]['type'])
         eq_("http://streaming_link", fulfill_links[0]['href'])
+
 
     def test_drm_device_registration_feed_tags(self):
         """Check that drm_device_registration_feed_tags returns

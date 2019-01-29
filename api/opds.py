@@ -455,8 +455,8 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             hidden_content_types=self._hidden_content_types(library),
             test_mode=test_mode
         )
-        self.library = library
         self.circulation = circulation
+        self.library = library
         self.patron = patron
         self.lanes_by_work = defaultdict(list)
         self.facet_view = facet_view
