@@ -875,6 +875,10 @@ class TestDirectoryImportScript(DatabaseTest):
         for policy in policy1, policy2:
             eq_(mirror, policy.mirror)
 
+        # timestamp_collection has been set to the Collection that will be
+        # used when a Timestamp is created for this script.
+        eq_(self._default_collection, script.timestamp_collection)
+
     def test_load_collection_no_site_wide_mirror(self):
         # Calling load_collection creates a new collection with
         # the given data source.
