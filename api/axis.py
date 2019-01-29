@@ -320,7 +320,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         response = self.request(url, data=args, method="POST")
         return response
 
-    def fulfill(self, patron, pin, licensepool, format_type, **kwargs):
+    def fulfill(self, patron, pin, licensepool, **kwargs):
         """Fulfill a patron's request for a specific book.
 
         :param kwargs: A container for arguments to fulfill()

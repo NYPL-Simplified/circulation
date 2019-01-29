@@ -473,7 +473,9 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             200, headers={"Content-Type": "presumably/an-acsm"},
             content="this is an ACSM"
         )
-        fulfillment = self.api.fulfill(patron, 'password', pool, 'ePub')
+        fulfillment = self.api.fulfill(
+            patron, 'password', pool, internal_format='ePub'
+        )
         assert isinstance(fulfillment, FulfillmentInfo)
         eq_("this is an ACSM", fulfillment.content)
         eq_(pool.identifier.identifier, fulfillment.identifier)
@@ -489,7 +491,9 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             200, headers={"Content-Type": "application/json"},
             content=license
         )
-        fulfillment = self.api.fulfill(patron, 'password', pool, 'MP3')
+        fulfillment = self.api.fulfill(
+            patron, 'password', pool, internal_format='MP3'
+        )
         assert isinstance(fulfillment, FulfillmentInfo)
 
         # Here, the media type reported by the server is not passed
@@ -516,7 +520,9 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             200, headers={"Content-Type": bad_media_type},
             content=bad_content
         )
-        fulfillment = self.api.fulfill(patron, 'password', pool, 'MP3')
+        fulfillment = self.api.fulfill(
+            patron, 'password', pool, internal_format='MP3'
+        )
         assert isinstance(fulfillment, FulfillmentInfo)
 
         # The (apparently) bad document is just passed on to the
