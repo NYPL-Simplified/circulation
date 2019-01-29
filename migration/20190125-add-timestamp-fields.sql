@@ -73,3 +73,6 @@ update timestamps set service_type='monitor' where (
        counter is not null and service_type is null
 );
 
+-- Fill in the 'start' values -- they'll be replaced with more accurate values
+-- as the scripts run.
+update timestamps set start=finish where start is null;
