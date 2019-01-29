@@ -64,6 +64,7 @@ from core.opds_import import (
 )
 
 from api.circulation import (
+    BaseCirculationAPI,
     CirculationAPI,
     FulfillmentInfo,
 )
@@ -1347,6 +1348,62 @@ class TestLibraryAnnotator(VendorIDTest):
         hold_links = annotator.acquisition_links(
             hold.license_pool, None, hold, None, feed, hold.license_pool.identifier)
         eq_([], hold_links)
+
+    def test_acquisition_links_multiple_links(self):
+        annotator = LibraryLoanAndHoldAnnotator(None, None, self._default_library, test_mode=True)
+        feed = AcquisitionFeed(
+            self._db, "test", "url", [], annotator
+        )
+
+        # This book has two delivery mechanisms
+        work = self._work(with_license_pool=True)
+        [pool] = work.license_pools
+        [mech1] = pool.delivery_mechanisms
+        mech2 = pool.set_delivery_mechanism(
+            Representation.PDF_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
+            RightsStatus.IN_COPYRIGHT, None
+        )
+
+        # The vendor API for LicensePools of this type requires that a
+        # delivery mechanism be chosen at the point of borrowing.
+        class MockAPI(object):
+            SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
+
+        # This means that two different acquisition links will be
+        # generated -- one for each delivery mechanism.
+        links = annotator.acquisition_links(
+            pool, None, None, None, feed, pool.identifier,
+            mock_api=MockAPI()
+        )
+        eq_(2, len(links))
+        indirects = []
+        for link in links:
+            # Both links should have the same subtags.
+            [availability, copies, holds, indirect] = sorted(
+                link, key=lambda x: x.tag
+            )
+            assert availability.tag.endswith('availability')
+            assert copies.tag.endswith('copies')
+            assert holds.tag.endswith('holds')
+            assert indirect.tag.endswith('indirectAcquisition')
+            indirects.append(indirect)
+
+        # The target of the top-level link is different.
+        [href1, href2] = [x.attrib['href'] for x in links]
+        assert "mechanism_id=%s" % mech1.delivery_mechanism.id in href1
+        assert "mechanism_id=%s" % mech2.delivery_mechanism.id in href2
+
+        # So is the media type seen in the indirectAcquisition subtag.
+        [i1, i2] = indirects
+
+        # The first delivery mechanism (created when the Work was created)
+        # uses Adobe DRM, so that shows up as the first indirect acquisition
+        # type.
+        eq_(mech1.delivery_mechanism.drm_scheme, i1.attrib['type'])
+
+        # The second delivery mechanism doesn't use DRM, so the content
+        # type shows up as the first (and only) indirect acquisition type.
+        eq_(mech2.delivery_mechanism.content_type, i2.attrib['type'])
 
 class TestSharedCollectionAnnotator(DatabaseTest):
     def setup(self):
