@@ -1,18 +1,18 @@
 -- Create a new enumerated type for types of timestamps.
--- CREATE TYPE service_type AS ENUM (
---     'monitor',
---     'coverage_provider',
---     'script'
--- );
+CREATE TYPE service_type AS ENUM (
+    'monitor',
+    'coverage_provider',
+    'script'
+);
 
--- -- Add columns to the timestamp table, including service_type for the
--- -- enumerated type.
+-- Add columns to the timestamp table, including service_type for the
+-- enumerated type.
 
--- ALTER TABLE timestamps ADD COLUMN service_type service_type;
--- CREATE INDEX ix_timestamps_service_type ON timestamps USING btree (service_type);
--- ALTER TABLE timestamps ADD COLUMN start TIMESTAMP WITHOUT TIME ZONE;
--- ALTER TABLE timestamps ADD COLUMN achievements CHARACTER VARYING;
--- ALTER TABLE timestamps ADD COLUMN exception CHARACTER VARYING;
+ALTER TABLE timestamps ADD COLUMN service_type service_type;
+CREATE INDEX ix_timestamps_service_type ON timestamps USING btree (service_type);
+ALTER TABLE timestamps ADD COLUMN start TIMESTAMP WITHOUT TIME ZONE;
+ALTER TABLE timestamps ADD COLUMN achievements CHARACTER VARYING;
+ALTER TABLE timestamps ADD COLUMN exception CHARACTER VARYING;
 
 -- Set service_type for all known monitors, coverage providers, and
 -- scripts.
