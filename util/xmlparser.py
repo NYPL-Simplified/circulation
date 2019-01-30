@@ -53,7 +53,7 @@ class XMLParser(object):
         # invalid in XML but it will stop processing a document if it
         # encounters the null character. Remove that character
         # immediately and XMLParser will handle the rest.
-        xml = xml.replace("\x00", "")
+        xml = xml.replace(b"\x00", "")
         if not parser:
             parser = etree.XMLParser(recover=True)
         if not handler:
