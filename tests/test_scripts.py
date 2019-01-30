@@ -839,7 +839,7 @@ class TestTimestampInfo(DatabaseTest):
         timestamp_info = self.TimestampInfo.find(self._db, 'test')
 
         now = datetime.datetime.utcnow()
-        timestamp_info.update(self._db, now, now, 2)
+        timestamp_info.update(self._db, now, 2)
 
         # When we refresh the Timestamp object, it's been updated.
         self._db.refresh(stamp)

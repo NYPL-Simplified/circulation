@@ -2082,28 +2082,27 @@ class DatabaseMigrationScript(Script):
             self.service = service
             if isinstance(finish, basestring):
                 finish = Script.parse_time(finish)
-            self.start = self.finish = finish
+            self.finish = finish
             if isinstance(counter, basestring):
                 counter = int(counter)
             self.counter = counter
 
         def save(self, _db):
-            self.update(_db, self.start, self.finish, self.counter)
+            self.update(_db, self.finish, self.counter)
 
-        def update(self, _db, start, finish, counter, migration_name=None):
+        def update(self, _db, finish, counter, migration_name=None):
             """Saves a TimestampInfo object to the database.
             """
             # Reset values locally.
-            self.start = start
             self.finish = finish
             self.counter = counter
 
             sql = (
-                "UPDATE timestamps SET start=:start, finish=:finish, counter=:counter"
+                "UPDATE timestamps SET start=:finish, finish=:finish, counter=:counter"
                 " where service=:service"
             )
             values = dict(
-                start=self.start, finish=self.finish, counter=self.counter,
+                finish=self.finish, counter=self.counter,
                 service=self.service,
             )
 
@@ -2492,7 +2491,7 @@ class DatabaseMigrationScript(Script):
         if migration_file.endswith('py') and self.python_timestamp:
             # This is a python migration. Update the python timestamp.
             self.python_timestamp.update(
-                self._db, start=last_run_date, finish=last_run_date,
+                self._db, finish=last_run_date,
                 counter=counter, migration_name=migration_file
             )
 
@@ -2502,7 +2501,7 @@ class DatabaseMigrationScript(Script):
              self.overall_timestamp.counter < counter))
         ):
             self.overall_timestamp.update(
-                self._db, start=last_run_date, finish=last_run_date,
+                self._db, finish=last_run_date,
                 counter=counter, migration_name=migration_file
             )
 
