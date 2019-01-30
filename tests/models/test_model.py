@@ -94,9 +94,9 @@ class TestDatabaseInterface(DatabaseTest):
         timestamp = get_one(self._db, Timestamp,
                             collection=None,
                             service=Configuration.SITE_CONFIGURATION_CHANGED)
-        old_timestamp = timestamp.timestamp
+        old_timestamp = timestamp.finish
         SessionManager.initialize_data(self._db)
-        eq_(old_timestamp, timestamp.timestamp)
+        eq_(old_timestamp, timestamp.finish)
 
 class TestMaterializedViews(DatabaseTest):
 
