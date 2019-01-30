@@ -214,15 +214,15 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         provider = MockProvider(self._db)
         provider.run_once_and_update_timestamp()
 
-        # The Timestamp's .start and .timestamp are now set to recent
+        # The Timestamp's .start and .finish are now set to recent
         # values -- the start and end points of run_once().
         timestamp = Timestamp.lookup(
             self._db, service_name, service_type, collection=None
         )
         now = datetime.datetime.utcnow()
-        assert (now - timestamp.timestamp).total_seconds() < 1
         assert (now - timestamp.start).total_seconds() < 1
-        assert timestamp.start < timestamp.timestamp
+        assert (now - timestamp.finish).total_seconds() < 1
+        assert timestamp.start < timestamp.finish
 
         # run_once was called twice: once to exclude items that have
         # any coverage record whatsoever (PREVIOUSLY_ATTEMPTED), and again to
@@ -249,9 +249,9 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             collection=None
         )
         now = datetime.datetime.utcnow()
-        assert (now - timestamp.timestamp).total_seconds() < 1
         assert (now - timestamp.start).total_seconds() < 1
-        assert timestamp.start < timestamp.timestamp
+        assert (now - timestamp.finish).total_seconds() < 1
+        assert timestamp.start < timestamp.finish
 
         assert "Exception: Unhandled exception" in timestamp.exception
 

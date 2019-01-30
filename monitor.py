@@ -126,7 +126,8 @@ class Monitor(object):
             service_type=Timestamp.MONITOR_TYPE,
             collection=self.collection,
             create_method_kwargs=dict(
-                timestamp=initial_timestamp,
+                start=initial_timestamp,
+                finish=initial_timestamp,
                 counter=self.default_counter,
             )
         )
@@ -134,51 +135,52 @@ class Monitor(object):
 
     def run(self):
         """Do all the work that has piled up since the
-        last time the Monitor ran.
+        last time the Monitor ran to completion.
         """
-        if self.keep_timestamp:
-            timestamp = self.timestamp()
-            last_run_start = timestamp.start or self.default_start_time
-        else:
-            timestamp = None
-            last_run_start = self.default_start_time
-
-        if start == self.NEVER:
+        # Figure out how far into the past this Monitor needs to go.
+        timestamp = self.timestamp()
+        last_run_start = timestamp.start or self.default_start_time
+        if last_run_start == self.NEVER:
             last_run_start = None
 
+        # At this point `last_run_start` represents the first moment
+        # at which something might have happened that the Monitor
+        # hasn't taken into consideration. `this_run_start` represents
+        # the first moment of _this_ run, which is the _final_ moment
+        # the Monitor must take into consideration right
+        # now. Everything that happens after this time can be handled
+        # on the subsequent run.
         this_run_start = datetime.datetime.utcnow()
-
-        # At this point `last_run_start` represents the first moment of the
-        # previous run, the first moment at which something might have
-        # happened that the Monitor hasn't taken into
-        # consideration. `this_run_start` represents the first moment
-        # of _this_ run, which is the _final_ moment the Monitor is
-        # expected to take into consideration right now.
-        exception = None
+        update_timestamp_with = dict()
         try:
             this_run_finish = (
                 self.run_once(last_run_start, this_run_start)
                 or datetime.datetime.utcnow()
             )
             self.cleanup()
+            timestamp.update(
+                start=this_run_start, finish=this_run_finish,
+                exception=None
+            )
         except Exception, e:
-            self.log.error("Error running %s monitor", exc_info=e)
-            exception = traceback.format_exc()
+            self.log.error(
+                "Error running %s monitor. Timestamp will not be updated.",
+                self.service_name, exc_info=e
+            )
             this_run_finish = datetime.datetime.utcnow()
+
+            # We will update the exception but not the start or end
+            # times. This way the Monitor remembers that it still
+            # hasn't managed to cover what happened in that first
+            # moment.
+            timestamp.exception = traceback.format_exc()
+        self._db.commit()
 
         duration = this_run_finish - this_run_start
         self.log.info(
             "Ran %s monitor in %.2f sec.", self.service_name,
             duration.total_seconds(),
         )
-
-        if self.keep_timestamp:
-            # Update the Timestamp values.
-            timestamp.update(
-                start=this_run_start, finish=this_run_finish,
-                exception=exception
-            )
-        self._db.commit()
 
     def run_once(self, start, cutoff):
         """Do the actual work of the Monitor.
@@ -234,12 +236,13 @@ class CollectionMonitor(Monitor):
         """Yield a sequence of CollectionMonitor objects: one for every
         Collection associated with cls.PROTOCOL.
 
-        Monitors that have no Timestamp will be yielded first. After that,
-        Monitors with older Timestamps will be yielded before Monitors with
-        newer timestamps.
+        Monitors that have no Timestamp will be yielded first. After
+        that, Monitors with older values for Timestamp.start will be
+        yielded before Monitors with newer values.
 
         :param constructor_kwargs: These keyword arguments will be passed
         into the CollectionMonitor constructor.
+
         """
         service_match = or_(Timestamp.service==cls.SERVICE_NAME,
                             Timestamp.service==None)
@@ -251,7 +254,7 @@ class CollectionMonitor(Monitor):
             )
         )
         collections = collections.order_by(
-            Timestamp.timestamp.asc().nullsfirst()
+            Timestamp.start.asc().nullsfirst()
         )
         for collection in collections:
             yield cls(_db=_db, collection=collection, **constructor_kwargs)
@@ -330,7 +333,7 @@ class SweepMonitor(CollectionMonitor):
         # a sweep or because an exception was raised.
         run_ended_at = datetime.datetime.utcnow()
         timestamp.update(
-            start=run_started_at, timestamp=run_ended_at,
+            start=run_started_at, finish=run_ended_at,
             achievements=achievements, counter=new_offset,
             exception=exception
         )

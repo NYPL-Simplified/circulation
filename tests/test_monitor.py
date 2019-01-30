@@ -111,24 +111,21 @@ class TestMonitor(DatabaseTest):
         timestamp = self._db.query(Timestamp).filter(
             Timestamp.service==monitor.service_name).one()
 
-        # The current value of .timestamp and .start are later than
+        # The current value of .start and .finish are later than
         # the original value, because they were updated to reflect the
-        # time that run_once() was called.
+        # time that run_once() completed successfully.
         assert timestamp.start > monitor.original_timestamp
-
-        # The timestamp is set to the time the monitor _started_
-        # running, so that the next time it runs it'll catch any
-        # activity that happened _while_ the monitor was running.
-        assert timestamp.timestamp == timestamp.start
+        assert timestamp.finish > timestamp.start
 
     def test_initial_timestamp(self):
         class NeverRunMonitor(MockMonitor):
             SERVICE_NAME = "Never run"
             DEFAULT_START_TIME = MockMonitor.NEVER
 
-        # The Timestamp object is created, but its .timestamp is None.
+        # The Timestamp object is created, but its .start is None,
+        # indicating that it has never run to completion.
         m = NeverRunMonitor(self._db, self._default_collection)
-        eq_(None, m.timestamp().timestamp)
+        eq_(None, m.timestamp().start)
 
         class RunLongAgoMonitor(MockMonitor):
             SERVICE_NAME = "Run long ago"
@@ -137,22 +134,37 @@ class TestMonitor(DatabaseTest):
         m = RunLongAgoMonitor(self._db, self._default_collection)
         timestamp = m.timestamp()
         now = datetime.datetime.utcnow()
-        assert timestamp.timestamp < now
-        eq_(None, timestamp.start)
+        assert timestamp.start < now
 
-    def test_run_once_exception_recorded_in_timestamp(self):
+        # Just so we have a value for Timestamp.finish, it's given the
+        # same value as Timestamp.start.
+        eq_(timestamp.finish, timestamp.start)
+
+
+    def test_run_once_with_exception(self):
         # If a Monitor's run_once implementation raises an unhandled
-        # exception, a traceback for that exception is recorded
-        # in the appropriate Timestamp.
+        # exception, a traceback for that exception is recorded in the
+        # appropriate Timestamp, but the timestamp itself is not
+        # updated.
         class DoomedMonitor(MockMonitor):
             SERVICE_NAME = "Doomed"
             def run_once(self, *args, **kwargs):
                 raise Exception("I'm doomed")
 
         m = DoomedMonitor(self._db, self._default_collection)
-        m.run()
         timestamp = m.timestamp()
+        old_start = timestamp.start
+        old_finish = timestamp.finish
+        eq_(None, timestamp.exception)
+
+        m.run()
+
+        # The timestamp has been updated, but the times have not.
         assert "Exception: I'm doomed" in timestamp.exception
+        timestamp = m.timestamp()
+        eq_(old_start, timestamp.start)
+        eq_(old_finish, timestamp.finish)
+
 
     def test_same_monitor_different_collections(self):
         """A single Monitor has different Timestamps when run against
@@ -192,7 +204,7 @@ class TestMonitor(DatabaseTest):
 
         # But the second Monitor now has its own timestamp.
         [t2] = c2.timestamps
-        assert t2.timestamp > t1.timestamp
+        assert t2.start > t1.start
 
 
 class TestCollectionMonitor(DatabaseTest):
@@ -263,7 +275,8 @@ class TestCollectionMonitor(DatabaseTest):
         an_hour_ago = now - datetime.timedelta(seconds=3600)
         Timestamp.stamp(
             self._db, OPDSCollectionMonitor.SERVICE_NAME,
-            Timestamp.MONITOR_TYPE, o3, date=an_hour_ago
+            Timestamp.MONITOR_TYPE, o3, start=an_hour_ago,
+            finish=an_hour_ago
         )
 
         monitors = list(OPDSCollectionMonitor.all(self._db))
@@ -396,8 +409,8 @@ class TestSweepMonitor(DatabaseTest):
         # The start and end points of the run were recorded.
         now = datetime.datetime.utcnow()
         assert (now - timestamp.start).total_seconds() < 5
-        assert (now - timestamp.timestamp).total_seconds() < 5
-        assert timestamp.start < timestamp.timestamp
+        assert (now - timestamp.finish).total_seconds() < 5
+        assert timestamp.start < timestamp.finish
 
         # I3 was processed, but the batch did not complete, so any
         # changes wouldn't have been written to the database.

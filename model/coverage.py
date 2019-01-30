@@ -154,15 +154,13 @@ class Timestamp(Base):
             start = self.start.strftime(format)
         else:
             start = None
-        if self.counter:
-            timestamp += (' %d' % self.counter)
         if self.collection:
             collection = self.collection.name
         else:
             collection = None
 
-        message = u"<Timestamp %s: collection=%s, start=%s finish=%s>" % (
-            self.service, collection, start, finish
+        message = u"<Timestamp %s: collection=%s, start=%s finish=%s counter=%s>" % (
+            self.service, collection, start, finish, self.counter
         )
         return message.encode("utf8")
 

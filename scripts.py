@@ -2060,7 +2060,7 @@ class DatabaseMigrationScript(Script):
 
             :return: A TimestampInfo object or None
             """
-            sql = "SELECT timestamp, counter FROM timestamps WHERE service=:service LIMIT 1;"
+            sql = "SELECT finish, counter FROM timestamps WHERE service=:service LIMIT 1;"
             results = list(_db.execute(text(sql), dict(service=service)))
 
             if not results:
@@ -2078,37 +2078,40 @@ class DatabaseMigrationScript(Script):
                 return None
             return cls(service, date, counter)
 
-        def __init__(self, service, timestamp, counter=None):
+        def __init__(self, service, finish, counter=None):
             self.service = service
-            if isinstance(timestamp, basestring):
-                timestamp = Script.parse_time(timestamp)
-            self.timestamp = timestamp
+            if isinstance(finish, basestring):
+                finish = Script.parse_time(finish)
+            self.start = self.finish = finish
             if isinstance(counter, basestring):
                 counter = int(counter)
             self.counter = counter
 
         def save(self, _db):
-            self.update(_db, self.timestamp, self.counter)
+            self.update(_db, self.start, self.finish, self.counter)
 
-        def update(self, _db, timestamp, counter, migration_name=None):
-            """Saves a TimestampInfo object to the database"""
+        def update(self, _db, start, finish, counter, migration_name=None):
+            """Saves a TimestampInfo object to the database.
+            """
             # Reset values locally.
-            self.timestamp = timestamp
+            self.start = start
+            self.finish = finish
             self.counter = counter
 
             sql = (
-                "UPDATE timestamps SET timestamp=:timestamp, counter=:counter"
+                "UPDATE timestamps SET start=:start, finish=:finish, counter=:counter"
                 " where service=:service"
             )
             values = dict(
-                timestamp=timestamp, counter=counter, service=self.service,
+                start=self.start, finish=self.finish, counter=self.counter,
+                service=self.service,
             )
 
             _db.execute(text(sql), values)
             _db.flush()
 
             message = "%s Timestamp stamped at %s" % (
-                self.service, self.timestamp.strftime('%Y-%m-%d')
+                self.service, self.finish.strftime('%Y-%m-%d')
             )
             if migration_name:
                 message += " for %s" % migration_name
@@ -2258,7 +2261,7 @@ class DatabaseMigrationScript(Script):
             )
             # Save the timestamp at this point. This will set back the clock
             # in the case that the input last_run_date/counter is before the
-            # existing Timestamp.timestamp / Timestamp.counter.
+            # existing Timestamp.finish / Timestamp.counter.
             #
             # DatabaseMigrationScript.update_timestamps will no longer rewind
             # a Timestamp, so saving here is important.
@@ -2324,7 +2327,7 @@ class DatabaseMigrationScript(Script):
         """Return a list of migration filenames, representing migrations
         created since the timestamp
         """
-        last_run = timestamp.timestamp.strftime('%Y%m%d')
+        last_run = timestamp.finish.strftime('%Y%m%d')
         migrations = self.sort_migrations(migrations)
         new_migrations = [migration for migration in migrations
                           if int(migration[:8]) >= int(last_run)]
@@ -2357,7 +2360,7 @@ class DatabaseMigrationScript(Script):
         is_match = False
         is_after_timestamp = False
 
-        timestamp_str = timestamp.timestamp.strftime('%Y%m%d')
+        timestamp_str = timestamp.finish.strftime('%Y%m%d')
         counter = timestamp.counter
 
         if migration_file[:8]>=timestamp_str:
@@ -2489,16 +2492,18 @@ class DatabaseMigrationScript(Script):
         if migration_file.endswith('py') and self.python_timestamp:
             # This is a python migration. Update the python timestamp.
             self.python_timestamp.update(
-                self._db, last_run_date, counter, migration_name=migration_file
+                self._db, start=last_run_date, finish=last_run_date,
+                counter=counter, migration_name=migration_file
             )
 
         if (self.overall_timestamp and
-            (self.overall_timestamp.timestamp < last_run_date or
-            (self.overall_timestamp.timestamp==last_run_date and
+            (self.overall_timestamp.finish < last_run_date or
+            (self.overall_timestamp.finish==last_run_date and
              self.overall_timestamp.counter < counter))
         ):
             self.overall_timestamp.update(
-                self._db, last_run_date, counter, migration_name=migration_file
+                self._db, start=last_run_date, finish=last_run_date,
+                counter=counter, migration_name=migration_file
             )
 
 
@@ -2527,8 +2532,8 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
                 "Timestamp.counter must be reset alongside Timestamp.finish")
 
         existing_timestamp = get_one(self._db, Timestamp, service=self.name)
-        if existing_timestamp and existing_timestamp.timestamp:
-            # A Timestamp exists and it has a timestamp, so it wasn't created
+        if existing_timestamp and existing_timestamp.finish:
+            # A Timestamp exists and it has a .finish, so it wasn't created
             # by TimestampInfo.find.
             if parsed.force:
                 self.log.warn(
@@ -2553,7 +2558,7 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
         if last_run_date:
             submitted_time = self.parse_time(last_run_date)
             for timestamp in (overall_timestamp, python_timestamp):
-                timestamp.timestamp = submitted_time
+                timestamp.finish = submitted_time
                 timestamp.counter = last_run_counter
             self._db.commit()
             return
