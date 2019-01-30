@@ -49,8 +49,8 @@ class TestTimestamp(DatabaseTest):
         )
 
         # value() works the same way as lookup() but returns the actual
-        # timestamp value.
-        eq_(timestamp.timestamp,
+        # timestamp.finish value.
+        eq_(timestamp.finish,
             Timestamp.value(self._db, "service", Timestamp.SCRIPT_TYPE, c1))
         eq_(
             None,
@@ -65,8 +65,8 @@ class TestTimestamp(DatabaseTest):
         # stamp() was called.
         stamp = Timestamp.stamp(self._db, service, type)
         now = datetime.datetime.utcnow()
-        assert (now - stamp.timestamp).total_seconds() < 2
-        eq_(stamp.start, stamp.timestamp)
+        assert (now - stamp.finish).total_seconds() < 2
+        eq_(stamp.start, stamp.finish)
         eq_(service, stamp.service)
         eq_(type, stamp.service_type)
         eq_(None, stamp.collection)
@@ -81,8 +81,8 @@ class TestTimestamp(DatabaseTest):
         )
         eq_(stamp, stamp2)
         now = datetime.datetime.utcnow()
-        assert (now - stamp.timestamp).total_seconds() < 2
-        eq_(stamp.start, stamp.timestamp)
+        assert (now - stamp.finish).total_seconds() < 2
+        eq_(stamp.start, stamp.finish)
         eq_(service, stamp.service)
         eq_(type, stamp.service_type)
         eq_(None, stamp.collection)
@@ -102,14 +102,14 @@ class TestTimestamp(DatabaseTest):
         # used to identify it.
         stamp = Timestamp.stamp(self._db, "service", Timestamp.SCRIPT_TYPE)
         start = datetime.datetime(2010, 1, 2)
-        timestamp = datetime.datetime(2018, 3, 4)
+        finish = datetime.datetime(2018, 3, 4)
         achievements = self._str
         counter = self._id
         exception = self._str
-        stamp.update(start, timestamp, achievements, counter, exception)
+        stamp.update(start, finish, achievements, counter, exception)
 
         eq_(start, stamp.start)
-        eq_(timestamp, stamp.timestamp)
+        eq_(finish, stamp.finish)
         eq_(achievements, stamp.achievements)
         eq_(counter, stamp.counter)
         eq_(exception, stamp.exception)

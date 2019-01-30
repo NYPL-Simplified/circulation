@@ -1910,7 +1910,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         # Nothing has been imported yet, so all data is new.
         eq_(True, monitor.feed_contains_new_data(feed))
-        eq_(None, timestamp.timestamp)
+        eq_(None, timestamp.start)
 
         # Now import the editions.
         monitor = MockOPDSImportMonitor(
@@ -1925,7 +1925,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         # The timestamp has been updated, although unlike most
         # Monitors the timestamp is purely informational.
-        assert timestamp.timestamp != None
+        assert timestamp.finish != None
 
         editions = self._db.query(Edition).all()
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
