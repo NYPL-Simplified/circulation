@@ -90,55 +90,150 @@ class BaseCoverageRecord(object):
 
 
 class Timestamp(Base):
-    """A general-purpose timestamp for Monitors."""
+    """Tracks the activities of Monitors, CoverageProviders,
+    and general scripts.
+    """
 
     __tablename__ = 'timestamps'
+
+    MONITOR_TYPE = "monitor"
+    COVERAGE_PROVIDER_TYPE = "coverage_provider"
+    SCRIPT_TYPE = "script"
+
+    service_type_enum = Enum(
+        MONITOR_TYPE, COVERAGE_PROVIDER_TYPE, SCRIPT_TYPE,
+        name="service_type",
+    )
+
+    # Unique ID
     id = Column(Integer, primary_key=True)
+
+    # Name of the service.
     service = Column(String(255), index=True, nullable=False)
+
+    # Type of the service -- monitor, coverage provider, or script.
+    # If the service type does not fit into these categories, this field
+    # can be left null.
+    service_type = Column(service_type_enum, index=True, default=None)
+
+    # The collection, if any, associated with this service -- some services
+    # run separately on a number of collections.
     collection_id = Column(Integer, ForeignKey('collections.id'),
                            index=True, nullable=True)
-    timestamp = Column(DateTime)
-    counter = Column(Integer)
+
+    # The last time the service _started_ running.
+    start = Column(DateTime, nullable=True)
+
+    # The last time the service _finished_ running. In most cases this
+    # is the 'timestamp' proper.
+    finish = Column(DateTime)
+
+    # A description of the things the service achieved during its last
+    # run. Each service may decide for itself what counts as an
+    # 'achievement'; this is just a way to distinguish services that
+    # do a lot of things from services that do a few things, or to see
+    # services that run to completion but don't actually do anything.
+    achievements = Column(Unicode, nullable=True)
+
+    # This column allows a service to keep one item of state between
+    # runs. For example, a monitor that iterates over a database table
+    # needs to keep track of the last database ID it processed.
+    counter = Column(Integer, nullable=True)
+
+    # The exception, if any, that stopped the service from running
+    # during its previous run.
+    exception = Column(Unicode, nullable=True)
 
     def __repr__(self):
-        if self.timestamp:
-            timestamp = self.timestamp.strftime('%b %d, %Y at %H:%M')
+        format = '%b %d, %Y at %H:%M'
+        if self.finish:
+            finish = self.finish.strftime(format)
         else:
-            timestamp = None
-        if self.counter:
-            timestamp += (' %d' % self.counter)
+            finish = None
+        if self.start:
+            start = self.start.strftime(format)
+        else:
+            start = None
         if self.collection:
             collection = self.collection.name
         else:
             collection = None
 
-        message = u"<Timestamp %s: collection=%s, timestamp=%s>" % (
-            self.service, collection, timestamp
+        message = u"<Timestamp %s: collection=%s, start=%s finish=%s counter=%s>" % (
+            self.service, collection, start, finish, self.counter
         )
         return message.encode("utf8")
 
     @classmethod
-    def value(cls, _db, service, collection):
-        """Return the current value of the given Timestamp, if it exists.
-        """
-        stamp = get_one(_db, Timestamp, service=service, collection=collection)
-        if not stamp:
-            return None
-        return stamp.timestamp
+    def lookup(cls, _db, service, service_type, collection):
+        return get_one(
+            _db, Timestamp, service=service, service_type=service_type,
+            collection=collection
+        )
 
     @classmethod
-    def stamp(cls, _db, service, collection, date=None):
-        date = date or datetime.datetime.utcnow()
+    def value(cls, _db, service, service_type, collection):
+        """Return the current value of the given Timestamp, if it exists.
+        """
+        stamp = cls.lookup(_db, service, service_type, collection)
+        if not stamp:
+            return None
+        return stamp.finish
+
+    @classmethod
+    def stamp(
+        cls, _db, service, service_type, collection=None, start=None,
+        finish=None, achievements=None, counter=None, exception=None
+    ):
+        """Set a Timestamp, creating it if necessary.
+
+        This should be called once a service has stopped running,
+        whether or not it was able to complete its task.
+
+        :param _db: A database connection.
+        :param service: The name of the service associated with the Timestamp.
+
+        :param service_type: The type of the service associated with
+            the Timestamp. This must be one of the values in
+            Timestmap.service_type_enum.
+        :param collection: The Collection, if any, on which this service
+            just ran.
+        :param start: The time at which this service started running.
+            Defaults to now.
+        :param finish: The time at which this service stopped running.
+            Defaults to now.
+        :param achievements: A human-readable description of what the service
+            did during its run.
+        :param counter: An integer item of state that the service may use
+            to track its progress between runs.
+        :param exception: A stack trace for the exception, if any, which
+            stopped the service from running.
+        """
+        finish = finish or datetime.datetime.utcnow()
+        start = start or finish
         stamp, was_new = get_one_or_create(
             _db, Timestamp,
             service=service,
+            service_type=service_type,
             collection=collection,
-            create_method_kwargs=dict(timestamp=date))
-        if not was_new:
-            stamp.timestamp = date
+        )
+        stamp.update(start, finish, achievements, counter, exception)
+
         # Committing immediately reduces the risk of contention.
         _db.commit()
         return stamp
+
+    def update(self, start=None, finish=None, achievements=None,
+               counter=None, exception=None):
+        """Use a single method to update all the fields that aren't
+        used to identify a Timestamp.
+        """
+        self.start = start
+        self.finish = finish
+        self.achievements = achievements
+        self.counter = counter
+        self.exception = exception
+
 
     __table_args__ = (
         UniqueConstraint('service', 'collection_id'),

@@ -61,9 +61,12 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         # package_setup() for this test run.
         last_update = Configuration.site_configuration_last_update(self._db)
 
-        timestamp_value = Timestamp.value(
-            self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
-        )
+        def ts():
+            return Timestamp.value(
+                self._db, Configuration.SITE_CONFIGURATION_CHANGED, 
+                service_type=None, collection=None
+            )
+        timestamp_value = ts()
         eq_(timestamp_value, last_update)
 
         # Now let's call site_configuration_has_changed().
@@ -71,10 +74,7 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         site_configuration_has_changed(self._db, timeout=0)
 
         # The Timestamp has changed in the database.
-        new_timestamp_value = Timestamp.value(
-            self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
-        )
-        assert new_timestamp_value > timestamp_value
+        assert ts() > timestamp_value
 
         # The locally-stored last update value has been updated.
         new_last_update_time = Configuration.site_configuration_last_update(
@@ -89,7 +89,8 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         # site_configuration_has_changed() -- they will know about the
         # change but we won't be informed.
         timestamp = Timestamp.stamp(
-            self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
+            self._db, Configuration.SITE_CONFIGURATION_CHANGED,
+            service_type=None, collection=None
         )
 
         # Calling Configuration.check_for_site_configuration_update
