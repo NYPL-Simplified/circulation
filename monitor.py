@@ -151,7 +151,6 @@ class Monitor(object):
         # now. Everything that happens after this time can be handled
         # on the subsequent run.
         this_run_start = datetime.datetime.utcnow()
-        update_timestamp_with = dict()
         try:
             this_run_finish = (
                 self.run_once(last_run_start, this_run_start)
