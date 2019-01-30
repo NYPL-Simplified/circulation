@@ -36,41 +36,30 @@ from model import (
 
 
 class Monitor(object):
-    """A Monitor is responsible for running some piece of code as a
-    job. When invoked, a Monitor will decide whether to do some work
-    based on how long it's been since the last invocation. If a
-    Monitor does work, it will update a Timestamp object to track the
-    last time the work was done.
+    """A Monitor is responsible for running some piece of code on a
+    regular basis. A Monitor has an associated Timestamp that tracks
+    the last time it successfully ran; it may use this information on
+    its next run to cover the intervening span of time.
 
-    A Monitor will run once and then stop. To repeatedly run a
-    Monitor, you'll need to repeatedly invoke the Monitor from some
-    external source such as a cron job.
+    A Monitor will run to completion and then stop. To repeatedly run
+    a Monitor, you'll need to repeatedly invoke it from some external
+    source such as a cron job.
 
     This class is designed to be subclassed rather than instantiated
     directly. Subclasses must define SERVICE_NAME. Subclasses may
-    define replacement values for KEEP_TIMESTAMP, INTERVAL_SECONDS,
-    and DEFAULT_START_TIME.
+    define replacement values for DEFAULT_START_TIME and
+    DEFAULT_COUNTER.
 
     Although any Monitor may be associated with a Collection, it's
     most useful to subclass CollectionMonitor if you're writing code
     that needs to be run on every Collection of a certain type.
+
     """
     # In your subclass, set this to the name of the service,
     # e.g. "Overdrive Circulation Monitor". All instances of your
     # subclass will give this as their service name and track their
     # Timestamps under this name.
     SERVICE_NAME = None
-
-    # If this is set to False, this Monitor does not keep a timestamp.
-    # When it runs, the work will be done but no Timestamp will be
-    # created, and any existing timestamp will not be updated.
-    KEEP_TIMESTAMP = True
-
-    # The Monitor code will not run more than once every this number
-    # of seconds. If the Monitor is invoked and its Timestamp is not
-    # this old, the Monitor will do no work. If this is set to 0, the
-    # Monitor code will run every time it's invoked.
-    INTERVAL_SECONDS = 60
 
     # Some useful relative constants for DEFAULT_START_TIME (below).
     ONE_MINUTE_AGO = datetime.timedelta(seconds=60)
@@ -93,8 +82,6 @@ class Monitor(object):
         if not self.SERVICE_NAME and not cls.SERVICE_NAME:
             raise ValueError("%s must define SERVICE_NAME." % cls.__name__)
         self.service_name = self.SERVICE_NAME
-        self.interval_seconds = cls.INTERVAL_SECONDS
-        self.keep_timestamp = cls.KEEP_TIMESTAMP
         default_start_time = cls.DEFAULT_START_TIME
         if isinstance(default_start_time, datetime.timedelta):
             default_start_time = (
@@ -217,7 +204,7 @@ class CollectionMonitor(Monitor):
     This class is designed to be subclassed rather than instantiated
     directly. Subclasses must define SERVICE_NAME and
     PROTOCOL. Subclasses may define replacement values for
-    KEEP_TIMESTAMP, INTERVAL_SECONDS, and DEFAULT_START_TIME.
+    DEFAULT_START_TIME and DEFAULT_COUNTER.
     """
 
     # Set this to the name of the license provider managed by this
@@ -286,8 +273,6 @@ class SweepMonitor(CollectionMonitor):
 
     # Items will be processed in batches of this size.
     DEFAULT_BATCH_SIZE = 100
-
-    INTERVAL_SECONDS = 3600
 
     DEFAULT_COUNTER = 0
 
@@ -635,7 +620,6 @@ class WorkRandomnessUpdateMonitor(WorkSweepMonitor):
     """
 
     SERVICE_NAME = "Work Randomness Updater"
-    INTERVAL_SECONDS = 3600 * 24
     DEFAULT_BATCH_SIZE = 1000
 
     def process_batch(self, offset):
@@ -657,7 +641,6 @@ class CustomListEntryWorkUpdateMonitor(CustomListEntrySweepMonitor):
 
     """Set or reset the Work associated with each custom list entry."""
     SERVICE_NAME = "Update Works for custom list entries"
-    INTERVAL_SECONDS = 3600 * 24
     DEFAULT_BATCH_SIZE = 100
 
     def process_item(self, item):
