@@ -220,6 +220,10 @@ class PresentationCalculationPolicy(object):
            enough? Gathering _all_ the identifiers that identify an
            extremely popular work can take an extraordinarily long time
            for very little payoff, so it's useful to have a cutoff.
+
+           The cutoff is applied _per level_, so the total maximum
+           number of equivalent identifiers is
+           equivalent_identifier_cutoff * equivalent_identifier_levels.
         """
         self.choose_edition = choose_edition
         self.set_edition_metadata = set_edition_metadata
