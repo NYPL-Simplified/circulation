@@ -700,16 +700,19 @@ class Work(Base):
             _db, [self], search_index_client=search_index_client
         )
 
-    def all_editions(self, recursion_level=5):
+    def all_editions(self, policy=None):
         """All Editions identified by an Identifier equivalent to
         the identifiers of this Work's license pools.
-        `recursion_level` controls how far to go when looking for equivalent
-        Identifiers.
+
+        :param policy: A PresentationCalculationPolicy, used to
+           determine how far to go when looking for equivalent
+           Identifiers.
         """
         from licensing import LicensePool
         _db = Session.object_session(self)
         identifier_ids_subquery = Identifier.recursively_equivalent_identifier_ids_query(
-            LicensePool.identifier_id, levels=recursion_level)
+            LicensePool.identifier_id, policy=policy
+        )
         identifier_ids_subquery = identifier_ids_subquery.where(LicensePool.work_id==self.id)
 
         q = _db.query(Edition).filter(

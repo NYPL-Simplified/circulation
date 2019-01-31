@@ -617,9 +617,7 @@ class Edition(Base, EditionConstants):
             )
 
         if policy.choose_cover:
-            self.choose_cover(
-                equivalent_identifier_cutoff=policy.equivalent_identifier_cutoff
-            )
+            self.choose_cover(policy=policy)
 
         if (self.author != old_author
             or self.sort_author != old_sort_author
@@ -676,7 +674,7 @@ class Edition(Base, EditionConstants):
             sort_author = self.UNKNOWN_AUTHOR
         return author, sort_author
 
-    def choose_cover(self, equivalent_identifier_cutoff=None):
+    def choose_cover(self, policy=None):
         """Try to find a cover that can be used for this Edition."""
         self.cover_full_url = None
         self.cover_thumbnail_url = None
@@ -685,8 +683,7 @@ class Edition(Base, EditionConstants):
             # Edition's primary ID, use it. Otherwise, find the
             # best cover associated with any related identifier.
             best_cover, covers = self.best_cover_within_distance(
-                distance,
-                equivalent_identifier_cutoff=equivalent_identifier_cutoff
+                distance=distance, policy=policy
             )
 
             if best_cover:
@@ -725,8 +722,8 @@ class Edition(Base, EditionConstants):
             # look for a cover.
             for distance in (0, 5):
                 best_thumbnail, thumbnails = self.best_cover_within_distance(
-                    distance, rel=LinkRelations.THUMBNAIL_IMAGE,
-                    equivalent_identifier_cutoff=equivalent_identifier_cutoff,
+                    distance=distance, policy=policy,
+                    rel=LinkRelations.THUMBNAIL_IMAGE,
                 )
                 if best_thumbnail:
                     if not best_thumbnail.representation:
