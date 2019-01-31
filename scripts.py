@@ -174,6 +174,7 @@ class Script(object):
         try:
             self.do_run()
         except Exception, e:
+            set_trace()
             logging.error(
                 "Fatal exception while running script: %s", e,
                 exc_info=e

@@ -101,6 +101,8 @@ class Work(Base):
     CURRENTLY_AVAILABLE = "currently_available"
     ALL = "all"
 
+    DEFAULT_IDENTIFIER_CUTOFF = 100
+
     # If no quality data is available for a work, it will be assigned
     # a default quality based on where we got it.
     #
@@ -741,7 +743,10 @@ class Work(Base):
         return language
 
     def all_cover_images(self):
-        identifier_ids = self.all_identifier_ids()
+        set_trace()
+        identifier_ids = self.all_identifier_ids(
+            cutoff=self.DEFAULT_IDENTIFIER_CUTOFF
+        )
         return Identifier.resources_for_identifier_ids(
             _db, identifier_ids, LinkRelations.IMAGE).join(
             Resource.representation).filter(
@@ -750,7 +755,10 @@ class Work(Base):
                 Resource.quality.desc())
 
     def all_descriptions(self):
-        identifier_ids = self.all_identifier_ids()
+        set_trace()
+        identifier_ids = self.all_identifier_ids(
+            cutoff=self.DEFAULT_IDENTIFIER_CUTOFF
+        )
         return Identifier.resources_for_identifier_ids(
             _db, identifier_ids, LinkRelations.DESCRIPTION).filter(
                 Resource.content != None).order_by(
@@ -890,7 +898,9 @@ class Work(Base):
             # classifications, or measurements.
             _db = Session.object_session(self)
 
-            identifier_ids = self.all_identifier_ids()
+            identifier_ids = self.all_identifier_ids(
+                cutoff=policy.equivalent_identifier_cutoff
+            )
         else:
             identifier_ids = []
 

@@ -178,6 +178,7 @@ class PresentationCalculationPolicy(object):
                  regenerate_marc_record=False,
                  update_search_index=False,
                  verbose=True,
+                 equivalent_identifier_cutoff=100,
     ):
         self.choose_edition = choose_edition
         self.set_edition_metadata = set_edition_metadata
@@ -200,6 +201,8 @@ class PresentationCalculationPolicy(object):
         self.update_search_index = update_search_index
 
         self.verbose = verbose
+
+        self.equivalent_identifier_cutoff = equivalent_identifier_cutoff
 
     @classmethod
     def recalculate_everything(cls):

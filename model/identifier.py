@@ -423,6 +423,8 @@ class Identifier(Base, IdentifierConstants):
         off at this many results. (The maximum total number of results
         is levels * cutoff)
         """
+        if cutoff is None:
+            set_trace()
         query = select([Identifier.id, func.fn_recursive_equivalents(Identifier.id, levels, threshold, cutoff)],
                        Identifier.id.in_(identifier_ids))
         results = _db.execute(query)
