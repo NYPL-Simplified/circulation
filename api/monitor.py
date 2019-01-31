@@ -73,11 +73,22 @@ class MetadataWranglerCollectionMonitor(CollectionMonitor):
                 "Error getting feed for %r: %s",
                 self.collection, e.debug_message
             )
-            self.keep_timestamp = False
-            return None
+            raise e
 
     def endpoint(self, *args, **kwargs):
         raise NotImplementedError()
+
+    def assert_authenticated(self):
+        """Raise an exception unless the client has authentication
+        credentials.
+
+        Raising an exception will keep the Monitor timestamp from
+        being updated.
+        """
+        if not self.lookup.authenticated:
+            raise Exception(
+                "Cannot get updates from metadata wrangler -- no authentication credentials provided."
+            )
 
 
 class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
@@ -90,10 +101,7 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
         return self.lookup.updates(timestamp)
 
     def run_once(self, start, cutoff):
-        if not self.lookup.authenticated:
-            self.keep_timestamp = False
-            return
-
+        self.assert_authenticated()
         queue = [None]
         seen_links = set()
 
@@ -187,9 +195,7 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
         return self.lookup.metadata_needed()
 
     def run_once(self, start, cutoff):
-        if not self.lookup.authenticated:
-            self.keep_timestamp = False
-            return
+        self.assert_authenticated()
 
         queue = [None]
         seen_links = set()
