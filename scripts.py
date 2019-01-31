@@ -176,7 +176,6 @@ class Script(object):
             self.do_run()
             self.update_timestamp(start_time, None)
         except Exception, e:
-            set_trace()
             logging.error(
                 "Fatal exception while running script: %s", e,
                 exc_info=e
