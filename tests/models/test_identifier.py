@@ -9,6 +9,7 @@ import datetime
 import feedparser
 from lxml import etree
 from .. import DatabaseTest
+from ...model import PresentationCalculationPolicy
 from ...model.datasource import DataSource
 from ...model.edition import Edition
 from ...model.identifier import Identifier
@@ -387,7 +388,8 @@ class TestIdentifier(DatabaseTest):
         l3.equivalent_to(data_source, l2, 1)
         l4.equivalent_to(data_source, l3, 0.9)
         high_levels_fairly_high_threshold = PresentationCalculationPolicy(
-            levels=5, threshold=0.89
+            equivalent_identifier_levels=5,
+            equivalent_identifier_threshold=0.89
         )
         equivs = Identifier.recursively_equivalent_identifier_ids(
             self._db, [another_identifier.id],
@@ -401,7 +403,8 @@ class TestIdentifier(DatabaseTest):
 
         # We can look for multiple identifiers at once.
         two_levels_high_threshold = PresentationCalculationPolicy(
-            levels=2, threshold=0.8
+            equivalent_identifier_levels=2,
+            equivalent_identifier_threshold=0.8
         )
         equivs = Identifier.recursively_equivalent_identifier_ids(
             self._db, [identifier.id, level_3_equivalent.id], 
@@ -417,7 +420,7 @@ class TestIdentifier(DatabaseTest):
         # The query uses the same db function, but returns equivalents
         # for all identifiers together so it can be used as a subquery.
         query = Identifier.recursively_equivalent_identifier_ids_query(
-            Identifier.id, policy=one_level
+            Identifier.id, policy=high_levels_low_threshold
         )
         query = query.where(Identifier.id==identifier.id)
         results = self._db.execute(query)

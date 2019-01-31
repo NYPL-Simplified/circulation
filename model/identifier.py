@@ -407,7 +407,7 @@ class Identifier(Base, IdentifierConstants):
         a subquery.
         This uses the function defined in files/recursive_equivalents.sql.
         """
-        fn = self._recursively_equivalent_identifier_ids_query(
+        fn = cls._recursively_equivalent_identifier_ids_query(
             identifier_id_column, policy
         )
         return select([fn])
@@ -440,7 +440,7 @@ class Identifier(Base, IdentifierConstants):
            how you've chosen to make the tradeoff between performance,
            data quality, and sheer number of equivalent identifiers.
         """
-        fn = self._recursively_equivalent_identifier_ids_query(
+        fn = cls._recursively_equivalent_identifier_ids_query(
             Identifier.id, policy
         )
         query = select([Identifier.id, fn], Identifier.id.in_(identifier_ids))
