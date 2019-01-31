@@ -76,11 +76,11 @@ def _site_configuration_has_changed(_db, timeout=1):
         # Update the timestamp.
         now = datetime.datetime.utcnow()
         earlier = now-datetime.timedelta(seconds=timeout)
-        sql = "UPDATE timestamps SET timestamp=:timestamp WHERE service=:service AND collection_id IS NULL AND timestamp<=:earlier;"
+        sql = "UPDATE timestamps SET finish=:finish WHERE service=:service AND collection_id IS NULL AND finish<=:earlier;"
         _db.execute(
             text(sql),
             dict(service=Configuration.SITE_CONFIGURATION_CHANGED,
-                 timestamp=now, earlier=earlier)
+                 finish=now, earlier=earlier)
         )
 
         # Update the Configuration's record of when the configuration

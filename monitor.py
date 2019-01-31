@@ -36,41 +36,30 @@ from model import (
 
 
 class Monitor(object):
-    """A Monitor is responsible for running some piece of code as a
-    job. When invoked, a Monitor will decide whether to do some work
-    based on how long it's been since the last invocation. If a
-    Monitor does work, it will update a Timestamp object to track the
-    last time the work was done.
+    """A Monitor is responsible for running some piece of code on a
+    regular basis. A Monitor has an associated Timestamp that tracks
+    the last time it successfully ran; it may use this information on
+    its next run to cover the intervening span of time.
 
-    A Monitor will run once and then stop. To repeatedly run a
-    Monitor, you'll need to repeatedly invoke the Monitor from some
-    external source such as a cron job.
+    A Monitor will run to completion and then stop. To repeatedly run
+    a Monitor, you'll need to repeatedly invoke it from some external
+    source such as a cron job.
 
     This class is designed to be subclassed rather than instantiated
     directly. Subclasses must define SERVICE_NAME. Subclasses may
-    define replacement values for KEEP_TIMESTAMP, INTERVAL_SECONDS,
-    and DEFAULT_START_TIME.
+    define replacement values for DEFAULT_START_TIME and
+    DEFAULT_COUNTER.
 
     Although any Monitor may be associated with a Collection, it's
     most useful to subclass CollectionMonitor if you're writing code
     that needs to be run on every Collection of a certain type.
+
     """
     # In your subclass, set this to the name of the service,
     # e.g. "Overdrive Circulation Monitor". All instances of your
     # subclass will give this as their service name and track their
     # Timestamps under this name.
     SERVICE_NAME = None
-
-    # If this is set to False, this Monitor does not keep a timestamp.
-    # When it runs, the work will be done but no Timestamp will be
-    # created, and any existing timestamp will not be updated.
-    KEEP_TIMESTAMP = True
-
-    # The Monitor code will not run more than once every this number
-    # of seconds. If the Monitor is invoked and its Timestamp is not
-    # this old, the Monitor will do no work. If this is set to 0, the
-    # Monitor code will run every time it's invoked.
-    INTERVAL_SECONDS = 60
 
     # Some useful relative constants for DEFAULT_START_TIME (below).
     ONE_MINUTE_AGO = datetime.timedelta(seconds=60)
@@ -93,8 +82,6 @@ class Monitor(object):
         if not self.SERVICE_NAME and not cls.SERVICE_NAME:
             raise ValueError("%s must define SERVICE_NAME." % cls.__name__)
         self.service_name = self.SERVICE_NAME
-        self.interval_seconds = cls.INTERVAL_SECONDS
-        self.keep_timestamp = cls.KEEP_TIMESTAMP
         default_start_time = cls.DEFAULT_START_TIME
         if isinstance(default_start_time, datetime.timedelta):
             default_start_time = (
@@ -136,40 +123,63 @@ class Monitor(object):
         timestamp, new = get_one_or_create(
             self._db, Timestamp,
             service=self.service_name,
+            service_type=Timestamp.MONITOR_TYPE,
             collection=self.collection,
             create_method_kwargs=dict(
-                timestamp=initial_timestamp,
+                start=initial_timestamp,
+                finish=initial_timestamp,
                 counter=self.default_counter,
             )
         )
         return timestamp
 
     def run(self):
-        """Do the Monitor's work, assuming it's not too soon since
-        the last time.
+        """Do all the work that has piled up since the
+        last time the Monitor ran to completion.
         """
-        if self.keep_timestamp:
-            timestamp = self.timestamp()
-            start = timestamp.timestamp or self.default_start_time
-        else:
-            timestamp = None
-            start = self.default_start_time
+        # Figure out how far into the past this Monitor needs to go.
+        timestamp = self.timestamp()
+        last_run_start = timestamp.start or self.default_start_time
+        if last_run_start == self.NEVER:
+            last_run_start = None
 
-        if start == self.NEVER:
-            start = None
+        # At this point `last_run_start` represents the first moment
+        # at which something might have happened that the Monitor
+        # hasn't taken into consideration. `this_run_start` represents
+        # the first moment of _this_ run, which is the _final_ moment
+        # the Monitor must take into consideration right
+        # now. Everything that happens after this time can be handled
+        # on the subsequent run.
+        this_run_start = datetime.datetime.utcnow()
+        try:
+            this_run_finish = (
+                self.run_once(last_run_start, this_run_start)
+                or datetime.datetime.utcnow()
+            )
+            self.cleanup()
+            timestamp.update(
+                start=this_run_start, finish=this_run_finish,
+                exception=None
+            )
+        except Exception, e:
+            self.log.error(
+                "Error running %s monitor. Timestamp will not be updated.",
+                self.service_name, exc_info=e
+            )
+            this_run_finish = datetime.datetime.utcnow()
 
-        cutoff = datetime.datetime.utcnow()
-        new_timestamp_value = self.run_once(start, cutoff) or cutoff
-        duration = datetime.datetime.utcnow() - cutoff
-        self.cleanup()
+            # We will update the exception but not the start or end
+            # times. This way the Monitor remembers that it still
+            # hasn't managed to cover what happened in that first
+            # moment.
+            timestamp.exception = traceback.format_exc()
+        self._db.commit()
+
+        duration = this_run_finish - this_run_start
         self.log.info(
             "Ran %s monitor in %.2f sec.", self.service_name,
-            duration.total_seconds()
+            duration.total_seconds(),
         )
-        if self.keep_timestamp:
-            # Update the Timestamp value.
-            timestamp.timestamp = new_timestamp_value
-        self._db.commit()
 
     def run_once(self, start, cutoff):
         """Do the actual work of the Monitor.
@@ -195,7 +205,7 @@ class CollectionMonitor(Monitor):
     This class is designed to be subclassed rather than instantiated
     directly. Subclasses must define SERVICE_NAME and
     PROTOCOL. Subclasses may define replacement values for
-    KEEP_TIMESTAMP, INTERVAL_SECONDS, and DEFAULT_START_TIME.
+    DEFAULT_START_TIME and DEFAULT_COUNTER.
     """
 
     # Set this to the name of the license provider managed by this
@@ -225,12 +235,13 @@ class CollectionMonitor(Monitor):
         """Yield a sequence of CollectionMonitor objects: one for every
         Collection associated with cls.PROTOCOL.
 
-        Monitors that have no Timestamp will be yielded first. After that,
-        Monitors with older Timestamps will be yielded before Monitors with
-        newer timestamps.
+        Monitors that have no Timestamp will be yielded first. After
+        that, Monitors with older values for Timestamp.start will be
+        yielded before Monitors with newer values.
 
         :param constructor_kwargs: These keyword arguments will be passed
         into the CollectionMonitor constructor.
+
         """
         service_match = or_(Timestamp.service==cls.SERVICE_NAME,
                             Timestamp.service==None)
@@ -242,7 +253,7 @@ class CollectionMonitor(Monitor):
             )
         )
         collections = collections.order_by(
-            Timestamp.timestamp.asc().nullsfirst()
+            Timestamp.start.asc().nullsfirst()
         )
         for collection in collections:
             yield cls(_db=_db, collection=collection, **constructor_kwargs)
@@ -265,8 +276,6 @@ class SweepMonitor(CollectionMonitor):
     # Items will be processed in batches of this size.
     DEFAULT_BATCH_SIZE = 100
 
-    INTERVAL_SECONDS = 3600
-
     DEFAULT_COUNTER = 0
 
     # The model class corresponding to the database table that this
@@ -287,34 +296,46 @@ class SweepMonitor(CollectionMonitor):
     def run(self):
         timestamp = self.timestamp()
         offset = timestamp.counter
+        new_offset = offset
 
-        started_at = datetime.datetime.utcnow()
+        run_started_at = datetime.datetime.utcnow()
+        exception = None
+        achievements = None
         while True:
-            start_time = time.time()
+            batch_started_at = time.time()
             old_offset = offset
             try:
+                # TODO: Change process_batch to return achievement
+                # info as well as offset, and keep track of the total.
                 new_offset = self.process_batch(offset)
             except Exception, e:
                 self.log.error("Error during run: %s", e, exc_info=e)
+                exception = traceback.format_exc()
                 break
-
-            # We completed one batch of work. Update the Timestamp so
-            # we don't do the same work again.
-            timestamp.counter = new_offset
             self._db.commit()
 
             if old_offset != new_offset:
-                end_time = time.time()
+                batch_ended_at = time.time()
                 self.log.debug(
                     "%s monitor went from offset %s to %s in %.2f sec",
                     self.service_name, offset, new_offset,
-                    (end_time-start_time)
+                    (batch_ended_at-batch_started_at)
                 )
+
             offset = new_offset
             if offset == 0:
                 # We completed a sweep. We're done.
                 self.cleanup()
                 break
+
+        # We're done with this run, either because we completed
+        # a sweep or because an exception was raised.
+        run_ended_at = datetime.datetime.utcnow()
+        timestamp.update(
+            start=run_started_at, finish=run_ended_at,
+            achievements=achievements, counter=new_offset,
+            exception=exception
+        )
 
     def process_batch(self, offset):
         """Process one batch of work."""
@@ -601,7 +622,6 @@ class WorkRandomnessUpdateMonitor(WorkSweepMonitor):
     """
 
     SERVICE_NAME = "Work Randomness Updater"
-    INTERVAL_SECONDS = 3600 * 24
     DEFAULT_BATCH_SIZE = 1000
 
     def process_batch(self, offset):
@@ -623,7 +643,6 @@ class CustomListEntryWorkUpdateMonitor(CustomListEntrySweepMonitor):
 
     """Set or reset the Work associated with each custom list entry."""
     SERVICE_NAME = "Update Works for custom list entries"
-    INTERVAL_SECONDS = 3600 * 24
     DEFAULT_BATCH_SIZE = 100
 
     def process_item(self, item):

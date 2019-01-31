@@ -111,28 +111,60 @@ class TestMonitor(DatabaseTest):
         timestamp = self._db.query(Timestamp).filter(
             Timestamp.service==monitor.service_name).one()
 
-        # The current value of the timestamp later than the
-        # original value, because it was updated after run_once() was
-        # called.
-        assert timestamp.timestamp > monitor.original_timestamp
+        # The current value of .start and .finish are later than
+        # the original value, because they were updated to reflect the
+        # time that run_once() completed successfully.
+        assert timestamp.start > monitor.original_timestamp
+        assert timestamp.finish > timestamp.start
 
     def test_initial_timestamp(self):
         class NeverRunMonitor(MockMonitor):
             SERVICE_NAME = "Never run"
             DEFAULT_START_TIME = MockMonitor.NEVER
 
-        # The Timestamp object is created, but its .timestamp is None.
+        # The Timestamp object is created, but its .start is None,
+        # indicating that it has never run to completion.
         m = NeverRunMonitor(self._db, self._default_collection)
-        eq_(None, m.timestamp().timestamp)
+        eq_(None, m.timestamp().start)
 
         class RunLongAgoMonitor(MockMonitor):
             SERVICE_NAME = "Run long ago"
             DEFAULT_START_TIME = MockMonitor.ONE_YEAR_AGO
         # The Timestamp object is created, and its .timestamp is long ago.
         m = RunLongAgoMonitor(self._db, self._default_collection)
-        timestamp = m.timestamp().timestamp
+        timestamp = m.timestamp()
         now = datetime.datetime.utcnow()
-        assert timestamp < now
+        assert timestamp.start < now
+
+        # Just so we have a value for Timestamp.finish, it's given the
+        # same value as Timestamp.start.
+        eq_(timestamp.finish, timestamp.start)
+
+
+    def test_run_once_with_exception(self):
+        # If a Monitor's run_once implementation raises an unhandled
+        # exception, a traceback for that exception is recorded in the
+        # appropriate Timestamp, but the timestamp itself is not
+        # updated.
+        class DoomedMonitor(MockMonitor):
+            SERVICE_NAME = "Doomed"
+            def run_once(self, *args, **kwargs):
+                raise Exception("I'm doomed")
+
+        m = DoomedMonitor(self._db, self._default_collection)
+        timestamp = m.timestamp()
+        old_start = timestamp.start
+        old_finish = timestamp.finish
+        eq_(None, timestamp.exception)
+
+        m.run()
+
+        # The timestamp has been updated, but the times have not.
+        assert "Exception: I'm doomed" in timestamp.exception
+        timestamp = m.timestamp()
+        eq_(old_start, timestamp.start)
+        eq_(old_finish, timestamp.finish)
+
 
     def test_same_monitor_different_collections(self):
         """A single Monitor has different Timestamps when run against
@@ -172,7 +204,7 @@ class TestMonitor(DatabaseTest):
 
         # But the second Monitor now has its own timestamp.
         [t2] = c2.timestamps
-        assert t2.timestamp > t1.timestamp
+        assert t2.start > t1.start
 
 
 class TestCollectionMonitor(DatabaseTest):
@@ -219,24 +251,33 @@ class TestCollectionMonitor(DatabaseTest):
             PROTOCOL = ExternalIntegration.OPDS_IMPORT
 
         # Here we have three OPDS import Collections...
-        o1 = self._collection()
-        o2 = self._collection()
-        o3 = self._collection()
+        o1 = self._collection("o1")
+        o2 = self._collection("o2")
+        o3 = self._collection("o3")
 
         # ...and a Bibliotheca collection.
         b1 = self._collection(protocol=ExternalIntegration.BIBLIOTHECA)
 
         # o1 just had its Monitor run.
-        Timestamp.stamp(self._db, OPDSCollectionMonitor.SERVICE_NAME, o1)
+        Timestamp.stamp(
+            self._db, OPDSCollectionMonitor.SERVICE_NAME,
+            Timestamp.MONITOR_TYPE, o1
+        )
 
         # o2 and b1 have never had their Monitor run, but o2 has had some other Monitor run.
-        Timestamp.stamp(self._db, "A Different Service", o2)
+        Timestamp.stamp(
+            self._db, "A Different Service", Timestamp.MONITOR_TYPE,
+            o2
+        )
 
         # o3 had its Monitor run an hour ago.
         now = datetime.datetime.utcnow()
         an_hour_ago = now - datetime.timedelta(seconds=3600)
-        Timestamp.stamp(self._db, OPDSCollectionMonitor.SERVICE_NAME,
-                        o3, an_hour_ago)
+        Timestamp.stamp(
+            self._db, OPDSCollectionMonitor.SERVICE_NAME,
+            Timestamp.MONITOR_TYPE, o3, start=an_hour_ago,
+            finish=an_hour_ago
+        )
 
         monitors = list(OPDSCollectionMonitor.all(self._db))
 
@@ -325,7 +366,9 @@ class TestSweepMonitor(DatabaseTest):
         # The monitor was just run, but it was not able to proceed past
         # i1.
         timestamp = Timestamp.stamp(
-            self._db, self.monitor.service_name, self.monitor.collection
+            self._db, self.monitor.service_name,
+            Timestamp.MONITOR_TYPE,
+            self.monitor.collection
         )
         timestamp.counter = i1.id
 
@@ -359,6 +402,15 @@ class TestSweepMonitor(DatabaseTest):
         # this is I2.
         timestamp = monitor.timestamp()
         eq_(i2.id, timestamp.counter)
+
+        # The exception that stopped the run was recorded.
+        assert "Exception: HOW DARE YOU" in timestamp.exception
+
+        # The start and end points of the run were recorded.
+        now = datetime.datetime.utcnow()
+        assert (now - timestamp.start).total_seconds() < 5
+        assert (now - timestamp.finish).total_seconds() < 5
+        assert timestamp.start < timestamp.finish
 
         # I3 was processed, but the batch did not complete, so any
         # changes wouldn't have been written to the database.

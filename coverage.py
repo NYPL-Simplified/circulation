@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 import datetime
 import logging
+import traceback
 
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.functions import func
@@ -183,17 +184,34 @@ class BaseCoverageProvider(object):
             BaseCoverageRecord.PREVIOUSLY_ATTEMPTED,
             BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
         ]
+        start_time = datetime.datetime.utcnow()
+        exception = None
         for covered_statuses in covered_status_lists:
             offset = 0
             while offset is not None:
-                offset = self.run_once(
-                    offset, count_as_covered=covered_statuses
-                )
+                # TODO: change run_once to return achievement
+                # information (successfully covered records, transient
+                # errors, permanent errors).
+                try:
+                    offset = self.run_once(
+                        offset, count_as_covered=covered_statuses
+                    )
+                except Exception, e:
+                    logging.error(
+                        "CoverageProvider %s raised uncaught exception.",
+                        self.service_name, exc_info=e
+                    )
+                    exception = traceback.format_exc()
+                    break
 
-        self.update_timestamp()
+        self.update_timestamp(start=start_time, exception=exception)
 
-    def update_timestamp(self):
-        Timestamp.stamp(self._db, self.service_name, self.collection)
+    def update_timestamp(self, **kwargs):
+        Timestamp.stamp(
+            _db=self._db, service=self.service_name,
+            service_type=Timestamp.COVERAGE_PROVIDER_TYPE,
+            collection=self.collection, **kwargs
+        )
         self._db.commit()
 
     def run_once(self, offset, count_as_covered=None):

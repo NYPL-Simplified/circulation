@@ -234,8 +234,8 @@ class HTTP(object):
 
         try:
             if verbose:
-                logging.info("Sending %s request to %s: kwargs %r",
-                             http_method, url, kwargs)
+                logging.info("Sending request to %s: args %r kwargs %r",
+                             url, args, kwargs)
             if len(args) == 1:
                 # requests.request takes two positional arguments,
                 # an HTTP method and a URL. In most cases, the URL
