@@ -148,7 +148,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
         # Normally run_once() doesn't update the monitor's timestamp,
         # but this implementation does, so that work isn't redone if
         # run_once() crashes or the monitor is killed.
-        eq_(new_timestamp, self.monitor.timestamp().timestamp)
+        eq_(new_timestamp, self.monitor.timestamp().finish)
 
         # The original Identifier has information from the
         # mock Metadata Wrangler.
