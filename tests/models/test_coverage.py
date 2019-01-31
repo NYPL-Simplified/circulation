@@ -114,6 +114,15 @@ class TestTimestamp(DatabaseTest):
         eq_(counter, stamp.counter)
         eq_(exception, stamp.exception)
 
+        # .exception is the only field update() will set to a value of
+        # None. For all other fields, None means "don't update the existing
+        # value".
+        stamp.update()
+        eq_(start, stamp.start)
+        eq_(finish, stamp.finish)
+        eq_(achievements, stamp.achievements)
+        eq_(counter, stamp.counter)
+        eq_(None, stamp.exception)
 
 class TestBaseCoverageRecord(DatabaseTest):
 

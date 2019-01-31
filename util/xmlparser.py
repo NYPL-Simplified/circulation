@@ -49,21 +49,22 @@ class XMLParser(object):
         return int(v)
 
     def process_all(self, xml, xpath, namespaces=None, handler=None, parser=None):
-        # XMLParser can handle most characters and entities that are
-        # invalid in XML but it will stop processing a document if it
-        # encounters the null character. Remove that character
-        # immediately and XMLParser will handle the rest.
-        xml = xml.replace(b"\x00", "")
         if not parser:
             parser = etree.XMLParser(recover=True)
         if not handler:
             handler = self.process_one
         if isinstance(xml, basestring):
             root = None
-            exception = None
+
+            # XMLParser can handle most characters and entities that are
+            # invalid in XML but it will stop processing a document if it
+            # encounters the null character. Remove that character
+            # immediately and XMLParser will handle the rest.
+            xml = xml.replace(b"\x00", "")
             root = etree.parse(StringIO(xml), parser)
         else:
             root = xml
+
         for i in root.xpath(xpath, namespaces=namespaces):
             data = handler(i, namespaces)
             if data is not None:
