@@ -268,13 +268,15 @@ class Edition(Base, EditionConstants):
             LicensePool.data_source==self.data_source,
             LicensePool.identifier==self.primary_identifier).all()
 
-    def equivalent_identifiers(self, levels=3, threshold=0.5, type=None):
+    def equivalent_identifiers(self, type=None, policy=None):
         """All Identifiers equivalent to this
-        Edition's primary identifier, at the given level of recursion.
+        Edition's primary identifier, according to the given
+        PresentationCalculationPolicy
         """
         _db = Session.object_session(self)
         identifier_id_subquery = Identifier.recursively_equivalent_identifier_ids_query(
-            self.primary_identifier.id, levels, threshold)
+            self.primary_identifier.id, policy=policy
+        )
         q = _db.query(Identifier).filter(
             Identifier.id.in_(identifier_id_subquery))
         if type:
@@ -284,15 +286,14 @@ class Edition(Base, EditionConstants):
                 q = q.filter(Identifier.type==type)
         return q.all()
 
-    def equivalent_editions(self, levels=5, threshold=0.5):
+    def equivalent_editions(self, policy=None):
         """All Editions whose primary ID is equivalent to this Edition's
-        primary ID, at the given level of recursion.
-        Five levels is enough to go from a Gutenberg ID to an Overdrive ID
-        (Gutenberg ID -> OCLC Work ID -> OCLC Number -> ISBN -> Overdrive ID)
+        primary ID, according to the given PresentationCalculationPolicy.
         """
         _db = Session.object_session(self)
         identifier_id_subquery = Identifier.recursively_equivalent_identifier_ids_query(
-            self.primary_identifier.id, levels, threshold)
+            self.primary_identifier.id, policy=policy
+        )
         return _db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_id_subquery))
 
@@ -507,14 +508,22 @@ class Edition(Base, EditionConstants):
                 if similarity >= threshold:
                     yield candidate
 
-    def best_cover_within_distance(self, distance, threshold=0.5, rel=None,
-                                   equivalent_identifier_cutoff=None):
+    def best_cover_within_distance(self, distance, rel=None, policy=None):
         _db = Session.object_session(self)
         identifier_ids = [self.primary_identifier.id]
+        
         if distance > 0:
+            if policy is None:
+                new_policy = PresentationCalculationPolicy()
+            else:
+                new_policy = PresentationCalculationPolicy(
+                    equivalent_identifier_levels=distance,
+                    equivalent_identifier_cutoff=policy.equivalent_identifier_cutoff,
+                    equivalent_identifier_threshold=policy.equivalent_identifier_threshold,
+                )
+
             identifier_ids_dict = Identifier.recursively_equivalent_identifier_ids(
-                _db, identifier_ids, distance, threshold=threshold,
-                cutoff=equivalent_identifier_cutoff
+                _db, identifier_ids, policy=new_policy
             )
             identifier_ids += identifier_ids_dict[self.primary_identifier.id]
 
