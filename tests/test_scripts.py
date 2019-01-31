@@ -808,7 +808,7 @@ class TestTimestampInfo(DatabaseTest):
     def test_find(self):
         # If there isn't a timestamp for the given service,
         # nothing is returned.
-        result = self.TimestampInfo.find(self._db, 'test')
+        result = self.TimestampInfo.find(self, 'test')
         eq_(None, result)
 
         # But an empty Timestamp has been placed into the database.
@@ -818,14 +818,14 @@ class TestTimestampInfo(DatabaseTest):
         eq_(None, timestamp.counter)
 
         # A repeat search for the empty Timestamp also results in None.
-        eq_(None, self.TimestampInfo.find(self._db, 'test'))
+        eq_(None, self.TimestampInfo.find(self, 'test'))
 
         # If the Timestamp is stamped, it is returned.
         timestamp.finish = datetime.datetime.utcnow()
         timestamp.counter = 1
         self._db.flush()
 
-        result = self.TimestampInfo.find(self._db, 'test')
+        result = self.TimestampInfo.find(self, 'test')
         eq_(timestamp.finish, result.finish)
         eq_(1, result.counter)
 
@@ -836,7 +836,7 @@ class TestTimestampInfo(DatabaseTest):
             self._db, 'test', Timestamp.SCRIPT_TYPE, None, start=past,
             finish=past
         )
-        timestamp_info = self.TimestampInfo.find(self._db, 'test')
+        timestamp_info = self.TimestampInfo.find(self, 'test')
 
         now = datetime.datetime.utcnow()
         timestamp_info.update(self._db, now, 2)
