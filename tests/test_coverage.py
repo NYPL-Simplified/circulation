@@ -1392,6 +1392,8 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             def __getattr__(self, name):
                 self.tripped = True
                 if name.startswith('equivalent_identifier_'):
+                    # These need to be numbers rather than booleans,
+                    # but the exact number doesn't matter.
                     return 100
                 return True
 
