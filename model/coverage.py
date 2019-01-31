@@ -228,10 +228,18 @@ class Timestamp(Base):
         """Use a single method to update all the fields that aren't
         used to identify a Timestamp.
         """
-        self.start = start
-        self.finish = finish
-        self.achievements = achievements
-        self.counter = counter
+
+        if start is not None:
+            self.start = start
+        if finish is not None:
+            self.finish = finish
+        if achievements is not None:
+            self.achievements = achievements
+        if counter is not None:
+            self.counter = counter
+
+        # Unlike the other fields, None is a realistic value for
+        # .exception
         self.exception = exception
 
 
