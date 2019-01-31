@@ -1,6 +1,7 @@
 import datetime
 import random
 from nose.tools import (
+    assert_raises_regexp,
     set_trace,
     eq_,
 )
@@ -72,6 +73,15 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
 
         self.monitor = InstrumentedMWCollectionUpdateMonitor(
             self._db, self.collection, self.lookup
+        )
+
+    def test_monitor_requires_authentication(self):
+        class Mock(object):
+            authenticated = False
+        self.monitor.lookup = Mock()
+        assert_raises_regexp(
+            Exception, "no authentication credentials",
+            self.monitor.run_once, None, None
         )
 
     def test_import_one_feed(self):
@@ -284,6 +294,15 @@ class TestMWAuxiliaryMetadataMonitor(DatabaseTest):
 
         self.monitor = MWAuxiliaryMetadataMonitor(
             self._db, self.collection, lookup=self.lookup, provider=provider
+        )
+
+    def test_monitor_requires_authentication(self):
+        class Mock(object):
+            authenticated = False
+        self.monitor.lookup = Mock()
+        assert_raises_regexp(
+            Exception, "no authentication credentials",
+            self.monitor.run_once, None, None
         )
 
     def prep_feed_identifiers(self):
