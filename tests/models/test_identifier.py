@@ -417,8 +417,33 @@ class TestIdentifier(DatabaseTest):
                  level_3_equivalent.id]),
             set(equivs[level_3_equivalent.id]))
 
-        # The query uses the same db function, but returns equivalents
-        # for all identifiers together so it can be used as a subquery.
+        # By setting a cutoff, you can say to look deep in the tree,
+        # but stop looking as soon as you have a certain number of
+        # equivalents.
+        with_cutoff = PresentationCalculationPolicy(
+            equivalent_identifier_levels=5,
+            equivalent_identifier_threshold=0.1,
+            equivalent_identifier_cutoff=1, 
+       )
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], policy=with_cutoff
+        )
+        
+        # The cutoff was set to 1, but we always go at least one level
+        # deep, and that gives us three equivalent identifiers. We
+        # don't artificially trim it back down to 1.
+        eq_(3, len(equivs[identifier.id]))
+
+        # Increase the cutoff, and we get more identifiers.
+        with_cutoff.equivalent_identifier_cutoff=5
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], policy=with_cutoff
+        )
+        assert len(equivs[identifier.id]) > 3
+
+        # The query() method uses the same db function, but returns
+        # equivalents for all identifiers together so it can be used
+        # as a subquery.
         query = Identifier.recursively_equivalent_identifier_ids_query(
             Identifier.id, policy=high_levels_low_threshold
         )
