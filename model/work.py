@@ -720,7 +720,7 @@ class Work(Base):
         )
         return q
 
-    def all_identifier_ids(self, recursion_level=3, cutoff=None):
+    def all_identifier_ids(self, policy=None):
         _db = Session.object_session(self)
         primary_identifier_ids = [
             lp.identifier.id for lp in self.license_pools
@@ -728,7 +728,8 @@ class Work(Base):
         ]
         # Get a dict that maps identifier ids to lists of their equivalents.
         equivalent_lists = Identifier.recursively_equivalent_identifier_ids(
-            _db, primary_identifier_ids, recursion_level, cutoff=cutoff)
+            _db, primary_identifier_ids, policy=policy
+        )
 
         identifier_ids = set()
         for equivs in equivalent_lists.values():
@@ -744,29 +745,6 @@ class Work(Base):
         if language in LanguageCodes.three_to_two:
             language = LanguageCodes.three_to_two[language]
         return language
-
-    def all_cover_images(self):
-        set_trace()
-        identifier_ids = self.all_identifier_ids(
-            cutoff=self.DEFAULT_IDENTIFIER_CUTOFF
-        )
-        return Identifier.resources_for_identifier_ids(
-            _db, identifier_ids, LinkRelations.IMAGE).join(
-            Resource.representation).filter(
-                Representation.mirrored_at!=None).filter(
-                Representation.scaled_at!=None).order_by(
-                Resource.quality.desc())
-
-    def all_descriptions(self):
-        set_trace()
-        identifier_ids = self.all_identifier_ids(
-            cutoff=self.DEFAULT_IDENTIFIER_CUTOFF
-        )
-        return Identifier.resources_for_identifier_ids(
-            _db, identifier_ids, LinkRelations.DESCRIPTION).filter(
-                Resource.content != None).order_by(
-                Resource.quality.desc())
-
 
     def set_presentation_edition(self, new_presentation_edition):
         """ Sets presentation edition and lets owned pools and editions know.
