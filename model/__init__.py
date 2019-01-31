@@ -178,8 +178,49 @@ class PresentationCalculationPolicy(object):
                  regenerate_marc_record=False,
                  update_search_index=False,
                  verbose=True,
+                 equivalent_identifier_levels=3,
+                 equivalent_identifier_threshold=0.5,
                  equivalent_identifier_cutoff=100,
     ):
+        """Constructor.
+
+        :param choose_edition: Should a new presentation edition be
+           chosen/created, or should we assume the old one is fine?
+        :param set_edition_metadata: Should we set new values for
+           basic metadata such as title?
+        :param classify: Should we reconsider which Genres under which
+           a Work should be filed?
+        :param choose_summary: Should we reconsider which of the 
+           available summaries is the best?
+        :param calculate_quality: Should we recalculate the overall
+           quality of the Work?
+        :param choose_cover: Should we reconsider which of the 
+           available cover images is the best?
+        :param regenerate_opds_entries: Should we recreate the OPDS entries
+           for this Work?
+        :param regenerate_marc_record: Should we regenerate the MARC record
+           for this Work?
+        :param update_search_index: Should we reindex this Work's
+           entry in the search index?
+        :param verbose: Should we print out information about the work we're
+           doing?
+        :param equivalent_identifier_levels: When determining which
+           identifiers refer to this Work (used when gathering
+           classifications, cover images, etc.), how many levels of
+           equivalency should we go down? E.g. for one level of
+           equivalency we will go from a proprietary vendor ID to the
+           equivalent ISBN.
+        :param equivalent_identifier_threshold: When determining which
+           identifiers refer to this Work, what is the probability
+           threshold for 'equivalency'? E.g. a value of 1 means that
+           we will not count two identifiers as equivalent unless we
+           are absolutely certain.
+        :param equivalent_identifier_cutoff: When determining which
+           identifiers refer to this work, how many Identifiers are
+           enough? Gathering _all_ the identifiers that identify an
+           extremely popular work can take an extraordinarily long time
+           for very little payoff, so it's useful to have a cutoff.
+        """
         self.choose_edition = choose_edition
         self.set_edition_metadata = set_edition_metadata
         self.classify = classify
@@ -202,7 +243,10 @@ class PresentationCalculationPolicy(object):
 
         self.verbose = verbose
 
+        self.equivalent_identifier_levels = equivalent_identifier_levels
+        self.equivalent_identifier_threshold = equivalent_identifier_threshold
         self.equivalent_identifier_cutoff = equivalent_identifier_cutoff
+
 
     @classmethod
     def recalculate_everything(cls):
