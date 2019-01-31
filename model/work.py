@@ -601,10 +601,15 @@ class Work(Base):
         return q
 
     @classmethod
-    def from_identifiers(cls, _db, identifiers, base_query=None, identifier_id_field=Identifier.id):
+    def from_identifiers(cls, _db, identifiers, base_query=None, identifier_id_field=Identifier.id, policy=None):
         """Returns all of the works that have one or more license_pools
         associated with either an identifier in the given list or an
-        identifier considered equivalent to one of those listed
+        identifier considered equivalent to one of those listed.
+
+        :param policy: A PresentationCalculationPolicy, used to
+           determine how far to go when looking for equivalent
+           Identifiers. By default, this method will be very strict
+           about equivalencies.
         """
         from licensing import LicensePool
         identifier_ids = [identifier.id for identifier in identifiers]
@@ -617,8 +622,14 @@ class Work(Base):
             base_query = _db.query(Work).join(Work.license_pools).\
                 join(LicensePool.identifier)
 
+        if policy is None:
+            policy = PresentationCalculationPolicy(
+                equivalent_identifier_levels=1,
+                equivalent_identifier_threshold=0.999
+            )
+
         identifier_ids_subquery = Identifier.recursively_equivalent_identifier_ids_query(
-            Identifier.id, levels=1, threshold=0.999)
+            Identifier.id, policy=policy)
         identifier_ids_subquery = identifier_ids_subquery.where(Identifier.id.in_(identifier_ids))
 
         query = base_query.filter(identifier_id_field.in_(identifier_ids_subquery))
@@ -879,9 +890,7 @@ class Work(Base):
             # classifications, or measurements.
             _db = Session.object_session(self)
 
-            identifier_ids = self.all_identifier_ids(
-                cutoff=policy.equivalent_identifier_cutoff
-            )
+            identifier_ids = self.all_identifier_ids(policy=policy)
         else:
             identifier_ids = []
 
@@ -1302,13 +1311,17 @@ class Work(Base):
             self.secondary_appeal = self.NO_APPEAL
 
     @classmethod
-    def to_search_documents(cls, works):
+    def to_search_documents(cls, works, policy=None):
         """Generate search documents for these Works.
         This is done by constructing an extremely complicated
         SQL query. The code is ugly, but it's about 100 times
         faster than using python to create documents for
         each work individually. When working on the search
         index, it's very important for this to be fast.
+
+        :param policy: A PresentationCalculationPolicy to use when
+           deciding how deep to go to find Identifiers equivalent to
+           these works.
         """
 
         if not works:
@@ -1422,8 +1435,11 @@ class Work(Base):
         # For Classifications, use a subquery to get recursively equivalent Identifiers
         # for the Edition's primary_identifier_id.
         identifiers = Identifier.recursively_equivalent_identifier_ids_query(
-            literal_column(works_alias.name + "." + works_alias.c.identifier_id.name),
-            levels=5, threshold=0.5)
+            literal_column(
+                works_alias.name + "." + works_alias.c.identifier_id.name
+            ),
+            policy=policy
+        )
 
         # Map our constants for Subject type to their URIs.
         scheme_column = case(

@@ -455,21 +455,19 @@ class VerboseAnnotator(Annotator):
                 entry.append(cls.rating_tag(type_uri, value))
 
     @classmethod
-    def categories(cls, work, identifier_cutoff=100):
+    def categories(cls, work, policy=None):
         """Send out _all_ categories for the work.
 
         (So long as the category type has a URI associated with it in
         Subject.uri_lookup.)
 
-        :param identifier_cutoff: When calculating related identifiers
-        for this work at a given level, cut off the query after
-        approximately this many results. This will improve
-        performance, at the expense of ignoring classifications for
-        identifiers that are distantly related to the work.
+        :param policy: A PresentationCalculationPolicy to
+           use when deciding how deep to go when finding equivalent
+           identifiers for the work.
         """
         _db = Session.object_session(work)
         by_scheme_and_term = dict()
-        identifier_ids = work.all_identifier_ids(cutoff=identifier_cutoff)
+        identifier_ids = work.all_identifier_ids(policy=policy)
         classifications = Identifier.classifications_for_identifier_ids(
             _db, identifier_ids)
         for c in classifications:

@@ -453,7 +453,7 @@ class Identifier(Base, IdentifierConstants):
             equivalents[original].append(equivalent)
         return equivalents
 
-    def equivalent_identifier_ids(self, policy):
+    def equivalent_identifier_ids(self, policy=None):
         _db = Session.object_session(self)
         return Identifier.recursively_equivalent_identifier_ids(
             _db, [self.id], policy
