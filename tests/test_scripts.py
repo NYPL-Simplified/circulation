@@ -646,7 +646,10 @@ class TestCacheMARCFiles(TestLaneScript):
 class TestInstanceInitializationScript(DatabaseTest):
 
     def test_run(self):
-        timestamp = get_one(self._db, Timestamp, service=u"Database Migration")
+        timestamp = get_one(
+            self._db, Timestamp, service=u"Database Migration",
+            service_type=Timestamp.SCRIPT_TYPE
+        )
         eq_(None, timestamp)
 
         # Remove all secret keys, should they exist, before running the
@@ -659,7 +662,10 @@ class TestInstanceInitializationScript(DatabaseTest):
         script.do_run(ignore_search=True)
 
         # It initializes the database.
-        timestamp = get_one(self._db, Timestamp, service=u"Database Migration")
+        timestamp = get_one(
+            self._db, Timestamp, service=u"Database Migration",
+            service_type=Timestamp.SCRIPT_TYPE
+        )
         assert timestamp
 
         # It creates a secret key.

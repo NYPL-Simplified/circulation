@@ -111,7 +111,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
 
         # The timestamp was not updated because nothing was in the feed.
         eq_(None, new_timestamp)
-        eq_(None, self.monitor.timestamp().timestamp)
+        eq_(None, self.monitor.timestamp().finish)
 
     def test_run_once(self):
         # Setup authentication and Metadata Wrangler details.
@@ -172,7 +172,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
 
     def test_no_changes_means_no_timestamp_update(self):
         before = datetime.datetime.utcnow()
-        self.monitor.timestamp().timestamp = before
+        self.monitor.timestamp().finish = before
 
         # We're going to ask the metadata wrangler for updates, but
         # there will be none.
@@ -185,7 +185,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
         # run_once() returned the original timestamp, and the
         # Timestamp object was not updated.
         eq_(before, new_timestamp)
-        eq_(before, self.monitor.timestamp().timestamp)
+        eq_(before, self.monitor.timestamp().finish)
 
     def test_no_import_loop(self):
         """We stop processing a feed's 'next' link if it links to a URL we've
