@@ -41,6 +41,7 @@ from model import (
     CustomListEntry,
     DataSource,
     Hyperlink,
+    PresentationCalculationPolicy,
     Resource,
     Identifier,
     Edition,
@@ -465,6 +466,9 @@ class VerboseAnnotator(Annotator):
            use when deciding how deep to go when finding equivalent
            identifiers for the work.
         """
+        policy = policy or PresentationCalculationPolicy(
+            equivalent_identifier_cutoff=100
+        )
         _db = Session.object_session(work)
         by_scheme_and_term = dict()
         identifier_ids = work.all_identifier_ids(policy=policy)

@@ -167,6 +167,11 @@ class PresentationCalculationPolicy(object):
     """Which parts of the Work or Edition's presentation
     are we actually looking to update?
     """
+
+    DEFAULT_LEVELS = 3
+    DEFAULT_THRESHOLD = 0.5
+    DEFAULT_CUTOFF = 1000
+
     def __init__(self,
                  choose_edition=True,
                  set_edition_metadata=True,
@@ -178,9 +183,9 @@ class PresentationCalculationPolicy(object):
                  regenerate_marc_record=False,
                  update_search_index=False,
                  verbose=True,
-                 equivalent_identifier_levels=3,
-                 equivalent_identifier_threshold=0.5,
-                 equivalent_identifier_cutoff=100,
+                 equivalent_identifier_levels=DEFAULT_LEVELS,
+                 equivalent_identifier_threshold=DEFAULT_THRESHOLD,
+                 equivalent_identifier_cutoff=DEFAULT_CUTOFF,
     ):
         """Constructor.
 
