@@ -1,6 +1,7 @@
 import datetime
 import random
 from nose.tools import (
+    assert_raises_regexp,
     set_trace,
     eq_,
 )
@@ -74,6 +75,15 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
             self._db, self.collection, self.lookup
         )
 
+    def test_monitor_requires_authentication(self):
+        class Mock(object):
+            authenticated = False
+        self.monitor.lookup = Mock()
+        assert_raises_regexp(
+            Exception, "no authentication credentials",
+            self.monitor.run_once, None, None
+        )
+
     def test_import_one_feed(self):
         data = sample_data('metadata_updates_response.opds', 'opds')
         self.lookup.queue_response(
@@ -111,7 +121,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
 
         # The timestamp was not updated because nothing was in the feed.
         eq_(None, new_timestamp)
-        eq_(None, self.monitor.timestamp().timestamp)
+        eq_(None, self.monitor.timestamp().finish)
 
     def test_run_once(self):
         # Setup authentication and Metadata Wrangler details.
@@ -148,7 +158,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
         # Normally run_once() doesn't update the monitor's timestamp,
         # but this implementation does, so that work isn't redone if
         # run_once() crashes or the monitor is killed.
-        eq_(new_timestamp, self.monitor.timestamp().timestamp)
+        eq_(new_timestamp, self.monitor.timestamp().finish)
 
         # The original Identifier has information from the
         # mock Metadata Wrangler.
@@ -172,7 +182,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
 
     def test_no_changes_means_no_timestamp_update(self):
         before = datetime.datetime.utcnow()
-        self.monitor.timestamp().timestamp = before
+        self.monitor.timestamp().finish = before
 
         # We're going to ask the metadata wrangler for updates, but
         # there will be none.
@@ -185,7 +195,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
         # run_once() returned the original timestamp, and the
         # Timestamp object was not updated.
         eq_(before, new_timestamp)
-        eq_(before, self.monitor.timestamp().timestamp)
+        eq_(before, self.monitor.timestamp().finish)
 
     def test_no_import_loop(self):
         """We stop processing a feed's 'next' link if it links to a URL we've
@@ -284,6 +294,15 @@ class TestMWAuxiliaryMetadataMonitor(DatabaseTest):
 
         self.monitor = MWAuxiliaryMetadataMonitor(
             self._db, self.collection, lookup=self.lookup, provider=provider
+        )
+
+    def test_monitor_requires_authentication(self):
+        class Mock(object):
+            authenticated = False
+        self.monitor.lookup = Mock()
+        assert_raises_regexp(
+            Exception, "no authentication credentials",
+            self.monitor.run_once, None, None
         )
 
     def prep_feed_identifiers(self):

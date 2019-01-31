@@ -1275,7 +1275,14 @@ class BibliothecaEventMonitor(CollectionMonitor):
 
         The command line date argument should have the format YYYY-MM-DD.
         """
-        initialized = get_one(_db, Timestamp, service=self.service_name)
+
+        # We don't use Monitor.timestamp() because that will create
+        # the timestamp if it doesn't exist -- we want to see whether
+        # or not it exists.
+        initialized = get_one(
+            _db, Timestamp, service=self.service_name,
+            service_type=Timestamp.MONITOR_TYPE
+        )
         default_start_time = datetime.utcnow() - self.DEFAULT_START_TIME
 
         if cli_date:

@@ -952,7 +952,10 @@ class InstanceInitializationScript(TimestampScript):
 
         # Set a timestamp that represents the new database's version.
         db_init_script = DatabaseMigrationInitializationScript(_db=self._db)
-        existing = get_one(self._db, Timestamp, service=db_init_script.name)
+        existing = get_one(
+            self._db, Timestamp, service=db_init_script.name,
+            service_type=Timestamp.SCRIPT_TYPE
+        )
         if existing:
             # No need to run the script. We already have a timestamp.
             return

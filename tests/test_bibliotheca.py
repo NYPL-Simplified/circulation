@@ -955,7 +955,10 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         # After Bibliotheca has been initialized,
         # create_default_start_time returns None, rather than a date
         # far in the bast, if no cli_date is passed in.
-        Timestamp.stamp(self._db, monitor.service_name, self.collection)
+        Timestamp.stamp(
+            self._db, service=monitor.service_name,
+            service_type=Timestamp.MONITOR_TYPE, collection=self.collection
+        )
         eq_(None, monitor.create_default_start_time(self._db, []))
 
         # Returns a date several years ago if args are formatted

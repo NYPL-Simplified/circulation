@@ -73,11 +73,22 @@ class MetadataWranglerCollectionMonitor(CollectionMonitor):
                 "Error getting feed for %r: %s",
                 self.collection, e.debug_message
             )
-            self.keep_timestamp = False
-            return None
+            raise e
 
     def endpoint(self, *args, **kwargs):
         raise NotImplementedError()
+
+    def assert_authenticated(self):
+        """Raise an exception unless the client has authentication
+        credentials.
+
+        Raising an exception will keep the Monitor timestamp from
+        being updated.
+        """
+        if not self.lookup.authenticated:
+            raise Exception(
+                "Cannot get updates from metadata wrangler -- no authentication credentials provided."
+            )
 
 
 class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
@@ -90,10 +101,7 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
         return self.lookup.updates(timestamp)
 
     def run_once(self, start, cutoff):
-        if not self.lookup.authenticated:
-            self.keep_timestamp = False
-            return
-
+        self.assert_authenticated()
         queue = [None]
         seen_links = set()
 
@@ -126,9 +134,9 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
                     if link not in seen_links:
                         queue.append(link)
             if new_timestamp:
-                self.timestamp().timestamp = new_timestamp
+                self.timestamp().finish = new_timestamp
             self._db.commit()
-        return new_timestamp or self.timestamp().timestamp
+        return new_timestamp or self.timestamp().finish
 
     def import_one_feed(self, timestamp, url):
         response = self.get_response(url=url, timestamp=timestamp)
@@ -187,9 +195,7 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
         return self.lookup.metadata_needed()
 
     def run_once(self, start, cutoff):
-        if not self.lookup.authenticated:
-            self.keep_timestamp = False
-            return
+        self.assert_authenticated()
 
         queue = [None]
         seen_links = set()
