@@ -818,14 +818,15 @@ class TestTimestampInfo(DatabaseTest):
         eq_(None, timestamp.counter)
 
         # A repeat search for the empty Timestamp also results in None.
-        eq_(None, self.TimestampInfo.find(self, 'test'))
+        script = DatabaseMigrationScript(self._db)
+        eq_(None, self.TimestampInfo.find(script, 'test'))
 
         # If the Timestamp is stamped, it is returned.
         timestamp.finish = datetime.datetime.utcnow()
         timestamp.counter = 1
         self._db.flush()
 
-        result = self.TimestampInfo.find(self, 'test')
+        result = self.TimestampInfo.find(script, 'test')
         eq_(timestamp.finish, result.finish)
         eq_(1, result.counter)
 
@@ -836,7 +837,8 @@ class TestTimestampInfo(DatabaseTest):
             self._db, 'test', Timestamp.SCRIPT_TYPE, None, start=past,
             finish=past
         )
-        timestamp_info = self.TimestampInfo.find(self, 'test')
+        script = DatabaseMigrationScript(self._db)
+        timestamp_info = self.TimestampInfo.find(script, 'test')
 
         now = datetime.datetime.utcnow()
         timestamp_info.update(self._db, now, 2)
