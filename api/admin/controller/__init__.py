@@ -381,11 +381,9 @@ class TimestampsController(AdminCirculationManagerController):
     def diagnostics(self):
         self.require_system_admin()
         timestamps = self._db.query(Timestamp).order_by(Timestamp.start)
-        if isinstance(timestamps, ProblemDetail):
-            return timestamps
         sorted = self._sort_by_type(timestamps)
-        for type in sorted.keys():
-            for service in sorted[type]:
+        for type, services in sorted.items():
+            for service in services:
                 by_collection = self._sort_by_collection(sorted[type][service])
                 sorted[type][service] = by_collection
 
@@ -397,9 +395,13 @@ class TimestampsController(AdminCirculationManagerController):
         of services and the values are lists of timestamps."""
 
         result = {}
-        for type in ["script", "monitor", "coverage_provider"]:
-            filtered = [self._extract_info(ts) for ts in timestamps if ts.service_type == type]
-            result[type] = self._sort_by_service(filtered)
+        for ts in timestamps:
+            info = self._extract_info(ts)
+            result.setdefault(str(ts.service_type), []).append(info)
+
+        for type, data in result.items():
+            result[type] = self._sort_by_service(data)
+
         return result
 
     def _sort_by_service(self, timestamps):
@@ -415,20 +417,29 @@ class TimestampsController(AdminCirculationManagerController):
         collection ID and each value is a list of the timestamps associated with that collection."""
 
         result = {}
+        collection_name = None
         for timestamp in timestamps:
-            result.setdefault((timestamp.get("collection_id") or -1), []).append(timestamp)
+            result.setdefault(timestamp.get("collection_name"), []).append(timestamp)
         return result
 
     def _extract_info(self, timestamp):
         """Takes a Timestamp object and returns a dict"""
 
+        duration = None
+        if timestamp.start and timestamp.finish:
+            duration = (timestamp.finish - timestamp.start).total_seconds()
+
+        collection_name = "No associated collection"
+        if timestamp.collection_id:
+            collection_name = self._db.query(Collection).filter(Collection.id == timestamp.collection_id).one().name
+
         return dict(
             id=timestamp.id,
             start=timestamp.start,
-            duration=(str(timestamp.finish - timestamp.start)),
+            duration=duration,
             exception=timestamp.exception,
             service=timestamp.service,
-            collection_id=timestamp.collection_id,
+            collection_name=collection_name,
             achievements=timestamp.achievements
         )
 

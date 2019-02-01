@@ -1963,7 +1963,7 @@ class TestTimestampsController(AdminControllerTest):
             service="test_cp",
             start=self.start,
             finish=self.finish,
-            collection_id=self.collection.id
+            collection=self.collection
         )
 
         monitor, ignore = create(
@@ -1972,7 +1972,7 @@ class TestTimestampsController(AdminControllerTest):
             service="test_monitor",
             start=self.start,
             finish=self.finish,
-            collection_id=self.collection.id,
+            collection=self.collection,
             exception="stack trace string"
         )
 
@@ -1990,7 +1990,7 @@ class TestTimestampsController(AdminControllerTest):
             assert_raises(AdminNotAuthorized, self.manager.timestamps_controller.diagnostics)
 
     def test_diagnostics(self):
-        duration = str(self.finish - self.start)
+        duration = (self.finish - self.start).total_seconds()
 
         with self.request_context_with_admin("/"):
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
@@ -2001,8 +2001,8 @@ class TestTimestampsController(AdminControllerTest):
         cp_service = response["coverage_provider"]
         cp_name, cp_collection = cp_service.items()[0]
         eq_(cp_name, "test_cp")
-        cp_collection_id, [cp_timestamp] = cp_collection.items()[0]
-        eq_(cp_collection_id, self.collection.id)
+        cp_collection_name, [cp_timestamp] = cp_collection.items()[0]
+        eq_(cp_collection_name, self.collection.name)
         eq_(cp_timestamp.get("exception"), None)
         eq_(cp_timestamp.get("start"), self.start)
         eq_(cp_timestamp.get("duration"), duration)
@@ -2011,8 +2011,8 @@ class TestTimestampsController(AdminControllerTest):
         monitor_service = response["monitor"]
         monitor_name, monitor_collection = monitor_service.items()[0]
         eq_(monitor_name, "test_monitor")
-        monitor_collection_id, [monitor_timestamp] = monitor_collection.items()[0]
-        eq_(monitor_collection_id, self.collection.id)
+        monitor_collection_name, [monitor_timestamp] = monitor_collection.items()[0]
+        eq_(monitor_collection_name, self.collection.name)
         eq_(monitor_timestamp.get("exception"), "stack trace string")
         eq_(monitor_timestamp.get("start"), self.start)
         eq_(monitor_timestamp.get("duration"), duration)
@@ -2021,8 +2021,8 @@ class TestTimestampsController(AdminControllerTest):
         script_service = response["script"]
         script_name, script_collection = script_service.items()[0]
         eq_(script_name, "test_script")
-        script_collection_id, [script_timestamp] = script_collection.items()[0]
-        eq_(script_collection_id, -1)
+        script_collection_name, [script_timestamp] = script_collection.items()[0]
+        eq_(script_collection_name, "No associated collection")
         eq_(script_timestamp.get("exception"), None)
         eq_(script_timestamp.get("duration"), duration)
         eq_(script_timestamp.get("start"), self.start)
