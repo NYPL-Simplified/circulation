@@ -31,7 +31,8 @@ from api.admin.controller import (
     setup_admin_controllers,
     AdminAnnotator,
     SettingsController,
-    PatronController
+    PatronController,
+    TimestampsController
 )
 from api.admin.problem_details import *
 from api.admin.exceptions import *
@@ -69,6 +70,7 @@ from core.model import (
     RightsStatus,
     SessionManager,
     Subject,
+    Timestamp,
     WorkGenre
 )
 from core.lane import Lane
@@ -1944,6 +1946,87 @@ class TestPatronController(AdminControllerTest):
             eq_(NO_SUCH_PATRON.uri, response.uri)
             assert "Could not create local patron object" in response.detail
 
+class TestTimestampsController(AdminControllerTest):
+
+    def setup(self):
+        super(TestTimestampsController, self).setup()
+        for timestamp in self._db.query(Timestamp):
+            self._db.delete(timestamp)
+
+        self.collection = self._default_collection
+        self.start = datetime.now()
+        self.finish = datetime.now()
+
+        cp, ignore = create(
+            self._db, Timestamp,
+            service_type="coverage_provider",
+            service="test_cp",
+            start=self.start,
+            finish=self.finish,
+            collection_id=self.collection.id
+        )
+
+        monitor, ignore = create(
+            self._db, Timestamp,
+            service_type="monitor",
+            service="test_monitor",
+            start=self.start,
+            finish=self.finish,
+            collection_id=self.collection.id,
+            exception="stack trace string"
+        )
+
+        script, ignore = create(
+            self._db, Timestamp,
+            achievements="ran a script",
+            service_type="script",
+            service="test_script",
+            start=self.start,
+            finish=self.finish,
+        )
+
+    def test_diagnostics_admin_not_authorized(self):
+        with self.request_context_with_admin("/"):
+            assert_raises(AdminNotAuthorized, self.manager.timestamps_controller.diagnostics)
+
+    def test_diagnostics(self):
+        duration = str(self.finish - self.start)
+
+        with self.request_context_with_admin("/"):
+            self.admin.add_role(AdminRole.SYSTEM_ADMIN)
+            response = self.manager.timestamps_controller.diagnostics()
+
+        eq_(set(response.keys()), set(["coverage_provider", "monitor", "script"]))
+
+        cp_service = response["coverage_provider"]
+        cp_name, cp_collection = cp_service.items()[0]
+        eq_(cp_name, "test_cp")
+        cp_collection_id, [cp_timestamp] = cp_collection.items()[0]
+        eq_(cp_collection_id, self.collection.id)
+        eq_(cp_timestamp.get("exception"), None)
+        eq_(cp_timestamp.get("start"), self.start)
+        eq_(cp_timestamp.get("duration"), duration)
+        eq_(cp_timestamp.get("achievements"), None)
+
+        monitor_service = response["monitor"]
+        monitor_name, monitor_collection = monitor_service.items()[0]
+        eq_(monitor_name, "test_monitor")
+        monitor_collection_id, [monitor_timestamp] = monitor_collection.items()[0]
+        eq_(monitor_collection_id, self.collection.id)
+        eq_(monitor_timestamp.get("exception"), "stack trace string")
+        eq_(monitor_timestamp.get("start"), self.start)
+        eq_(monitor_timestamp.get("duration"), duration)
+        eq_(monitor_timestamp.get("achievements"), None)
+
+        script_service = response["script"]
+        script_name, script_collection = script_service.items()[0]
+        eq_(script_name, "test_script")
+        script_collection_id, [script_timestamp] = script_collection.items()[0]
+        eq_(script_collection_id, -1)
+        eq_(script_timestamp.get("exception"), None)
+        eq_(script_timestamp.get("duration"), duration)
+        eq_(script_timestamp.get("start"), self.start)
+        eq_(script_timestamp.get("achievements"), "ran a script")
 
 class TestFeedController(AdminControllerTest):
 

@@ -54,6 +54,7 @@ from core.model import (
     RightsStatus,
     Session,
     Subject,
+    Timestamp,
     Work,
     WorkGenre,
 )
@@ -131,6 +132,7 @@ def setup_admin_controllers(manager):
 
     manager.admin_view_controller = ViewController(manager)
     manager.admin_sign_in_controller = SignInController(manager)
+    manager.timestamps_controller = TimestampsController(manager)
     manager.admin_work_controller = WorkController(manager)
     manager.admin_feed_controller = FeedController(manager)
     manager.admin_custom_lists_controller = CustomListsController(manager)
@@ -372,6 +374,63 @@ class ViewController(AdminController):
         response.set_cookie("csrf_token", csrf_token, httponly=True)
         return response
 
+class TimestampsController(AdminCirculationManagerController):
+    """Returns a dict: each key is a type of service (script, monitor, or coverage provider);
+    each value is a nested dict in which timestamps are organized by service name and then by collection ID."""
+
+    def diagnostics(self):
+        self.require_system_admin()
+        timestamps = self._db.query(Timestamp).order_by(Timestamp.start)
+        if isinstance(timestamps, ProblemDetail):
+            return timestamps
+        sorted = self._sort_by_type(timestamps)
+        for type in sorted.keys():
+            for service in sorted[type]:
+                by_collection = self._sort_by_collection(sorted[type][service])
+                sorted[type][service] = by_collection
+
+        return sorted
+
+    def _sort_by_type(self, timestamps):
+        """Takes a list of Timestamp objects.  Returns a dict: each key is a type of service
+        (script, monitor, or coverage provider); each value is a dict in which the keys are the names
+        of services and the values are lists of timestamps."""
+
+        result = {}
+        for type in ["script", "monitor", "coverage_provider"]:
+            filtered = [self._extract_info(ts) for ts in timestamps if ts.service_type == type]
+            result[type] = self._sort_by_service(filtered)
+        return result
+
+    def _sort_by_service(self, timestamps):
+        """Returns a dict: each key is the name of a service; each value is a list of timestamps."""
+
+        result = {}
+        for timestamp in timestamps:
+            result.setdefault(timestamp.get("service"), []).append(timestamp)
+        return result
+
+    def _sort_by_collection(self, timestamps):
+        """Takes a list of timestamps; turns it into a dict in which each key is a
+        collection ID and each value is a list of the timestamps associated with that collection."""
+
+        result = {}
+        for timestamp in timestamps:
+            result.setdefault((timestamp.get("collection_id") or -1), []).append(timestamp)
+        return result
+
+    def _extract_info(self, timestamp):
+        """Takes a Timestamp object and returns a dict"""
+
+        return dict(
+            id=timestamp.id,
+            start=timestamp.start,
+            duration=(str(timestamp.finish - timestamp.start)),
+            exception=timestamp.exception,
+            service=timestamp.service,
+            collection_id=timestamp.collection_id,
+            achievements=timestamp.achievements
+        )
 
 class SignInController(AdminController):
 
