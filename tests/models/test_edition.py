@@ -6,7 +6,10 @@ from nose.tools import (
 )
 import datetime
 from .. import DatabaseTest
-from ...model import get_one_or_create
+from ...model import (
+    get_one_or_create,
+    PresentationCalculationPolicy,
+)
 from ...model.coverage import CoverageRecord
 from ...model.contributor import Contributor
 from ...model.datasource import DataSource
@@ -168,11 +171,15 @@ class TestEdition(DatabaseTest):
 
         identifier.equivalent_to(data_source, edition.primary_identifier, 0.6)
 
+        policy = PresentationCalculationPolicy(
+            equivalent_identifier_threshold=0.5
+        )
         eq_(set([identifier, edition.primary_identifier]),
-            set(edition.equivalent_identifiers(threshold=0.5)))
+            set(edition.equivalent_identifiers(policy=policy)))
 
+        policy.equivalent_identifier_threshold = 0.7
         eq_(set([edition.primary_identifier]),
-            set(edition.equivalent_identifiers(threshold=0.7)))
+            set(edition.equivalent_identifiers(policy=policy)))
 
     def test_recursive_edition_equivalence(self):
 

@@ -232,9 +232,13 @@ class CustomListEntry(Base):
     first_appearance = Column(DateTime, index=True)
     most_recent_appearance = Column(DateTime, index=True)
 
-    def set_work(self, metadata=None, metadata_client=None):
+    def set_work(self, metadata=None, metadata_client=None, policy=None):
         """If possible, identify a locally known Work that is the same
         title as the title identified by this CustomListEntry.
+
+        :param policy: A PresentationCalculationPolicy, used to
+           determine how far to go when looking for equivalent
+           Identifiers.
         """
         _db = Session.object_session(self)
         edition = self.edition
@@ -265,7 +269,8 @@ class CustomListEntry(Base):
             # Try using the less reliable, more expensive method of
             # matching based on equivalent identifiers.
             equivalent_identifier_id_subquery = Identifier.recursively_equivalent_identifier_ids_query(
-                self.edition.primary_identifier.id, levels=3, threshold=0.5)
+                self.edition.primary_identifier.id, policy=policy
+            )
             pool_q = _db.query(LicensePool).filter(
                 LicensePool.identifier_id.in_(equivalent_identifier_id_subquery)).order_by(
                     LicensePool.licenses_available.desc(),

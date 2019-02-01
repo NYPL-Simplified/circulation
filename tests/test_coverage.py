@@ -1361,14 +1361,13 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         assert isinstance(failure, CoverageFailure)
 
     def test_set_metadata_incorporates_replacement_policy(self):
-        """Make sure that if a ReplacementPolicy is passed in to
-        set_metadata(), the policy's settings (and those of its
-        .presentation_calculation_policy) are respected.
-
-        This is tested in this class rather than in
-        TestIdentifierCoverageProvider because with a collection in
-        place we can test a lot more aspects of the ReplacementPolicy.
-        """
+        # Make sure that if a ReplacementPolicy is passed in to
+        # set_metadata(), the policy's settings (and those of its
+        # .presentation_calculation_policy) are respected.
+        #
+        # This is tested in this class rather than in
+        # TestIdentifierCoverageProvider because with a collection in
+        # place we can test a lot more aspects of the ReplacementPolicy.
 
         edition, pool = self._edition(with_license_pool=True)
         identifier = edition.primary_identifier
@@ -1392,6 +1391,10 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
 
             def __getattr__(self, name):
                 self.tripped = True
+                if name.startswith('equivalent_identifier_'):
+                    # These need to be numbers rather than booleans,
+                    # but the exact number doesn't matter.
+                    return 100
                 return True
 
         presentation_calculation_policy = Tripwire()

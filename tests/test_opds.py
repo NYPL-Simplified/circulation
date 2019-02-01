@@ -180,24 +180,21 @@ class TestAnnotators(DatabaseTest):
 
         # Mock Work.all_identifier_ids (called by VerboseAnnotator.categories)
         # so we can track the value that was passed in for `cutoff`.
-        def mock_all_identifier_ids(recursion_level=3, cutoff=None):
-            self.work.called_with_cutoff = cutoff
+        def mock_all_identifier_ids(policy=None):
+            self.work.called_with_policy = policy
             # Do the actual work so that categories() gets the
             # correct information.
-            return self.work.original_all_identifier_ids(
-                recursion_level, cutoff
-            )
+            return self.work.original_all_identifier_ids(policy)
         self.work.original_all_identifier_ids = self.work.all_identifier_ids
         self.work.all_identifier_ids = mock_all_identifier_ids
         category_tags = VerboseAnnotator.categories(self.work)
 
-        # Although the default 'cutoff' for all_identifier_ids is
-        # None, when we are generating subjects as part of an OPDS
-        # feed, the cutoff is set to 100. This gives us reasonable
-        # worst-case performance at the cost of not showing every
-        # single random subject under which an extremely popular book
-        # is filed.
-        eq_(100, self.work.called_with_cutoff)
+        # When we are generating subjects as part of an OPDS feed, by
+        # default we set a cutoff of 100 equivalent identifiers. This
+        # gives us reasonable worst-case performance at the cost of
+        # not showing every single random subject under which an
+        # extremely popular book is filed.
+        eq_(100, self.work.called_with_policy.equivalent_identifier_cutoff)
 
         ddc_uri = Subject.uri_lookup[Subject.DDC]
         rating_value = '{http://schema.org/}ratingValue'

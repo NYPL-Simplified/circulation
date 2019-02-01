@@ -12,6 +12,7 @@ from ..model import (
     LicensePool,
     Identifier,
     Edition,
+    PresentationCalculationPolicy,
 )
 
 from . import (
@@ -92,8 +93,13 @@ class TestEquivalency(DatabaseTest):
         gutenberg2.title = "Unrelated Gutenberg record."
 
         levels = [
-            record.equivalent_identifiers(i)
-            for i in range(0,5)]
+            record.equivalent_identifiers(
+                policy=PresentationCalculationPolicy(
+                    equivalent_identifier_levels=i
+                )
+            )
+            for i in range(0,5)
+        ]
 
         # At level 0, the only identifier found is the Gutenberg ID.
         eq_(set([gutenberg_id]), set(levels[0]))

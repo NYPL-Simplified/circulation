@@ -9,6 +9,7 @@ import datetime
 import feedparser
 from lxml import etree
 from .. import DatabaseTest
+from ...model import PresentationCalculationPolicy
 from ...model.datasource import DataSource
 from ...model.edition import Edition
 from ...model.identifier import Identifier
@@ -271,8 +272,13 @@ class TestIdentifier(DatabaseTest):
         unrelated = self._identifier()
 
         # With a low threshold and enough levels, we find all the identifiers.
+        high_levels_low_threshold = PresentationCalculationPolicy(
+            equivalent_identifier_levels=5,
+            equivalent_identifier_threshold=0.1
+        )
         equivs = Identifier.recursively_equivalent_identifier_ids(
-            self._db, [identifier.id], levels=5, threshold=0.1)
+            self._db, [identifier.id], policy=high_levels_low_threshold
+        )
         eq_(set([identifier.id,
                  strong_equivalent.id,
                  weak_equivalent.id,
@@ -282,16 +288,26 @@ class TestIdentifier(DatabaseTest):
             set(equivs[identifier.id]))
 
         # If we only look at one level, we don't find the level 2, 3, or 4 identifiers.
+        one_level = PresentationCalculationPolicy(
+            equivalent_identifier_levels=1,
+            equivalent_identifier_threshold=0.1
+        )
         equivs = Identifier.recursively_equivalent_identifier_ids(
-            self._db, [identifier.id], levels=1, threshold=0.1)
+            self._db, [identifier.id], policy=one_level
+        )
         eq_(set([identifier.id,
                  strong_equivalent.id,
                  weak_equivalent.id]),
             set(equivs[identifier.id]))
 
         # If we raise the threshold, we don't find the weak identifier.
+        one_level_high_threshold = PresentationCalculationPolicy(
+            equivalent_identifier_levels=1,
+            equivalent_identifier_threshold=0.4
+        )        
         equivs = Identifier.recursively_equivalent_identifier_ids(
-            self._db, [identifier.id], levels=1, threshold=0.4)
+            self._db, [identifier.id], policy=one_level_high_threshold
+        )
         eq_(set([identifier.id,
                  strong_equivalent.id]),
             set(equivs[identifier.id]))
@@ -305,16 +321,26 @@ class TestIdentifier(DatabaseTest):
         # identifier - level_4_equivalent = 0.9 * 0.5 * 0.9 * 0.6 = 0.243
 
         # With a threshold of 0.5, level 2 and all subsequent levels are too weak.
+        high_levels_high_threshold = PresentationCalculationPolicy(
+            equivalent_identifier_levels=5,
+            equivalent_identifier_threshold=0.5
+        )        
         equivs = Identifier.recursively_equivalent_identifier_ids(
-            self._db, [identifier.id], levels=5, threshold=0.5)
+            self._db, [identifier.id], policy=high_levels_high_threshold
+        )
         eq_(set([identifier.id,
                  strong_equivalent.id]),
             set(equivs[identifier.id]))
 
         # With a threshold of 0.25, level 2 is strong enough, but level
         # 4 is too weak.
+        high_levels_lower_threshold = PresentationCalculationPolicy(
+            equivalent_identifier_levels=5,
+            equivalent_identifier_threshold=0.25
+        )        
         equivs = Identifier.recursively_equivalent_identifier_ids(
-            self._db, [identifier.id], levels=5, threshold=0.25)
+            self._db, [identifier.id], policy=high_levels_lower_threshold
+        )
         eq_(set([identifier.id,
                  strong_equivalent.id,
                  level_2_equivalent.id,
@@ -323,7 +349,8 @@ class TestIdentifier(DatabaseTest):
 
         # It also works if we start from other identifiers.
         equivs = Identifier.recursively_equivalent_identifier_ids(
-            self._db, [strong_equivalent.id], levels=5, threshold=0.1)
+            self._db, [strong_equivalent.id], policy=high_levels_low_threshold
+        )
         eq_(set([identifier.id,
                  strong_equivalent.id,
                  weak_equivalent.id,
@@ -333,7 +360,8 @@ class TestIdentifier(DatabaseTest):
             set(equivs[strong_equivalent.id]))
 
         equivs = Identifier.recursively_equivalent_identifier_ids(
-            self._db, [level_4_equivalent.id], levels=5, threshold=0.1)
+            self._db, [level_4_equivalent.id], policy=high_levels_low_threshold
+        )
         eq_(set([identifier.id,
                  strong_equivalent.id,
                  level_2_equivalent.id,
@@ -342,7 +370,8 @@ class TestIdentifier(DatabaseTest):
             set(equivs[level_4_equivalent.id]))
 
         equivs = Identifier.recursively_equivalent_identifier_ids(
-            self._db, [level_4_equivalent.id], levels=5, threshold=0.5)
+            self._db, [level_4_equivalent.id], policy=high_levels_high_threshold
+        )
         eq_(set([level_2_equivalent.id,
                  level_3_equivalent.id,
                  level_4_equivalent.id]),
@@ -358,8 +387,14 @@ class TestIdentifier(DatabaseTest):
         l2.equivalent_to(data_source, another_identifier, 1)
         l3.equivalent_to(data_source, l2, 1)
         l4.equivalent_to(data_source, l3, 0.9)
+        high_levels_fairly_high_threshold = PresentationCalculationPolicy(
+            equivalent_identifier_levels=5,
+            equivalent_identifier_threshold=0.89
+        )
         equivs = Identifier.recursively_equivalent_identifier_ids(
-            self._db, [another_identifier.id], levels=5, threshold=0.89)
+            self._db, [another_identifier.id],
+            high_levels_fairly_high_threshold
+        )
         eq_(set([another_identifier.id,
                  l2.id,
                  l3.id,
@@ -367,8 +402,14 @@ class TestIdentifier(DatabaseTest):
             set(equivs[another_identifier.id]))
 
         # We can look for multiple identifiers at once.
+        two_levels_high_threshold = PresentationCalculationPolicy(
+            equivalent_identifier_levels=2,
+            equivalent_identifier_threshold=0.8
+        )
         equivs = Identifier.recursively_equivalent_identifier_ids(
-            self._db, [identifier.id, level_3_equivalent.id], levels=2, threshold=0.8)
+            self._db, [identifier.id, level_3_equivalent.id], 
+            policy=two_levels_high_threshold
+        )
         eq_(set([identifier.id,
                  strong_equivalent.id]),
             set(equivs[identifier.id]))
@@ -376,10 +417,36 @@ class TestIdentifier(DatabaseTest):
                  level_3_equivalent.id]),
             set(equivs[level_3_equivalent.id]))
 
-        # The query uses the same db function, but returns equivalents
-        # for all identifiers together so it can be used as a subquery.
+        # By setting a cutoff, you can say to look deep in the tree,
+        # but stop looking as soon as you have a certain number of
+        # equivalents.
+        with_cutoff = PresentationCalculationPolicy(
+            equivalent_identifier_levels=5,
+            equivalent_identifier_threshold=0.1,
+            equivalent_identifier_cutoff=1, 
+       )
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], policy=with_cutoff
+        )
+        
+        # The cutoff was set to 1, but we always go at least one level
+        # deep, and that gives us three equivalent identifiers. We
+        # don't artificially trim it back down to 1.
+        eq_(3, len(equivs[identifier.id]))
+
+        # Increase the cutoff, and we get more identifiers.
+        with_cutoff.equivalent_identifier_cutoff=5
+        equivs = Identifier.recursively_equivalent_identifier_ids(
+            self._db, [identifier.id], policy=with_cutoff
+        )
+        assert len(equivs[identifier.id]) > 3
+
+        # The query() method uses the same db function, but returns
+        # equivalents for all identifiers together so it can be used
+        # as a subquery.
         query = Identifier.recursively_equivalent_identifier_ids_query(
-            Identifier.id, levels=5, threshold=0.1)
+            Identifier.id, policy=high_levels_low_threshold
+        )
         query = query.where(Identifier.id==identifier.id)
         results = self._db.execute(query)
         equivalent_ids = [r[0] for r in results]
@@ -392,7 +459,8 @@ class TestIdentifier(DatabaseTest):
             set(equivalent_ids))
 
         query = Identifier.recursively_equivalent_identifier_ids_query(
-            Identifier.id, levels=2, threshold=0.8)
+            Identifier.id, policy=two_levels_high_threshold
+        )
         query = query.where(Identifier.id.in_([identifier.id, level_3_equivalent.id]))
         results = self._db.execute(query)
         equivalent_ids = [r[0] for r in results]

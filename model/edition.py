@@ -268,13 +268,15 @@ class Edition(Base, EditionConstants):
             LicensePool.data_source==self.data_source,
             LicensePool.identifier==self.primary_identifier).all()
 
-    def equivalent_identifiers(self, levels=3, threshold=0.5, type=None):
+    def equivalent_identifiers(self, type=None, policy=None):
         """All Identifiers equivalent to this
-        Edition's primary identifier, at the given level of recursion.
+        Edition's primary identifier, according to the given
+        PresentationCalculationPolicy
         """
         _db = Session.object_session(self)
         identifier_id_subquery = Identifier.recursively_equivalent_identifier_ids_query(
-            self.primary_identifier.id, levels, threshold)
+            self.primary_identifier.id, policy=policy
+        )
         q = _db.query(Identifier).filter(
             Identifier.id.in_(identifier_id_subquery))
         if type:
@@ -284,15 +286,14 @@ class Edition(Base, EditionConstants):
                 q = q.filter(Identifier.type==type)
         return q.all()
 
-    def equivalent_editions(self, levels=5, threshold=0.5):
+    def equivalent_editions(self, policy=None):
         """All Editions whose primary ID is equivalent to this Edition's
-        primary ID, at the given level of recursion.
-        Five levels is enough to go from a Gutenberg ID to an Overdrive ID
-        (Gutenberg ID -> OCLC Work ID -> OCLC Number -> ISBN -> Overdrive ID)
+        primary ID, according to the given PresentationCalculationPolicy.
         """
         _db = Session.object_session(self)
         identifier_id_subquery = Identifier.recursively_equivalent_identifier_ids_query(
-            self.primary_identifier.id, levels, threshold)
+            self.primary_identifier.id, policy=policy
+        )
         return _db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_id_subquery))
 
@@ -507,12 +508,23 @@ class Edition(Base, EditionConstants):
                 if similarity >= threshold:
                     yield candidate
 
-    def best_cover_within_distance(self, distance, threshold=0.5, rel=None):
+    def best_cover_within_distance(self, distance, rel=None, policy=None):
         _db = Session.object_session(self)
         identifier_ids = [self.primary_identifier.id]
+        
         if distance > 0:
+            if policy is None:
+                new_policy = PresentationCalculationPolicy()
+            else:
+                new_policy = PresentationCalculationPolicy(
+                    equivalent_identifier_levels=distance,
+                    equivalent_identifier_cutoff=policy.equivalent_identifier_cutoff,
+                    equivalent_identifier_threshold=policy.equivalent_identifier_threshold,
+                )
+
             identifier_ids_dict = Identifier.recursively_equivalent_identifier_ids(
-                _db, identifier_ids, distance, threshold=threshold)
+                _db, identifier_ids, policy=new_policy
+            )
             identifier_ids += identifier_ids_dict[self.primary_identifier.id]
 
         return Identifier.best_cover_for(_db, identifier_ids, rel=rel)
@@ -605,7 +617,7 @@ class Edition(Base, EditionConstants):
             )
 
         if policy.choose_cover:
-            self.choose_cover()
+            self.choose_cover(policy=policy)
 
         if (self.author != old_author
             or self.sort_author != old_sort_author
@@ -662,7 +674,7 @@ class Edition(Base, EditionConstants):
             sort_author = self.UNKNOWN_AUTHOR
         return author, sort_author
 
-    def choose_cover(self):
+    def choose_cover(self, policy=None):
         """Try to find a cover that can be used for this Edition."""
         self.cover_full_url = None
         self.cover_thumbnail_url = None
@@ -670,7 +682,9 @@ class Edition(Base, EditionConstants):
             # If there's a cover directly associated with the
             # Edition's primary ID, use it. Otherwise, find the
             # best cover associated with any related identifier.
-            best_cover, covers = self.best_cover_within_distance(distance)
+            best_cover, covers = self.best_cover_within_distance(
+                distance=distance, policy=policy
+            )
 
             if best_cover:
                 if not best_cover.representation:
@@ -707,7 +721,10 @@ class Edition(Base, EditionConstants):
             # Identifier. Try to find a thumbnail the same way we'd
             # look for a cover.
             for distance in (0, 5):
-                best_thumbnail, thumbnails = self.best_cover_within_distance(distance, rel=LinkRelations.THUMBNAIL_IMAGE)
+                best_thumbnail, thumbnails = self.best_cover_within_distance(
+                    distance=distance, policy=policy,
+                    rel=LinkRelations.THUMBNAIL_IMAGE,
+                )
                 if best_thumbnail:
                     if not best_thumbnail.representation:
                         logging.warn(

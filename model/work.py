@@ -599,10 +599,15 @@ class Work(Base):
         return q
 
     @classmethod
-    def from_identifiers(cls, _db, identifiers, base_query=None, identifier_id_field=Identifier.id):
+    def from_identifiers(cls, _db, identifiers, base_query=None, identifier_id_field=Identifier.id, policy=None):
         """Returns all of the works that have one or more license_pools
         associated with either an identifier in the given list or an
-        identifier considered equivalent to one of those listed
+        identifier considered equivalent to one of those listed.
+
+        :param policy: A PresentationCalculationPolicy, used to
+           determine how far to go when looking for equivalent
+           Identifiers. By default, this method will be very strict
+           about equivalencies.
         """
         from licensing import LicensePool
         identifier_ids = [identifier.id for identifier in identifiers]
@@ -615,8 +620,14 @@ class Work(Base):
             base_query = _db.query(Work).join(Work.license_pools).\
                 join(LicensePool.identifier)
 
+        if policy is None:
+            policy = PresentationCalculationPolicy(
+                equivalent_identifier_levels=1,
+                equivalent_identifier_threshold=0.999
+            )
+
         identifier_ids_subquery = Identifier.recursively_equivalent_identifier_ids_query(
-            Identifier.id, levels=1, threshold=0.999)
+            Identifier.id, policy=policy)
         identifier_ids_subquery = identifier_ids_subquery.where(Identifier.id.in_(identifier_ids))
 
         query = base_query.filter(identifier_id_field.in_(identifier_ids_subquery))
@@ -698,16 +709,19 @@ class Work(Base):
             _db, [self], search_index_client=search_index_client
         )
 
-    def all_editions(self, recursion_level=5):
+    def all_editions(self, policy=None):
         """All Editions identified by an Identifier equivalent to
         the identifiers of this Work's license pools.
-        `recursion_level` controls how far to go when looking for equivalent
-        Identifiers.
+
+        :param policy: A PresentationCalculationPolicy, used to
+           determine how far to go when looking for equivalent
+           Identifiers.
         """
         from licensing import LicensePool
         _db = Session.object_session(self)
         identifier_ids_subquery = Identifier.recursively_equivalent_identifier_ids_query(
-            LicensePool.identifier_id, levels=recursion_level)
+            LicensePool.identifier_id, policy=policy
+        )
         identifier_ids_subquery = identifier_ids_subquery.where(LicensePool.work_id==self.id)
 
         q = _db.query(Edition).filter(
@@ -715,7 +729,7 @@ class Work(Base):
         )
         return q
 
-    def all_identifier_ids(self, recursion_level=3, cutoff=None):
+    def all_identifier_ids(self, policy=None):
         _db = Session.object_session(self)
         primary_identifier_ids = [
             lp.identifier.id for lp in self.license_pools
@@ -723,7 +737,8 @@ class Work(Base):
         ]
         # Get a dict that maps identifier ids to lists of their equivalents.
         equivalent_lists = Identifier.recursively_equivalent_identifier_ids(
-            _db, primary_identifier_ids, recursion_level, cutoff=cutoff)
+            _db, primary_identifier_ids, policy=policy
+        )
 
         identifier_ids = set()
         for equivs in equivalent_lists.values():
@@ -739,23 +754,6 @@ class Work(Base):
         if language in LanguageCodes.three_to_two:
             language = LanguageCodes.three_to_two[language]
         return language
-
-    def all_cover_images(self):
-        identifier_ids = self.all_identifier_ids()
-        return Identifier.resources_for_identifier_ids(
-            _db, identifier_ids, LinkRelations.IMAGE).join(
-            Resource.representation).filter(
-                Representation.mirrored_at!=None).filter(
-                Representation.scaled_at!=None).order_by(
-                Resource.quality.desc())
-
-    def all_descriptions(self):
-        identifier_ids = self.all_identifier_ids()
-        return Identifier.resources_for_identifier_ids(
-            _db, identifier_ids, LinkRelations.DESCRIPTION).filter(
-                Resource.content != None).order_by(
-                Resource.quality.desc())
-
 
     def set_presentation_edition(self, new_presentation_edition):
         """ Sets presentation edition and lets owned pools and editions know.
@@ -890,7 +888,7 @@ class Work(Base):
             # classifications, or measurements.
             _db = Session.object_session(self)
 
-            identifier_ids = self.all_identifier_ids()
+            identifier_ids = self.all_identifier_ids(policy=policy)
         else:
             identifier_ids = []
 
@@ -1311,13 +1309,17 @@ class Work(Base):
             self.secondary_appeal = self.NO_APPEAL
 
     @classmethod
-    def to_search_documents(cls, works):
+    def to_search_documents(cls, works, policy=None):
         """Generate search documents for these Works.
         This is done by constructing an extremely complicated
         SQL query. The code is ugly, but it's about 100 times
         faster than using python to create documents for
         each work individually. When working on the search
         index, it's very important for this to be fast.
+
+        :param policy: A PresentationCalculationPolicy to use when
+           deciding how deep to go to find Identifiers equivalent to
+           these works.
         """
 
         if not works:
@@ -1431,8 +1433,11 @@ class Work(Base):
         # For Classifications, use a subquery to get recursively equivalent Identifiers
         # for the Edition's primary_identifier_id.
         identifiers = Identifier.recursively_equivalent_identifier_ids_query(
-            literal_column(works_alias.name + "." + works_alias.c.identifier_id.name),
-            levels=5, threshold=0.5)
+            literal_column(
+                works_alias.name + "." + works_alias.c.identifier_id.name
+            ),
+            policy=policy
+        )
 
         # Map our constants for Subject type to their URIs.
         scheme_column = case(

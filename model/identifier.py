@@ -7,6 +7,7 @@ from . import (
     create,
     get_one,
     get_one_or_create,
+    PresentationCalculationPolicy
 )
 from coverage import CoverageRecord
 from classification import (
@@ -399,7 +400,7 @@ class Identifier(Base, IdentifierConstants):
 
     @classmethod
     def recursively_equivalent_identifier_ids_query(
-            cls, identifier_id_column, levels=5, threshold=0.50, cutoff=None):
+            cls, identifier_id_column, policy=None):
         """Get a SQL statement that will return all Identifier IDs
         equivalent to a given ID at the given confidence threshold.
         `identifier_id_column` can be a single Identifier ID, or a column
@@ -407,11 +408,27 @@ class Identifier(Base, IdentifierConstants):
         a subquery.
         This uses the function defined in files/recursive_equivalents.sql.
         """
-        return select([func.fn_recursive_equivalents(identifier_id_column, levels, threshold, cutoff)])
+        fn = cls._recursively_equivalent_identifier_ids_query(
+            identifier_id_column, policy
+        )
+        return select([fn])
+
+    @classmethod
+    def _recursively_equivalent_identifier_ids_query(
+        cls, identifier_id_column, policy=None
+    ):
+        policy = policy or PresentationCalculationPolicy()
+        levels = policy.equivalent_identifier_levels
+        threshold = policy.equivalent_identifier_threshold
+        cutoff = policy.equivalent_identifier_cutoff
+
+        return func.fn_recursive_equivalents(
+            identifier_id_column, levels, threshold, cutoff
+        )
 
     @classmethod
     def recursively_equivalent_identifier_ids(
-            cls, _db, identifier_ids, levels=3, threshold=0.50, cutoff=None):
+            cls, _db, identifier_ids, policy=None):
         """All Identifier IDs equivalent to the given set of Identifier
         IDs at the given confidence threshold.
         This uses the function defined in files/recursive_equivalents.sql.
@@ -419,12 +436,15 @@ class Identifier(Base, IdentifierConstants):
         Gutenberg ID -> OCLC Work IS -> OCLC Number -> ISBN
         Returns a dictionary mapping each ID in the original to a
         list of equivalent IDs.
-        :param cutoff: For each recursion level, results will be cut
-        off at this many results. (The maximum total number of results
-        is levels * cutoff)
+
+        :param policy: A PresentationCalculationPolicy that explains
+           how you've chosen to make the tradeoff between performance,
+           data quality, and sheer number of equivalent identifiers.
         """
-        query = select([Identifier.id, func.fn_recursive_equivalents(Identifier.id, levels, threshold, cutoff)],
-                       Identifier.id.in_(identifier_ids))
+        fn = cls._recursively_equivalent_identifier_ids_query(
+            Identifier.id, policy
+        )
+        query = select([Identifier.id, fn], Identifier.id.in_(identifier_ids))
         results = _db.execute(query)
         equivalents = defaultdict(list)
         for r in results:
@@ -433,10 +453,11 @@ class Identifier(Base, IdentifierConstants):
             equivalents[original].append(equivalent)
         return equivalents
 
-    def equivalent_identifier_ids(self, levels=5, threshold=0.5):
+    def equivalent_identifier_ids(self, policy=None):
         _db = Session.object_session(self)
         return Identifier.recursively_equivalent_identifier_ids(
-            _db, [self.id], levels, threshold)
+            _db, [self.id], policy
+        )
 
     def licensed_through_collection(self, collection):
         """Find the LicensePool, if any, for this Identifier
