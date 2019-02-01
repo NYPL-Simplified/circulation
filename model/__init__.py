@@ -342,7 +342,7 @@ class SessionManager(object):
         return os.path.join(base_path, "files")
 
     @classmethod
-    def initialize(cls, url):
+    def initialize(cls, url, initialize_data=True):
         """Initialize the database.
         
         This includes the schema, the materialized views, the custom
@@ -377,8 +377,9 @@ class SessionManager(object):
             sql = open(resource_file).read()
             connection.execute(sql)
 
-        session = Session(connection)
-        cls.initialize_data(session)
+        if initialize_data:
+            session = Session(connection)
+            cls.initialize_data(session)
 
         if connection:
             connection.close()
@@ -437,7 +438,9 @@ class SessionManager(object):
         engine = connection = 0
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=SAWarning)
-            engine, connection = cls.initialize(url)
+            engine, connection = cls.initialize(
+                url, initialize_data=initialize_data
+            )
         session = Session(connection)
         if initialize_data:
             session = cls.initialize_data(session)
@@ -486,12 +489,12 @@ class SessionManager(object):
         # it was updated by cls.update_timestamps_table
         return session
 
-def production_session():
+def production_session(initialize_data=True):
     url = Configuration.database_url()
     if url.startswith('"'):
         url = url[1:]
     logging.debug("Database url: %s", url)
-    _db = SessionManager.session(url)
+    _db = SessionManager.session(url, initialize_data=initialize_data)
 
     # The first thing to do after getting a database connection is to
     # set up the logging configuration.

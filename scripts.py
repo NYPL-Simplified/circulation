@@ -32,6 +32,7 @@ from sqlalchemy import (
     or_,
     text,
 )
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql.functions import func
 from sqlalchemy.orm.exc import (
     NoResultFound,
@@ -2054,14 +2055,47 @@ class DatabaseMigrationScript(Script):
         """Act like a ORM Timestamp object, but with no database connection."""
 
         @classmethod
-        def find(cls, _db, service):
+        def find(cls, script, service):
             """Find or create an existing timestamp representing the last
             migration script that was run.
 
             :return: A TimestampInfo object or None
             """
-            sql = "SELECT finish, counter FROM timestamps WHERE service=:service LIMIT 1;"
-            results = list(_db.execute(text(sql), dict(service=service)))
+
+            # We need to be aware of schema changes to the timestamps
+            # table itself, since this is a necessary prerequisite to
+            # running the migration scripts that will make those
+            # schema changes.
+            #
+            # 2.3.0 - 'timestamp' field renamed to 'finish'
+            exception = None
+            for sql in (
+                    "SELECT finish, counter FROM timestamps WHERE service=:service LIMIT 1;",
+                    "SELECT timestamp, counter FROM timestamps WHERE service=:service LIMIT 1;",
+            ):
+                _db = script._db
+                try:
+                    results = list(_db.execute(text(sql), dict(service=service)))
+                    if exception:
+                        logging.error(
+                            "Yes, everything should be fine -- I was able to find a timestamp in the new schema."
+                        )
+                    exception = None
+                    break
+                except ProgrammingError, e:
+                    # The database connection is now tainted; we must
+                    # create a new one.
+                    logging.error(
+                        "Got a database error obtaining the timestamp for %s. Hopefully the timestamps table itself must be migrated and this is all according to plan.", service, exc_info=e
+                    )
+                    _db.close()
+                    script._session = production_session(initialize_data=False)
+                    exception = e
+
+            # If _none_ of those worked, something is wrong on a
+            # deeper level.
+            if exception:
+                raise e
 
             if not results:
                 # Make sure there's a row for this service in the timestamps
@@ -2216,7 +2250,7 @@ class DatabaseMigrationScript(Script):
         If there is no Timestamp or the Timestamp doesn't have a timestamp
         attribute, it returns None.
         """
-        return self.TimestampInfo.find(self._db, self.SERVICE_NAME)
+        return self.TimestampInfo.find(self, self.SERVICE_NAME)
 
     @property
     def python_timestamp(self):
@@ -2226,7 +2260,7 @@ class DatabaseMigrationScript(Script):
         If there is no Timestamp or the Timestamp hasn't been initialized with
         a timestamp attribute, it returns None.
         """
-        return self.TimestampInfo.find(self._db, self.PY_TIMESTAMP_SERVICE_NAME)
+        return self.TimestampInfo.find(self, self.PY_TIMESTAMP_SERVICE_NAME)
 
     def __init__(self, *args, **kwargs):
         super(DatabaseMigrationScript, self).__init__(*args, **kwargs)
@@ -2268,7 +2302,7 @@ class DatabaseMigrationScript(Script):
 
         if not timestamp:
             # No timestamp was given. Get the timestamp from the database.
-            timestamp = self.TimestampInfo.find(self._db, self.name)
+            timestamp = self.TimestampInfo.find(self, self.name)
 
         if not timestamp or not self.overall_timestamp:
             # There's no timestamp in the database! Raise an error.
