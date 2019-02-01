@@ -101,8 +101,6 @@ class Work(Base):
     CURRENTLY_AVAILABLE = "currently_available"
     ALL = "all"
 
-    DEFAULT_IDENTIFIER_CUTOFF = 100
-
     # If no quality data is available for a work, it will be assigned
     # a default quality based on where we got it.
     #
