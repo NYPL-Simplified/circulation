@@ -72,7 +72,7 @@ class ReplacementPolicy(object):
             analytics=None,
             http_get=None,
             even_if_not_apparently_updated=False,
-            presentation_calculation_policy=None,
+            presentation_calculation_policy=None
     ):
         self.identifiers = identifiers
         self.subjects = subjects
