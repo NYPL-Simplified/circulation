@@ -1985,6 +1985,13 @@ class TestTimestampsController(AdminControllerTest):
             finish=self.finish,
         )
 
+        other, ignore = create(
+            self._db, Timestamp,
+            service="test_other",
+            start=self.start,
+            finish=self.finish,
+        )
+
     def test_diagnostics_admin_not_authorized(self):
         with self.request_context_with_admin("/"):
             assert_raises(AdminNotAuthorized, self.manager.timestamps_controller.diagnostics)
@@ -1996,7 +2003,7 @@ class TestTimestampsController(AdminControllerTest):
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.timestamps_controller.diagnostics()
 
-        eq_(set(response.keys()), set(["coverage_provider", "monitor", "script"]))
+        eq_(set(response.keys()), set(["coverage_provider", "monitor", "script", "other"]))
 
         cp_service = response["coverage_provider"]
         cp_name, cp_collection = cp_service.items()[0]
@@ -2027,6 +2034,16 @@ class TestTimestampsController(AdminControllerTest):
         eq_(script_timestamp.get("duration"), duration)
         eq_(script_timestamp.get("start"), self.start)
         eq_(script_timestamp.get("achievements"), "ran a script")
+
+        other_service = response["other"]
+        other_name, other_collection = other_service.items()[0]
+        eq_(other_name, "test_other")
+        other_collection_name, [other_timestamp] = other_collection.items()[0]
+        eq_(other_collection_name, "No associated collection")
+        eq_(other_timestamp.get("exception"), None)
+        eq_(other_timestamp.get("duration"), duration)
+        eq_(other_timestamp.get("start"), self.start)
+        eq_(other_timestamp.get("achievements"), None)
 
 class TestFeedController(AdminControllerTest):
 

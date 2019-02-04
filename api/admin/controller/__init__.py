@@ -386,7 +386,6 @@ class TimestampsController(AdminCirculationManagerController):
             for service in services:
                 by_collection = self._sort_by_collection(sorted[type][service])
                 sorted[type][service] = by_collection
-
         return sorted
 
     def _sort_by_type(self, timestamps):
@@ -397,7 +396,7 @@ class TimestampsController(AdminCirculationManagerController):
         result = {}
         for ts in timestamps:
             info = self._extract_info(ts)
-            result.setdefault(str(ts.service_type), []).append(info)
+            result.setdefault((ts.service_type or "other"), []).append(info)
 
         for type, data in result.items():
             result[type] = self._sort_by_service(data)
@@ -417,7 +416,6 @@ class TimestampsController(AdminCirculationManagerController):
         collection ID and each value is a list of the timestamps associated with that collection."""
 
         result = {}
-        collection_name = None
         for timestamp in timestamps:
             result.setdefault(timestamp.get("collection_name"), []).append(timestamp)
         return result
@@ -430,8 +428,8 @@ class TimestampsController(AdminCirculationManagerController):
             duration = (timestamp.finish - timestamp.start).total_seconds()
 
         collection_name = "No associated collection"
-        if timestamp.collection_id:
-            collection_name = self._db.query(Collection).filter(Collection.id == timestamp.collection_id).one().name
+        if timestamp.collection:
+            collection_name = timestamp.collection.name
 
         return dict(
             id=timestamp.id,
