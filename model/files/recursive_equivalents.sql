@@ -20,6 +20,7 @@ $$
                         OR e.output_id = fe.input_id
                         OR e.output_id = fe.output_id
                         )
+			AND e.enabled = true
 			AND ($4 is null or r < $4)
                 )
         SELECT input_id as id

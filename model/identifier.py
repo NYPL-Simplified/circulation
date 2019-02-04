@@ -31,6 +31,7 @@ import isbnlib
 import logging
 import random
 from sqlalchemy import (
+    Boolean,
     Column,
     Float,
     ForeignKey,
@@ -818,6 +819,12 @@ class Equivalency(Base):
     # assertion that the two Identifiers do *not* identify the
     # same work.
     strength = Column(Float, index=True)
+
+    # Should this equivalency actually be used in calculations? This
+    # is not manipulated directly, but it gives us the ability to use
+    # manual intervention to defuse large chunks of problematic code
+    # without actually deleting the data.
+    enabled = Column(Boolean, default=True, index=True)
 
     def __repr__(self):
         r = u"[%s ->\n %s\n source=%s strength=%.2f votes=%d)]" % (
