@@ -49,6 +49,7 @@ from metadata_layer import (
     LinkData,
     ReplacementPolicy,
     MetaToModelUtility,
+    TimestampData,
 )
 from mirror import MirrorUploader
 from model import (
@@ -174,22 +175,25 @@ class Script(object):
         DataSource.well_known_sources(self._db)
         start_time = datetime.datetime.utcnow()
         try:
-            self.do_run()
-            self.update_timestamp(start_time, None)
+            timestamp_data = self.do_run()
+            if not isinstance(timestamp_data, TimestampData):
+                # Ignore any nonstandard return value from do_run().
+                timestamp_data = None
+            self.update_timestamp(timestamp_data, start_time, None)
         except Exception, e:
             logging.error(
                 "Fatal exception while running script: %s", e,
                 exc_info=e
             )
             stack_trace = traceback.format_exc()
-            self.update_timestamp(start_time, stack_trace)
+            self.update_timestamp(None, start_time, stack_trace)
             raise e
 
     def load_configuration(self):
         if not Configuration.cdns_loaded_from_database():
             Configuration.load(self._db)
 
-    def update_timestamp(self, start_time, exception):
+    def update_timestamp(self, timestamp_data, start_time, exception):
         """By default scripts have no timestamp of their own.
 
         Most scripts either work through Monitors or CoverageProviders,
@@ -211,15 +215,28 @@ class TimestampScript(Script):
         super(TimestampScript, self).__init__(*args, **kwargs)
         self.timestamp_collection = None
 
-    def update_timestamp(self, start_time, exception):
-        """Update the appropriate Timestamp for this script."""
-        Timestamp.stamp(
-            _db=self._db, service=self.script_name,
-            service_type=Timestamp.SCRIPT_TYPE,
-            collection=self.timestamp_collection,
-            start=start_time, exception=exception
+    def update_timestamp(self, timestamp_data, start, exception):
+        """Update the appropriate Timestamp for this script.
+
+        :param timestamp_data: A TimestampData representing what the script
+          itself thinks its timestamp should look like. Data will be filled in
+          where it is missing, but it will not be modified if present.
+
+        :param start: The time at which this script believes the
+          service started running. The script itself may change this
+          value for its own purposes.
+
+        :param exception: The exception with which this script
+          believes the service stopped running. The script itself may
+          change this value for its own purposes.
+        """
+        if timestamp_data is None:
+            timestamp_data = TimestampData()
+        timestamp_data.finalize(
+            self.script_name, Timestamp.SCRIPT_TYPE, self.timestamp_collection,
+            start=start, exception=exception
         )
-        
+        timestamp_data.apply(self._db)
 
 class RunMonitorScript(Script):
 
