@@ -312,7 +312,6 @@ class MockSweepMonitor(SweepMonitor):
         self.processed.append(item)
 
     def cleanup(self):
-        set_trace()
         self.cleanup_called.append(True)
 
 
@@ -392,24 +391,27 @@ class TestSweepMonitor(DatabaseTest):
         class IHateI4(MockSweepMonitor):
             def process_item(self, item):
                 if item is i4:
-                    set_trace()
                     raise Exception("HOW DARE YOU")
                 super(IHateI4, self).process_item(item)
 
         monitor = IHateI4(self._db)
+
+        timestamp = monitor.timestamp()
+        original_start = timestamp.start
         monitor.run()
 
         # The monitor's counter was updated to the ID of the final
         # item in the last batch it was able to process. In this case,
         # this is I2.
-        timestamp = monitor.timestamp()
         eq_(i2.id, timestamp.counter)
 
         # The exception that stopped the run was recorded.
         assert "Exception: HOW DARE YOU" in timestamp.exception
 
-        # The start and end points of the run were recorded.
+        # Even though the run didn't complete, the dates on the
+        # timestamp were updated to reflect the work that _was_ done.
         now = datetime.datetime.utcnow()
+        assert timestamp.start > original_start
         assert (now - timestamp.start).total_seconds() < 5
         assert (now - timestamp.finish).total_seconds() < 5
         assert timestamp.start < timestamp.finish

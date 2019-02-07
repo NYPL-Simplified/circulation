@@ -175,6 +175,7 @@ class Monitor(object):
             )
             new_timestamp.apply(self._db)
         except Exception, e:
+            this_run_finish = datetime.datetime.utcnow()
             self.log.error(
                 "Error running %s monitor. Timestamp will not be updated.",
                 self.service_name, exc_info=e
@@ -313,21 +314,33 @@ class SweepMonitor(CollectionMonitor):
         offset = timestamp.counter
         new_offset = offset
         exception = None
+
+        # The timestamp for a SweepMonitor is purely informative --
+        # we're not trying to capture all the events that happened
+        # since a certain time -- so we're going to make sure the
+        # timestamp is set from the start of the run to the end of the
+        # last _successful_ batch.
+        run_started_at = datetime.datetime.utcnow()
+        timestamp.start = run_started_at
+
         while True:
-            batch_started_at = time.time()
+            batch_started_at = datetime.datetime.utcnow()
             old_offset = offset
             new_offset = self.process_batch(offset)
-            # If an exception is raised later in the process,
-            # don't lose the progress we've already made.
-            timestamp.offset = new_offset
-            self._db.commit()
 
-            batch_ended_at = time.time()
+            batch_ended_at = datetime.datetime.utcnow()
             self.log.debug(
                 "%s monitor went from offset %s to %s in %.2f sec",
                 self.service_name, offset, new_offset,
-                (batch_ended_at-batch_started_at)
+                (batch_ended_at-batch_started_at).total_seconds()
             )
+
+            # If an exception is raised later in the process,
+            # don't lose the progress we've already made.
+            timestamp.counter = new_offset
+            timestamp.finish = batch_ended_at
+
+            self._db.commit()
 
             offset = new_offset
             if offset == 0:
