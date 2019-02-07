@@ -186,8 +186,9 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             was_run = False
 
             def run_once_and_update_timestamp(self):
-                """Set a variable, don't return anything."""
+                """Set a variable."""
                 self.was_run = True
+                return 0, None
 
         provider = MockProvider(self._db)
         result = provider.run()
@@ -206,7 +207,6 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         start = datetime.datetime(2011, 1, 1)
         finish = datetime.datetime(2012, 1, 1)
-        counter = -100
 
         class MockProvider(BaseCoverageProvider):
             """A BaseCoverageProvider that returns a strange TimestampData
@@ -242,9 +242,9 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             SERVICE_NAME = "I do nothing"
             run_once_calls = []
 
-            def run_once(self, progress, count_as_covered=None):
+            def run_once(self, offset, progress, count_as_covered=None):
                 self.run_once_calls.append(count_as_covered)
-                return progress
+                return offset, progress
 
         # We start with no Timestamp.
         service_name = "I do nothing"

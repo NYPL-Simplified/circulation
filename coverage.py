@@ -192,29 +192,28 @@ class BaseCoverageProvider(object):
         ]
         start_time = datetime.datetime.utcnow()
         timestamp = self.timestamp
-        if timestamp:
-            counter = timestamp.counter
-        else:
-            counter = 0
 
         # We'll use this TimestampData object to track our progress
         # as we grant coverage to items.
-        progress = TimestampData(start=start_time, counter=counter)
+        progress = TimestampData(start=start_time)
 
         for covered_statuses in covered_status_lists:
             # We may have completed our work for the previous value of
             # covered_statuses, but there's more work to do. Unset the
             # 'finish' date to guarantee that progress.is_complete
             # starts out False.
+            #
+            # Set the offset to zero to ensure that we always start
+            # at the start of the database table.
+            offset = 0
             progress.finish = None
 
-            # Call run_once() until we get an exception, until .finish
-            # is set, or until the run_once() call makes no progress.
+            # Call run_once() until we get an exception or
+            # progress.finish is set.
             while not progress.is_complete:
-                old_counter = progress.counter
                 try:
-                    progress = self.run_once(
-                        progress, count_as_covered=covered_statuses
+                    offset, progress = self.run_once(
+                        offset, progress, count_as_covered=covered_statuses
                     )
                 except Exception, e:
                     logging.error(
@@ -227,12 +226,6 @@ class BaseCoverageProvider(object):
                 # so let's write the work to the database as it's
                 # done.
                 self.finalize_timestampdata(progress)
-
-                if progress.counter == old_counter:
-                    # run_once() did not actually make any progress.
-                    # Break out rather than calling run_once() again,
-                    # potentially creating an infinite loop.
-                    break
         return progress
 
     @property
@@ -254,7 +247,7 @@ class BaseCoverageProvider(object):
         timestamp.apply(self._db)
         self._db.commit()
 
-    def run_once(self, progress, count_as_covered=None):
+    def run_once(self, offset, progress, count_as_covered=None):
         """Try to grant coverage to a number of uncovered items.
 
         :param progress: A TimestampData representing the progress
@@ -271,7 +264,6 @@ class BaseCoverageProvider(object):
         qu = self.items_that_need_coverage(count_as_covered=count_as_covered)
         self.log.info("%d items need coverage%s", qu.count(),
                       count_as_covered_message)
-        offset = progress.counter
         batch = qu.limit(self.batch_size).offset(offset)
 
         if not batch.count():
@@ -301,7 +293,6 @@ class BaseCoverageProvider(object):
             # just show up again the next time we run this batch.
             offset += persistent_failures
 
-        progress.counter = offset
         return progress
 
     def process_batch_and_handle_results(self, batch):
