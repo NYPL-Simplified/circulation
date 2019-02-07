@@ -324,28 +324,26 @@ class SweepMonitor(CollectionMonitor):
         timestamp.start = run_started_at
 
         while True:
-            batch_started_at = datetime.datetime.utcnow()
             old_offset = offset
+            batch_started_at = datetime.datetime.utcnow()
             new_offset = self.process_batch(offset)
-
             batch_ended_at = datetime.datetime.utcnow()
+
             self.log.debug(
                 "%s monitor went from offset %s to %s in %.2f sec",
                 self.service_name, offset, new_offset,
                 (batch_ended_at-batch_started_at).total_seconds()
             )
 
-            # If an exception is raised later in the process,
-            # don't lose the progress we've already made.
-            timestamp.counter = new_offset
-            timestamp.finish = batch_ended_at
-
-            self._db.commit()
-
             offset = new_offset
             if offset == 0:
                 # We completed a sweep. We're done.
                 break
+
+            # We need to do another batch. If it should raise an exception,
+            # we don't want to lose the progress we've already made.
+            timestamp.update(counter=new_offset, finish=batch_ended_at)
+            self._db.commit()
 
         # We're done with this run.
         return TimestampData(counter=offset)
