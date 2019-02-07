@@ -260,9 +260,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         # The Timestamp's .start and .finish are now set to recent
         # values -- the start and end points of run_once().
-        timestamp = Timestamp.lookup(
-            self._db, service_name, service_type, collection=None
-        )
+        timestamp = provider.timestamp
         now = datetime.datetime.utcnow()
         assert (now - timestamp.start).total_seconds() < 1
         assert (now - timestamp.finish).total_seconds() < 1
@@ -287,10 +285,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         provider = MockProvider(self._db)
         provider.run_once_and_update_timestamp()
 
-        timestamp = Timestamp.lookup(
-            self._db, provider.SERVICE_NAME, Timestamp.COVERAGE_PROVIDER_TYPE,
-            collection=None
-        )
+        timestamp = provider.timestamp
         now = datetime.datetime.utcnow()
         assert (now - timestamp.start).total_seconds() < 1
         assert (now - timestamp.finish).total_seconds() < 1
@@ -301,9 +296,6 @@ class TestBaseCoverageProvider(CoverageProviderTest):
     def test_run_once(self):
         """Test run_once, showing how it covers items with different types of
         CoverageRecord.
-
-        TODO: This could use a bit more work to show what the return
-        value of run_once() means.
         """
 
         # We start with no CoverageRecords.
@@ -342,7 +334,12 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # Now let's run the coverage provider. Every Identifier
         # that's covered will succeed, so the question is which ones
         # get covered.
-        provider.run_once(TimestampData(counter=0))
+        progress = TimestampData(counter=0)
+        result = provider.run_once(progress)
+
+        # The TimestampData we passed in was given back to us.
+        eq_(progress, result)
+        eq_(0, result.counter)
 
         # By default, run_once() finds Identifiers that have no coverage
         # or which have transient failures.
@@ -355,6 +352,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         assert transient in provider.attempts
         assert uncovered in provider.attempts
+
 
         # Nothing happened to the identifier that had a persistent
         # failure or the identifier that was successfully covered.
@@ -369,8 +367,11 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         # We can change which identifiers get processed by changing
         # what counts as 'coverage'.
-        progress = TimestampData(counter=0)
-        provider.run_once(progress, count_as_covered=[CoverageRecord.SUCCESS])
+        result = provider.run_once(
+            progress, count_as_covered=[CoverageRecord.SUCCESS]
+        )
+        eq_(progress, result)
+        eq_(0, progress.counter)
 
         # That processed the persistent failure, but not the success.
         assert persistent in provider.attempts
@@ -378,14 +379,20 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         # Let's call it again and say that we are covering everything
         # _except_ persistent failures.
-        progress = TimestampData(counter=0)
-        provider.run_once(
+        result = provider.run_once(
             progress, count_as_covered=[CoverageRecord.PERSISTENT_FAILURE]
         )
 
         # That got us to cover the identifier that had already been
         # successfully covered.
         assert covered in provider.attempts
+
+        # The counter has been bumped up so that the first four
+        # results -- whose coverage records have already been
+        # processed -- won't be considered again.
+        eq_(result, progress)
+        eq_(4, progress.counter)
+
 
     def test_process_batch_and_handle_results(self):
         """Test that process_batch_and_handle_results passes the identifiers
