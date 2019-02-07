@@ -13,6 +13,7 @@ from sqlalchemy.sql.expression import (
 import log # This sets the appropriate log format and level.
 from config import Configuration
 from coverage import CoverageFailure
+from metadata_layer import TimestampData
 from model import (
     get_one,
     get_one_or_create,
@@ -113,7 +114,11 @@ class Monitor(object):
         return get_one(self._db, Collection, id=self.collection_id)
 
     def timestamp(self):
-        """Find or create the Timestamp for this Monitor."""
+        """Find or create a Timestamp for this Monitor.
+
+        This does not use TimestampData because it relies on checking
+        whether a Timestamp already exists in the database.
+        """
         if self.default_start_time is self.NEVER:
             initial_timestamp = None
         elif not self.default_start_time:
@@ -152,27 +157,37 @@ class Monitor(object):
         # on the subsequent run.
         this_run_start = datetime.datetime.utcnow()
         try:
-            this_run_finish = (
-                self.run_once(last_run_start, this_run_start)
-                or datetime.datetime.utcnow()
-            )
-            self.cleanup()
-            timestamp.update(
-                start=this_run_start, finish=this_run_finish,
+            new_timestamp = self.run_once(last_run_start, this_run_start)
+            this_run_finish = datetime.datetime.utcnow()
+            if new_timestamp is None:
+                new_timestamp = TimestampData()
+            if new_timestamp.exception in (None, TimestampData.NO_VALUE):
+                # run_once() completed with no exceptions being raised.
+                # We can run the cleanup code.
+                self.cleanup()
+            new_timestamp.finalize(
+                service=self.service_name,
+                service_type=Timestamp.MONITOR_TYPE,
+                collection=self.collection,
+                start=this_run_start,
+                finish=this_run_finish,
                 exception=None
             )
+            new_timestamp.apply(self._db)
         except Exception, e:
             self.log.error(
                 "Error running %s monitor. Timestamp will not be updated.",
                 self.service_name, exc_info=e
             )
-            this_run_finish = datetime.datetime.utcnow()
 
-            # We will update the exception but not the start or end
-            # times. This way the Monitor remembers that it still
-            # hasn't managed to cover what happened in that first
-            # moment.
-            timestamp.exception = traceback.format_exc()
+            # We will update Timestamp.exception but not go through the
+            # whole TimestampData.apply() process, which would change
+            # the timestamp times. This way the Monitor remembers that
+            # it still hasn't managed to cover what happened in that
+            # first moment.
+            exception = traceback.format_exc()
+            self.timestamp().exception = exception
+
         self._db.commit()
 
         duration = this_run_finish - this_run_start
@@ -293,49 +308,34 @@ class SweepMonitor(CollectionMonitor):
         self.model_class = cls.MODEL_CLASS
         super(SweepMonitor, self).__init__(_db, collection=collection)
 
-    def run(self):
+    def run_once(self, *ignore):
         timestamp = self.timestamp()
         offset = timestamp.counter
         new_offset = offset
-
-        run_started_at = datetime.datetime.utcnow()
         exception = None
-        achievements = None
         while True:
             batch_started_at = time.time()
             old_offset = offset
-            try:
-                # TODO: Change process_batch to return achievement
-                # info as well as offset, and keep track of the total.
-                new_offset = self.process_batch(offset)
-            except Exception, e:
-                self.log.error("Error during run: %s", e, exc_info=e)
-                exception = traceback.format_exc()
-                break
+            new_offset = self.process_batch(offset)
+            # If an exception is raised later in the process,
+            # don't lose the progress we've already made.
+            timestamp.offset = new_offset
             self._db.commit()
 
-            if old_offset != new_offset:
-                batch_ended_at = time.time()
-                self.log.debug(
-                    "%s monitor went from offset %s to %s in %.2f sec",
-                    self.service_name, offset, new_offset,
-                    (batch_ended_at-batch_started_at)
-                )
+            batch_ended_at = time.time()
+            self.log.debug(
+                "%s monitor went from offset %s to %s in %.2f sec",
+                self.service_name, offset, new_offset,
+                (batch_ended_at-batch_started_at)
+            )
 
             offset = new_offset
             if offset == 0:
                 # We completed a sweep. We're done.
-                self.cleanup()
                 break
 
-        # We're done with this run, either because we completed
-        # a sweep or because an exception was raised.
-        run_ended_at = datetime.datetime.utcnow()
-        timestamp.update(
-            start=run_started_at, finish=run_ended_at,
-            achievements=achievements, counter=new_offset,
-            exception=exception
-        )
+        # We're done with this run.
+        return TimestampData(counter=offset)
 
     def process_batch(self, offset):
         """Process one batch of work."""

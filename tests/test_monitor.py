@@ -312,6 +312,7 @@ class MockSweepMonitor(SweepMonitor):
         self.processed.append(item)
 
     def cleanup(self):
+        set_trace()
         self.cleanup_called.append(True)
 
 
@@ -391,6 +392,7 @@ class TestSweepMonitor(DatabaseTest):
         class IHateI4(MockSweepMonitor):
             def process_item(self, item):
                 if item is i4:
+                    set_trace()
                     raise Exception("HOW DARE YOU")
                 super(IHateI4, self).process_item(item)
 
