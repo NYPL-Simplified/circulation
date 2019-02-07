@@ -541,6 +541,21 @@ class TimestampData(object):
         self.counter = counter
         self.exception = exception
 
+    @property
+    def is_failure(self):
+        """Does this TimestampData represent an unrecoverable failure?"""
+        return self.exception not in (None, self.NO_VALUE)
+
+    @property
+    def is_complete(self):
+        """Does this TimestampData represent an operation that has
+        completed?
+
+        An operation is completed if it has failed, or if the time of its
+        completion is known.
+        """
+        return self.is_failure or self.finish not in (None, self.NO_VALUE)
+
     def finalize(self, service, service_type, collection, start=NO_VALUE,
                  finish=NO_VALUE, achievements=NO_VALUE, counter=NO_VALUE,
                  exception=NO_VALUE):

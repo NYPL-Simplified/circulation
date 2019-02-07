@@ -345,7 +345,8 @@ class SweepMonitor(CollectionMonitor):
             timestamp.update(counter=new_offset, finish=batch_ended_at)
             self._db.commit()
 
-        # We're done with this run.
+        # We're done with this run. The run() method will do the final
+        # update.
         return TimestampData(counter=offset)
 
     def process_batch(self, offset):

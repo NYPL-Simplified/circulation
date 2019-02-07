@@ -24,7 +24,8 @@ from model import (
     WorkCoverageRecord,
 )
 from metadata_layer import (
-    ReplacementPolicy
+    ReplacementPolicy,
+    TimestampData,
 )
 from util.worker_pools import DatabaseJob
 
@@ -174,7 +175,21 @@ class BaseCoverageProvider(object):
         return self.OPERATION
 
     def run(self):
-        self.run_once_and_update_timestamp()
+        start = datetime.datetime.utcnow()
+        result = self.run_once_and_update_timestamp()
+        result = result or TimestampData(
+            start=start, finish=datetime.datetime.utcnow()
+        )
+        self.finalize_timestamp(result)
+        return result
+
+    @property
+    def timestamp(self):
+        # Look up the Timestamp object for this CoverageProvider
+        return Timestamp.lookup(
+            self._db, self.service_name, Timestamp.COVERAGE_PROVIDER_TYPE,
+            collection=self.collection
+        )
 
     def run_once_and_update_timestamp(self):
         # First prioritize items that have never had a coverage attempt before.
@@ -185,36 +200,67 @@ class BaseCoverageProvider(object):
             BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
         ]
         start_time = datetime.datetime.utcnow()
-        exception = None
+        timestamp = self.timestamp
+        if timestamp:
+            counter = timestamp.counter
+        else:
+            counter = 0
+
+        # We'll use this TimestampData object to track our progress
+        # as we grant coverage to items.
+        progress = TimestampData(start=start_time, counter=counter)
+
         for covered_statuses in covered_status_lists:
-            offset = 0
-            while offset is not None:
-                # TODO: change run_once to return achievement
-                # information (successfully covered records, transient
-                # errors, permanent errors).
+            # We may have completed our work for the previous value of
+            # covered_statuses, but there's more work to do. Unset the
+            # 'finish' date to guarantee that progress.is_complete
+            # starts out False.
+            progress.finish = None
+
+            # Call run_once() until we get an exception, until .finish
+            # is set, or until the run_once() call makes no progress.
+            while not progress.is_complete:
+                old_counter = progress.counter
                 try:
-                    offset = self.run_once(
-                        offset, count_as_covered=covered_statuses
+                    progress = self.run_once(
+                        progress, count_as_covered=covered_statuses
                     )
                 except Exception, e:
                     logging.error(
                         "CoverageProvider %s raised uncaught exception.",
                         self.service_name, exc_info=e
                     )
-                    exception = traceback.format_exc()
+                    progress.exception=traceback.format_exc()
+
+                # The next run_once() call might raise an exception,
+                # so let's write the work to the database as it's
+                # done.
+                self.finalize_timestamp(progress)
+
+                if progress.counter == old_counter:
+                    # run_once() did not actually make any progress.
+                    # Break out rather than calling run_once() again,
+                    # potentially creating an infinite loop.
                     break
+        return progress
 
-        self.update_timestamp(start=start_time, exception=exception)
-
-    def update_timestamp(self, **kwargs):
-        Timestamp.stamp(
-            _db=self._db, service=self.service_name,
-            service_type=Timestamp.COVERAGE_PROVIDER_TYPE,
-            collection=self.collection, **kwargs
+    def finalize_timestamp(self, timestamp):
+        timestamp.finalize(
+            self.service_name, Timestamp.COVERAGE_PROVIDER_TYPE,
+            collection=self.collection
         )
+        timestamp.apply(self._db)
         self._db.commit()
 
-    def run_once(self, offset, count_as_covered=None):
+    def run_once(self, progress, count_as_covered=None):
+        """Try to grant coverage to a number of uncovered items.
+
+        :param progress: A TimestampData representing the progress
+           made so far.
+
+        :return: A TimestampData representing whatever additional progress
+           has been made.
+        """
         count_as_covered = count_as_covered or BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
         # Make it clear which class of items we're covering on this
         # run.
@@ -223,11 +269,14 @@ class BaseCoverageProvider(object):
         qu = self.items_that_need_coverage(count_as_covered=count_as_covered)
         self.log.info("%d items need coverage%s", qu.count(),
                       count_as_covered_message)
+        offset = progress.counter
         batch = qu.limit(self.batch_size).offset(offset)
 
         if not batch.count():
             # The batch is empty. We're done.
-            return None
+            progress.finish = datetime.datetime.utcnow()
+            return progress
+
         (successes, transient_failures, persistent_failures), results = (
             self.process_batch_and_handle_results(batch)
         )
@@ -250,7 +299,8 @@ class BaseCoverageProvider(object):
             # just show up again the next time we run this batch.
             offset += persistent_failures
 
-        return offset
+        progress.counter = offset
+        return progress
 
     def process_batch_and_handle_results(self, batch):
         """:return: A 2-tuple (counts, records).

@@ -49,6 +49,7 @@ from ..metadata_layer import (
     LinkData,
     ReplacementPolicy,
     SubjectData,
+    TimestampData,
 )
 from ..s3 import MockS3Uploader
 from ..coverage import (
@@ -199,8 +200,9 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             SERVICE_NAME = "I do nothing"
             run_once_calls = []
 
-            def run_once(self, offset, count_as_covered=None):
+            def run_once(self, progress, count_as_covered=None):
                 self.run_once_calls.append(count_as_covered)
+                return progress
 
         # We start with no Timestamp.
         service_name = "I do nothing"
@@ -232,13 +234,12 @@ class TestBaseCoverageProvider(CoverageProviderTest):
              CoverageRecord.DEFAULT_COUNT_AS_COVERED], provider.run_once_calls)
 
     def test_run_once_and_update_timestamp_catches_exception(self):
-        """Test that run_once_and_update_timestamp catches an exception
-        and stores a stack trace in the CoverageProvider's Timestamp.
-        """
+        # Test that run_once_and_update_timestamp catches an exception
+        # and stores a stack trace in the CoverageProvider's Timestamp.
         class MockProvider(BaseCoverageProvider):
             SERVICE_NAME = "I fail"
 
-            def run_once(self, offset, count_as_covered=None):
+            def run_once(self, progress, count_as_covered=None):
                 raise Exception("Unhandled exception")
 
         provider = MockProvider(self._db)
@@ -299,7 +300,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # Now let's run the coverage provider. Every Identifier
         # that's covered will succeed, so the question is which ones
         # get covered.
-        provider.run_once(0)
+        provider.run_once(TimestampData(counter=0))
 
         # By default, run_once() finds Identifiers that have no coverage
         # or which have transient failures.
@@ -326,7 +327,8 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         # We can change which identifiers get processed by changing
         # what counts as 'coverage'.
-        provider.run_once(0, count_as_covered=[CoverageRecord.SUCCESS])
+        progress = TimestampData(counter=0)
+        provider.run_once(progress, count_as_covered=[CoverageRecord.SUCCESS])
 
         # That processed the persistent failure, but not the success.
         assert persistent in provider.attempts
@@ -334,7 +336,10 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         # Let's call it again and say that we are covering everything
         # _except_ persistent failures.
-        provider.run_once(0, count_as_covered=[CoverageRecord.PERSISTENT_FAILURE])
+        progress = TimestampData(counter=0)
+        provider.run_once(
+            progress, count_as_covered=[CoverageRecord.PERSISTENT_FAILURE]
+        )
 
         # That got us to cover the identifier that had already been
         # successfully covered.
