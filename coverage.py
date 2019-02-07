@@ -177,19 +177,10 @@ class BaseCoverageProvider(object):
     def run(self):
         start = datetime.datetime.utcnow()
         result = self.run_once_and_update_timestamp()
-        result = result or TimestampData(
-            start=start, finish=datetime.datetime.utcnow()
-        )
-        self.finalize_timestamp(result)
-        return result
 
-    @property
-    def timestamp(self):
-        # Look up the Timestamp object for this CoverageProvider
-        return Timestamp.lookup(
-            self._db, self.service_name, Timestamp.COVERAGE_PROVIDER_TYPE,
-            collection=self.collection
-        )
+        result = result or TimestampData()
+        self.finalize_timestampdata(result, start=start)
+        return result
 
     def run_once_and_update_timestamp(self):
         # First prioritize items that have never had a coverage attempt before.
@@ -235,7 +226,7 @@ class BaseCoverageProvider(object):
                 # The next run_once() call might raise an exception,
                 # so let's write the work to the database as it's
                 # done.
-                self.finalize_timestamp(progress)
+                self.finalize_timestampdata(progress)
 
                 if progress.counter == old_counter:
                     # run_once() did not actually make any progress.
@@ -244,10 +235,21 @@ class BaseCoverageProvider(object):
                     break
         return progress
 
-    def finalize_timestamp(self, timestamp):
+    @property
+    def timestamp(self):
+        """Look up the Timestamp object for this CoverageProvider."""
+        return Timestamp.lookup(
+            self._db, self.service_name, Timestamp.COVERAGE_PROVIDER_TYPE,
+            collection=self.collection
+        )
+
+    def finalize_timestampdata(self, timestamp, **kwargs):
+        """Finalize the given TimestampData and write it to the
+        database.
+        """
         timestamp.finalize(
             self.service_name, Timestamp.COVERAGE_PROVIDER_TYPE,
-            collection=self.collection
+            collection=self.collection, **kwargs
         )
         timestamp.apply(self._db)
         self._db.commit()

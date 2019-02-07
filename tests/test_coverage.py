@@ -186,11 +186,53 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             was_run = False
 
             def run_once_and_update_timestamp(self):
+                """Set a variable, don't return anything."""
                 self.was_run = True
 
         provider = MockProvider(self._db)
-        provider.run()
+        result = provider.run()
+
+        # run_once_and_update_timestamp() was called.
         eq_(True, provider.was_run)
+
+        # run() returned a TimestampData with basic timing information.
+        assert isinstance(result, TimestampData)
+        now = datetime.datetime.now()
+        assert result.start < result.finish
+        for time in (result.start, result.finish):
+            assert (now - time).total_seconds() < 5
+
+    def test_run_with_custom_result(self):
+
+        start = datetime.datetime(2011, 1, 1)
+        finish = datetime.datetime(2012, 1, 1)
+        counter = -100
+
+        class MockProvider(BaseCoverageProvider):
+            """A BaseCoverageProvider that returns a strange TimestampData
+            representing the work it did.
+            """
+            SERVICE_NAME = "I do nothing"
+            was_run = False
+
+            custom_timestamp_data = TimestampData(
+                start=start, finish=finish, counter=counter
+            )
+            def run_once_and_update_timestamp(self):
+                return self.custom_timestamp_data
+    
+        provider = MockProvider(self._db)
+        result = provider.run()
+
+        # The TimestampData returned by run_once_and_update_timestamp
+        # is the return value of run().
+        eq_(result, provider.custom_timestamp_data)
+
+        # The TimestampData data was written to the database, even
+        # though some of it doesn't make apparent sense.
+        eq_(start, provider.timestamp.start)
+        eq_(finish, provider.timestamp.finish)
+        eq_(counter, provider.timestamp.counter)
 
     def test_run_once_and_update_timestamp(self):
         """Test that run_once_and_update_timestamp calls run_once twice and
