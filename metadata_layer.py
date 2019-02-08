@@ -580,6 +580,8 @@ class TimestampData(object):
             if finish is self.NO_VALUE:
                 finish = datetime.datetime.utcnow()
             self.finish = finish
+        if self.start is self.NO_VALUE:
+            self.start = self.finish
         if self.counter is self.NO_VALUE:
             self.counter = counter
         if self.exception is self.NO_VALUE:

@@ -1,5 +1,6 @@
 from StringIO import StringIO
 from nose.tools import (
+    assert_raises_regexp,
     eq_,
     set_trace,
 )
@@ -14,15 +15,16 @@ from ..metadata_layer import (
     CSVMetadataImporter,
     CirculationData,
     ContributorData,
-    MeasurementData,
+    ContributorData,
     FormatData,
+    IdentifierData,
     LinkData,
     MARCExtractor,
+    MeasurementData,
     Metadata,
-    IdentifierData,
     ReplacementPolicy,
     SubjectData,
-    ContributorData,
+    TimestampData,
 )
 
 import os
@@ -38,6 +40,7 @@ from ..model import (
     Representation,
     RightsStatus,
     Subject,
+    Timestamp,
     Work,
     WorkCoverageRecord,
 )
@@ -1328,6 +1331,149 @@ class TestMetadata(DatabaseTest):
         filtered_links = sorted(metadata.links, key=lambda x:x.rel)
 
         eq_([link2, link5, link4, link3], filtered_links)
+
+
+class TestTimestampData(DatabaseTest):
+
+    def test_constructor(self):
+
+        # By default, all fields are set to NO_VALUE
+        d = TimestampData()
+        for i in (d.service, d.service_type, d.collection_id,
+                  d.start, d.finish, d.achievements, d.counter,
+                  d.exception):
+            eq_(i, d.NO_VALUE)
+
+        # Some, but not all, of the fields can be set to real values.
+        d = TimestampData(start="a", finish="b", achievements="c",
+                          counter="d", exception="e")
+        eq_("a", d.start)
+        eq_("b", d.finish)
+        eq_("c", d.achievements)
+        eq_("d", d.counter)
+        eq_("e", d.exception)
+
+    def test_is_failure(self):
+        # A TimestampData represents failure if its exception is set to
+        # any value other than None or NO_VALUE.
+        d = TimestampData()
+        eq_(False, d.is_failure)
+
+        d.exception = "oops"
+        eq_(True, d.is_failure)
+
+        d.exception = None
+        eq_(False, d.is_failure)
+
+    def test_is_complete(self):
+        # A TimestampData is complete if it represents a failure
+        # (see above) or if its .finish is set to any value other
+        # than None or NO_VALUE
+
+        d = TimestampData()
+        eq_(False, d.is_complete)
+
+        d.finish = "done!"
+        eq_(True, d.is_complete)
+
+        d.finish = None
+        eq_(False, d.is_complete)
+
+        d.exception = "oops"
+        eq_(True, d.is_complete)
+
+    def test_finalize_minimal(self):
+        # Calling finalize() with only the minimal arguments sets the
+        # timestamp values to sensible defaults and leaves everything
+        # else alone.
+
+        # This TimestampData starts out with everything set to NO_VALUE.
+        d = TimestampData()
+        d.finalize("service", "service_type", self._default_collection)
+
+        # finalize() requires values for these arguments, and sets them.
+        eq_("service", d.service)
+        eq_("service_type", d.service_type)
+        eq_(self._default_collection.id, d.collection_id)
+
+        # The timestamp values are set to sensible defaults.
+        eq_(d.start, d.finish)
+        assert (datetime.datetime.now() - d.start).total_seconds() < 2
+
+        # Other fields are still at NO_VALUE.
+        for i in d.achievements, d.counter, d.exception:
+            eq_(i, d.NO_VALUE)
+
+    def test_finalize_full(self):
+        # You can call finalize() with a complete set of arguments.
+        d = TimestampData()
+        d.finalize(
+            "service", "service_type", self._default_collection,
+            start="start", finish="finish", counter="counter",
+            exception="exception"
+        )
+        eq_("start", d.start)
+        eq_("finish", d.finish)
+        eq_("counter", d.counter)
+        eq_("exception", d.exception)
+
+        # If the TimestampData fields are already set to values other
+        # than NO_VALUE, the required fields will be overwritten but
+        # the optional fields will be left alone.
+        new_collection = self._collection()
+        d.finalize(
+            "service2", "service_type2", new_collection,
+            start="start2", finish="finish2", counter="counter2",
+            exception="exception2"
+        )
+        # These have changed.
+        eq_("service2", d.service)
+        eq_("service_type2", d.service_type)
+        eq_(new_collection.id, d.collection_id)
+
+        # These have not.
+        eq_("start", d.start)
+        eq_("finish", d.finish)
+        eq_("counter", d.counter)
+        eq_("exception", d.exception)
+
+    def test_collection(self):
+        d = TimestampData()
+        d.finalize("service", "service_type", self._default_collection)
+        eq_(self._default_collection, d.collection(self._db))
+
+    def test_apply(self):
+
+        # You can't apply a TimestampData that hasn't been finalized.
+        d = TimestampData()
+        assert_raises_regexp(
+            ValueError,
+            "Not enough information to write TimestampData to the database.",
+            d.apply, self._db
+        )
+
+        # Set the basic timestamp information. Optional fields will stay
+        # at NO_VALUE.
+        collection = self._default_collection
+        d.finalize("service", Timestamp.SCRIPT_TYPE, collection)
+        d.apply(self._db)
+        now = datetime.datetime.utcnow()
+
+        timestamp = Timestamp.lookup(
+            self._db, "service", Timestamp.SCRIPT_TYPE, collection
+        )
+        assert (now-timestamp.start).total_seconds() < 2
+        eq_(timestamp.start, timestamp.finish)
+
+        # Now set the optional fields as well.
+        d.counter = 100
+        d.achievements = "yay"
+        d.exception = "oops"
+        d.apply(self._db)
+
+        eq_(100, timestamp.counter)
+        eq_("yay", timestamp.achievements)
+        eq_("oops", timestamp.exception)
 
 
 class TestAssociateWithIdentifiersBasedOnPermanentWorkID(DatabaseTest):
