@@ -374,6 +374,16 @@ class TestAnnotationParser(AnnotationTest):
         annotation = AnnotationParser.parse(self._db, "not json", self.patron)
         eq_(INVALID_ANNOTATION_FORMAT, annotation)
 
+    def test_invalid_identifier(self):
+        # If the target source can't be parsed as a URN we send
+        # INVALID_ANNOTATION_TARGET
+        data = self._sample_jsonld()
+        data['target']['source'] = 'not a URN'
+        annotation = AnnotationParser.parse(
+            self._db, json.dumps(data), self.patron
+        )
+        eq_(INVALID_ANNOTATION_TARGET, annotation)
+
     def test_parse_expanded_jsonld(self):
         self.pool.loan_to(self.patron)
 
