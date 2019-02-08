@@ -226,9 +226,14 @@ class BaseCoverageProvider(object):
             # progress.finish is set.
             while not progress.is_complete:
                 try:
-                    progress = self.run_once(
+                    new_progress = self.run_once(
                         progress, count_as_covered=covered_statuses
                     )
+                    # run_once can either return a new
+                    # CoverageProviderTimestampData object, or modify
+                    # in-place the one it was passed.
+                    if new_progress is not None:
+                        progress = new_progress
                 except Exception, e:
                     logging.error(
                         "CoverageProvider %s raised uncaught exception.",
