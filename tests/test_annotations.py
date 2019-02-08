@@ -384,6 +384,18 @@ class TestAnnotationParser(AnnotationTest):
         )
         eq_(INVALID_ANNOTATION_TARGET, annotation)
 
+    def test_null_id(self):
+        # A JSON-LD document can have its @id set to null -- it's the
+        # same as if the @id wasn't present -- but the jsonld library
+        # can't handle this, so we need to test it specially.
+        self.pool.loan_to(self.patron)
+        data = self._sample_jsonld()
+        data['id'] = None
+        annotation = AnnotationParser.parse(
+            self._db, json.dumps(data), self.patron
+        )
+        assert isinstance(annotation, Annotation)
+
     def test_parse_expanded_jsonld(self):
         self.pool.loan_to(self.patron)
 

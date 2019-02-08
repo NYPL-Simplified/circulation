@@ -134,6 +134,8 @@ class AnnotationParser(object):
 
         try:
             data = json.loads(data)
+            if 'id' in data and data['id'] is None:
+                del data['id']
             data = jsonld.expand(data)
         except ValueError, e:
             return INVALID_ANNOTATION_FORMAT
