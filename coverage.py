@@ -82,6 +82,20 @@ class CoverageFailure(object):
         return record
 
 
+class CoverageProviderTimestampData(TimestampData):
+
+    """A TimestampData optimized for the special needs of 
+    CoverageProviders.
+    """
+    def __init__(self, *args, **kwargs):
+        super(CoverageProviderTimestampData, self).__init__(*args, **kwargs)
+
+        # The offset is distinct from the counter, in that it's not written
+        # to the database -- it's used to track state that's necessary within
+        # a single run of the CoverageProvider.
+        self.offset = 0
+
+
 class BaseCoverageProvider(object):
 
     """Run certain objects through an algorithm. If the algorithm returns
@@ -178,7 +192,7 @@ class BaseCoverageProvider(object):
         start = datetime.datetime.utcnow()
         result = self.run_once_and_update_timestamp()
 
-        result = result or TimestampData()
+        result = result or CoverageProviderTimestampData()
         self.finalize_timestampdata(result, start=start)
         return result
 
@@ -195,7 +209,7 @@ class BaseCoverageProvider(object):
 
         # We'll use this TimestampData object to track our progress
         # as we grant coverage to items.
-        progress = TimestampData(start=start_time)
+        progress = CoverageProviderTimestampData(start=start_time)
 
         for covered_statuses in covered_status_lists:
             # We may have completed our work for the previous value of
@@ -203,17 +217,17 @@ class BaseCoverageProvider(object):
             # 'finish' date to guarantee that progress.is_complete
             # starts out False.
             #
-            # Set the offset to zero to ensure that we always start
+            # Also set the offset to zero to ensure that we always start
             # at the start of the database table.
-            offset = 0
             progress.finish = None
+            progress.offset = 0
 
             # Call run_once() until we get an exception or
             # progress.finish is set.
             while not progress.is_complete:
                 try:
-                    offset, progress = self.run_once(
-                        offset, progress, count_as_covered=covered_statuses
+                    progress = self.run_once(
+                        progress, count_as_covered=covered_statuses
                     )
                 except Exception, e:
                     logging.error(
@@ -247,14 +261,15 @@ class BaseCoverageProvider(object):
         timestamp.apply(self._db)
         self._db.commit()
 
-    def run_once(self, offset, progress, count_as_covered=None):
+    def run_once(self, progress, count_as_covered=None):
         """Try to grant coverage to a number of uncovered items.
 
-        :param progress: A TimestampData representing the progress
-           made so far.
+        :param progress: A CoverageProviderTimestampData representing the
+           progress made so far, and the number of records that
+           need to be ignored for the rest of the run.
 
-        :return: A TimestampData representing whatever additional progress
-           has been made.
+        :return: A CoverageProviderTimestampData representing whatever
+           additional progress has been made.
         """
         count_as_covered = count_as_covered or BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
         # Make it clear which class of items we're covering on this
@@ -264,7 +279,7 @@ class BaseCoverageProvider(object):
         qu = self.items_that_need_coverage(count_as_covered=count_as_covered)
         self.log.info("%d items need coverage%s", qu.count(),
                       count_as_covered_message)
-        batch = qu.limit(self.batch_size).offset(offset)
+        batch = qu.limit(self.batch_size).offset(progress.offset)
 
         if not batch.count():
             # The batch is empty. We're done.
@@ -279,19 +294,19 @@ class BaseCoverageProvider(object):
             # If any successes happened in this batch, increase the
             # offset to ignore them, or they will just show up again
             # the next time we run this batch.
-            offset += successes
+            progress.offset += successes
 
         if BaseCoverageRecord.TRANSIENT_FAILURE not in count_as_covered:
             # If any transient failures happened in this batch,
             # increase the offset to ignore them, or they will
             # just show up again the next time we run this batch.
-            offset += transient_failures
+            progress.offset += transient_failures
 
         if BaseCoverageRecord.PERSISTENT_FAILURE not in count_as_covered:
             # If any persistent failures happened in this batch,
             # increase the offset to ignore them, or they will
             # just show up again the next time we run this batch.
-            offset += persistent_failures
+            progress.offset += persistent_failures
 
         return progress
 

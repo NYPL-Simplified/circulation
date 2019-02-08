@@ -49,7 +49,6 @@ from ..metadata_layer import (
     LinkData,
     ReplacementPolicy,
     SubjectData,
-    TimestampData,
 )
 from ..s3 import MockS3Uploader
 from ..coverage import (
@@ -58,6 +57,7 @@ from ..coverage import (
     CatalogCoverageProvider,
     CollectionCoverageProvider,
     CoverageFailure,
+    CoverageProviderTimestampData,
     IdentifierCoverageProvider,
     OPDSEntryWorkCoverageProvider,
     MARCRecordWorkCoverageProvider,
@@ -188,7 +188,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             def run_once_and_update_timestamp(self):
                 """Set a variable."""
                 self.was_run = True
-                return 0, None
+                return None
 
         provider = MockProvider(self._db)
         result = provider.run()
@@ -196,8 +196,10 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # run_once_and_update_timestamp() was called.
         eq_(True, provider.was_run)
 
-        # run() returned a TimestampData with basic timing information.
-        assert isinstance(result, TimestampData)
+        # run() returned a CoverageProviderTimestampData with basic
+        # timing information, since run_once_and_update_timestamp()
+        # didn't provide anything.
+        assert isinstance(result, CoverageProviderTimestampData)
         now = datetime.datetime.now()
         assert result.start < result.finish
         for time in (result.start, result.finish):
@@ -207,15 +209,16 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         start = datetime.datetime(2011, 1, 1)
         finish = datetime.datetime(2012, 1, 1)
+        counter = -100
 
         class MockProvider(BaseCoverageProvider):
-            """A BaseCoverageProvider that returns a strange TimestampData
-            representing the work it did.
+            """A BaseCoverageProvider that returns a strange
+            CoverageProviderTimestampData representing the work it did.
             """
             SERVICE_NAME = "I do nothing"
             was_run = False
 
-            custom_timestamp_data = TimestampData(
+            custom_timestamp_data = CoverageProviderTimestampData(
                 start=start, finish=finish, counter=counter
             )
             def run_once_and_update_timestamp(self):
@@ -242,9 +245,9 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             SERVICE_NAME = "I do nothing"
             run_once_calls = []
 
-            def run_once(self, offset, progress, count_as_covered=None):
+            def run_once(self, progress, count_as_covered=None):
                 self.run_once_calls.append(count_as_covered)
-                return offset, progress
+                return progress
 
         # We start with no Timestamp.
         service_name = "I do nothing"
@@ -294,9 +297,8 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         assert "Exception: Unhandled exception" in timestamp.exception
 
     def test_run_once(self):
-        """Test run_once, showing how it covers items with different types of
-        CoverageRecord.
-        """
+        # Test run_once, showing how it covers items with different types of
+        # CoverageRecord.
 
         # We start with no CoverageRecords.
         eq_([], self._db.query(CoverageRecord).all())
@@ -334,7 +336,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # Now let's run the coverage provider. Every Identifier
         # that's covered will succeed, so the question is which ones
         # get covered.
-        progress = TimestampData(counter=0)
+        progress = CoverageProviderTimestampData(counter=0)
         result = provider.run_once(progress)
 
         # The TimestampData we passed in was given back to us.
@@ -371,7 +373,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             progress, count_as_covered=[CoverageRecord.SUCCESS]
         )
         eq_(progress, result)
-        eq_(0, progress.counter)
+        eq_(0, progress.offset)
 
         # That processed the persistent failure, but not the success.
         assert persistent in provider.attempts
@@ -388,10 +390,10 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         assert covered in provider.attempts
 
         # The counter has been bumped up so that the first four
-        # results -- whose coverage records have already been
-        # processed -- won't be considered again.
+        # results -- which we've decided not to count -- won't be
+        # considered again this run.
         eq_(result, progress)
-        eq_(4, progress.counter)
+        eq_(4, progress.offset)
 
 
     def test_process_batch_and_handle_results(self):
