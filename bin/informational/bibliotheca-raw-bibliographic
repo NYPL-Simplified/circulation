@@ -23,7 +23,7 @@ class BibliothecaRawBibliographicScript(IdentifierInputScript):
         ):
             api = BibliothecaAPI(self._db, collection)
             for identifier in args.identifiers:
-                data = api.bibliographic_lookup_request(identifier)
+                data = api.bibliographic_lookup_request([identifier.identifier])
                 xml = minidom.parseString(data)
                 print xml.toprettyxml()
                 print
