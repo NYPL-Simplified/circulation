@@ -646,7 +646,10 @@ class TestCacheMARCFiles(TestLaneScript):
 class TestInstanceInitializationScript(DatabaseTest):
 
     def test_run(self):
-        timestamp = get_one(self._db, Timestamp, service=u"Database Migration")
+        timestamp = get_one(
+            self._db, Timestamp, service=u"Database Migration",
+            service_type=Timestamp.SCRIPT_TYPE
+        )
         eq_(None, timestamp)
 
         # Remove all secret keys, should they exist, before running the
@@ -659,7 +662,10 @@ class TestInstanceInitializationScript(DatabaseTest):
         script.do_run(ignore_search=True)
 
         # It initializes the database.
-        timestamp = get_one(self._db, Timestamp, service=u"Database Migration")
+        timestamp = get_one(
+            self._db, Timestamp, service=u"Database Migration",
+            service_type=Timestamp.SCRIPT_TYPE
+        )
         assert timestamp
 
         # It creates a secret key.
@@ -874,6 +880,10 @@ class TestDirectoryImportScript(DatabaseTest):
          (coll1, o2, policy2, c2, e2, r2)] = script.work_from_metadata_calls
         for policy in policy1, policy2:
             eq_(mirror, policy.mirror)
+
+        # timestamp_collection has been set to the Collection that will be
+        # used when a Timestamp is created for this script.
+        eq_(self._default_collection, script.timestamp_collection)
 
     def test_load_collection_no_site_wide_mirror(self):
         # Calling load_collection creates a new collection with

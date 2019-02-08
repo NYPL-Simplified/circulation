@@ -325,6 +325,46 @@ class TestAxis360API(Axis360Test):
         params = request[-1]['params']
         eq_('notifications@example.com', params['email'])
 
+    def test_fulfill(self):
+        # Test our ability to fulfill an Axis 360 title.
+        edition, pool = self._edition(
+            identifier_type=Identifier.AXIS_360_ID,
+            identifier_id='0015176429',
+            data_source_name=DataSource.AXIS_360,
+            with_license_pool=True
+        )
+
+        patron = self._patron()
+        patron.authorization_identifier = "a barcode"
+
+        def fulfill():
+            return self.api.fulfill(
+                patron, "pin", licensepool=pool,
+                internal_format='irrelevant'
+            )
+
+        # If Axis 360 says a patron does not have a title checked out,
+        # an attempt to fulfill that title will fail with NoActiveLoan.
+        data = self.sample_data("availability_with_audiobook_fulfillment.xml")
+        self.api.queue_response(200, content=data)
+        assert_raises(NoActiveLoan, fulfill)
+
+        # If the title is checked out and Axis provides fulfillment information,
+        # that information becomes a FulfillmentInfo object.
+        data = self.sample_data("availability_with_loan_and_hold.xml")
+        self.api.queue_response(200, content=data)
+        fulfillment = fulfill()
+        assert isinstance(fulfillment, FulfillmentInfo)
+        eq_("http://fulfillment/", fulfillment.content_link)
+
+        # If the title is checked out but Axis provides no fulfillment
+        # info, the exception is CannotFulfill.
+        pool.identifier.identifier = '0015176429'
+        data = self.sample_data("availability_without_fulfillment.xml")
+        self.api.queue_response(200, content=data)
+        assert_raises(CannotFulfill, fulfill)
+
+
     def test_patron_activity(self):
         """Test the method that locates all current activity
         for a patron.

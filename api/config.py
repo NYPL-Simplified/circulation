@@ -79,6 +79,8 @@ class Configuration(CoreConfiguration):
 
     LANGUAGE_DESCRIPTION = _('Each value must be an <a href="https://www.loc.gov/standards/iso639-2/php/code_list.php" target="_blank">ISO-639-2</a> language code.')
 
+    HIDDEN_CONTENT_TYPES = "hidden_content_types"
+
     # The color scheme for native mobile applications to use for this library.
     COLOR_SCHEME = "color_scheme"
     DEFAULT_COLOR_SCHEME = "blue"
@@ -156,6 +158,8 @@ class Configuration(CoreConfiguration):
             "label": _("URL of the web catalog for patrons"),
             "required": True,
             "format": "url",
+            "allowed": ["*"],
+            "description": _("You can set this to '*' in development, but you must use a real URL in production in order to prevent unauthorized CORS requests.")
         },
         {
             "key": STATIC_FILE_CACHE_TIME,
@@ -275,6 +279,13 @@ class Configuration(CoreConfiguration):
             "label": _("Logo image"),
             "type": "image",
             "description": _("The image must be in GIF, PNG, or JPG format, approximately square, no larger than 135x135 pixels, and look good on a white background."),
+            "category": "Client Interface Customization",
+        },
+        {
+            "key": HIDDEN_CONTENT_TYPES,
+            "label": _("Hidden content types"),
+            "type": "text",
+            "description": _('A list of content types to hide from all clients, e.g. <code>["application/pdf"]</code>. This can be left blank except to solve specific problems.'),
             "category": "Client Interface Customization",
         },
         {

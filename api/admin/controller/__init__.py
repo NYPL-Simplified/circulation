@@ -1810,6 +1810,22 @@ class LanesController(AdminCirculationManagerController):
         create_default_lanes(self._db, flask.request.library)
         return Response(unicode(_("Success")), 200)
 
+    def change_order(self):
+        self.require_library_manager(flask.request.library)
+
+        submitted_lanes = json.loads(flask.request.data)
+
+        def update_lane_order(lanes):
+            for index, lane_data in enumerate(lanes):
+                lane_id = lane_data.get("id")
+                lane = self._db.query(Lane).filter(Lane.id==lane_id).one()
+                lane.priority = index
+                update_lane_order(lane_data.get("sublanes", []))
+
+        update_lane_order(submitted_lanes)
+
+        return Response(unicode(_("Success")), 200)
+
 
 class DashboardController(AdminCirculationManagerController):
 
@@ -2492,6 +2508,11 @@ class SettingsController(AdminCirculationManagerController):
             if error:
                 return error
 
+    def _value(self, field):
+        # Extract the user's input for this field. If this is a sitewide setting,
+        # then the input needs to be accessed via "value" rather than via the setting's key.
+        return flask.request.form.get(field.get("key")) or flask.request.form.get("value")
+
     def validate_email(self, settings):
         """Find any email addresses that the user has submitted, and make sure that
         they are in a valid format.
@@ -2502,9 +2523,9 @@ class SettingsController(AdminCirculationManagerController):
         # to validate.
         if isinstance(settings, (list,)):
             # Find the fields that have to do with email addresses and are not blank
-            email_fields = filter(lambda s: s.get("format") == "email" and flask.request.form.get(s.get("key")), settings)
+            email_fields = filter(lambda s: s.get("format") == "email" and self._value(s), settings)
             # Narrow the email-related fields down to the ones for which the user actually entered a value
-            email_inputs = [flask.request.form.get(field.get("key")) for field in email_fields]
+            email_inputs = [self._value(field) for field in email_fields]
             # Now check that each email input is in a valid format
         else:
         # If the IndividualAdminSettingsController is calling this method, then we already have the
@@ -2523,30 +2544,25 @@ class SettingsController(AdminCirculationManagerController):
         """Find any URLs that the user has submitted, and make sure that
         they are in a valid format."""
         # Find the fields that have to do with URLs and are not blank.
-        # If this is a sitewide setting, then the user input needs to be accessed
-        # via "value" rather than via the setting's key.
-        url_fields = filter(lambda s: s.get("format") == "url" and
-                            (flask.request.form.get(s.get("key")) or flask.request.form.get("value"))
-                            , settings)
-        # Narrow the URL-related fields down to the ones for which the user actually entered a value
-        url_inputs = [(flask.request.form.get(field.get("key")) or flask.request.form.get("value")) for field in url_fields]
+        url_fields = filter(lambda s: s.get("format") == "url" and self._value(s), settings)
 
-        for url in url_inputs:
-            if not self._is_url(url):
+        for field in url_fields:
+            url = self._value(field)
+            # In a few special cases, we want to allow a value that isn't a normal URL;
+            # for example, the patron web client URL can be set to "*".
+            allowed = field.get("allowed") or []
+            if not self._is_url(url, allowed):
                 return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=url))
 
-    def _is_url(self, url):
-        return any([url.startswith(protocol + "://") for protocol in "http", "https"])
+    def _is_url(self, url, allowed):
+        has_protocol = any([url.startswith(protocol + "://") for protocol in "http", "https"])
+        return has_protocol or (url in allowed)
 
     def validate_number(self, settings):
         """Find any numbers that the user has submitted, and make sure that they are 1) actually numbers,
         2) positive, and 3) lower than the specified maximum, if there is one."""
         # Find the fields that should have numeric input and are not blank.
-        number_fields = filter(
-                            lambda s: s.get("type") == "number" and
-                            (flask.request.form.get(s.get("key")) or flask.request.form.get("value"))
-                            , settings
-                        )
+        number_fields = filter(lambda s: s.get("type") == "number" and self._value(s), settings)
         for field in number_fields:
             if self._number_error(field):
                 return self._number_error(field)
@@ -2568,16 +2584,11 @@ class SettingsController(AdminCirculationManagerController):
 
     def validate_language_code(self, settings):
         # Find the fields that should contain language codes and are not blank.
-        language_fields = filter(lambda s: s.get("format") == "language-code" and
-                            (flask.request.form.get(s.get("key")))
-                            , settings)
-        # Get the language codes that the user entered; this produces a nested list.
-        language_inputs = [flask.request.form.getlist(field.get("key")) for field in language_fields]
-        # Flatten the nested list of language codes so that it can be iterated over.
-        flattened_list = [language for list in language_inputs for language in list]
-
-        for language in flattened_list:
-            if language and not self._is_language(language):
+        language_fields = filter(lambda s: s.get("format") == "language-code" and self._value(s), settings)
+        # Get the language codes that the user entered.
+        language_inputs = [self._value(field) for field in language_fields]
+        for language in language_inputs:
+            if not self._is_language(language):
                 return UNKNOWN_LANGUAGE.detailed(_('"%(language)s" is not a valid language code.', language=language))
 
     def _is_language(self, language):

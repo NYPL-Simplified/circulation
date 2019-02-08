@@ -244,6 +244,8 @@ class CirculationManager(object):
         patron_web_domains = set()
 
         def get_domain(url):
+            if url == "*":
+                return url
             scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(url)
             return scheme + "://" + netloc
 
@@ -1148,7 +1150,7 @@ class LoanController(CirculationManagerController):
             return problem_doc
         return best, mechanism
 
-    def fulfill(self, license_pool_id, mechanism_id=None, do_get=None):
+    def fulfill(self, license_pool_id, mechanism_id=None, part=None, do_get=None):
         """Fulfill a book that has already been checked out,
         or which can be fulfilled with no active loan.
 
@@ -1156,6 +1158,13 @@ class LoanController(CirculationManagerController):
         of the book, a key (such as a DRM license file or bearer
         token) which can be used to get the book, or an OPDS entry
         containing a link to the book.
+
+        :param license_pool_id: Database ID of a LicensePool.
+        :param mechanism_id: Database ID of a DeliveryMechanism.
+
+        :param part: Vendor-specific identifier used when fulfilling a
+           specific part of a book rather than the whole thing (e.g. a
+           single chapter of an audiobook).
         """
         do_get = do_get or Representation.simple_http_get
 
@@ -1227,9 +1236,19 @@ class LoanController(CirculationManagerController):
                     _("You must specify a delivery mechanism to fulfill this loan.")
                 )
 
+        # Define a function that, given a part identifier, will create
+        # an appropriate link to this controller.
+        def fulfill_part_url(part):
+            return url_for(
+                "fulfill", license_pool_id=requested_license_pool.id,
+                mechanism_id=mechanism.delivery_mechanism.id,
+                part=unicode(part), _external=True
+            )
+
         try:
             fulfillment = self.circulation.fulfill(
-                patron, credential, requested_license_pool, mechanism
+                patron, credential, requested_license_pool, mechanism,
+                part=part, fulfill_part_url=fulfill_part_url
             )
         except DeliveryMechanismConflict, e:
             return DELIVERY_CONFLICT.detailed(e.message)

@@ -414,9 +414,16 @@ class BibliothecaAPI(BaseCirculationAPI, HasSelfTests):
         )
         return loan
 
-    def fulfill(self, patron, password, pool, internal_delivery):
+    def fulfill(self, patron, password, pool, internal_format, **kwargs):
+        """Get the actual resource file to the patron.
+
+        :param kwargs: A container for standard arguments to fulfill()
+           which are not relevant to this implementation.
+
+        :return: a FulfillmentInfo object.
+        """
         media_type, drm_scheme = self.internal_format_to_delivery_mechanism.get(
-            internal_delivery, internal_delivery
+            internal_format, internal_format
         )
         if drm_scheme == DeliveryMechanism.FINDAWAY_DRM:
             fulfill_method = self.get_audio_fulfillment_file
@@ -1268,7 +1275,14 @@ class BibliothecaEventMonitor(CollectionMonitor):
 
         The command line date argument should have the format YYYY-MM-DD.
         """
-        initialized = get_one(_db, Timestamp, service=self.service_name)
+
+        # We don't use Monitor.timestamp() because that will create
+        # the timestamp if it doesn't exist -- we want to see whether
+        # or not it exists.
+        initialized = get_one(
+            _db, Timestamp, service=self.service_name,
+            service_type=Timestamp.MONITOR_TYPE
+        )
         default_start_time = datetime.utcnow() - self.DEFAULT_START_TIME
 
         if cli_date:

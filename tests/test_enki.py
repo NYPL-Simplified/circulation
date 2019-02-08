@@ -24,7 +24,6 @@ from core.model import (
     Representation,
     Resource,
     Subject,
-    Timestamp,
     Work,
 )
 from . import DatabaseTest

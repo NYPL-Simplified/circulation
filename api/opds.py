@@ -60,7 +60,7 @@ class CirculationManagerAnnotator(Annotator):
 
     def __init__(self, lane,
                  active_loans_by_work={}, active_holds_by_work={},
-                 active_fulfillments_by_work={},
+                 active_fulfillments_by_work={}, hidden_content_types=[],
                  test_mode=False):
         if lane:
             logger_name = "Circulation Manager Annotator for %s" % lane.display_name
@@ -71,6 +71,7 @@ class CirculationManagerAnnotator(Annotator):
         self.active_loans_by_work = active_loans_by_work
         self.active_holds_by_work = active_holds_by_work
         self.active_fulfillments_by_work = active_fulfillments_by_work
+        self.hidden_content_types = hidden_content_types
         self.test_mode = test_mode
 
     def _lane_identifier(self, lane):
@@ -158,6 +159,20 @@ class CirculationManagerAnnotator(Annotator):
             return super(
                 CirculationManagerAnnotator, self).active_licensepool_for(work)
 
+    def visible_delivery_mechanisms(self, licensepool):
+        """Filter the given `licensepool`'s LicensePoolDeliveryMechanisms
+        to those with content types that are not hidden.
+        """
+        hidden = self.hidden_content_types
+        for lpdm in licensepool.delivery_mechanisms:
+            mechanism = lpdm.delivery_mechanism
+            if not mechanism:
+                # This shouldn't happen, but just in case.
+                continue
+            if mechanism.content_type in hidden:
+                continue
+            yield lpdm
+
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry, updated=None):
         super(CirculationManagerAnnotator, self).annotate_work_entry(
             work, active_license_pool, edition, identifier, feed, entry, updated
@@ -229,7 +244,9 @@ class CirculationManagerAnnotator(Annotator):
                 # The ebook distributor requires that the delivery
                 # mechanism be set at the point of checkout. This means
                 # a separate borrow link for each mechanism.
-                for mechanism in active_license_pool.delivery_mechanisms:
+                for mechanism in self.visible_delivery_mechanisms(
+                        active_license_pool
+                ):
                     borrow_links.append(
                         self.borrow_link(
                             active_license_pool,
@@ -254,12 +271,11 @@ class CirculationManagerAnnotator(Annotator):
 
             # Generate the licensing tags that tell you whether the book
             # is available.
-            license_tags = feed.license_tags(
-                active_license_pool, active_loan, active_hold
-            )
             for link in borrow_links:
                 if link:
-                    for t in license_tags:
+                    for t in feed.license_tags(
+                        active_license_pool, active_loan, active_hold
+                    ):
                         link.append(t)
 
         # Add links for fulfilling an active loan.
@@ -279,7 +295,12 @@ class CirculationManagerAnnotator(Annotator):
                 # set. There is one link for the delivery mechanism
                 # that was locked in, and links for any streaming
                 # delivery mechanisms.
+                #
+                # Since the delivery mechanism has already been locked in,
+                # we choose not to use visible_delivery_mechanisms --
+                # they already chose it and they're stuck with it.
                 for lpdm in active_license_pool.delivery_mechanisms:
+
                     if lpdm is active_loan.fulfillment or lpdm.delivery_mechanism.is_streaming:
                         fulfill_links.append(
                             self.fulfill_link(
@@ -290,9 +311,11 @@ class CirculationManagerAnnotator(Annotator):
                         )
             else:
                 # The delivery mechanism for this loan has not been
-                # set. There is one fulfill link for every delivery
-                # mechanism.
-                for lpdm in active_license_pool.delivery_mechanisms:
+                # set. There is one fulfill link for every visible
+                # delivery mechanism.
+                for lpdm in self.visible_delivery_mechanisms(
+                        active_license_pool
+                ):
                     fulfill_links.append(
                         self.fulfill_link(
                             active_license_pool,
@@ -425,10 +448,13 @@ class LibraryAnnotator(CirculationManagerAnnotator):
           added, for direct acquisition of titles that would normally
           require a loan.
         """
-        super(LibraryAnnotator, self).__init__(lane, active_loans_by_work=active_loans_by_work,
-                                               active_holds_by_work=active_holds_by_work,
-                                               active_fulfillments_by_work=active_fulfillments_by_work,
-                                               test_mode=test_mode)
+        super(LibraryAnnotator, self).__init__(
+            lane, active_loans_by_work=active_loans_by_work,
+            active_holds_by_work=active_holds_by_work,
+            active_fulfillments_by_work=active_fulfillments_by_work,
+            hidden_content_types=self._hidden_content_types(library),
+            test_mode=test_mode
+        )
         self.circulation = circulation
         self.library = library
         self.patron = patron
@@ -438,6 +464,30 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         self._top_level_title = top_level_title
         self.identifies_patrons = library_identifies_patrons
         self.facets = facets or None
+
+    @classmethod
+    def _hidden_content_types(self, library):
+        """Find all content types which this library should not be
+        presenting to patrons.
+
+        This is stored as a per-library setting.
+        """
+        if not library:
+            # This shouldn't happen, but we shouldn't crash if it does.
+            return []
+        setting = library.setting(Configuration.HIDDEN_CONTENT_TYPES)
+        if not setting or not setting.value:
+            return []
+        try:
+            hidden_types = setting.json_value
+        except ValueError:
+            hidden_types = setting.value
+        hidden_types = hidden_types or []
+        if isinstance(hidden_types, basestring):
+            hidden_types = [hidden_types]
+        elif not isinstance(hidden_types, list):
+            hidden_types = list(hidden_types)
+        return hidden_types
 
     def top_level_title(self):
         return self._top_level_title
@@ -835,11 +885,40 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                 d['type'] = type
             _add_link(d)
 
-    def acquisition_links(self, active_license_pool, active_loan, active_hold, active_fulfillment,
-                          feed, identifier, direct_fulfillment_delivery_mechanisms=None):
+    def acquisition_links(
+            self, active_license_pool, active_loan, active_hold,
+            active_fulfillment, feed, identifier,
+            direct_fulfillment_delivery_mechanisms=None, mock_api=None
+    ):
+        """Generate one or more <link> tags that can be used to borrow,
+        reserve, or fulfill a book, depending on the state of the book
+        and the current patron.
+
+        :param active_license_pool: The LicensePool for which we're trying to
+           generate <link> tags.
+        :param active_loan: A Loan object representing the current patron's
+           existing loan for this title, if any.
+        :param active_hold: A Hold object representing the current patron's
+           existing hold on this title, if any.
+        :param active_fulfillment: A LicensePoolDeliveryMechanism object
+           representing the mechanism, if any, which the patron has chosen
+           to fulfill this work.
+        :param feed: The OPDSFeed that will eventually contain these <link>
+           tags.
+        :param identifier: The Identifier of the title for which we're
+           trying to generate <link> tags.
+        :param direct_fulfillment_delivery_mechanisms: A list of
+           LicensePoolDeliveryMechanisms for the given LicensePool
+           that should have fulfillment-type <link> tags generated for
+           them, even if this method wouldn't normally think that
+           makes sense.
+        :param mock_api: A mock object to stand in for the API to the
+           vendor who provided this LicensePool. If this is not provided, a
+           live API for that vendor will be used.
+        """
         direct_fulfillment_delivery_mechanisms = direct_fulfillment_delivery_mechanisms or []
-        api = None
-        if self.circulation and active_license_pool:
+        api = mock_api
+        if not api and self.circulation and active_license_pool:
             api = self.circulation.api_for_license_pool(active_license_pool)
         if api:
             set_mechanism_at_borrow = (

@@ -126,6 +126,9 @@ class CannotReleaseHold(CirculationException):
 class CannotFulfill(CirculationException):
     status_code = 500
 
+class CannotPartiallyFulfill(CannotFulfill):
+    status_code = 400
+
 class FormatNotAvailable(CannotFulfill):
     """Our format information for this book was outdated, and it's
     no longer available in the requested format."""
