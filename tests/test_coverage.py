@@ -57,7 +57,7 @@ from ..coverage import (
     CatalogCoverageProvider,
     CollectionCoverageProvider,
     CoverageFailure,
-    CoverageProviderTimestampData,
+    CoverageProviderProgress,
     IdentifierCoverageProvider,
     OPDSEntryWorkCoverageProvider,
     MARCRecordWorkCoverageProvider,
@@ -196,10 +196,10 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # run_once_and_update_timestamp() was called.
         eq_(True, provider.was_run)
 
-        # run() returned a CoverageProviderTimestampData with basic
+        # run() returned a CoverageProviderProgress with basic
         # timing information, since run_once_and_update_timestamp()
         # didn't provide anything.
-        assert isinstance(result, CoverageProviderTimestampData)
+        assert isinstance(result, CoverageProviderProgress)
         now = datetime.datetime.now()
         assert result.start < result.finish
         for time in (result.start, result.finish):
@@ -213,12 +213,12 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         class MockProvider(BaseCoverageProvider):
             """A BaseCoverageProvider that returns a strange
-            CoverageProviderTimestampData representing the work it did.
+            CoverageProviderProgress representing the work it did.
             """
             SERVICE_NAME = "I do nothing"
             was_run = False
 
-            custom_timestamp_data = CoverageProviderTimestampData(
+            custom_timestamp_data = CoverageProviderProgress(
                 start=start, finish=finish, counter=counter
             )
             def run_once_and_update_timestamp(self):
@@ -379,7 +379,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # Now let's run the coverage provider. Every Identifier
         # that's covered will succeed, so the question is which ones
         # get covered.
-        progress = CoverageProviderTimestampData()
+        progress = CoverageProviderProgress()
         eq_(0, progress.offset)
         result = provider.run_once(progress)
 
@@ -387,7 +387,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         eq_(progress, result)
 
         # The offset (an extension specific to
-        # CoverageProviderTimestampData, not stored in the database)
+        # CoverageProviderProgress, not stored in the database)
         # has not changed -- if we were to call run_once again we
         # would not need to skip any records.
         eq_(0, progress.offset)

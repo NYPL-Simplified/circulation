@@ -45,7 +45,7 @@ from app_server import ComplaintController
 from config import Configuration, CannotLoadConfiguration
 from coverage import (
     CollectionCoverageProviderJob,
-    CoverageProviderTimestampData,
+    CoverageProviderProgress,
 )
 from lane import Lane
 from metadata_layer import (
@@ -458,7 +458,7 @@ class RunThreadedCollectionCoverageProviderScript(Script):
                 # value as its complets. It woudl be better if all the
                 # jobs could share a single 'progress' object.
                 while offset < query_size:
-                    progress = CoverageProviderTimestampData(
+                    progress = CoverageProviderProgress(
                         start=datetime.datetime.utcnow()
                     )
                     progress.offset = offset

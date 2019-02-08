@@ -82,13 +82,13 @@ class CoverageFailure(object):
         return record
 
 
-class CoverageProviderTimestampData(TimestampData):
+class CoverageProviderProgress(TimestampData):
 
     """A TimestampData optimized for the special needs of 
     CoverageProviders.
     """
     def __init__(self, *args, **kwargs):
-        super(CoverageProviderTimestampData, self).__init__(*args, **kwargs)
+        super(CoverageProviderProgress, self).__init__(*args, **kwargs)
 
         # The offset is distinct from the counter, in that it's not written
         # to the database -- it's used to track state that's necessary within
@@ -192,7 +192,7 @@ class BaseCoverageProvider(object):
         start = datetime.datetime.utcnow()
         result = self.run_once_and_update_timestamp()
 
-        result = result or CoverageProviderTimestampData()
+        result = result or CoverageProviderProgress()
         self.finalize_timestampdata(result, start=start)
         return result
 
@@ -209,7 +209,7 @@ class BaseCoverageProvider(object):
 
         # We'll use this TimestampData object to track our progress
         # as we grant coverage to items.
-        progress = CoverageProviderTimestampData(start=start_time)
+        progress = CoverageProviderProgress(start=start_time)
 
         for covered_statuses in covered_status_lists:
             # We may have completed our work for the previous value of
@@ -230,7 +230,7 @@ class BaseCoverageProvider(object):
                         progress, count_as_covered=covered_statuses
                     )
                     # run_once can either return a new
-                    # CoverageProviderTimestampData object, or modify
+                    # CoverageProviderProgress object, or modify
                     # in-place the one it was passed.
                     if new_progress is not None:
                         progress = new_progress
@@ -277,14 +277,14 @@ class BaseCoverageProvider(object):
         If you don't do any of these things, run() will assume you still
         have work to do, and will keep calling run_once() forever.
 
-        :param progress: A CoverageProviderTimestampData representing the
+        :param progress: A CoverageProviderProgress representing the
            progress made so far, and the number of records that
            need to be ignored for the rest of the run.
 
         :param count_as_covered: Which values for CoverageRecord.status
            should count as meaning 'already covered'.
 
-        :return: A CoverageProviderTimestampData representing whatever
+        :return: A CoverageProviderProgress representing whatever
            additional progress has been made.
         """
         count_as_covered = count_as_covered or BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
