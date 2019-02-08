@@ -246,7 +246,16 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             run_once_calls = []
 
             def run_once(self, progress, count_as_covered=None):
-                self.run_once_calls.append(count_as_covered)
+                now = datetime.datetime.utcnow()
+                self.run_once_calls.append((count_as_covered, now))
+
+                # Verify that progress.finish and progress.offset are
+                # cleared before every run_once() call.
+                eq_(None, progress.finish)
+                eq_(0, progress.offset)
+
+                progress.finish = now
+                progress.offset = len(self.run_once_calls)
                 return progress
 
         # We start with no Timestamp.
@@ -259,7 +268,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # Instantiate the Provider, and call
         # run_once_and_update_timestamp.
         provider = MockProvider(self._db)
-        provider.run_once_and_update_timestamp()
+        final_progress = provider.run_once_and_update_timestamp()
 
         # The Timestamp's .start and .finish are now set to recent
         # values -- the start and end points of run_once().
@@ -273,8 +282,18 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # any coverage record whatsoever (PREVIOUSLY_ATTEMPTED), and again to
         # exclude only items that have coverage records that indicate
         # success or persistent failure (DEFAULT_COUNT_AS_COVERED).
-        eq_([CoverageRecord.PREVIOUSLY_ATTEMPTED,
-             CoverageRecord.DEFAULT_COUNT_AS_COVERED], provider.run_once_calls)
+        first_call, second_call = provider.run_once_calls
+        eq_(CoverageRecord.PREVIOUSLY_ATTEMPTED, first_call[0])
+        eq_(CoverageRecord.DEFAULT_COUNT_AS_COVERED, second_call[0])
+
+        # On both calls, final_progress.finish was set to the current time
+        # and offset was set to the number of calls so far.
+        # 
+        # These values are cleared out before each run_once() call
+        # -- we tested that above -- so the surviving values are the
+        # ones associated with the second call.
+        eq_(second_call[1], final_progress.finish)
+        eq_(2, final_progress.offset)
 
     def test_run_once_and_update_timestamp_catches_exception(self):
         # Test that run_once_and_update_timestamp catches an exception

@@ -264,9 +264,20 @@ class BaseCoverageProvider(object):
     def run_once(self, progress, count_as_covered=None):
         """Try to grant coverage to a number of uncovered items.
 
+        NOTE: If you override this method, it's very important that
+        your implementation eventually do one of the following:
+            * Set progress.finish
+            * Set progress.exception
+            * Raise an exception
+        If you don't do any of these things, run() will assume you still
+        have work to do, and will keep calling run_once() forever.
+
         :param progress: A CoverageProviderTimestampData representing the
            progress made so far, and the number of records that
            need to be ignored for the rest of the run.
+
+        :param count_as_covered: Which values for CoverageRecord.status
+           should count as meaning 'already covered'.
 
         :return: A CoverageProviderTimestampData representing whatever
            additional progress has been made.
