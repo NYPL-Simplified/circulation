@@ -43,7 +43,10 @@ from sqlalchemy.orm import Session
 from app_server import ComplaintController
 # from axis import Axis360BibliographicCoverageProvider
 from config import Configuration, CannotLoadConfiguration
-from coverage import CollectionCoverageProviderJob
+from coverage import (
+    CollectionCoverageProviderJob,
+    CoverageProviderTimestampData,
+)
 from lane import Lane
 from metadata_layer import (
     LinkData,
@@ -450,16 +453,21 @@ class RunThreadedCollectionCoverageProviderScript(Script):
                 self._db.commit()
 
                 offset = 0
+                # TODO: We create a separate 'progress' object
+                # for each job, and each will overwrite the timestamp
+                # value as its complets. It woudl be better if all the
+                # jobs could share a single 'progress' object.
                 while offset < query_size:
+                    progress = CoverageProviderTimestampData(
+                        start=datetime.datetime.utcnow()
+                    )
+                    progress.offset = offset
                     job = CollectionCoverageProviderJob(
-                        collection, self.provider_class, offset,
+                        collection, self.provider_class, progress,
                         **self.provider_kwargs
                     )
                     job_queue.put(job)
                     offset += batch_size
-
-            # Now that all the work is done, update the timestamp.
-            provider.update_timestamp()
 
     def get_query_and_batch_sizes(self, provider):
         qu = provider.items_that_need_coverage(

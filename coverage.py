@@ -1270,18 +1270,19 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
 
 class CollectionCoverageProviderJob(DatabaseJob):
 
-    def __init__(self, collection, provider_class, item_offset,
+    def __init__(self, collection, provider_class, progress,
         **provider_kwargs
     ):
         self.collection = collection
-        self.offset = item_offset
+        self.progress = progress
         self.provider_class = provider_class
         self.provider_kwargs = provider_kwargs
 
     def run(self, _db, **kwargs):
         collection = _db.merge(self.collection)
         provider = self.provider_class(collection, **self.provider_kwargs)
-        provider.run_once(self.offset)
+        provider.run_once(self.progress)
+        provider.finalize_timestampdata(self.progress)
 
 
 class CatalogCoverageProvider(CollectionCoverageProvider):
