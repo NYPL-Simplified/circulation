@@ -642,6 +642,26 @@ class TestCacheMARCFiles(TestLaneScript):
         assert exporter.called_with[1][2] < yesterday
         assert exporter.called_with[1][2] > last_week
 
+        # The update frequency can also be 0, in which case it will always run.
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, MARCExporter.UPDATE_FREQUENCY, self._default_library,
+            integration).value = 0
+        exporter.called_with = []
+        script = CacheMARCFiles(self._db)
+        script.process_lane(lane, exporter)
+
+        eq_(2, len(exporter.called_with))
+
+        eq_(lane, exporter.called_with[0][0])
+        assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
+        eq_(None, exporter.called_with[0][2])
+
+        eq_(lane, exporter.called_with[1][0])
+        assert isinstance(exporter.called_with[1][1], MARCLibraryAnnotator)
+        assert exporter.called_with[1][2] < yesterday
+        assert exporter.called_with[1][2] > last_week
+
+
 
 class TestInstanceInitializationScript(DatabaseTest):
 
