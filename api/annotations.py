@@ -134,6 +134,8 @@ class AnnotationParser(object):
 
         try:
             data = json.loads(data)
+            if 'id' in data and data['id'] is None:
+                del data['id']
             data = jsonld.expand(data)
         except ValueError, e:
             return INVALID_ANNOTATION_FORMAT
@@ -153,7 +155,10 @@ class AnnotationParser(object):
             return INVALID_ANNOTATION_TARGET
         source = source[0].get('@id')
 
-        identifier, ignore = Identifier.parse_urn(_db, source)
+        try:
+            identifier, ignore = Identifier.parse_urn(_db, source)
+        except ValueError, e:
+            return INVALID_ANNOTATION_TARGET
 
         motivation = data.get("http://www.w3.org/ns/oa#motivatedBy")
         if not motivation or not len(motivation) == 1:
