@@ -22,10 +22,12 @@ from ..model import (
     ExternalIntegration,
     Hyperlink,
     Representation,
+    create,
 )
 from ..s3 import (
     S3Uploader,
     MockS3Client,
+    MultipartS3Upload,
 )
 from ..mirror import MirrorUploader
 from ..config import CannotLoadConfiguration
@@ -377,3 +379,127 @@ class TestS3Uploader(S3UploaderTest):
         eq_(Representation.SVG_MEDIA_TYPE, args['ContentType'])
         assert 'svg' in data
         assert 'PNG' not in data
+
+    def test_multipart_upload(self):
+        class MockMultipartS3Upload(MultipartS3Upload):
+            completed = None
+            aborted = None
+
+            def __init__(self, uploader, representation, mirror_to):
+                self.parts = []
+                MockMultipartS3Upload.completed = False
+                MockMultipartS3Upload.aborted = False
+
+            def upload_part(self, content):
+                self.parts.append(content)
+
+            def complete(self):
+                MockMultipartS3Upload.completed = True
+
+            def abort(self):
+                MockMultipartS3Upload.aborted = True
+
+        rep, ignore = create(
+            self._db, Representation, url="http://books.mrc",
+            media_type=Representation.MARC_MEDIA_TYPE)
+                                        
+
+        s3 = self._uploader(MockS3Client)
+
+        # Successful upload
+        with s3.multipart_upload(rep, rep.url, upload_class=MockMultipartS3Upload) as upload:
+            eq_([], upload.parts)
+            eq_(False, upload.completed)
+            eq_(False, upload.aborted)
+
+            upload.upload_part("Part 1")
+            upload.upload_part("Part 2")
+
+            eq_(["Part 1", "Part 2"], upload.parts)
+
+        eq_(True, MockMultipartS3Upload.completed)
+        eq_(False, MockMultipartS3Upload.aborted)
+        eq_(None, rep.mirror_exception)
+
+        class FailingMultipartS3Upload(MockMultipartS3Upload):
+            def upload_part(self, content):
+                raise Exception("Error!")
+
+        # Failed during upload
+        with s3.multipart_upload(rep, rep.url, upload_class=FailingMultipartS3Upload) as upload:
+            upload.upload_part("Part 1")
+
+        eq_(False, MockMultipartS3Upload.completed)
+        eq_(True, MockMultipartS3Upload.aborted)
+        eq_("Error!", rep.mirror_exception)
+
+        class AnotherFailingMultipartS3Upload(MockMultipartS3Upload):
+            def complete(self):
+                raise Exception("Error!")
+
+        rep.mirror_exception = None
+        # Failed during completion
+        with s3.multipart_upload(rep, rep.url, upload_class=AnotherFailingMultipartS3Upload) as upload:
+            upload.upload_part("Part 1")
+
+        eq_(False, MockMultipartS3Upload.completed)
+        eq_(True, MockMultipartS3Upload.aborted)
+        eq_("Error!", rep.mirror_exception)
+
+class TestMultiPartS3Upload(S3UploaderTest):
+    def _representation(self):
+        rep, ignore = create(
+            self._db, Representation, url="http://bucket/books.mrc",
+            media_type=Representation.MARC_MEDIA_TYPE)
+        return rep
+
+    def test_init(self):
+        uploader = self._uploader(MockS3Client)
+        rep = self._representation()
+        upload = MultipartS3Upload(uploader, rep, rep.url)
+        eq_(uploader, upload.uploader)
+        eq_(rep, upload.representation)
+        eq_("bucket", upload.bucket)
+        eq_("books.mrc", upload.filename)
+        eq_(1, upload.part_number)
+        eq_([], upload.parts)
+        eq_(1, upload.upload.get("UploadId"))
+
+        uploader.client.fail_with = Exception("Error!")
+        assert_raises(Exception, MultipartS3Upload, uploader, rep, rep.url)
+
+    def test_upload_part(self):
+        uploader = self._uploader(MockS3Client)
+        rep = self._representation()
+        upload = MultipartS3Upload(uploader, rep, rep.url)
+        upload.upload_part("Part 1")
+        upload.upload_part("Part 2")
+        eq_([{'Body': 'Part 1', 'UploadId': 1, 'PartNumber': 1, 'Bucket': 'bucket','Key': 'books.mrc'},
+             {'Body': 'Part 2', 'UploadId': 1, 'PartNumber': 2, 'Bucket': 'bucket', 'Key': 'books.mrc'}],
+            uploader.client.parts)
+        eq_(3, upload.part_number)
+        eq_([{'ETag': 'etag', 'PartNumber': 1}, {'ETag': 'etag', 'PartNumber': 2}],
+            upload.parts)
+
+        uploader.client.fail_with = Exception("Error!")
+        assert_raises(Exception, upload.upload_part, "Part 3")
+
+    def test_complete(self):
+        uploader = self._uploader(MockS3Client)
+        rep = self._representation()
+        upload = MultipartS3Upload(uploader, rep, rep.url)
+        upload.upload_part("Part 1")
+        upload.upload_part("Part 2")
+        upload.complete()
+        eq_([{'Bucket': 'bucket', 'Key': 'books.mrc', 'UploadId': 1, 'MultipartUpload': {
+                 'Parts': [{'ETag': 'etag', 'PartNumber': 1}, {'ETag': 'etag', 'PartNumber': 2}],
+            }}], uploader.client.uploads)
+
+    def test_abort(self):
+        uploader = self._uploader(MockS3Client)
+        rep = self._representation()
+        upload = MultipartS3Upload(uploader, rep, rep.url)
+        upload.upload_part("Part 1")
+        upload.upload_part("Part 2")
+        upload.abort()
+        eq_([], uploader.client.parts)

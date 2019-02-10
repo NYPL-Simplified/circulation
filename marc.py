@@ -592,52 +592,91 @@ class MARCExporter(object):
 
         return record
 
-    def records(self, lane, annotator, start_time=None, force_refresh=False, mirror=None):
-        output = StringIO()
+    def records(self, lane, annotator, start_time=None, force_refresh=False, mirror=None, query_batch_size=500, upload_batch_size=7500):
+        """
+        Create and export a MARC file for the books in a lane.
+
+        :param lane: The Lane to export books from.
+        :param annotator: The Annotator to use when creating MARC records.
+        :param start_time: Only include records that were created or modified after this time.
+        :param force_refresh: Create new records even when cached records are available.
+        :param mirror: Optional mirror to use instead of loading one from configuration.
+        :param query_batch_size: Number of works to retrieve with a single database query.
+        :param upload_batch_size: Number of records to mirror at a time. This is different
+          from query_batch_size because S3 enforces a minimum size of 5MB for all parts
+          of a multipart upload except the last, but 5MB of records would be too many
+          works for a single query.
+        """
+
+        # We mirror the content, if it's not empty. If it's empty, we create a CachedMARCFile
+        # and Representation, but don't actually mirror it.
+        if not mirror:
+            storage_protocol = self.integration.setting(self.STORAGE_PROTOCOL).value
+            if storage_protocol == ExternalIntegration.S3:
+                mirror_integration = ExternalIntegration.lookup(
+                    self._db, storage_protocol, ExternalIntegration.STORAGE_GOAL)
+                if mirror_integration:
+                    mirror = mirror or S3Uploader(mirror_integration)
+
+        if not mirror:
+            raise Exception("No mirror integration for configured protocol %s" % storage_protocol)
+
+        # End time is before we start the query, because if any records are changed
+        # during the processing we may not catch them, and they should be handled
+        # again on the next run.
+        end_time = datetime.datetime.utcnow()
 
         works_q = lane.works(self._db)
         if start_time:
             works_q = works_q.filter(MaterializedWorkWithGenre.last_update_time>=start_time)
-        for work in works_q:
-            record = self.create_record(
-                work, annotator, force_refresh, self.integration)
-            if record:
-                output.write(record.as_marc())
 
-        content = output.getvalue()
-        output.close()
+        total = works_q.count()
+        offset = 0
 
-        end_time = datetime.datetime.utcnow()
+        url = mirror.marc_file_url(self.library, lane, end_time, start_time)
+        representation, ignore = get_one_or_create(
+            self._db, Representation, url=url, media_type=Representation.MARC_MEDIA_TYPE)
 
-        # Mirror the content, if it's not empty. If it's empty, create a CachedMARCFile
-        # and Representation, but don't actually mirror it.
-        storage_protocol = self.integration.setting(self.STORAGE_PROTOCOL).value
-        if storage_protocol == ExternalIntegration.S3:
-            mirror_integration = ExternalIntegration.lookup(
-                self._db, storage_protocol, ExternalIntegration.STORAGE_GOAL)
-            if not mirror_integration:
-                raise Exception("No mirror integration for configured protocol %s" % storage_protocol)
+        with mirror.multipart_upload(representation, url) as upload:
+            output = StringIO()
+            current_count = 0
+            while offset < total:
+                batch_q = works_q.order_by(
+                    MaterializedWorkWithGenre.works_id).offset(
+                    offset).limit(query_batch_size)
 
-            mirror = mirror or S3Uploader(mirror_integration)
-            url = mirror.marc_file_url(self.library, lane, end_time, start_time)
-            representation, ignore = get_one_or_create(
-                self._db, Representation, url=url, media_type=Representation.MARC_MEDIA_TYPE)
-            representation.fetched_at = end_time
-            representation.content = content
+                for work in batch_q:
+                    record = self.create_record(
+                        work, annotator, force_refresh, self.integration)
+                    if record:
+                        output.write(record.as_marc())
+                        current_count += 1
+
+                if current_count == upload_batch_size:
+                    content = output.getvalue()
+                    if content:
+                        upload.upload_part(content)
+                    output.close()
+                    output = StringIO()
+                    current_count = 0
+                offset += query_batch_size
+
+            # Upload anything left over.
+            content = output.getvalue()
             if content:
-                mirror.mirror_one(representation, url)
-            if not representation.mirror_exception:
-                representation.content = None
-                cached, is_new = get_one_or_create(
-                    self._db, CachedMARCFile, library=self.library,
-                    lane=(lane if isinstance(lane, Lane) else None),
-                    start_time=start_time,
-                    create_method_kwargs=dict(representation=representation))
-                if not is_new:
-                    cached.representation = representation
-                cached.end_time = end_time
+                upload.upload_part(content)
+            output.close()
 
+        representation.fetched_at = end_time
+        if not representation.mirror_exception:
+            cached, is_new = get_one_or_create(
+                self._db, CachedMARCFile, library=self.library,
+                lane=(lane if isinstance(lane, Lane) else None),
+                start_time=start_time,
+                create_method_kwargs=dict(representation=representation))
+            if not is_new:
+                cached.representation = representation
+            cached.end_time = end_time
 
-        return content
         
 
