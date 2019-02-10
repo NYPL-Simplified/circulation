@@ -647,7 +647,7 @@ class TestCacheMARCFiles(TestLaneScript):
             self._db, MARCExporter.UPDATE_FREQUENCY, self._default_library,
             integration).value = 0
         exporter.called_with = []
-        script = CacheMARCFiles(self._db)
+        script = CacheMARCFiles(self._db, cmd_args=[])
         script.process_lane(lane, exporter)
 
         eq_(2, len(exporter.called_with))
