@@ -7,7 +7,7 @@ drop index if exists ix_licensepooldeliveries_datasource_identifier_mechanism;
 -- of the fields is null, and one of these fields -- resource_id -- is
 -- _usually_ null. So we need a unique partial index to properly enforce
 -- the constraint.
-CREATE UNIQUE INDEX ix_licensepooldeliveries_unique_when_no_resource ON public.licensepooldeliveries USING btree (data_source_id, identifier_id, delivery_mechanism_id) WHERE (resource_id IS NULL);
+CREATE UNIQUE INDEX if not exists ix_licensepooldeliveries_unique_when_no_resource ON public.licensepooldeliveries USING btree (data_source_id, identifier_id, delivery_mechanism_id) WHERE (resource_id IS NULL);
 
 
 -- deliverymechanisms doesn't have a uniqueness constraint, just a unique index.
@@ -17,4 +17,4 @@ drop index if exists ix_deliverymechanisms_drm_scheme_content_type;
 
 ALTER TABLE deliverymechanisms ADD CONSTRAINT deliverymechanisms_content_type_drm_scheme UNIQUE (content_type, drm_scheme);
 
-CREATE UNIQUE INDEX ix_deliverymechanisms_unique_when_no_drm ON public.deliverymechanisms USING btree (content_type) WHERE (drm_scheme IS NULL);
+CREATE UNIQUE INDEX if not exists ix_deliverymechanisms_unique_when_no_drm ON public.deliverymechanisms USING btree (content_type) WHERE (drm_scheme IS NULL);

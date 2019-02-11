@@ -2106,6 +2106,7 @@ class DatabaseMigrationScript(Script):
                             "Yes, everything should be fine -- I was able to find a timestamp in the new schema."
                         )
                     exception = None
+                    _db.commit()
                     break
                 except ProgrammingError, e:
                     # The database connection is now tainted; we must
