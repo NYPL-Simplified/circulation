@@ -30,6 +30,7 @@ from model import (
     Work,
 )
 from classifier import Classifier
+from mirror import MirrorUploader
 from s3 import S3Uploader
 from lane import Lane
 from util import LanguageCodes
