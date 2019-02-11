@@ -761,7 +761,9 @@ class CacheMARCFiles(LaneSweeperScript):
 
         update_frequency = ConfigurationSetting.for_library_and_externalintegration(
             self._db, MARCExporter.UPDATE_FREQUENCY, library, exporter.integration
-        ).int_value or MARCExporter.DEFAULT_UPDATE_FREQUENCY
+        ).int_value
+        if update_frequency is None:
+            update_frequency = MARCExporter.DEFAULT_UPDATE_FREQUENCY
 
         last_update = None
         files_q = self._db.query(CachedMARCFile).filter(
