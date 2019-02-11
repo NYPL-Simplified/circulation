@@ -10,6 +10,7 @@ from flask_babel import lazy_gettext as _
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 from urlparse import urlsplit
+from contextlib import contextmanager
 from mirror import MirrorUploader
 
 from config import CannotLoadConfiguration
@@ -18,6 +19,57 @@ from requests.exceptions import (
     ConnectionError,
     HTTPError,
 )
+
+class MultipartS3Upload():
+    def __init__(self, uploader, representation, mirror_to):
+        self.uploader = uploader
+        self.representation = representation
+        self.bucket, self.filename = uploader.bucket_and_filename(mirror_to)
+        media_type = representation.external_media_type
+        self.part_number = 1
+        self.parts = []
+
+        self.upload = uploader.client.create_multipart_upload(
+            Bucket=self.bucket,
+            Key=self.filename,
+            ContentType=media_type,
+        )
+
+    def upload_part(self, content):
+        logging.info("Uploading part %s of %s" % (self.part_number, self.filename))
+        result = self.uploader.client.upload_part(
+            Body=content,
+            Bucket=self.bucket,
+            Key=self.filename,
+            PartNumber=self.part_number,
+            UploadId = self.upload.get("UploadId"),
+        )
+        self.parts.append(dict(ETag=result.get("ETag"), PartNumber=self.part_number))
+        self.part_number += 1
+
+    def complete(self):
+        if not self.parts:
+            logging.info("Upload of %s was empty, not mirroring" % self.filename)
+            self.abort()
+        else:
+            self.uploader.client.complete_multipart_upload(
+                Bucket=self.bucket,
+                Key=self.filename,
+                UploadId = self.upload.get("UploadId"),
+                MultipartUpload=dict(Parts=self.parts),
+            )
+            mirror_url = self.uploader.final_mirror_url(self.bucket, self.filename)
+            self.representation.set_as_mirrored(mirror_url)
+            logging.info("MIRRORED %s" % self.representation.mirror_url)
+
+    def abort(self):
+        logging.info("Aborting upload of %s" % self.filename)
+        self.uploader.client.abort_multipart_upload(
+            Bucket=self.bucket,
+            Key=self.filename,
+            UploadId=self.upload.get("UploadId"),
+        )
+
 
 class S3Uploader(MirrorUploader):
 
@@ -307,6 +359,17 @@ class S3Uploader(MirrorUploader):
         finally:
             fh.close()
 
+    @contextmanager
+    def multipart_upload(self, representation, mirror_to, upload_class=MultipartS3Upload):
+        upload = upload_class(self, representation, mirror_to)
+        try:
+            yield upload
+            upload.complete()
+        except Exception, e:
+            logging.error("Multipart upload of %s failed: %r", mirror_to, e, exc_info=e)
+            upload.abort()
+            representation.mirror_exception = str(e)
+
 # MirrorUploader.implementation will instantiate an S3Uploader
 # for storage integrations with protocol 'Amazon S3'.
 MirrorUploader.IMPLEMENTATION_REGISTRY[S3Uploader.NAME] = S3Uploader
@@ -337,6 +400,26 @@ class MockS3Uploader(S3Uploader):
         else:
             representation.set_as_mirrored(mirror_to)
 
+    @contextmanager
+    def multipart_upload(self, representation, mirror_to):
+        class MockMultipartS3Upload(MultipartS3Upload):
+            def __init__(self):
+                self.parts = []
+            def upload_part(self, part):
+                self.parts.append(part)
+        upload = MockMultipartS3Upload()
+        yield upload
+
+        self.uploaded.append(representation)
+        self.destinations.append(mirror_to)
+        self.content.append(upload.parts)
+        if self.fail:
+            representation.mirror_exception = "Exception"
+            representation.mirrored_at = None
+        else:
+            representation.set_as_mirrored(mirror_to)
+                
+
 
 class MockS3Client(object):
     """This pool lets us test the real S3Uploader class with a mocked-up
@@ -348,6 +431,7 @@ class MockS3Client(object):
         self.access_key = aws_access_key_id
         self.secret_key = aws_secret_access_key
         self.uploads = []
+        self.parts = []
         self.fail_with = None
 
     def upload_fileobj(self, Fileobj, Bucket, Key, ExtraArgs=None, **kwargs):
@@ -355,3 +439,24 @@ class MockS3Client(object):
             raise self.fail_with
         self.uploads.append((Fileobj.read(), Bucket, Key, ExtraArgs, kwargs))
         return None
+
+    def create_multipart_upload(self, **kwargs):
+        if self.fail_with:
+            raise self.fail_with
+        return dict(UploadId=1)
+
+    def upload_part(self, **kwargs):
+        if self.fail_with:
+            raise self.fail_with
+        self.parts.append(kwargs)
+        return dict(ETag="etag")
+
+    def complete_multipart_upload(self, **kwargs):
+        self.uploads.append(kwargs)
+        self.parts = []
+        return None
+
+    def abort_multipart_upload(self, **kwargs):
+        self.parts = []
+        return None
+            
