@@ -633,6 +633,12 @@ def reset_lanes():
 def change_lane_order():
     return app.manager.admin_lanes_controller.change_order()
 
+@app.route("/admin/diagnostics")
+@requires_admin
+@returns_json_or_response_or_problem_detail
+def diagnostics():
+    return app.manager.timestamps_controller.diagnostics()
+
 @app.route('/admin/sign_in_again')
 def admin_sign_in_again():
     """Allows an  admin with expired credentials to sign back in
