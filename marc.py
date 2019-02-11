@@ -612,14 +612,12 @@ class MARCExporter(object):
         # and Representation, but don't actually mirror it.
         if not mirror:
             storage_protocol = self.integration.setting(self.STORAGE_PROTOCOL).value
-            if storage_protocol == ExternalIntegration.S3:
-                mirror_integration = ExternalIntegration.lookup(
-                    self._db, storage_protocol, ExternalIntegration.STORAGE_GOAL)
-                if mirror_integration:
-                    mirror = mirror or S3Uploader(mirror_integration)
+            mirror = MirrorUploader.sitewide(self._db)
+            if mirror.NAME != storage_protocol:
+                raise Exception("Sitewide mirror integration does not match configured storage protocol")
 
         if not mirror:
-            raise Exception("No mirror integration for configured protocol %s" % storage_protocol)
+            raise Exception("No mirror integration is configured")
 
         # End time is before we start the query, because if any records are changed
         # during the processing we may not catch them, and they should be handled
