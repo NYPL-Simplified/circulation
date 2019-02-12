@@ -1358,7 +1358,7 @@ class BibliothecaEventMonitor(CollectionMonitor):
                     )
                 raise e
         self.log.info("Handled %d events total", i)
-        return TimestampData(start=most_recent_timestamp,
+        return TimestampData(start=start,
                              finish=most_recent_timestamp)
 
     def handle_event(self, bibliotheca_id, isbn, foreign_patron_id,
