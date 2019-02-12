@@ -153,12 +153,12 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
         # We have a new value to use for the Monitor's timestamp -- the
         # earliest date seen in the last OPDS feed that contained
         # any entries.
-        eq_(datetime.datetime(2016, 9, 20, 19, 37, 2), new_timestamp)
+        eq_(datetime.datetime(2016, 9, 20, 19, 37, 2), new_timestamp.finish)
 
         # Normally run_once() doesn't update the monitor's timestamp,
         # but this implementation does, so that work isn't redone if
         # run_once() crashes or the monitor is killed.
-        eq_(new_timestamp, self.monitor.timestamp().finish)
+        eq_(new_timestamp.finish, self.monitor.timestamp().finish)
 
         # The original Identifier has information from the
         # mock Metadata Wrangler.
@@ -192,9 +192,9 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
         )
         new_timestamp = self.monitor.run_once(None, None)
 
-        # run_once() returned the original timestamp, and the
-        # Timestamp object was not updated.
-        eq_(before, new_timestamp)
+        # run_once() returned a TimestampData referencing the original
+        # timestamp, and the Timestamp object was not updated.
+        eq_(before, new_timestamp.finish)
         eq_(before, self.monitor.timestamp().finish)
 
     def test_no_import_loop(self):
@@ -226,7 +226,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
         eq_((None, u'http://next-link/'), second)
         eq_((None, u'http://different-link/'), third)
 
-        eq_(datetime.datetime(2016, 9, 20, 19, 37, 2), new_timestamp)
+        eq_(datetime.datetime(2016, 9, 20, 19, 37, 2), new_timestamp.finish)
 
     def test_get_response(self):
 

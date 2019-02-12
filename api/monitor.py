@@ -12,6 +12,7 @@ from sqlalchemy import (
     or_,
 )
 
+from core.metadata_layer import TimestampData
 from core.monitor import (
     CollectionMonitor,
     EditionSweepMonitor,
@@ -136,7 +137,10 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
             if new_timestamp:
                 self.timestamp().finish = new_timestamp
             self._db.commit()
-        return new_timestamp or self.timestamp().finish
+        finish = new_timestamp or self.timestamp().finish
+        if finish:
+            return TimestampData(start=start, finish=finish)
+        return None
 
     def import_one_feed(self, timestamp, url):
         response = self.get_response(url=url, timestamp=timestamp)
