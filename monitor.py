@@ -157,6 +157,9 @@ class Monitor(object):
         # on the subsequent run.
         this_run_start = datetime.datetime.utcnow()
         try:
+            # TODO: run_once needs to take the Timestamp object,
+            # or a TimestampData based on it -- there's no one
+            # way that will work for all Monitors here.
             new_timestamp = self.run_once(last_run_start, this_run_start)
             this_run_finish = datetime.datetime.utcnow()
             if new_timestamp is None:
