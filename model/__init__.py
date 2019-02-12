@@ -195,11 +195,11 @@ class PresentationCalculationPolicy(object):
            basic metadata such as title?
         :param classify: Should we reconsider which Genres under which
            a Work should be filed?
-        :param choose_summary: Should we reconsider which of the 
+        :param choose_summary: Should we reconsider which of the
            available summaries is the best?
         :param calculate_quality: Should we recalculate the overall
            quality of the Work?
-        :param choose_cover: Should we reconsider which of the 
+        :param choose_cover: Should we reconsider which of the
            available cover images is the best?
         :param regenerate_opds_entries: Should we recreate the OPDS entries
            for this Work?
@@ -344,7 +344,7 @@ class SessionManager(object):
     @classmethod
     def initialize(cls, url, initialize_data=True):
         """Initialize the database.
-        
+
         This includes the schema, the materialized views, the custom
         functions, and the initial content.
         """
@@ -368,7 +368,7 @@ class SessionManager(object):
         result = list(result)
 
         # If it doesn't, create it.
-        if not result:
+        if not result and initialize_data:
             resource_file = os.path.join(
                 cls.resource_directory(), cls.RECURSIVE_EQUIVALENTS_FUNCTION
             )

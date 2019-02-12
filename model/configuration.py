@@ -634,8 +634,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
     # which data sources should have their audiobooks excluded from
     # lanes.
     EXCLUDED_AUDIO_DATA_SOURCES_DEFAULT = [
-        DataSourceConstants.OVERDRIVE,
-        DataSourceConstants.RB_DIGITAL
+        DataSourceConstants.OVERDRIVE, DataSourceConstants.RB_DIGITAL
     ]
 
     @classmethod
