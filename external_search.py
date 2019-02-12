@@ -50,8 +50,10 @@ class ExternalSearchIndex(object):
     NAME = ExternalIntegration.ELASTICSEARCH
 
     WORKS_INDEX_PREFIX_KEY = u'works_index_prefix'
-
     DEFAULT_WORKS_INDEX_PREFIX = u'circulation-works'
+
+    TEST_SEARCH_TERM_KEY = u'test_search_term'
+    DEFAULT_TEST_SEARCH_TERM = u'test'
 
     work_document_type = 'work-type'
     __client = None
@@ -66,6 +68,11 @@ class ExternalSearchIndex(object):
           "required": True,
           "description": _("Any Elasticsearch indexes needed for this application will be created with this unique prefix. In most cases, the default will work fine. You may need to change this if you have multiple application servers using a single Elasticsearch server.")
         },
+        { "key": TEST_SEARCH_TERM_KEY,
+          "label": _("Test search term"),
+          "default": DEFAULT_TEST_SEARCH_TERM,
+          "description": _("Self tests will use this value as the search term.")
+        }
     ]
 
     SITEWIDE = True
