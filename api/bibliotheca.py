@@ -1324,13 +1324,33 @@ class BibliothecaEventMonitor(CollectionMonitor):
             yield slice_start, slice_cutoff, full_slice
             slice_start = slice_start + increment
 
-    def run_once(self, start, cutoff):
+    def _timestamp(self, progress):
+        start = progress.finish or self.default_start_time
+        
+
+
+    def run_once(self, progress):
+        # We want to start at the time of the last event successfully
+        # processed, and continue up to the current time.
+        start = progress.finish or self.default_start_time
+        now = datetime.datetime.utcnow()
+
+        # We use timestamp.start and timestamp.finish to track the 
+        # first and last events processed during this run.
+        #
+        # If no events are processed during a run, we preserve the
+        # last event processed in the _previous_ run as both the start
+        # and end point.
+        first_event = progress.finish
+        final_event = first_event
+
         added_books = 0
         i = 0
         one_day = timedelta(days=1)
         most_recent_timestamp = start
         for start, cutoff, full_slice in self.slice_timespan(
-                start, cutoff, one_day):
+            start, now, one_day
+        ):
             most_recent_timestamp = start
             self.log.info("Asking for events between %r and %r", start, cutoff)
             try:
@@ -1338,9 +1358,9 @@ class BibliothecaEventMonitor(CollectionMonitor):
                 events = self.api.get_events_between(start, cutoff, full_slice)
                 for event in events:
                     event_timestamp = self.handle_event(*event)
-                    if (not most_recent_timestamp or
-                        (event_timestamp > most_recent_timestamp)):
-                        most_recent_timestamp = event_timestamp
+                    if (not final_event or
+                        (event_timestamp > final_event)):
+                        final_event = event_timestamp
                     i += 1
                     if not i % 1000:
                         self._db.commit()
@@ -1358,7 +1378,9 @@ class BibliothecaEventMonitor(CollectionMonitor):
                     )
                 raise e
         self.log.info("Handled %d events total", i)
-        return TimestampData(start=start,
+        progress.start = first_event
+        progress.finish = final_event
+        return TimestampData(start=first_timestamp,
                              finish=most_recent_timestamp)
 
     def handle_event(self, bibliotheca_id, isbn, foreign_patron_id,
