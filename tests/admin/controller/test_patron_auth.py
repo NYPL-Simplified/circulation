@@ -42,8 +42,10 @@ class TestPatronAuth(SettingsControllerTest):
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(AdminNotAuthorized,
-                          self.manager.admin_patron_auth_services_controller.process_patron_auth_services)
+            assert_raises(
+                AdminNotAuthorized,
+                self.manager.admin_patron_auth_services_controller.process_patron_auth_services
+            )
 
     def test_patron_auth_services_get_with_simple_auth_service(self):
         auth_service, ignore = create(
