@@ -666,6 +666,36 @@ class TestCacheMARCFiles(TestLaneScript):
 class TestInstanceInitializationScript(DatabaseTest):
 
     def test_run(self):
+
+        # If the database has been initialized -- which happened
+        # during the test suite setup -- run() will bail out and never
+        # call do_run().
+        class Mock(InstanceInitializationScript):
+            def do_run(self):
+                raise Exception("I'll never be called.")
+        Mock().run()
+
+        # If the database has not been initialized, run() will detect
+        # this and call do_run().
+
+        # Simulate an uninitialized database by changing the test SQL
+        # to refer to a nonexistent table. Since this 'known' table
+        # doesn't exist, we must not have initialized the site,
+        # and do_run() will be called.
+        class Mock(InstanceInitializationScript):
+            TEST_SQL = "select * from nosuchtable"
+            def do_run(self, *args, **kwargs):
+                self.was_run = True
+
+        script = Mock()
+        script.run()
+        eq_(True, script.was_run)
+
+
+    def test_do_run(self):
+        # Normally, do_run is only called by run() if the database has
+        # not yet meen initialized. But we can test it by calling it
+        # directly.
         timestamp = get_one(
             self._db, Timestamp, service=u"Database Migration",
             service_type=Timestamp.SCRIPT_TYPE
