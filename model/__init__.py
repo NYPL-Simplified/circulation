@@ -342,7 +342,7 @@ class SessionManager(object):
         return os.path.join(base_path, "files")
 
     @classmethod
-    def initialize(cls, url, initialize_data=True):
+    def initialize(cls, url, initialize_data=True, initialize_schema=True):
         """Initialize the database.
 
         This includes the schema, the materialized views, the custom
@@ -353,7 +353,8 @@ class SessionManager(object):
             return engine, engine.connect()
 
         engine = cls.engine(url)
-        cls.initialize_schema(engine)
+        if initialize_schema:
+            cls.initialize_schema(engine)
         connection = engine.connect()
 
         # Check if the recursive equivalents function exists already.
@@ -384,7 +385,18 @@ class SessionManager(object):
         if connection:
             connection.close()
 
-        cls.engine_for_url[url] = engine
+        if initialize_schema and initialize_data:
+            # Only cache the engine if all initialization has been performed.
+            #
+            # Some pieces of code (e.g. the script that runs
+            # migrations) have a legitimate need to bypass some of the
+            # initialization, but normal operation of the site
+            # requires that everything be initialized.
+            #
+            # Until someone tells this method to initialize
+            # everything, we can't short-circuit this method with a
+            # cache.
+            cls.engine_for_url[url] = engine
         return engine, engine.connect()
 
     @classmethod
@@ -434,12 +446,13 @@ class SessionManager(object):
             lane.update_size(_db)
 
     @classmethod
-    def session(cls, url, initialize_data=True):
+    def session(cls, url, initialize_data=True, initialize_schema=True):
         engine = connection = 0
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=SAWarning)
             engine, connection = cls.initialize(
-                url, initialize_data=initialize_data
+                url, initialize_data=initialize_data,
+                initialize_schema=initialize_schema
             )
         session = Session(connection)
         if initialize_data:
