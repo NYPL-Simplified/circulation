@@ -693,7 +693,7 @@ class EnkiImport(CollectionMonitor, TimelineMonitor):
     def collection(self):
         return Collection.by_id(self._db, id=self.collection_id)
 
-    def catch_up_from(self, start, *ignore):
+    def catch_up_from(self, start, cutoff, progress):
         """Find Enki books that changed recently.
 
         :param start: Find all books that changed since this date.
