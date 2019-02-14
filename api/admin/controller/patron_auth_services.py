@@ -8,7 +8,8 @@ from api.authenticator import AuthenticationProvider
 from api.simple_authentication import SimpleAuthenticationProvider
 from api.millenium_patron import MilleniumPatronAPI
 from api.sip import SIP2AuthenticationProvider
-from api.firstbook import FirstBookAuthenticationAPI
+from api.firstbook import FirstBookAuthenticationAPI as OldFirstBookAuthenticationAPI
+from api.firstbook2 import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
 from core.model import (
     ConfigurationSetting,
@@ -26,6 +27,7 @@ class PatronAuthServicesController(SettingsController):
                          MilleniumPatronAPI,
                          SIP2AuthenticationProvider,
                          FirstBookAuthenticationAPI,
+                         OldFirstBookAuthenticationAPI,
                          CleverAuthenticationAPI,
                         ]
         self.protocols = self._get_integration_protocols(provider_apis)
@@ -34,6 +36,7 @@ class PatronAuthServicesController(SettingsController):
                                 MilleniumPatronAPI.__module__,
                                 SIP2AuthenticationProvider.__module__,
                                 FirstBookAuthenticationAPI.__module__,
+                                OldFirstBookAuthenticationAPI.__module__,
                                ]
 
     def process_patron_auth_services(self):
