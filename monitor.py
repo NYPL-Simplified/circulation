@@ -153,6 +153,8 @@ class Monitor(object):
             new_timestamp = self.run_once(progress)
             this_run_finish = datetime.datetime.utcnow()
             if new_timestamp is None:
+                # Assume this Monitor has no special needs surrounding
+                # its timestamp.
                 new_timestamp = TimestampData()
             if new_timestamp.exception in (None, TimestampData.NO_VALUE):
                 # run_once() completed with no exceptions being raised.
