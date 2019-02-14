@@ -692,7 +692,14 @@ class EnkiImport(CollectionMonitor):
     def collection(self):
         return Collection.by_id(self._db, id=self.collection_id)
 
-    def run_once(self, start, cutoff):
+    def run_once(self, progress):
+        """Find Enki books that changed recently.
+
+        :progress: A TimestampData representing the time previously
+        covered by this Monitor.
+        """
+        start = progress.finish
+        cutoff = datetime.datetime.utcnow()
         if start is None:
             # This is the first time the monitor has run, so it's
             # important that we get the entire collection, even though that
@@ -704,9 +711,13 @@ class EnkiImport(CollectionMonitor):
             #
             # Give us five minutes of overlap because it's very important
             # we don't miss anything.
-            since = start-self.FIVE_MINUTES
+            start = last_run-self.FIVE_MINUTES
 
-            self.incremental_import(since)
+            self.incremental_import(start)
+
+        progress.start = start
+        progress.finish = cutoff
+        return progress
 
     def full_import(self):
         """Import the entire Enki collection, page by page."""

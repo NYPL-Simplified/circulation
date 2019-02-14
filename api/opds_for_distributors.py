@@ -333,8 +333,13 @@ class OPDSForDistributorsReaperMonitor(OPDSForDistributorsImportMonitor):
         identifiers = [entry.get("id") for entry in parsed_feed.get("entries", [])]
         self.seen_identifiers.update(identifiers)
 
-    def run_once(self, start_ignore, cutoff_ignore):
-        super(OPDSForDistributorsReaperMonitor, self).run_once(start_ignore, cutoff_ignore)
+    def run_once(self, progress):
+        """Check to see if any identifiers we know about are no longer
+        present on the remote. If there are any, remove them.
+
+        :param progress: A TimestampData, ignored.
+        """
+        super(OPDSForDistributorsReaperMonitor, self).run_once(progress)
 
         # At this point we've gone through the feed and collected all the identifiers.
         # If there's anything we didn't see, we know it's no longer available.

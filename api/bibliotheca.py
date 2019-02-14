@@ -1324,11 +1324,6 @@ class BibliothecaEventMonitor(CollectionMonitor):
             yield slice_start, slice_cutoff, full_slice
             slice_start = slice_start + increment
 
-    def _timestamp(self, progress):
-        start = progress.finish or self.default_start_time
-        
-
-
     def run_once(self, progress):
         # We want to start at the time of the last event successfully
         # processed, and continue up to the current time.
@@ -1340,14 +1335,13 @@ class BibliothecaEventMonitor(CollectionMonitor):
         #
         # If no events are processed during a run, we preserve the
         # last event processed in the _previous_ run as both the start
-        # and end point.
-        first_event = progress.finish
-        final_event = first_event
+        # and end point -- we started there and saw nothing further.
+        first_event = None
+        final_event = progress.finish
 
         added_books = 0
         i = 0
         one_day = timedelta(days=1)
-        most_recent_timestamp = start
         for start, cutoff, full_slice in self.slice_timespan(
             start, now, one_day
         ):
@@ -1358,6 +1352,8 @@ class BibliothecaEventMonitor(CollectionMonitor):
                 events = self.api.get_events_between(start, cutoff, full_slice)
                 for event in events:
                     event_timestamp = self.handle_event(*event)
+                    if not first_event:
+                        first_event = event_timestamp
                     if (not final_event or
                         (event_timestamp > final_event)):
                         final_event = event_timestamp
@@ -1378,10 +1374,17 @@ class BibliothecaEventMonitor(CollectionMonitor):
                     )
                 raise e
         self.log.info("Handled %d events total", i)
+
+        # Update the TimestampData to cover the events covered during
+        # this run.
+        if not first_event:
+            # No events were processed on this run. Move the starting
+            # point to the timestamp of the last event processed on
+            # the previous run.
+            first_event = progress.finish
         progress.start = first_event
         progress.finish = final_event
-        return TimestampData(start=first_timestamp,
-                             finish=most_recent_timestamp)
+        return progress
 
     def handle_event(self, bibliotheca_id, isbn, foreign_patron_id,
                      start_time, end_time, internal_event_type):

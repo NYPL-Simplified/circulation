@@ -861,7 +861,14 @@ class ODLConsolidatedCopiesMonitor(CollectionMonitor):
         self.start_url = collection.external_integration.setting(ODLWithConsolidatedCopiesAPI.CONSOLIDATED_COPIES_URL_KEY).value
         self.analytics = self.api.analytics
 
-    def run_once(self, start, cutoff):
+    def run_once(self, progress):
+        """Find books in the ODL collection that changed recently.
+
+        :progress: A TimestampData representing the time previously
+        covered by this Monitor.
+        """
+        start = progress.finish
+        cutoff = datetime.datetime.utcnow()
         url = self.start_url
         if start:
             # Add a small overlap with the previous run to make sure
@@ -880,6 +887,12 @@ class ODLConsolidatedCopiesMonitor(CollectionMonitor):
                 url = urlparse.urljoin(url, next_url)
             else:
                 url = None
+
+        # Set the first and last times covered in this run, for the
+        # sake of the next run.
+        progress.start = start
+        progress.finish = cutoff
+        return progress
 
     def process_one_page(self, response):
         content = json.loads(response.content)
@@ -909,7 +922,7 @@ class ODLHoldReaper(CollectionMonitor):
         super(ODLHoldReaper, self).__init__(_db, collection, **kwargs)
         self.api = api or ODLWithConsolidatedCopiesAPI(_db, collection)
 
-    def run_once(self, start, cutoff):
+    def run_once(self, progress):
         # Find holds that have expired.
         expired_holds = self._db.query(Hold).join(
             Hold.license_pool

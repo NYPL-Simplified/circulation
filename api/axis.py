@@ -535,16 +535,28 @@ class Axis360CirculationMonitor(CollectionMonitor):
             Axis360BibliographicCoverageProvider(collection, api_class=self.api)
         )
 
-    def run_once(self, start, cutoff):
-        # Give us five minutes of overlap because it's very important
-        # we don't miss anything.
-        since = start-self.FIVE_MINUTES
+    def run_once(self, progress):
+        """Find Axis 360 books that changed recently.
+
+        :progress: A TimestampData representing the time previously
+        covered by this Monitor.
+        """
+        # Give us five minutes of overlap with the previous run
+        # because it's very important we don't miss anything.
+        since = progress.finish - self.FIVE_MINUTE
+        cutoff = datetime.datetime.utcnow()
         count = 0
         for bibliographic, circulation in self.api.recent_activity(since):
             self.process_book(bibliographic, circulation)
             count += 1
             if count % self.batch_size == 0:
                 self._db.commit()
+
+        # Update the TimestampData to describe the time span covered
+        # during this run.
+        progress.start = since
+        progress.finish = cutoff
+        return progress
 
     def process_book(self, bibliographic, availability):
 

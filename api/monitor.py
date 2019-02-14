@@ -101,7 +101,16 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
     def endpoint(self, timestamp):
         return self.lookup.updates(timestamp)
 
-    def run_once(self, start, cutoff):
+    def run_once(self, progress):
+        """Ask the metadata wrangler about titles that have changed
+        since the last time this monitor ran.
+
+        :param progress: A TimestampData representing the span of time
+        covered during the previous run of this monitor.
+
+        :return: A modified TimestampData.
+        """
+        start = progress.finish
         self.assert_authenticated()
         queue = [None]
         seen_links = set()
@@ -138,9 +147,11 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
                 self.timestamp().finish = new_timestamp
             self._db.commit()
         finish = new_timestamp or self.timestamp().finish
+
+        progress.start = start
         if finish:
-            return TimestampData(start=start, finish=finish)
-        return None
+            progress.finish = finish
+        return progress
 
     def import_one_feed(self, timestamp, url):
         response = self.get_response(url=url, timestamp=timestamp)
@@ -198,7 +209,7 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
     def endpoint(self):
         return self.lookup.metadata_needed()
 
-    def run_once(self, start, cutoff):
+    def run_once(self, progress):
         self.assert_authenticated()
 
         queue = [None]
