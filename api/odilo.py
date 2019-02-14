@@ -885,6 +885,7 @@ class OdiloCirculationMonitor(CollectionMonitor, TimelineMonitor):
     SERVICE_NAME = "Odilo Circulation Monitor"
     INTERVAL_SECONDS = 500
     PROTOCOL = ExternalIntegration.ODILO
+    DEFAULT_START_TIME = CollectionMonitor.NEVER
 
     def __init__(self, _db, collection, api_class=OdiloAPI):
         """Constructor."""
@@ -916,7 +917,6 @@ class OdiloCirculationMonitor(CollectionMonitor, TimelineMonitor):
         new = 0
         offset = 0
         limit = self.api.PAGE_SIZE_LIMIT
-
         if modification_date and isinstance(modification_date, datetime.date):
             modification_date = modification_date.strftime('%Y-%m-%d')  # Format YYYY-MM-DD
 
