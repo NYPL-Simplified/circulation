@@ -143,9 +143,9 @@ class TestMonitor(DatabaseTest):
         now = datetime.datetime.utcnow()
         assert timestamp.start < now
 
-        # Just so we have a value for Timestamp.finish, it's given the
-        # same value as Timestamp.start.
-        eq_(timestamp.finish, timestamp.start)
+        # Timestamp.finish is set to None, on the assumption that the
+        # first run is still in progress.
+        eq_(timestamp.finish, None)
 
     def test_run_once_returning_timestampdata(self):
         # If a Monitor's run_once implementation returns a TimestampData,
