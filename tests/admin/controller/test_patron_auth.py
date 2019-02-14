@@ -35,15 +35,17 @@ class TestPatronAuth(SettingsControllerTest):
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
             eq_(response.get("patron_auth_services"), [])
             protocols = response.get("protocols")
-            eq_(5, len(protocols))
+            eq_(6, len(protocols))
             eq_(SimpleAuthenticationProvider.__module__, protocols[0].get("name"))
             assert "settings" in protocols[0]
             assert "library_settings" in protocols[0]
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
-            assert_raises(AdminNotAuthorized,
-                          self.manager.admin_patron_auth_services_controller.process_patron_auth_services)
+            assert_raises(
+                AdminNotAuthorized,
+                self.manager.admin_patron_auth_services_controller.process_patron_auth_services
+            )
 
     def test_patron_auth_services_get_with_simple_auth_service(self):
         auth_service, ignore = create(

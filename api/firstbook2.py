@@ -1,7 +1,11 @@
 from nose.tools import set_trace
 from flask_babel import lazy_gettext as _
+import jwt
+from jwt.algorithms import HMACAlgorithm
 import requests
 import logging
+import time
+
 from authenticator import (
     BasicAuthenticationProvider,
     PatronData,
@@ -21,15 +25,18 @@ from core.model import (
 
 class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
 
-    NAME = 'First Book'
+    NAME = 'First Book - JWT'
 
     DESCRIPTION = _("""
         An authentication service for Open eBooks that authenticates
-        using access codes and PINs. (This is the old version.)""")
+        using access codes and PINs. (This is the new version.)""")
 
     DISPLAY_NAME = NAME
     DEFAULT_IDENTIFIER_LABEL = _("Access Code")
     LOGIN_BUTTON_IMAGE = "FirstBookLoginButton280.png"
+
+    # The algorithm used to sign JWTs.
+    ALGORITHM = 'HS256'
 
     # If FirstBook sends this message it means they accepted the
     # patron's credentials.
@@ -42,27 +49,27 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     DEFAULT_PASSWORD_REGULAR_EXPRESSION = '^[0-9]+$'
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "label": _("URL"), "required": True },
+        {
+            "key": ExternalIntegration.URL, "label": _("URL"),
+            "default": "https://ebooksuat.firstbook.org/api/",
+            "required": True
+        },
         { "key": ExternalIntegration.PASSWORD, "label": _("Key"), "required": True },
     ] + BasicAuthenticationProvider.SETTINGS
 
-    log = logging.getLogger("First Book authentication API")
+    log = logging.getLogger("First Book JWT authentication API")
 
-    def __init__(self, library_id, integration, analytics=None, root=None):
+    def __init__(self, library_id, integration, analytics=None, root=None,
+                 secret=None):
         super(FirstBookAuthenticationAPI, self).__init__(library_id, integration, analytics)
-        if not root:
-            url = integration.url
-            key = integration.password
-            if not (url and key):
-                raise CannotLoadConfiguration(
-                    "First Book server not configured."
-                )
-            if '?' in url:
-                url += '&'
-            else:
-                url += '?'
-            root = url + 'key=' + key
+        root = root or integration.url
+        secret = secret or integration.password
+        if not (root and secret):
+            raise CannotLoadConfiguration(
+                "First Book server not configured."
+            )
         self.root = root
+        self.secret = secret
 
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.
@@ -86,9 +93,8 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     # End implementation of BasicAuthenticationProvider abstract methods.
 
     def remote_pin_test(self, barcode, pin):
-        url = self.root + "&accesscode=%s&pin=%s" % tuple(map(
-            urllib.quote, (barcode, pin)
-        ))
+        jwt = self.jwt(barcode, pin)
+        url = self.root + jwt
         try:
             response = self.request(url)
         except requests.exceptions.ConnectionError, e:
@@ -104,6 +110,18 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
         if self.SUCCESS_MESSAGE in response.content:
             return True
         return False
+
+    def jwt(self, barcode, pin):
+        """Create and sign a JWT with the payload expected by the
+        First Book API.
+        """
+        now = str(int(time.time()))
+        payload = dict(
+            barcode=barcode,
+            pin=pin,
+            iat=now,
+        )
+        return jwt.encode(payload, self.secret, algorithm=self.ALGORITHM)
 
     def request(self, url):
         """Make an HTTP request.
@@ -127,15 +145,20 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
     def __init__(self, library, integration, valid={}, bad_connection=False,
                  failure_status_code=None):
         super(MockFirstBookAuthenticationAPI, self).__init__(
-            library, integration, root="http://example.com/"
+            library, integration, root="http://example.com/",
+            secret="secret"
         )
         self.identifier_re = None
         self.password_re = None
+
         self.valid = valid
         self.bad_connection = bad_connection
         self.failure_status_code = failure_status_code
 
+        self.request_urls = []
+
     def request(self, url):
+        self.request_urls.append(url)
         if self.bad_connection:
             # Simulate a bad connection.
             raise requests.exceptions.ConnectionError("Could not connect!")
@@ -144,14 +167,28 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
             return MockFirstBookResponse(
                 self.failure_status_code, "Error %s" % self.failure_status_code
             )
-        qa = urlparse.parse_qs(url)
-        if 'accesscode' in qa and 'pin' in qa:
-            [code] = qa['accesscode']
-            [pin] = qa['pin']
-            if code in self.valid and self.valid[code] == pin:
-                return MockFirstBookResponse(200, self.SUCCESS)
-            else:
-                return MockFirstBookResponse(200, self.FAILURE)
+        parsed = urlparse.urlparse(url)
+        token = parsed.path.split("/")[-1]
+        barcode, pin = self._decode(token)
+
+        # The barcode and pin must be present in self.valid.
+        if barcode in self.valid and self.valid[barcode] == pin:
+            return MockFirstBookResponse(200, self.SUCCESS)
+        else:
+            return MockFirstBookResponse(200, self.FAILURE)
+
+    def _decode(self, token):
+        # Decode a JWT. Only used in tests -- in production, this is
+        # First Book's job.
+
+        # The JWT must be signed with the shared secret.
+        payload = jwt.decode(token, self.secret, algorithm=self.ALGORITHM)
+
+        # The 'iat' field in the payload must be a recent timestamp.
+        assert (time.time()-int(payload['iat'])) < 2
+
+        return payload['barcode'], payload['pin']
+
 
 
 # Specify which of the classes defined in this module is the

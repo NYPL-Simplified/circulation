@@ -57,6 +57,7 @@ from core.model import (
     Loan,
     Representation,
     RightsStatus,
+    SessionManager,
     Subject,
     Timestamp,
     Work,
@@ -942,6 +943,43 @@ class InstanceInitializationScript(TimestampScript):
     """
 
     name = "Instance initialization"
+
+    TEST_SQL = "select * from timestamps limit 1"
+
+    def run(self, *args, **kwargs):
+        # Create a special database session that doesn't initialize
+        # the ORM -- this could be fatal if there are migration
+        # scripts that haven't run yet.
+        #
+        # In fact, we don't even initialize the database schema,
+        # because that's the thing we're trying to check for.
+        url = Configuration.database_url()
+        _db = SessionManager.session(
+            url, initialize_data=False, initialize_schema=False
+        )
+
+        results = None
+        try:
+            # We need to check for the existence of a known table --
+            # this will demonstrate that this script has been run before --
+            # but we don't need to actually look at what we get from the
+            # database.
+            #
+            # Basically, if this succeeds, we can bail out and not run
+            # the rest of the script.
+            results = list(_db.execute(self.TEST_SQL))
+        except Exception, e:
+            # This did _not_ succeed, so the schema is probably not
+            # initialized and we do need to run this script.. This
+            # database session is useless now, but we'll create a new
+            # one during the super() call, and use that one to do the
+            # work.
+            _db.close()
+
+        if results is None:
+            super(InstanceInitializationScript, self).run(*args, **kwargs)
+        else:
+            self.log.error("I think this site has already been initialized; doing nothing.")
 
     def do_run(self, ignore_search=False):
         # Creates a "-current" alias on the Elasticsearch client.
