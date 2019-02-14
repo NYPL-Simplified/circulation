@@ -29,6 +29,7 @@ from selftest import (
 )
 from core.monitor import (
     CollectionMonitor,
+    TimelineMonitor,
 )
 from core.util.http import HTTP
 
@@ -878,7 +879,7 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
 
 
 
-class OdiloCirculationMonitor(CollectionMonitor):
+class OdiloCirculationMonitor(CollectionMonitor, TimelineMonitor):
     """Maintain LicensePools for recently changed Odilo titles
     """
     SERVICE_NAME = "Odilo Circulation Monitor"
@@ -890,16 +891,13 @@ class OdiloCirculationMonitor(CollectionMonitor):
         super(OdiloCirculationMonitor, self).__init__(_db, collection)
         self.api = api_class(_db, collection)
 
-    def run_once(self, progress):
+    def catch_up_from(self, start, cutoff, progress):
         """Find Odilo books that changed recently.
 
         :progress: A TimestampData representing the time previously
         covered by this Monitor.
         """
 
-        # Cover the time period from the last run to now.
-        start = progress.finish
-        cutoff = datetime.datetime.utcnow()
         self.log.info("Starting recently_changed_ids, start: " + str(start) + ", cutoff: " + str(cutoff))
 
         start_time = datetime.datetime.now()
@@ -908,10 +906,6 @@ class OdiloCirculationMonitor(CollectionMonitor):
 
         time_elapsed = finish_time - start_time
         self.log.info("recently_changed_ids finished in: " + str(time_elapsed))
-
-        progress.start = start
-        progress.finish = cutoff
-        return progress
 
     def all_ids(self, modification_date=None):
         """Get IDs for every book in the system, from modification date if any

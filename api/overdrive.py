@@ -1013,6 +1013,7 @@ class OverdriveCirculationMonitor(CollectionMonitor):
     SERVICE_NAME = "Overdrive Circulation Monitor"
     INTERVAL_SECONDS = 500
     PROTOCOL = ExternalIntegration.OVERDRIVE
+    OVERLAP = None
 
     # Report successful completion upon finding this number of
     # consecutive books in the Overdrive results whose LicensePools
@@ -1033,7 +1034,7 @@ class OverdriveCirculationMonitor(CollectionMonitor):
     def recently_changed_ids(self, start, cutoff):
         return self.api.recently_changed_ids(start, cutoff)
 
-    def run_once(self, progress):
+    def catch_up_from(self, start, cutoff, progress):
         """Find Overdrive books that changed recently.
 
         :progress: A TimestampData representing the time previously
@@ -1049,9 +1050,6 @@ class OverdriveCirculationMonitor(CollectionMonitor):
 
         # Ask for changes between the last time covered by the Monitor
         # and the current time.
-        start = progress.finish
-        cutoff = datetime.datetime.utcnow()
-
         for i, book in enumerate(self.recently_changed_ids(start, cutoff)):
             total_books += 1
             if not total_books % 100:
@@ -1084,9 +1082,7 @@ class OverdriveCirculationMonitor(CollectionMonitor):
 
         if total_books:
             self.log.info("Processed %d books total.", total_books)
-        progress.start = start
-        progress.finish = cutoff
-        return progress
+
 
 class FullOverdriveCollectionMonitor(OverdriveCirculationMonitor):
     """Monitor every single book in the Overdrive collection.

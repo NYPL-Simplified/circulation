@@ -20,7 +20,10 @@ from core.opds_import import (
     OPDSImporter,
     OPDSImportMonitor,
 )
-from core.monitor import CollectionMonitor
+from core.monitor import (
+    CollectionMonitor,
+    TimelineMonitor,
+)
 from core.model import (
     Collection,
     ConfigurationSetting,
@@ -830,7 +833,7 @@ class ODLBibliographicImportMonitor(OPDSImportMonitor):
     PROTOCOL = ODLBibliographicImporter.NAME
     SERVICE_NAME = "ODL Bibliographic Import Monitor"
 
-class ODLConsolidatedCopiesMonitor(CollectionMonitor):
+class ODLConsolidatedCopiesMonitor(CollectionMonitor, TimelineMonitor):
     """Monitor a consolidated copies feed for circulation information changes.
 
     This is primarily used to set up availability information when new copies
@@ -852,8 +855,6 @@ class ODLConsolidatedCopiesMonitor(CollectionMonitor):
     # information for every consolidated copy.
     DEFAULT_START_TIME = CollectionMonitor.NEVER
 
-    OVERLAP = datetime.timedelta(minutes=5)
-
     def __init__(self, _db, collection=None, api=None, **kwargs):
         super(ODLConsolidatedCopiesMonitor, self).__init__(_db, collection, **kwargs)
 
@@ -861,20 +862,14 @@ class ODLConsolidatedCopiesMonitor(CollectionMonitor):
         self.start_url = collection.external_integration.setting(ODLWithConsolidatedCopiesAPI.CONSOLIDATED_COPIES_URL_KEY).value
         self.analytics = self.api.analytics
 
-    def run_once(self, progress):
+    def catch_up_from(self, start, cutoff, progress):
         """Find books in the ODL collection that changed recently.
 
         :progress: A TimestampData representing the time previously
         covered by this Monitor.
         """
-        start = progress.finish
-        cutoff = datetime.datetime.utcnow()
         url = self.start_url
         if start:
-            # Add a small overlap with the previous run to make sure
-            # we don't miss anything.
-            start = start - self.OVERLAP
-
             url += "?since=%s" % (start.isoformat() + 'Z')
 
         # Go through the consolidated copies feed until we get to a page
@@ -887,12 +882,6 @@ class ODLConsolidatedCopiesMonitor(CollectionMonitor):
                 url = urlparse.urljoin(url, next_url)
             else:
                 url = None
-
-        # Set the first and last times covered in this run, for the
-        # sake of the next run.
-        progress.start = start
-        progress.finish = cutoff
-        return progress
 
     def process_one_page(self, response):
         content = json.loads(response.content)

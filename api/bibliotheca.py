@@ -1330,14 +1330,14 @@ class BibliothecaEventMonitor(CollectionMonitor):
         start = progress.finish or self.default_start_time
         now = datetime.datetime.utcnow()
 
-        # We use timestamp.start and timestamp.finish to track the 
+        # We use timestamp.start and timestamp.finish to track the
         # first and last events processed during this run.
         #
         # If no events are processed during a run, we preserve the
         # last event processed in the _previous_ run as both the start
         # and end point -- we started there and saw nothing further.
         first_event = None
-        final_event = progress.finish
+        final_event = start
 
         added_books = 0
         i = 0

@@ -2033,9 +2033,6 @@ class RBDigitalCirculationMonitor(CollectionMonitor):
 
         return item_count
 
-    def run(self):
-        super(RBDigitalCirculationMonitor, self).run()
-
     def run_once(self, progress):
         """Update the availability information of all titles in the
         RBdigital collection.
