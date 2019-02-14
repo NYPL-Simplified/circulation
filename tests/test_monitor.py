@@ -75,13 +75,21 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
             self._db, self.collection, self.lookup
         )
 
+    @property
+    def ts(self):
+        """Make the timestamp used by run() when calling run_once().
+
+        This makes it easier to test run_once() in isolation.
+        """
+        return self.monitor.timestamp().to_data()
+
     def test_monitor_requires_authentication(self):
         class Mock(object):
             authenticated = False
         self.monitor.lookup = Mock()
         assert_raises_regexp(
             Exception, "no authentication credentials",
-            self.monitor.run_once, None, None
+            self.monitor.run_once, self.ts
         )
 
     def test_import_one_feed(self):
@@ -113,7 +121,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
 
-        new_timestamp = self.monitor.run_once(None, None)
+        new_timestamp = self.monitor.run_once(self.ts)
 
         # We could have followed the 'next' link, but we chose not to.
         eq_([(None, None)], self.monitor.imports)
@@ -148,7 +156,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
                 200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
             )
 
-        new_timestamp = self.monitor.run_once(None, None)
+        new_timestamp = self.monitor.run_once(self.ts)
 
         # We have a new value to use for the Monitor's timestamp -- the
         # earliest date seen in the last OPDS feed that contained
@@ -190,7 +198,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
         self.lookup.queue_response(
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
-        new_timestamp = self.monitor.run_once(None, None)
+        new_timestamp = self.monitor.run_once(self.ts)
 
         # run_once() returned a TimestampData referencing the original
         # timestamp, and the Timestamp object was not updated.
@@ -216,7 +224,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
         self.lookup.queue_response(
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
-        new_timestamp = self.monitor.run_once(None, None)
+        new_timestamp = self.monitor.run_once(self.ts)
 
         # Even though all these pages had the same content, we kept
         # processing them until we encountered a 'next' link we had
@@ -302,7 +310,7 @@ class TestMWAuxiliaryMetadataMonitor(DatabaseTest):
         self.monitor.lookup = Mock()
         assert_raises_regexp(
             Exception, "no authentication credentials",
-            self.monitor.run_once, None, None
+            self.monitor.run_once, self.ts
         )
 
     def prep_feed_identifiers(self):
@@ -373,7 +381,7 @@ class TestMWAuxiliaryMetadataMonitor(DatabaseTest):
                 200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, feed
             )
 
-        self.monitor.run_once(None, None)
+        self.monitor.run_once(self.ts)
 
         # Only the identifier with a work has been given coverage.
         record = CoverageRecord.lookup(
