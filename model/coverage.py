@@ -244,7 +244,7 @@ class Timestamp(Base):
 
     def to_data(self):
         """Convert this Timestamp to an unfinalized TimestampData."""
-        from metadata_layer import TimestampData
+        from ..metadata_layer import TimestampData
         return TimestampData(
             start=self.start, finish=self.finish,
             achievements=self.achievements, counter=self.counter

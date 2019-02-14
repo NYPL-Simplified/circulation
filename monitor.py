@@ -118,6 +118,9 @@ class Monitor(object):
 
         This does not use TimestampData because it relies on checking
         whether a Timestamp already exists in the database.
+
+        A new timestamp will have .finish set to None, since the first
+        run is presumably in progress.
         """
         if self.default_start_time is self.NEVER:
             initial_timestamp = None
@@ -132,7 +135,7 @@ class Monitor(object):
             collection=self.collection,
             create_method_kwargs=dict(
                 start=initial_timestamp,
-                finish=initial_timestamp,
+                finish=None,
                 counter=self.default_counter,
             )
         )
@@ -149,6 +152,7 @@ class Monitor(object):
         progress = timestamp_obj.to_data()
 
         this_run_start = datetime.datetime.utcnow()
+        exception = None
         try:
             new_timestamp = self.run_once(progress)
             this_run_finish = datetime.datetime.utcnow()
@@ -158,29 +162,33 @@ class Monitor(object):
                 new_timestamp = TimestampData()
             if new_timestamp.exception in (None, TimestampData.NO_VALUE):
                 # run_once() completed with no exceptions being raised.
-                # We can run the cleanup code.
+                # We can run the cleanup code and finalize the timestamp.
                 self.cleanup()
-            new_timestamp.finalize(
-                service=self.service_name,
-                service_type=Timestamp.MONITOR_TYPE,
-                collection=self.collection,
-                start=this_run_start,
-                finish=this_run_finish,
-                exception=None
-            )
-            new_timestamp.apply(self._db)
+                new_timestamp.finalize(
+                    service=self.service_name,
+                    service_type=Timestamp.MONITOR_TYPE,
+                    collection=self.collection,
+                    start=this_run_start,
+                    finish=this_run_finish,
+                    exception=None
+                )
+                new_timestamp.apply(self._db)
+            else:
+                # This will be treated the same as an unhandled
+                # exception, below.
+                exception = new_timestamp.exception
         except Exception, e:
             this_run_finish = datetime.datetime.utcnow()
             self.log.error(
                 "Error running %s monitor. Timestamp will not be updated.",
                 self.service_name, exc_info=e
             )
-
+            exception = traceback.format_exc()
+        if exception is not None:
             # We will update Timestamp.exception but not go through
             # the whole TimestampData.apply() process, which might
             # erase the information the Monitor needs to recover from
             # this failure.
-            exception = traceback.format_exc()
             timestamp_obj.exception = exception
 
         self._db.commit()
