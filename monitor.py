@@ -113,6 +113,15 @@ class Monitor(object):
             return None
         return get_one(self._db, Collection, id=self.collection_id)
 
+    @property
+    def initial_start_time(self):
+        if self.default_start_time is self.NEVER:
+            return None
+        if self.default_start_time:
+            return self.default_start_time
+        return datetime.datetime.utcnow()
+
+
     def timestamp(self):
         """Find or create a Timestamp for this Monitor.
 
@@ -122,12 +131,7 @@ class Monitor(object):
         A new timestamp will have .finish set to None, since the first
         run is presumably in progress.
         """
-        if self.default_start_time is self.NEVER:
-            initial_timestamp = None
-        elif not self.default_start_time:
-            initial_timestamp = datetime.datetime.utcnow()
-        else:
-            initial_timestamp = self.default_start_time
+        initial_timestamp = self.initial_start_time
         timestamp, new = get_one_or_create(
             self._db, Timestamp,
             service=self.service_name,
@@ -202,7 +206,7 @@ class Monitor(object):
     def run_once(self, progress):
         """Do the actual work of the Monitor.
 
-        :param progress: A TimestampData representing the 
+        :param progress: A TimestampData representing the
            work done by the Monitor up to this point.
         """
         raise NotImplementedError()
@@ -212,6 +216,56 @@ class Monitor(object):
         has completed successfully.
         """
         pass
+
+
+class TimelineMonitor(Monitor):
+    """A monitor that needs to process everything that happened between
+    two specific times.
+
+    This Monitor uses `Timestamp.start` and `Timestamp.finish` to describe
+    the span of time covered in the most recent run, not the time it
+    actually took to run.
+    """
+    OVERLAP = datetime.timedelta(minutes=5)
+
+    def run_once(self, progress):
+        if not progress.finish:
+            # This monitor has never run before. Use the default
+            # start time for this monitor.
+            start = self.initial_start_time
+        else:
+            start = progress.finish - self.OVERLAP
+        cutoff = datetime.datetime.utcnow()
+        self.catch_up_from(start, cutoff, progress)
+
+        if progress.is_failure:
+            # Something has gone wrong. Stop immediately.
+            #
+            # TODO: Ideally we would undo any other changes made to
+            # the TimestampData, but most Monitors don't set
+            # .exception directly so it's not a big deal.
+            return progress
+
+        # We set `finish` to the time at which we _started_
+        # running this process, to reduce the risk that we miss
+        # events that happened while the process was running.
+        progress.start = start
+        progress.finish = cutoff
+        return progress
+
+    def catch_up_from(self, start, cutoff, progress):
+        """Make sure all events between `start` and `cutoff` are covered.
+
+        :param start: Start looking for events that happened at this
+            time.
+        :param cutoff: You're not responsible for events that happened
+            after this time.
+        :param progress: A TimestampData representing the progress so
+            far. You can modify this in place, for instance to set
+            .achievements, but you cannot change .start and .finish --
+            any changes will be overwritten by run_once().
+        """
+        raise NotImplementedError()
 
 
 class CollectionMonitor(Monitor):

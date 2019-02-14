@@ -52,6 +52,7 @@ from ..monitor import (
     ReaperMonitor,
     SubjectSweepMonitor,
     SweepMonitor,
+    TimelineMonitor,
     WorkRandomnessUpdateMonitor,
     WorkSweepMonitor,
 )
@@ -325,6 +326,80 @@ class TestCollectionMonitor(DatabaseTest):
         # run most recently is returned last. There is no
         # OPDSCollectionMonitor for the Bibliotheca collection.
         eq_([o2, o3, o1], [x.collection for x in monitors])
+
+
+class TestTimelineMonitor(DatabaseTest):
+
+    def test_run_once(self):
+        class Mock(TimelineMonitor):
+            SERVICE_NAME = "Just a timeline"
+            catchups = []
+            def catch_up_from(self, start, cutoff, progress):
+                self.catchups.append((start, cutoff, progress))
+
+        m = Mock(self._db)
+        progress = m.timestamp().to_data()
+        m.run_once(progress)
+        now = datetime.datetime.utcnow()
+
+        # catch_up_from() was called once.
+        (start, cutoff, progress) = m.catchups.pop()
+        eq_(m.initial_start_time, start)
+        assert (cutoff - now).total_seconds() < 2
+
+        # progress contains a record of the timespan now covered
+        # by this Monitor.
+        eq_(start, progress.start)
+        eq_(cutoff, progress.finish)
+
+    def test_subclass_cannot_modify_dates(self):
+        """The subclass can modify some fields of the TimestampData
+        passed in to it, but it can't modify the start or end dates.
+
+        If you want that, you shouldn't subclass TimelineMonitor.
+        """
+        class Mock(TimelineMonitor):
+            DEFAULT_START_TIME = Monitor.NEVER
+            SERVICE_NAME = "I aim to misbehave"
+            def catch_up_from(self, start, cutoff, progress):
+                progress.start = 1
+                progress.finish = 2
+                progress.counter = 3
+                progress.achievements = 4
+
+        m = Mock(self._db)
+        progress = m.timestamp().to_data()
+        m.run_once(progress)
+        now = datetime.datetime.utcnow()
+
+        # The timestamp values have been set to appropriate values for
+        # the portion of the timeline covered, overriding our values.
+        eq_(None, progress.start)
+        assert (now-progress.finish).total_seconds() < 2
+
+        # The non-timestamp values have been left alone.
+        eq_(3, progress.counter)
+        eq_(4, progress.achievements)
+
+    def test_timestamp_not_updated_on_exception(self):
+        """If the subclass sets .exception on the TimestampData
+        passed into it, the dates aren't modified.
+        """
+        class Mock(TimelineMonitor):
+            DEFAULT_START_TIME = datetime.datetime(2011, 1, 1)
+            SERVICE_NAME = "doomed"
+            def catch_up_from(self, start, cutoff, progress):
+                self.started_at = start
+                progress.exception = "oops"
+
+        m = Mock(self._db)
+        progress = m.timestamp().to_data()
+        m.run_once(progress)
+
+        # The timestamp value is set to a value indicating that the
+        # initial run never completed.
+        eq_(m.DEFAULT_START_TIME, progress.start)
+        eq_(None, progress.finish)
 
 
 class MockSweepMonitor(SweepMonitor):
