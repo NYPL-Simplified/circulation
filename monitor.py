@@ -142,25 +142,15 @@ class Monitor(object):
         """Do all the work that has piled up since the
         last time the Monitor ran to completion.
         """
-        # Figure out how far into the past this Monitor needs to go.
-        timestamp = self.timestamp()
-        last_run_start = timestamp.start or self.default_start_time
-        if last_run_start == self.NEVER:
-            last_run_start = None
+        # Use the existing Timestamp to determine the progress made up
+        # to this point. It's the job of the subclass to decide where
+        # to go from here.
+        timestamp_obj = self.timestamp()
+        progress = timestamp_obj.to_data()
 
-        # At this point `last_run_start` represents the first moment
-        # at which something might have happened that the Monitor
-        # hasn't taken into consideration. `this_run_start` represents
-        # the first moment of _this_ run, which is the _final_ moment
-        # the Monitor must take into consideration right
-        # now. Everything that happens after this time can be handled
-        # on the subsequent run.
         this_run_start = datetime.datetime.utcnow()
         try:
-            # TODO: run_once needs to take the Timestamp object,
-            # or a TimestampData based on it -- there's no one
-            # way that will work for all Monitors here.
-            new_timestamp = self.run_once(last_run_start, this_run_start)
+            new_timestamp = self.run_once(progress)
             this_run_finish = datetime.datetime.utcnow()
             if new_timestamp is None:
                 new_timestamp = TimestampData()
@@ -184,13 +174,12 @@ class Monitor(object):
                 self.service_name, exc_info=e
             )
 
-            # We will update Timestamp.exception but not go through the
-            # whole TimestampData.apply() process, which would change
-            # the timestamp times. This way the Monitor remembers that
-            # it still hasn't managed to cover what happened in that
-            # first moment.
+            # We will update Timestamp.exception but not go through
+            # the whole TimestampData.apply() process, which might
+            # erase the information the Monitor needs to recover from
+            # this failure.
             exception = traceback.format_exc()
-            self.timestamp().exception = exception
+            timestamp_obj.exception = exception
 
         self._db.commit()
 
@@ -200,13 +189,11 @@ class Monitor(object):
             duration.total_seconds(),
         )
 
-    def run_once(self, start, cutoff):
+    def run_once(self, progress):
         """Do the actual work of the Monitor.
 
-        :param start: The last time the Monitor was run.
-
-        :param cutoff: It's not necessary to do work for anything that
-            happened after this time. Usually, this is the current time.
+        :param progress: A TimestampData representing the 
+           work done by the Monitor up to this point.
         """
         raise NotImplementedError()
 
