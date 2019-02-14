@@ -642,10 +642,60 @@ class TestCacheMARCFiles(TestLaneScript):
         assert exporter.called_with[1][2] < yesterday
         assert exporter.called_with[1][2] > last_week
 
+        # The update frequency can also be 0, in which case it will always run.
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, MARCExporter.UPDATE_FREQUENCY, self._default_library,
+            integration).value = 0
+        exporter.called_with = []
+        script = CacheMARCFiles(self._db, cmd_args=[])
+        script.process_lane(lane, exporter)
+
+        eq_(2, len(exporter.called_with))
+
+        eq_(lane, exporter.called_with[0][0])
+        assert isinstance(exporter.called_with[0][1], MARCLibraryAnnotator)
+        eq_(None, exporter.called_with[0][2])
+
+        eq_(lane, exporter.called_with[1][0])
+        assert isinstance(exporter.called_with[1][1], MARCLibraryAnnotator)
+        assert exporter.called_with[1][2] < yesterday
+        assert exporter.called_with[1][2] > last_week
+
+
 
 class TestInstanceInitializationScript(DatabaseTest):
 
     def test_run(self):
+
+        # If the database has been initialized -- which happened
+        # during the test suite setup -- run() will bail out and never
+        # call do_run().
+        class Mock(InstanceInitializationScript):
+            def do_run(self):
+                raise Exception("I'll never be called.")
+        Mock().run()
+
+        # If the database has not been initialized, run() will detect
+        # this and call do_run().
+
+        # Simulate an uninitialized database by changing the test SQL
+        # to refer to a nonexistent table. Since this 'known' table
+        # doesn't exist, we must not have initialized the site,
+        # and do_run() will be called.
+        class Mock(InstanceInitializationScript):
+            TEST_SQL = "select * from nosuchtable"
+            def do_run(self, *args, **kwargs):
+                self.was_run = True
+
+        script = Mock()
+        script.run()
+        eq_(True, script.was_run)
+
+
+    def test_do_run(self):
+        # Normally, do_run is only called by run() if the database has
+        # not yet meen initialized. But we can test it by calling it
+        # directly.
         timestamp = get_one(
             self._db, Timestamp, service=u"Database Migration",
             service_type=Timestamp.SCRIPT_TYPE
