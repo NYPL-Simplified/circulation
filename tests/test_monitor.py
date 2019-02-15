@@ -94,6 +94,23 @@ class TestMonitor(DatabaseTest):
         monitor.collection_id = None
         eq_(None, monitor.collection)
 
+    def test_initial_start_time(self):
+        monitor = MockMonitor(self._db, self._default_collection)
+
+        # Setting the default start time to NEVER explicitly says to use
+        # None as the initial time.
+        monitor.default_start_time = monitor.NEVER
+        eq_(None, monitor.initial_start_time)
+
+        # Setting the value to None means "use the current time".
+        monitor.default_start_time = None
+        self.time_eq(datetime.datetime.utcnow(), monitor.initial_start_time)
+
+        # Any other value is returned as-is.
+        default = object()
+        monitor.default_start_time = default
+        eq_(default, monitor.initial_start_time)
+
     def test_monitor_lifecycle(self):
         monitor = MockMonitor(self._db, self._default_collection)
         monitor.default_start_time = datetime.datetime(2010, 1, 1)

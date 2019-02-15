@@ -115,6 +115,9 @@ class Monitor(object):
 
     @property
     def initial_start_time(self):
+        """The time that should be used as the 'start time' the first
+        time this Monitor is run.
+        """
         if self.default_start_time is self.NEVER:
             return None
         if self.default_start_time:
