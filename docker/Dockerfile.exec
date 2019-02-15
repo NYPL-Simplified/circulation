@@ -5,6 +5,7 @@ ARG version
 ARG repo="NYPL-Simplified/circulation"
 
 ENV SIMPLIFIED_DB_TASK "auto"
+ENV SIMPLIFIED_ELASTICSEARCH_VERSION 1
 ENV SIMPLIFIED_SCRIPT_NAME ""
 
 # Copy over all Library Simplified build files for this image
