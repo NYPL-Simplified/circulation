@@ -1012,7 +1012,6 @@ class OverdriveCirculationMonitor(CollectionMonitor, TimelineMonitor):
     basic Editions for any new LicensePools that show up.
     """
     SERVICE_NAME = "Overdrive Circulation Monitor"
-    INTERVAL_SECONDS = 500
     PROTOCOL = ExternalIntegration.OVERDRIVE
     OVERLAP = datetime.timedelta(minutes=1)
 
@@ -1094,7 +1093,6 @@ class FullOverdriveCollectionMonitor(OverdriveCirculationMonitor):
     are not found in our collection.
     """
     SERVICE_NAME = "Overdrive Collection Overview"
-    INTERVAL_SECONDS = 3600*4
 
     def recently_changed_ids(self, start, cutoff):
         """Ignore the dates and return all IDs."""
@@ -1106,7 +1104,6 @@ class OverdriveCollectionReaper(IdentifierSweepMonitor):
     Overdrive collection.
     """
     SERVICE_NAME = "Overdrive Collection Reaper"
-    INTERVAL_SECONDS = 3600*4
     PROTOCOL = ExternalIntegration.OVERDRIVE
 
     def __init__(self, _db, collection, api_class=OverdriveAPI):
@@ -1121,7 +1118,6 @@ class RecentOverdriveCollectionMonitor(OverdriveCirculationMonitor):
     """Monitor recently changed books in the Overdrive collection."""
 
     SERVICE_NAME = "Reverse Chronological Overdrive Collection Monitor"
-    INTERVAL_SECONDS = 60
     MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS=100
 
 
