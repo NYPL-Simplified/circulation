@@ -1069,8 +1069,6 @@ class OverdriveCirculationMonitor(CollectionMonitor, TimelineMonitor):
                 consecutive_unchanged_books = 0
             else:
                 consecutive_unchanged_books += 1
-                if consecutive_unchanged_books > 1:
-                    set_trace()
                 if (self.maximum_consecutive_unchanged_books
                     and consecutive_unchanged_books >=
                     self.maximum_consecutive_unchanged_books):
