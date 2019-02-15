@@ -124,6 +124,26 @@ class TestTimestamp(DatabaseTest):
         eq_(counter, stamp.counter)
         eq_(None, stamp.exception)
 
+    def to_data(self):
+        stamp = Timestamp.stamp(
+            self._db, "service", Timestamp.SCRIPT_TYPE,
+            collection=self._default_collection, counter=10, achivements="a"
+        )
+        data = stamp.to_data()
+        assert isinstance(data, TimestampData)
+
+        # The TimestampData is not finalized.
+        eq_(None, data.service)
+        eq_(None, data.service_type)
+        eq_(None, data.collection_id)
+
+        # But all the other information is there.
+        eq_(stamp.start, data.start)
+        eq_(stamp.finish, data.finish)
+        eq_(stamp.achievements, data.achievements)
+        eq_(stamp.counter, data.counter)
+
+
 class TestBaseCoverageRecord(DatabaseTest):
 
     def test_not_covered(self):
