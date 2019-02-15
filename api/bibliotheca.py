@@ -1328,7 +1328,7 @@ class BibliothecaEventMonitor(CollectionMonitor):
         # We want to start at the time of the last event successfully
         # processed, and continue up to the current time.
         start = progress.finish or self.default_start_time
-        now = datetime.datetime.utcnow()
+        now = datetime.utcnow()
 
         # We use timestamp.start and timestamp.finish to track the
         # first and last events processed during this run.
@@ -1382,6 +1382,7 @@ class BibliothecaEventMonitor(CollectionMonitor):
             # point to the timestamp of the last event processed on
             # the previous run.
             first_event = progress.finish
+            final_event = first_event
         progress.start = first_event
         progress.finish = final_event
         return progress

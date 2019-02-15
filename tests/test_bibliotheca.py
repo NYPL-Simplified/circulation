@@ -17,7 +17,10 @@ from . import (
     sample_data
 )
 
-from core.metadata_layer import ReplacementPolicy
+from core.metadata_layer import (
+    ReplacementPolicy,
+    TimestampData,
+)
 from core.mock_analytics_provider import MockAnalyticsProvider
 from core.model import (
     CirculationEvent,
@@ -977,6 +980,20 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         eq_(datetime(2013, 4, 2), default_start_time)
 
     def test_run_once(self):
+        # run_once() slices the time between its start date
+        # and the current time into one-day intervals, and asks for
+        # data about one day at a time.
+
+        now = datetime.utcnow()
+        two_days_ago = now - timedelta(hours=36)
+        three_days_ago = now - timedelta(hours=50)
+
+        # This TimestampData simulates what we found the last time
+        # this script ran. The first event we found was timestamped 50
+        # hours ago, and the last event we found was timestamped 36
+        # hours ago.
+        before_timestamp = TimestampData(start=three_days_ago, finish=two_days_ago)
+
         api = MockBibliothecaAPI(self._db, self.collection)
         api.queue_response(
             200, content=self.sample_data("empty_end_date_event.xml")
@@ -984,20 +1001,26 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         api.queue_response(
             200, content=self.sample_data("item_metadata_single.xml")
         )
+        api.queue_response(
+            200, content=self.sample_data("empty_event_batch.xml")
+        )
         monitor = BibliothecaEventMonitor(
             self._db, self.collection, api_class=api
         )
-        now = datetime.utcnow()
-        long_ago = datetime(2016, 4, 28)
-        later = datetime(2016, 4, 29)
 
-        new_timestamp = monitor.run_once(long_ago, later)
+        after_timestamp = monitor.run_once(before_timestamp)
 
-        # Two requests were made to the API -- one to process the
-        # 'slice' of events between 2016/04/28 and 2016/04/29,
-        # and one to look up detailed information about the book
-        # whose event we learned of.
-        eq_(2, len(api.requests))
+        # Three requests were made to the API:
+        #
+        # 1. Retrieving the 'slice' of events between 36 hours ago and
+        #    12 hours ago.
+        #
+        # 2. Looking up detailed information about the single book
+        #    whose event we learned of in that first slice.
+        #
+        # 3. Retrieving the (empty) 'slice' of events between 12 hours ago
+        #    and now.
+        eq_(3, len(api.requests))
 
         # A LicensePool was created for the identifier referred to
         # in empty_end_date_event.xml.
@@ -1011,11 +1034,14 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         eq_(None, pool.work)
         eq_(None, pool.presentation_edition)
 
-        # The return value is a TimestampData that shows the time span
-        # covered by the most recent 'slice' it processed -- from the
-        # start of the slice to the last event actually processed.
-        eq_(long_ago, new_timestamp.start)
-        eq_(datetime(2016, 4, 28, 11, 4, 6), new_timestamp.finish)
+        # The return value is a TimestampData that shows the timestamps
+        # of the first and last events actually processed. Since only
+        # one event was processed here, and its date is before the time
+        # we actually called run_once(), the end time is set to the
+        # time we called run_once()
+        event_date = datetime(2016, 4, 28, 11, 4, 6)
+        eq_(event_date, after_timestamp.start)
+        eq_(two_days_ago, after_timestamp.finish)
 
         # If we tell run_once() to work through an amount of time
         # where the are no events, it does nothing but update the
@@ -1024,14 +1050,16 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
             200, content=self.sample_data("empty_event_batch.xml")
         )
         yesterday = now - timedelta(days=1)
-        new_timestamp = monitor.run_once(yesterday, now)
+        no_action_timestamp = TimestampData(start=yesterday, finish=now)
+        final_timestamp = monitor.run_once(no_action_timestamp)
 
-        # .start is set to the 'start' time passed into run_once().
-        eq_(new_timestamp.start, yesterday)
+        # .start is set to the previous 'finish' time.
+        eq_(final_timestamp.start, yesterday)
 
         # Since there were no events, .finish is set to the same
         # time as .start.
-        eq_(new_timestamp.finish, yesterday)
+        eq_(final_timestamp.finish, final_timestamp.start)
+
 
 
     def test_handle_event(self):
