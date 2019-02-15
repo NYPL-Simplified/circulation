@@ -2122,7 +2122,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         monitor.queue_response([["second next link"], "second page"])
         monitor.queue_response([["next link"], "first page"])
 
-        monitor.run_once(None, None)
+        monitor.run_once(object())
 
         # Feeds are imported in reverse order
         eq_(["last page", "second page", "first page"], monitor.imports)

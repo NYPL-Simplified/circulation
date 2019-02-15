@@ -383,7 +383,7 @@ class OPDSCollectionMonitor(CollectionMonitor):
         self.test_argument = test_argument
         super(OPDSCollectionMonitor, self).__init__(_db, **kwargs)
 
-    def run_once(self, start, cutoff):
+    def run_once(self, progress):
         self.collection.ran_with_argument = self.test_argument
 
 
