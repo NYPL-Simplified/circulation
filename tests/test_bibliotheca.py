@@ -988,11 +988,10 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         two_days_ago = now - timedelta(hours=36)
         three_days_ago = now - timedelta(hours=50)
 
-        # This TimestampData simulates what we found the last time
-        # this script ran. The first event we found was timestamped 50
-        # hours ago, and the last event we found was timestamped 36
-        # hours ago.
-        before_timestamp = TimestampData(start=three_days_ago, finish=two_days_ago)
+        # Simulate that this script last ran 36 hours ago
+        before_timestamp = TimestampData(
+            start=three_days_ago, finish=two_days_ago
+        )
 
         api = MockBibliothecaAPI(self._db, self.collection)
         api.queue_response(
@@ -1034,14 +1033,14 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         eq_(None, pool.work)
         eq_(None, pool.presentation_edition)
 
-        # The return value is a TimestampData that shows the timestamps
-        # of the first and last events actually processed. Since only
-        # one event was processed here, and its date is before the time
-        # we actually called run_once(), the end time is set to the
-        # time we called run_once()
-        event_date = datetime(2016, 4, 28, 11, 4, 6)
-        eq_(event_date, after_timestamp.start)
-        eq_(two_days_ago, after_timestamp.finish)
+        # The timeframe covered by that run starts a little before the
+        # 'finish' date associated with the old timestamp, and ends
+        # around the time run_once() was called.
+        #
+        # The event we found was from 2016, but that's not considered
+        # when setting the timestamp.
+        eq_(two_days_ago-monitor.OVERLAP, after_timestamp.start)
+        self.time_eq(after_timestamp.finish, now)
 
         # If we tell run_once() to work through an amount of time
         # where the are no events, it does nothing but update the
@@ -1049,18 +1048,19 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         api.queue_response(
             200, content=self.sample_data("empty_event_batch.xml")
         )
+        now = datetime.utcnow()
         yesterday = now - timedelta(days=1)
-        no_action_timestamp = TimestampData(start=yesterday, finish=now)
+        an_hour_ago = now - timedelta(hours=1)
+        no_action_timestamp = TimestampData(start=yesterday, finish=an_hour_ago)
         final_timestamp = monitor.run_once(no_action_timestamp)
 
-        # .start is set to the previous 'finish' time.
-        eq_(final_timestamp.start, yesterday)
+        # One request was made.
+        eq_(4, len(api.requests))
 
-        # Since there were no events, .finish is set to the same
-        # time as .start.
-        eq_(final_timestamp.finish, final_timestamp.start)
-
-
+        # The timestamp indicates we covered the time between the last 'finish'
+        # time and the time that run_once() was called.
+        eq_(an_hour_ago-monitor.OVERLAP, final_timestamp.start)
+        self.time_eq(now, final_timestamp.finish)
 
     def test_handle_event(self):
         api = MockBibliothecaAPI(self._db, self.collection)
