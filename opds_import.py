@@ -1811,7 +1811,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
                 operation=CoverageRecord.IMPORT_OPERATION
             )
 
-    def run_once(self, start_ignore, cutoff_ignore):
+    def run_once(self, progress_ignore):
         feeds = []
         queue = [self.feed_url]
         seen_links = set([])

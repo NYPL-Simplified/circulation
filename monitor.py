@@ -229,7 +229,7 @@ class TimelineMonitor(Monitor):
     OVERLAP = datetime.timedelta(minutes=5)
 
     def run_once(self, progress):
-        if not progress.finish:
+        if progress.finish in (None, progress.NO_VALUE):
             # This monitor has never run before. Use the default
             # start time for this monitor.
             start = self.initial_start_time
