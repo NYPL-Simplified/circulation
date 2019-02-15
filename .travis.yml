@@ -35,7 +35,11 @@ before_script:
   - psql -c 'grant all privileges on database simplified_circulation_test to simplified_test;' -U postgres
 
 env:
-  - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_circulation_test"
+  global:
+    - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_circulation_test"
+  matrix:
+    - SIMPLIFIED_ELASTICSEARCH_VERSION=1
+    - SIMPLIFIED_ELASTICSEARCH_VERSION=6
 
 script:
   - ./verbose-test
