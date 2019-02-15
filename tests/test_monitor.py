@@ -137,7 +137,7 @@ class TestMonitor(DatabaseTest):
         timestamp = get_timestamp()
         assert timestamp.start > monitor.default_start_time
         assert timestamp.finish > timestamp.start
-        assert (datetime.datetime.utcnow() - timestamp.start).total_seconds() < 2
+        self.time_eq(datetime.datetime.utcnow(), timestamp.start)
 
         # cleanup() was called once.
         eq_([True], monitor.cleanup_records)
@@ -362,7 +362,7 @@ class TestTimelineMonitor(DatabaseTest):
         # catch_up_from() was called once.
         (start, cutoff, progress) = m.catchups.pop()
         eq_(m.initial_start_time, start)
-        assert (cutoff - now).total_seconds() < 2
+        self.time_eq(cutoff, now)
 
         # progress contains a record of the timespan now covered
         # by this Monitor.
@@ -392,7 +392,7 @@ class TestTimelineMonitor(DatabaseTest):
         # The timestamp values have been set to appropriate values for
         # the portion of the timeline covered, overriding our values.
         eq_(None, progress.start)
-        assert (now-progress.finish).total_seconds() < 2
+        self.time_eq(now, progress.finish)
 
         # The non-timestamp values have been left alone.
         eq_(3, progress.counter)
@@ -542,8 +542,8 @@ class TestSweepMonitor(DatabaseTest):
         # timestamp were updated to reflect the work that _was_ done.
         now = datetime.datetime.utcnow()
         assert timestamp.start > original_start
-        assert (now - timestamp.start).total_seconds() < 5
-        assert (now - timestamp.finish).total_seconds() < 5
+        self.time_eq(now, timestamp.start)
+        self.time_eq(now, timestamp.finish)
         assert timestamp.start < timestamp.finish
 
         # I3 was processed, but the batch did not complete, so any
@@ -902,12 +902,11 @@ class TestReaperMonitor(DatabaseTest):
             expect = datetime.datetime.utcnow() - datetime.timedelta(
                 days=value
             )
-            assert (m.cutoff - expect).total_seconds() < 2
+            self.time_eq(m.cutoff, expect)
 
         # But you can pass in a timedelta instead.
         m.MAX_AGE = datetime.timedelta(seconds=99)
-        expect = datetime.datetime.utcnow() - m.MAX_AGE
-        assert (m.cutoff - expect).total_seconds() < 2
+        self.time_eq(m.cutoff, datetime.datetime.utcnow() - m.MAX_AGE)
 
     def test_specific_reapers(self):
         eq_(CachedFeed.timestamp, CachedFeedReaper(self._db).timestamp_field)
