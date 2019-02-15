@@ -1989,7 +1989,6 @@ class RBDigitalCirculationMonitor(CollectionMonitor):
     """
     SERVICE_NAME = "RBDigital CirculationMonitor"
     DEFAULT_START_TIME = datetime.datetime(1970, 1, 1)
-    INTERVAL_SECONDS = 1200
     DEFAULT_BATCH_SIZE = 50
 
     PROTOCOL = ExternalIntegration.RB_DIGITAL
