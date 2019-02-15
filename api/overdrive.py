@@ -45,6 +45,7 @@ from core.model import (
 from core.monitor import (
     CollectionMonitor,
     IdentifierSweepMonitor,
+    TimelineMonitor,
 )
 from core.util.http import HTTP
 from core.metadata_layer import ReplacementPolicy
@@ -1006,14 +1007,14 @@ class MockOverdriveAPI(BaseMockOverdriveAPI, OverdriveAPI):
         return response
 
 
-class OverdriveCirculationMonitor(CollectionMonitor):
+class OverdriveCirculationMonitor(CollectionMonitor, TimelineMonitor):
     """Maintain LicensePools for recently changed Overdrive titles. Create
     basic Editions for any new LicensePools that show up.
     """
     SERVICE_NAME = "Overdrive Circulation Monitor"
     INTERVAL_SECONDS = 500
     PROTOCOL = ExternalIntegration.OVERDRIVE
-    OVERLAP = None
+    OVERLAP = datetime.timedelta(minutes=1)
 
     # Report successful completion upon finding this number of
     # consecutive books in the Overdrive results whose LicensePools
@@ -1069,6 +1070,8 @@ class OverdriveCirculationMonitor(CollectionMonitor):
                 consecutive_unchanged_books = 0
             else:
                 consecutive_unchanged_books += 1
+                if consecutive_unchanged_books > 1:
+                    set_trace()
                 if (self.maximum_consecutive_unchanged_books
                     and consecutive_unchanged_books >=
                     self.maximum_consecutive_unchanged_books):
