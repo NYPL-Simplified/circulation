@@ -920,10 +920,13 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         edition, is_new_edition = self._edition(license_pool)
 
         # If the pool does not already have a presentation edition,
-        # and if this edition is newly made, then associate pool and edition
-        # as presentation_edition
-        if ((not license_pool.presentation_edition) and is_new_edition):
+        # then associate pool and edition as presentation_edition.
+        if not license_pool.presentation_edition:
             edition_changed = license_pool.set_presentation_edition()
+
+        # Make sure the pool also has a work.
+        if not license_pool.work:
+            license_pool.calculate_work()
 
         if is_new_pool:
             license_pool.open_access = False
