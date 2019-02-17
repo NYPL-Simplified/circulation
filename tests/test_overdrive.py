@@ -779,7 +779,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # newly created LicensePool.
         raw['id'] = pool.identifier.identifier
 
-        wr.title = "The real title."
+        wr.title = u"The real title."
         eq_(1, pool.licenses_owned)
         eq_(1, pool.licenses_available)
         eq_(0, pool.licenses_reserved)
@@ -793,7 +793,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_(p2, pool)
         # The title didn't change to that title given in the availability
         # information, because we already set a title for that work.
-        eq_("The real title.", wr.title)
+        eq_(u"The real title.", wr.title)
         eq_(raw['copiesOwned'], pool.licenses_owned)
         eq_(raw['copiesAvailable'], pool.licenses_available)
         eq_(0, pool.licenses_reserved)
