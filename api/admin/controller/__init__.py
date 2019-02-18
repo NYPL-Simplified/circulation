@@ -1996,8 +1996,11 @@ class DashboardController(AdminCirculationManagerController):
                     join(
                         Hold,
                         Patron,
-                        Patron.id == Hold.patron_id,
-                        Patron.library_id == library.id,
+                        and_(
+                            Patron.id == Hold.patron_id,
+                            Patron.library_id == library.id,
+                            Hold.id != None,
+                        )
                     )
                 )
             ).alias()
