@@ -8,8 +8,11 @@ addons:
       - postgresql-contrib-9.3
 
 env:
-#  - ES_VERSION="6.3.2" ES_DOWNLOAD="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz" SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_core_test"
-  - ES_VERSION="1.7.0" ES_DOWNLOAD="https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz" SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_core_test"
+  global:
+    - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_core_test"
+  matrix:
+  - ES_VERSION="6.3.2" ES_DOWNLOAD="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz" SIMPLIFIED_ELASTICSEARCH_VERSION=6
+  - ES_VERSION="1.7.0" ES_DOWNLOAD="https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz" SIMPLIFIED_ELASTICSEARCH_VERSION=1
 
 services:
   - postgresql
@@ -22,6 +25,7 @@ python:
 cache: pip
 
 before_install:
+  - pip install --upgrade pip
   - pip install "setuptools>=18.5"
   - sleep 10
 
