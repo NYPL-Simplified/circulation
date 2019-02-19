@@ -142,14 +142,28 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
                 for link in next_links:
                     if link not in seen_links:
                         queue.append(link)
+
+            # Immediately update the timestamps table so that a later
+            # crash doesn't mean we have to redo this work.
             if new_timestamp:
                 self.timestamp().finish = new_timestamp
             self._db.commit()
-        finish = new_timestamp or self.timestamp().finish
+
+        # The TimestampData we return is going to be written to the database.
+        # Unlike most Monitors, there are times when we just don't
+        # want that to happen.
+        #
+        # If we found an OPDS feed, the latest timestamp in that feed
+        # should be used as Timestamp.finish.
+        #
+        # Otherwise, the existing timestamp.finish should be used. If
+        # that value happens to be None, we need to set
+        # TimestampData.finish to NO_VALUE to make sure it ends up
+        # as None (rather than the current time).
+        finish = new_timestamp or self.timestamp().finish or Timestamp.NO_VALUE
 
         progress.start = start
-        if finish:
-            progress.finish = finish
+        progress.finish = finish
         return progress
 
     def import_one_feed(self, timestamp, url):
