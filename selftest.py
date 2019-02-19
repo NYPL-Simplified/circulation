@@ -162,7 +162,6 @@ class HasSelfTests(object):
             duration = (end-start).total_seconds(),
             results = [x.to_dict for x in results]
         )
-
         # Store the formatted results in the database, if we can find
         # a place to store them.
         if integration:

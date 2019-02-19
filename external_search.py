@@ -40,12 +40,16 @@ from coverage import (
     CoverageFailure,
     WorkPresentationProvider,
 )
+from selftest import (
+    HasSelfTests,
+    SelfTestResult,
+)
 import os
 import logging
 import re
 import time
 
-class ExternalSearchIndex(object):
+class ExternalSearchIndex(HasSelfTests):
 
     NAME = ExternalIntegration.ELASTICSEARCH
 
@@ -478,6 +482,18 @@ class ExternalSearchIndex(object):
                     id=work.id)
         if self.exists(**args):
             self.delete(**args)
+
+    def _run_self_tests(self, _db, search_service):
+        def _search_for_term():
+            [search_term] = [x.value for x in search_service.settings if x.key == "test_search_term"]
+
+            works = self.query_works(search_term, filter=None, pagination=None, debug=False, return_raw_results=True)
+            titles = [work.title for work in works]
+            return titles
+        yield self.run_test(
+            "Searching for the specified term",
+            _search_for_term
+        )
 
 class ExternalSearchIndexVersions(object):
 
@@ -1414,20 +1430,34 @@ class MockExternalSearchIndex(ExternalSearchIndex):
     def exists(self, index, doc_type, id):
         return self._key(index, doc_type, id) in self.docs
 
-    def query_works(self, query_string, filter, pagination, debug=False):
-        self.queries.append((query_string, filter, pagination, debug))
-        doc_ids = sorted([dict(_id=key[2]) for key in self.docs.keys()])
+    def query_works(self, query_string, filter, pagination, debug=False, return_raw_results=False):
+        self.queries.append((query_string, filter, pagination, debug, return_raw_results))
+        if return_raw_results:
+            doc_ids = self.docs.values()
+        else:
+            doc_ids = sorted([dict(_id=key[2]) for key in self.docs.keys()])
+
         if pagination:
             start = pagination.offset
             stop = start + pagination.size
             doc_ids = doc_ids[start:stop]
-        return [x['_id'] for x in doc_ids]
+
+        if return_raw_results:
+            return doc_ids
+        else:
+            return [x['_id'] for x in doc_ids]
 
     def bulk(self, docs, **kwargs):
         for doc in docs:
             self.index(doc['_index'], doc['_type'], doc['_id'], doc)
         return len(docs), []
 
+class MockSearchResult(object):
+    def __init__(self, title, author, meta, id):
+        self.title = title
+        self.author = author
+        meta["id"] = id
+        self.meta = meta
 
 class SearchIndexMonitor(WorkSweepMonitor):
     """Make sure the search index is up-to-date for every work.
