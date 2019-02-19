@@ -97,6 +97,16 @@ class TestTimestamp(DatabaseTest):
         assert stamp3 != stamp
         eq_(self._default_collection, stamp3.collection)
 
+        # Passing in NO_VALUE for start or end will clear an existing
+        # Timestamp.
+        stamp4 = Timestamp.stamp(
+            self._db, service, type,
+            start=Timestamp.NO_VALUE, finish=Timestamp.NO_VALUE
+        )
+        eq_(stamp4, stamp)
+        eq_(None, stamp4.start)
+        eq_(None, stamp4.finish)
+
     def test_update(self):
         # update() can modify the fields of a Timestamp that aren't
         # used to identify it.

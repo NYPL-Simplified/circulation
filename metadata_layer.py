@@ -506,7 +506,7 @@ class FormatData(object):
 
 class TimestampData(object):
 
-    NO_VALUE = object()
+    NO_VALUE = Timestamp.NO_VALUE
 
     def __init__(self, start=NO_VALUE, finish=NO_VALUE, achievements=NO_VALUE,
                  counter=NO_VALUE, exception=NO_VALUE):
