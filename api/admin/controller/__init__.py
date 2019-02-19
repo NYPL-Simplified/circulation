@@ -169,6 +169,8 @@ def setup_admin_controllers(manager):
     from api.admin.controller.sitewide_services import *
     manager.admin_sitewide_services_controller = SitewideServicesController(manager)
     manager.admin_logging_services_controller = LoggingServicesController(manager)
+    from api.admin.controller.search_service_self_tests import SearchServiceSelfTestsController
+    manager.admin_search_service_self_tests_controller = SearchServiceSelfTestsController(manager)
     manager.admin_search_services_controller = SearchServicesController(manager)
     manager.admin_storage_services_controller = StorageServicesController(manager)
     from api.admin.controller.catalog_services import *
@@ -2391,6 +2393,29 @@ class SettingsController(AdminCirculationManagerController):
         return protocols
 
 
+    def _get_prior_search_test_results(self, search_service, search_index):
+
+        if not search_service:
+            return None
+
+        self_test_results = None
+
+        try:
+            self_test_results = search_index.prior_test_results(
+                self._db, search_index, self._db, search_service
+            )
+        except Exception, e:
+            # This is bad, but not so bad that we should short-circuit
+            # this whole process -- that might prevent an admin from
+            # making the configuration changes necessary to fix
+            # this problem.
+            message = _("Exception getting self-test results for search service %s: %s")
+            args = (search_service.name, e.message)
+            logging.warn(message, *args, exc_info=e)
+            self_test_results = dict(exception=message % args)
+
+        return self_test_results
+
     def _get_prior_test_results(self, collection, protocolClass):
         """This helper function returns previous self test results for a given
         collection if it has a protocol.  Used by both SelfTestsController and
@@ -2531,7 +2556,7 @@ class SettingsController(AdminCirculationManagerController):
         service = get_one(self._db, ExternalIntegration, id=id, goal=goal)
         if not service:
             return MISSING_SERVICE
-        if protocol != service.protocol:
+        if protocol and (protocol != service.protocol):
             return CANNOT_CHANGE_PROTOCOL
         return service
 

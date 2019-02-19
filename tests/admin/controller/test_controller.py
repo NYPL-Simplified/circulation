@@ -3164,6 +3164,9 @@ class SettingsControllerTest(AdminControllerTest):
         self.run_self_tests_called_with = (args, kwargs)
         return ("value", "results")
 
+    def mock_failed_run_search_service_self_tests(self, *args, **kwargs):
+        return [None]
+
     def mock_failed_run_self_tests(self, *args, **kwargs):
         self.failed_run_self_tests_called_with = (args, kwargs)
         return (None, None)
