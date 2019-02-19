@@ -53,7 +53,18 @@ class InstrumentedMWCollectionUpdateMonitor(MWCollectionUpdateMonitor):
                      self).import_one_feed(timestamp, url)
 
 
-class TestMWCollectionUpdateMonitor(DatabaseTest):
+class MonitorTest(DatabaseTest):
+
+    @property
+    def ts(self):
+        """Make the timestamp used by run() when calling run_once().
+
+        This makes it easier to test run_once() in isolation.
+        """
+        return self.monitor.timestamp().to_data()
+
+
+class TestMWCollectionUpdateMonitor(MonitorTest):
 
     def setup(self):
         super(TestMWCollectionUpdateMonitor, self).setup()
@@ -74,14 +85,6 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
         self.monitor = InstrumentedMWCollectionUpdateMonitor(
             self._db, self.collection, self.lookup
         )
-
-    @property
-    def ts(self):
-        """Make the timestamp used by run() when calling run_once().
-
-        This makes it easier to test run_once() in isolation.
-        """
-        return self.monitor.timestamp().to_data()
 
     def test_monitor_requires_authentication(self):
         class Mock(object):
@@ -121,14 +124,14 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
 
-        new_timestamp = self.monitor.run_once(self.ts)
+        new_timestamp = self.monitor.run()
 
         # We could have followed the 'next' link, but we chose not to.
         eq_([(None, None)], self.monitor.imports)
         eq_(1, len(self.lookup.requests))
 
-        # The timestamp was not updated because nothing was in the feed.
-        eq_(None, new_timestamp)
+        # The timestamp's finish date was not updated because nothing
+        # was in the feed.
         eq_(None, self.monitor.timestamp().finish)
 
     def test_run_once(self):
@@ -279,7 +282,7 @@ class TestMWCollectionUpdateMonitor(DatabaseTest):
         eq_(['http://now used/'], lookup.urls)
 
 
-class TestMWAuxiliaryMetadataMonitor(DatabaseTest):
+class TestMWAuxiliaryMetadataMonitor(MonitorTest):
 
     def setup(self):
         super(TestMWAuxiliaryMetadataMonitor, self).setup()
