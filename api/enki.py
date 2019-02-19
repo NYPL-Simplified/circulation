@@ -111,7 +111,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             )
 
         self.collection_id = collection.id
-        self.library_id = collection.external_account_id
+        self.library_id = collection.external_integration.setting(self.ENKI_LIBRARY_ID_KEY).value
         self.base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
 
         if not self.library_id or not self.base_url:
@@ -480,7 +480,7 @@ class MockEnkiAPI(EnkiAPI):
                 _db, name="Test Enki Collection", protocol=EnkiAPI.ENKI
             )
             collection.protocol=EnkiAPI.ENKI
-            collection.external_account_id=u'c';
+            collection.external_integration.setting(self.ENKI_LIBRARY_ID_KEY).value = u'c'
         if collection not in library.collections:
             library.collections.append(collection)
         super(MockEnkiAPI, self).__init__(
