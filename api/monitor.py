@@ -12,7 +12,6 @@ from sqlalchemy import (
     or_,
 )
 
-from core.metadata_layer import TimestampData
 from core.monitor import (
     CollectionMonitor,
     EditionSweepMonitor,

@@ -917,6 +917,7 @@ class OdiloCirculationMonitor(CollectionMonitor, TimelineMonitor):
         new = 0
         offset = 0
         limit = self.api.PAGE_SIZE_LIMIT
+
         if modification_date and isinstance(modification_date, datetime.date):
             modification_date = modification_date.strftime('%Y-%m-%d')  # Format YYYY-MM-DD
 
