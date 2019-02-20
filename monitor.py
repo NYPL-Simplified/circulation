@@ -380,10 +380,12 @@ class SweepMonitor(CollectionMonitor):
         run_started_at = datetime.datetime.utcnow()
         timestamp.start = run_started_at
 
+        total_processed = 0
         while True:
             old_offset = offset
             batch_started_at = datetime.datetime.utcnow()
-            new_offset = self.process_batch(offset)
+            new_offset, batch_size = self.process_batch(offset)
+            total_processed += batch_size
             batch_ended_at = datetime.datetime.utcnow()
 
             self.log.debug(
@@ -399,7 +401,13 @@ class SweepMonitor(CollectionMonitor):
 
             # We need to do another batch. If it should raise an exception,
             # we don't want to lose the progress we've already made.
-            timestamp.update(counter=new_offset, finish=batch_ended_at)
+            achievements = "Processed %s." % timestamp.pluralize(
+                total_processed, "record"
+            )
+            timestamp.update(
+                counter=new_offset, finish=batch_ended_at,
+                achievements=achievements
+            )
             self._db.commit()
 
         # We're done with this run. The run() method will do the final
@@ -414,11 +422,11 @@ class SweepMonitor(CollectionMonitor):
             self.process_items(items)
             # We've completed a batch. Return the ID of the last item
             # in the batch so we don't do this work again.
-            return items[-1].id
+            return items[-1].id, len(items)
         else:
             # There are no more items in this database table, so we
             # are done with the sweep. Reset the counter.
-            return 0
+            return 0, 0
 
     def process_items(self, items):
         """Process a list of items."""
@@ -704,8 +712,8 @@ class WorkRandomnessUpdateMonitor(WorkSweepMonitor):
         [[self.max_work_id]] = self._db.execute('select max(id) from works')
         if self.max_work_id < new_offset:
             # We're all done.
-            return 0
-        return new_offset
+            new_offset = 0
+        return new_offset, self.batch_size
 
 
 class CustomListEntryWorkUpdateMonitor(CustomListEntrySweepMonitor):

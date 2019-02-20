@@ -255,6 +255,19 @@ class Timestamp(Base):
         # .exception
         self.exception = exception
 
+    @classmethod
+    def pluralize(cls, num, singular_form, plural_form=None):
+        """A simple pluralization method, useful when generating
+        text to be used in Timestamp.achievements.
+        """
+        if plural_form is None:
+            plural_form = singular_form + "s"
+        if num == 1:
+            use = singular_form
+        else:
+            use = plural_form
+        return "%d %s" % (num, use)
+
     def to_data(self):
         """Convert this Timestamp to an unfinalized TimestampData."""
         from ..metadata_layer import TimestampData

@@ -114,6 +114,22 @@ class TestCoverageFailure(DatabaseTest):
         eq_("Bah forever!", rec.exception)
 
 
+class TestCoverageProviderProgress(object):
+
+    def test_achivements(self):
+        progress = CoverageProviderProgress()
+        progress.successes = 1
+        progress.transient_failures = 2
+        progress.persistent_failures = 0
+
+        expect = "Processed 3 records: 1 success, 2 transient failures, 0 persistent failures"
+        eq_(expect, progress.achievements)
+
+        # You can't set .achivements directly -- it's a calculated value.
+        progress.achievements = "new value"
+        eq_(expect, progress.achievements)
+
+
 class CoverageProviderTest(DatabaseTest):
     BIBLIOGRAPHIC_DATA = Metadata(
         DataSource.OVERDRIVE,
@@ -392,6 +408,10 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # would not need to skip any records.
         eq_(0, progress.offset)
 
+        # Various internal totals were updated and a value for .achivements
+        # can be generated from those totals.
+        eq_(2, progress.successes)
+
         # By default, run_once() finds Identifiers that have no coverage
         # or which have transient failures.
         [transient_failure_has_gone] = transient.coverage_records
@@ -440,6 +460,38 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # -- which we've decided to skip -- won't be considered again
         # this run.
         eq_(4, progress.offset)
+
+    def test_run_once_records_successes_and_failures(self):
+
+        class Mock(AlwaysSuccessfulCoverageProvider):
+            def process_batch_and_handle_results(self, batch):
+                # Simulate 1 success, 2 transient failures,
+                # and 3 persistent failures.
+                return (1, 2, 3), []
+
+        # process_batch_and_handle_results won't even be called if the
+        # batch is empty.
+        provider = Mock(self._db)
+        progress = CoverageProviderProgress()
+        progress2 = provider.run_once(progress)
+        eq_(progress2, progress)
+        eq_(0, progress.successes)
+
+        # Let's register an identifier so that the method we're testing
+        # will be called.
+        needs_coverage = self._identifier()
+        progress = provider.run_once(progress)
+
+        # The numbers returned from process_batch_and_handle_results
+        # were added to the CoverageProviderProgress object.
+        eq_(1, progress.successes)
+        eq_(2, progress.transient_failures)
+        eq_(3, progress.persistent_failures)
+
+        eq_(
+            "Processed 6 records: 1 success, 2 transient failures, 3 persistent failures",
+            progress.achievements
+        )
 
     def test_process_batch_and_handle_results(self):
         """Test that process_batch_and_handle_results passes the identifiers
