@@ -129,8 +129,14 @@ class ExternalSearchIndex(HasSelfTests):
         """Look up the name of the search index alias."""
         return cls.works_prefixed(_db, cls.CURRENT_ALIAS_SUFFIX)
 
-    def __init__(self, _db, url=None, works_index=None):
+    def __init__(self, _db, url=None, works_index=None, test_search_term=None,
+                 in_testing=False):
+        """Constructor
 
+        :param in_testing: Set this to true if you don't want an
+        Elasticsearch client to be created, e.g. because you're
+        running a unit test of the constructor.
+        """
         self.log = logging.getLogger("External search index")
         self.works_index = None
         self.works_alias = None
@@ -149,25 +155,30 @@ class ExternalSearchIndex(HasSelfTests):
             url = url or integration.url
             if not works_index:
                 works_index = self.works_index_name(_db)
+            test_search_term = integration.setting(
+                self.TEST_SEARCH_TERM_KEY).value
         if not url:
             raise CannotLoadConfiguration(
                 "No URL configured to Elasticsearch server."
             )
+        self.test_search_term = (
+            test_search_term or self.DEFAULT_TEST_SEARCH_TERM
+        )
+        if not in_testing:
+            if not ExternalSearchIndex.__client:
+                use_ssl = url.startswith('https://')
+                self.log.info(
+                    "Connecting to index %s in Elasticsearch cluster at %s",
+                    works_index, url
+                )
+                ExternalSearchIndex.__client = Elasticsearch(
+                    url, use_ssl=use_ssl, timeout=20, maxsize=25
+                )
 
-        if not ExternalSearchIndex.__client:
-            use_ssl = url.startswith('https://')
-            self.log.info(
-                "Connecting to index %s in Elasticsearch cluster at %s",
-                works_index, url
-            )
-            ExternalSearchIndex.__client = Elasticsearch(
-                url, use_ssl=use_ssl, timeout=20, maxsize=25
-            )
-
-        self.indices = self.__client.indices
-        self.index = self.__client.index
-        self.delete = self.__client.delete
-        self.exists = self.__client.exists
+            self.indices = self.__client.indices
+            self.index = self.__client.index
+            self.delete = self.__client.delete
+            self.exists = self.__client.exists
 
         # Sets self.works_index and self.works_alias values.
         # Document upload runs against the works_index.
@@ -483,11 +494,12 @@ class ExternalSearchIndex(HasSelfTests):
         if self.exists(**args):
             self.delete(**args)
 
-    def _run_self_tests(self, _db, search_service):
+    def _run_self_tests(self, _db):
         def _search_for_term():
-            [search_term] = [x.value for x in search_service.settings if x.key == "test_search_term"]
-
-            works = self.query_works(search_term, filter=None, pagination=None, debug=False, return_raw_results=True)
+            works = self.query_works(
+                self.test_search_term, filter=None, pagination=None,
+                debug=False, return_raw_results=True
+            )
             titles = [work.title for work in works]
             return titles
         yield self.run_test(
@@ -1415,6 +1427,7 @@ class MockExternalSearchIndex(ExternalSearchIndex):
         self.works_alias = "works-current"
         self.log = logging.getLogger("Mock external search index")
         self.queries = []
+        self.test_search_term = "a search term"
 
     def _key(self, index, doc_type, id):
         return (index, doc_type, id)
