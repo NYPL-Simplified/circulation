@@ -919,12 +919,6 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
 
         edition, is_new_edition = self._edition(license_pool)
 
-        # If the pool does not already have a presentation edition,
-        # and if this edition is newly made, then associate pool and edition
-        # as presentation_edition
-        if ((not license_pool.presentation_edition) and is_new_edition):
-            edition_changed = license_pool.set_presentation_edition()
-
         if is_new_pool:
             license_pool.open_access = False
             self.log.info("New Overdrive book discovered: %r", edition)
