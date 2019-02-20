@@ -10,7 +10,7 @@ from core.opds_import import (OPDSImporter, OPDSImportMonitor)
 from core.selftest import HasSelfTests
 from test_controller import SettingsControllerTest
 
-class TestSelfTests(SettingsControllerTest):
+class TestCollectionSelfTests(SettingsControllerTest):
     def test_collection_self_tests_with_no_identifier(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_collection_self_tests_controller.process_collection_self_tests(None)
@@ -33,7 +33,7 @@ class TestSelfTests(SettingsControllerTest):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_collection_self_tests_controller.process_collection_self_tests(collection.id)
 
-            responseCollection = response.get("collection")
+            responseCollection = response.get("self_test_results")
 
             eq_(responseCollection.get("id"), collection.id)
             eq_(responseCollection.get("name"), collection.name)

@@ -43,13 +43,13 @@ class TestSearchServiceSelfTests(SettingsControllerTest):
         # it is in the response's collection object.
         with self.request_context_with_admin("/"):
             response = self.manager.admin_search_service_self_tests_controller.process_search_service_self_tests(search_service.id)
-            responseSearchService = response.get("search_service")
+            response_search_service = response.get("self_test_results")
 
-            eq_(responseSearchService.get("id"), search_service.id)
-            eq_(responseSearchService.get("name"), search_service.name)
-            eq_(responseSearchService.get("protocol"), search_service.protocol)
-            eq_(responseSearchService.get("goal"), search_service.goal)
-            eq_(responseSearchService.get("self_test_results"), self.self_test_results)
+            eq_(response_search_service.get("id"), search_service.id)
+            eq_(response_search_service.get("name"), search_service.name)
+            eq_(response_search_service.get("protocol").get("label"), search_service.protocol)
+            eq_(response_search_service.get("goal"), search_service.goal)
+            eq_(response_search_service.get("self_test_results"), self.self_test_results)
 
         HasSelfTests.prior_test_results = old_prior_test_results
 
@@ -71,6 +71,6 @@ class TestSearchServiceSelfTests(SettingsControllerTest):
         # run_self_tests was called with the database twice (the
         # second time to be used in the ExternalSearchIntegration
         # constructor). There were no keyword arguments.
-        eq_(((self._db, self._db), {}), self.run_self_tests_called_with)
+        eq_(((self._db, None, self._db, None), {}), self.run_self_tests_called_with)
 
         HasSelfTests.run_self_tests = old_run_self_tests

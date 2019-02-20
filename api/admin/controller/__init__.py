@@ -23,6 +23,7 @@ from api.authenticator import (
     CannotCreateLocalPatron,
     PatronData,
 )
+from core.external_search import ExternalSearchIndex
 from core.model import (
     create,
     get_one,
@@ -140,6 +141,8 @@ def setup_admin_controllers(manager):
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
     manager.admin_patron_controller = PatronController(manager)
+    from api.admin.controller.self_tests import SelfTestsController
+    manager.admin_self_tests_controller = SelfTestsController(manager)
     from api.admin.controller.discovery_services import DiscoveryServicesController
     manager.admin_discovery_services_controller = DiscoveryServicesController(manager)
     from api.admin.controller.discovery_service_library_registrations import DiscoveryServiceLibraryRegistrationsController
@@ -2268,7 +2271,6 @@ class SettingsController(AdminCirculationManagerController):
         services = []
         for service in self._db.query(ExternalIntegration).filter(
             ExternalIntegration.goal==goal):
-
             candidates = [p for p in protocols if p.get("name") == service.protocol]
             if not candidates:
                 continue
@@ -2392,66 +2394,55 @@ class SettingsController(AdminCirculationManagerController):
 
         return protocols
 
+    def _get_prior_test_results(self, item, protocol_class=None):
+        # :param item: Either an ExternalSearchIndex or a Collection
+        if hasattr(self, "protocol_class"):
+            protocol_class = self.protocol_class
 
-    def _get_prior_search_test_results(self, search_service, search_index):
-
-        if not search_service:
+        if not item:
             return None
 
         self_test_results = None
+        item_type = None
 
         try:
-            self_test_results = search_index.prior_test_results(
-                self._db, search_index, self._db, search_service
-            )
+            if protocol_class is not None:
+                # We're running self-tests for a collection
+                if not item.protocol or not len(item.protocol):
+                    return None
+                item_type = "collection"
+                provider_apis = list(self.PROVIDER_APIS)
+                provider_apis.append(OPDSImportMonitor)
+
+                if item.protocol == OPDSImportMonitor.PROTOCOL:
+                    protocol_class = OPDSImportMonitor
+
+                if protocol_class in provider_apis and issubclass(protocol_class, HasSelfTests):
+                    if (item.protocol == OPDSImportMonitor.PROTOCOL):
+                        extra_args = (OPDSImporter,)
+                    else:
+                        extra_args = ()
+
+                    self_test_results = protocol_class.prior_test_results(
+                        self._db, protocol_class, self._db, item, *extra_args
+                    )
+
+            else:
+                # We're running self-tests for a search service
+                item_type = "search service"
+                self_test_results = ExternalSearchIndex.prior_test_results(
+                    self._db, None, self._db, item
+                )
+
         except Exception, e:
             # This is bad, but not so bad that we should short-circuit
             # this whole process -- that might prevent an admin from
             # making the configuration changes necessary to fix
             # this problem.
-            message = _("Exception getting self-test results for search service %s: %s")
-            args = (search_service.name, e.message)
+            message = _("Exception getting self-test results for %s %s: %s")
+            args = (item_type, item.name, e.message)
             logging.warn(message, *args, exc_info=e)
             self_test_results = dict(exception=message % args)
-
-        return self_test_results
-
-    def _get_prior_test_results(self, collection, protocolClass):
-        """This helper function returns previous self test results for a given
-        collection if it has a protocol.  Used by both SelfTestsController and
-        CollectionSettingsController
-        """
-        provider_apis = list(self.PROVIDER_APIS)
-        provider_apis.append(OPDSImportMonitor)
-
-        self_test_results = None
-        protocol = protocolClass
-
-        if not collection or not collection.protocol:
-            return None
-
-        if collection.protocol == OPDSImportMonitor.PROTOCOL:
-            protocol = OPDSImportMonitor
-
-        self_test_results = None
-        if protocol in provider_apis and issubclass(protocol, HasSelfTests):
-            if (collection.protocol == OPDSImportMonitor.PROTOCOL):
-                extra_args = (OPDSImporter,)
-            else:
-                extra_args = ()
-            try:
-                self_test_results = protocol.prior_test_results(
-                    self._db, protocol, self._db, collection, *extra_args
-                )
-            except Exception, e:
-                # This is bad, but not so bad that we should short-circuit
-                # this whole process -- that might prevent an admin from
-                # making the configuration changes necessary to fix
-                # this problem.
-                message = _("Exception getting self-test results for collection %s: %s")
-                args = (collection.name, e.message)
-                logging.warn(message, *args, exc_info=e)
-                self_test_results = dict(exception=message % args)
 
         return self_test_results
 

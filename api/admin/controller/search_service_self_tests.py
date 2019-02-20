@@ -3,7 +3,6 @@ import flask
 from flask import Response
 from flask_babel import lazy_gettext as _
 from api.admin.problem_details import *
-from core.opds_import import (OPDSImporter, OPDSImportMonitor)
 from core.model import (
     ExternalIntegration
 )
@@ -12,49 +11,35 @@ from core.tests.test_external_search import ExternalSearchTest
 
 from core.selftest import HasSelfTests
 from core.util.problem_detail import ProblemDetail
-from . import SettingsController
+from api.admin.controller.self_tests import SelfTestsController
 
-class SearchServiceSelfTestsController(SettingsController, ExternalSearchTest):
+class SearchServiceSelfTestsController(SelfTestsController, ExternalSearchTest):
+
+    def __init__(self, manager):
+        super(SearchServiceSelfTestsController, self).__init__(manager)
+        self.missing_id_error = MISSING_SEARCH_SERVICE_IDENTIFIER
 
     def process_search_service_self_tests(self, identifier):
-        if not identifier:
-            return MISSING_SEARCH_SERVICE_IDENTIFIER
-        if flask.request.method == "GET":
-            return self.process_get(identifier)
-        else:
-            return self.process_post(identifier)
+        return self._manage_self_tests(identifier)
 
-    def process_get(self, identifier):
-        search_service = self.look_up_service_by_id(
+    def look_up_by_id(self, identifier):
+        return self.look_up_service_by_id(
             identifier,
             ExternalIntegration.ELASTICSEARCH,
             ExternalIntegration.SEARCH_GOAL
         )
-        if isinstance(search_service, ProblemDetail):
-            return search_service
 
-        info = dict(
+    def get_info(self, search_service):
+        [protocol] = self._get_integration_protocols([ExternalSearchIndex])
+        return dict(
             id=search_service.id,
             name=search_service.name,
-            protocol=search_service.protocol,
-            settings=search_service.settings,
+            protocol=protocol,
+            settings=protocol.get("settings"),
             goal=search_service.goal
         )
-        search_index = ExternalSearchIndex(self._db)
-        info["self_test_results"] = self._get_prior_search_test_results(search_service, search_index)
-        return dict(search_service=info)
 
-    def process_post(self, identifier):
-        search_service = self.look_up_service_by_id(
-            identifier,
-            flask.request.form.get("protocol"),
-            ExternalIntegration.SEARCH_GOAL
+    def run_tests(self, search_service):
+        return ExternalSearchIndex.run_self_tests(
+            self._db, None, self._db, None
         )
-        if isinstance(search_service, ProblemDetail):
-            return search_service
-        value = ExternalSearchIndex.run_self_tests(
-            self._db, self._db
-        )
-        if (value):
-            return Response(_("Successfully ran new self tests"), 200)
-        return FAILED_TO_RUN_SELF_TESTS
