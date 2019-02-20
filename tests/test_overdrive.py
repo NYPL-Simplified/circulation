@@ -29,6 +29,7 @@ from . import (
     sample_data
 )
 
+from core.metadata_layer import TimestampData
 from core.model import (
     Collection,
     ConfigurationSetting,
@@ -1094,7 +1095,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         eq_(5, len(patron.holds))
         assert overdrive_hold in patron.holds
 
-class TestOverdriveCircluationMonitor(OverdriveAPITest):
+class TestOverdriveCirculationMonitor(OverdriveAPITest):
 
     def test_run(self):
         # An end-to-end test verifying that this Monitor manages its
@@ -1171,7 +1172,8 @@ class TestOverdriveCircluationMonitor(OverdriveAPITest):
         api.licensepools.append((lp3, False, False))
         api.licensepools.append(lp4)
 
-        monitor.catch_up_from(object(), object(), object())
+        progress = TimestampData()
+        monitor.catch_up_from(object(), object(), progress)
 
         # We called update_licensepool on the first three books,
         # and got the first three LicensePools from the queue.
@@ -1185,6 +1187,11 @@ class TestOverdriveCircluationMonitor(OverdriveAPITest):
 
         # TODO: Verify that a DISTRIBUTOR_TITLE_ADD event was gathered
         # for the newly discovered license pool.
+
+        # The incoming TimestampData object was updated with
+        # a summary of what happened.
+        eq_("Processed 3 books total.", progress.achievements)
+
 
 class TestOverdriveFormatSweep(OverdriveAPITest):
 
