@@ -50,50 +50,6 @@ class TestSearchServiceSelfTests(SettingsControllerTest):
 
         HasSelfTests.prior_test_results = old_prior_test_results
 
-    def test_search_service_self_tests_failed_post(self):
-        # This makes HasSelfTests.run_self_tests return no values
-        old_run_self_tests = HasSelfTests.run_self_tests
-
-        search_index = MockExternalSearchIndex()
-        search_index._run_self_tests = self.mock_failed_run_search_service_self_tests
-
-        search_service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=ExternalIntegration.ELASTICSEARCH,
-            goal=ExternalIntegration.SEARCH_GOAL
-        )
-        search_service.setting("test_search_term").value = "testing"
-
-        m = self.manager.admin_search_service_self_tests_controller.process_post
-        # Failed to run self tests
-        with self.request_context_with_admin("/", method="POST"):
-            response = m(search_service.id, search_index)
-            eq_(response, FAILED_TO_RUN_SEARCH_SELF_TESTS)
-            eq_(response.status_code, 400)
-
-        HasSelfTests.run_self_tests = old_run_self_tests
-
-    def test_search_service_self_tests_no_results(self):
-        old_run_self_tests = HasSelfTests.run_self_tests
-        HasSelfTests.run_self_tests = self.mock_run_self_tests
-
-        search_service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=ExternalIntegration.ELASTICSEARCH,
-            goal=ExternalIntegration.SEARCH_GOAL
-        )
-        search_service.setting("test_search_term").value = "testing"
-
-        m = self.manager.admin_search_service_self_tests_controller.process_post
-        search_index = MockExternalSearchIndex()
-
-        with self.request_context_with_admin("/", method="POST"):
-            response = m(search_service.id, search_index)
-            eq_(response, NO_SEARCH_RESULTS)
-            eq_(response.status_code, 404)
-
-        HasSelfTests.run_self_tests = old_run_self_tests
-
     def test_search_service_self_tests_post(self):
         old_run_self_tests = HasSelfTests.run_self_tests
         search_index = MockExternalSearchIndex()

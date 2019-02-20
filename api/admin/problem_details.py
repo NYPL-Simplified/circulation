@@ -464,20 +464,6 @@ FAILED_TO_RUN_SELF_TESTS = pd(
     detail=_("Failed to run self tests for collection.")
 )
 
-FAILED_TO_RUN_SEARCH_SELF_TESTS = pd(
-    "http://librarysimplified.org/terms/problem/failed-to-run-search-self-tests",
-    status_code=400,
-    title=_("Failed to run self tests for search service."),
-    detail=_("Failed to run self tests for search service.")
-)
-
-NO_SEARCH_RESULTS = pd(
-    "http://librarysimplified.org/terms/problem/no-search-results",
-    status_code=404,
-    title=_("No search results found."),
-    detail=_("No search results found."),
-)
-
 MISSING_SEARCH_SERVICE_IDENTIFIER = pd(
     "http://librarysimplified.org/terms/problem/missing-search-service-identifier",
     status_code=400,

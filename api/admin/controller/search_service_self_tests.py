@@ -44,33 +44,17 @@ class SearchServiceSelfTestsController(SettingsController, ExternalSearchTest):
         info["self_test_results"] = self._get_prior_search_test_results(search_service, search_index)
         return dict(search_service=info)
 
-    def process_post(self, identifier, search_index=None):
-        search_service = self.look_up_service_by_id(identifier, flask.request.form.get("protocol"), ExternalIntegration.SEARCH_GOAL)
+    def process_post(self, identifier, search_index_class=ExternalSearchIndex):
+        search_service = self.look_up_service_by_id(
+            identifier,
+            flask.request.form.get("protocol"),
+            ExternalIntegration.SEARCH_GOAL
+        )
         if isinstance(search_service, ProblemDetail):
             return search_service
-
-        if not search_index:
-            search_index = ExternalSearchIndex(self._db)
-
-        search_term = self._search_term(search_service)
-
-        [test_result] = search_index._run_self_tests(self._db, search_service)
-        search_result = None
-
-        if (test_result and hasattr(test_result, "result")):
-            search_result = test_result.result
-            if len(search_result):
-                result_info = dict(
-                    name=test_result.name,
-                    result=search_result
-                )
-                return Response(result_info, 200)
-            else:
-                return NO_SEARCH_RESULTS
-
-        return FAILED_TO_RUN_SEARCH_SELF_TESTS
-
-    def _search_term(self, search_service):
-        settings = search_service.settings
-        [search_term] = [x.value for x in settings if x.key == "test_search_term"]
-        return search_term
+        search_term = search_service.setting(
+            "test_search_term").value_or_default("test")
+        [results_dict, results_list] = search_index_class.run_self_tests(
+            self._db, self._db
+        )
+        return Response(results_dict, 200)
