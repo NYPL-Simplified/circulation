@@ -140,7 +140,6 @@ class HasSelfTests(object):
         finally:
             result.end = datetime.datetime.utcnow()
         results.append(result)
-
         if instance:
             try:
                 for result in instance._run_self_tests(_db):
@@ -179,9 +178,9 @@ class HasSelfTests(object):
         constructor_method = constructor_method or cls
         integration = None
         instance = constructor_method(*args, **kwargs)
-        integration = instance.external_integration(_db)
+        integration = instance.external_integration(_db) or instance.search_integration(_db)
         if integration:
-            return integration.setting(cls.SELF_TEST_RESULTS_SETTING).json_value
+            return integration.setting(cls.SELF_TEST_RESULTS_SETTING).json_value or "No results yet"
 
     def external_integration(self, _db):
         """Locate the ExternalIntegration associated with this object.
