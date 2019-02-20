@@ -44,7 +44,7 @@ class SearchServiceSelfTestsController(SettingsController, ExternalSearchTest):
         info["self_test_results"] = self._get_prior_search_test_results(search_service, search_index)
         return dict(search_service=info)
 
-    def process_post(self, identifier, search_index_class=ExternalSearchIndex):
+    def process_post(self, identifier):
         search_service = self.look_up_service_by_id(
             identifier,
             flask.request.form.get("protocol"),
@@ -52,9 +52,9 @@ class SearchServiceSelfTestsController(SettingsController, ExternalSearchTest):
         )
         if isinstance(search_service, ProblemDetail):
             return search_service
-        search_term = search_service.setting(
-            "test_search_term").value_or_default("test")
-        [results_dict, results_list] = search_index_class.run_self_tests(
+        value = ExternalSearchIndex.run_self_tests(
             self._db, self._db
         )
-        return Response(results_dict, 200)
+        if (value):
+            return Response(_("Successfully ran new self tests"), 200)
+        return FAILED_TO_RUN_SELF_TESTS

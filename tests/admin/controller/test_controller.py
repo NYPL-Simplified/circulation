@@ -3161,6 +3161,11 @@ class SettingsControllerTest(AdminControllerTest):
         return self_test_results
 
     def mock_run_self_tests(self, *args, **kwargs):
+        # This mocks the entire HasSelfTests.run_self_tests
+        # process. In general, controllers don't care what's returned
+        # from this method, because they only display the test results
+        # as they were stored alongside the ExternalIntegration
+        # as a side effect of run_self_tests running.
         self.run_self_tests_called_with = (args, kwargs)
         return ("value", "results")
 

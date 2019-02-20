@@ -26,6 +26,7 @@ before_install:
   - git submodule update --init --recursive
 
 install:
+  - pip install --upgrade pip
   - pip install -r requirements.txt
   - python -m textblob.download_corpora
 
@@ -35,7 +36,9 @@ before_script:
   - psql -c 'grant all privileges on database simplified_circulation_test to simplified_test;' -U postgres
 
 env:
-  - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_circulation_test"
+  global:
+    - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_circulation_test"
+    - SIMPLIFIED_ELASTICSEARCH_VERSION=1
 
 script:
   - ./verbose-test

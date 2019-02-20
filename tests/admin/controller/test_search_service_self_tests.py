@@ -7,7 +7,10 @@ from flask_babel import lazy_gettext as _
 from api.admin.problem_details import *
 from api.axis import (Axis360API, MockAxis360API)
 from core.opds_import import (OPDSImporter, OPDSImportMonitor)
-from core.selftest import HasSelfTests
+from core.selftest import (
+    HasSelfTests,
+    SelfTestResult,
+)
 from test_controller import SettingsControllerTest
 from core.model import (
     create,
@@ -52,25 +55,22 @@ class TestSearchServiceSelfTests(SettingsControllerTest):
 
     def test_search_service_self_tests_post(self):
         old_run_self_tests = HasSelfTests.run_self_tests
-        search_index = MockExternalSearchIndex()
         HasSelfTests.run_self_tests = self.mock_run_self_tests
-
-        search_result = MockSearchResult("Sample Book Title", "author", {}, "id")
-        search_index.index("1", "2", "3", search_result)
 
         search_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.ELASTICSEARCH,
             goal=ExternalIntegration.SEARCH_GOAL
         )
-        search_service.setting("test_search_term").value = "testing"
-
         m = self.manager.admin_search_service_self_tests_controller.process_post
-
         with self.request_context_with_admin("/", method="POST"):
-            response = m(search_service.id, search_index)
-            eq_(response.response.get("result"), ["Sample Book Title"])
-            eq_(response.response.get("name"), "Searching for the specified term")
+            response = m(search_service.id)
             eq_(response._status, "200 OK")
+            eq_("Successfully ran new self tests", response.data)
+
+        # run_self_tests was called with the database twice (the
+        # second time to be used in the ExternalSearchIntegration
+        # constructor). There were no keyword arguments.
+        eq_(((self._db, self._db), {}), self.run_self_tests_called_with)
 
         HasSelfTests.run_self_tests = old_run_self_tests
