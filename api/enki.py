@@ -738,7 +738,7 @@ class EnkiImport(CollectionMonitor):
     def update_circulation(self, since):
         """Process circulation events that happened since `since`."""
         for circulation in self.api.recent_activity(since):
-            license_pool, made_changes = circulation.apply(
+            license_pool, is_new = circulation.license_pool(
                 self._db, self.collection
             )
             if not license_pool.work:
@@ -749,6 +749,11 @@ class EnkiImport(CollectionMonitor):
                 metadata = self.api.get_item(license_pool.identifier.identifier)
                 if metadata:
                     self.process_book(metadata)
+            else:
+                license_pool, made_changes = circulation.apply(
+                    self._db, self.collection
+                )
+
 
     def process_book(self, bibliographic):
 
@@ -762,30 +767,20 @@ class EnkiImport(CollectionMonitor):
         presentation-ready Work will be created for the LicensePool.
         """
         availability = bibliographic.circulation
-        license_pool, new_license_pool = availability.license_pool(
-            self._db, self.collection
-        )
-        now = datetime.datetime.utcnow()
         edition, new_edition = bibliographic.edition(self._db)
-        license_pool.edition = edition
+        now = datetime.datetime.utcnow()
         policy = ReplacementPolicy(
             identifiers=False,
             subjects=True,
             contributions=True,
             formats=True,
         )
-        availability.apply(
-            self._db,
-            license_pool.collection,
-            replace=policy,
-        )
         bibliographic.apply(edition, self.collection, replace=policy)
-        if not license_pool.work:
-            work, is_new = license_pool.calculate_work()
-            if work:
-                work.set_presentation_ready()
+        license_pool, ignore = availability.license_pool(
+            self._db, self.collection
+        )
 
-        if new_license_pool or new_edition:
+        if new_edition:
             for library in self.collection.libraries:
                 self.analytics.collect_event(library, license_pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, now)
 
