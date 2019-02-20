@@ -255,19 +255,6 @@ class Timestamp(Base):
         # .exception
         self.exception = exception
 
-    @classmethod
-    def pluralize(cls, num, singular_form, plural_form=None):
-        """A simple pluralization method, useful when generating
-        text to be used in Timestamp.achievements.
-        """
-        if plural_form is None:
-            plural_form = singular_form + "s"
-        if num == 1:
-            use = singular_form
-        else:
-            use = plural_form
-        return "%d %s" % (num, use)
-
     def to_data(self):
         """Convert this Timestamp to an unfinalized TimestampData."""
         from ..metadata_layer import TimestampData
@@ -275,6 +262,23 @@ class Timestamp(Base):
             start=self.start, finish=self.finish,
             achievements=self.achievements, counter=self.counter
         )
+
+    @classmethod
+    def format_achievements(cls, template, number, thing,
+                            plural_form=None):
+        number, thing = cls.pluralize(number, thing, plural_form)
+        template = template or "%(number)s %(thing)s"
+        return template % dict(number=number, thing=thing)
+
+    @classmethod
+    def pluralize(cls, num, singular_form, plural_form=None):
+        if plural_form is None:
+            plural_form = singular_form + "s"
+        if num == 1:
+            use = singular_form
+        else:
+            use = plural_form
+        return num, use
 
     __table_args__ = (
         UniqueConstraint('service', 'collection_id'),

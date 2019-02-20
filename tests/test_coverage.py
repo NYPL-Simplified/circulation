@@ -116,7 +116,7 @@ class TestCoverageFailure(DatabaseTest):
 
 class TestCoverageProviderProgress(object):
 
-    def test_achivements(self):
+    def test_achievements(self):
         progress = CoverageProviderProgress()
         progress.successes = 1
         progress.transient_failures = 2
@@ -125,7 +125,7 @@ class TestCoverageProviderProgress(object):
         expect = "Processed 3 records: 1 success, 2 transient failures, 0 persistent failures"
         eq_(expect, progress.achievements)
 
-        # You can't set .achivements directly -- it's a calculated value.
+        # You can't set .achievements directly -- it's a calculated value.
         progress.achievements = "new value"
         eq_(expect, progress.achievements)
 
@@ -408,7 +408,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # would not need to skip any records.
         eq_(0, progress.offset)
 
-        # Various internal totals were updated and a value for .achivements
+        # Various internal totals were updated and a value for .achievements
         # can be generated from those totals.
         eq_(2, progress.successes)
 

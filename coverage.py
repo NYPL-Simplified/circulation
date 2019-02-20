@@ -100,24 +100,26 @@ class CoverageProviderProgress(TimestampData):
         self.persistent_failures = 0
 
     @property
-    def achivements(self):
+    def achievements(self):
         """Represent the achievements of a CoverageProvider as a
         human-readable string.
         """
         template = "Processed %(total)s: %(successes)s, %(transient)s, %(persistent)s"
         total = (self.successes + self.transient_failures
                  + self.persistent_failures)
-        p = Timestamp.pluralize
+        f = Timestamp.format_achievements
+        total = f(None, total, "record")
+        successes = f(None, self.successes, "success", plural_form="succeses")
+        transient = f(None, self.transient_failures, "transient failure")
+        persistent = f(None, self.persistent_failures, "persistent failure")
         return template % dict(
-            total=p(total, "record"),
-            successes=p(self.successes, "success", "successes"),
-            transient=p(self.transient_failures, "transient failure"),
-            persistent=p(self.persistent_failures, "persistent failure"),
+            total=total, successes=successes, transient=transient,
+            persistent=persistent,
         )
 
-    @achivements.setter
+    @achievements.setter
     def achievements(self, value):
-        # It's not possible to set .achivements directly. Do nothing.
+        # It's not possible to set .achievements directly. Do nothing.
         pass
 
 

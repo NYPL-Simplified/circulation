@@ -626,6 +626,8 @@ class TimestampData(object):
             start, finish, achievements, counter, exception
         )
 
+    format_achievements = Timestamp.format_achievements
+    pluralize = Timestamp.pluralize
 
 class MetaToModelUtility(object):
     """

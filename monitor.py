@@ -401,7 +401,8 @@ class SweepMonitor(CollectionMonitor):
 
             # We need to do another batch. If it should raise an exception,
             # we don't want to lose the progress we've already made.
-            achievements = "Processed %s." % timestamp.pluralize(
+            achievements = timestamp.format_achievements(
+                "Processed %(number)s %(thing)s.",
                 total_processed, "record"
             )
             timestamp.update(
