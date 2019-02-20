@@ -93,7 +93,6 @@ from core.metadata_layer import (
     MeasurementData,
     ReplacementPolicy,
     SubjectData,
-    TimestampData,
 )
 
 from core.testing import DatabaseTest
