@@ -34,6 +34,7 @@ from core.metadata_layer import (
     IdentifierData,
     ContributorData,
     SubjectData,
+    TimestampData,
 )
 
 from core.scripts import RunCollectionCoverageProviderScript
@@ -620,6 +621,33 @@ class TestCirculationMonitor(Axis360Test):
         before_old_cutoff = cutoff - monitor.OVERLAP
         eq_(before_old_cutoff, new_start)
         assert (now - new_cutoff).total_seconds() < 2
+
+    def test_catch_up_from(self):
+        class MockAPI(MockAxis360API):
+            def recent_activity(self, since):
+                self.recent_activity_called_with = since
+                return [(1,"a"),(2, "b")]
+
+        class MockMonitor(Axis360CirculationMonitor):
+            processed = []
+            def process_book(self, bibliographic, circulation):
+                self.processed.append((bibliographic, circulation))
+
+        monitor = MockMonitor(self._db, self.collection, api_class=MockAPI)
+        data = self.sample_data("single_item.xml")
+        self.api.queue_response(200, content=data)
+        progress = TimestampData()
+        monitor.catch_up_from("start", "cutoff", progress)
+
+        # The start time was passed into recent_activity.
+        eq_("start", monitor.api.recent_activity_called_with)
+
+        # process_book was called on each item returned by recent_activity.
+        eq_([(1,"a"),(2, "b")], monitor.processed)
+
+        # The number of books processed was stored in
+        # TimestampData.achievements.
+        eq_("Caught up with 2 modified titles.", progress.achievements)
 
     def test_process_book(self):
         integration, ignore = create(
