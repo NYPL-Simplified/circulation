@@ -706,19 +706,29 @@ class EnkiImport(CollectionMonitor, TimelineMonitor):
             # This is the first time the monitor has run, so it's
             # important that we get the entire collection, even though that
             # will take a long time.
-            self.full_import()
+            new_titles = self.full_import()
+            circulation_updates = 0
         else:
             # We've run the monitor before, so we just need to learn
             # about new titles and circulation changes since the last time.
             #
             # Give us five minutes of overlap because it's very important
             # we don't miss anything.
-            self.incremental_import(start)
+            new_titles, circulation_updates = self.incremental_import(start)
+
+        new = progress.format_achievements(
+            None, new_titles, "new or modified title"
+        )
+        modified = progress.format_achievements(
+            None, circulation_updates, "circulation update"
+        )
+        progress.achievements = "%s, %s." % (new, modified)
 
     def full_import(self):
         """Import the entire Enki collection, page by page."""
         id_start = 0
         batch_size = self.DEFAULT_BATCH_SIZE
+        total_items = 0
         while True:
             items_this_page = 0
             for bibliographic in self.api.get_all_titles(
@@ -726,25 +736,32 @@ class EnkiImport(CollectionMonitor, TimelineMonitor):
             ):
                 self.process_book(bibliographic)
                 items_this_page += 1
+                total_items += 1
             self._db.commit()
             if items_this_page == 0:
                 # When we get an empty page we know it's time to stop.
                 break
             id_start += self.DEFAULT_BATCH_SIZE
+        return total_items
 
     def incremental_import(self, since):
         # Take care of new titles and titles with updated metadata.
+        new_titles = 0
         for metadata in self.api.updated_titles(since):
             self.process_book(metadata)
+            new_titles += 1
         self._db.commit()
 
         # Take care of titles whose circulation status changed.
-        self.update_circulation(since)
+        circulation_changes = self.update_circulation(since)
         self._db.commit()
+        return new_titles, circulation_changes
 
     def update_circulation(self, since):
         """Process circulation events that happened since `since`."""
+        circulation_changes = 0
         for circulation in self.api.recent_activity(since):
+            circulation_changes += 1
             license_pool, made_changes = circulation.apply(
                 self._db, self.collection
             )
@@ -756,6 +773,7 @@ class EnkiImport(CollectionMonitor, TimelineMonitor):
                 metadata = self.api.get_item(license_pool.identifier.identifier)
                 if metadata:
                     self.process_book(metadata)
+        return circulation_changes
 
     def process_book(self, bibliographic):
 
