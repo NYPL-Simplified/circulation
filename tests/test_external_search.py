@@ -50,7 +50,7 @@ from ..external_search import (
 from ..classifier import Classifier
 
 
-class TestingClient(ExternalSearchIndex):
+class ClientForTesting(ExternalSearchIndex):
     """When creating an index, limit it to a single shard and disable
     replicas.
 
@@ -58,7 +58,7 @@ class TestingClient(ExternalSearchIndex):
     """
 
     def setup_index(self, new_index=None):
-        return super(TestingClient, self).setup_index(
+        return super(ClientForTesting, self).setup_index(
             new_index, number_of_shards=1, number_of_replicas=0
         )
 
@@ -84,7 +84,7 @@ class ExternalSearchTest(DatabaseTest):
         )
 
         try:
-            self.search = TestingClient(self._db)
+            self.search = ClientForTesting(self._db)
         except Exception as e:
             self.search = None
             print "Unable to set up elasticsearch index, search tests will be skipped."
