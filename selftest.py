@@ -121,6 +121,8 @@ class HasSelfTests(object):
         the self-test. `results_list` is a list of SelfTestResult
         objects.
         """
+        from external_search import ExternalSearchIndex
+
         constructor_method = constructor_method or cls
         start = datetime.datetime.utcnow()
         result = SelfTestResult("Initial setup.")
@@ -151,10 +153,12 @@ class HasSelfTests(object):
                     "Uncaught exception in the self-test method itself.", e
                 )
                 results.append(failure)
-            integration = instance.external_integration(_db)
+
+
         end = datetime.datetime.utcnow()
 
         # Format the results in a useful way.
+
         value = dict(
             start=AtomFeed._strftime(start),
             end=AtomFeed._strftime(end),
@@ -163,6 +167,16 @@ class HasSelfTests(object):
         )
         # Store the formatted results in the database, if we can find
         # a place to store them.
+
+        if isinstance(instance, ExternalSearchIndex):
+            integration = instance.search_integration(_db)
+            for idx, result in enumerate(value.get("results")):
+                if isinstance(results[idx].result, (list,)):
+                    result["result"] = results[idx].result
+
+        else:
+            integration = instance.external_integration(_db)
+
         if integration:
             integration.setting(
                 cls.SELF_TEST_RESULTS_SETTING
@@ -178,7 +192,7 @@ class HasSelfTests(object):
         constructor_method = constructor_method or cls
         integration = None
         instance = constructor_method(*args, **kwargs)
-        
+
         from external_search import ExternalSearchIndex
         if isinstance(instance, ExternalSearchIndex):
             integration = instance.search_integration(_db)
