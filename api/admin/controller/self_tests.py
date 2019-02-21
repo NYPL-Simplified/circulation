@@ -9,7 +9,7 @@ from . import SettingsController
 class SelfTestsController(SettingsController):
     def _manage_self_tests(self, identifier):
         if not identifier:
-            return self.missing_id_error
+            return MISSING_IDENTIFIER
         if flask.request.method == "GET":
             return self.process_get(identifier)
         else:

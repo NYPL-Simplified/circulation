@@ -22,8 +22,10 @@ class TestSearchServiceSelfTests(SettingsControllerTest):
     def test_search_service_self_tests_with_no_identifier(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_search_service_self_tests_controller.process_search_service_self_tests(None)
-            eq_(response, MISSING_SEARCH_SERVICE_IDENTIFIER)
+            eq_(response.title, MISSING_IDENTIFIER.title)
+            eq_(response.detail, MISSING_IDENTIFIER.detail)
             eq_(response.status_code, 400)
+
 
     def test_search_service_self_tests_with_no_search_service_found(self):
         with self.request_context_with_admin("/"):

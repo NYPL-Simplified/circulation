@@ -191,13 +191,6 @@ COLLECTION_NAME_ALREADY_IN_USE = pd(
     detail=_("The collection name must be unique, and there's already a collection with the specified name."),
 )
 
-MISSING_COLLECTION_IDENTIFIER = pd(
-    "http://librarysimplified.org/terms/problem/missing-collection-identifier",
-    status_code=400,
-    title=_("Missing collection identifier"),
-    detail=_("No collection identifier was used."),
-)
-
 CANNOT_DELETE_COLLECTION_WITH_CHILDREN = pd(
     "http://librarysimplified.org/terms/problem/cannot-delete-collection-with-children",
     status_code=400,
@@ -464,9 +457,9 @@ FAILED_TO_RUN_SELF_TESTS = pd(
     detail=_("Failed to run self tests for collection.")
 )
 
-MISSING_SEARCH_SERVICE_IDENTIFIER = pd(
-    "http://librarysimplified.org/terms/problem/missing-search-service-identifier",
+MISSING_IDENTIFIER = pd(
+    "http://librarysimplified.org/terms/problem/missing-identifier",
     status_code=400,
-    title=_("Missing search service identifier"),
-    detail=_("No search service identifier was used.")
+    title=_("Missing identifier"),
+    detail=_("No identifier was used.")
 )

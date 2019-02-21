@@ -14,7 +14,8 @@ class TestCollectionSelfTests(SettingsControllerTest):
     def test_collection_self_tests_with_no_identifier(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_collection_self_tests_controller.process_collection_self_tests(None)
-            eq_(response, MISSING_COLLECTION_IDENTIFIER)
+            eq_(response.title, MISSING_IDENTIFIER.title)
+            eq_(response.detail, MISSING_IDENTIFIER.detail)
             eq_(response.status_code, 400)
 
     def test_collection_self_tests_with_no_collection_found(self):

@@ -16,7 +16,6 @@ class CollectionSelfTestsController(SelfTestsController):
     def __init__(self, manager):
         super(CollectionSelfTestsController, self).__init__(manager)
         self.protocols = self._get_collection_protocols(self.PROVIDER_APIS)
-        self.missing_id_error = MISSING_COLLECTION_IDENTIFIER
 
     def process_collection_self_tests(self, identifier):
         return self._manage_self_tests(identifier)
