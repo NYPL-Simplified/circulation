@@ -178,7 +178,12 @@ class HasSelfTests(object):
         constructor_method = constructor_method or cls
         integration = None
         instance = constructor_method(*args, **kwargs)
-        integration = instance.external_integration(_db) or instance.search_integration(_db)
+        
+        from external_search import ExternalSearchIndex
+        if isinstance(instance, ExternalSearchIndex):
+            integration = instance.search_integration(_db)
+        else:
+            integration = instance.external_integration(_db)
         if integration:
             return integration.setting(cls.SELF_TEST_RESULTS_SETTING).json_value or "No results yet"
 
