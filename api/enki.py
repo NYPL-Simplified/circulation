@@ -68,11 +68,15 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     PRODUCTION_BASE_URL = "https://enkilibrary.org/API/"
 
+    ENKI_LIBRARY_ID_KEY = u'enki_library_id'
     DESCRIPTION = _("Integrate an Enki collection.")
     SETTINGS = [
-        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID"), "required": True },
         { "key": ExternalIntegration.URL, "label": _("URL"), "default": PRODUCTION_BASE_URL, "required": True, "format": "url" },
     ] + BaseCirculationAPI.SETTINGS
+
+    LIBRARY_SETTINGS = [
+        { "key": ENKI_LIBRARY_ID_KEY, "label": _("Library ID"), "required": True },
+    ]
 
     list_endpoint = "ListAPI"
     item_endpoint = "ItemAPI"
@@ -107,7 +111,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             )
 
         self.collection_id = collection.id
-        self.library_id = collection.external_account_id
+        self.library_id = collection.external_integration.setting(self.ENKI_LIBRARY_ID_KEY).value
         self.base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
 
         if not self.library_id or not self.base_url:
@@ -476,7 +480,7 @@ class MockEnkiAPI(EnkiAPI):
                 _db, name="Test Enki Collection", protocol=EnkiAPI.ENKI
             )
             collection.protocol=EnkiAPI.ENKI
-            collection.external_account_id=u'c';
+            collection.external_integration.setting(self.ENKI_LIBRARY_ID_KEY).value = u'c'
         if collection not in library.collections:
             library.collections.append(collection)
         super(MockEnkiAPI, self).__init__(
@@ -738,7 +742,7 @@ class EnkiImport(CollectionMonitor):
     def update_circulation(self, since):
         """Process circulation events that happened since `since`."""
         for circulation in self.api.recent_activity(since):
-            license_pool, made_changes = circulation.apply(
+            license_pool, is_new = circulation.license_pool(
                 self._db, self.collection
             )
             if not license_pool.work:
@@ -749,6 +753,11 @@ class EnkiImport(CollectionMonitor):
                 metadata = self.api.get_item(license_pool.identifier.identifier)
                 if metadata:
                     self.process_book(metadata)
+            else:
+                license_pool, made_changes = circulation.apply(
+                    self._db, self.collection
+                )
+
 
     def process_book(self, bibliographic):
 
@@ -762,30 +771,20 @@ class EnkiImport(CollectionMonitor):
         presentation-ready Work will be created for the LicensePool.
         """
         availability = bibliographic.circulation
-        license_pool, new_license_pool = availability.license_pool(
-            self._db, self.collection
-        )
-        now = datetime.datetime.utcnow()
         edition, new_edition = bibliographic.edition(self._db)
-        license_pool.edition = edition
+        now = datetime.datetime.utcnow()
         policy = ReplacementPolicy(
             identifiers=False,
             subjects=True,
             contributions=True,
             formats=True,
         )
-        availability.apply(
-            self._db,
-            license_pool.collection,
-            replace=policy,
-        )
         bibliographic.apply(edition, self.collection, replace=policy)
-        if not license_pool.work:
-            work, is_new = license_pool.calculate_work()
-            if work:
-                work.set_presentation_ready()
+        license_pool, ignore = availability.license_pool(
+            self._db, self.collection
+        )
 
-        if new_license_pool or new_edition:
+        if new_edition:
             for library in self.collection.libraries:
                 self.analytics.collect_event(library, license_pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, now)
 

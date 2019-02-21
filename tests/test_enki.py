@@ -78,7 +78,7 @@ class TestEnkiAPI(BaseEnkiTest):
             EnkiAPI, self._db, bad_collection
         )
 
-        # Without an external_account_id, an EnkiAPI cannot be instantiated.
+        # Without an external integration library ID value, an EnkiAPI cannot be instantiated.
         bad_collection.protocol = ExternalIntegration.ENKI
         assert_raises_regexp(
             CannotLoadConfiguration,
@@ -88,7 +88,7 @@ class TestEnkiAPI(BaseEnkiTest):
             bad_collection
         )
 
-        bad_collection.external_account_id = "1"
+        bad_collection.external_integration.setting(EnkiAPI.ENKI_LIBRARY_ID_KEY).value = "1"
         EnkiAPI(self._db, bad_collection)
 
     def test_external_integration(self):
