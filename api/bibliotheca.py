@@ -1345,10 +1345,7 @@ class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
                 if not i % 1000:
                     self._db.commit()
             self._db.commit()
-        progress.achievements = progress.format_achievements(
-            "Handled %(number)s %(thing)s total.", i, "event"
-        )
-        self.log.info(progress.achievements)
+        progress.achievements = "Events handled: %d." % i
 
     def handle_event(self, bibliotheca_id, isbn, foreign_patron_id,
                      start_time, end_time, internal_event_type):

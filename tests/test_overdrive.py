@@ -1190,7 +1190,7 @@ class TestOverdriveCirculationMonitor(OverdriveAPITest):
 
         # The incoming TimestampData object was updated with
         # a summary of what happened.
-        eq_("Processed 3 books total.", progress.achievements)
+        eq_("Books processed: %d.", progress.achievements)
 
 
 class TestOverdriveFormatSweep(OverdriveAPITest):

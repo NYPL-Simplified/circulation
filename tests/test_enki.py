@@ -549,7 +549,7 @@ class TestEnkiImport(BaseEnkiTest):
         progress = TimestampData(start=None)
         importer.run_once(progress)
         eq_(True, importer.full_import_called)
-        eq_("10 new or modified titles, 0 circulation updates.",
+        eq_("New or modified titles: 10. Titles with circulation changes: 0.",
             progress.achievements)
 
         # It doesn't call incremental_import().

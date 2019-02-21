@@ -716,13 +716,11 @@ class EnkiImport(CollectionMonitor, TimelineMonitor):
             # we don't miss anything.
             new_titles, circulation_updates = self.incremental_import(start)
 
-        new = progress.format_achievements(
-            None, new_titles, "new or modified title"
+        progress.achievements = (
+            "New or modified titles: %d. Titles with circulation changes: %d." % (
+                new_titles, circulation_updates
+            )
         )
-        modified = progress.format_achievements(
-            None, circulation_updates, "circulation update"
-        )
-        progress.achievements = "%s, %s." % (new, modified)
 
     def full_import(self):
         """Import the entire Enki collection, page by page."""

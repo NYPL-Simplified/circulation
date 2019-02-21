@@ -1952,7 +1952,6 @@ class RBDigitalSyncMonitor(CollectionMonitor):
                 items_transmited, items_created
             )
         )
-        self.log.info(achievements)
         return TimestampData(achievements=achievements)
 
     def invoke(self):
