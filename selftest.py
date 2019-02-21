@@ -168,13 +168,13 @@ class HasSelfTests(object):
         # Store the formatted results in the database, if we can find
         # a place to store them.
 
-        if isinstance(instance, ExternalSearchIndex):
+        if instance and isinstance(instance, ExternalSearchIndex):
             integration = instance.search_integration(_db)
             for idx, result in enumerate(value.get("results")):
                 if isinstance(results[idx].result, (list,)):
                     result["result"] = results[idx].result
 
-        else:
+        elif instance:
             integration = instance.external_integration(_db)
 
         if integration:
