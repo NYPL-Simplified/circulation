@@ -684,7 +684,21 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         the corresponding Credential.
         """
         def refresher(credential):
+            # look up patron by alias identifier
             remote_identifier = self.patron_remote_identifier_lookup(patron)
+
+            # Find the patron's full data
+            # full_patron = self.get_patron_information(patron.id)
+
+            # if not found, then look up based on email
+            # if not remote_identifier:
+            #     email = full_patron.email
+            #     remote_identifier = self.patron_remote_identifier_lookup(email)
+            # if not found, then look based on barcode
+            # if not remote_identifier:
+            #     barcode = patron.authorization_identifier
+            #     remote_identifier = self.patron_remote_identifier_lookup(barcode)
+            # else create the patron:
             if not remote_identifier:
                 remote_identifier = self.create_patron(patron)
             credential.credential = remote_identifier
@@ -712,6 +726,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         url = "%s/libraries/%s/patrons/" % (self.base_url, str(self.library_id))
         action="create_patron"
 
+        # if we know their email, use their own barcode and email instead of making it up
+        # pass in barcode here if we know it.
         patron_identifier = patron.identifier_to_remote_service(
             DataSource.RB_DIGITAL
         )
@@ -723,7 +739,13 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # Generate meaningless values for account fields that are not
         # relevant to our usage of the API.
         post_args['userName'] = 'username' + patron_identifier.replace("-", "")
-        post_args['email'] = self.remote_email_address(patron)
+        # if we know a patron's email, use their real email address instead
+        # of a fake remote address
+        # if email:
+        # email = patron.email
+        # else:
+        email = self.remote_email_address(patron)
+        post_args['email'] = email
         post_args['firstName'] = 'Patron'
         post_args['lastName'] = 'Reader'
 
@@ -757,6 +779,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 ": http=" + str(response.status_code) + ", response=" + response.text)
         return patron_rbdigital_id
 
+    # TODO: need to refactor this to also take an email address or barcode instead of a patron
     def patron_remote_identifier_lookup(self, patron):
         """Look up a patron's RBdigital account based on a unique ID
         assigned to them for this purpose.
