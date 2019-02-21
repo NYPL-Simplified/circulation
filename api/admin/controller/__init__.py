@@ -179,7 +179,6 @@ def setup_admin_controllers(manager):
     from api.admin.controller.catalog_services import *
     manager.admin_catalog_services_controller = CatalogServicesController(manager)
 
-
 class AdminController(object):
 
     def __init__(self, manager):
@@ -2292,15 +2291,18 @@ class SettingsController(AdminCirculationManagerController):
                         key, service).value
                 settings[key] = value
 
-            services.append(
-                dict(
-                    id=service.id,
-                    name=service.name,
-                    protocol=service.protocol,
-                    settings=settings,
-                    libraries=libraries,
-                )
+            service_info = dict(
+                id=service.id,
+                name=service.name,
+                protocol=service.protocol,
+                settings=settings,
+                libraries=libraries,
             )
+
+            if "test_search_term" in [x.get("key") for x in protocol.get("settings")]:
+                service_info["self_test_results"] = self._get_prior_test_results(service)
+
+            services.append(service_info)
 
         return services
 
