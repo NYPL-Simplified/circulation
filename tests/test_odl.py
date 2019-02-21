@@ -1371,7 +1371,8 @@ class TestODLConsolidatedCopiesMonitor(DatabaseTest, BaseODLTest):
         api.queue_response(200, content=json.dumps(page1))
         api.queue_response(200, content=json.dumps(page2))
 
-        monitor.run_once(monitor.timestamp().to_data())
+        progress = monitor.timestamp().to_data()
+        monitor.run_once(progress)
 
         # The monitor got both pages of the feed.
         eq_(2, len(api.requests))
@@ -1395,6 +1396,10 @@ class TestODLConsolidatedCopiesMonitor(DatabaseTest, BaseODLTest):
         eq_(collection, identifier.licensed_through[0].collection)
         eq_(4, identifier.licensed_through[0].licenses_owned)
         eq_(4, identifier.licensed_through[0].licenses_available)
+
+        # The TimestampData was updated with the total number of
+        # licenses we heard about.
+        eq_("Updated 3 licenses total.", progress.achievements)
 
         # If the monitor is run in order to catch up to a specific
         # time, it will subtract 5 minutes from that time and add a
@@ -1436,7 +1441,7 @@ class TestODLHoldReaper(DatabaseTest, BaseODLTest):
         # so the end date is not reliable.
         bad_end_date, ignore = pool.on_hold_to(self._patron(), end=yesterday, position=4)
 
-        reaper.run_once(None)
+        progress = reaper.run_once(reaper.timestamp().to_data())
 
         # The expired holds have been deleted and the other holds have been updated.
         eq_(2, self._db.query(Hold).count())
@@ -1447,6 +1452,10 @@ class TestODLHoldReaper(DatabaseTest, BaseODLTest):
         assert bad_end_date.end > now
         eq_(1, pool.licenses_available)
         eq_(2, pool.licenses_reserved)
+
+        # The TimestampData has been updated to reflect what
+        # work was done.
+        eq_('Holds deleted: 3. License pools updated: 1', progress.achievements)
 
 class TestSharedODLAPI(DatabaseTest, BaseODLTest):
 

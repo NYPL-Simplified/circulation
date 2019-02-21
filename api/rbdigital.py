@@ -1947,7 +1947,14 @@ class RBDigitalSyncMonitor(CollectionMonitor):
         """
         items_transmitted, items_created = self.invoke()
         self._db.commit()
-        result_string = "%s items transmitted, %s items saved to DB" % (items_transmitted, items_created)
+
+        transmitted = progress.format_achievements(None, items_transmitted, "item")
+        written = progress.format_achievements(None, items_created, "item")
+
+        result_string = "Got %s from vendor, wrote %s to DB" % (
+            transmitted, written
+        )
+        progress.achievements = result_string
         self.log.info(result_string)
 
     def invoke(self):

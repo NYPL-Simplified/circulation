@@ -1053,8 +1053,10 @@ class TestCirculationMonitor(RBDigitalAPITest):
         monitor = Mock(
             self._db, self.collection, api_class=MockRBDigitalAPI,
         )
-        monitor.run_once(monitor.timestamp().to_data())
+        timestamp = monitor.timestamp().to_data()
+        monitor.run_once(timestamp)
         eq_(['eBook', 'eAudio'], monitor.process_availability_calls)
+        set_trace()
 
     def test_process_availability(self):
         monitor = RBDigitalCirculationMonitor(
