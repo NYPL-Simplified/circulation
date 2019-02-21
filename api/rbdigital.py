@@ -1947,15 +1947,13 @@ class RBDigitalSyncMonitor(CollectionMonitor):
         """
         items_transmitted, items_created = self.invoke()
         self._db.commit()
-
-        transmitted = progress.format_achievements(None, items_transmitted, "item")
-        written = progress.format_achievements(None, items_created, "item")
-
-        result_string = "Got %s from vendor, wrote %s to DB" % (
-            transmitted, written
+        achievements = (
+            "Records received from vendor: %d. Records written to database: %d" % (
+                items_transmited, items_created
+            )
         )
-        progress.achievements = result_string
-        self.log.info(result_string)
+        self.log.info(achievements)
+        return TimestampData(achievements=achievements)
 
     def invoke(self):
         raise NotImplementedError()
