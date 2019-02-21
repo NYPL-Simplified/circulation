@@ -122,7 +122,7 @@ class TestCoverageProviderProgress(object):
         progress.transient_failures = 2
         progress.persistent_failures = 0
 
-        expect = "Processed 3 records: 1 success, 2 transient failures, 0 persistent failures"
+        expect = "Items processed: 3. Successes: 1, transient failures: 2, persistent failures: 0"
         eq_(expect, progress.achievements)
 
         # You can't set .achievements directly -- it's a calculated value.
@@ -489,7 +489,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         eq_(3, progress.persistent_failures)
 
         eq_(
-            "Processed 6 records: 1 success, 2 transient failures, 3 persistent failures",
+            "Items processed: 6. Successes: 1, transient failures: 2, persistent failures: 3",
             progress.achievements
         )
 

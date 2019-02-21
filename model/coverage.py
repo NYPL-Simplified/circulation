@@ -263,23 +263,6 @@ class Timestamp(Base):
             achievements=self.achievements, counter=self.counter
         )
 
-    @classmethod
-    def format_achievements(cls, template, number, thing,
-                            plural_form=None):
-        number, thing = cls.pluralize(number, thing, plural_form)
-        template = template or "%(number)s %(thing)s"
-        return template % dict(number=number, thing=thing)
-
-    @classmethod
-    def pluralize(cls, num, singular_form, plural_form=None):
-        if plural_form is None:
-            plural_form = singular_form + "s"
-        if num == 1:
-            use = singular_form
-        else:
-            use = plural_form
-        return num, use
-
     __table_args__ = (
         UniqueConstraint('service', 'collection_id'),
     )

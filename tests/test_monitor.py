@@ -491,7 +491,7 @@ class TestSweepMonitor(DatabaseTest):
 
         # The number of records processed reflects what happened over
         # the entire run, not just the final batch.
-        eq_("Processed 3 records.", self.monitor.timestamp().achievements)
+        eq_("Records processed: 3.", self.monitor.timestamp().achievements)
 
     def test_run_starts_at_previous_counter(self):
         # Two Identifiers.
@@ -551,7 +551,7 @@ class TestSweepMonitor(DatabaseTest):
         self.time_eq(now, timestamp.finish)
         assert timestamp.start < timestamp.finish
 
-        eq_("Processed 2 records.", timestamp.achievements)
+        eq_("Records processed: 2.", timestamp.achievements)
 
         # I3 was processed, but the batch did not complete, so any
         # changes wouldn't have been written to the database.

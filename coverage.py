@@ -84,7 +84,7 @@ class CoverageFailure(object):
 
 class CoverageProviderProgress(TimestampData):
 
-    """A TimestampData optimized for the special needs of 
+    """A TimestampData optimized for the special needs of
     CoverageProviders.
     """
     def __init__(self, *args, **kwargs):
@@ -104,17 +104,12 @@ class CoverageProviderProgress(TimestampData):
         """Represent the achievements of a CoverageProvider as a
         human-readable string.
         """
-        template = "Processed %(total)s: %(successes)s, %(transient)s, %(persistent)s"
+        template = "Items processed: %d. Successes: %d, transient failures: %d, persistent failures: %d"
         total = (self.successes + self.transient_failures
                  + self.persistent_failures)
-        f = Timestamp.format_achievements
-        total = f(None, total, "record")
-        successes = f(None, self.successes, "success", plural_form="succeses")
-        transient = f(None, self.transient_failures, "transient failure")
-        persistent = f(None, self.persistent_failures, "persistent failure")
-        return template % dict(
-            total=total, successes=successes, transient=transient,
-            persistent=persistent,
+        return template % (
+            total, self.successes, self.transient_failures,
+            self.persistent_failures
         )
 
     @achievements.setter
