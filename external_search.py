@@ -503,7 +503,7 @@ class ExternalSearchIndex(HasSelfTests):
             titles = [work.title for work in works]
             return titles
         yield self.run_test(
-            "Searching for the specified term",
+            ("Searching for the specified term: '%s'" %(self.test_search_term)),
             _search_for_term
         )
 
