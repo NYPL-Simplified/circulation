@@ -500,7 +500,7 @@ class ExternalSearchIndex(HasSelfTests):
                 self.test_search_term, filter=None, pagination=None,
                 debug=False, return_raw_results=True
             )
-            titles = [work.title for work in works]
+            titles = [("%s (%s)" %(work.title, work.author)) for work in works]
             return titles
         yield self.run_test(
             ("Searching for the specified term: '%s'" %(self.test_search_term)),
