@@ -16,6 +16,7 @@ from api.opds_for_distributors import (
 )
 from api.circulation_exceptions import *
 from . import DatabaseTest
+from core.metadata_layer import TimestampData
 from core.model import (
     Collection,
     Credential,

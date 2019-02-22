@@ -51,6 +51,7 @@ from core.metadata_layer import (
     IdentifierData,
     Metadata,
     SubjectData,
+    TimestampData,
 )
 
 from core.model import (

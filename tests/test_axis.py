@@ -647,7 +647,7 @@ class TestCirculationMonitor(Axis360Test):
 
         # The number of books processed was stored in
         # TimestampData.achievements.
-        eq_("Caught up with 2 modified titles.", progress.achievements)
+        eq_("Modified titles: 2.", progress.achievements)
 
     def test_process_book(self):
         integration, ignore = create(

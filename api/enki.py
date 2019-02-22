@@ -760,7 +760,7 @@ class EnkiImport(CollectionMonitor, TimelineMonitor):
         circulation_changes = 0
         for circulation in self.api.recent_activity(since):
             circulation_changes += 1
-            license_pool, made_changes = circulation.apply(
+            license_pool, is_new = circulation.license_pool(
                 self._db, self.collection
             )
             if not license_pool.work:
@@ -771,6 +771,11 @@ class EnkiImport(CollectionMonitor, TimelineMonitor):
                 metadata = self.api.get_item(license_pool.identifier.identifier)
                 if metadata:
                     self.process_book(metadata)
+            else:
+                license_pool, made_changes = circulation.apply(
+                    self._db, self.collection
+                )
+
         return circulation_changes
 
     def process_book(self, bibliographic):

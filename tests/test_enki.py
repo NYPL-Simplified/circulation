@@ -577,7 +577,7 @@ class TestEnkiImport(BaseEnkiTest):
         eq_(expect, new_timestamp.start)
         now = datetime.datetime.utcnow()
         assert (now - new_timestamp.finish).total_seconds() < 2
-        eq_("4 new or modified titles, 7 circulation updates.",
+        eq_("New or modified titles: 4. Titles with circulation changes: 7.",
             new_timestamp.achievements)
 
     def test_full_import(self):
