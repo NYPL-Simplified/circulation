@@ -1054,9 +1054,18 @@ class TestCirculationMonitor(RBDigitalAPITest):
             self._db, self.collection, api_class=MockRBDigitalAPI,
         )
         timestamp = monitor.timestamp().to_data()
-        monitor.run_once(timestamp)
+        progress = monitor.run_once(timestamp)
         eq_(['eBook', 'eAudio'], monitor.process_availability_calls)
-        set_trace()
+
+        # The TimestampData returned by run_once() describes its
+        # achievements.
+        eq_("Ebooks processed: 3. Audiobooks processed: 3.",
+            progress.achievements)
+
+        # The TimestampData does not include any timing information
+        # -- that will be applied by run().
+        eq_(TimestampData.NO_VALUE, progress.start)
+        eq_(TimestampData.NO_VALUE, progress.finish)
 
     def test_process_availability(self):
         monitor = RBDigitalCirculationMonitor(
@@ -1473,8 +1482,22 @@ class TestRBDigitalSyncMonitor(DatabaseTest):
         monitor = Mock(
             self._db, self.collection, api_class=MockRBDigitalAPI,
         )
-        monitor.run_once(monitor.timestamp().to_data())
+        progress = monitor.run_once(monitor.timestamp().to_data())
+
+        # invoke() was called.
         eq_(True, monitor.invoked)
+
+        # The TimestampData returned by run_once() describes its
+        # achievements.
+        eq_(
+            "Records received from vendor: 10. Records written to database: 5",
+            progress.achievements
+        )
+
+        # The TimestampData does not include any timing information --
+        # that will be applied by run().
+        eq_(TimestampData.NO_VALUE, progress.start)
+        eq_(TimestampData.NO_VALUE, progress.finish)
 
     def test_import(self):
 

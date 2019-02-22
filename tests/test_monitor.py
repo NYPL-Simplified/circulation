@@ -391,6 +391,11 @@ class TestMWAuxiliaryMetadataMonitor(MonitorTest):
         # Only the identifier with a work has been given coverage.
         eq_("Identifiers processed: 1", progress.achievements)
 
+        # The TimestampData returned by run_once() does not include
+        # any timing information -- that will be applied by run().
+        eq_(TimestampData.NO_VALUE, progress.start)
+        eq_(TimestampData.NO_VALUE, progress.finish)
+
         record = CoverageRecord.lookup(
             overdrive, self.monitor.provider.data_source,
             operation=self.monitor.provider.operation

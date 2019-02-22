@@ -470,4 +470,12 @@ class TestOPDSForDistributorsReaperMonitor(DatabaseTest, BaseOPDSForDistributors
 
         eq_(0, pool.licenses_owned)
         eq_(0, pool.licenses_available)
+
+        # The TimestampData returned by run_once() describes its
+        # achievements.
         eq_("License pools removed: 1.", result.achievements)
+
+        # The TimestampData does not include any timing information --
+        # that will be applied by run().
+        eq_(TimestampData.NO_VALUE, progress.start)
+        eq_(TimestampData.NO_VALUE, progress.finish)

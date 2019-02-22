@@ -1453,9 +1453,15 @@ class TestODLHoldReaper(DatabaseTest, BaseODLTest):
         eq_(1, pool.licenses_available)
         eq_(2, pool.licenses_reserved)
 
-        # The TimestampData has been updated to reflect what
-        # work was done.
+        # The TimestampData returned reflects what work was done.
         eq_('Holds deleted: 3. License pools updated: 1', progress.achievements)
+
+        # The TimestampData does not include any timing information --
+        # that will be applied by run().
+        eq_(TimestampData.NO_VALUE, progress.start)
+        eq_(TimestampData.NO_VALUE, progress.finish)
+
+
 
 class TestSharedODLAPI(DatabaseTest, BaseODLTest):
 

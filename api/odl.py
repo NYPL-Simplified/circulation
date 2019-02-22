@@ -940,12 +940,12 @@ class ODLHoldReaper(CollectionMonitor):
 
         for pool in changed_pools:
             self.api.update_hold_queue(pool)
-        progress.achievements = (
-            "Holds deleted: %d. License pools updated: %d" % (
-                total_deleted_holds,
-                len(changed_pools)
-            )
+
+        message = "Holds deleted: %d. License pools updated: %d" % (
+            total_deleted_holds,
+            len(changed_pools)
         )
+        progress = TimestampData(achievements=message)
         return progress
 
 class MockODLWithConsolidatedCopiesAPI(ODLWithConsolidatedCopiesAPI):
