@@ -100,6 +100,11 @@ class Timestamp(Base):
     COVERAGE_PROVIDER_TYPE = "coverage_provider"
     SCRIPT_TYPE = "script"
 
+    # A stand-in value used to indicate that a field in the timestamps
+    # should be set to None. This is necessary because 'None' generally
+    # means 'use the default value'.
+    NO_VALUE = object()
+
     service_type_enum = Enum(
         MONITOR_TYPE, COVERAGE_PROVIDER_TYPE, SCRIPT_TYPE,
         name="service_type",
@@ -230,8 +235,16 @@ class Timestamp(Base):
         """
 
         if start is not None:
+            if start is self.NO_VALUE:
+                # In most cases, None is not a valid value for
+                # Timestamp.start, but this can be overridden.
+                start = None
             self.start = start
         if finish is not None:
+            if finish is self.NO_VALUE:
+                # In most cases, None is not a valid value for
+                # Timestamp.finish, but this can be overridden.
+                finish = None
             self.finish = finish
         if achievements is not None:
             self.achievements = achievements
@@ -242,6 +255,13 @@ class Timestamp(Base):
         # .exception
         self.exception = exception
 
+    def to_data(self):
+        """Convert this Timestamp to an unfinalized TimestampData."""
+        from ..metadata_layer import TimestampData
+        return TimestampData(
+            start=self.start, finish=self.finish,
+            achievements=self.achievements, counter=self.counter
+        )
 
     __table_args__ = (
         UniqueConstraint('service', 'collection_id'),

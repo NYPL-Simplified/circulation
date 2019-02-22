@@ -14,7 +14,10 @@ from ..testing import (
     BrokenCoverageProvider,
 )
 
+from ..metadata_layer import TimestampData
+
 from ..model import (
+    get_one,
     CachedFeed,
     Subject,
     Collection,
@@ -49,6 +52,7 @@ from ..monitor import (
     ReaperMonitor,
     SubjectSweepMonitor,
     SweepMonitor,
+    TimelineMonitor,
     WorkRandomnessUpdateMonitor,
     WorkSweepMonitor,
 )
@@ -62,9 +66,9 @@ class MockMonitor(Monitor):
         self.run_records = []
         self.cleanup_records = []
 
-    def run_once(self, start, cutoff):
-        self.original_timestamp = start
-        self.run_records.append(True)
+    def run_once(self, progress):
+        # Record the TimestampData object passed in.
+        self.run_records.append(progress)
 
     def cleanup(self):
         self.cleanup_records.append(True)
@@ -90,32 +94,53 @@ class TestMonitor(DatabaseTest):
         monitor.collection_id = None
         eq_(None, monitor.collection)
 
-    def test_monitor_lifecycle(self):
+    def test_initial_start_time(self):
         monitor = MockMonitor(self._db, self._default_collection)
 
+        # Setting the default start time to NEVER explicitly says to use
+        # None as the initial time.
+        monitor.default_start_time = monitor.NEVER
+        eq_(None, monitor.initial_start_time)
+
+        # Setting the value to None means "use the current time".
+        monitor.default_start_time = None
+        self.time_eq(datetime.datetime.utcnow(), monitor.initial_start_time)
+
+        # Any other value is returned as-is.
+        default = object()
+        monitor.default_start_time = default
+        eq_(default, monitor.initial_start_time)
+
+    def test_monitor_lifecycle(self):
+        monitor = MockMonitor(self._db, self._default_collection)
+        monitor.default_start_time = datetime.datetime(2010, 1, 1)
+
         # There is no timestamp for this monitor.
-        eq_([], self._db.query(Timestamp).filter(
-            Timestamp.service==monitor.service_name).all())
+        def get_timestamp():
+            return get_one(self._db, Timestamp, service=monitor.service_name)
+        eq_(None, get_timestamp())
 
         # Run the monitor.
         monitor.run()
 
         # The monitor ran once and then stopped.
-        eq_([True], monitor.run_records)
+        [progress] = monitor.run_records
+
+        # The TimestampData passed in to run_once() had the
+        # Monitor's default start time as its .start, and an empty
+        # time for .finish.
+        eq_(monitor.default_start_time, progress.start)
+        eq_(None, progress.finish)
+
+        # But the Monitor's underlying timestamp has been updated with
+        # the time that the monitor actually took to run.
+        timestamp = get_timestamp()
+        assert timestamp.start > monitor.default_start_time
+        assert timestamp.finish > timestamp.start
+        self.time_eq(datetime.datetime.utcnow(), timestamp.start)
 
         # cleanup() was called once.
         eq_([True], monitor.cleanup_records)
-
-        # A timestamp was put into the database when we ran the
-        # monitor.
-        timestamp = self._db.query(Timestamp).filter(
-            Timestamp.service==monitor.service_name).one()
-
-        # The current value of .start and .finish are later than
-        # the original value, because they were updated to reflect the
-        # time that run_once() completed successfully.
-        assert timestamp.start > monitor.original_timestamp
-        assert timestamp.finish > timestamp.start
 
     def test_initial_timestamp(self):
         class NeverRunMonitor(MockMonitor):
@@ -136,35 +161,66 @@ class TestMonitor(DatabaseTest):
         now = datetime.datetime.utcnow()
         assert timestamp.start < now
 
-        # Just so we have a value for Timestamp.finish, it's given the
-        # same value as Timestamp.start.
-        eq_(timestamp.finish, timestamp.start)
+        # Timestamp.finish is set to None, on the assumption that the
+        # first run is still in progress.
+        eq_(timestamp.finish, None)
 
+    def test_run_once_returning_timestampdata(self):
+        # If a Monitor's run_once implementation returns a TimestampData,
+        # that's the data used to set the Monitor's Timestamp, even if
+        # the data doesn't make sense by the standards used by the main
+        # Monitor class.
+        start = datetime.datetime(2011, 1, 1)
+        finish = datetime.datetime(2012, 1, 1)
+
+        class Mock(MockMonitor):
+            def run_once(self, progress):
+                return TimestampData(start=start, finish=finish, counter=-100)
+        monitor = Mock(self._db, self._default_collection)
+        monitor.run()        
+
+        timestamp = monitor.timestamp()
+        eq_(start, timestamp.start)
+        eq_(finish, timestamp.finish)
+        eq_(-100, timestamp.counter)
 
     def test_run_once_with_exception(self):
-        # If a Monitor's run_once implementation raises an unhandled
-        # exception, a traceback for that exception is recorded in the
-        # appropriate Timestamp, but the timestamp itself is not
-        # updated.
+        # If an exception happens during a Monitor's run_once
+        # implementation, a traceback for that exception is recorded
+        # in the appropriate Timestamp, but the timestamp itself is
+        # not updated.
+
+        # This test function shows the behavior we expect from a
+        # Monitor.
+        def assert_run_sets_exception(monitor, check_for):
+            timestamp = monitor.timestamp()
+            old_start = timestamp.start
+            old_finish = timestamp.finish
+            eq_(None, timestamp.exception)
+
+            monitor.run()
+
+            # The timestamp has been updated, but the times have not.
+            assert check_for in timestamp.exception
+            eq_(old_start, timestamp.start)
+            eq_(old_finish, timestamp.finish)
+
+        # Try a monitor that raises an unhandled exception.
         class DoomedMonitor(MockMonitor):
             SERVICE_NAME = "Doomed"
             def run_once(self, *args, **kwargs):
                 raise Exception("I'm doomed")
-
         m = DoomedMonitor(self._db, self._default_collection)
-        timestamp = m.timestamp()
-        old_start = timestamp.start
-        old_finish = timestamp.finish
-        eq_(None, timestamp.exception)
+        assert_run_sets_exception(m, "Exception: I'm doomed")
 
-        m.run()
-
-        # The timestamp has been updated, but the times have not.
-        assert "Exception: I'm doomed" in timestamp.exception
-        timestamp = m.timestamp()
-        eq_(old_start, timestamp.start)
-        eq_(old_finish, timestamp.finish)
-
+        # Try a monitor that sets .exception on the TimestampData it
+        # returns.
+        class AlsoDoomed(MockMonitor):
+            SERVICE_NAME = "Doomed, but in a different way."
+            def run_once(self, progress):
+                return TimestampData(exception="I'm also doomed")
+        m = AlsoDoomed(self._db, self._default_collection)
+        assert_run_sets_exception(m, "I'm also doomed")
 
     def test_same_monitor_different_collections(self):
         """A single Monitor has different Timestamps when run against
@@ -289,6 +345,80 @@ class TestCollectionMonitor(DatabaseTest):
         eq_([o2, o3, o1], [x.collection for x in monitors])
 
 
+class TestTimelineMonitor(DatabaseTest):
+
+    def test_run_once(self):
+        class Mock(TimelineMonitor):
+            SERVICE_NAME = "Just a timeline"
+            catchups = []
+            def catch_up_from(self, start, cutoff, progress):
+                self.catchups.append((start, cutoff, progress))
+
+        m = Mock(self._db)
+        progress = m.timestamp().to_data()
+        m.run_once(progress)
+        now = datetime.datetime.utcnow()
+
+        # catch_up_from() was called once.
+        (start, cutoff, progress) = m.catchups.pop()
+        eq_(m.initial_start_time, start)
+        self.time_eq(cutoff, now)
+
+        # progress contains a record of the timespan now covered
+        # by this Monitor.
+        eq_(start, progress.start)
+        eq_(cutoff, progress.finish)
+
+    def test_subclass_cannot_modify_dates(self):
+        """The subclass can modify some fields of the TimestampData
+        passed in to it, but it can't modify the start or end dates.
+
+        If you want that, you shouldn't subclass TimelineMonitor.
+        """
+        class Mock(TimelineMonitor):
+            DEFAULT_START_TIME = Monitor.NEVER
+            SERVICE_NAME = "I aim to misbehave"
+            def catch_up_from(self, start, cutoff, progress):
+                progress.start = 1
+                progress.finish = 2
+                progress.counter = 3
+                progress.achievements = 4
+
+        m = Mock(self._db)
+        progress = m.timestamp().to_data()
+        m.run_once(progress)
+        now = datetime.datetime.utcnow()
+
+        # The timestamp values have been set to appropriate values for
+        # the portion of the timeline covered, overriding our values.
+        eq_(None, progress.start)
+        self.time_eq(now, progress.finish)
+
+        # The non-timestamp values have been left alone.
+        eq_(3, progress.counter)
+        eq_(4, progress.achievements)
+
+    def test_timestamp_not_updated_on_exception(self):
+        """If the subclass sets .exception on the TimestampData
+        passed into it, the dates aren't modified.
+        """
+        class Mock(TimelineMonitor):
+            DEFAULT_START_TIME = datetime.datetime(2011, 1, 1)
+            SERVICE_NAME = "doomed"
+            def catch_up_from(self, start, cutoff, progress):
+                self.started_at = start
+                progress.exception = "oops"
+
+        m = Mock(self._db)
+        progress = m.timestamp().to_data()
+        m.run_once(progress)
+
+        # The timestamp value is set to a value indicating that the
+        # initial run never completed.
+        eq_(m.DEFAULT_START_TIME, progress.start)
+        eq_(None, progress.finish)
+
+
 class MockSweepMonitor(SweepMonitor):
     """A SweepMonitor that does nothing."""
     MODEL_CLASS = Identifier
@@ -395,21 +525,25 @@ class TestSweepMonitor(DatabaseTest):
                 super(IHateI4, self).process_item(item)
 
         monitor = IHateI4(self._db)
+
+        timestamp = monitor.timestamp()
+        original_start = timestamp.start
         monitor.run()
 
         # The monitor's counter was updated to the ID of the final
         # item in the last batch it was able to process. In this case,
         # this is I2.
-        timestamp = monitor.timestamp()
         eq_(i2.id, timestamp.counter)
 
         # The exception that stopped the run was recorded.
         assert "Exception: HOW DARE YOU" in timestamp.exception
 
-        # The start and end points of the run were recorded.
+        # Even though the run didn't complete, the dates on the
+        # timestamp were updated to reflect the work that _was_ done.
         now = datetime.datetime.utcnow()
-        assert (now - timestamp.start).total_seconds() < 5
-        assert (now - timestamp.finish).total_seconds() < 5
+        assert timestamp.start > original_start
+        self.time_eq(now, timestamp.start)
+        self.time_eq(now, timestamp.finish)
         assert timestamp.start < timestamp.finish
 
         # I3 was processed, but the batch did not complete, so any
@@ -768,12 +902,11 @@ class TestReaperMonitor(DatabaseTest):
             expect = datetime.datetime.utcnow() - datetime.timedelta(
                 days=value
             )
-            assert (m.cutoff - expect).total_seconds() < 2
+            self.time_eq(m.cutoff, expect)
 
         # But you can pass in a timedelta instead.
         m.MAX_AGE = datetime.timedelta(seconds=99)
-        expect = datetime.datetime.utcnow() - m.MAX_AGE
-        assert (m.cutoff - expect).total_seconds() < 2
+        self.time_eq(m.cutoff, datetime.datetime.utcnow() - m.MAX_AGE)
 
     def test_specific_reapers(self):
         eq_(CachedFeed.timestamp, CachedFeedReaper(self._db).timestamp_field)

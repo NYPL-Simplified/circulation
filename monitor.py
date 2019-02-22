@@ -13,6 +13,7 @@ from sqlalchemy.sql.expression import (
 import log # This sets the appropriate log format and level.
 from config import Configuration
 from coverage import CoverageFailure
+from metadata_layer import TimestampData
 from model import (
     get_one,
     get_one_or_create,
@@ -112,14 +113,28 @@ class Monitor(object):
             return None
         return get_one(self._db, Collection, id=self.collection_id)
 
-    def timestamp(self):
-        """Find or create the Timestamp for this Monitor."""
+    @property
+    def initial_start_time(self):
+        """The time that should be used as the 'start time' the first
+        time this Monitor is run.
+        """
         if self.default_start_time is self.NEVER:
-            initial_timestamp = None
-        elif not self.default_start_time:
-            initial_timestamp = datetime.datetime.utcnow()
-        else:
-            initial_timestamp = self.default_start_time
+            return None
+        if self.default_start_time:
+            return self.default_start_time
+        return datetime.datetime.utcnow()
+
+
+    def timestamp(self):
+        """Find or create a Timestamp for this Monitor.
+
+        This does not use TimestampData because it relies on checking
+        whether a Timestamp already exists in the database.
+
+        A new timestamp will have .finish set to None, since the first
+        run is presumably in progress.
+        """
+        initial_timestamp = self.initial_start_time
         timestamp, new = get_one_or_create(
             self._db, Timestamp,
             service=self.service_name,
@@ -127,7 +142,7 @@ class Monitor(object):
             collection=self.collection,
             create_method_kwargs=dict(
                 start=initial_timestamp,
-                finish=initial_timestamp,
+                finish=None,
                 counter=self.default_counter,
             )
         )
@@ -137,42 +152,52 @@ class Monitor(object):
         """Do all the work that has piled up since the
         last time the Monitor ran to completion.
         """
-        # Figure out how far into the past this Monitor needs to go.
-        timestamp = self.timestamp()
-        last_run_start = timestamp.start or self.default_start_time
-        if last_run_start == self.NEVER:
-            last_run_start = None
+        # Use the existing Timestamp to determine the progress made up
+        # to this point. It's the job of the subclass to decide where
+        # to go from here.
+        timestamp_obj = self.timestamp()
+        progress = timestamp_obj.to_data()
 
-        # At this point `last_run_start` represents the first moment
-        # at which something might have happened that the Monitor
-        # hasn't taken into consideration. `this_run_start` represents
-        # the first moment of _this_ run, which is the _final_ moment
-        # the Monitor must take into consideration right
-        # now. Everything that happens after this time can be handled
-        # on the subsequent run.
         this_run_start = datetime.datetime.utcnow()
+        exception = None
         try:
-            this_run_finish = (
-                self.run_once(last_run_start, this_run_start)
-                or datetime.datetime.utcnow()
-            )
-            self.cleanup()
-            timestamp.update(
-                start=this_run_start, finish=this_run_finish,
-                exception=None
-            )
+            new_timestamp = self.run_once(progress)
+            this_run_finish = datetime.datetime.utcnow()
+            if new_timestamp is None:
+                # Assume this Monitor has no special needs surrounding
+                # its timestamp.
+                new_timestamp = TimestampData()
+            if new_timestamp.exception in (None, TimestampData.NO_VALUE):
+                # run_once() completed with no exceptions being raised.
+                # We can run the cleanup code and finalize the timestamp.
+                self.cleanup()
+                new_timestamp.finalize(
+                    service=self.service_name,
+                    service_type=Timestamp.MONITOR_TYPE,
+                    collection=self.collection,
+                    start=this_run_start,
+                    finish=this_run_finish,
+                    exception=None
+                )
+                new_timestamp.apply(self._db)
+            else:
+                # This will be treated the same as an unhandled
+                # exception, below.
+                exception = new_timestamp.exception
         except Exception, e:
+            this_run_finish = datetime.datetime.utcnow()
             self.log.error(
                 "Error running %s monitor. Timestamp will not be updated.",
                 self.service_name, exc_info=e
             )
-            this_run_finish = datetime.datetime.utcnow()
+            exception = traceback.format_exc()
+        if exception is not None:
+            # We will update Timestamp.exception but not go through
+            # the whole TimestampData.apply() process, which might
+            # erase the information the Monitor needs to recover from
+            # this failure.
+            timestamp_obj.exception = exception
 
-            # We will update the exception but not the start or end
-            # times. This way the Monitor remembers that it still
-            # hasn't managed to cover what happened in that first
-            # moment.
-            timestamp.exception = traceback.format_exc()
         self._db.commit()
 
         duration = this_run_finish - this_run_start
@@ -181,13 +206,11 @@ class Monitor(object):
             duration.total_seconds(),
         )
 
-    def run_once(self, start, cutoff):
+    def run_once(self, progress):
         """Do the actual work of the Monitor.
 
-        :param start: The last time the Monitor was run.
-
-        :param cutoff: It's not necessary to do work for anything that
-            happened after this time. Usually, this is the current time.
+        :param progress: A TimestampData representing the
+           work done by the Monitor up to this point.
         """
         raise NotImplementedError()
 
@@ -196,6 +219,56 @@ class Monitor(object):
         has completed successfully.
         """
         pass
+
+
+class TimelineMonitor(Monitor):
+    """A monitor that needs to process everything that happened between
+    two specific times.
+
+    This Monitor uses `Timestamp.start` and `Timestamp.finish` to describe
+    the span of time covered in the most recent run, not the time it
+    actually took to run.
+    """
+    OVERLAP = datetime.timedelta(minutes=5)
+
+    def run_once(self, progress):
+        if progress.finish in (None, progress.NO_VALUE):
+            # This monitor has never run before. Use the default
+            # start time for this monitor.
+            start = self.initial_start_time
+        else:
+            start = progress.finish - self.OVERLAP
+        cutoff = datetime.datetime.utcnow()
+        self.catch_up_from(start, cutoff, progress)
+
+        if progress.is_failure:
+            # Something has gone wrong. Stop immediately.
+            #
+            # TODO: Ideally we would undo any other changes made to
+            # the TimestampData, but most Monitors don't set
+            # .exception directly so it's not a big deal.
+            return progress
+
+        # We set `finish` to the time at which we _started_
+        # running this process, to reduce the risk that we miss
+        # events that happened while the process was running.
+        progress.start = start
+        progress.finish = cutoff
+        return progress
+
+    def catch_up_from(self, start, cutoff, progress):
+        """Make sure all events between `start` and `cutoff` are covered.
+
+        :param start: Start looking for events that happened at this
+            time.
+        :param cutoff: You're not responsible for events that happened
+            after this time.
+        :param progress: A TimestampData representing the progress so
+            far. You can modify this in place, for instance to set
+            .achievements, but you cannot change .start and .finish --
+            any changes will be overwritten by run_once().
+        """
+        raise NotImplementedError()
 
 
 class CollectionMonitor(Monitor):
@@ -293,49 +366,45 @@ class SweepMonitor(CollectionMonitor):
         self.model_class = cls.MODEL_CLASS
         super(SweepMonitor, self).__init__(_db, collection=collection)
 
-    def run(self):
+    def run_once(self, *ignore):
         timestamp = self.timestamp()
         offset = timestamp.counter
         new_offset = offset
-
-        run_started_at = datetime.datetime.utcnow()
         exception = None
-        achievements = None
-        while True:
-            batch_started_at = time.time()
-            old_offset = offset
-            try:
-                # TODO: Change process_batch to return achievement
-                # info as well as offset, and keep track of the total.
-                new_offset = self.process_batch(offset)
-            except Exception, e:
-                self.log.error("Error during run: %s", e, exc_info=e)
-                exception = traceback.format_exc()
-                break
-            self._db.commit()
 
-            if old_offset != new_offset:
-                batch_ended_at = time.time()
-                self.log.debug(
-                    "%s monitor went from offset %s to %s in %.2f sec",
-                    self.service_name, offset, new_offset,
-                    (batch_ended_at-batch_started_at)
-                )
+        # The timestamp for a SweepMonitor is purely informative --
+        # we're not trying to capture all the events that happened
+        # since a certain time -- so we're going to make sure the
+        # timestamp is set from the start of the run to the end of the
+        # last _successful_ batch.
+        run_started_at = datetime.datetime.utcnow()
+        timestamp.start = run_started_at
+
+        while True:
+            old_offset = offset
+            batch_started_at = datetime.datetime.utcnow()
+            new_offset = self.process_batch(offset)
+            batch_ended_at = datetime.datetime.utcnow()
+
+            self.log.debug(
+                "%s monitor went from offset %s to %s in %.2f sec",
+                self.service_name, offset, new_offset,
+                (batch_ended_at-batch_started_at).total_seconds()
+            )
 
             offset = new_offset
             if offset == 0:
                 # We completed a sweep. We're done.
-                self.cleanup()
                 break
 
-        # We're done with this run, either because we completed
-        # a sweep or because an exception was raised.
-        run_ended_at = datetime.datetime.utcnow()
-        timestamp.update(
-            start=run_started_at, finish=run_ended_at,
-            achievements=achievements, counter=new_offset,
-            exception=exception
-        )
+            # We need to do another batch. If it should raise an exception,
+            # we don't want to lose the progress we've already made.
+            timestamp.update(counter=new_offset, finish=batch_ended_at)
+            self._db.commit()
+
+        # We're done with this run. The run() method will do the final
+        # update.
+        return TimestampData(counter=offset)
 
     def process_batch(self, offset):
         """Process one batch of work."""

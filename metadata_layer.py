@@ -31,6 +31,7 @@ from model import (
     get_one,
     get_one_or_create,
     CirculationEvent,
+    Collection,
     Contributor,
     CoverageRecord,
     DataSource,
@@ -48,6 +49,7 @@ from model import (
     RightsStatus,
     Representation,
     Resource,
+    Timestamp,
     Work,
 )
 from classifier import NO_VALUE, NO_NUMBER
@@ -501,6 +503,128 @@ class FormatData(object):
         if ((not self.rights_uri) and self.link and self.link.rights_uri):
             self.rights_uri = self.link.rights_uri
 
+
+class TimestampData(object):
+
+    NO_VALUE = Timestamp.NO_VALUE
+
+    def __init__(self, start=NO_VALUE, finish=NO_VALUE, achievements=NO_VALUE,
+                 counter=NO_VALUE, exception=NO_VALUE):
+        """A constructor intended to be used by a service to customize its
+        eventual Timestamp.
+
+        service, service_type, and collection cannot be set through
+        this constructor, because they are generally not under the
+        control of the code that runs the service. They are set
+        afterwards, in finalize().
+
+        :param start: The time that the service should be considered to
+           have started running.
+        :param finish: The time that the service should be considered
+           to have stopped running.
+        :param achievements: A string describing what was achieved by the
+           service.
+        :param counter: A single integer item of state representing the point
+           at which the service left off.
+        :param exception: A traceback representing an exception that stopped
+           the progress of the service.
+        """
+
+        # These are set by finalize().
+        self.service = self.NO_VALUE
+        self.service_type = self.NO_VALUE
+        self.collection_id = self.NO_VALUE
+
+        self.start = start
+        self.finish = finish
+        self.achievements = achievements
+        self.counter = counter
+        self.exception = exception
+
+    @property
+    def is_failure(self):
+        """Does this TimestampData represent an unrecoverable failure?"""
+        return self.exception not in (None, self.NO_VALUE)
+
+    @property
+    def is_complete(self):
+        """Does this TimestampData represent an operation that has
+        completed?
+
+        An operation is completed if it has failed, or if the time of its
+        completion is known.
+        """
+        return self.is_failure or self.finish not in (None, self.NO_VALUE)
+
+    def finalize(self, service, service_type, collection, start=NO_VALUE,
+                 finish=NO_VALUE, achievements=NO_VALUE, counter=NO_VALUE,
+                 exception=NO_VALUE):
+        """Finalize any values that were not set during the constructor.
+
+        This is intended to be run by the code that originally ran the
+        service.
+
+        The given values for `start`, `finish`, `achievements`,
+        `counter`, and `exception` will be used only if the service
+        did not specify its own values for those fields.
+        """
+        self.service = service
+        self.service_type = service_type
+        if collection is None:
+            self.collection_id = None
+        else:
+            self.collection_id = collection.id
+        if self.start is self.NO_VALUE:
+            self.start = start
+        if self.finish is self.NO_VALUE:
+            if finish is self.NO_VALUE:
+                finish = datetime.datetime.utcnow()
+            self.finish = finish
+        if self.start is self.NO_VALUE:
+            self.start = self.finish
+        if self.counter is self.NO_VALUE:
+            self.counter = counter
+        if self.exception is self.NO_VALUE:
+            self.exception = exception
+
+    def collection(self, _db):
+        return get_one(_db, Collection, id=self.collection_id)
+
+    def apply(self, _db):
+        if any(x is self.NO_VALUE for x in [self.service, self.service_type,
+                                            self.collection_id]):
+            raise ValueError(
+                "Not enough information to write TimestampData to the database."
+            )
+
+        start = self.start
+        finish = self.finish
+        if start is self.NO_VALUE and finish is self.NO_VALUE:
+            start = finish = datetime.datetime.utcnow()
+        elif start is self.NO_VALUE:
+            start = finish
+        elif finish is self.NO_VALUE:
+            finish = start
+        # At this point both start and finish are set to real
+        # timestamps.
+
+        # If any of these fields are still NO_VALUE, it means that the
+        # corresponding database fields should be cleared out -- they
+        # were irrelevant to this service on this particular run.
+        def _v(x):
+            if x is self.NO_VALUE:
+                return None
+            return x
+
+        achievements = _v(self.achievements)
+        counter = _v(self.counter)
+        counter = _v(self.counter)
+        exception = _v(self.exception)
+
+        return Timestamp.stamp(
+            _db, self.service, self.service_type, self.collection(_db),
+            start, finish, achievements, counter, exception
+        )
 
 
 class MetaToModelUtility(object):

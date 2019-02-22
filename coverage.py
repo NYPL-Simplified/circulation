@@ -24,7 +24,8 @@ from model import (
     WorkCoverageRecord,
 )
 from metadata_layer import (
-    ReplacementPolicy
+    ReplacementPolicy,
+    TimestampData,
 )
 from util.worker_pools import DatabaseJob
 
@@ -79,6 +80,20 @@ class CoverageFailure(object):
         else:
             record.status = CoverageRecord.PERSISTENT_FAILURE
         return record
+
+
+class CoverageProviderProgress(TimestampData):
+
+    """A TimestampData optimized for the special needs of 
+    CoverageProviders.
+    """
+    def __init__(self, *args, **kwargs):
+        super(CoverageProviderProgress, self).__init__(*args, **kwargs)
+
+        # The offset is distinct from the counter, in that it's not written
+        # to the database -- it's used to track state that's necessary within
+        # a single run of the CoverageProvider.
+        self.offset = 0
 
 
 class BaseCoverageProvider(object):
@@ -174,7 +189,12 @@ class BaseCoverageProvider(object):
         return self.OPERATION
 
     def run(self):
-        self.run_once_and_update_timestamp()
+        start = datetime.datetime.utcnow()
+        result = self.run_once_and_update_timestamp()
+
+        result = result or CoverageProviderProgress()
+        self.finalize_timestampdata(result, start=start)
+        return result
 
     def run_once_and_update_timestamp(self):
         # First prioritize items that have never had a coverage attempt before.
@@ -185,36 +205,88 @@ class BaseCoverageProvider(object):
             BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
         ]
         start_time = datetime.datetime.utcnow()
-        exception = None
+        timestamp = self.timestamp
+
+        # We'll use this TimestampData object to track our progress
+        # as we grant coverage to items.
+        progress = CoverageProviderProgress(start=start_time)
+
         for covered_statuses in covered_status_lists:
-            offset = 0
-            while offset is not None:
-                # TODO: change run_once to return achievement
-                # information (successfully covered records, transient
-                # errors, permanent errors).
+            # We may have completed our work for the previous value of
+            # covered_statuses, but there's more work to do. Unset the
+            # 'finish' date to guarantee that progress.is_complete
+            # starts out False.
+            #
+            # Also set the offset to zero to ensure that we always start
+            # at the start of the database table.
+            progress.finish = None
+            progress.offset = 0
+
+            # Call run_once() until we get an exception or
+            # progress.finish is set.
+            while not progress.is_complete:
                 try:
-                    offset = self.run_once(
-                        offset, count_as_covered=covered_statuses
+                    new_progress = self.run_once(
+                        progress, count_as_covered=covered_statuses
                     )
+                    # run_once can either return a new
+                    # CoverageProviderProgress object, or modify
+                    # in-place the one it was passed.
+                    if new_progress is not None:
+                        progress = new_progress
                 except Exception, e:
                     logging.error(
                         "CoverageProvider %s raised uncaught exception.",
                         self.service_name, exc_info=e
                     )
-                    exception = traceback.format_exc()
-                    break
+                    progress.exception=traceback.format_exc()
 
-        self.update_timestamp(start=start_time, exception=exception)
+                # The next run_once() call might raise an exception,
+                # so let's write the work to the database as it's
+                # done.
+                self.finalize_timestampdata(progress)
+        return progress
 
-    def update_timestamp(self, **kwargs):
-        Timestamp.stamp(
-            _db=self._db, service=self.service_name,
-            service_type=Timestamp.COVERAGE_PROVIDER_TYPE,
+    @property
+    def timestamp(self):
+        """Look up the Timestamp object for this CoverageProvider."""
+        return Timestamp.lookup(
+            self._db, self.service_name, Timestamp.COVERAGE_PROVIDER_TYPE,
+            collection=self.collection
+        )
+
+    def finalize_timestampdata(self, timestamp, **kwargs):
+        """Finalize the given TimestampData and write it to the
+        database.
+        """
+        timestamp.finalize(
+            self.service_name, Timestamp.COVERAGE_PROVIDER_TYPE,
             collection=self.collection, **kwargs
         )
+        timestamp.apply(self._db)
         self._db.commit()
 
-    def run_once(self, offset, count_as_covered=None):
+    def run_once(self, progress, count_as_covered=None):
+        """Try to grant coverage to a number of uncovered items.
+
+        NOTE: If you override this method, it's very important that
+        your implementation eventually do one of the following:
+            * Set progress.finish
+            * Set progress.exception
+            * Raise an exception
+        If you don't do any of these things, run() will assume you still
+        have work to do, and will keep calling run_once() forever.
+
+        :param progress: A CoverageProviderProgress representing the
+           progress made so far, and the number of records that
+           need to be ignored for the rest of the run.
+
+        :param count_as_covered: Which values for CoverageRecord.status
+           should count as meaning 'already covered'.
+
+        :return: A CoverageProviderProgress representing whatever
+           additional progress has been made.
+        """
         count_as_covered = count_as_covered or BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
         # Make it clear which class of items we're covering on this
         # run.
@@ -223,11 +295,13 @@ class BaseCoverageProvider(object):
         qu = self.items_that_need_coverage(count_as_covered=count_as_covered)
         self.log.info("%d items need coverage%s", qu.count(),
                       count_as_covered_message)
-        batch = qu.limit(self.batch_size).offset(offset)
+        batch = qu.limit(self.batch_size).offset(progress.offset)
 
         if not batch.count():
             # The batch is empty. We're done.
-            return None
+            progress.finish = datetime.datetime.utcnow()
+            return progress
+
         (successes, transient_failures, persistent_failures), results = (
             self.process_batch_and_handle_results(batch)
         )
@@ -236,21 +310,21 @@ class BaseCoverageProvider(object):
             # If any successes happened in this batch, increase the
             # offset to ignore them, or they will just show up again
             # the next time we run this batch.
-            offset += successes
+            progress.offset += successes
 
         if BaseCoverageRecord.TRANSIENT_FAILURE not in count_as_covered:
             # If any transient failures happened in this batch,
             # increase the offset to ignore them, or they will
             # just show up again the next time we run this batch.
-            offset += transient_failures
+            progress.offset += transient_failures
 
         if BaseCoverageRecord.PERSISTENT_FAILURE not in count_as_covered:
             # If any persistent failures happened in this batch,
             # increase the offset to ignore them, or they will
             # just show up again the next time we run this batch.
-            offset += persistent_failures
+            progress.offset += persistent_failures
 
-        return offset
+        return progress
 
     def process_batch_and_handle_results(self, batch):
         """:return: A 2-tuple (counts, records).
@@ -1196,18 +1270,19 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
 
 class CollectionCoverageProviderJob(DatabaseJob):
 
-    def __init__(self, collection, provider_class, item_offset,
+    def __init__(self, collection, provider_class, progress,
         **provider_kwargs
     ):
         self.collection = collection
-        self.offset = item_offset
+        self.progress = progress
         self.provider_class = provider_class
         self.provider_kwargs = provider_kwargs
 
     def run(self, _db, **kwargs):
         collection = _db.merge(self.collection)
         provider = self.provider_class(collection, **self.provider_kwargs)
-        provider.run_once(self.offset)
+        provider.run_once(self.progress)
+        provider.finalize_timestampdata(self.progress)
 
 
 class CatalogCoverageProvider(CollectionCoverageProvider):

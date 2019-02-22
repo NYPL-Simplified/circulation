@@ -1552,9 +1552,6 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
     """
     SERVICE_NAME = "OPDS Import Monitor"
 
-    # This Monitor will do its work every time it's invoked.
-    INTERVAL_SECONDS = 0
-
     # The first time this Monitor is invoked we want to get the
     # entire OPDS feed.
     DEFAULT_START_TIME = CollectionMonitor.NEVER
@@ -1811,7 +1808,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
                 operation=CoverageRecord.IMPORT_OPERATION
             )
 
-    def run_once(self, start_ignore, cutoff_ignore):
+    def run_once(self, progress_ignore):
         feeds = []
         queue = [self.feed_url]
         seen_links = set([])

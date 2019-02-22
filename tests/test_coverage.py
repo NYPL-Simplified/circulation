@@ -57,6 +57,7 @@ from ..coverage import (
     CatalogCoverageProvider,
     CollectionCoverageProvider,
     CoverageFailure,
+    CoverageProviderProgress,
     IdentifierCoverageProvider,
     OPDSEntryWorkCoverageProvider,
     MARCRecordWorkCoverageProvider,
@@ -185,11 +186,56 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             was_run = False
 
             def run_once_and_update_timestamp(self):
+                """Set a variable."""
                 self.was_run = True
+                return None
 
         provider = MockProvider(self._db)
-        provider.run()
+        result = provider.run()
+
+        # run_once_and_update_timestamp() was called.
         eq_(True, provider.was_run)
+
+        # run() returned a CoverageProviderProgress with basic
+        # timing information, since run_once_and_update_timestamp()
+        # didn't provide anything.
+        assert isinstance(result, CoverageProviderProgress)
+        now = datetime.datetime.now()
+        assert result.start < result.finish
+        for time in (result.start, result.finish):
+            assert (now - time).total_seconds() < 5
+
+    def test_run_with_custom_result(self):
+
+        start = datetime.datetime(2011, 1, 1)
+        finish = datetime.datetime(2012, 1, 1)
+        counter = -100
+
+        class MockProvider(BaseCoverageProvider):
+            """A BaseCoverageProvider that returns a strange
+            CoverageProviderProgress representing the work it did.
+            """
+            SERVICE_NAME = "I do nothing"
+            was_run = False
+
+            custom_timestamp_data = CoverageProviderProgress(
+                start=start, finish=finish, counter=counter
+            )
+            def run_once_and_update_timestamp(self):
+                return self.custom_timestamp_data
+
+        provider = MockProvider(self._db)
+        result = provider.run()
+
+        # The TimestampData returned by run_once_and_update_timestamp
+        # is the return value of run().
+        eq_(result, provider.custom_timestamp_data)
+
+        # The TimestampData data was written to the database, even
+        # though some of it doesn't make apparent sense.
+        eq_(start, provider.timestamp.start)
+        eq_(finish, provider.timestamp.finish)
+        eq_(counter, provider.timestamp.counter)
 
     def test_run_once_and_update_timestamp(self):
         """Test that run_once_and_update_timestamp calls run_once twice and
@@ -199,8 +245,18 @@ class TestBaseCoverageProvider(CoverageProviderTest):
             SERVICE_NAME = "I do nothing"
             run_once_calls = []
 
-            def run_once(self, offset, count_as_covered=None):
-                self.run_once_calls.append(count_as_covered)
+            def run_once(self, progress, count_as_covered=None):
+                now = datetime.datetime.utcnow()
+                self.run_once_calls.append((count_as_covered, now))
+
+                # Verify that progress.finish and progress.offset are
+                # cleared before every run_once() call.
+                eq_(None, progress.finish)
+                eq_(0, progress.offset)
+
+                progress.finish = now
+                progress.offset = len(self.run_once_calls)
+                return progress
 
         # We start with no Timestamp.
         service_name = "I do nothing"
@@ -212,13 +268,11 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # Instantiate the Provider, and call
         # run_once_and_update_timestamp.
         provider = MockProvider(self._db)
-        provider.run_once_and_update_timestamp()
+        final_progress = provider.run_once_and_update_timestamp()
 
         # The Timestamp's .start and .finish are now set to recent
         # values -- the start and end points of run_once().
-        timestamp = Timestamp.lookup(
-            self._db, service_name, service_type, collection=None
-        )
+        timestamp = provider.timestamp
         now = datetime.datetime.utcnow()
         assert (now - timestamp.start).total_seconds() < 1
         assert (now - timestamp.finish).total_seconds() < 1
@@ -228,26 +282,32 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # any coverage record whatsoever (PREVIOUSLY_ATTEMPTED), and again to
         # exclude only items that have coverage records that indicate
         # success or persistent failure (DEFAULT_COUNT_AS_COVERED).
-        eq_([CoverageRecord.PREVIOUSLY_ATTEMPTED,
-             CoverageRecord.DEFAULT_COUNT_AS_COVERED], provider.run_once_calls)
+        first_call, second_call = provider.run_once_calls
+        eq_(CoverageRecord.PREVIOUSLY_ATTEMPTED, first_call[0])
+        eq_(CoverageRecord.DEFAULT_COUNT_AS_COVERED, second_call[0])
+
+        # On both calls, final_progress.finish was set to the current time
+        # and offset was set to the number of calls so far.
+        #
+        # These values are cleared out before each run_once() call
+        # -- we tested that above -- so the surviving values are the
+        # ones associated with the second call.
+        eq_(second_call[1], final_progress.finish)
+        eq_(2, final_progress.offset)
 
     def test_run_once_and_update_timestamp_catches_exception(self):
-        """Test that run_once_and_update_timestamp catches an exception
-        and stores a stack trace in the CoverageProvider's Timestamp.
-        """
+        # Test that run_once_and_update_timestamp catches an exception
+        # and stores a stack trace in the CoverageProvider's Timestamp.
         class MockProvider(BaseCoverageProvider):
             SERVICE_NAME = "I fail"
 
-            def run_once(self, offset, count_as_covered=None):
+            def run_once(self, progress, count_as_covered=None):
                 raise Exception("Unhandled exception")
 
         provider = MockProvider(self._db)
         provider.run_once_and_update_timestamp()
 
-        timestamp = Timestamp.lookup(
-            self._db, provider.SERVICE_NAME, Timestamp.COVERAGE_PROVIDER_TYPE,
-            collection=None
-        )
+        timestamp = provider.timestamp
         now = datetime.datetime.utcnow()
         assert (now - timestamp.start).total_seconds() < 1
         assert (now - timestamp.finish).total_seconds() < 1
@@ -255,13 +315,33 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         assert "Exception: Unhandled exception" in timestamp.exception
 
-    def test_run_once(self):
-        """Test run_once, showing how it covers items with different types of
-        CoverageRecord.
+    def test_run_once_and_update_timestamp_handled_exception(self):
+        # Test that run_once_and_update_timestamp handles the
+        # case where the run_once() implementation sets TimestampData.exception
+        # rather than raising an exception.
+        #
+        # This also tests the case where run_once() modifies the
+        # TimestampData in place rather than returning a new one.
+        class MockProvider(BaseCoverageProvider):
+            SERVICE_NAME = "I fail"
 
-        TODO: This could use a bit more work to show what the return
-        value of run_once() means.
-        """
+            def run_once(self, progress, count_as_covered=None):
+                progress.exception = "oops"
+
+        provider = MockProvider(self._db)
+        provider.run_once_and_update_timestamp()
+
+        timestamp = provider.timestamp
+        now = datetime.datetime.utcnow()
+        assert (now - timestamp.start).total_seconds() < 1
+        assert (now - timestamp.finish).total_seconds() < 1
+        assert timestamp.start < timestamp.finish
+
+        eq_("oops", timestamp.exception)
+
+    def test_run_once(self):
+        # Test run_once, showing how it covers items with different types of
+        # CoverageRecord.
 
         # We start with no CoverageRecords.
         eq_([], self._db.query(CoverageRecord).all())
@@ -299,11 +379,21 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # Now let's run the coverage provider. Every Identifier
         # that's covered will succeed, so the question is which ones
         # get covered.
-        provider.run_once(0)
+        progress = CoverageProviderProgress()
+        eq_(0, progress.offset)
+        result = provider.run_once(progress)
+
+        # The TimestampData we passed in was given back to us.
+        eq_(progress, result)
+
+        # The offset (an extension specific to
+        # CoverageProviderProgress, not stored in the database)
+        # has not changed -- if we were to call run_once again we
+        # would not need to skip any records.
+        eq_(0, progress.offset)
 
         # By default, run_once() finds Identifiers that have no coverage
         # or which have transient failures.
-
         [transient_failure_has_gone] = transient.coverage_records
         eq_(CoverageRecord.SUCCESS, transient_failure_has_gone.status)
 
@@ -315,7 +405,6 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         # Nothing happened to the identifier that had a persistent
         # failure or the identifier that was successfully covered.
-
         eq_([CoverageRecord.PERSISTENT_FAILURE],
             [x.status for x in persistent.coverage_records])
         eq_([CoverageRecord.SUCCESS],
@@ -326,7 +415,11 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         # We can change which identifiers get processed by changing
         # what counts as 'coverage'.
-        provider.run_once(0, count_as_covered=[CoverageRecord.SUCCESS])
+        result = provider.run_once(
+            progress, count_as_covered=[CoverageRecord.SUCCESS]
+        )
+        eq_(progress, result)
+        eq_(0, progress.offset)
 
         # That processed the persistent failure, but not the success.
         assert persistent in provider.attempts
@@ -334,11 +427,19 @@ class TestBaseCoverageProvider(CoverageProviderTest):
 
         # Let's call it again and say that we are covering everything
         # _except_ persistent failures.
-        provider.run_once(0, count_as_covered=[CoverageRecord.PERSISTENT_FAILURE])
+        result = provider.run_once(
+            progress, count_as_covered=[CoverageRecord.PERSISTENT_FAILURE]
+        )
+        eq_(progress, result)
 
         # That got us to cover the identifier that had already been
         # successfully covered.
         assert covered in provider.attempts
+
+        # *Now* the offset has changed, so that the first four results
+        # -- which we've decided to skip -- won't be considered again
+        # this run.
+        eq_(4, progress.offset)
 
     def test_process_batch_and_handle_results(self):
         """Test that process_batch_and_handle_results passes the identifiers
@@ -428,10 +529,43 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         eq_(["i will always fail"] * 2, [x.operation for x in results])
 
     def test_process_batch(self):
-        """TODO: We're missing this test coverage.
+        class Mock(BaseCoverageProvider):
+            SERVICE_NAME = "Some succeed, some fail."
 
-        Among other things, verify that handle_success is called.
-        """
+            def __init__(self, *args, **kwargs):
+                super(Mock, self).__init__(*args, **kwargs)
+                self.processed = []
+                self.successes = []
+
+            def process_item(self, item):
+                self.processed.append(item)
+                if item.identifier == "fail":
+                    return CoverageFailure(item, "oops")
+                return item
+
+            def handle_success(self, item):
+                self.successes.append(item)
+
+        # Two Identifiers. One will succeed, one will fail.
+        succeed = self._identifier(foreign_id="succeed")
+        fail = self._identifier(foreign_id="fail")
+        provider = Mock(self._db)
+
+        r1, r2 = provider.process_batch([succeed, fail])
+
+        # Here's the success.
+        eq_(r1, succeed)
+
+        # Here's the failure.
+        assert isinstance(r2, CoverageFailure)
+        eq_("oops", r2.exception)
+
+        # Both identifiers were added to .processed, indicating that
+        # process_item was called twice, but only the success was
+        # added to .success, indicating that handle_success was only
+        # called once.
+        eq_([succeed, fail], provider.processed)
+        eq_([succeed], provider.successes)
 
     def test_should_update(self):
         """Verify that should_update gives the correct answer when we
