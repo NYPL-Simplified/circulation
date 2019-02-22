@@ -11,6 +11,7 @@ from . import (
     sample_data,
 )
 
+from core.metadata_layer import TimestampData
 from core.model import (
     Annotation,
     Collection,
@@ -159,12 +160,14 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
                 200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
             )
 
-        new_timestamp = self.monitor.run_once(self.ts)
+        timestamp = self.ts
+        new_timestamp = self.monitor.run_once(timestamp)
 
         # We have a new value to use for the Monitor's timestamp -- the
         # earliest date seen in the last OPDS feed that contained
         # any entries.
         eq_(datetime.datetime(2016, 9, 20, 19, 37, 2), new_timestamp.finish)
+        eq_("Editions processed: 1", new_timestamp.achievements)
 
         # Normally run_once() doesn't update the monitor's timestamp,
         # but this implementation does, so that work isn't redone if
@@ -384,9 +387,16 @@ class TestMWAuxiliaryMetadataMonitor(MonitorTest):
                 200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, feed
             )
 
-        self.monitor.run_once(self.ts)
+        progress = self.monitor.run_once(self.ts)
 
         # Only the identifier with a work has been given coverage.
+        eq_("Identifiers processed: 1", progress.achievements)
+
+        # The TimestampData returned by run_once() does not include
+        # any timing information -- that will be applied by run().
+        eq_(TimestampData.NO_VALUE, progress.start)
+        eq_(TimestampData.NO_VALUE, progress.finish)
+
         record = CoverageRecord.lookup(
             overdrive, self.monitor.provider.data_source,
             operation=self.monitor.provider.operation

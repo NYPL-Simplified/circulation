@@ -536,9 +536,11 @@ class TestEnkiImport(BaseEnkiTest):
             incremental_import_called_with = dummy_value
             def full_import(self):
                 self.full_import_called = True
+                return 10
 
             def incremental_import(self, since):
                 self.incremental_import_called_with = since
+                return 4, 7
 
         importer = Mock(self._db, self.collection, api_class=self.api)
 
@@ -547,6 +549,8 @@ class TestEnkiImport(BaseEnkiTest):
         progress = TimestampData(start=None)
         importer.run_once(progress)
         eq_(True, importer.full_import_called)
+        eq_("New or modified titles: 10. Titles with circulation changes: 0.",
+            progress.achievements)
 
         # It doesn't call incremental_import().
         eq_(dummy_value, importer.incremental_import_called_with)
@@ -573,6 +577,8 @@ class TestEnkiImport(BaseEnkiTest):
         eq_(expect, new_timestamp.start)
         now = datetime.datetime.utcnow()
         assert (now - new_timestamp.finish).total_seconds() < 2
+        eq_("New or modified titles: 4. Titles with circulation changes: 7.",
+            new_timestamp.achievements)
 
     def test_full_import(self):
         """full_import calls get_all_titles over and over again until

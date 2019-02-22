@@ -547,6 +547,7 @@ class Axis360CirculationMonitor(CollectionMonitor, TimelineMonitor):
             count += 1
             if count % self.batch_size == 0:
                 self._db.commit()
+        progress.achievements = "Modified titles: %d." % count
 
     def process_book(self, bibliographic, availability):
 
