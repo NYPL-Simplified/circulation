@@ -32,6 +32,7 @@ from ..external_search import (
     Filter,
     MAJOR_VERSION,
     MockExternalSearchIndex,
+    MockSearchResult,
     Query,
     QueryParser,
     SearchBase,
@@ -50,7 +51,7 @@ from ..external_search import (
 from ..classifier import Classifier
 
 
-class TestingClient(ExternalSearchIndex):
+class ClientForTesting(ExternalSearchIndex):
     """When creating an index, limit it to a single shard and disable
     replicas.
 
@@ -58,7 +59,7 @@ class TestingClient(ExternalSearchIndex):
     """
 
     def setup_index(self, new_index=None):
-        return super(TestingClient, self).setup_index(
+        return super(ClientForTesting, self).setup_index(
             new_index, number_of_shards=1, number_of_replicas=0
         )
 
@@ -80,11 +81,14 @@ class ExternalSearchTest(DatabaseTest):
             ExternalIntegration.ELASTICSEARCH,
             goal=ExternalIntegration.SEARCH_GOAL,
             url=u'http://localhost:9200',
-            settings={ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY : u'test_index'}
+            settings={
+                ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY : u'test_index',
+                ExternalSearchIndex.TEST_SEARCH_TERM_KEY : u'test_search_term',
+            }
         )
 
         try:
-            self.search = TestingClient(self._db)
+            self.search = ClientForTesting(self._db)
         except Exception as e:
             self.search = None
             print "Unable to set up elasticsearch index, search tests will be skipped."
@@ -113,6 +117,20 @@ class ExternalSearchTest(DatabaseTest):
 
 
 class TestExternalSearch(ExternalSearchTest):
+
+    def test_constructor(self):
+        # The configuration of the search ExternalIntegration becomes the
+        # configuration of the ExternalSearchIndex.
+        #
+        # This basically just verifies that the test search term is taken
+        # from the ExternalIntegration.
+        class Mock(ExternalSearchIndex):
+            def set_works_index_and_alias(self, _db):
+                self.set_works_index_and_alias_called_with = _db
+
+        index = Mock(self._db, in_testing=True)
+        eq_(self._db, index.set_works_index_and_alias_called_with)
+        eq_("test_search_term", index.test_search_term)
 
     def test_elasticsearch_error_in_constructor_becomes_cannotloadconfiguration(self):
         """If we're unable to establish a connection to the Elasticsearch
@@ -257,6 +275,22 @@ class TestExternalSearch(ExternalSearchTest):
             'banana-v10'
         )
 
+    def test__run_self_tests(self):
+        index = MockExternalSearchIndex()
+
+        # First, see what happens when the search returns no results.
+        [test_result] = index._run_self_tests(self._db)
+        eq_(True, test_result.success)
+        eq_([], test_result.result)
+
+        # Set up the search index so it will return a result.
+        search_result = MockSearchResult(
+            "Sample Book Title", "author", {}, "id"
+        )
+        index.index("index", "doc type", "id", search_result)
+        [test_result] = index._run_self_tests(self._db)
+        eq_(True, test_result.success)
+        eq_(["Sample Book Title (author)"], test_result.result)
 
 class EndToEndExternalSearchTest(ExternalSearchTest):
     """Subclasses of this class set up real works in a real

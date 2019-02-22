@@ -216,6 +216,33 @@ class TestCirculationData(DatabaseTest):
         eq_(Representation.EPUB_MEDIA_TYPE, pool.delivery_mechanisms[0].delivery_mechanism.content_type)
         eq_(None, loan.fulfillment)
 
+    def test_apply_creates_work_and_presentation_edition_if_needed(self):
+        edition = self._edition()
+        # This pool doesn't have a presentation edition or a work yet.
+        pool = self._licensepool(edition)
+
+        # We have new circulation data for this pool.
+        circulation_data = CirculationData(
+            formats=[],
+            data_source=edition.data_source,
+            primary_identifier=edition.primary_identifier,
+        )
+
+        # If we apply the new CirculationData the work gets both a
+        # presentation and a work.
+        replacement_policy = ReplacementPolicy()
+        circulation_data.apply(self._db, pool.collection, replacement_policy)
+
+        eq_(edition, pool.presentation_edition)
+        assert pool.work != None
+
+        # If we have another new pool for the same book in another
+        # collection, it will share the work.
+        collection = self._collection()
+        pool2 = self._licensepool(edition, collection=collection)
+        circulation_data.apply(self._db, pool2.collection, replacement_policy)
+        eq_(edition, pool2.presentation_edition)
+        eq_(pool.work, pool2.work)
 
     def test_license_pool_sets_default_license_values(self):
         """We have no information about how many copies of the book we've
