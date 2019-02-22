@@ -466,7 +466,7 @@ class TestOPDSForDistributorsReaperMonitor(DatabaseTest, BaseOPDSForDistributors
         pool.licenses_owned = 1
         pool.licenses_available = 1
 
-        monitor.run_once(None, None)
+        monitor.run_once(monitor.timestamp().to_data())
 
         eq_(0, pool.licenses_owned)
         eq_(0, pool.licenses_available)

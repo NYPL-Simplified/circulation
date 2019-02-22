@@ -100,7 +100,16 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
     def endpoint(self, timestamp):
         return self.lookup.updates(timestamp)
 
-    def run_once(self, start, cutoff):
+    def run_once(self, progress):
+        """Ask the metadata wrangler about titles that have changed
+        since the last time this monitor ran.
+
+        :param progress: A TimestampData representing the span of time
+        covered during the previous run of this monitor.
+
+        :return: A modified TimestampData.
+        """
+        start = progress.finish
         self.assert_authenticated()
         queue = [None]
         seen_links = set()
@@ -133,10 +142,29 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
                 for link in next_links:
                     if link not in seen_links:
                         queue.append(link)
+
+            # Immediately update the timestamps table so that a later
+            # crash doesn't mean we have to redo this work.
             if new_timestamp:
                 self.timestamp().finish = new_timestamp
             self._db.commit()
-        return new_timestamp or self.timestamp().finish
+
+        # The TimestampData we return is going to be written to the database.
+        # Unlike most Monitors, there are times when we just don't
+        # want that to happen.
+        #
+        # If we found an OPDS feed, the latest timestamp in that feed
+        # should be used as Timestamp.finish.
+        #
+        # Otherwise, the existing timestamp.finish should be used. If
+        # that value happens to be None, we need to set
+        # TimestampData.finish to NO_VALUE to make sure it ends up
+        # as None (rather than the current time).
+        finish = new_timestamp or self.timestamp().finish or Timestamp.NO_VALUE
+
+        progress.start = start
+        progress.finish = finish
+        return progress
 
     def import_one_feed(self, timestamp, url):
         response = self.get_response(url=url, timestamp=timestamp)
@@ -194,7 +222,7 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
     def endpoint(self):
         return self.lookup.metadata_needed()
 
-    def run_once(self, start, cutoff):
+    def run_once(self, progress):
         self.assert_authenticated()
 
         queue = [None]

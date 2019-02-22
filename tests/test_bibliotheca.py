@@ -17,7 +17,10 @@ from . import (
     sample_data
 )
 
-from core.metadata_layer import ReplacementPolicy
+from core.metadata_layer import (
+    ReplacementPolicy,
+    TimestampData,
+)
 from core.mock_analytics_provider import MockAnalyticsProvider
 from core.model import (
     CirculationEvent,
@@ -977,6 +980,19 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         eq_(datetime(2013, 4, 2), default_start_time)
 
     def test_run_once(self):
+        # run_once() slices the time between its start date
+        # and the current time into one-day intervals, and asks for
+        # data about one day at a time.
+
+        now = datetime.utcnow()
+        two_days_ago = now - timedelta(hours=36)
+        three_days_ago = now - timedelta(hours=50)
+
+        # Simulate that this script last ran 36 hours ago
+        before_timestamp = TimestampData(
+            start=three_days_ago, finish=two_days_ago
+        )
+
         api = MockBibliothecaAPI(self._db, self.collection)
         api.queue_response(
             200, content=self.sample_data("empty_end_date_event.xml")
@@ -984,24 +1000,26 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         api.queue_response(
             200, content=self.sample_data("item_metadata_single.xml")
         )
+        api.queue_response(
+            200, content=self.sample_data("empty_event_batch.xml")
+        )
         monitor = BibliothecaEventMonitor(
             self._db, self.collection, api_class=api
         )
-        now = datetime.utcnow()
-        yesterday = now - timedelta(days=1)
 
-        new_timestamp = monitor.run_once(yesterday, now)
+        after_timestamp = monitor.run_once(before_timestamp)
 
-        # Two requests were made to the API -- one to find events
-        # and one to look up detailed information about the book
-        # whose event we learned of.
-        eq_(2, len(api.requests))
-
-        # The result, which will be used as the new timestamp, is very
-        # close to the time we called run_once(). It represents the
-        # point at which we should expect new events to start showing
-        # up.
-        assert (new_timestamp-now).seconds < 2
+        # Three requests were made to the API:
+        #
+        # 1. Retrieving the 'slice' of events between 36 hours ago and
+        #    12 hours ago.
+        #
+        # 2. Looking up detailed information about the single book
+        #    whose event we learned of in that first slice.
+        #
+        # 3. Retrieving the (empty) 'slice' of events between 12 hours ago
+        #    and now.
+        eq_(3, len(api.requests))
 
         # A LicensePool was created for the identifier referred to
         # in empty_end_date_event.xml.
@@ -1015,11 +1033,34 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         eq_(None, pool.work)
         eq_(None, pool.presentation_edition)
 
-        # If we tell run_once() to work through a zero amount of time,
-        # it does nothing.
-        new_timestamp = monitor.run_once(yesterday, yesterday)
-        eq_(new_timestamp, yesterday)
+        # The timeframe covered by that run starts a little before the
+        # 'finish' date associated with the old timestamp, and ends
+        # around the time run_once() was called.
+        #
+        # The event we found was from 2016, but that's not considered
+        # when setting the timestamp.
+        eq_(two_days_ago-monitor.OVERLAP, after_timestamp.start)
+        self.time_eq(after_timestamp.finish, now)
 
+        # If we tell run_once() to work through an amount of time
+        # where the are no events, it does nothing but update the
+        # timestamp.
+        api.queue_response(
+            200, content=self.sample_data("empty_event_batch.xml")
+        )
+        now = datetime.utcnow()
+        yesterday = now - timedelta(days=1)
+        an_hour_ago = now - timedelta(hours=1)
+        no_action_timestamp = TimestampData(start=yesterday, finish=an_hour_ago)
+        final_timestamp = monitor.run_once(no_action_timestamp)
+
+        # One request was made.
+        eq_(4, len(api.requests))
+
+        # The timestamp indicates we covered the time between the last 'finish'
+        # time and the time that run_once() was called.
+        eq_(an_hour_ago-monitor.OVERLAP, final_timestamp.start)
+        self.time_eq(now, final_timestamp.finish)
 
     def test_handle_event(self):
         api = MockBibliothecaAPI(self._db, self.collection)
