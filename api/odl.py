@@ -20,6 +20,7 @@ from core.opds_import import (
     OPDSImporter,
     OPDSImportMonitor,
 )
+from core.metadata_layer import TimestampData
 from core.monitor import (
     CollectionMonitor,
     TimelineMonitor,
