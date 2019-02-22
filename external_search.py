@@ -1476,7 +1476,10 @@ class MockExternalSearchIndex(ExternalSearchIndex):
     def exists(self, index, doc_type, id):
         return self._key(index, doc_type, id) in self.docs
 
-    def query_works(self, query_string, filter, pagination, debug=False, return_raw_results=False):
+    def create_search_doc(self, query_string, filter=None, debug=False, return_raw_results=False):
+        return self.docs.values()
+
+    def query_works(self, query_string, filter, pagination, debug=False, return_raw_results=False, search=None):
         self.queries.append((query_string, filter, pagination, debug, return_raw_results))
         if return_raw_results:
             doc_ids = self.docs.values()
