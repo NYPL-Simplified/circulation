@@ -45,6 +45,7 @@ from core.model import (
 from core.monitor import (
     CollectionMonitor,
     IdentifierSweepMonitor,
+    TimelineMonitor,
 )
 from core.util.http import HTTP
 from core.metadata_layer import ReplacementPolicy
@@ -1000,13 +1001,13 @@ class MockOverdriveAPI(BaseMockOverdriveAPI, OverdriveAPI):
         return response
 
 
-class OverdriveCirculationMonitor(CollectionMonitor):
+class OverdriveCirculationMonitor(CollectionMonitor, TimelineMonitor):
     """Maintain LicensePools for recently changed Overdrive titles. Create
     basic Editions for any new LicensePools that show up.
     """
     SERVICE_NAME = "Overdrive Circulation Monitor"
-    INTERVAL_SECONDS = 500
     PROTOCOL = ExternalIntegration.OVERDRIVE
+    OVERLAP = datetime.timedelta(minutes=1)
 
     # Report successful completion upon finding this number of
     # consecutive books in the Overdrive results whose LicensePools
@@ -1027,7 +1028,12 @@ class OverdriveCirculationMonitor(CollectionMonitor):
     def recently_changed_ids(self, start, cutoff):
         return self.api.recently_changed_ids(start, cutoff)
 
-    def run_once(self, start, cutoff):
+    def catch_up_from(self, start, cutoff, progress):
+        """Find Overdrive books that changed recently.
+
+        :progress: A TimestampData representing the time previously
+        covered by this Monitor.
+        """
         _db = self._db
         added_books = 0
         overdrive_data_source = DataSource.lookup(
@@ -1035,6 +1041,9 @@ class OverdriveCirculationMonitor(CollectionMonitor):
 
         total_books = 0
         consecutive_unchanged_books = 0
+
+        # Ask for changes between the last time covered by the Monitor
+        # and the current time.
         for i, book in enumerate(self.recently_changed_ids(start, cutoff)):
             total_books += 1
             if not total_books % 100:
@@ -1076,7 +1085,6 @@ class FullOverdriveCollectionMonitor(OverdriveCirculationMonitor):
     are not found in our collection.
     """
     SERVICE_NAME = "Overdrive Collection Overview"
-    INTERVAL_SECONDS = 3600*4
 
     def recently_changed_ids(self, start, cutoff):
         """Ignore the dates and return all IDs."""
@@ -1088,7 +1096,6 @@ class OverdriveCollectionReaper(IdentifierSweepMonitor):
     Overdrive collection.
     """
     SERVICE_NAME = "Overdrive Collection Reaper"
-    INTERVAL_SECONDS = 3600*4
     PROTOCOL = ExternalIntegration.OVERDRIVE
 
     def __init__(self, _db, collection, api_class=OverdriveAPI):
@@ -1103,7 +1110,6 @@ class RecentOverdriveCollectionMonitor(OverdriveCirculationMonitor):
     """Monitor recently changed books in the Overdrive collection."""
 
     SERVICE_NAME = "Reverse Chronological Overdrive Collection Monitor"
-    INTERVAL_SECONDS = 60
     MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS=100
 
 
