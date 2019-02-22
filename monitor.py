@@ -167,6 +167,10 @@ class Monitor(object):
                 # Assume this Monitor has no special needs surrounding
                 # its timestamp.
                 new_timestamp = TimestampData()
+            if new_timestamp.achievements not in (None, TimestampData.NO_VALUE):
+                # This eliminates the need to create similar-looking
+                # strings for TimestampData.achievements and for the log.
+                self.log.info(new_timestamp.achievements)
             if new_timestamp.exception in (None, TimestampData.NO_VALUE):
                 # run_once() completed with no exceptions being raised.
                 # We can run the cleanup code and finalize the timestamp.
@@ -211,6 +215,14 @@ class Monitor(object):
 
         :param progress: A TimestampData representing the
            work done by the Monitor up to this point.
+
+        :return: A TimestampData representing how you want the
+            Monitor's entry in the `timestamps` table to look like
+            from this point on.  NOTE: Modifying the incoming
+            `progress` and returning it is generally a bad idea,
+            because the incoming `progress` is full of old
+            data. Instead, return a new TimestampData containing data
+            for only the fields you want to set.
         """
         raise NotImplementedError()
 
@@ -264,9 +276,10 @@ class TimelineMonitor(Monitor):
         :param cutoff: You're not responsible for events that happened
             after this time.
         :param progress: A TimestampData representing the progress so
-            far. You can modify this in place, for instance to set
-            .achievements, but you cannot change .start and .finish --
-            any changes will be overwritten by run_once().
+            far. Unlike with run_once(), you are encouraged to can
+            modify this in place, for instance to set .achievements.
+            However, you cannot change .start and .finish -- any
+            changes will be overwritten by run_once().
         """
         raise NotImplementedError()
 
@@ -380,10 +393,12 @@ class SweepMonitor(CollectionMonitor):
         run_started_at = datetime.datetime.utcnow()
         timestamp.start = run_started_at
 
+        total_processed = 0
         while True:
             old_offset = offset
             batch_started_at = datetime.datetime.utcnow()
-            new_offset = self.process_batch(offset)
+            new_offset, batch_size = self.process_batch(offset)
+            total_processed += batch_size
             batch_ended_at = datetime.datetime.utcnow()
 
             self.log.debug(
@@ -399,12 +414,16 @@ class SweepMonitor(CollectionMonitor):
 
             # We need to do another batch. If it should raise an exception,
             # we don't want to lose the progress we've already made.
-            timestamp.update(counter=new_offset, finish=batch_ended_at)
+            achievements = "Records processed: %d." % total_processed
+            timestamp.update(
+                counter=new_offset, finish=batch_ended_at,
+                achievements=achievements
+            )
             self._db.commit()
 
         # We're done with this run. The run() method will do the final
         # update.
-        return TimestampData(counter=offset)
+        return TimestampData(counter=offset, achievements=achievements)
 
     def process_batch(self, offset):
         """Process one batch of work."""
@@ -414,11 +433,11 @@ class SweepMonitor(CollectionMonitor):
             self.process_items(items)
             # We've completed a batch. Return the ID of the last item
             # in the batch so we don't do this work again.
-            return items[-1].id
+            return items[-1].id, len(items)
         else:
             # There are no more items in this database table, so we
             # are done with the sweep. Reset the counter.
-            return 0
+            return 0, 0
 
     def process_items(self, items):
         """Process a list of items."""
@@ -704,8 +723,8 @@ class WorkRandomnessUpdateMonitor(WorkSweepMonitor):
         [[self.max_work_id]] = self._db.execute('select max(id) from works')
         if self.max_work_id < new_offset:
             # We're all done.
-            return 0
-        return new_offset
+            new_offset = 0
+        return new_offset, self.batch_size
 
 
 class CustomListEntryWorkUpdateMonitor(CustomListEntrySweepMonitor):
