@@ -288,9 +288,9 @@ class TestExternalSearch(ExternalSearchTest):
             "Sample Book Title", "author", {}, "id"
         )
         index.index("index", "doc type", "id", search_result)
-        [test_result] = index._run_self_tests(self._db)
-        eq_(True, test_result.success)
-        eq_(["Sample Book Title (author)"], test_result.result)
+        test_results = index._run_self_tests(self._db)
+        eq_(True, test_results[0].success)
+        eq_(["Sample Book Title (author)"], test_results[0].result)
 
 class EndToEndExternalSearchTest(ExternalSearchTest):
     """Subclasses of this class set up real works in a real
