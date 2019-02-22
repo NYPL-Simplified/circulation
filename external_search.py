@@ -330,26 +330,8 @@ class ExternalSearchIndex(HasSelfTests):
 
         return base_works_index
 
-    def query_works(self, query_string, filter=None, pagination=None,
-                    debug=False, return_raw_results=False):
-        """Run a search query.
-
-        :param query_string: The string to search for.
-        :param filter: A Filter object, used to filter out works that
-            would otherwise match the query string.
-        :param pagination: A Pagination object, used to get a subset
-            of the search results.
-        :param debug: If this is True, some debugging information will
-            be gathered (at a slight performance cost) and logged.
-        :param return_raw_results: If this is False (the default)
-            the return value will be a list of work IDs. If this is
-            true, the full result documents will be returned.
-        :return: A list of Work IDs that match the query string, or
-            (if return_raw_results is True) a list of dictionaries
-            representing search results.
-        """
-        if not self.works_alias:
-            return []
+    def create_search_doc(self, query_string, filter,
+                    debug, return_raw_results):
 
         query = Query(query_string, filter)
         query_without_filter = Query(query_string)
@@ -375,6 +357,32 @@ class ExternalSearchIndex(HasSelfTests):
                 search = search.fields(fields)
             else:
                 search = search.source(fields)
+
+        return search
+
+    def query_works(self, query_string, filter=None, pagination=None,
+                    debug=False, return_raw_results=False, search=None):
+        """Run a search query.
+
+        :param query_string: The string to search for.
+        :param filter: A Filter object, used to filter out works that
+            would otherwise match the query string.
+        :param pagination: A Pagination object, used to get a subset
+            of the search results.
+        :param debug: If this is True, some debugging information will
+            be gathered (at a slight performance cost) and logged.
+        :param return_raw_results: If this is False (the default)
+            the return value will be a list of work IDs. If this is
+            true, the full result documents will be returned.
+        :return: A list of Work IDs that match the query string, or
+            (if return_raw_results is True) a list of dictionaries
+            representing search results.
+        """
+        if not self.works_alias:
+            return []
+
+        if not search:
+            search = self.create_search_doc(query_string, filter=filter, debug=debug, return_raw_results=return_raw_results)
 
         if not pagination:
             from lane import Pagination
@@ -495,18 +503,43 @@ class ExternalSearchIndex(HasSelfTests):
             self.delete(**args)
 
     def _run_self_tests(self, _db):
-        def _search_for_term():
-            works = self.query_works(
-                self.test_search_term, filter=None, pagination=None,
-                debug=False, return_raw_results=True
+
+        def _search():
+            return self.create_search_doc(
+                self.test_search_term, filter=None,
+                debug=True, return_raw_results=True
             )
-            titles = [("%s (%s)" %(work.title, work.author)) for work in works]
+
+        def _works():
+            return self.query_works(
+                self.test_search_term, filter=None, pagination=None,
+                debug=False, return_raw_results=True, search=_search()
+            )
+
+        def _search_for_term():
+            titles = [("%s (%s)" %(x.title, x.author)) for x in _works()]
             return titles
+
         yield self.run_test(
             ("Searching for the specified term: '%s'" %(self.test_search_term)),
             _search_for_term
         )
 
+        def _get_raw_doc():
+            return [str(x.to_dict()) for x in _search()]
+
+        yield self.run_test(
+            ("Generating search document for the specified term: '%s'" %(self.test_search_term)),
+            _get_raw_doc
+        )
+
+        def _get_raw_results():
+            return [str(x.to_dict()) for x in _works()]
+
+        yield self.run_test(
+            ("Retrieving raw results for the specified term: '%s'" %(self.test_search_term)),
+            _get_raw_results
+        )
 class ExternalSearchIndexVersions(object):
 
     VERSIONS = ['v2', 'v3']
