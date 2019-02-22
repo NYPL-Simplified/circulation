@@ -1175,8 +1175,18 @@ class CirculationData(MetaToModelUtility):
                 as_of=self.last_checked
             )
 
+        # If this is the first time we've seen this pool, or we never
+        # made a Work for it, make one now.
+        work_changed = False
+        if pool and not pool.work:
+            work, work_changed = pool.calculate_work()
+            if work:
+                work.set_presentation_ready()
+                work_changed = True
+
         made_changes = (made_changes or changed_availability
-                        or open_access_status_changed)
+                        or open_access_status_changed
+                        or work_changed)
 
         return pool, made_changes
 
