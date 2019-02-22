@@ -279,9 +279,9 @@ class TestExternalSearch(ExternalSearchTest):
         index = MockExternalSearchIndex()
 
         # First, see what happens when the search returns no results.
-        [test_result] = index._run_self_tests(self._db)
-        eq_(True, test_result.success)
-        eq_([], test_result.result)
+        test_results = index._run_self_tests(self._db)
+        eq_(True, test_results[0].success)
+        eq_([], test_results[0].result)
 
         # Set up the search index so it will return a result.
         search_result = MockSearchResult(
