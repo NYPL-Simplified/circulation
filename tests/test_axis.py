@@ -684,6 +684,19 @@ class TestCirculationMonitor(Axis360Test):
                    and x.operation is None]
         eq_(1, len(records))
 
+        # Now, another collection with the same book shows up.
+        collection2 = MockAxis360API.mock_collection(self._db, "coll2")
+        monitor = Axis360CirculationMonitor(
+            self._db, collection2, api_class=MockAxis360API,
+        )
+        edition2, license_pool2 = monitor.process_book(
+            self.BIBLIOGRAPHIC_DATA, self.AVAILABILITY_DATA)
+
+        # Both license pools have the same Work and the same presentation
+        # edition.
+        eq_(license_pool.work, license_pool2.work)
+        eq_(license_pool.presentation_edition, license_pool2.presentation_edition)
+
     def test_process_book_updates_old_licensepool(self):
         """If the LicensePool already exists, the circulation monitor
         updates it.
