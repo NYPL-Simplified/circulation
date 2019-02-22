@@ -335,6 +335,7 @@ class OPDSForDistributorsReaperMonitor(OPDSForDistributorsImportMonitor):
         parsed_feed = feedparser.parse(feed)
         identifiers = [entry.get("id") for entry in parsed_feed.get("entries", [])]
         self.seen_identifiers.update(identifiers)
+        return [], {}
 
     def run_once(self, progress):
         """Check to see if any identifiers we know about are no longer

@@ -1074,7 +1074,7 @@ class OverdriveCirculationMonitor(CollectionMonitor, TimelineMonitor):
                                   consecutive_unchanged_books)
                     break
 
-        progress.achievements = "Books processed: %d" % total_books
+        progress.achievements = "Books processed: %d." % total_books
 
 
 class FullOverdriveCollectionMonitor(OverdriveCirculationMonitor):
