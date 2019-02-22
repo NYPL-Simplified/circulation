@@ -279,7 +279,7 @@ class TestExternalSearch(ExternalSearchTest):
         index = MockExternalSearchIndex()
 
         # First, see what happens when the search returns no results.
-        test_results = index._run_self_tests(self._db)
+        test_results = [x for x in index._run_self_tests(self._db)]
         eq_(True, test_results[0].success)
         eq_([], test_results[0].result)
 
@@ -288,7 +288,7 @@ class TestExternalSearch(ExternalSearchTest):
             "Sample Book Title", "author", {}, "id"
         )
         index.index("index", "doc type", "id", search_result)
-        test_results = index._run_self_tests(self._db)
+        test_results = [x for x in index._run_self_tests(self._db)]
         eq_(True, test_results[0].success)
         eq_(["Sample Book Title (author)"], test_results[0].result)
 
