@@ -29,6 +29,7 @@ from core.model import (
 
 from api.config import (
     Configuration,
+    CannotLoadConfiguration,
     temp_config,
 )
 from api.lanes import (
@@ -341,7 +342,7 @@ class TestRelatedBooksLane(DatabaseTest):
         self._db.commit()
 
         assert_raises(
-            ValueError, RelatedBooksLane, self._default_library, self.work, ""
+            CannotLoadConfiguration, RelatedBooksLane, self._default_library, self.work, ""
         )
 
         # A book with a contributor initializes a RelatedBooksLane.
