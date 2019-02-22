@@ -37,6 +37,8 @@ from . import (
     sample_data
 )
 
+from core.metadata_layer import TimestampData
+
 from core.model import (
     Contributor,
     DataSource,
@@ -575,7 +577,31 @@ class TestOdiloCirculationAPI(OdiloAPITest):
 
 
 class TestOdiloDiscoveryAPI(OdiloAPITest):
-    def test_1_odilo_circulation_monitor_with_date(self):
+
+    def test_run(self):
+        """Verify that running the OdiloCirculationMonitor calls all_ids()."""
+        class Mock(OdiloCirculationMonitor):
+            def all_ids(self, modification_date=None):
+                self.called_with = modification_date
+
+        # The first time run() is called, all_ids is called with
+        # a modification_date of None.
+        monitor = Mock(self._db, self.collection, api_class=MockOdiloAPI)
+        monitor.run()
+        eq_(None, monitor.called_with)
+        completed = monitor.timestamp().finish
+
+        # The second time run() is called, all_ids() is called with a
+        # modification date five minutes earlier than the completion
+        # of the last run.
+        monitor.run()
+        expect = completed-monitor.OVERLAP
+        assert (expect-monitor.called_with).total_seconds() < 2
+
+    def test_all_ids_with_date(self):
+        # TODO: This tests that all_ids doesn't crash when you pass in
+        # a date. It doesn't test that all_ids does anything in
+        # particular.
         monitor = OdiloCirculationMonitor(self._db, self.collection, api_class=MockOdiloAPI)
         ok_(monitor, 'Monitor null !!')
         eq_(ExternalIntegration.ODILO, monitor.protocol, 'Wat??')
@@ -589,11 +615,16 @@ class TestOdiloDiscoveryAPI(OdiloAPITest):
 
         monitor.api.queue_response(200, content='[]')  # No more resources retrieved
 
-        monitor.run_once(start="2017-09-01", cutoff=None)
+        timestamp = TimestampData(start=datetime.datetime(2017, 9, 1))
+        monitor.all_ids(None)
 
         self.api.log.info('Odilo circulation monitor with date finished ok!!')
 
-    def test_2_odilo_circulation_monitor_without_date(self):
+    def test_all_ids_without_date(self):
+        # TODO: This tests that all_ids doesn't crash when you pass in
+        # an empty date. It doesn't test that all_ids does anything in
+        # particular.
+
         monitor = OdiloCirculationMonitor(self._db, self.collection, api_class=MockOdiloAPI)
         ok_(monitor, 'Monitor null !!')
         eq_(ExternalIntegration.ODILO, monitor.protocol, 'Wat??')
@@ -607,7 +638,7 @@ class TestOdiloDiscoveryAPI(OdiloAPITest):
 
         monitor.api.queue_response(200, content='[]')  # No more resources retrieved
 
-        monitor.all_ids()
+        monitor.all_ids(datetime.datetime(2017, 9, 1))
 
         self.api.log.info('Odilo circulation monitor without date finished ok!!')
 

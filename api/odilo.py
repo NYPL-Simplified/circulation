@@ -29,6 +29,7 @@ from selftest import (
 )
 from core.monitor import (
     CollectionMonitor,
+    TimelineMonitor,
 )
 from core.util.http import HTTP
 
@@ -878,19 +879,26 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
 
 
 
-class OdiloCirculationMonitor(CollectionMonitor):
+class OdiloCirculationMonitor(CollectionMonitor, TimelineMonitor):
     """Maintain LicensePools for recently changed Odilo titles
     """
     SERVICE_NAME = "Odilo Circulation Monitor"
     INTERVAL_SECONDS = 500
     PROTOCOL = ExternalIntegration.ODILO
+    DEFAULT_START_TIME = CollectionMonitor.NEVER
 
     def __init__(self, _db, collection, api_class=OdiloAPI):
         """Constructor."""
         super(OdiloCirculationMonitor, self).__init__(_db, collection)
         self.api = api_class(_db, collection)
 
-    def run_once(self, start, cutoff):
+    def catch_up_from(self, start, cutoff, progress):
+        """Find Odilo books that changed recently.
+
+        :progress: A TimestampData representing the time previously
+        covered by this Monitor.
+        """
+
         self.log.info("Starting recently_changed_ids, start: " + str(start) + ", cutoff: " + str(cutoff))
 
         start_time = datetime.datetime.now()

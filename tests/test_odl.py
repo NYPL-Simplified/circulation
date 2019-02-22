@@ -10,6 +10,7 @@ import re
 import base64
 
 from . import DatabaseTest
+from core.metadata_layer import TimestampData
 from core.model import (
     Collection,
     ConfigurationSetting,
@@ -1370,7 +1371,7 @@ class TestODLConsolidatedCopiesMonitor(DatabaseTest, BaseODLTest):
         api.queue_response(200, content=json.dumps(page1))
         api.queue_response(200, content=json.dumps(page2))
 
-        monitor.run_once(None, None)
+        monitor.run_once(monitor.timestamp().to_data())
 
         # The monitor got both pages of the feed.
         eq_(2, len(api.requests))
@@ -1395,11 +1396,13 @@ class TestODLConsolidatedCopiesMonitor(DatabaseTest, BaseODLTest):
         eq_(4, identifier.licensed_through[0].licenses_owned)
         eq_(4, identifier.licensed_through[0].licenses_available)
 
-        # If the monitor is run with a start time, it will subtract 5 minutes
-        # and add a date to the end of the url.
+        # If the monitor is run in order to catch up to a specific
+        # time, it will subtract 5 minutes from that time and add a
+        # date to the end of the url.
         api.queue_response(200, content=json.dumps(page2))
         yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=1)
-        monitor.run_once(yesterday, None)
+        timestamp = TimestampData(start=None, finish=yesterday)
+        monitor.run_once(timestamp)
 
         eq_(3, len(api.requests))
         expected_time = yesterday - datetime.timedelta(minutes=5)
@@ -1433,7 +1436,7 @@ class TestODLHoldReaper(DatabaseTest, BaseODLTest):
         # so the end date is not reliable.
         bad_end_date, ignore = pool.on_hold_to(self._patron(), end=yesterday, position=4)
 
-        reaper.run_once(None, None)
+        reaper.run_once(None)
 
         # The expired holds have been deleted and the other holds have been updated.
         eq_(2, self._db.query(Hold).count())
