@@ -1399,7 +1399,7 @@ class TestODLConsolidatedCopiesMonitor(DatabaseTest, BaseODLTest):
 
         # The TimestampData was updated with the total number of
         # licenses we heard about.
-        eq_("Updated 3 licenses total.", progress.achievements)
+        eq_("Licenses updated: 3.", progress.achievements)
 
         # If the monitor is run in order to catch up to a specific
         # time, it will subtract 5 minutes from that time and add a

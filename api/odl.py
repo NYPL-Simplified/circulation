@@ -884,10 +884,7 @@ class ODLConsolidatedCopiesMonitor(CollectionMonitor, TimelineMonitor):
                 url = urlparse.urljoin(url, next_url)
             else:
                 url = None
-        progress.achievements = progress.format_achievements(
-            "Updated %(number)s %(thing)s total.",
-            total_updates, "license"
-        )
+        progress.achievements = "Licenses updated: %d." % total_updates
 
     def process_one_page(self, response):
         content = json.loads(response.content)
