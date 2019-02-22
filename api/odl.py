@@ -1427,11 +1427,17 @@ class SharedODLImporter(OPDSImporter):
                 if copies_tags:
                     copies_tag = copies_tags[0]
                     licenses_available = copies_tag.attrib.get("available")
+                    if licenses_available != None:
+                        licenses_available = int(licenses_available)
                     licenses_owned = copies_tag.attrib.get("total")
+                    if licenses_owned != None:
+                        licenses_owned = int(licenses_owned)
                 holds_tags = parser._xpath(link_tag, 'opds:holds')
                 if holds_tags:
                     holds_tag = holds_tags[0]
                     patrons_in_hold_queue = holds_tag.attrib.get("total")
+                    if patrons_in_hold_queue != None:
+                        patrons_in_hold_queue = int(patrons_in_hold_queue)
 
                 format = FormatData(
                     content_type=content_type,

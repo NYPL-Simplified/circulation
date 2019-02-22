@@ -781,7 +781,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # newly created LicensePool.
         raw['id'] = pool.identifier.identifier
 
-        wr.title = "The real title."
+        wr.title = u"The real title."
         eq_(1, pool.licenses_owned)
         eq_(1, pool.licenses_available)
         eq_(0, pool.licenses_reserved)
@@ -795,11 +795,44 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_(p2, pool)
         # The title didn't change to that title given in the availability
         # information, because we already set a title for that work.
-        eq_("The real title.", wr.title)
+        eq_(u"The real title.", wr.title)
         eq_(raw['copiesOwned'], pool.licenses_owned)
         eq_(raw['copiesAvailable'], pool.licenses_available)
         eq_(0, pool.licenses_reserved)
         eq_(raw['numberOfHolds'], pool.patrons_in_hold_queue)
+
+    def test_update_new_licensepool_when_same_book_has_pool_in_different_collection(self):
+        old_edition, old_pool = self._edition(
+            data_source_name=DataSource.OVERDRIVE,
+            identifier_type=Identifier.OVERDRIVE_ID,
+            with_license_pool=True,
+        )
+        old_pool.calculate_work()
+        collection = self._collection()
+
+        data, raw = self.sample_json("overdrive_availability_information.json")
+
+        # Make it look like the availability information is for the
+        # old pool's Identifier.
+        identifier = old_pool.identifier
+        raw['id'] = identifier.identifier
+
+        new_pool, was_new = LicensePool.for_foreign_id(
+            self._db, DataSource.OVERDRIVE,
+            identifier.type, identifier.identifier,
+            collection=collection
+        )
+        # The new pool doesn't have a presentation edition yet,
+        # but it will be updated to share the old pool's edition.
+        eq_(None, new_pool.presentation_edition)
+
+        new_pool, was_new, changed = self.api.update_licensepool_with_book_info(
+            raw, new_pool, was_new
+        )
+        eq_(True, was_new)
+        eq_(True, changed)
+        eq_(old_edition, new_pool.presentation_edition)
+        eq_(old_pool.work, new_pool.work)
 
     def test_update_licensepool_with_holds(self):
         data, raw = self.sample_json("overdrive_availability_information_holds.json")

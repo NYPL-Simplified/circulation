@@ -585,12 +585,12 @@ class Axis360CirculationMonitor(CollectionMonitor, TimelineMonitor):
 
 class MockAxis360API(Axis360API):
     @classmethod
-    def mock_collection(self, _db):
+    def mock_collection(self, _db, name="Test Axis 360 Collection"):
         """Create a mock Axis 360 collection for use in tests."""
         library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
-            name="Test Axis 360 Collection",
+            name=name,    
             create_method_kwargs=dict(
                 external_account_id=u'c',
             )
