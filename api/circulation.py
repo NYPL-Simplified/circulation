@@ -1237,7 +1237,14 @@ class BaseCirculationAPI(object):
             library_or_patron
         ).value
 
-    def patron_email_address(self, patron):
+    @classmethod
+    def _library_authenticator(self, library):
+        """Create a LibraryAuthenticator for the given library."""
+        from authenticator import LibraryAuthenticator
+        _db = Session.object_session(library)
+        return LibraryAuthenticator.from_config(_db, library)
+
+    def patron_email_address(self, patron, library_authenticator=None):
         """Look up the email address that the given Patron shared
         with their library.
 
@@ -1252,11 +1259,8 @@ class BaseCirculationAPI(object):
         """
         # LibraryAuthenticator knows about all authentication techniques
         # used to identify patrons of this library.
-        from authenticator import LibraryAuthenticator
-        _db = Session.object_session(patron)
-        library_authenticator = LibraryAuthenticator.from_config(
-            _db, patron.library
-        )
+        if not library_authenticator:
+            library_authenticator = self._library_authenticator(patron.library)
         authorization_identifier = patron.authorization_identifier
 
         # remote_patron_lookup will try to get information about the
@@ -1265,7 +1269,10 @@ class BaseCirculationAPI(object):
         # address, we're done.
         email_address = None
         for authenticator in library_authenticator.providers:
-            patrondata = authenticator.remote_patron_lookup(patron)
+            try:
+                patrondata = authenticator.remote_patron_lookup(patron)
+            except NotImplementedError, e:
+                continue
             if patrondata and patrondata.email_address:
                 email_address = patrondata.email_address
         return email_address
