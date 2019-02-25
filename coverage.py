@@ -84,7 +84,7 @@ class CoverageFailure(object):
 
 class CoverageProviderProgress(TimestampData):
 
-    """A TimestampData optimized for the special needs of 
+    """A TimestampData optimized for the special needs of
     CoverageProviders.
     """
     def __init__(self, *args, **kwargs):
@@ -94,6 +94,28 @@ class CoverageProviderProgress(TimestampData):
         # to the database -- it's used to track state that's necessary within
         # a single run of the CoverageProvider.
         self.offset = 0
+
+        self.successes = 0
+        self.transient_failures = 0
+        self.persistent_failures = 0
+
+    @property
+    def achievements(self):
+        """Represent the achievements of a CoverageProvider as a
+        human-readable string.
+        """
+        template = "Items processed: %d. Successes: %d, transient failures: %d, persistent failures: %d"
+        total = (self.successes + self.transient_failures
+                 + self.persistent_failures)
+        return template % (
+            total, self.successes, self.transient_failures,
+            self.persistent_failures
+        )
+
+    @achievements.setter
+    def achievements(self, value):
+        # It's not possible to set .achievements directly. Do nothing.
+        pass
 
 
 class BaseCoverageProvider(object):
@@ -305,6 +327,12 @@ class BaseCoverageProvider(object):
         (successes, transient_failures, persistent_failures), results = (
             self.process_batch_and_handle_results(batch)
         )
+
+        # Update the running totals so that the service's eventual timestamp
+        # will have a useful .achievements.
+        progress.successes += successes
+        progress.transient_failures += transient_failures
+        progress.persistent_failures += persistent_failures
 
         if BaseCoverageRecord.SUCCESS not in count_as_covered:
             # If any successes happened in this batch, increase the

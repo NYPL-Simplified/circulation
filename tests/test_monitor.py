@@ -489,6 +489,10 @@ class TestSweepMonitor(DatabaseTest):
         # The cleanup method was called once.
         eq_([True], self.monitor.cleanup_called)
 
+        # The number of records processed reflects what happened over
+        # the entire run, not just the final batch.
+        eq_("Records processed: 3.", self.monitor.timestamp().achievements)
+
     def test_run_starts_at_previous_counter(self):
         # Two Identifiers.
         i1, i2 = [self._identifier() for i in range(2)]
@@ -538,13 +542,16 @@ class TestSweepMonitor(DatabaseTest):
         # The exception that stopped the run was recorded.
         assert "Exception: HOW DARE YOU" in timestamp.exception
 
-        # Even though the run didn't complete, the dates on the
-        # timestamp were updated to reflect the work that _was_ done.
+        # Even though the run didn't complete, the dates and
+        # achievements of the timestamp were updated to reflect the
+        # work that _was_ done.
         now = datetime.datetime.utcnow()
         assert timestamp.start > original_start
         self.time_eq(now, timestamp.start)
         self.time_eq(now, timestamp.finish)
         assert timestamp.start < timestamp.finish
+
+        eq_("Records processed: 2.", timestamp.achievements)
 
         # I3 was processed, but the batch did not complete, so any
         # changes wouldn't have been written to the database.
@@ -853,9 +860,13 @@ class TestWorkRandomnessUpdateMonitor(DatabaseTest):
         work = self._work()
         old_random = work.random
         monitor = WorkRandomnessUpdateMonitor(self._db)
-        value = monitor.process_batch(work.id)
+        value, num_processed = monitor.process_batch(work.id)
         # Since there's only one work, a single batch finishes the job.
         eq_(0, value)
+
+        # But we don't know that there's only one work, so the 'number
+        # of items processed' is the batch size.
+        eq_(monitor.batch_size, num_processed)
 
         # This is normally called by run().
         self._db.commit()
