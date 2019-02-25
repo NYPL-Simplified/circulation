@@ -501,7 +501,7 @@ class ExternalSearchIndex(HasSelfTests):
         if self.exists(**args):
             self.delete(**args)
 
-    def _run_self_tests(self, _db):
+    def _run_self_tests(self, _db, in_testing=False):
 
         # Helper methods for setting up the self-tests:
 
@@ -543,6 +543,19 @@ class ExternalSearchIndex(HasSelfTests):
             ("Retrieving raw results for the specified term: '%s'" %(self.test_search_term)),
             _get_raw_results
         )
+
+        def _count_docs():
+            # The mock methods used in testing return a list, so we have to call len() rather than count().
+            if in_testing:
+                return "Documents: %s.  Search results: %s." %(len(_search()), len(_works()))
+
+            return "Documents: %s.  Search results: %s." %(_search().count(), _works().count())
+
+        yield self.run_test(
+            ("Getting the total number of results for the specified term: '%s'" %(self.test_search_term)),
+            _count_docs
+        )
+
 class ExternalSearchIndexVersions(object):
 
     VERSIONS = ['v2', 'v3']

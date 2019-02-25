@@ -279,7 +279,7 @@ class TestExternalSearch(ExternalSearchTest):
         index = MockExternalSearchIndex()
 
         # First, see what happens when the search returns no results.
-        test_results = [x for x in index._run_self_tests(self._db)]
+        test_results = [x for x in index._run_self_tests(self._db, in_testing=True)]
 
         eq_("Searching for the specified term: 'a search term'", test_results[0].name)
         eq_(True, test_results[0].success)
@@ -293,12 +293,16 @@ class TestExternalSearch(ExternalSearchTest):
         eq_(True, test_results[2].success)
         eq_([], test_results[2].result)
 
+        eq_("Getting the total number of results for the specified term: 'a search term'", test_results[3].name)
+        eq_(True, test_results[3].success)
+        eq_("Documents: 0.  Search results: 0.", test_results[3].result)
+
         # Set up the search index so it will return a result.
         search_result = MockSearchResult(
             "Sample Book Title", "author", {}, "id"
         )
         index.index("index", "doc type", "id", search_result)
-        test_results = [x for x in index._run_self_tests(self._db)]
+        test_results = [x for x in index._run_self_tests(self._db, in_testing=True)]
 
         eq_("Searching for the specified term: 'a search term'", test_results[0].name)
         eq_(True, test_results[0].success)
@@ -311,6 +315,10 @@ class TestExternalSearch(ExternalSearchTest):
         eq_("Retrieving raw results for the specified term: 'a search term'", test_results[2].name)
         eq_(True, test_results[2].success)
         eq_(["{'author': 'author', 'meta': {'id': 'id'}, 'id': 'id', 'title': 'Sample Book Title'}"], test_results[2].result)
+
+        eq_("Getting the total number of results for the specified term: 'a search term'", test_results[3].name)
+        eq_(True, test_results[3].success)
+        eq_("Documents: 1.  Search results: 1.", test_results[3].result)
 
 class EndToEndExternalSearchTest(ExternalSearchTest):
     """Subclasses of this class set up real works in a real
