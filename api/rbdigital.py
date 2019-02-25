@@ -297,20 +297,6 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         return response
 
-    def remote_email_address(self, patron):
-        """The fake email address to send to RBdigital when
-        signing up this patron.
-        """
-        default = self.default_notification_email_address(patron, None)
-        if not default:
-            raise RemotePatronCreationFailedException(
-                _("Cannot create remote account for patron because library's default notification address is not set.")
-            )
-        patron_identifier = patron.identifier_to_remote_service(
-            DataSource.RB_DIGITAL
-        )
-        return default.replace('@', '+rbdigital-%s@' % patron_identifier, 1)
-
     def checkin(self, patron, pin, licensepool):
         """
         Allow a patron to return an ebook or audio before its due date.
@@ -681,79 +667,106 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         The identifier is cached in a persistent Credential object.
 
-        :return: The remote identifier for this patron, taken from
-        the corresponding Credential.
+        I. If an already-cached identifier is present, we use
+           it.
+
+        II. Otherwise, we look up the patron's barcode on RBdigital to try
+           to find an existing RBdigital account for them.
+
+        II.1. If we find an existing RBdigital account, we set the
+              patron's barcode as their RBdigital identifier.
+
+        II.2. If we find no existing RBdigital account, we need to create
+              one.
+
+        II.2.a. If the ILS provides access to the patron's email
+                address, we create an account using the patron's actual
+                barcode and email address -- this will let them use the
+                'recover password' feature if they want to use the
+                RBdigital web site.
+
+        II.2.b. If the ILS does not provide access to the patron's email
+                address, we create an account using the patron's actual
+                barcode with six random characters appended. This will let
+                the patron create a new RBdigital account using their
+                actual barcode, if they want to use the web site.
+
+        :param patron: A Patron.
+        :return: The identifier associated with the patron's (possibly
+            newly created) RBdigital account. This is an
+            RBdigital-internal identifier with no connection to any
+            identifier used by the patron, the circulation manager,
+            and the ILS.
         """
-        def refresher(credential):
-            # look up patron by alias identifier
-            remote_identifier = self.patron_remote_identifier_lookup(patron)
 
-            # Find the patron's full data
-            # full_patron = self.get_patron_information(patron.id)
-
-            # if not found, then look up based on email
-            # if not remote_identifier:
-            #     email = full_patron.email
-            #     remote_identifier = self.patron_remote_identifier_lookup(email)
-            # if not found, then look based on barcode
-            # if not remote_identifier:
-            #     barcode = patron.authorization_identifier
-            #     remote_identifier = self.patron_remote_identifier_lookup(barcode)
-            # else create the patron:
-            if not remote_identifier:
-                remote_identifier = self.create_patron(patron)
+        # Set up a refresher method that takes no arguments except the
+        # credential -- this is what lookup() expects.
+        def refresh_credential(credential):
+            remote_identifier = self._find_or_create_remote_account(
+                patron
+            )
             credential.credential = remote_identifier
             credential.expires = None
+            return credential
 
+        # Find or create the credential.
         _db = Session.object_session(patron)
         credential = Credential.lookup(
             _db, DataSource.RB_DIGITAL,
             Credential.IDENTIFIER_FROM_REMOTE_SERVICE,
-            patron, refresher_method=refresher,
-            allow_persistent_token=True
+            patron, _refresh_credential, allow_persistent_token=True
         )
-        if not credential.credential:
-            refresher(credential)
         return credential.credential
 
-    def create_patron(self, patron):
+    def _find_or_create_remote_account(self, patron):
+        """Look up a patron on RBdigital, creating an account if necessary.
+
+        :param patron: A Patron.
+        :return: The identifier associated with the (possibly newly
+            created) RBdigital account. This is an RBdigital-internal
+            patron ID and has no connection to any identifier used
+            by the patron, the circulation manager, and the ILS.
+        """
+
+        # Try the easy case -- the patron already set up an RBdigital
+        # account using their authorization identifier.
+        remote_identifier = self.patron_remote_identifier_lookup(
+            patron.authorization_identifier
+        )
+        if remote_identifier:
+            return remote_identifier
+
+        # There is no RBdigital account associated with the patron's
+        # authorization identifier. And there is no preexisting
+        # Credential representing a dummy account, or this method
+        # wouldn't have been called. We must create a new account.
+        return self.create_patron(
+            patron.library, patron.authorization_identifier,
+            self.patron_email_address(patron)
+        )
+
+    def create_patron(self, library, authorization_identifier, email_address):
         """Ask RBdigital to create a new patron record.
 
-        :param patron: the Patron that needs a new RBdigital account.
+        :param library: Library for the patron that needs a new RBdigital
+            account. This has no necessary connection to the 'library_id'
+            associated with the RBDigitalAPI, since multiple circulation
+            manager libraries may share an RBdigital account.
+        :param authorization_identifier: The identifier the patron uses
+            to authenticate with their library.
+        :param email_address: The email address, if any, which the patron
+            has shared with their library.
 
         :return The internal RBdigital identifier for this patron.
         """
 
-        url = "%s/libraries/%s/patrons/" % (self.base_url, str(self.library_id))
+        url = "%s/libraries/%s/patrons/" % (self.base_url, self.library_id)
         action="create_patron"
 
-        # if we know their email, use their own barcode and email instead of making it up
-        # pass in barcode here if we know it.
-        patron_identifier = patron.identifier_to_remote_service(
-            DataSource.RB_DIGITAL
+        post_args = self._create_patron_body(
+            library, authorization_identifier, email_address
         )
-
-        post_args = dict()
-        post_args['libraryId'] = self.library_id
-        post_args['libraryCardNumber'] = patron_identifier
-
-        # Generate meaningless values for account fields that are not
-        # relevant to our usage of the API.
-        post_args['userName'] = 'username' + patron_identifier.replace("-", "")
-        # if we know a patron's email, use their real email address instead
-        # of a fake remote address
-        # if email:
-        # email = patron.email
-        # else:
-        email = self.remote_email_address(patron)
-        post_args['email'] = email
-        post_args['firstName'] = 'Patron'
-        post_args['lastName'] = 'Reader'
-
-        # The patron will not be logging in to this RBdigital account,
-        # so set their password to a secure value and forget it.
-        post_args['password'] = os.urandom(8).encode('hex')
-
+        
         resp_dict = {}
         message = None
         response = self.request(
@@ -780,18 +793,105 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 ": http=" + str(response.status_code) + ", response=" + response.text)
         return patron_rbdigital_id
 
-    # TODO: need to refactor this to also take an email address or barcode instead of a patron
-    def patron_remote_identifier_lookup(self, patron):
-        """Look up a patron's RBdigital account based on a unique ID
-        assigned to them for this purpose.
+    def _create_patron_body(self, library, authorization_identifier,
+                            email_address):
+        """Make the entity-body for a patron creation request.
 
-        :return: The RBdigital patron ID for the patron, or None
-        if the patron currently has no RBdigital account.
+        :param library: Library for the patron that needs a new RBdigital
+            account.
+        :param authorization_identifier: The identifier the patron uses
+            to authenticate with their library.
+        :param email_address: The email address, if any, which the patron
+            has shared with their library.
+        
+        :return: A dictionary of key-value pairs to go along with an
+        HTTP POST request.
         """
-        patron_identifier = patron.identifier_to_remote_service(
-            DataSource.RB_DIGITAL
-        )
+        if email_address:
+            # We know the patron's email address. We can create an
+            # account they can also use in other contexts.
+            patron_identifier = authorization_identifier
+            email_address = email_address
+        else:
+            # We don't know the patron's email address. We will create
+            # a dummy account to avoid locking them out of the ability
+            # to use an RBdigital account in other contexts.
+            patron_identifier = self.dummy_patron_identifier(
+                authorization_identifier
+            )
+            email_address = self.dummy_email_address(
+                library, authorization_identifier
+            )
 
+        # If we are using the patron's actual authorization identifier,
+        # then our best guess at a username is that same identifier.
+        #
+        # If we're making up a dummy authorization identifier, then
+        # using that as the username will minimize the risk of taking
+        # someone's username.
+        #
+        # Either way:
+        username = patron_identifier
+
+        post_args = dict()
+        post_args['libraryId'] = self.library_id
+        post_args['libraryCardNumber'] = patron_identifier
+        post_args['userName'] = username
+        post_args['email'] = email_address
+        post_args['firstName'] = 'Library'
+        post_args['lastName'] = 'Simplified'
+        post_args['postalCode'] = '11111'
+
+        # We have no way of communicating the password to this patron.
+        # Set it to a random value and forget it. If we're creating an
+        # account with the patron's email address, they'll be able to
+        # recover their password. If not, at least we didn't claim
+        # their barcode, and they can make a new account if they want.
+        post_args['password'] = os.urandom(8).encode('hex')
+        return post_args
+
+    def dummy_patron_identifier(self, authorization_identifier):
+        """Add six random alphanumeric characters to the end of 
+        the given `authorization_identifier`.
+
+        :return: A random identifier based on the input identifier.
+        """
+        alphabet = string.digits + string.uppercase
+        addendum = "".join(random.choice(alphabet) for x in range(6))
+        return authorization_identifier + addendum
+
+    def dummy_email_address(self, library, authorization_identifier):
+        """The fake email address to send to RBdigital when
+        creating an account for the given patron.
+
+        :param library: A Library.
+        :param authorization_identifier: A patron's authorization identifier.
+        :return: An email address unique to this patron which will
+            bounce or reject all mail sent to it.
+        """
+        default = self.default_notification_email_address(library, None)
+        if not default:
+            raise RemotePatronCreationFailedException(
+                _("Cannot create remote account for patron because library's default notification address is not set.")
+            )
+        # notifications@library.org
+        #   =>
+        # notifications+rbdigital-1234567890@library.org
+        replace_with = '+rbdigital-%s@' % authorization_identifier
+        return default.replace('@', replace_with, 1)
+
+    def patron_remote_identifier_lookup(self, remote_identifier):
+        """Look up a patron's RBdigital account based on an identifier
+        associated with their circulation manager account.
+
+        :param remote_identifier: Depending on the context, this may
+        be the patron's actual barcode, or a random string _based_ on
+        their barcode.
+
+        :return: The internal RBdigital patron ID for the given
+        identifier, or None if there is no corresponding RBdigital
+        account.
+        """
         action="patron_id"
         url = "%s/rpc/libraries/%s/patrons/%s" % (
             self.base_url, self.library_id, patron_identifier
