@@ -3,6 +3,7 @@ from dateutil.relativedelta import relativedelta
 import json
 from lxml import etree
 import os
+import random
 import uuid
 
 from nose.tools import (
@@ -325,7 +326,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
                 """This API has never heard of any patron."""
                 return None
 
-            def create_patron(self, patron):
+            def create_patron(self, *args):
                 return "generic id"
 
         api = NeverHeardOfYouAPI(self._db, self.collection)
@@ -351,7 +352,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             def patron_remote_identifier_lookup(self, patron):
                 return "i know you"
 
-            def create_patron(self, patron):
+            def create_patron(self, *args):
                 raise Exception("No new patrons!")
 
         api = IKnowYouAPI(self._db, self.collection)
@@ -369,9 +370,26 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             patron, "i know you"
         )
 
-    def test_patron_remote_email_address(self):
+    def test_dummy_patron_identifier(self):
+        random.seed(42)
+        patron = self.default_patron
+        auth = patron.authorization_identifier
+        remote_auth = self.api.dummy_patron_identifier(auth)
+
+        # The dummy identifier is the input identifier plus
+        # 6 random characters.
+        eq_(auth + "N098QO", remote_auth)
+
+        # It's different every time.
+        remote_auth = self.api.dummy_patron_identifier(auth)
+        eq_(auth + "W3F17I", remote_auth)
+
+    def test_dummy_email_address(self):
 
         patron = self.default_patron
+        library = patron.library
+        auth = patron.authorization_identifier
+        m = self.api.dummy_email_address
 
         # Without a setting for DEFAULT_NOTIFICATION_EMAIL_ADDRESS, we
         # can't calculate the email address to send RBdigital for a
@@ -379,65 +397,46 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         assert_raises_regexp(
             RemotePatronCreationFailedException,
             "Cannot create remote account for patron because library's default notification address is not set.",
-            self.api.remote_email_address, patron
+            m, patron, auth
         )
 
         self._set_notification_address(patron.library)
-        address = self.api.remote_email_address(patron)
-
-        # A credential was created to use when talking to RBdigital
-        # about this patron.
-        [credential] = patron.credentials
-
-        # The credential and default notification email address were
-        # used to construct the patron's
-        eq_("genericemail+rbdigital-%s@library.org" % credential.credential,
+        address = m(patron, auth)
+        eq_("genericemail+rbdigital-%s@library.org" % auth,
             address)
 
     def test_patron_remote_identifier_lookup(self):
+        # Test the method that tries to convert a patron identifier
+        # (e.g. the one the patron uses to authenticate with their
+        # library) to an internal RBdigital patron ID.
+        m = self.api.patron_remote_identifier_lookup
+        identifier = self._str
 
-        patron = self.default_patron
-
-        # Get the identifier we use when announcing this patron to
-        # the remote service.
-        patron_identifier = patron.identifier_to_remote_service(
-            DataSource.RB_DIGITAL
-        )
-
-        # If that identifier is not already registered with the remote
-        # service, patron_remote_identifier_lookup returns None.
+        # Test the case where RBdigital doesn't recognize the identifier
+        # we're using.
         datastr, datadict = self.api.get_data(
             "response_patron_internal_id_not_found.json"
         )
         self.api.queue_response(status_code=200, content=datastr)
-        rbdigital_patron_id = self.api.patron_remote_identifier_lookup(patron)
+        rbdigital_patron_id = m(identifier)
         eq_(None, rbdigital_patron_id)
+        
+        # Test the case where RBdigital recognizes the identifier
+        # we're using.
+        self.queue_initial_patron_id_lookup()
+        rbdigital_patron_id = m(identifier)
+        eq_(939981, rbdigital_patron_id)
 
-        # The patron's otherwise meaningless
-        # identifier-to-remote-service was used to identify the patron
-        # to RBdigital, as opposed to any library-specific identifier.
-        [request] = self.api.requests
-        url = request[0]
-        assert patron_identifier in url
-
-        # If no identifier is provided, the server sends an exception
-        # which is converted to an InvalidInputException.
+        # Test the case where RBdigital sends an error because it
+        # doesn't like our input.
         datastr, datadict = self.api.get_data(
             "response_patron_internal_id_error.json"
         )
         self.api.queue_response(status_code=500, content=datastr)
         assert_raises_regexp(
             InvalidInputException, "patron_id:",
-            self.api.patron_remote_identifier_lookup, patron
+            m, identifier
         )
-
-        # When the patron's identifier is already registered with
-        # RBdigital (due to an earlier create_patron() call),
-        # patron_remote_identifier_lookup returns the patron's
-        # RBdigital ID.
-        self.queue_initial_patron_id_lookup()
-        rbdigital_patron_id = self.api.patron_remote_identifier_lookup(patron)
-        eq_(939981, rbdigital_patron_id)
 
     def test_get_patron_information(self):
         datastr, datadict = self.api.get_data("response_patron_info_not_found.json")

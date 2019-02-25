@@ -7,9 +7,11 @@ import json
 import logging
 from nose.tools import set_trace
 import os
+import random
 import re
 import requests
 from sqlalchemy.orm.session import Session
+import string
 import uuid
 
 from circulation import (
