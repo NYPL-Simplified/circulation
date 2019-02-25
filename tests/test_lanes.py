@@ -29,6 +29,7 @@ from core.model import (
 
 from api.config import (
     Configuration,
+    CannotLoadConfiguration,
     temp_config,
 )
 from api.lanes import (

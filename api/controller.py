@@ -1615,7 +1615,7 @@ class WorkController(CirculationManagerController):
             lane = RecommendationLane(
                 library, work, lane_name, novelist_api=novelist_api
             )
-        except ValueError, e:
+        except CannotLoadConfiguration, e:
             # NoveList isn't configured.
             return NO_SUCH_LANE.detailed(_("Recommendations not available"))
 
