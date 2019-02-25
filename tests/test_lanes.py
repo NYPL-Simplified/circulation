@@ -342,7 +342,7 @@ class TestRelatedBooksLane(DatabaseTest):
         self._db.commit()
 
         assert_raises(
-            CannotLoadConfiguration, RelatedBooksLane, self._default_library, self.work, ""
+            ValueError, RelatedBooksLane, self._default_library, self.work, ""
         )
 
         # A book with a contributor initializes a RelatedBooksLane.
