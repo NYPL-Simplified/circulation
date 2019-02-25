@@ -338,7 +338,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # If it turns out the API has never heard of a given patron, a
         # second call is made to create_patron().
-        eq_("generic id", api.patron_remote_identifier(patron))
+        eq_("rbdigital internal id", api.patron_remote_identifier(patron))
 
         library, authorization_identifier, email_address = api.called_with
 
