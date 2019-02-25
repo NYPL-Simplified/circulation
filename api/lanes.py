@@ -11,7 +11,10 @@ import elasticsearch
 import logging
 
 import core.classifier as genres
-from config import Configuration
+from config import (
+    CannotLoadConfiguration,
+    Configuration,
+)
 from core.classifier import (
     Classifier,
     fiction_genres,
@@ -886,7 +889,7 @@ class RelatedBooksLane(WorkBasedLane):
             )
             if recommendation_lane.recommendations:
                 yield recommendation_lane
-        except ValueError, e:
+        except CannotLoadConfiguration, e:
             # NoveList isn't configured.
             pass
 

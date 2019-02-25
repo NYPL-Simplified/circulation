@@ -18,6 +18,7 @@ from core.model import (
     Identifier,
     Representation,
 )
+from api.config import CannotLoadConfiguration
 from api.novelist import (
     MockNoveListAPI,
     NoveListAPI,
@@ -63,11 +64,11 @@ class TestNoveListAPI(DatabaseTest):
 
         # Without either configuration value, an error is raised.
         self.integration.password = None
-        assert_raises(ValueError, NoveListAPI.from_config, self._default_library)
+        assert_raises(CannotLoadConfiguration, NoveListAPI.from_config, self._default_library)
 
         self.integration.password = u'yep'
         self.integration.username = None
-        assert_raises(ValueError, NoveListAPI.from_config, self._default_library)
+        assert_raises(CannotLoadConfiguration, NoveListAPI.from_config, self._default_library)
 
     def test_is_configured(self):
         # If an ExternalIntegration exists, the API is_configured
