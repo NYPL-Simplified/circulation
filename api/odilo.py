@@ -29,6 +29,7 @@ from selftest import (
 )
 from core.monitor import (
     CollectionMonitor,
+    TimelineMonitor,
 )
 from core.util.http import HTTP
 
@@ -878,27 +879,37 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
 
 
 
-class OdiloCirculationMonitor(CollectionMonitor):
+class OdiloCirculationMonitor(CollectionMonitor, TimelineMonitor):
     """Maintain LicensePools for recently changed Odilo titles
     """
     SERVICE_NAME = "Odilo Circulation Monitor"
     INTERVAL_SECONDS = 500
     PROTOCOL = ExternalIntegration.ODILO
+    DEFAULT_START_TIME = CollectionMonitor.NEVER
 
     def __init__(self, _db, collection, api_class=OdiloAPI):
         """Constructor."""
         super(OdiloCirculationMonitor, self).__init__(_db, collection)
         self.api = api_class(_db, collection)
 
-    def run_once(self, start, cutoff):
+    def catch_up_from(self, start, cutoff, progress):
+        """Find Odilo books that changed recently.
+
+        :progress: A TimestampData representing the time previously
+        covered by this Monitor.
+        """
+
         self.log.info("Starting recently_changed_ids, start: " + str(start) + ", cutoff: " + str(cutoff))
 
         start_time = datetime.datetime.now()
-        self.all_ids(start)
+        updated, new = self.all_ids(start)
         finish_time = datetime.datetime.now()
 
         time_elapsed = finish_time - start_time
         self.log.info("recently_changed_ids finished in: " + str(time_elapsed))
+        progress.achievements = (
+            "Updated records: %d. New records: %d." % (updated, new)
+        )
 
     def all_ids(self, modification_date=None):
         """Get IDs for every book in the system, from modification date if any
@@ -951,6 +962,7 @@ class OdiloCirculationMonitor(CollectionMonitor):
                 self.log.error('ERROR response content: ' + str(content))
         else:
             self.log.info('Retrieving all ids finished ok. Retrieved %i records. New records: %i!!' % (retrieved, new))
+        return retrieved, new
 
     def get_url(self, limit, modification_date, offset):
         url = "%s?limit=%i&offset=%i" % (self.api.ALL_PRODUCTS_ENDPOINT, limit, offset)

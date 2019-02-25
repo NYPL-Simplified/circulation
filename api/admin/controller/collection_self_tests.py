@@ -9,44 +9,33 @@ from core.model import (
 )
 from core.selftest import HasSelfTests
 from core.util.problem_detail import ProblemDetail
-from . import SettingsController
+from api.admin.controller.self_tests import SelfTestsController
 
-class CollectionSelfTestsController(SettingsController):
+class CollectionSelfTestsController(SelfTestsController):
 
     def __init__(self, manager):
         super(CollectionSelfTestsController, self).__init__(manager)
         self.protocols = self._get_collection_protocols(self.PROVIDER_APIS)
 
     def process_collection_self_tests(self, identifier):
-        if not identifier:
-            return MISSING_COLLECTION_IDENTIFIER
-        if flask.request.method == 'GET':
-            return self.process_get(identifier)
-        else:
-            return self.process_post(identifier)
+        return self._manage_self_tests(identifier)
 
-    def process_get(self, identifier):
-        collection = self.look_up_collection_by_id(identifier)
-        if isinstance(collection, ProblemDetail):
-            return collection
-        collection_info = self.get_collection_info(collection)
-        return dict(collection=collection_info)
-
-    def look_up_collection_by_id(self, identifier):
+    def look_up_by_id(self, identifier):
         """Find the collection to display self test results or run self tests for;
         display an error message if a collection with this ID turns out not to exist"""
 
         collection = Collection.by_id(self._db, identifier)
         if not collection:
             return NO_SUCH_COLLECTION
+
+        self.protocol_class = self._find_protocol_class(collection.protocol)
         return collection
 
-    def get_collection_info(self, collection):
+    def get_info(self, collection):
         """Compile information about this collection, including the results from the last time, if ever,
         that the self tests were run."""
 
-        protocolClass = None
-        collection_info = dict(
+        return dict(
             id=collection.id,
             name=collection.name,
             protocol=collection.protocol,
@@ -54,34 +43,23 @@ class CollectionSelfTestsController(SettingsController):
             settings=dict(external_account_id=collection.external_account_id),
         )
 
-        protocolClass = self.find_protocol_class(collection.protocol)
-        collection_info["self_test_results"] = self._get_prior_test_results(collection, protocolClass)
-        return collection_info
-
-    def find_protocol_class(self, collectionProtocol):
+    def _find_protocol_class(self, collection_protocol):
         """Figure out which protocol is providing books to this collection"""
 
-        if collectionProtocol in [p.get("name") for p in self.protocols]:
-            protocolClassFound = [p for p in self.PROVIDER_APIS if p.NAME == collectionProtocol]
-            if len(protocolClassFound) == 1:
-                return protocolClassFound[0]
+        if collection_protocol in [p.get("name") for p in self.protocols]:
+            protocol_class_found = [p for p in self.PROVIDER_APIS if p.NAME == collection_protocol]
+            if len(protocol_class_found) == 1:
+                return protocol_class_found[0]
 
-    def process_post(self, identifier):
-        collection = self.look_up_collection_by_id(identifier)
-        if isinstance(collection, ProblemDetail):
-            return collection
-        collectionProtocol = collection.protocol or None
-        protocolClass = self.find_protocol_class(collectionProtocol) or None
+    def run_tests(self, collection):
+        collection_protocol = collection.protocol or None
 
-        if protocolClass:
+        if self.protocol_class:
             value = None
-            if (collectionProtocol == OPDSImportMonitor.PROTOCOL):
-                protocolClass = OPDSImportMonitor
-                value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, collection, OPDSImporter)
-            elif issubclass(protocolClass, HasSelfTests):
-                value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, collection)
+            if (collection_protocol == OPDSImportMonitor.PROTOCOL):
+                self.protocol_class = OPDSImportMonitor
+                value, results = self.protocol_class.run_self_tests(self._db, self.protocol_class, self._db, collection, OPDSImporter)
+            elif issubclass(self.protocol_class, HasSelfTests):
+                value, results = self.protocol_class.run_self_tests(self._db, self.protocol_class, self._db, collection)
 
-            if (value):
-                return Response(_("Successfully ran new self tests"), 200)
-
-        return FAILED_TO_RUN_SELF_TESTS
+            return value

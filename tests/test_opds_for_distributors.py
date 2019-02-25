@@ -16,6 +16,7 @@ from api.opds_for_distributors import (
 )
 from api.circulation_exceptions import *
 from . import DatabaseTest
+from core.metadata_layer import TimestampData
 from core.model import (
     Collection,
     Credential,
@@ -466,7 +467,16 @@ class TestOPDSForDistributorsReaperMonitor(DatabaseTest, BaseOPDSForDistributors
         pool.licenses_owned = 1
         pool.licenses_available = 1
 
-        monitor.run_once(None, None)
+        progress = monitor.run_once(monitor.timestamp().to_data())
 
         eq_(0, pool.licenses_owned)
         eq_(0, pool.licenses_available)
+
+        # The TimestampData returned by run_once() describes its
+        # achievements.
+        eq_("License pools removed: 1.", progress.achievements)
+
+        # The TimestampData does not include any timing information --
+        # that will be applied by run().
+        eq_(TimestampData.NO_VALUE, progress.start)
+        eq_(TimestampData.NO_VALUE, progress.finish)

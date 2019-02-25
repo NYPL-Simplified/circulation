@@ -12,6 +12,7 @@ from sqlalchemy import (
     or_,
 )
 
+from core.metadata_layer import TimestampData
 from core.monitor import (
     CollectionMonitor,
     EditionSweepMonitor,
@@ -100,10 +101,20 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
     def endpoint(self, timestamp):
         return self.lookup.updates(timestamp)
 
-    def run_once(self, start, cutoff):
+    def run_once(self, progress):
+        """Ask the metadata wrangler about titles that have changed
+        since the last time this monitor ran.
+
+        :param progress: A TimestampData representing the span of time
+        covered during the previous run of this monitor.
+
+        :return: A modified TimestampData.
+        """
+        start = progress.finish
         self.assert_authenticated()
         queue = [None]
         seen_links = set()
+        total_editions = 0
 
         new_timestamp = None
         while queue:
@@ -113,6 +124,8 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
             next_links, editions, possible_new_timestamp = self.import_one_feed(
                 start, url
             )
+            total_editions += len(editions)
+            achievements = "Editions processed: %s" % total_editions
             if not new_timestamp or (
                     possible_new_timestamp
                     and possible_new_timestamp > new_timestamp
@@ -133,10 +146,32 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
                 for link in next_links:
                     if link not in seen_links:
                         queue.append(link)
+
+            # Immediately update the timestamps table so that a later
+            # crash doesn't mean we have to redo this work.
             if new_timestamp:
-                self.timestamp().finish = new_timestamp
+                timestamp_obj = self.timestamp()
+                timestamp_obj.finish = new_timestamp
+                timestamp_obj.achievements = achievements
             self._db.commit()
-        return new_timestamp or self.timestamp().finish
+
+        # The TimestampData we return is going to be written to the database.
+        # Unlike most Monitors, there are times when we just don't
+        # want that to happen.
+        #
+        # If we found an OPDS feed, the latest timestamp in that feed
+        # should be used as Timestamp.finish.
+        #
+        # Otherwise, the existing timestamp.finish should be used. If
+        # that value happens to be None, we need to set
+        # TimestampData.finish to NO_VALUE to make sure it ends up
+        # as None (rather than the current time).
+        finish = new_timestamp or self.timestamp().finish or Timestamp.NO_VALUE
+
+        progress.start = start
+        progress.finish = finish
+        progress.achievements = achievements
+        return progress
 
     def import_one_feed(self, timestamp, url):
         response = self.get_response(url=url, timestamp=timestamp)
@@ -194,12 +229,13 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
     def endpoint(self):
         return self.lookup.metadata_needed()
 
-    def run_once(self, start, cutoff):
+    def run_once(self, progress):
         self.assert_authenticated()
 
         queue = [None]
         seen_links = set()
 
+        total_identifiers_processed = 0
         while queue:
             url = queue.pop(0)
             if url in seen_links:
@@ -213,6 +249,7 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
             # to send.)
             identifiers = [i for i in identifiers
                            if i.work and i.work.simple_opds_entry]
+            total_identifiers_processed += len(identifiers)
             self.provider.bulk_register(identifiers)
             self.provider.run_on_specific_identifiers(identifiers)
 
@@ -221,6 +258,8 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
                 for link in next_links:
                     if link not in seen_links:
                         queue.append(link)
+        achievements = "Identifiers processed: %d" % total_identifiers_processed
+        return TimestampData(achievements=achievements)
 
     def get_identifiers(self, url=None):
         """Pulls mapped identifiers from a feed of SimplifiedOPDSMessages."""

@@ -2922,15 +2922,26 @@ class TestDashboardController(AdminControllerTest):
                 eq_(1, patron_data.get('loans'))
                 eq_(1, patron_data.get('holds'))
 
-            # This patron is in a different library.
+            # These patrons are in a different library..
             l2 = self._library()
             patron4 = self._patron(library=l2)
+            pool.loan_to(patron4, end=datetime.now() + timedelta(days=5))
+            patron5 = self._patron(library=l2)
+            pool.on_hold_to(patron5)
 
             response = self.manager.admin_dashboard_controller.stats()
             library_data = response.get(self._default_library.short_name)
             total_data = response.get("total")
             eq_(4, library_data.get('patrons').get('total'))
-            eq_(5, total_data.get('patrons').get('total'))
+            eq_(1, library_data.get('patrons').get('with_active_loans'))
+            eq_(2, library_data.get('patrons').get('with_active_loans_or_holds'))
+            eq_(1, library_data.get('patrons').get('loans'))
+            eq_(1, library_data.get('patrons').get('holds'))
+            eq_(6, total_data.get('patrons').get('total'))
+            eq_(2, total_data.get('patrons').get('with_active_loans'))
+            eq_(4, total_data.get('patrons').get('with_active_loans_or_holds'))
+            eq_(2, total_data.get('patrons').get('loans'))
+            eq_(2, total_data.get('patrons').get('holds'))
 
             # If the admin only has access to some libraries, only those will be counted
             # in the total stats.
@@ -2941,7 +2952,15 @@ class TestDashboardController(AdminControllerTest):
             library_data = response.get(self._default_library.short_name)
             total_data = response.get("total")
             eq_(4, library_data.get('patrons').get('total'))
+            eq_(1, library_data.get('patrons').get('with_active_loans'))
+            eq_(2, library_data.get('patrons').get('with_active_loans_or_holds'))
+            eq_(1, library_data.get('patrons').get('loans'))
+            eq_(1, library_data.get('patrons').get('holds'))
             eq_(4, total_data.get('patrons').get('total'))
+            eq_(1, total_data.get('patrons').get('with_active_loans'))
+            eq_(2, total_data.get('patrons').get('with_active_loans_or_holds'))
+            eq_(1, total_data.get('patrons').get('loans'))
+            eq_(1, total_data.get('patrons').get('holds'))
 
     def test_stats_inventory(self):
         with self.request_context_with_admin("/"):
@@ -3161,6 +3180,11 @@ class SettingsControllerTest(AdminControllerTest):
         return self_test_results
 
     def mock_run_self_tests(self, *args, **kwargs):
+        # This mocks the entire HasSelfTests.run_self_tests
+        # process. In general, controllers don't care what's returned
+        # from this method, because they only display the test results
+        # as they were stored alongside the ExternalIntegration
+        # as a side effect of run_self_tests running.
         self.run_self_tests_called_with = (args, kwargs)
         return ("value", "results")
 
