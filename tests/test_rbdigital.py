@@ -317,6 +317,8 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         eq_(1, len(delta[0]["removedTitles"]))
 
     def test_patron_remote_identifier_new_patron(self):
+        # End-to-end test of patron_remote_identifier, in the case
+        # where we are able to register the patron.
 
         class NeverHeardOfYouAPI(RBDigitalAPI):
             """A mock RBDigitalAPI that has never heard of any patron
@@ -327,6 +329,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
                 return None
 
             def create_patron(self, *args):
+                self.called_with = args
                 return "generic id"
 
         api = NeverHeardOfYouAPI(self._db, self.collection)
@@ -337,11 +340,23 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         # second call is made to create_patron().
         eq_("generic id", api.patron_remote_identifier(patron))
 
+        library, authorization_identifer, email_address = self.called_with
+
         # A permanent Credential has been created for the remote
         # identifier.
         self._assert_patron_has_remote_identifier_credential(
             patron, "generic id"
         )
+
+        # The patron's library and authorization identifier were passed
+        # into create_patron.
+        eq_(patron.library, library)
+        eq_(patron.authorization_identifier, authorization_identifier)
+
+        # We didn't set up the patron with a fake email address,
+        # so we weren't able to find anything and no email address
+        # was passed into create_patron.
+        eq_(None, email_address)
 
     def test_patron_remote_identifier_existing_patron(self):
 
@@ -369,41 +384,6 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         self._assert_patron_has_remote_identifier_credential(
             patron, "i know you"
         )
-
-    def test_dummy_patron_identifier(self):
-        random.seed(42)
-        patron = self.default_patron
-        auth = patron.authorization_identifier
-        remote_auth = self.api.dummy_patron_identifier(auth)
-
-        # The dummy identifier is the input identifier plus
-        # 6 random characters.
-        eq_(auth + "N098QO", remote_auth)
-
-        # It's different every time.
-        remote_auth = self.api.dummy_patron_identifier(auth)
-        eq_(auth + "W3F17I", remote_auth)
-
-    def test_dummy_email_address(self):
-
-        patron = self.default_patron
-        library = patron.library
-        auth = patron.authorization_identifier
-        m = self.api.dummy_email_address
-
-        # Without a setting for DEFAULT_NOTIFICATION_EMAIL_ADDRESS, we
-        # can't calculate the email address to send RBdigital for a
-        # patron.
-        assert_raises_regexp(
-            RemotePatronCreationFailedException,
-            "Cannot create remote account for patron because library's default notification address is not set.",
-            m, patron, auth
-        )
-
-        self._set_notification_address(patron.library)
-        address = m(patron, auth)
-        eq_("genericemail+rbdigital-%s@library.org" % auth,
-            address)
 
     def test_patron_remote_identifier_lookup(self):
         # Test the method that tries to convert a patron identifier
@@ -632,48 +612,146 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         assert "days=%s" % audio_period in checkout_url
         assert (loan_info.end_date - today).days <= audio_period
 
-    def test_create_patron(self):
-        """Test the method that creates an account for a library patron
-        on the RBdigital side.
-        """
-        patron = self.default_patron
-        self._set_notification_address(patron.library)
+    def test_create_patron(self):        
+        # Test the method that creates an RBdigital account for a
+        # library patron.
 
-        # If the patron already has an account, a
-        # RemotePatronCreationFailedException is raised.
-        datastr, datadict = self.api.get_data("response_patron_create_fail_already_exists.json")
-        self.api.queue_response(status_code=409, content=datastr)
-        assert_raises_regexp(
-            RemotePatronCreationFailedException, 'create_patron: http=409, response={"message":"A patron account with the specified username, email address, or card number already exists for this library."}',
-            self.api.create_patron, patron
-        )
+        class Mock(MockRBDigitalAPI):
+            def _create_patron_body(
+                    self, library, authorization_identifier, email_address
+            ):
+                self.called_with = (
+                    library, authorization_identifier, email_address
+                )
+        api = Mock(self._db, self.collection, base_path=self.base_path)
 
-        # Otherwise, the account is created.
-        datastr, datadict = self.api.get_data(
+        # Test the case where the patron can be created.
+        datastr, datadict = api.get_data(
             "response_patron_create_success.json"
         )
-        self.api.queue_response(status_code=201, content=datastr)
-        patron_rbdigital_id = self.api.create_patron(patron)
+        api.queue_response(status_code=201, content=datastr)
+        args = "library", "auth", "email"
+        patron_rbdigital_id = api.create_patron(*args)
 
-        # The patron's remote account ID is returned.
+        # The arguments we passed in were propagated to _create_patron_body.
+        eq_(args, api.called_with)
+
+        # The return value is the internal ID RBdigital established for this
+        # patron.
         eq_(940000, patron_rbdigital_id)
-
-        # The data sent to RBdigital is based on the patron's
-        # identifier-to-remote-service.
-        remote = patron.identifier_to_remote_service(
-            DataSource.RB_DIGITAL
+        
+        # Test the case where the patron already exists.
+        datastr, datadict = api.get_data("response_patron_create_fail_already_exists.json")
+        api.queue_response(status_code=409, content=datastr)
+        assert_raises_regexp(
+            RemotePatronCreationFailedException, 'create_patron: http=409, response={"message":"A patron account with the specified username, email address, or card number already exists for this library."}',
+            api.create_patron, *args
         )
 
-        form_data = json.loads(self.api.requests[-1][-1]['data'])
+    def test__create_patron_body(self):
+        # Test the method that builds the data (possibly fake, possibly not)
+        # for an RBdigital patron creation call.
 
-        # No identifying information was sent to RBdigital, only information
-        # based on the RBdigital-specific identifier.
-        eq_(self.api.library_id, form_data['libraryId'])
-        eq_(remote, form_data['libraryCardNumber'])
-        eq_("username" + (remote.replace("-", '')), form_data['userName'])
-        eq_("genericemail+rbdigital-%s@library.org" % remote, form_data['email'])
-        eq_("Patron", form_data['firstName'])
-        eq_("Reader", form_data['lastName'])
+        class Mock(MockRBDigitalAPI):
+            dummy_patron_identifier_called_with = None
+            dummy_email_address_called_with = None
+
+            def dummy_patron_identifier(self, authorization_identifier):
+                self.dummy_patron_identifier_called_with = (
+                    authorization_identifier
+                )
+                return "dummyid"
+
+            def dummy_email_address(self, library, authorization_identifier):
+                self.dummy_email_address_called_with = (
+                    library, authorization_identifier
+                )
+                return "dummy@email"
+
+        api = Mock(self._db, self.collection, base_path=self.base_path)
+
+        # Test the case where a 'real' email address is provided.
+        library = object()
+        identifier = "auth_identifier"
+        email = "me@email"
+        body = api._create_patron_body(library, identifier, email)
+
+        # We can't test the password, even by seeding the random
+        # number generator, because it's generated with os.urandom(),
+        # but we can verify that it's the right length.
+        password = body.pop("password")
+        eq_(16, len(password))
+
+        # And we can directly check every other value.
+        expect = {
+            'userName': identifier,
+            'firstName': 'Library',
+            'libraryCardNumber': identifier,
+            'lastName': 'Simplified',
+            'postalCode': '11111',
+            'libraryId': api.library_id,
+            'email': email
+        }
+        eq_(expect, body)
+
+        # dummy_patron_identifier and dummy_email_address were not called,
+        # since we're able to create an RBdigital account that the patron
+        # can use through other means.
+        eq_(None, api.dummy_patron_identifier_called_with)
+        eq_(None, api.dummy_email_address_called_with)
+
+        # Test the case where no 'real' email address is provided.
+        body = api._create_patron_body(library, identifier, None)
+        body.pop("password")
+        expect = {
+            'userName': 'dummyid',
+            'firstName': 'Library',
+            'libraryCardNumber': 'dummyid',
+            'lastName': 'Simplified',
+            'postalCode': '11111',
+            'libraryId': api.library_id,
+            'email': 'dummy@email'
+        }
+        eq_(expect, body)
+
+        # dummy_patron_identifier and dummy_email_address were called.
+        eq_(identifier, api.dummy_patron_identifier_called_with)
+        eq_((library, identifier), api.dummy_email_address_called_with)
+
+    def test_dummy_patron_identifier(self):
+        random.seed(42)
+        patron = self.default_patron
+        auth = patron.authorization_identifier
+        remote_auth = self.api.dummy_patron_identifier(auth)
+
+        # The dummy identifier is the input identifier plus
+        # 6 random characters.
+        eq_(auth + "N098QO", remote_auth)
+
+        # It's different every time.
+        remote_auth = self.api.dummy_patron_identifier(auth)
+        eq_(auth + "W3F17I", remote_auth)
+
+    def test_dummy_email_address(self):
+
+        patron = self.default_patron
+        library = patron.library
+        auth = patron.authorization_identifier
+        m = self.api.dummy_email_address
+
+        # Without a setting for DEFAULT_NOTIFICATION_EMAIL_ADDRESS, we
+        # can't calculate the email address to send RBdigital for a
+        # patron.
+        assert_raises_regexp(
+            RemotePatronCreationFailedException,
+            "Cannot create remote account for patron because library's default notification address is not set.",
+            m, patron, auth
+        )
+
+        self._set_notification_address(patron.library)
+        address = m(patron, auth)
+        eq_("genericemail+rbdigital-%s@library.org" % auth,
+            address)
 
     def test_fulfill(self):
         patron = self.default_patron
