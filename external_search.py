@@ -504,6 +504,8 @@ class ExternalSearchIndex(HasSelfTests):
 
     def _run_self_tests(self, _db):
 
+        # Helper methods for setting up the self-tests:
+
         def _search():
             return self.create_search_doc(
                 self.test_search_term, filter=None,
@@ -515,6 +517,8 @@ class ExternalSearchIndex(HasSelfTests):
                 self.test_search_term, filter=None, pagination=None,
                 debug=False, return_raw_results=True, search=_search()
             )
+
+        # Three self-tests:
 
         def _search_for_term():
             titles = [("%s (%s)" %(x.title, x.author)) for x in _works()]
@@ -1507,6 +1511,14 @@ class MockSearchResult(object):
         self.author = author
         meta["id"] = id
         self.meta = meta
+
+    def to_dict(self):
+        return {
+            "title": self.title,
+            "author": self.author,
+            "id": self.meta["id"],
+            "meta": self.meta
+        }
 
 class SearchIndexMonitor(WorkSweepMonitor):
     """Make sure the search index is up-to-date for every work.
