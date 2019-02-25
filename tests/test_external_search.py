@@ -279,18 +279,38 @@ class TestExternalSearch(ExternalSearchTest):
         index = MockExternalSearchIndex()
 
         # First, see what happens when the search returns no results.
-        [test_result] = index._run_self_tests(self._db)
-        eq_(True, test_result.success)
-        eq_([], test_result.result)
+        test_results = [x for x in index._run_self_tests(self._db)]
+
+        eq_("Searching for the specified term: 'a search term'", test_results[0].name)
+        eq_(True, test_results[0].success)
+        eq_([], test_results[0].result)
+
+        eq_("Generating search document for the specified term: 'a search term'", test_results[1].name)
+        eq_(True, test_results[1].success)
+        eq_([], test_results[1].result)
+
+        eq_("Retrieving raw results for the specified term: 'a search term'", test_results[2].name)
+        eq_(True, test_results[2].success)
+        eq_([], test_results[2].result)
 
         # Set up the search index so it will return a result.
         search_result = MockSearchResult(
             "Sample Book Title", "author", {}, "id"
         )
         index.index("index", "doc type", "id", search_result)
-        [test_result] = index._run_self_tests(self._db)
-        eq_(True, test_result.success)
-        eq_(["Sample Book Title (author)"], test_result.result)
+        test_results = [x for x in index._run_self_tests(self._db)]
+
+        eq_("Searching for the specified term: 'a search term'", test_results[0].name)
+        eq_(True, test_results[0].success)
+        eq_(["Sample Book Title (author)"], test_results[0].result)
+
+        eq_("Generating search document for the specified term: 'a search term'", test_results[1].name)
+        eq_(True, test_results[1].success)
+        eq_(["{'author': 'author', 'meta': {'id': 'id'}, 'id': 'id', 'title': 'Sample Book Title'}"], test_results[1].result)
+
+        eq_("Retrieving raw results for the specified term: 'a search term'", test_results[2].name)
+        eq_(True, test_results[2].success)
+        eq_(["{'author': 'author', 'meta': {'id': 'id'}, 'id': 'id', 'title': 'Sample Book Title'}"], test_results[2].result)
 
 class EndToEndExternalSearchTest(ExternalSearchTest):
     """Subclasses of this class set up real works in a real
