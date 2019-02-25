@@ -361,7 +361,7 @@ class ExternalSearchIndex(HasSelfTests):
         return search
 
     def query_works(self, query_string, filter=None, pagination=None,
-                    debug=False, return_raw_results=False, search=None):
+                    debug=False, return_raw_results=False):
         """Run a search query.
 
         :param query_string: The string to search for.
@@ -381,8 +381,7 @@ class ExternalSearchIndex(HasSelfTests):
         if not self.works_alias:
             return []
 
-        if not search:
-            search = self.create_search_doc(query_string, filter=filter, debug=debug, return_raw_results=return_raw_results)
+        search = self.create_search_doc(query_string, filter=filter, debug=debug, return_raw_results=return_raw_results)
 
         if not pagination:
             from lane import Pagination
@@ -515,7 +514,7 @@ class ExternalSearchIndex(HasSelfTests):
         def _works():
             return self.query_works(
                 self.test_search_term, filter=None, pagination=None,
-                debug=False, return_raw_results=True, search=_search()
+                debug=False, return_raw_results=True
             )
 
         # Three self-tests:
