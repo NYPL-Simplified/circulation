@@ -669,29 +669,29 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         The identifier is cached in a persistent Credential object.
 
-        I. If an already-cached identifier is present, we use
-           it.
+        The logic is complicated and spread out over multiple methods,
+        so here it is all in one place:
 
-        II. Otherwise, we look up the patron's barcode on RBdigital to try
-           to find an existing RBdigital account for them.
+        If an already-cached identifier is present, we use it.
 
-        II.1. If we find an existing RBdigital account, we set the
-              patron's barcode as their RBdigital identifier.
+        Otherwise, we look up the patron's barcode on RBdigital to try
+        to find their existing RBdigital account.
 
-        II.2. If we find no existing RBdigital account, we need to create
-              one.
+        If we find an existing RBdigital account, we cache the
+        identifier associated with that account.
 
-        II.2.a. If the ILS provides access to the patron's email
-                address, we create an account using the patron's actual
-                barcode and email address -- this will let them use the
-                'recover password' feature if they want to use the
-                RBdigital web site.
+        Otherwise, we need to create an RBdigital account for this patron:
 
-        II.2.b. If the ILS does not provide access to the patron's email
-                address, we create an account using the patron's actual
-                barcode with six random characters appended. This will let
-                the patron create a new RBdigital account using their
-                actual barcode, if they want to use the web site.
+        If the ILS provides access to the patron's email address, we
+        create an account using the patron's actual barcode and email
+        address. This will let them use the 'recover password' feature
+        if they want to use the RBdigital web site.
+
+        If the ILS does not provide access to the patron's email
+        address, we create an account using the patron's actual
+        barcode but with six random characters appended. This will let
+        the patron create a new RBdigital account using their actual
+        barcode, if they want to use the web site.
 
         :param patron: A Patron.
         :return: The identifier associated with the patron's (possibly
