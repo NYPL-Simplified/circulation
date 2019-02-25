@@ -1252,6 +1252,8 @@ class BaseCirculationAPI(object):
         """
         # LibraryAuthenticator knows about all authentication techniques
         # used to identify patrons of this library.
+        from authenticator import LibraryAuthenticator
+        _db = Session.object_session(patron)
         library_authenticator = LibraryAuthenticator.from_config(
             _db, patron.library
         )

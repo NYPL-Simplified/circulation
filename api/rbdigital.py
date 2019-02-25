@@ -714,7 +714,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         credential = Credential.lookup(
             _db, DataSource.RB_DIGITAL,
             Credential.IDENTIFIER_FROM_REMOTE_SERVICE,
-            patron, _refresh_credential, allow_persistent_token=True
+            patron, refresh_credential, allow_persistent_token=True
         )
         return credential.credential
 
@@ -766,7 +766,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         post_args = self._create_patron_body(
             library, authorization_identifier, email_address
         )
-        
+
         resp_dict = {}
         message = None
         response = self.request(
@@ -894,7 +894,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         """
         action="patron_id"
         url = "%s/rpc/libraries/%s/patrons/%s" % (
-            self.base_url, self.library_id, patron_identifier
+            self.base_url, self.library_id, remote_identifier
         )
 
         response = self.request(url)
@@ -1125,7 +1125,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         if response.status_code not in [200, 201]:
             if not message:
                 message = response.text
-            self.log.warning("%s call failed: %s ", action, message)
+            self.log.info("%s call failed: %s ", action, message)
 
             if response.status_code == 500:
                 # yes, it could be a server error, but it can also be a malformed value in the request
