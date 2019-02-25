@@ -35,6 +35,7 @@ from metadata_layer import (
     MeasurementData,
     SubjectData,
     ReplacementPolicy,
+    TimestampData,
 )
 
 from model import (
@@ -1807,6 +1808,7 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
             failure.to_coverage_record(
                 operation=CoverageRecord.IMPORT_OPERATION
             )
+        return imported_editions, failures
 
     def run_once(self, progress_ignore):
         feeds = []
@@ -1815,6 +1817,10 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
 
         # First, follow the feed's next links until we reach a page with
         # nothing new. If any link raises an exception, nothing will be imported.
+
+        total_imported = 0
+        total_failures = 0
+
         while queue:
             new_queue = []
 
@@ -1833,5 +1839,13 @@ class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
         # pick up where we left off.
         for link, feed in reversed(feeds):
             self.log.info("Importing next feed: %s", link)
-            self.import_one_feed(feed)
+            imported_editions, failures = self.import_one_feed(feed)
+            total_imported += len(imported_editions)
+            total_failures += len(failures)
             self._db.commit()
+
+        achievements = "Items imported: %d. Failures: %d." % (
+            total_imported, total_failures
+        )
+
+        return TimestampData(achievements=achievements)

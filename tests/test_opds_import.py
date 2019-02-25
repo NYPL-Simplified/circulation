@@ -40,6 +40,7 @@ from ..metadata_layer import (
     LinkData,
     CirculationData,
     Metadata,
+    TimestampData,
 )
 from ..model import (
     Collection,
@@ -2050,13 +2051,17 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         feed = self.content_server_mini_feed
 
-        monitor.import_one_feed(feed)
+        imported, failures = monitor.import_one_feed(feed)
 
         editions = self._db.query(Edition).all()
 
         # One edition has been imported
         eq_(1, len(editions))
         [edition] = editions
+
+        # The return value of import_one_feed includes the imported
+        # editions.
+        eq_([edition], imported)
 
         # That edition has a CoverageRecord.
         record = CoverageRecord.lookup(
@@ -2096,6 +2101,9 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         )
         assert "Utter failure!" in failure.exception
 
+        # Both failures were reported in the return value from
+        # import_one_feed
+        eq_(2, len(failures))
 
     def test_run_once(self):
         class MockOPDSImportMonitor(OPDSImportMonitor):
@@ -2111,7 +2119,9 @@ class TestOPDSImportMonitor(OPDSImporterTest):
                 return self.responses.pop()
 
             def import_one_feed(self, feed):
+                # Simulate two successes and one failure on every page.
                 self.imports.append(feed)
+                return [object(), object()], { "identifier": "Failure" }
 
         monitor = MockOPDSImportMonitor(
             self._db, collection=self._default_collection,
@@ -2122,10 +2132,18 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         monitor.queue_response([["second next link"], "second page"])
         monitor.queue_response([["next link"], "first page"])
 
-        monitor.run_once(object())
+        progress = monitor.run_once(object())
 
         # Feeds are imported in reverse order
         eq_(["last page", "second page", "first page"], monitor.imports)
+
+        # Every page of the import had two successes and one failure.
+        eq_("Items imported: 6. Failures: 3.", progress.achievements)
+        
+        # The TimestampData returned by run_once does not include any
+        # timing information; that's provided by run().
+        eq_(TimestampData.NO_VALUE, progress.start)
+        eq_(TimestampData.NO_VALUE, progress.finish)
 
     def test_update_headers(self):
         """Test the _update_headers helper method."""
