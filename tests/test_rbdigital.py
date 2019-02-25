@@ -438,30 +438,6 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             m, identifier
         )
 
-    def test_get_patron_information(self):
-        datastr, datadict = self.api.get_data("response_patron_info_not_found.json")
-        self.api.queue_response(status_code=404, content=datastr)
-        assert_raises_regexp(
-            NotFoundOnRemote, "patron_info:",
-            self.api.get_patron_information, patron_id='939987'
-        )
-
-        datastr, datadict = self.api.get_data("response_patron_info_error.json")
-        self.api.queue_response(status_code=400, content=datastr)
-        assert_raises_regexp(
-            InvalidInputException, "patron_info:",
-            self.api.get_patron_information, patron_id='939981fdsfdsf'
-        )
-
-        datastr, datadict = self.api.get_data("response_patron_info_found.json")
-        self.api.queue_response(status_code=200, content=datastr)
-        patron = self.api.get_patron_information(patron_id='939981')
-        eq_(u'1305722621', patron['libraryCardNumber'])
-        eq_(u'Mic', patron['firstName'])
-        eq_(u'Mouse', patron['lastName'])
-        eq_(u'mickeymouse1', patron['userName'])
-        eq_(u'mickey1@mouse.com', patron['email'])
-
     def test_get_ebook_availability_info(self):
         datastr, datadict = self.api.get_data("response_availability_ebook_1.json")
         self.api.queue_response(status_code=200, content=datastr)

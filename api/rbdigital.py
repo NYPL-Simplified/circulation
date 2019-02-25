@@ -1057,31 +1057,6 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         return holds
 
-    def get_patron_information(self, patron_id):
-        """
-        Retrieves patron's name, email, library card number from RBDigital.
-
-        :param patron_id RBDigital's internal id for the patron.
-        """
-        if not patron_id:
-            raise InvalidInputException("Need patron RBDigital id.")
-
-        url = "%s/libraries/%s/patrons/%s" % (self.base_url, str(self.library_id), patron_id)
-        action="patron_info"
-
-        try:
-            response = self.request(url)
-        except Exception, e:
-            self.log.error("Patron info call failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(e.message, action)
-
-        resp_dict = response.json()
-        message = resp_dict.get('message', None)
-        self.validate_response(response, message, action=action)
-
-        # If needed, will put info into PatronData subclass.  For now, OK to return a dictionary.
-        return resp_dict
-
     def patron_activity(self, patron, pin):
         """ Get a patron's current checkouts and holds.
 
