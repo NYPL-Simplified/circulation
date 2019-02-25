@@ -42,6 +42,7 @@ from core.metadata_layer import (
     Metadata,
     ReplacementPolicy,
     SubjectData,
+    TimestampData,
 )
 
 from core.model import (
@@ -1963,11 +1964,20 @@ class RBDigitalSyncMonitor(CollectionMonitor):
         super(RBDigitalSyncMonitor, self).__init__(_db, collection)
         self.api = api_class(_db, collection, **api_class_kwargs)
 
-    def run_once(self, start, cutoff):
+    def run_once(self, progress):
+        """Find books in the RBdigital collection that changed recently.
+
+        :param progress: A TimestampData, ignored.
+        :return: A TimestampData describing what was accomplished.
+        """
         items_transmitted, items_created = self.invoke()
         self._db.commit()
-        result_string = "%s items transmitted, %s items saved to DB" % (items_transmitted, items_created)
-        self.log.info(result_string)
+        achievements = (
+            "Records received from vendor: %d. Records written to database: %d" % (
+                items_transmitted, items_created
+            )
+        )
+        return TimestampData(achievements=achievements)
 
     def invoke(self):
         raise NotImplementedError()
@@ -2008,7 +2018,6 @@ class RBDigitalCirculationMonitor(CollectionMonitor):
     """
     SERVICE_NAME = "RBDigital CirculationMonitor"
     DEFAULT_START_TIME = datetime.datetime(1970, 1, 1)
-    INTERVAL_SECONDS = 1200
     DEFAULT_BATCH_SIZE = 50
 
     PROTOCOL = ExternalIntegration.RB_DIGITAL
@@ -2052,14 +2061,20 @@ class RBDigitalCirculationMonitor(CollectionMonitor):
 
         return item_count
 
-    def run(self):
-        super(RBDigitalCirculationMonitor, self).run()
+    def run_once(self, progress):
+        """Update the availability information of all titles in the
+        RBdigital collection.
 
-    def run_once(self, start, cutoff):
+        :param progress: A TimestampData, ignored.
+        :return: A TimestampData describing what was accomplished.
+        """
         ebook_count = self.process_availability(media_type='eBook')
         eaudio_count = self.process_availability(media_type='eAudio')
 
-        self.log.info("Processed %d ebooks and %d audiobooks.", ebook_count, eaudio_count)
+        message = "Ebooks processed: %d. Audiobooks processed: %d." % (
+            ebook_count, eaudio_count
+        )
+        return TimestampData(achievements=message)
 
 class AudiobookManifest(CoreAudiobookManifest):
     """A standard AudiobookManifest derived from an RBdigital audiobook

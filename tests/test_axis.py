@@ -34,6 +34,7 @@ from core.metadata_layer import (
     IdentifierData,
     ContributorData,
     SubjectData,
+    TimestampData,
 )
 
 from core.scripts import RunCollectionCoverageProviderScript
@@ -597,6 +598,57 @@ class TestCirculationMonitor(Axis360Test):
         last_checked=datetime.datetime(2015, 5, 20, 2, 9, 8),
     )
 
+    def test_run(self):
+        class Mock(Axis360CirculationMonitor):
+            def catch_up_from(self, start, cutoff, progress):
+                self.called_with = (start, cutoff, progress)
+        monitor = Mock(self._db, self.collection, api_class=MockAxis360API)
+
+        # The first time run() is called, catch_up_from() is asked to
+        # find events between DEFAULT_START_TIME and the current time.
+        monitor.run()
+        start, cutoff, progress = monitor.called_with
+        now = datetime.datetime.utcnow()
+        eq_(monitor.DEFAULT_START_TIME, start)
+        assert (now - cutoff).total_seconds() < 2
+
+        # The second time run() is called, catch_up_from() is asked
+        # to find events between five minutes before the last cutoff,
+        # and what is now the current time.
+        monitor.run()
+        new_start, new_cutoff, new_progress = monitor.called_with
+        now = datetime.datetime.utcnow()
+        before_old_cutoff = cutoff - monitor.OVERLAP
+        eq_(before_old_cutoff, new_start)
+        assert (now - new_cutoff).total_seconds() < 2
+
+    def test_catch_up_from(self):
+        class MockAPI(MockAxis360API):
+            def recent_activity(self, since):
+                self.recent_activity_called_with = since
+                return [(1,"a"),(2, "b")]
+
+        class MockMonitor(Axis360CirculationMonitor):
+            processed = []
+            def process_book(self, bibliographic, circulation):
+                self.processed.append((bibliographic, circulation))
+
+        monitor = MockMonitor(self._db, self.collection, api_class=MockAPI)
+        data = self.sample_data("single_item.xml")
+        self.api.queue_response(200, content=data)
+        progress = TimestampData()
+        monitor.catch_up_from("start", "cutoff", progress)
+
+        # The start time was passed into recent_activity.
+        eq_("start", monitor.api.recent_activity_called_with)
+
+        # process_book was called on each item returned by recent_activity.
+        eq_([(1,"a"),(2, "b")], monitor.processed)
+
+        # The number of books processed was stored in
+        # TimestampData.achievements.
+        eq_("Modified titles: 2.", progress.achievements)
+
     def test_process_book(self):
         integration, ignore = create(
             self._db, ExternalIntegration,
@@ -659,6 +711,19 @@ class TestCirculationMonitor(Axis360Test):
                    if x.data_source.name == DataSource.AXIS_360
                    and x.operation is None]
         eq_(1, len(records))
+
+        # Now, another collection with the same book shows up.
+        collection2 = MockAxis360API.mock_collection(self._db, "coll2")
+        monitor = Axis360CirculationMonitor(
+            self._db, collection2, api_class=MockAxis360API,
+        )
+        edition2, license_pool2 = monitor.process_book(
+            self.BIBLIOGRAPHIC_DATA, self.AVAILABILITY_DATA)
+
+        # Both license pools have the same Work and the same presentation
+        # edition.
+        eq_(license_pool.work, license_pool2.work)
+        eq_(license_pool.presentation_edition, license_pool2.presentation_edition)
 
     def test_process_book_updates_old_licensepool(self):
         """If the LicensePool already exists, the circulation monitor
