@@ -12,6 +12,7 @@ from datetime import (
 from api.overdrive import (
     MockOverdriveAPI,
     OverdriveAPI,
+    OverdriveCirculationMonitor,
     OverdriveCollectionReaper,
     OverdriveFormatSweep,
 )
@@ -28,6 +29,7 @@ from . import (
     sample_data
 )
 
+from core.metadata_layer import TimestampData
 from core.model import (
     Collection,
     ConfigurationSetting,
@@ -1125,6 +1127,104 @@ class TestSyncBookshelf(OverdriveAPITest):
         loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         eq_(5, len(patron.holds))
         assert overdrive_hold in patron.holds
+
+class TestOverdriveCirculationMonitor(OverdriveAPITest):
+
+    def test_run(self):
+        # An end-to-end test verifying that this Monitor manages its
+        # state across multiple runs.
+        # 
+        # This tests a lot of code that's technically not in Monitor,
+        # but when the Monitor API changes, it may require changes to
+        # this particular monitor, and it's good to have a test that
+        # will fail if that's true.
+        class Mock(OverdriveCirculationMonitor):
+            def catch_up_from(self, start, cutoff, progress):
+                self.catch_up_from_called_with = (start, cutoff, progress)
+
+        monitor = Mock(self._db, self.collection)
+
+        monitor.run()
+        start, cutoff, progress = monitor.catch_up_from_called_with
+        now = datetime.utcnow()
+
+        # The first time this Monitor is called, its 'start time' is
+        # the current time, and we ask for an overlap of one minute.
+        # This isn't very effective, but we have to start somewhere.
+        #
+        # (This isn't how the Overdrive collection is initially
+        # populated, BTW -- that's FullOverdriveCollectionMonitor.)
+        self.time_eq(start, now-monitor.OVERLAP)
+        self.time_eq(cutoff, now)
+        timestamp = monitor.timestamp()
+        eq_(start, timestamp.start)
+        eq_(cutoff, timestamp.finish)
+
+        # The second time the Monitor is called, its 'start time'
+        # is one minute before the previous cutoff time.
+        monitor.run()
+        new_start, new_cutoff, new_progress = monitor.catch_up_from_called_with
+        now = datetime.utcnow()
+        eq_(new_start, cutoff-monitor.OVERLAP)
+        self.time_eq(new_cutoff, now)
+
+    def test_catch_up_from(self):
+        # catch_up_from() asks Overdrive about recent changes by
+        # calling recently_changed_ids(), and mirrors those changes
+        # locally by calling update_licensepool().
+        class MockAPI(object):
+            def __init__(self, *ignore, **kwignore):
+                self.licensepools = []
+                self.update_licensepool_calls = []
+
+            def update_licensepool(self, book_id):
+                pool, is_new, is_changed = self.licensepools.pop(0)
+                self.update_licensepool_calls.append((book_id, pool))
+                return pool, is_new, is_changed
+
+        class MockMonitor(OverdriveCirculationMonitor):
+
+            recently_changed_ids_called_with = None 
+            def recently_changed_ids(self, start, cutoff):
+                self.recently_changed_ids_called_with = (start, cutoff)
+                return [1, 2, 3, 4]
+
+        monitor = MockMonitor(self._db, self.collection, api_class=MockAPI)
+        monitor.maximum_consecutive_unchanged_books = 2
+        api = monitor.api
+
+        # The 'Overdrive API' is ready to tell us about four books,
+        # but only one of them (the first) represents a change from what
+        # we already know.
+        lp1 = self._licensepool(None)
+        lp2 = self._licensepool(None)
+        lp3 = self._licensepool(None)
+        lp4 = object()
+        api.licensepools.append((lp1, True, True))
+        api.licensepools.append((lp2, False, False))
+        api.licensepools.append((lp3, False, False))
+        api.licensepools.append(lp4)
+
+        progress = TimestampData()
+        monitor.catch_up_from(object(), object(), progress)
+
+        # We called update_licensepool on the first three books,
+        # and got the first three LicensePools from the queue.
+        eq_([(1, lp1),(2, lp2),(3, lp3)], api.update_licensepool_calls)
+
+        # At that point we gave up because we'd gotten two consecutive
+        # books from Overdrive that contained no new information.
+
+        # The fourth (bogus) LicensePool is still in api.licensepools
+        eq_([lp4], api.licensepools)
+
+        # TODO: Verify that a DISTRIBUTOR_TITLE_ADD event was gathered
+        # for the newly discovered license pool.
+
+        # The incoming TimestampData object was updated with
+        # a summary of what happened.
+        eq_("Books processed: 3.", progress.achievements)
+
 
 class TestOverdriveFormatSweep(OverdriveAPITest):
 

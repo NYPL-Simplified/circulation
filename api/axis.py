@@ -58,6 +58,7 @@ from core.model import (
 from core.monitor import (
     CollectionMonitor,
     IdentifierSweepMonitor,
+    TimelineMonitor,
 )
 
 from core.opds_import import (
@@ -508,7 +509,7 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
             params=params, **kwargs
         )
 
-class Axis360CirculationMonitor(CollectionMonitor):
+class Axis360CirculationMonitor(CollectionMonitor, TimelineMonitor):
 
     """Maintain LicensePools for Axis 360 titles.
     """
@@ -519,7 +520,6 @@ class Axis360CirculationMonitor(CollectionMonitor):
     PROTOCOL = ExternalIntegration.AXIS_360
 
     DEFAULT_START_TIME = datetime(1970, 1, 1)
-    FIVE_MINUTES = timedelta(minutes=5)
 
     def __init__(self, _db, collection, api_class=Axis360API):
         super(Axis360CirculationMonitor, self).__init__(_db, collection)
@@ -535,16 +535,19 @@ class Axis360CirculationMonitor(CollectionMonitor):
             Axis360BibliographicCoverageProvider(collection, api_class=self.api)
         )
 
-    def run_once(self, start, cutoff):
-        # Give us five minutes of overlap because it's very important
-        # we don't miss anything.
-        since = start-self.FIVE_MINUTES
+    def catch_up_from(self, start, cutoff, progress):
+        """Find Axis 360 books that changed recently.
+
+        :progress: A TimestampData representing the time previously
+        covered by this Monitor.
+        """
         count = 0
-        for bibliographic, circulation in self.api.recent_activity(since):
+        for bibliographic, circulation in self.api.recent_activity(start):
             self.process_book(bibliographic, circulation)
             count += 1
             if count % self.batch_size == 0:
                 self._db.commit()
+        progress.achievements = "Modified titles: %d." % count
 
     def process_book(self, bibliographic, availability):
 

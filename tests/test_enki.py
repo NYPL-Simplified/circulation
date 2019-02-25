@@ -41,6 +41,7 @@ from api.enki import (
 from core.metadata_layer import (
     CirculationData,
     Metadata,
+    TimestampData,
 )
 from core.scripts import RunCollectionCoverageProviderScript
 from core.util.http import (
@@ -535,32 +536,49 @@ class TestEnkiImport(BaseEnkiTest):
             incremental_import_called_with = dummy_value
             def full_import(self):
                 self.full_import_called = True
+                return 10
 
             def incremental_import(self, since):
                 self.incremental_import_called_with = since
+                return 4, 7
 
         importer = Mock(self._db, self.collection, api_class=self.api)
 
-        # If run_once() is called with no start time, as happens the first time
-        # the importer runs, it calls full_import().
-        importer.run_once(None, None)
+        # If the incoming TimestampData makes it look like the process
+        # has never successfully completed, full_import() is called.
+        progress = TimestampData(start=None)
+        importer.run_once(progress)
         eq_(True, importer.full_import_called)
+        eq_("New or modified titles: 10. Titles with circulation changes: 0.",
+            progress.achievements)
 
         # It doesn't call incremental_import().
         eq_(dummy_value, importer.incremental_import_called_with)
 
-        # If run_once() is called with a start time, a time five
-        # minutes previous is passed into incremental_import()
+        # If run_once() is called with a TimestampData that indicates
+        # an earlier successful run, a time five minutes before the
+        # previous completion time is passed into incremental_import()
         importer.full_import_called = False
-        timestamp = datetime.datetime.utcnow()
-        five_minutes_earlier = timestamp - importer.FIVE_MINUTES
-        importer.run_once(timestamp, None)
+
+        a_while_ago = datetime.datetime(2011, 1, 1)
+        even_earlier = a_while_ago - datetime.timedelta(days=100)
+        timestamp = TimestampData(start=even_earlier, finish=a_while_ago)
+        new_timestamp = importer.run_once(timestamp)
 
         passed_in = importer.incremental_import_called_with
-        assert abs((passed_in-five_minutes_earlier).total_seconds()) < 2
+        expect = a_while_ago - importer.OVERLAP
+        assert abs((passed_in-expect).total_seconds()) < 2
 
         # full_import was not called.
         eq_(False, importer.full_import_called)
+
+        # The proposed new TimestampData covers the entire timespan
+        # from the 'expect' period to now.
+        eq_(expect, new_timestamp.start)
+        now = datetime.datetime.utcnow()
+        assert (now - new_timestamp.finish).total_seconds() < 2
+        eq_("New or modified titles: 4. Titles with circulation changes: 7.",
+            new_timestamp.achievements)
 
     def test_full_import(self):
         """full_import calls get_all_titles over and over again until

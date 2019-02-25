@@ -72,6 +72,7 @@ from core.coverage import (
 from core.monitor import (
     CollectionMonitor,
     IdentifierSweepMonitor,
+    TimelineMonitor,
 )
 from core.util.xmlparser import XMLParser
 from core.util.http import (
@@ -1229,7 +1230,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
         edition, ignore = metadata.apply(edition, collection=self.collection,
                                          replace=self.replacement_policy)
 
-class BibliothecaEventMonitor(CollectionMonitor):
+class BibliothecaEventMonitor(CollectionMonitor, TimelineMonitor):
 
     """Register CirculationEvents for Bibliotheca titles.
 
@@ -1323,41 +1324,28 @@ class BibliothecaEventMonitor(CollectionMonitor):
             yield slice_start, slice_cutoff, full_slice
             slice_start = slice_start + increment
 
-    def run_once(self, start, cutoff):
+    def catch_up_from(self, start, cutoff, progress):
         added_books = 0
         i = 0
         one_day = timedelta(days=1)
-        most_recent_timestamp = start
-        for start, cutoff, full_slice in self.slice_timespan(
-                start, cutoff, one_day):
-            most_recent_timestamp = start
-            self.log.info("Asking for events between %r and %r", start, cutoff)
-            try:
-                event = None
-                events = self.api.get_events_between(start, cutoff, full_slice)
-                for event in events:
-                    event_timestamp = self.handle_event(*event)
-                    if (not most_recent_timestamp or
-                        (event_timestamp > most_recent_timestamp)):
-                        most_recent_timestamp = event_timestamp
-                    i += 1
-                    if not i % 1000:
-                        self._db.commit()
-                self._db.commit()
-            except Exception, e:
-                if event:
-                    self.log.error(
-                        "Fatal error processing Bibliotheca event %r.", event,
-                        exc_info=e
-                    )
-                else:
-                    self.log.error(
-                        "Fatal error getting list of Bibliotheca events.",
-                        exc_info=e
-                    )
-                raise e
-        self.log.info("Handled %d events total", i)
-        return most_recent_timestamp
+        for slice_start, slice_cutoff, full_slice in self.slice_timespan(
+            start, cutoff, one_day
+        ):
+            self.log.info(
+                "Asking for events between %r and %r", slice_start,
+                slice_cutoff
+            )
+            event = None
+            events = self.api.get_events_between(
+                slice_start, slice_cutoff, full_slice
+            )
+            for event in events:
+                event_timestamp = self.handle_event(*event)
+                i += 1
+                if not i % 1000:
+                    self._db.commit()
+            self._db.commit()
+        progress.achievements = "Events handled: %d." % i
 
     def handle_event(self, bibliotheca_id, isbn, foreign_patron_id,
                      start_time, end_time, internal_event_type):

@@ -20,7 +20,11 @@ from core.opds_import import (
     OPDSImporter,
     OPDSImportMonitor,
 )
-from core.monitor import CollectionMonitor
+from core.metadata_layer import TimestampData
+from core.monitor import (
+    CollectionMonitor,
+    TimelineMonitor,
+)
 from core.model import (
     Collection,
     ConfigurationSetting,
@@ -830,7 +834,7 @@ class ODLBibliographicImportMonitor(OPDSImportMonitor):
     PROTOCOL = ODLBibliographicImporter.NAME
     SERVICE_NAME = "ODL Bibliographic Import Monitor"
 
-class ODLConsolidatedCopiesMonitor(CollectionMonitor):
+class ODLConsolidatedCopiesMonitor(CollectionMonitor, TimelineMonitor):
     """Monitor a consolidated copies feed for circulation information changes.
 
     This is primarily used to set up availability information when new copies
@@ -852,8 +856,6 @@ class ODLConsolidatedCopiesMonitor(CollectionMonitor):
     # information for every consolidated copy.
     DEFAULT_START_TIME = CollectionMonitor.NEVER
 
-    OVERLAP = datetime.timedelta(minutes=5)
-
     def __init__(self, _db, collection=None, api=None, **kwargs):
         super(ODLConsolidatedCopiesMonitor, self).__init__(_db, collection, **kwargs)
 
@@ -861,28 +863,33 @@ class ODLConsolidatedCopiesMonitor(CollectionMonitor):
         self.start_url = collection.external_integration.setting(ODLWithConsolidatedCopiesAPI.CONSOLIDATED_COPIES_URL_KEY).value
         self.analytics = self.api.analytics
 
-    def run_once(self, start, cutoff):
+    def catch_up_from(self, start, cutoff, progress):
+        """Find books in the ODL collection that changed recently.
+
+        :progress: A TimestampData representing the time previously
+        covered by this Monitor.
+        """
         url = self.start_url
         if start:
-            # Add a small overlap with the previous run to make sure
-            # we don't miss anything.
-            start = start - self.OVERLAP
-
             url += "?since=%s" % (start.isoformat() + 'Z')
 
         # Go through the consolidated copies feed until we get to a page
         # with no next link.
+        total_updates = 0
         while url:
             response = self.api._get(url)
-            next_url = self.process_one_page(response)
+            next_url, updates_this_page = self.process_one_page(response)
+            total_updates += updates_this_page
             if next_url:
                 # Make sure the next url is an absolute url.
                 url = urlparse.urljoin(url, next_url)
             else:
                 url = None
+        progress.achievements = "Licenses updated: %d." % total_updates
 
     def process_one_page(self, response):
         content = json.loads(response.content)
+        total_updates = 0
 
         # Process each copy in the response and return the next link
         # if there is one.
@@ -895,8 +902,9 @@ class ODLConsolidatedCopiesMonitor(CollectionMonitor):
         copies = content.get("copies") or []
         for copy in copies:
             self.api.update_consolidated_copy(self._db, copy, self.analytics)
+            total_updates += 1
 
-        return next_url
+        return next_url, total_updates
 
 class ODLHoldReaper(CollectionMonitor):
     """Check for holds that have expired and delete them, and update
@@ -909,7 +917,7 @@ class ODLHoldReaper(CollectionMonitor):
         super(ODLHoldReaper, self).__init__(_db, collection, **kwargs)
         self.api = api or ODLWithConsolidatedCopiesAPI(_db, collection)
 
-    def run_once(self, start, cutoff):
+    def run_once(self, progress):
         # Find holds that have expired.
         expired_holds = self._db.query(Hold).join(
             Hold.license_pool
@@ -922,13 +930,21 @@ class ODLHoldReaper(CollectionMonitor):
         )
 
         changed_pools = set()
+        total_deleted_holds = 0
         for hold in expired_holds:
             changed_pools.add(hold.license_pool)
             self._db.delete(hold)
+            total_deleted_holds += 1
 
         for pool in changed_pools:
             self.api.update_hold_queue(pool)
 
+        message = "Holds deleted: %d. License pools updated: %d" % (
+            total_deleted_holds,
+            len(changed_pools)
+        )
+        progress = TimestampData(achievements=message)
+        return progress
 
 class MockODLWithConsolidatedCopiesAPI(ODLWithConsolidatedCopiesAPI):
     """Mock API for tests that overrides _get and _url_for and tracks requests."""

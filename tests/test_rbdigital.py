@@ -37,6 +37,7 @@ from api.rbdigital import (
     RBDigitalDeltaMonitor,
     RBDigitalImportMonitor,
     RBDigitalRepresentationExtractor,
+    RBDigitalSyncMonitor,
     MockRBDigitalAPI,
     RBFulfillmentInfo,
 )
@@ -50,6 +51,7 @@ from core.metadata_layer import (
     IdentifierData,
     Metadata,
     SubjectData,
+    TimestampData,
 )
 
 from core.model import (
@@ -1037,6 +1039,35 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
 class TestCirculationMonitor(RBDigitalAPITest):
 
+    def test_run_once(self):
+        # run_once() calls process_availability twice, once for
+        # ebooks and once for audiobooks.
+
+        class Mock(RBDigitalCirculationMonitor):
+            process_availability_calls = []
+
+            def process_availability(self, media_type):
+                self.process_availability_calls.append(media_type)
+                # Pretend we processed three titles.
+                return 3
+
+        monitor = Mock(
+            self._db, self.collection, api_class=MockRBDigitalAPI,
+        )
+        timestamp = monitor.timestamp().to_data()
+        progress = monitor.run_once(timestamp)
+        eq_(['eBook', 'eAudio'], monitor.process_availability_calls)
+
+        # The TimestampData returned by run_once() describes its
+        # achievements.
+        eq_("Ebooks processed: 3. Audiobooks processed: 3.",
+            progress.achievements)
+
+        # The TimestampData does not include any timing information
+        # -- that will be applied by run().
+        eq_(TimestampData.NO_VALUE, progress.start)
+        eq_(TimestampData.NO_VALUE, progress.finish)
+
     def test_process_availability(self):
         monitor = RBDigitalCirculationMonitor(
             self._db, self.collection, api_class=MockRBDigitalAPI,
@@ -1438,6 +1469,36 @@ class TestRBDigitalSyncMonitor(DatabaseTest):
         path = os.path.join(self.resource_path, filename)
         data = open(path).read()
         return data, json.loads(data)
+
+    def test_run_once(self):
+        # Calling run_once calls invoke(), and invoke() is
+        # expected to return two numbers.
+        class Mock(RBDigitalSyncMonitor):
+            SERVICE_NAME = "A service"
+
+            def invoke(self):
+                self.invoked = True
+                return 10, 5
+
+        monitor = Mock(
+            self._db, self.collection, api_class=MockRBDigitalAPI,
+        )
+        progress = monitor.run_once(monitor.timestamp().to_data())
+
+        # invoke() was called.
+        eq_(True, monitor.invoked)
+
+        # The TimestampData returned by run_once() describes its
+        # achievements.
+        eq_(
+            "Records received from vendor: 10. Records written to database: 5",
+            progress.achievements
+        )
+
+        # The TimestampData does not include any timing information --
+        # that will be applied by run().
+        eq_(TimestampData.NO_VALUE, progress.start)
+        eq_(TimestampData.NO_VALUE, progress.finish)
 
     def test_import(self):
 
