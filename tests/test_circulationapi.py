@@ -918,6 +918,19 @@ class TestCirculationAPI(DatabaseTest):
 
 class TestBaseCirculationAPI(DatabaseTest):
 
+    def test_default_notification_email_address(self):
+        # Test the ability to get the default notification email address
+        # for a patron or a library.
+        self._default_library.setting(
+            Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS).value = (
+                "help@library"
+            )
+        m = BaseCirculationAPI.default_notification_email_address
+        eq_("help@library", m(self._default_library, None))
+        eq_("help@library", m(self._patron(), None))
+        other_library = self._library()
+        eq_(None, m(other_library, None))
+
     def test_can_fulfill_without_loan(self):
         """By default, there is a blanket prohibition on fulfilling a title
         when there is no active loan.

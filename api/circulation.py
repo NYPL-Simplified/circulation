@@ -26,6 +26,7 @@ from core.model import (
     LicensePool,
     Loan,
     Hold,
+    Patron,
     RightsStatus,
     Session,
 )
@@ -1224,6 +1225,7 @@ class BaseCirculationAPI(object):
             )
         return internal_format
 
+    @classmethod
     def default_notification_email_address(self, library_or_patron, pin):
         """What email address should be used to notify this library's
         patrons of changes?
@@ -1231,7 +1233,7 @@ class BaseCirculationAPI(object):
         :param library_or_patron: A Library or a Patron.
         """
         if isinstance(library_or_patron, Patron):
-            library_or_patron = patron.library
+            library_or_patron = library_or_patron.library
         return ConfigurationSetting.for_library(
             Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
             library_or_patron
