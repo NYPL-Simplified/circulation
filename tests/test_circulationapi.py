@@ -16,6 +16,10 @@ from datetime import (
     timedelta,
 )
 
+from api.authenticator import (
+    LibraryAuthenticator,
+    PatronData,
+)
 from api.circulation_exceptions import *
 from api.circulation import (
     APIAwareFulfillmentInfo,
@@ -912,7 +916,20 @@ class TestCirculationAPI(DatabaseTest):
         pool.open_access = True
         eq_(True, circulation.can_fulfill_without_loan(None, pool, object()))
 
-class TestBaseCirculationAPI(object):
+class TestBaseCirculationAPI(DatabaseTest):
+
+    def test_default_notification_email_address(self):
+        # Test the ability to get the default notification email address
+        # for a patron or a library.
+        self._default_library.setting(
+            Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS).value = (
+                "help@library"
+            )
+        m = BaseCirculationAPI.default_notification_email_address
+        eq_("help@library", m(self._default_library, None))
+        eq_("help@library", m(self._patron(), None))
+        other_library = self._library()
+        eq_(None, m(other_library, None))
 
     def test_can_fulfill_without_loan(self):
         """By default, there is a blanket prohibition on fulfilling a title
@@ -920,6 +937,93 @@ class TestBaseCirculationAPI(object):
         """
         api = BaseCirculationAPI()
         eq_(False, api.can_fulfill_without_loan(object(), object(), object()))
+
+    def test_patron_email_address(self):
+        # Test the method that looks up a patron's actual email address
+        # (the one they shared with the library) on demand.
+        class Mock(BaseCirculationAPI):
+            @classmethod
+            def _library_authenticator(self, library):
+                self._library_authenticator_called_with = library
+                value = BaseCirculationAPI._library_authenticator(library)
+                self._library_authenticator_returned = value
+                return value
+
+        api = Mock()
+        patron = self._patron()
+        library = patron.library
+
+        # In a non-test scenario, a real LibraryAuthenticator is
+        # created and used as a source of knowledge about a patron's
+        # email address.
+        #
+        # However, the default library has no authentication providers
+        # set up, so the patron has no email address -- there's no one
+        # capable of providing an address.
+        eq_(None, api.patron_email_address(patron))
+        eq_(patron.library, api._library_authenticator_called_with)
+        assert isinstance(
+            api._library_authenticator_returned, LibraryAuthenticator
+        )
+
+        # Now we're going to pass in our own LibraryAuthenticator,
+        # which we've populated with mock authentication providers,
+        # into a real BaseCirculationAPI.
+        api = BaseCirculationAPI()
+        authenticator = LibraryAuthenticator(_db=self._db, library=library)
+
+        # This OAuth authentication provider doesn't implement
+        # remote_patron_lookup (it raises NotImplementedError),
+        # so it's no help.
+        class MockOAuth(object):
+            NAME = "mock oauth"
+            def remote_patron_lookup(self, patron):
+                self.called_with = patron
+                raise NotImplementedError()
+        mock_oauth = MockOAuth()
+        authenticator.register_oauth_provider(mock_oauth)
+        eq_(
+            None,
+            api.patron_email_address(
+                patron, library_authenticator=authenticator
+            )
+        )
+        # But we can verify that remote_patron_lookup was in fact
+        # called.
+        eq_(patron, mock_oauth.called_with)
+
+        # This basic authentication provider _does_ implement
+        # remote_patron_lookup, but doesn't provide the crucial
+        # information, so still no help.
+        class MockBasic(object):
+            def remote_patron_lookup(self, patron):
+                self.called_with = patron
+                return PatronData(authorization_identifier="patron")
+        basic = MockBasic()
+        authenticator.register_basic_auth_provider(basic)
+        eq_(
+            None,
+            api.patron_email_address(
+                patron, library_authenticator=authenticator
+            )
+        )
+        eq_(patron, basic.called_with)
+
+        # This basic authentication provider gives us the information
+        # we're after.
+        class MockBasic(object):
+            def remote_patron_lookup(self, patron):
+                self.called_with = patron
+                return PatronData(email_address="me@email")
+        basic = MockBasic()
+        authenticator.basic_auth_provider = basic
+        eq_(
+            "me@email",
+            api.patron_email_address(
+                patron, library_authenticator=authenticator
+            )
+        )
+        eq_(patron, basic.called_with)
 
 
 class TestDeliveryMechanismInfo(DatabaseTest):
