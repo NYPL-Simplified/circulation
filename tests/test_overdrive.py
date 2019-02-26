@@ -119,21 +119,12 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         eq_(self.api.access_token_response.content, response.content)
 
     def test_get_success(self):
-        # This test doesn't use the cached collection token; remove
-        # the queued response setting it up.
-        self.api.responses.pop()
-
         self.api.queue_response(200, content="some content")
         status_code, headers, content = self.api.get(self._url, {})
         eq_(200, status_code)
         eq_("some content", content)
 
     def test_failure_to_get_library_is_fatal(self):
-        # A successful response to the library endpoint was queued up,
-        # since that's what most tests need. But we want it to fail.
-        # Get rid of the 'success' response and replace it with a
-        # 'failure' response.
-        self.api.responses.pop()
         self.api.queue_response(500)
 
         assert_raises_regexp(
@@ -160,12 +151,10 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         )
 
     def test_401_on_get_refreshes_bearer_token(self):
-        # Remove the queued response that will do the initial token setup.
-        # We want the next request we make to fail.
-        self.api.responses.pop()
+        # We have a token.
         eq_("bearer token", self.api.token)
 
-        # We try to GET and receive a 401.
+        # But then we try to GET, and receive a 401.
         self.api.queue_response(401)
 
         # We refresh the bearer token. (This happens in
@@ -481,6 +470,7 @@ class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
         """When there are no Advantage accounts, get_advantage_accounts()
         returns an empty list.
         """
+        self.api.queue_collection_token()
         eq_([], self.api.get_advantage_accounts())
 
     def test_from_representation(self):
@@ -567,6 +557,7 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         """A bad or malformed GUID can't get coverage."""
         identifier = self._identifier()
         identifier.identifier = 'bad guid'
+        self.api.queue_collection_token()
 
         error = '{"errorCode": "InvalidGuid", "message": "An invalid guid was given.", "token": "7aebce0e-2e88-41b3-b6d3-82bf15f8e1a2"}'
         self.api.queue_response(200, content=error)
@@ -590,6 +581,8 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         """Test the normal workflow where we ask Overdrive for data,
         Overdrive provides it, and we create a presentation-ready work.
         """
+        self.api.queue_collection_token()
+
         # Here's the book mentioned in overdrive_metadata.json.
         identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
         identifier.identifier = '3896665d-9d81-4cac-bd43-ffc5066de1f5'
