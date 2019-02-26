@@ -535,7 +535,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         expect = {
             'userName': identifier,
             'firstName': 'Library',
-            'libraryCardNumber': identifier,
+            'libraryCard': identifier,
             'lastName': 'Simplified',
             'postalCode': '11111',
             'libraryId': api.library_id,
@@ -555,7 +555,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         expect = {
             'userName': 'dummyid',
             'firstName': 'Library',
-            'libraryCardNumber': 'dummyid',
+            'libraryCard': 'dummyid',
             'lastName': 'Simplified',
             'postalCode': '11111',
             'libraryId': api.library_id,
