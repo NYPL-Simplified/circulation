@@ -54,13 +54,15 @@ class Credential(Base):
 
     @classmethod
     def lookup(self, _db, data_source, type, patron, refresher_method,
-               allow_persistent_token=False):
+               allow_persistent_token=False, allow_empty_token=False):
         from datasource import DataSource
         if isinstance(data_source, basestring):
             data_source = DataSource.lookup(_db, data_source)
         credential, is_new = get_one_or_create(
             _db, Credential, data_source=data_source, type=type, patron=patron)
-        if (is_new or (not credential.expires and not allow_persistent_token)
+        if (is_new
+            or (not credential.expires and not allow_persistent_token)
+            or (not credential.credential and not allow_empty_token)
             or (credential.expires
                 and credential.expires <= datetime.datetime.utcnow())):
             if refresher_method:
