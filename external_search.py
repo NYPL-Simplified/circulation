@@ -524,7 +524,7 @@ class ExternalSearchIndex(HasSelfTests):
             return titles
 
         yield self.run_test(
-            ("Searching for the specified term: '%s'" %(self.test_search_term)),
+            ("Search results for '%s':" %(self.test_search_term)),
             _search_for_term
         )
 
@@ -537,27 +537,27 @@ class ExternalSearchIndex(HasSelfTests):
             return json.dumps(search.to_dict(), indent=1)
 
         yield self.run_test(
-            ("Generating search document for the specified term: '%s'" %(self.test_search_term)),
+            ("Search document for '%s':" %(self.test_search_term)),
             _get_raw_doc
         )
 
         def _get_raw_results():
-            return [str(x.to_dict()) for x in _works()]
+            return [json.dumps(x.to_dict(), indent=1) for x in _works()]
 
         yield self.run_test(
-            ("Retrieving raw results for the specified term: '%s'" %(self.test_search_term)),
+            ("Raw search results for '%s':" %(self.test_search_term)),
             _get_raw_results
         )
 
         def _count_docs():
             # The mock methods used in testing return a list, so we have to call len() rather than count().
             if in_testing:
-                return "Documents: %s.  Search results: %s." %(len(_search()), len(_works()))
+                return str(len(_works()))
 
-            return "Documents: %s.  Search results: %s." %(_search().count(), _works().count())
+            return str(_works().count())
 
         yield self.run_test(
-            ("Getting the total number of results for the specified term: '%s'" %(self.test_search_term)),
+            ("Total number of search results for '%s':" %(self.test_search_term)),
             _count_docs
         )
 
@@ -569,7 +569,7 @@ class ExternalSearchIndex(HasSelfTests):
             return str(self.search.count())
 
         yield self.run_test(
-            "Total number of documents in this search index",
+            "Total number of documents in this search index:",
             _total_count
         )
 
@@ -591,7 +591,7 @@ class ExternalSearchIndex(HasSelfTests):
             return json.dumps(result, indent=1)
 
         yield self.run_test(
-            "Total number of documents per collection",
+            "Total number of documents per collection:",
             _collections
         )
 
