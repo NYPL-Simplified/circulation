@@ -291,8 +291,10 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         self.api.queue_response(status_code=200, content=datastr)
 
         catalog = self.api.get_all_catalog()
-        eq_(8, len(catalog))
-        eq_("Challenger Deep", catalog[7]['title'])
+        eq_(
+            [u'Tricks', u'Emperor Mage: The Immortals', u'In-Flight Russian'],
+            [x['title'] for x in catalog]
+        )
 
     def test_get_delta(self):
         datastr, datadict = self.api.get_data("response_catalog_delta.json")
@@ -1758,7 +1760,7 @@ class TestRBDigitalDeltaMonitor(RBDigitalAPITest):
             def populate_delta(self):
                 self.called = True
         api = MockAPI()
-        monitor = RBDigitalImportMonitor(
+        monitor = RBDigitalDeltaMonitor(
             self._db, self.collection, api_class=api
         )
         monitor.invoke()
