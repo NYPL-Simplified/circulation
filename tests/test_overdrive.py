@@ -870,7 +870,7 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         # Verify that the requests that were made correspond to what
         # Overdrive is expecting.
-        initial, with_pin, without_pin = self.api.access_token_requests
+        with_pin, without_pin = self.api.access_token_requests
         url, payload, headers, kwargs = with_pin
         eq_("https://oauth-patron.overdrive.com/patrontoken", url)
         eq_("barcode", payload['username'])
@@ -1234,7 +1234,7 @@ class TestOverdriveFormatSweep(OverdriveAPITest):
             self._db, self.collection,
             api_class=MockOverdriveAPI
         )
-
+        monitor.api.queue_collection_token()
         # We're not testing that the work actually gets done (that's
         # tested in test_update_formats), only that the monitor
         # implements the expected process_item API without crashing.
