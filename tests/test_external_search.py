@@ -321,7 +321,10 @@ class TestExternalSearch(ExternalSearchTest):
 
         eq_("Generating search document for the specified term: 'a search term'", test_results[1].name)
         eq_(True, test_results[1].success)
-        eq_("{'author': 'author', 'meta': {'id': 'id'}, 'id': 'id', 'title': 'Sample Book Title'}", test_results[1].result)
+        eq_(
+            '{\n "author": "author", \n "meta": {\n  "id": "id"\n }, \n "id": "id", \n "title": "Sample Book Title"\n}',
+            test_results[1].result
+        )
 
         eq_("Retrieving raw results for the specified term: 'a search term'", test_results[2].name)
         eq_(True, test_results[2].success)
@@ -337,7 +340,7 @@ class TestExternalSearch(ExternalSearchTest):
 
         eq_("Total number of documents per collection", test_results[5].name)
         eq_(True, test_results[5].success)
-        eq_(("{u'%s': 1}" % collection.name), test_results[5].result)
+        eq_((u'{\n "%s": 1\n}' % collection.name), test_results[5].result)
 
 class EndToEndExternalSearchTest(ExternalSearchTest):
     """Subclasses of this class set up real works in a real

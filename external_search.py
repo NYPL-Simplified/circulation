@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+import json
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk
 from elasticsearch.exceptions import ElasticsearchException
@@ -533,7 +534,7 @@ class ExternalSearchIndex(HasSelfTests):
                 if not len(search):
                     return str(search)
                 search = search[0]
-            return str(search.to_dict())
+            return json.dumps(search.to_dict(), indent=1)
 
         yield self.run_test(
             ("Generating search document for the specified term: '%s'" %(self.test_search_term)),
@@ -587,7 +588,7 @@ class ExternalSearchIndex(HasSelfTests):
                 else:
                     result[collection.name] = search.count()
 
-            return str(result)
+            return json.dumps(result, indent=1)
 
         yield self.run_test(
             "Total number of documents per collection",
