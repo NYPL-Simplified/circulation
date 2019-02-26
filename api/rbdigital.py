@@ -1423,6 +1423,11 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             if not isinstance(result, CoverageFailure):
                 items_updated += 1
 
+                # NOTE: To be consistent with populate_all_catalog, we
+                # should start off assuming that this title is owned
+                # and lendable. In practice, this isn't a big deal,
+                # because process_availability() will give us the
+                # right answer soon enough.
                 if isinstance(result, Identifier):
                     # calls work.set_presentation_ready() for us
                     coverage_provider.handle_success(result)
