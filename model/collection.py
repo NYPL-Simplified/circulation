@@ -482,6 +482,9 @@ class Collection(Base, HasFullTableCache):
 
         return collection, is_new
 
+    def pools_with_missing_delivery_mechanisms(self):
+        """Find all LicensePools that have no delivery mechanisms whatsoever."""
+
     def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a collection's
         settings.
