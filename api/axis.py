@@ -219,6 +219,10 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
             _count_events
         )
 
+        yield self.run_test(
+            "Checking for titles that have no supported delivery mechanisms."
+        )
+
         for result in self.default_patrons(self.collection):
             if isinstance(result, SelfTestResult):
                 yield result
