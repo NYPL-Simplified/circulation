@@ -1,5 +1,6 @@
 # encoding: utf-8
 from nose.tools import (
+    assert_raises_regexp,
     eq_,
     set_trace,
 )
@@ -129,6 +130,34 @@ class TestCredentials(DatabaseTest):
         new_token = Credential.lookup_by_token(
             self._db, data_source, "no such type", "no such credential")
         eq_(None, new_token)
+
+    def test_empty_token(self):
+        # Test the behavior when a credential is empty.
+
+        # First, create a token with an empty credential.
+        data_source = DataSource.lookup(self._db, DataSource.ADOBE)
+        token, is_new = Credential.persistent_token_create(
+            self._db, data_source, "i am empty", None
+        )
+        token.credential = None
+
+        # If allow_empty_token is true, the token is returned as-is
+        # and the refresher method is not called.
+        def refresher(self):
+            raise Exception("Refresher method was called")
+        args = self._db, data_source, token.type, None, refresher,
+        again_token = Credential.lookup(
+            *args, allow_persistent_token=True, allow_empty_token=True
+        )
+        eq_(again_token, token)
+
+        # If allow_empty_token is False, the refresher method is
+        # created.
+        assert_raises_regexp(
+            Exception, "Refresher method was called",
+            Credential.lookup, *args,
+            allow_persistent_token=True, allow_empty_token=False
+        )
 
 
 class TestDelegatedPatronIdentifier(DatabaseTest):
