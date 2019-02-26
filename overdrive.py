@@ -482,11 +482,6 @@ class MockOverdriveAPI(OverdriveAPI):
         self.requests = []
         self.responses = []
 
-        # Almost all tests will immediately try to access the
-        # collection token, so queue up the response ahead of time.
-        self.queue_response(
-            200, content=self.mock_collection_token("collection token")
-        )
         # Almost all tests will try to request the access token, so
         # set the response that will be returned if an attempt is
         # made.
@@ -494,6 +489,14 @@ class MockOverdriveAPI(OverdriveAPI):
             "bearer token"
         )
         super(MockOverdriveAPI, self).__init__(_db, collection, *args, **kwargs)
+
+    def queue_collection_token(self):
+        # Many tests immediately try to access the
+        # collection token. This is a helper method to make it easy to
+        # queue up the response.
+        self.queue_response(
+            200, content=self.mock_collection_token("collection token")
+        )
 
     def token_post(self, url, payload, headers={}, **kwargs):
         """Mock the request for an OAuth token.
