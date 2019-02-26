@@ -83,7 +83,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         collection = MockOverdriveAPI.mock_collection(self._db)
 
         class NoRequests(OverdriveAPI):
-            MSG = "This is a unit test, you can't call make HTTP requests!"
+            MSG = "This is a unit test, you can't make HTTP requests!"
             def no_requests(self, *args, **kwargs):
                 raise Exception(self.MSG)
             _do_get = no_requests
