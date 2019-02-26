@@ -768,7 +768,6 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         post_args = self._create_patron_body(
             library, authorization_identifier, email_address
         )
-
         resp_dict = {}
         message = None
         response = self.request(
@@ -837,7 +836,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         post_args = dict()
         post_args['libraryId'] = self.library_id
-        post_args['libraryCardNumber'] = patron_identifier
+        post_args['libraryCard'] = patron_identifier
         post_args['userName'] = username
         post_args['email'] = email_address
         post_args['firstName'] = 'Library'
