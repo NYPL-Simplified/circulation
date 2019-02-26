@@ -146,8 +146,7 @@ class HasSelfTests(object):
             try:
                 for result in instance._run_self_tests(_db):
                     results.append(result)
-                # if instance._run_single_test:
-                #     results += [result for result in instance._run_single_test(_db)]
+
             except Exception, e:
                 # This should only happen when there's a bug in the
                 # self-test method itself.

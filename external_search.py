@@ -30,7 +30,6 @@ from classifier import (
 )
 from model import (
     numericrange_to_tuple,
-    get_one,
     Collection,
     ExternalIntegration,
     Library,
