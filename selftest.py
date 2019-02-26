@@ -50,7 +50,7 @@ class SelfTestResult(object):
         value = dict(
             name=self.name, success=self.success,
             duration=self.duration,
-            exception=exception
+            exception=exception,
         )
         if self.start:
             value['start'] = f(self.start)
@@ -146,6 +146,8 @@ class HasSelfTests(object):
             try:
                 for result in instance._run_self_tests(_db):
                     results.append(result)
+                # if instance._run_single_test:
+                #     results += [result for result in instance._run_single_test(_db)]
             except Exception, e:
                 # This should only happen when there's a bug in the
                 # self-test method itself.
@@ -241,6 +243,7 @@ class HasSelfTests(object):
         finally:
             if not result.end:
                 result.end = datetime.datetime.utcnow()
+
         return result
 
     @classmethod
