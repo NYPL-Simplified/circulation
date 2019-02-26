@@ -804,7 +804,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             to authenticate with their library.
         :param email_address: The email address, if any, which the patron
             has shared with their library.
-        
+
         :return: A dictionary of key-value pairs to go along with an
         HTTP POST request.
         """
@@ -852,7 +852,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         return post_args
 
     def dummy_patron_identifier(self, authorization_identifier):
-        """Add six random alphanumeric characters to the end of 
+        """Add six random alphanumeric characters to the end of
         the given `authorization_identifier`.
 
         :return: A random identifier based on the input identifier.
@@ -1409,9 +1409,9 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         delta = self.get_delta(from_date=(today - time_ago), to_date=today)
         if not delta or len(delta) < 1:
             return None, None
-
-        items_added = delta[0].get("addedTitles", 0)
-        items_removed = delta[0].get("removedTitles", 0)
+        [delta] = delta
+        items_added = delta.get("addedTitles", [])
+        items_removed = delta.get("removedTitles", [])
         items_transmitted = len(items_added) + len(items_removed)
         items_updated = 0
         coverage_provider = RBDigitalBibliographicCoverageProvider(
@@ -1422,6 +1422,11 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             if not isinstance(result, CoverageFailure):
                 items_updated += 1
 
+                # NOTE: To be consistent with populate_all_catalog, we
+                # should start off assuming that this title is owned
+                # and lendable. In practice, this isn't a big deal,
+                # because process_availability() will give us the
+                # right answer soon enough.
                 if isinstance(result, Identifier):
                     # calls work.set_presentation_ready() for us
                     coverage_provider.handle_success(result)
@@ -2038,7 +2043,9 @@ class RBDigitalSyncMonitor(CollectionMonitor):
                  api_class_kwargs={}):
         """Constructor."""
         super(RBDigitalSyncMonitor, self).__init__(_db, collection)
-        self.api = api_class(_db, collection, **api_class_kwargs)
+        if not isinstance(api_class, RBDigitalAPI):
+            api_class = api_class(_db, collection, **api_class_kwargs)
+        self.api = api_class
 
     def run_once(self, progress):
         """Find books in the RBdigital collection that changed recently.
