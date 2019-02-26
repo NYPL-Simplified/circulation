@@ -682,43 +682,29 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # populate_all_catalog returns two numbers, as required by
         # RBDigitalSyncMonitor.
-        eq_((8, 8), result)
+        eq_((3, 3), result)
 
-        # verify that we created Works, Editions, LicensePools
-        works = self._db.query(Work).all()
-        work_titles = [work.title for work in works]
-        expected_titles = ["Tricks", "Emperor Mage: The Immortals",
-            "In-Flight Russian", "Road, The", "Private Patient, The",
-            "Year of Magical Thinking, The", "Junkyard Bot: Robots Rule, Book 1, The",
-            "Challenger Deep"]
-        eq_(set(expected_titles), set(work_titles))
-
-        # make sure we created some Editions
-        edition = Edition.for_foreign_id(self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID, "9780062231727", create_if_not_exists=False)
-        assert(edition is not None)
-        edition = Edition.for_foreign_id(self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID, "9781615730186", create_if_not_exists=False)
-        assert(edition is not None)
-
-        # make sure we created some LicensePools
-        pool, made_new = LicensePool.for_foreign_id(
-            self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID,
-            "9780062231727", collection=self.collection
+        # We created three presentation-ready works.
+        works = sorted(
+            self._db.query(Work).all(), key=lambda x: x.title
         )
-        eq_(1, pool.licenses_owned)
-        eq_(1, pool.licenses_available)
+        emperor, russian, tricks = works
+        eq_("Emperor Mage: The Immortals", emperor.title)
+        eq_("In-Flight Russian", russian.title)
+        eq_("Tricks", tricks.title)
 
-        eq_(False, made_new)
-        pool, made_new = LicensePool.for_foreign_id(
-            self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID,
-            "9781615730186", collection=self.collection
-        )
-        eq_(False, made_new)
-        eq_(1, pool.licenses_owned)
-        eq_(1, pool.licenses_available)
+        eq_(["9781934180723", "9781400024018", "9781615730186"],
+            [x.license_pools[0].identifier.identifier for x in works])
 
-        # make sure there are 8 LicensePools
-        pools = self._db.query(LicensePool).all()
-        eq_(8, len(pools))
+        for w in works:
+            [pool] = w.license_pools
+            # We know we own licenses for this book.
+            eq_(1, pool.licenses_owned)
+
+            # We _presume_ that this book is lendable. We may find out
+            # differently the next time we run the availability
+            # monitor.
+            eq_(1, pool.licenses_available)
 
     def test_populate_delta(self):
 
