@@ -77,6 +77,25 @@ class OverdriveTestWithAPI(OverdriveTest):
 
 class TestOverdriveAPI(OverdriveTestWithAPI):
 
+    def test_constructor_makes_no_requests(self):
+        # Invoking the OverdriveAPI constructor does not, by itself,
+        # make any HTTP requests.
+        collection = MockOverdriveAPI.mock_collection(self._db)
+
+        class NoRequests(OverdriveAPI):
+            MSG = "This is a unit test, you can't call make HTTP requests!"
+            def no_requests(self, *args, **kwargs):
+                raise Exception(self.MSG)
+            _do_get = no_requests
+            _do_post = no_requests
+            _make_request = no_requests
+        api = NoRequests(self._db, collection)
+
+        # Attempting to access .token or .collection_token _will_
+        # try to make an HTTP request.
+        for field in 'token', 'collection_token':
+            assert_raises_regexp(Exception, api.MSG, getattr, api, field)
+
     def test_ils_name(self):
         """The 'ils_name' setting (defined in
         MockOverdriveAPI.mock_collection) is available through
@@ -100,21 +119,23 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         eq_(self.api.access_token_response.content, response.content)
 
     def test_get_success(self):
+        # This test doesn't use the cached collection token; remove
+        # the queued response setting it up.
+        self.api.responses.pop()
+
         self.api.queue_response(200, content="some content")
         status_code, headers, content = self.api.get(self._url, {})
         eq_(200, status_code)
         eq_("some content", content)
 
     def test_failure_to_get_library_is_fatal(self):
-        # We already called get_library while initializing the
-        # Overdrive API, and when that happened we cached its
-        # Representation. Delete the Representation so we stop using
-        # the cached version.
-        for r in self._db.query(Representation):
-            self._db.delete(r)
-        self._db.commit()
-
+        # A successful response to the library endpoint was queued up,
+        # since that's what most tests need. But we want it to fail.
+        # Get rid of the 'success' response and replace it with a
+        # 'failure' response.
+        self.api.responses.pop()
         self.api.queue_response(500)
+
         assert_raises_regexp(
             BadResponseException,
             ".*Got status code 500.*",
@@ -128,16 +149,20 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
             def get_library(self):
                 return {u'errorCode': u'Some error', u'message': u'Some message.', u'token': u'abc-def-ghi'}
 
+        # Just instantiating the API doesn't cause this error.
+        api = MisconfiguredOverdriveAPI(self._db, self.collection)
+
+        # But trying to access the collection token will cause it.
         assert_raises_regexp(
             CannotLoadConfiguration,
             "Overdrive credentials are valid but could not fetch library: Some message.",
-            MisconfiguredOverdriveAPI,
-            self._db,
-            self.collection
+            lambda: api.collection_token
         )
 
     def test_401_on_get_refreshes_bearer_token(self):
-
+        # Remove the queued response that will do the initial token setup.
+        # We want the next request we make to fail.
+        self.api.responses.pop()
         eq_("bearer token", self.api.token)
 
         # We try to GET and receive a 401.
@@ -164,6 +189,8 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
     def test_credential_refresh_success(self):
         """Verify the process of refreshing the Overdrive bearer token.
         """
+        # Perform the initial credential check.
+        self.api.check_creds()
         credential = self.api.credential_object(lambda x: x)
         eq_("bearer token", credential.credential)
         eq_(self.api.token, credential.credential)
@@ -172,6 +199,8 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
             "new bearer token"
         )
 
+        # Refresh the credentials and the token will change to
+        # the mocked value.
         self.api.refresh_creds(credential)
         eq_("new bearer token", credential.credential)
         eq_(self.api.token, credential.credential)

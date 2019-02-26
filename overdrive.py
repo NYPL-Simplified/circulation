@@ -155,17 +155,38 @@ class OverdriveAPI(object):
             setting.encode('utf8') for setting in settings
         )
 
-        # Get set up with up-to-date credentials from the API.
-        self.check_creds()
-        library = self.get_library()
-        error = library.get('errorCode')
-        if error:
-            message = library.get('message')
-            raise CannotLoadConfiguration(
-                "Overdrive credentials are valid but could not fetch library: %s"
-                % message
-            )
-        self.collection_token = library['collectionToken']
+        # This is set by an access to .token, or by a call to
+        # check_creds() or refresh_creds().
+        self._token = None
+
+        # This is set by an access to .collection_token
+        self._collection_token = None
+
+    @property
+    def token(self):
+        if not self._token:
+            self.check_creds()
+        return self._token
+
+    @property
+    def collection_token(self):
+        """Get the token representing this particular Overdrive collection.
+
+        As a side effect, this will verify that the Overdrive
+        credentials are working.
+        """
+        if not self._collection_token:
+            self.check_creds()
+            library = self.get_library()
+            error = library.get('errorCode')
+            if error:
+                message = library.get('message')
+                raise CannotLoadConfiguration(
+                    "Overdrive credentials are valid but could not fetch library: %s"
+                    % message
+                )
+            self._collection_token = library['collectionToken']
+        return self._collection_token
 
     @property
     def collection(self):
@@ -201,7 +222,7 @@ class OverdriveAPI(object):
             credential = self.credential_object(refresh_on_lookup)
             if force_refresh:
                 self.refresh_creds(credential)
-            self.token = credential.credential
+            self._token = credential.credential
 
     def credential_object(self, refresh):
         """Look up the Credential object that allows us to use
@@ -220,7 +241,7 @@ class OverdriveAPI(object):
         )
         data = response.json()
         self._update_credential(credential, data)
-        self.token = credential.credential
+        self._token = credential.credential
 
     def get(self, url, extra_headers, exception_on_401=False):
         """Make an HTTP GET request using the active Bearer Token."""
@@ -461,10 +482,14 @@ class MockOverdriveAPI(OverdriveAPI):
         self.requests = []
         self.responses = []
 
-        # The constructor will always make a request for the collection token.
+        # Almost all tests will immediately try to access the
+        # collection token, so queue up the response ahead of time.
         self.queue_response(
             200, content=self.mock_collection_token("collection token")
         )
+        # Almost all tests will try to request the access token, so
+        # set the response that will be returned if an attempt is
+        # made.
         self.access_token_response = self.mock_access_token_response(
             "bearer token"
         )
