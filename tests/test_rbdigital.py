@@ -101,8 +101,6 @@ class RBDigitalAPITest(DatabaseTest):
         self.api = MockRBDigitalAPI(
             self._db, self.collection, base_path=self.base_path
         )
-        self.default_patron = self._patron(external_identifier="rbdigital_testuser")
-        self.default_patron.authorization_identifier="13057226"
 
     def get_data(self, filename):
         # returns contents of sample file as string and as dict
@@ -110,6 +108,15 @@ class RBDigitalAPITest(DatabaseTest):
         data = open(path).read()
         return data, json.loads(data)
 
+    @property
+    def default_patron(self):
+        """Create a default patron on demand."""
+        if not hasattr(self, '_default_patron'):
+            self._default_patron = self._patron(
+                external_identifier="rbdigital_testuser"
+            )
+            self._default_patron.authorization_identifier="13057226"
+        return self._default_patron
 
 class TestRBDigitalAPI(RBDigitalAPITest):
 
