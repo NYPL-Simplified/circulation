@@ -680,6 +680,10 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         self.api.queue_response(status_code=200, content=datastr)
         result = self.api.populate_all_catalog()
 
+        # populate_all_catalog returns two numbers, as required by
+        # RBDigitalSyncMonitor.
+        eq_((8, 8), result)
+
         # verify that we created Works, Editions, LicensePools
         works = self._db.query(Work).all()
         work_titles = [work.title for work in works]
@@ -743,7 +747,11 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         datastr, datadict = self.get_data("response_catalog_delta.json")
         self.api.queue_response(status_code=200, content=datastr)
-        self.api.populate_delta()
+        result = self.api.populate_delta()
+
+        # populate_delta returns two numbers, as required by
+        # RBDigitalSyncMonitor.
+        eq_((2, 2), result)
 
         # "Tricks" has not been modified.
         eq_(10, tricks.licenses_owned)
