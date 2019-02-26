@@ -1751,7 +1751,8 @@ class TestRBDigitalImportMonitor(RBDigitalAPITest):
 
         # Invoking the monitor a second time will do nothing.
         api.called = False
-        monitor.invoke()
+        result = monitor.invoke()
+        eq_((0, 0), result)
         eq_(False, api.called)
 
 
