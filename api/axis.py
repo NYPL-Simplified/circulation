@@ -116,7 +116,13 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
         { "key": ExternalIntegration.USERNAME, "label": _("Username"), "required": True },
         { "key": ExternalIntegration.PASSWORD, "label": _("Password"), "required": True },
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID"), "required": True },
-        { "key": ExternalIntegration.URL, "label": _("Server"), "default": PRODUCTION_BASE_URL, "required": True, "format": "url" },
+        { "key": ExternalIntegration.URL,
+          "label": _("Server"),
+          "default": PRODUCTION_BASE_URL,
+          "required": True,
+          "format": "url",
+          "allowed": SERVER_NICKNAMES.keys(),
+        },
     ] + BaseCirculationAPI.SETTINGS
 
     LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
