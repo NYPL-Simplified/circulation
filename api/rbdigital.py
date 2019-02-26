@@ -768,6 +768,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         post_args = self._create_patron_body(
             library, authorization_identifier, email_address
         )
+
         resp_dict = {}
         message = None
         response = self.request(
