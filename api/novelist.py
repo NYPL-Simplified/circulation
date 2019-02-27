@@ -615,8 +615,12 @@ class NoveListAPI(object):
         data = kwargs.get('data')
         if 'data' in kwargs:
             del kwargs['data']
-
-        response = HTTP.put_with_timeout(url, data, headers=headers, **kwargs)
+        # This might take a very long time -- disable the normal
+        # timeout.
+        kwargs['timeout'] = None
+        response = HTTP.put_with_timeout(
+            url, data, headers=headers, **kwargs
+        )
         return response
 
 
