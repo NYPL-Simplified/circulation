@@ -109,6 +109,7 @@ class ProfileStorage(object):
 
     NS = 'simplified:'
     FINES = NS + 'fines'
+    AUTHORIZATION_IDENTIFIER = NS + "authorization_identifier"
     AUTHORIZATION_EXPIRES = NS + "authorization_expires"
     SYNCHRONIZE_ANNOTATIONS = NS + 'synchronize_annotations'
     SETTINGS_KEY = 'settings'
