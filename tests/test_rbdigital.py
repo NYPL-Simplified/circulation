@@ -92,6 +92,8 @@ class RBDigitalAPITest(DatabaseTest):
         super(RBDigitalAPITest, self).setup()
 
         self.base_path = os.path.split(__file__)[0]
+        self.resource_path = os.path.join(self.base_path, "files", "rbdigital")
+
         # Make sure the default library is created so that it will
         # be configured properly with the mock collection.
         self._default_library
@@ -99,9 +101,22 @@ class RBDigitalAPITest(DatabaseTest):
         self.api = MockRBDigitalAPI(
             self._db, self.collection, base_path=self.base_path
         )
-        self.default_patron = self._patron(external_identifier="rbdigital_testuser")
-        self.default_patron.authorization_identifier="13057226"
 
+    def get_data(self, filename):
+        # returns contents of sample file as string and as dict
+        path = os.path.join(self.resource_path, filename)
+        data = open(path).read()
+        return data, json.loads(data)
+
+    @property
+    def default_patron(self):
+        """Create a default patron on demand."""
+        if not hasattr(self, '_default_patron'):
+            self._default_patron = self._patron(
+                external_identifier="rbdigital_testuser"
+            )
+            self._default_patron.authorization_identifier="13057226"
+        return self._default_patron
 
 class TestRBDigitalAPI(RBDigitalAPITest):
 
@@ -283,8 +298,10 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         self.api.queue_response(status_code=200, content=datastr)
 
         catalog = self.api.get_all_catalog()
-        eq_(8, len(catalog))
-        eq_("Challenger Deep", catalog[7]['title'])
+        eq_(
+            [u'Tricks', u'Emperor Mage: The Immortals', u'In-Flight Russian'],
+            [x['title'] for x in catalog]
+        )
 
     def test_get_delta(self):
         datastr, datadict = self.api.get_data("response_catalog_delta.json")
@@ -535,7 +552,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         expect = {
             'userName': identifier,
             'firstName': 'Library',
-            'libraryCardNumber': identifier,
+            'libraryCard': identifier,
             'lastName': 'Simplified',
             'postalCode': '11111',
             'libraryId': api.library_id,
@@ -555,7 +572,7 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         expect = {
             'userName': 'dummyid',
             'firstName': 'Library',
-            'libraryCardNumber': 'dummyid',
+            'libraryCard': 'dummyid',
             'lastName': 'Simplified',
             'postalCode': '11111',
             'libraryId': api.library_id,
@@ -663,6 +680,100 @@ class TestRBDigitalAPI(RBDigitalAPITest):
         response_dictionary = self.api.get_metadata_by_isbn('9780307378101')
         eq_(u'9780307378101', response_dictionary['isbn'])
         eq_(u'Anchor', response_dictionary['publisher'])
+
+    def test_populate_all_catalog(self):
+        # Test the method that retrieves the entire catalog from RBdigital
+        # and mirrors it locally.
+
+        datastr, datadict = self.get_data("response_catalog_all_sample.json")
+        self.api.queue_response(status_code=200, content=datastr)
+        result = self.api.populate_all_catalog()
+
+        # populate_all_catalog returns two numbers, as required by
+        # RBDigitalSyncMonitor.
+        eq_((3, 3), result)
+
+        # We created three presentation-ready works.
+        works = sorted(
+            self._db.query(Work).all(), key=lambda x: x.title
+        )
+        emperor, russian, tricks = works
+        eq_("Emperor Mage: The Immortals", emperor.title)
+        eq_("In-Flight Russian", russian.title)
+        eq_("Tricks", tricks.title)
+
+        eq_(["9781934180723", "9781400024018", "9781615730186"],
+            [x.license_pools[0].identifier.identifier for x in works])
+
+        for w in works:
+            [pool] = w.license_pools
+            # We know we own licenses for this book.
+            eq_(1, pool.licenses_owned)
+
+            # We _presume_ that this book is lendable. We may find out
+            # differently the next time we run the availability
+            # monitor.
+            eq_(1, pool.licenses_available)
+
+    def test_populate_delta(self):
+
+        # A title we don't know about -- "Emperor Mage: The Immortals"
+        # is about to be added to the collection.
+
+        # This title ("Greatest: Muhammad Ali, The") is about to be
+        # removed from the collection.
+        ali, ignore = LicensePool.for_foreign_id(
+            self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID,
+            "9780590543439", collection=self.collection
+        )
+        ali.licenses_owned = 10
+        ali.licenses_available = 9
+        ali.licenses_reserved = 2
+        ali.patrons_in_hold_queue = 1
+
+        # This title ("Tricks") is not mentioned in the delta, so it
+        # will be left alone.
+        tricks, ignore = LicensePool.for_foreign_id(
+            self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID,
+            "9781615730186", collection=self.collection
+        )
+        tricks.licenses_owned = 10
+        tricks.licenses_available = 5
+
+        datastr, datadict = self.get_data("response_catalog_delta.json")
+        self.api.queue_response(status_code=200, content=datastr)
+        result = self.api.populate_delta()
+
+        # populate_delta returns two numbers, as required by
+        # RBDigitalSyncMonitor.
+        eq_((2, 2), result)
+
+        # "Tricks" has not been modified.
+        eq_(10, tricks.licenses_owned)
+        eq_(5, tricks.licenses_available)
+
+        # "Greatest: Muhammad Ali, The" is still known to the system,
+        # but its circulation data has been updated to indicate the
+        # fact that this collection has no licenses.
+        eq_(0, ali.licenses_owned)
+        eq_(0, ali.licenses_available)
+        eq_(0, ali.licenses_reserved)
+        eq_(0, ali.patrons_in_hold_queue)
+
+        # "Emperor Mage: The Immortals" is now known to the system
+        emperor, ignore = LicensePool.for_foreign_id(
+            self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID,
+            "9781934180723", collection=self.collection
+        )
+        work = emperor.work
+        eq_("Emperor Mage: The Immortals", work.title)
+        eq_(True, work.presentation_ready)
+
+        # However, we have not set availability information on this
+        # title.  That will happen (for all titles) the next time
+        # RBDigitalAPI.process_availability is called.
+        eq_(0, emperor.licenses_owned)
+        eq_(0, emperor.licenses_available)
 
     def test_circulate_item(self):
         edition, pool = self._edition(
@@ -1576,28 +1687,13 @@ class TestRBDigitalBibliographicCoverageProvider(RBDigitalAPITest):
         eq_('Tea Time for the Traditionally Built', pool.work.title)
         eq_(True, pool.work.presentation_ready)
 
-class TestRBDigitalSyncMonitor(DatabaseTest):
-
-    # TODO: The only thing this should test is that the monitors can
-    # be instantiated using the constructor arguments used by
-    # RunCollectionMonitorScript, and that calling run_once() results
-    # in a call to the appropriate RBDigitalAPI method.
-    #
-    # However, there's no other code that tests populate_all_catalog()
-    # or populate_delta(), so we can't just remove the code; we need to
-    # refactor the tests.
+class TestRBDigitalSyncMonitor(RBDigitalAPITest):
+    """Test the superclass of most of the RBDigital monitors."""
 
     def setup(self):
         super(TestRBDigitalSyncMonitor, self).setup()
         self.base_path = os.path.split(__file__)[0]
-        self.resource_path = os.path.join(self.base_path, "files", "rbdigital")
         self.collection = MockRBDigitalAPI.mock_collection(self._db)
-
-    def get_data(self, filename):
-        # returns contents of sample file as string and as dict
-        path = os.path.join(self.resource_path, filename)
-        data = open(path).read()
-        return data, json.loads(data)
 
     def test_run_once(self):
         # Calling run_once calls invoke(), and invoke() is
@@ -1629,106 +1725,52 @@ class TestRBDigitalSyncMonitor(DatabaseTest):
         eq_(TimestampData.NO_VALUE, progress.start)
         eq_(TimestampData.NO_VALUE, progress.finish)
 
-    def test_import(self):
 
-        # Create a RBDigitalImportMonitor, which will take the current
-        # state of a RBDigital collection and mirror the whole thing to
-        # a local database.
+class TestRBDigitalImportMonitor(RBDigitalAPITest):
+
+    def test_invoke(self):
+        class MockAPI(RBDigitalAPI):
+            def __init__(self):
+                self.called = False
+
+            def populate_all_catalog(self):
+                self.called = True
+        api = MockAPI()
+
         monitor = RBDigitalImportMonitor(
-            self._db, self.collection, api_class=MockRBDigitalAPI,
-            api_class_kwargs=dict(base_path=self.base_path)
+            self._db, self.collection, api_class=api
         )
-        datastr, datadict = self.get_data("response_catalog_all_sample.json")
-        monitor.api.queue_response(status_code=200, content=datastr)
-        monitor.run()
+        timestamp = monitor.timestamp()
+        eq_(None, timestamp.counter)
+        monitor.invoke()
 
-        # verify that we created Works, Editions, LicensePools
-        works = self._db.query(Work).all()
-        work_titles = [work.title for work in works]
-        expected_titles = ["Tricks", "Emperor Mage: The Immortals",
-            "In-Flight Russian", "Road, The", "Private Patient, The",
-            "Year of Magical Thinking, The", "Junkyard Bot: Robots Rule, Book 1, The",
-            "Challenger Deep"]
-        eq_(set(expected_titles), set(work_titles))
+        # This monitor is for performing the initial import, and it
+        # can only be invoked once.
+        eq_(True, api.called)
+        eq_(1, timestamp.counter)
 
-        # make sure we created some Editions
-        edition = Edition.for_foreign_id(self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID, "9780062231727", create_if_not_exists=False)
-        assert(edition is not None)
-        edition = Edition.for_foreign_id(self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID, "9781615730186", create_if_not_exists=False)
-        assert(edition is not None)
+        # Invoking the monitor a second time will do nothing.
+        api.called = False
+        result = monitor.invoke()
+        eq_((0, 0), result)
+        eq_(False, api.called)
 
-        # make sure we created some LicensePools
-        pool, made_new = LicensePool.for_foreign_id(
-            self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID,
-            "9780062231727", collection=self.collection
+
+class TestRBDigitalDeltaMonitor(RBDigitalAPITest):
+
+    def test_invoke(self):
+        # This monitor calls RBDigitalAPI.populate_delta() when
+        # invoked.
+        class MockAPI(RBDigitalAPI):
+            def __init__(self):
+                self.called = False
+
+            def populate_delta(self):
+                self.called = True
+        api = MockAPI()
+        monitor = RBDigitalDeltaMonitor(
+            self._db, self.collection, api_class=api
         )
-        eq_(1, pool.licenses_owned)
-        eq_(1, pool.licenses_available)
+        monitor.invoke()
+        eq_(True, api.called)
 
-        eq_(False, made_new)
-        pool, made_new = LicensePool.for_foreign_id(
-            self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID,
-            "9781615730186", collection=self.collection
-        )
-        eq_(False, made_new)
-        eq_(1, pool.licenses_owned)
-        eq_(1, pool.licenses_available)
-
-        # make sure there are 8 LicensePools
-        pools = self._db.query(LicensePool).all()
-        eq_(8, len(pools))
-
-        #
-        # Now we're going to run the delta monitor to change things
-        # around a bit.
-        #
-
-        # set license numbers on test pool to match what's in the
-        # delta document.
-        pool, made_new = LicensePool.for_foreign_id(
-            self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID,
-            "9781615730186", collection=self.collection
-        )
-        eq_(False, made_new)
-        pool.licenses_owned = 10
-        pool.licenses_available = 9
-        pool.licenses_reserved = 2
-        pool.patrons_in_hold_queue = 1
-
-        # now update that library with a sample delta
-        delta_monitor = RBDigitalDeltaMonitor(
-            self._db, self.collection, api_class=MockRBDigitalAPI,
-            api_class_kwargs=dict(base_path=self.base_path)
-        )
-        datastr, datadict = self.get_data("response_catalog_delta.json")
-        delta_monitor.api.queue_response(status_code=200, content=datastr)
-        delta_monitor.run()
-
-        # "Tricks" did not get deleted, but did get its pools set to "nope".
-        # "Emperor Mage: The Immortals" got new metadata.
-        works = self._db.query(Work).all()
-        work_titles = [work.title for work in works]
-        expected_titles = ["Tricks", "Emperor Mage: The Immortals",
-            "In-Flight Russian", "Road, The", "Private Patient, The",
-            "Year of Magical Thinking, The", "Junkyard Bot: Robots Rule, Book 1, The",
-            "Challenger Deep"]
-        eq_(set(expected_titles), set(work_titles))
-
-        eq_("Tricks", pool.presentation_edition.title)
-        eq_(0, pool.licenses_owned)
-        eq_(0, pool.licenses_available)
-        eq_(0, pool.licenses_reserved)
-        eq_(0, pool.patrons_in_hold_queue)
-        assert (datetime.datetime.utcnow() - pool.last_checked) < datetime.timedelta(seconds=20)
-
-        # make sure we updated fields
-        edition = Edition.for_foreign_id(self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID, "9781934180723", create_if_not_exists=False)
-        eq_("Recorded Books, Inc.", edition.publisher)
-
-        # make sure there are still 8 LicensePools
-        pools = self._db.query(LicensePool).all()
-        eq_(8, len(pools))
-
-        # Running the monitor again does nothing. Since no more responses
-        # are queued, doing any work at this point would crash the test.
-        eq_((0,0), monitor.invoke())
