@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+import json
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk
 from elasticsearch.exceptions import ElasticsearchException
@@ -30,6 +31,7 @@ from classifier import (
 )
 from model import (
     numericrange_to_tuple,
+    Collection,
     ExternalIntegration,
     Library,
     Work,
@@ -382,7 +384,6 @@ class ExternalSearchIndex(HasSelfTests):
             return []
 
         search = self.create_search_doc(query_string, filter=filter, debug=debug, return_raw_results=return_raw_results)
-
         if not pagination:
             from lane import Pagination
             pagination = Pagination.default()
@@ -502,7 +503,6 @@ class ExternalSearchIndex(HasSelfTests):
             self.delete(**args)
 
     def _run_self_tests(self, _db, in_testing=False):
-
         # Helper methods for setting up the self-tests:
 
         def _search():
@@ -517,43 +517,82 @@ class ExternalSearchIndex(HasSelfTests):
                 debug=False, return_raw_results=True
             )
 
-        # Three self-tests:
+        # The self-tests:
 
         def _search_for_term():
             titles = [("%s (%s)" %(x.title, x.author)) for x in _works()]
             return titles
 
         yield self.run_test(
-            ("Searching for the specified term: '%s'" %(self.test_search_term)),
+            ("Search results for '%s':" %(self.test_search_term)),
             _search_for_term
         )
 
         def _get_raw_doc():
-            return [str(x.to_dict()) for x in _search()]
+            search = _search()
+            if in_testing:
+                if not len(search):
+                    return str(search)
+                search = search[0]
+            return json.dumps(search.to_dict(), indent=1)
 
         yield self.run_test(
-            ("Generating search document for the specified term: '%s'" %(self.test_search_term)),
+            ("Search document for '%s':" %(self.test_search_term)),
             _get_raw_doc
         )
 
         def _get_raw_results():
-            return [str(x.to_dict()) for x in _works()]
+            return [json.dumps(x.to_dict(), indent=1) for x in _works()]
 
         yield self.run_test(
-            ("Retrieving raw results for the specified term: '%s'" %(self.test_search_term)),
+            ("Raw search results for '%s':" %(self.test_search_term)),
             _get_raw_results
         )
 
         def _count_docs():
             # The mock methods used in testing return a list, so we have to call len() rather than count().
             if in_testing:
-                return "Documents: %s.  Search results: %s." %(len(_search()), len(_works()))
+                return str(len(_works()))
 
-            return "Documents: %s.  Search results: %s." %(_search().count(), _works().count())
+            return str(_works().count())
 
         yield self.run_test(
-            ("Getting the total number of results for the specified term: '%s'" %(self.test_search_term)),
+            ("Total number of search results for '%s':" %(self.test_search_term)),
             _count_docs
+        )
+
+        def _total_count():
+            # The mock methods used in testing return a list, so we have to call len() rather than count().
+            if in_testing:
+                return str(len(self.search))
+
+            return str(self.search.count())
+
+        yield self.run_test(
+            "Total number of documents in this search index:",
+            _total_count
+        )
+
+        def _collections():
+            result = {}
+
+            collections = _db.query(Collection)
+            for collection in collections:
+                filter = Filter(collections=[collection])
+                search = self.query_works(
+                    "", filter=filter, pagination=None,
+                    debug=True, return_raw_results=True
+                )
+                if in_testing:
+                    result[collection.name] = len(search)
+                else:
+                    result[collection.name] = search.count()
+
+            return json.dumps(result, indent=1)
+
+        yield self.run_test(
+            "Total number of documents per collection:",
+            _collections
         )
 
 class ExternalSearchIndexVersions(object):
@@ -1350,7 +1389,6 @@ class Filter(SearchBase):
             ids = filter_ids(customlist_ids)
             f = chain(f, F('terms', **{'customlists.list_id' : ids}))
 
-
         return f
 
     @property
@@ -1476,6 +1514,7 @@ class MockExternalSearchIndex(ExternalSearchIndex):
         self.works_alias = "works-current"
         self.log = logging.getLogger("Mock external search index")
         self.queries = []
+        self.search = self.docs.keys()
         self.test_search_term = "a search term"
 
     def _key(self, index, doc_type, id):
@@ -1483,6 +1522,7 @@ class MockExternalSearchIndex(ExternalSearchIndex):
 
     def index(self, index, doc_type, id, body):
         self.docs[self._key(index, doc_type, id)] = body
+        self.search = self.docs.keys()
 
     def delete(self, index, doc_type, id):
         key = self._key(index, doc_type, id)
@@ -1529,7 +1569,7 @@ class MockSearchResult(object):
             "title": self.title,
             "author": self.author,
             "id": self.meta["id"],
-            "meta": self.meta
+            "meta": self.meta,
         }
 
 class SearchIndexMonitor(WorkSweepMonitor):

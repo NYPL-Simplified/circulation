@@ -540,18 +540,28 @@ class TestPatronProfileStorage(DatabaseTest):
     def test_profile_document(self):
         # synchronize_annotations always shows up as settable, even if
         # the current value is None.
+        self.patron.authorization_identifier = "abcd"
         eq_(None, self.patron.synchronize_annotations)
         rep = self.store.profile_document
-        eq_({'settings': {'simplified:synchronize_annotations': None}},
-            rep)
+        eq_(
+            {
+             'simplified:authorization_identifier': 'abcd',
+             'settings': {'simplified:synchronize_annotations': None}
+            },
+            rep
+        )
 
         self.patron.synchronize_annotations = True
         self.patron.authorization_expires = datetime.datetime(
             2016, 1, 1, 10, 20, 30
         )
         rep = self.store.profile_document
-        eq_({'simplified:authorization_expires': '2016-01-01T10:20:30Z',
-             'settings': {'simplified:synchronize_annotations': True}},
+        eq_(
+            {
+             'simplified:authorization_expires': '2016-01-01T10:20:30Z',
+             'simplified:authorization_identifier': 'abcd',
+             'settings': {'simplified:synchronize_annotations': True}
+            },
             rep
         )
 

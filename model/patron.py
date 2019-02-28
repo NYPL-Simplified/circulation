@@ -432,13 +432,15 @@ class PatronProfileStorage(ProfileStorage):
         status.
         """
         doc = dict()
-        if self.patron.authorization_expires:
+        patron = self.patron
+        doc[self.AUTHORIZATION_IDENTIFIER] = patron.authorization_identifier
+        if patron.authorization_expires:
             doc[self.AUTHORIZATION_EXPIRES] = (
-                self.patron.authorization_expires.strftime("%Y-%m-%dT%H:%M:%SZ")
+                patron.authorization_expires.strftime("%Y-%m-%dT%H:%M:%SZ")
             )
         settings = {
             self.SYNCHRONIZE_ANNOTATIONS :
-            self.patron.synchronize_annotations
+            patron.synchronize_annotations
         }
         doc[self.SETTINGS_KEY] = settings
         return doc
