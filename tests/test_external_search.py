@@ -4,6 +4,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
+import json
 import logging
 import time
 from psycopg2.extras import NumericRange
@@ -281,44 +282,66 @@ class TestExternalSearch(ExternalSearchTest):
         # First, see what happens when the search returns no results.
         test_results = [x for x in index._run_self_tests(self._db, in_testing=True)]
 
-        eq_("Searching for the specified term: 'a search term'", test_results[0].name)
+        eq_("Search results for 'a search term':", test_results[0].name)
         eq_(True, test_results[0].success)
         eq_([], test_results[0].result)
 
-        eq_("Generating search document for the specified term: 'a search term'", test_results[1].name)
+        eq_("Search document for 'a search term':", test_results[1].name)
         eq_(True, test_results[1].success)
-        eq_([], test_results[1].result)
+        eq_("[]", test_results[1].result)
 
-        eq_("Retrieving raw results for the specified term: 'a search term'", test_results[2].name)
+        eq_("Raw search results for 'a search term':", test_results[2].name)
         eq_(True, test_results[2].success)
         eq_([], test_results[2].result)
 
-        eq_("Getting the total number of results for the specified term: 'a search term'", test_results[3].name)
+        eq_("Total number of search results for 'a search term':", test_results[3].name)
         eq_(True, test_results[3].success)
-        eq_("Documents: 0.  Search results: 0.", test_results[3].result)
+        eq_("0", test_results[3].result)
+
+        eq_("Total number of documents in this search index:", test_results[4].name)
+        eq_(True, test_results[4].success)
+        eq_("0", test_results[4].result)
+
+        eq_("Total number of documents per collection:", test_results[5].name)
+        eq_(True, test_results[5].success)
+        eq_("{}", test_results[5].result)
 
         # Set up the search index so it will return a result.
+        collection = self._collection()
+
         search_result = MockSearchResult(
             "Sample Book Title", "author", {}, "id"
         )
         index.index("index", "doc type", "id", search_result)
         test_results = [x for x in index._run_self_tests(self._db, in_testing=True)]
 
-        eq_("Searching for the specified term: 'a search term'", test_results[0].name)
+
+        eq_("Search results for 'a search term':", test_results[0].name)
         eq_(True, test_results[0].success)
         eq_(["Sample Book Title (author)"], test_results[0].result)
 
-        eq_("Generating search document for the specified term: 'a search term'", test_results[1].name)
+        eq_("Search document for 'a search term':", test_results[1].name)
         eq_(True, test_results[1].success)
-        eq_(["{'author': 'author', 'meta': {'id': 'id'}, 'id': 'id', 'title': 'Sample Book Title'}"], test_results[1].result)
+        result = json.loads(test_results[1].result)
+        eq_({"author": "author", "meta": {"id": "id"}, "id": "id", "title": "Sample Book Title"}, result)
 
-        eq_("Retrieving raw results for the specified term: 'a search term'", test_results[2].name)
+        eq_("Raw search results for 'a search term':", test_results[2].name)
         eq_(True, test_results[2].success)
-        eq_(["{'author': 'author', 'meta': {'id': 'id'}, 'id': 'id', 'title': 'Sample Book Title'}"], test_results[2].result)
+        result = json.loads(test_results[2].result[0])
+        eq_({"author": "author", "meta": {"id": "id"}, "id": "id", "title": "Sample Book Title"}, result)
 
-        eq_("Getting the total number of results for the specified term: 'a search term'", test_results[3].name)
+        eq_("Total number of search results for 'a search term':", test_results[3].name)
         eq_(True, test_results[3].success)
-        eq_("Documents: 1.  Search results: 1.", test_results[3].result)
+        eq_("1", test_results[3].result)
+
+        eq_("Total number of documents in this search index:", test_results[4].name)
+        eq_(True, test_results[4].success)
+        eq_("1", test_results[4].result)
+
+        eq_("Total number of documents per collection:", test_results[5].name)
+        eq_(True, test_results[5].success)
+        result = json.loads(test_results[5].result)
+        eq_({collection.name: 1}, result)
 
 class EndToEndExternalSearchTest(ExternalSearchTest):
     """Subclasses of this class set up real works in a real
