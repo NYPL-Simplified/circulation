@@ -2409,15 +2409,11 @@ class SettingsController(AdminCirculationManagerController):
             return None
 
         self_test_results = None
-        item_type = None
 
         try:
-
-            if not hasattr(item, "goal"):
-                # We're running self-tests for a collection
+            if self.type == "collection":
                 if not item.protocol or not len(item.protocol):
                     return None
-                item_type = "collection"
                 provider_apis = list(self.PROVIDER_APIS)
                 provider_apis.append(OPDSImportMonitor)
 
@@ -2434,19 +2430,22 @@ class SettingsController(AdminCirculationManagerController):
                         self._db, protocol_class, self._db, item, *extra_args
                     )
 
-            elif item.goal == "search":
-                item_type = "search service"
+            elif self.type == "search service":
                 self_test_results = ExternalSearchIndex.prior_test_results(
                     self._db, None, self._db, item
                 )
 
-            elif item.goal == "patron_auth":
-                item_type = "patron authentication service"
+            elif self.type == "patron authentication service":
                 library = None
-                if item.libraries:
+                if len(item.libraries):
                     library = item.libraries[0]
                     self_test_results = protocol_class.prior_test_results(
                         self._db, None, library, item
+                    )
+                else:
+                    self_test_results = dict(
+                        exception=_("You must associate this service with at least one library before you can run self tests for it."),
+                        disabled=True
                     )
 
         except Exception, e:
@@ -2455,7 +2454,7 @@ class SettingsController(AdminCirculationManagerController):
             # making the configuration changes necessary to fix
             # this problem.
             message = _("Exception getting self-test results for %s %s: %s")
-            args = (item_type, item.name, e.message)
+            args = (self.type, item.name, e.message)
             logging.warn(message, *args, exc_info=e)
             self_test_results = dict(exception=message % args)
 

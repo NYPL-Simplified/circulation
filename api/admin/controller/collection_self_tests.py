@@ -15,6 +15,7 @@ class CollectionSelfTestsController(SelfTestsController):
 
     def __init__(self, manager):
         super(CollectionSelfTestsController, self).__init__(manager)
+        self.type = "collection"
         self.protocols = self._get_collection_protocols(self.PROVIDER_APIS)
 
     def process_collection_self_tests(self, identifier):
@@ -45,7 +46,6 @@ class CollectionSelfTestsController(SelfTestsController):
 
     def _find_protocol_class(self, collection):
         """Figure out which protocol is providing books to this collection"""
-
         if collection.protocol in [p.get("name") for p in self.protocols]:
             protocol_class_found = [p for p in self.PROVIDER_APIS if p.NAME == collection.protocol]
             if len(protocol_class_found) == 1:

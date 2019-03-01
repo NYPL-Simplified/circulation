@@ -17,6 +17,17 @@ from core.model import (
 )
 
 class TestPatronAuthSelfTests(SettingsControllerTest):
+
+    def _auth_service(self, libraries=[]):
+        auth_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=SimpleAuthenticationProvider.__module__,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL,
+            name="name",
+            libraries=libraries
+        )
+        return auth_service
+
     def test_patron_auth_self_tests_with_no_identifier(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_patron_auth_service_self_tests_controller.process_patron_auth_service_self_tests(None)
@@ -30,17 +41,19 @@ class TestPatronAuthSelfTests(SettingsControllerTest):
             eq_(response, MISSING_SERVICE)
             eq_(response.status_code, 404)
 
+    def test_patron_auth_self_tests_get_with_no_libraries(self):
+        auth_service = self._auth_service()
+        with self.request_context_with_admin("/"):
+            response = self.manager.admin_patron_auth_service_self_tests_controller.process_patron_auth_service_self_tests(auth_service.id)
+            results = response.get("self_test_results").get("self_test_results")
+            eq_(results.get("disabled"), True)
+            eq_(results.get("exception"), "You must associate this service with at least one library before you can run self tests for it.")
+
     def test_patron_auth_self_tests_test_get(self):
         old_prior_test_results = HasSelfTests.prior_test_results
         HasSelfTests.prior_test_results = self.mock_prior_test_results
+        auth_service = self._auth_service([self._library()])
 
-        auth_service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=SimpleAuthenticationProvider.__module__,
-            goal=ExternalIntegration.PATRON_AUTH_GOAL,
-            name="name",
-            libraries=[self._library()]
-        )
         # Make sure that HasSelfTest.prior_test_results() was called and that
         # it is in the response's self tests object.
         with self.request_context_with_admin("/"):
@@ -55,17 +68,18 @@ class TestPatronAuthSelfTests(SettingsControllerTest):
 
         HasSelfTests.prior_test_results = old_prior_test_results
 
+    def test_patron_auth_self_tests_post_with_no_libraries(self):
+        auth_service = self._auth_service()
+        with self.request_context_with_admin("/", method="POST"):
+            response = self.manager.admin_patron_auth_service_self_tests_controller.process_patron_auth_service_self_tests(auth_service.id)
+            eq_(response.title, FAILED_TO_RUN_SELF_TESTS.title)
+            eq_(response.detail, "Failed to run self tests for this patron authentication service.")
+            eq_(response.status_code, 400)
+
     def test_patron_auth_self_tests_test_post(self):
         old_run_self_tests = HasSelfTests.run_self_tests
         HasSelfTests.run_self_tests = self.mock_run_self_tests
-
-        auth_service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=SimpleAuthenticationProvider.__module__,
-            goal=ExternalIntegration.PATRON_AUTH_GOAL,
-            name="name",
-            libraries=[self._library()]
-        )
+        auth_service = self._auth_service([self._library()])
 
         with self.request_context_with_admin("/", method="POST"):
             response = self.manager.admin_patron_auth_service_self_tests_controller.process_patron_auth_service_self_tests(auth_service.id)

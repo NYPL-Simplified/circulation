@@ -35,4 +35,7 @@ class SelfTestsController(SettingsController):
             return value
         elif value:
             return Response(_("Successfully ran new self tests"), 200)
-        return FAILED_TO_RUN_SELF_TESTS
+        return FAILED_TO_RUN_SELF_TESTS.detailed(_(
+            "Failed to run self tests for this %s."
+            %(self.type)
+        ))

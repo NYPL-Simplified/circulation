@@ -55,7 +55,8 @@ class TestCollectionSelfTests(SettingsControllerTest):
             response = self.manager.admin_collection_self_tests_controller.process_collection_self_tests(collection.id)
 
             (run_self_tests_args, run_self_tests_kwargs) = self.failed_run_self_tests_called_with
-            eq_(response, FAILED_TO_RUN_SELF_TESTS)
+            eq_(response.title, FAILED_TO_RUN_SELF_TESTS.title)
+            eq_(response.detail, "Failed to run self tests for this collection.")
             eq_(response.status_code, 400)
 
         HasSelfTests.run_self_tests = old_run_self_tests
@@ -103,7 +104,8 @@ class TestCollectionSelfTests(SettingsControllerTest):
             response = self.manager.admin_collection_self_tests_controller.process_collection_self_tests(collection.id)
 
             (run_self_tests_args, run_self_tests_kwargs) = self.run_self_tests_called_with
-            eq_(response, FAILED_TO_RUN_SELF_TESTS)
+            eq_(response.title, FAILED_TO_RUN_SELF_TESTS.title)
+            eq_(response.detail, "Failed to run self tests for this collection.")
             eq_(response.status_code, 400)
 
             # The method returns None but it was not called

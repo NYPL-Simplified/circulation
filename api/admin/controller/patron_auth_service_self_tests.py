@@ -49,8 +49,10 @@ class PatronAuthServiceSelfTestsController(SelfTestsController, PatronAuthServic
         # If the auth service doesn't have at least one library associated with it,
         # then admins will not be able to access the button to run self tests for it, so
         # this code will never be reached; hence, no need to check here that :library exists.
-        library = patron_auth_service.libraries[0]
-        value = self._find_protocol_class(patron_auth_service).run_self_tests(
-            self._db, None, library, patron_auth_service
-        )
+        value = None
+        if len(patron_auth_service.libraries):
+            library = patron_auth_service.libraries[0]
+            value = self._find_protocol_class(patron_auth_service).run_self_tests(
+                self._db, None, library, patron_auth_service
+            )
         return value
