@@ -26,6 +26,7 @@ from core.model import (
     LicensePool,
     Loan,
     Hold,
+    Patron,
     RightsStatus,
     Session,
 )
@@ -1224,13 +1225,59 @@ class BaseCirculationAPI(object):
             )
         return internal_format
 
-    def default_notification_email_address(self, patron, pin):
-        """What email address should be used to notify this patron
-        of changes?
+    @classmethod
+    def default_notification_email_address(self, library_or_patron, pin):
+        """What email address should be used to notify this library's
+        patrons of changes?
+
+        :param library_or_patron: A Library or a Patron.
         """
+        if isinstance(library_or_patron, Patron):
+            library_or_patron = library_or_patron.library
         return ConfigurationSetting.for_library(
-            Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, patron.library
+            Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
+            library_or_patron
         ).value
+
+    @classmethod
+    def _library_authenticator(self, library):
+        """Create a LibraryAuthenticator for the given library."""
+        from authenticator import LibraryAuthenticator
+        _db = Session.object_session(library)
+        return LibraryAuthenticator.from_config(_db, library)
+
+    def patron_email_address(self, patron, library_authenticator=None):
+        """Look up the email address that the given Patron shared
+        with their library.
+
+        We do not store this information, but some API integrations
+        need it, so we give the ability to look it up as needed.
+
+        :param patron: A Patron.
+        :return: The patron's email address. None if the patron never
+            shared their email address with their library, or if the
+            authentication technique will not share that information
+            with us.
+        """
+        # LibraryAuthenticator knows about all authentication techniques
+        # used to identify patrons of this library.
+        if not library_authenticator:
+            library_authenticator = self._library_authenticator(patron.library)
+        authorization_identifier = patron.authorization_identifier
+
+        # remote_patron_lookup will try to get information about the
+        # patron through each authentication technique in turn.
+        # As soon as one of these techniques gives us an email
+        # address, we're done.
+        email_address = None
+        for authenticator in library_authenticator.providers:
+            try:
+                patrondata = authenticator.remote_patron_lookup(patron)
+            except NotImplementedError, e:
+                continue
+            if patrondata and patrondata.email_address:
+                email_address = patrondata.email_address
+        return email_address
 
     def checkin(self, patron, pin, licensepool):
         """  Return a book early.

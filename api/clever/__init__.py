@@ -180,7 +180,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
             'Authorization': 'Bearer %s' % token
         }
         result = self._get(self.CLEVER_API_BASE_URL + '/me', bearer_headers)
-        data = result.get('data', {})
+        data = result.get('data', {}) or {}
 
         identifier = data.get('id', None)
 

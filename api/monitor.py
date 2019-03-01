@@ -12,6 +12,7 @@ from sqlalchemy import (
     or_,
 )
 
+from core.metadata_layer import TimestampData
 from core.monitor import (
     CollectionMonitor,
     EditionSweepMonitor,
@@ -113,6 +114,7 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
         self.assert_authenticated()
         queue = [None]
         seen_links = set()
+        total_editions = 0
 
         new_timestamp = None
         while queue:
@@ -122,6 +124,8 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
             next_links, editions, possible_new_timestamp = self.import_one_feed(
                 start, url
             )
+            total_editions += len(editions)
+            achievements = "Editions processed: %s" % total_editions
             if not new_timestamp or (
                     possible_new_timestamp
                     and possible_new_timestamp > new_timestamp
@@ -146,7 +150,9 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
             # Immediately update the timestamps table so that a later
             # crash doesn't mean we have to redo this work.
             if new_timestamp:
-                self.timestamp().finish = new_timestamp
+                timestamp_obj = self.timestamp()
+                timestamp_obj.finish = new_timestamp
+                timestamp_obj.achievements = achievements
             self._db.commit()
 
         # The TimestampData we return is going to be written to the database.
@@ -164,6 +170,7 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
 
         progress.start = start
         progress.finish = finish
+        progress.achievements = achievements
         return progress
 
     def import_one_feed(self, timestamp, url):
@@ -228,6 +235,7 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
         queue = [None]
         seen_links = set()
 
+        total_identifiers_processed = 0
         while queue:
             url = queue.pop(0)
             if url in seen_links:
@@ -241,6 +249,7 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
             # to send.)
             identifiers = [i for i in identifiers
                            if i.work and i.work.simple_opds_entry]
+            total_identifiers_processed += len(identifiers)
             self.provider.bulk_register(identifiers)
             self.provider.run_on_specific_identifiers(identifiers)
 
@@ -249,6 +258,8 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
                 for link in next_links:
                     if link not in seen_links:
                         queue.append(link)
+        achievements = "Identifiers processed: %d" % total_identifiers_processed
+        return TimestampData(achievements=achievements)
 
     def get_identifiers(self, url=None):
         """Pulls mapped identifiers from a feed of SimplifiedOPDSMessages."""
