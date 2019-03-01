@@ -1042,6 +1042,9 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         eq_(two_days_ago-monitor.OVERLAP, after_timestamp.start)
         self.time_eq(after_timestamp.finish, now)
 
+        # The timestamp's achivements have been updated.
+        eq_("Events handled: 1.", after_timestamp.achievements)
+
         # If we tell run_once() to work through an amount of time
         # where the are no events, it does nothing but update the
         # timestamp.

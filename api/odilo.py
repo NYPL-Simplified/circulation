@@ -902,11 +902,14 @@ class OdiloCirculationMonitor(CollectionMonitor, TimelineMonitor):
         self.log.info("Starting recently_changed_ids, start: " + str(start) + ", cutoff: " + str(cutoff))
 
         start_time = datetime.datetime.now()
-        self.all_ids(start)
+        updated, new = self.all_ids(start)
         finish_time = datetime.datetime.now()
 
         time_elapsed = finish_time - start_time
         self.log.info("recently_changed_ids finished in: " + str(time_elapsed))
+        progress.achievements = (
+            "Updated records: %d. New records: %d." % (updated, new)
+        )
 
     def all_ids(self, modification_date=None):
         """Get IDs for every book in the system, from modification date if any
@@ -959,6 +962,7 @@ class OdiloCirculationMonitor(CollectionMonitor, TimelineMonitor):
                 self.log.error('ERROR response content: ' + str(content))
         else:
             self.log.info('Retrieving all ids finished ok. Retrieved %i records. New records: %i!!' % (retrieved, new))
+        return retrieved, new
 
     def get_url(self, limit, modification_date, offset):
         url = "%s?limit=%i&offset=%i" % (self.api.ALL_PRODUCTS_ENDPOINT, limit, offset)

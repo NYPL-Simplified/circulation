@@ -5,7 +5,10 @@ from collections import Counter
 from nose.tools import set_trace
 from flask_babel import lazy_gettext as _
 
-from core.config import Configuration
+from core.config import (
+    CannotLoadConfiguration,
+    Configuration,
+)
 from core.coverage import (
     CoverageFailure,
     IdentifierCoverageProvider,
@@ -94,7 +97,9 @@ class NoveListAPI(object):
     def from_config(cls, library):
         profile, password = cls.values(library)
         if not (profile and password):
-            raise ValueError("No NoveList client configured.")
+            raise CannotLoadConfiguration(
+                "No NoveList integration configured for library (%s)." % library.short_name
+            )
 
         _db = Session.object_session(library)
         return cls(_db, profile, password)
@@ -610,8 +615,12 @@ class NoveListAPI(object):
         data = kwargs.get('data')
         if 'data' in kwargs:
             del kwargs['data']
-
-        response = HTTP.put_with_timeout(url, data, headers=headers, **kwargs)
+        # This might take a very long time -- disable the normal
+        # timeout.
+        kwargs['timeout'] = None
+        response = HTTP.put_with_timeout(
+            url, data, headers=headers, **kwargs
+        )
         return response
 
 
