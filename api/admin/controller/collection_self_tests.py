@@ -28,7 +28,7 @@ class CollectionSelfTestsController(SelfTestsController):
         if not collection:
             return NO_SUCH_COLLECTION
 
-        self.protocol_class = self._find_protocol_class(collection.protocol)
+        self.protocol_class = self._find_protocol_class(collection)
         return collection
 
     def get_info(self, collection):
@@ -43,11 +43,11 @@ class CollectionSelfTestsController(SelfTestsController):
             settings=dict(external_account_id=collection.external_account_id),
         )
 
-    def _find_protocol_class(self, collection_protocol):
+    def _find_protocol_class(self, collection):
         """Figure out which protocol is providing books to this collection"""
 
-        if collection_protocol in [p.get("name") for p in self.protocols]:
-            protocol_class_found = [p for p in self.PROVIDER_APIS if p.NAME == collection_protocol]
+        if collection.protocol in [p.get("name") for p in self.protocols]:
+            protocol_class_found = [p for p in self.PROVIDER_APIS if p.NAME == collection.protocol]
             if len(protocol_class_found) == 1:
                 return protocol_class_found[0]
 

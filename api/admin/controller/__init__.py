@@ -155,6 +155,8 @@ def setup_admin_controllers(manager):
     manager.admin_metadata_services_controller = MetadataServicesController(manager)
     from api.admin.controller.patron_auth_services import PatronAuthServicesController
     manager.admin_patron_auth_services_controller = PatronAuthServicesController(manager)
+    from api.admin.controller.patron_auth_service_self_tests import PatronAuthServiceSelfTestsController
+    manager.admin_patron_auth_service_self_tests_controller = PatronAuthServiceSelfTestsController(manager)
     from api.admin.controller.admin_auth_services import AdminAuthServicesController
     manager.admin_auth_services_controller = AdminAuthServicesController(manager)
     from api.admin.controller.collection_settings import CollectionSettingsController
@@ -2306,7 +2308,6 @@ class SettingsController(AdminCirculationManagerController):
                 service_info["self_test_results"] = self._get_prior_test_results(service)
 
             services.append(service_info)
-
         return services
 
     def _set_integration_setting(self, integration, setting):
@@ -2400,8 +2401,8 @@ class SettingsController(AdminCirculationManagerController):
         return protocols
 
     def _get_prior_test_results(self, item, protocol_class=None):
-        # :param item: Either an ExternalSearchIndex or a Collection
-        if hasattr(self, "protocol_class"):
+        # :param item: An ExternalSearchIndex, an ExternalIntegration for patron authentication, or a Collection
+        if not protocol_class and hasattr(self, "protocol_class"):
             protocol_class = self.protocol_class
 
         if not item:
@@ -2411,7 +2412,8 @@ class SettingsController(AdminCirculationManagerController):
         item_type = None
 
         try:
-            if protocol_class is not None:
+
+            if not hasattr(item, "goal"):
                 # We're running self-tests for a collection
                 if not item.protocol or not len(item.protocol):
                     return None
@@ -2432,12 +2434,20 @@ class SettingsController(AdminCirculationManagerController):
                         self._db, protocol_class, self._db, item, *extra_args
                     )
 
-            else:
-                # We're running self-tests for a search service
+            elif item.goal == "search":
                 item_type = "search service"
                 self_test_results = ExternalSearchIndex.prior_test_results(
                     self._db, None, self._db, item
                 )
+
+            elif item.goal == "patron_auth":
+                item_type = "patron authentication service"
+                library = None
+                if item.libraries:
+                    library = item.libraries[0]
+                    self_test_results = protocol_class.prior_test_results(
+                        self._db, None, library, item
+                    )
 
         except Exception, e:
             # This is bad, but not so bad that we should short-circuit

@@ -42,7 +42,7 @@ class TestSearchServiceSelfTests(SettingsControllerTest):
             goal=ExternalIntegration.SEARCH_GOAL,
         )
         # Make sure that HasSelfTest.prior_test_results() was called and that
-        # it is in the response's collection object.
+        # it is in the response's self tests object.
         with self.request_context_with_admin("/"):
             response = self.manager.admin_search_service_self_tests_controller.process_search_service_self_tests(search_service.id)
             response_search_service = response.get("self_test_results")
