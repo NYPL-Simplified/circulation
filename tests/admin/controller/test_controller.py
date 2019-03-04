@@ -3199,6 +3199,7 @@ class SettingsControllerTest(AdminControllerTest):
 
         collectionNoProtocol = self._collection()
         collectionNoProtocol.protocol = ""
+        controller.type = "collection"
 
         # No collection or collection with protocol passed
         self_test_results = controller._get_prior_test_results({}, {})

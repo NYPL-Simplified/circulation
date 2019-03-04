@@ -453,8 +453,8 @@ COLLECTION_DOES_NOT_SUPPORT_REGISTRATION = pd(
 FAILED_TO_RUN_SELF_TESTS = pd(
     "http://librarysimplified.org/terms/problem/failed-to-run-self-tests",
     status_code=400,
-    title=_("Failed to run self tests for collection."),
-    detail=_("Failed to run self tests for collection.")
+    title=_("Failed to run self tests."),
+    detail=_("Failed to run self tests.")
 )
 
 MISSING_IDENTIFIER = pd(
