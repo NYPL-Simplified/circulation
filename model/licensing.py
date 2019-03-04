@@ -204,8 +204,14 @@ class LicensePool(Base):
 
     @classmethod
     def with_no_delivery_mechanisms(cls, _db):
-        """Find LicensePools that have no delivery mechanisms."""
-        
+        """Find LicensePools that have no delivery mechanisms.
+
+        :return: A query object.
+        """
+        return _db.query(LicensePool).outerjoin(
+            LicensePool.delivery_mechanisms).filter(
+                LicensePoolDeliveryMechanism.id==None
+            )
 
     @property
     def deliverable(self):
