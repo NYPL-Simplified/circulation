@@ -47,6 +47,20 @@ class TestSelfTestResult(object):
         eq_(True, d['success'])
         eq_(None, d['exception'])
 
+        # A test result can be either a string (which will be displayed
+        # in a fixed-width font) or a list of strings (which will be hidden
+        # behind an expandable toggle).
+        list_result = ["list", "of", "strings"]
+        result.result = list_result
+        d = result.to_dict
+        eq_(list_result, d['result'])
+
+        # Other .result values don't make it into the dictionary because
+        # it's not defined how to display them.
+        result.result = {"a": "dictionary"}
+        d = result.to_dict
+        eq_(None, d['result'])
+
     def test_repr_failure(self):
         """Show the string representation of a failed test result."""
 

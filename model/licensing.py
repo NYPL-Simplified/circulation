@@ -202,6 +202,17 @@ class LicensePool(Base):
         return _db.query(LicensePool).outerjoin(Work).filter(
             Work.id==None).all()
 
+    @classmethod
+    def with_no_delivery_mechanisms(cls, _db):
+        """Find LicensePools that have no delivery mechanisms.
+
+        :return: A query object.
+        """
+        return _db.query(LicensePool).outerjoin(
+            LicensePool.delivery_mechanisms).filter(
+                LicensePoolDeliveryMechanism.id==None
+            )
+
     @property
     def deliverable(self):
         """This LicensePool can actually be delivered to patrons.
@@ -1302,6 +1313,8 @@ class DeliveryMechanism(Base, HasFullTableCache):
         (MediaTypes.EPUB_MEDIA_TYPE, NO_DRM),
         (MediaTypes.EPUB_MEDIA_TYPE, ADOBE_DRM),
         (MediaTypes.EPUB_MEDIA_TYPE, BEARER_TOKEN),
+        (None, FINDAWAY_DRM),
+        (MediaTypes.AUDIOBOOK_MANIFEST_MEDIA_TYPE, None),
     ])
 
     license_pool_delivery_mechanisms = relationship(

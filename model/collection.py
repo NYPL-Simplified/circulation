@@ -482,6 +482,17 @@ class Collection(Base, HasFullTableCache):
 
         return collection, is_new
 
+    @property
+    def pools_with_no_delivery_mechanisms(self):
+        """Find all LicensePools in this Collection that have no delivery
+        mechanisms whatsoever.
+
+        :return: A query object.
+        """
+        _db = Session.object_session(self)
+        qu = LicensePool.with_no_delivery_mechanisms(_db)
+        return qu.filter(LicensePool.collection==self)
+
     def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a collection's
         settings.

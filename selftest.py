@@ -56,7 +56,11 @@ class SelfTestResult(object):
             value['start'] = f(self.start)
         if self.end:
             value['end'] = f(self.end)
-        if isinstance(self.result, basestring):
+
+        # String results will be displayed in a fixed-width font.
+        # Lists of strings will be hidden behind an expandable toggle.
+        # Other return values have no defined method of display.
+        if isinstance(self.result, basestring) or isinstance(self.result, list):
             value['result'] = self.result
         else:
             value['result'] = None

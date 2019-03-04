@@ -215,6 +215,20 @@ class TestLicensePool(DatabaseTest):
             collection=None
         )
 
+    def test_with_no_delivery_mechanisms(self):
+        # LicensePool.with_no_delivery_mechanisms returns a
+        # query that finds all LicensePools which are missing
+        # delivery mechanisms.
+        qu = LicensePool.with_no_delivery_mechanisms(self._db)
+        pool = self._licensepool(None)
+
+        # The LicensePool was created with a delivery mechanism.
+        eq_([], qu.all())
+
+        # Let's delete it.
+        [self._db.delete(x) for x in pool.delivery_mechanisms]
+        eq_([pool], qu.all())
+
     def test_no_license_pool_for_non_primary_identifier(self):
         """Overdrive offers licenses, but to get an Overdrive license pool for
         a book you must identify the book by Overdrive's primary

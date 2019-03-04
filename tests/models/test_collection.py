@@ -279,6 +279,29 @@ class TestCollection(DatabaseTest):
         ).value = 954
         eq_(954, self.collection.default_reservation_period)
 
+    def test_pools_with_no_delivery_mechanisms(self):
+        # Collection.pools_with_no_delivery_mechanisms returns a query
+        # that finds all LicensePools in the Collection which are
+        # missing delivery mechanisms.
+        collection1 = self._default_collection
+        collection2 = self._collection()
+        pool1 = self._licensepool(None, collection=collection1)
+        pool2 = self._licensepool(None, collection=collection2)
+
+        # At first, the query matches nothing, because
+        # all LicensePools have delivery mechanisms.
+        qu = collection1.pools_with_no_delivery_mechanisms
+        eq_([], qu.all())
+
+        # Let's delete all the delivery mechanisms.
+        for pool in (pool1, pool2):
+            [self._db.delete(x) for x in pool.delivery_mechanisms]
+
+        # Now the query matches LicensePools if they are in the
+        # appropriate collection.
+        eq_([pool1], qu.all())
+        eq_([pool2], collection2.pools_with_no_delivery_mechanisms.all())
+
     def test_explain(self):
         """Test that Collection.explain gives all relevant information
         about a Collection.
