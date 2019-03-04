@@ -15,7 +15,7 @@ class CollectionSelfTestsController(SelfTestsController):
 
     def __init__(self, manager):
         super(CollectionSelfTestsController, self).__init__(manager)
-        self.type = "collection"
+        self.type = _("collection")
         self.protocols = self._get_collection_protocols(self.PROVIDER_APIS)
 
     def process_collection_self_tests(self, identifier):

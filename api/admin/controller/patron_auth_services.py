@@ -38,7 +38,7 @@ class PatronAuthServicesController(SettingsController):
                                 FirstBookAuthenticationAPI.__module__,
                                 OldFirstBookAuthenticationAPI.__module__,
                                ]
-        self.type = "patron authentication service"
+        self.type = _("patron authentication service")
 
     def process_patron_auth_services(self):
         self.require_system_admin()

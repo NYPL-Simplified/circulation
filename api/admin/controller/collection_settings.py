@@ -28,8 +28,8 @@ from core.util.problem_detail import ProblemDetail
 class CollectionSettingsController(SettingsController):
     def __init__(self, manager):
         super(CollectionSettingsController, self).__init__(manager)
-        self.type = "collection"
-        
+        self.type = _("collection")
+
     def _get_collection_protocols(self):
         protocols = super(CollectionSettingsController, self)._get_collection_protocols(self.PROVIDER_APIS)
         # If there are storage integrations, add a mirror integration
