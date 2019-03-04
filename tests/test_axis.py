@@ -183,7 +183,7 @@ class TestAxis360API(Axis360Test):
         eq_("username1", patron.authorization_identifier)
         eq_("password1", pin)
 
-        eq_("Checking for titles that have no delivery mechanisms",
+        eq_("Checking for titles that have no delivery mechanisms.",
             pools_without_delivery.name)
         eq_(True, pools_without_delivery.success)
         eq_("All titles in this collection have delivery mechanisms.",
