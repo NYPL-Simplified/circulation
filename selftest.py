@@ -133,7 +133,6 @@ class HasSelfTests(object):
         instance = None
         integration = None
         results = []
-
         # Treat the construction of the integration code as its own
         # test.
         try:
