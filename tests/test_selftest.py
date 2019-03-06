@@ -242,8 +242,8 @@ class TestHasCollectionSelfTests(DatabaseTest):
             collection = self._default_collection
         hastests = Mock()
         result = hastests._no_delivery_mechanisms_test()
-        eq_("All titles in this collection have delivery mechanisms.",
-            result)
+        success = "All titles in this collection have delivery mechanisms."
+        eq_(success, result)
 
         # Destroy the delivery mechanism.
         [self._db.delete(x) for x in pool.delivery_mechanisms]
@@ -253,3 +253,10 @@ class TestHasCollectionSelfTests(DatabaseTest):
         [result] = hastests._no_delivery_mechanisms_test()
         eq_("[title unknown] (ID: %s)" % pool.identifier.identifier,
             result)
+
+        # Change the LicensePool so it has no owned licenses.
+        # Now the book is no longer considered problematic,
+        # since it's not actually in the collection.
+        pool.licenses_owned = 0
+        result = hastests._no_delivery_mechanisms_test()
+        eq_(success, result)
