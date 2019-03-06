@@ -121,6 +121,10 @@ class LoggingServicesController(SitewideServicesController):
         )
 
 class SearchServicesController(SitewideServicesController):
+    def __init__(self, manager):
+        super(SearchServicesController, self).__init__(manager)
+        self.type = _("search service")
+
     def process_services(self):
         detail = _("You tried to create a new search service, but a search service is already configured.")
         return self._manage_sitewide_service(

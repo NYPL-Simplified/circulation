@@ -87,7 +87,7 @@ from circulation import (
 from circulation_exceptions import *
 
 from selftest import (
-    HasSelfTests,
+    HasCollectionSelfTests,
     SelfTestResult,
 )
 
@@ -97,7 +97,7 @@ from web_publication_manifest import (
 )
 
 
-class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
+class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
 
     NAME = ExternalIntegration.AXIS_360
 
@@ -237,6 +237,10 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasSelfTests):
                 "Checking activity for test patron for library %s" % library.name,
                 _count_activity
             )
+
+        # Run the tests defined by HasCollectionSelfTests
+        for result in super(Axis360API, self)._run_self_tests():
+            yield result
 
     def refresh_bearer_token(self):
         url = self.base_url + self.access_token_endpoint
