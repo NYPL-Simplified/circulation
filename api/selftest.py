@@ -11,6 +11,7 @@ from feedbooks import (
 from core.config import IntegrationException
 from core.model import (
     ExternalIntegration,
+    LicensePool,
 )
 from core.opds_import import (
     OPDSImporter,
@@ -152,7 +153,9 @@ class HasCollectionSelfTests(HasSelfTests):
         # mechanisms.
         titles = []
 
-        for lp in self.collection.pools_with_no_delivery_mechanisms:
+        qu = self.collection.pools_with_no_delivery_mechanisms
+        qu = qu.filter(LicensePool.licenses_owned > 0)
+        for lp in qu:
             edition = lp.presentation_edition
             if edition:
                 title = edition.title
