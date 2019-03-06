@@ -137,3 +137,39 @@ class RunSelfTestsScript(LibraryInputScript):
             self.out.write("   Result: %s\n" % result.result)
         if result.exception:
             self.out.write("   Exception: %r\n" % result.exception)
+
+
+class HasCollectionSelfTests(HasSelfTests):
+    """Extra tests to verify the integrity of imported
+    collections of books.
+
+    This is a mixin method that requires that `self.collection`
+    point to the Collection to be tested.
+    """
+
+    def _no_delivery_mechanisms_test(self):
+        # Find works in the tested collection that have no delivery
+        # mechanisms.
+        titles = []
+
+        for lp in self.collection.pools_with_no_delivery_mechanisms:
+            edition = lp.presentation_edition
+            if edition:
+                title = edition.title
+            else:
+                title = "[title unknown]"
+            identifier = lp.identifier.identifier
+            titles.append(
+                "%s (ID: %s)" % (title, identifier)
+            )
+
+        if titles:
+            return titles
+        else:
+            return "All titles in this collection have delivery mechanisms."
+
+    def _run_self_tests(self):
+        yield self.run_test(
+            "Checking for titles that have no delivery mechanisms.",
+            self._no_delivery_mechanisms_test
+        )
