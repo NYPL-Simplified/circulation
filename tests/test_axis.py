@@ -152,7 +152,7 @@ class TestAxis360API(Axis360Test):
         api = Mock(self._db, self.collection)
         now = datetime.datetime.utcnow()
         [no_patron_credential, recent_circulation_events, patron_activity,
-         refresh_bearer_token] = sorted(
+         pools_without_delivery, refresh_bearer_token] = sorted(
             api._run_self_tests(self._db), key=lambda x: x.name
         )
         eq_("Refreshing bearer token", refresh_bearer_token.name)
@@ -182,6 +182,12 @@ class TestAxis360API(Axis360Test):
         patron, pin = api.patron_activity_called_with
         eq_("username1", patron.authorization_identifier)
         eq_("password1", pin)
+
+        eq_("Checking for titles that have no delivery mechanisms.",
+            pools_without_delivery.name)
+        eq_(True, pools_without_delivery.success)
+        eq_("All titles in this collection have delivery mechanisms.",
+            pools_without_delivery.result)
 
     def test__run_self_tests_short_circuit(self):
         """If we can't refresh the bearer token, the rest of the

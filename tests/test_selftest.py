@@ -16,6 +16,7 @@ from core.opds_import import (
 from api.authenticator import BasicAuthenticationProvider
 from api.circulation import CirculationAPI
 from api.selftest import (
+    HasCollectionSelfTests,
     HasSelfTests,
     RunSelfTestsScript,
     SelfTestResult,
@@ -212,3 +213,50 @@ class TestRunSelfTestsScript(DatabaseTest):
         eq_(out.getvalue(),
             "  FAILURE i failed (0.0sec)\n   Exception: Exception('bah',)\n"
         )
+
+
+class TestHasCollectionSelfTests(DatabaseTest):
+
+    def test__run_self_tests(self):
+        # Verify that _run_self_tests calls all the test methods
+        # we want it to.
+        class Mock(HasCollectionSelfTests):
+            # Mock the methods that run the actual tests.
+            def _no_delivery_mechanisms_test(self):
+                self._no_delivery_mechanisms_called = True
+                return "1"
+
+        mock = Mock()
+        results = [x for x in mock._run_self_tests()]
+        eq_(["1"], [x.result for x in results])
+        eq_(True, mock._no_delivery_mechanisms_called)
+
+    def test__no_delivery_mechanisms_test(self):
+        # Verify that _no_delivery_mechanisms_test works whether all
+        # titles in the collection have delivery mechanisms or not.
+
+        # There's one LicensePool, and it has a delivery mechanism,
+        # so a string is returned.
+        pool = self._licensepool(None)
+        class Mock(HasCollectionSelfTests):
+            collection = self._default_collection
+        hastests = Mock()
+        result = hastests._no_delivery_mechanisms_test()
+        success = "All titles in this collection have delivery mechanisms."
+        eq_(success, result)
+
+        # Destroy the delivery mechanism.
+        [self._db.delete(x) for x in pool.delivery_mechanisms]
+
+        # Now a list of strings is returned, one for each problematic
+        # book.
+        [result] = hastests._no_delivery_mechanisms_test()
+        eq_("[title unknown] (ID: %s)" % pool.identifier.identifier,
+            result)
+
+        # Change the LicensePool so it has no owned licenses.
+        # Now the book is no longer considered problematic,
+        # since it's not actually in the collection.
+        pool.licenses_owned = 0
+        result = hastests._no_delivery_mechanisms_test()
+        eq_(success, result)
