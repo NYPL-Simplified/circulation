@@ -121,6 +121,13 @@ UNKNOWN_LANGUAGE = pd(
     detail=_("The submitted language is not one of the known languages."),
 )
 
+UNKNOWN_LOCATION = pd(
+    "http://librarysimplified.org/terms/problem/unknown-place",
+    status_code=400,
+    title=_("Unknown location."),
+    detail=_("The submitted geographic location cannot be found.")
+)
+
 UNKNOWN_ROLE = pd(
     "http://librarysimplified.org/terms/problem/unknown-role",
     status_code=400,

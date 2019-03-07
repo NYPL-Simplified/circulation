@@ -9,6 +9,7 @@ import jwt
 import re
 import urllib
 import urlparse
+import uszipcode
 
 import flask
 from flask import (
@@ -2700,13 +2701,26 @@ class SettingsController(AdminCirculationManagerController):
 
     def validate_geographic_areas(self, settings):
         geographic_fields = filter(lambda s: s.get("format") == "geographic" and self._value(s), settings)
+        search = uszipcode.SearchEngine(simple_zipcode=True)
         for value in self._list_of_values(geographic_fields):
             if value == "everywhere":
                 continue
             elif isinstance(value, basestring):
                 if len(value) == 2:
-                    set_trace()
-                    pass
+                    # Is it a state abbreviation?
+                    if not len(search.query(state=value)):
+                        return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. state abbreviation.', value=value))
+
+                elif len(value.split(", ")) == 2:
+                    # Is it in the format "[city], [state abbreviation]" or "[county], [state abbreviation]"?
+                    city_or_county, state = value.split(", ")
+                    if not search.by_city_and_state(city_or_county, state) and not city_or_county in [x.county for x in search.query(state=state, returns=None)]:
+                        return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
+
+                elif value.isdigit():
+                    # Is it a zipcode?
+                    if not search.by_zipcode(value):
+                        return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. zipcode.', value=value))
 
     def _list_of_values(self, fields):
         result = []

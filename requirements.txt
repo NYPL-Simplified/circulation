@@ -20,6 +20,7 @@ Flask-Babel
 money
 pymarc
 accept-types
+uszipcode
 watchtower # for cloudwatch logging
 
 # Ensure that we support SNI-based SSL
