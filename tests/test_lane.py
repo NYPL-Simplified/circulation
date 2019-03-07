@@ -327,6 +327,18 @@ class TestFacets(DatabaseTest):
         expect = [['order', 'title', True], ['order', 'work_id', False]]
         eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
 
+    def test_default(self):
+        # Calling Facets.default() is like calling the constructor with
+        # no arguments except the library.
+        class Mock(Facets):
+            def __init__(self, library, **kwargs):
+                self.library = library
+                self.kwargs = kwargs
+        facets = Mock.default(self._default_library)
+        eq_(self._default_library, facets.library)
+        eq_(dict(collection=None, availability=None, order=None),
+            facets.kwargs)
+
     def test_default_availability(self):
 
         # Normally, the availability will be the library's default availability
@@ -3099,7 +3111,7 @@ class TestWorkListGroups(DatabaseTest):
         random.seed(42)
 
     def test_groups(self):
-        """A comprehensive test of WorkList.groups()"""
+        # A comprehensive test of WorkList.groups()
         def _w(**kwargs):
             """Helper method to create a work with license pool."""
             return self._work(with_license_pool=True, **kwargs)

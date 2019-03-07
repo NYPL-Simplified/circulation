@@ -30,6 +30,7 @@ from sqlalchemy import (
     Integer,
     Table,
     Unicode,
+    text,
 )
 from sqlalchemy.ext.associationproxy import (
     association_proxy,
@@ -275,12 +276,7 @@ class Facets(FacetsWithEntryPoint):
     """
     @classmethod
     def default(cls, library):
-        return cls(
-            library,
-            collection=cls.COLLECTION_MAIN,
-            availability=cls.AVAILABLE_ALL,
-            order=cls.ORDER_AUTHOR
-        )
+        return cls(library, collection=None, availability=None, order=None)
 
     @classmethod
     def from_request(cls, library, config, get_argument, get_header, worklist,
@@ -1806,7 +1802,7 @@ class WorkList(object):
         )
 
         lane_query = lane_query.order_by(
-            "quality_tier desc", work_model.random.desc()
+            text("quality_tier desc"), work_model.random.desc()
         )
 
         # Allow some overage to reduce the risk that we'll have to

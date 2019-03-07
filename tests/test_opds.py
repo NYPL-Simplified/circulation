@@ -1105,9 +1105,8 @@ class TestOPDS(DatabaseTest):
 
 
     def test_groups_feed(self):
-        """Test the ability to create a grouped feed of recommended works for
-        a given lane.
-        """
+        # Test the ability to create a grouped feed of recommended works for
+        # a given lane.
         epic_fantasy = self._lane(
             "Epic Fantasy", parent=self.fantasy, genres=["Epic Fantasy"]
         )
@@ -2160,10 +2159,9 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         AcquisitionFeed.add_entrypoint_links = self.old_add_entrypoint_links
 
     def test_groups(self):
-        """When AcquisitionFeed.groups() generates a grouped
-        feed, it will link to different entry points into the feed,
-        assuming the WorkList has different entry points.
-        """
+        # When AcquisitionFeed.groups() generates a grouped
+        # feed, it will link to different entry points into the feed,
+        # assuming the WorkList has different entry points.
         def run(wl=None, facets=None):
             """Call groups() and see what add_entrypoint_links
             was called with.
