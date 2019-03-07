@@ -334,8 +334,8 @@ class TestFacets(DatabaseTest):
             def __init__(self, library, **kwargs):
                 self.library = library
                 self.kwargs = kwargs
-        facets = Mock.default(library)
-        eq_(library, facets.library)
+        facets = Mock.default(self._default_library)
+        eq_(self._default_library, facets.library)
         eq_(dict(collection=None, availability=None, order=None),
             facets.kwargs)
 
