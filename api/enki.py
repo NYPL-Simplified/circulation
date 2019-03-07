@@ -229,7 +229,6 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             minutes=minutes,
         )
         response = self.request(url, params=args)
-        set_trace()
         data = json.loads(response.content)
         parser = BibliographicParser()
         for element in data['result']['recentactivity']:
