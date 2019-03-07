@@ -30,6 +30,7 @@ from sqlalchemy import (
     Integer,
     Table,
     Unicode,
+    text,
 )
 from sqlalchemy.ext.associationproxy import (
     association_proxy,
@@ -1801,7 +1802,7 @@ class WorkList(object):
         )
 
         lane_query = lane_query.order_by(
-            "quality_tier desc", work_model.random.desc()
+            text("quality_tier desc"), work_model.random.desc()
         )
 
         # Allow some overage to reduce the risk that we'll have to
