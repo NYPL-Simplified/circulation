@@ -31,6 +31,7 @@ from core.util.http import (
 from core.model import (
     CirculationEvent,
     Collection,
+    ConfigurationSetting,
     DataSource,
     DeliveryMechanism,
     Edition,
@@ -112,16 +113,18 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             )
 
         self.collection_id = collection.id
-        self.library_id = collection.external_integration.setting(self.ENKI_LIBRARY_ID_KEY).value
         self.base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
-
-        if not self.library_id or not self.base_url:
-            raise CannotLoadConfiguration(
-                "Enki configuration is incomplete."
-            )
 
     def external_integration(self, _db):
         return self.collection.external_integration
+
+    def enki_library_id(self, library):
+        """Find the Enki library ID for the given library."""
+        _db = Session.object_session(library)
+        return ConfigurationSetting.for_library_and_externalintegration(
+            _db, self.ENKI_LIBRARY_ID_KEY, library,
+            self.external_integration(_db)
+        ).value
 
     @property
     def collection(self):
@@ -224,7 +227,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         args = dict(
             method='getRecentActivity',
             minutes=minutes,
-            lib=self.library_id
+            lib='0'
         )
         response = self.request(url, params=args)
         data = json.loads(response.content)
@@ -251,7 +254,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             method='getUpdateTitles',
             minutes=minutes,
             id='secontent',
-            lib=self.library_id
+            lib='0'
         )
         response = self.request(url, params=args)
         for metadata in BibliographicParser().process_all(response.content):
@@ -269,7 +272,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         args = dict(
             method="getItem",
             recordid=enki_id,
-            lib=self.library_id,
+            lib='0',
             size="large",
         )
         response = self.request(url, params=args)
@@ -300,7 +303,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         args['id'] = "secontent"
         args['strt'] = strt
         args['qty'] = qty
-        args['lib'] = self.library_id
+        args['lib'] = '0'
         response = self.request(url, params=args)
         for metadata in BibliographicParser().process_all(response.content):
             yield metadata
@@ -318,7 +321,11 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
     def checkout(self, patron, pin, licensepool, internal_format):
         identifier = licensepool.identifier
         enki_id = identifier.identifier
-        response = self.loan_request(patron.authorization_identifier, pin, enki_id)
+        enki_library_id = self.enki_library_id(patron.library)
+        response = self.loan_request(
+            patron.authorization_identifier, pin, enki_id,
+            enki_library_id
+        )
         if response.status_code != 200:
             raise CannotLoan(response.status_code)
         result = json.loads(response.content)['result']
@@ -346,14 +353,14 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         )
         return loan
 
-    def loan_request(self, barcode, pin, book_id):
+    def loan_request(self, barcode, pin, book_id, enki_library_id):
         self.log.debug ("Sending checkout request for %s" % book_id)
         url = str(self.base_url) + str(self.user_endpoint)
         args = dict()
         args['method'] = "getSELink"
         args['username'] = barcode
         args['password'] = pin
-        args['lib'] = self.library_id
+        args['lib'] = enki_library_id
         args['id'] = book_id
 
         response = self.request(url, method='get', params=args)
@@ -368,7 +375,10 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         :return: a FulfillmentInfo object.
         """
         book_id = licensepool.identifier.identifier
-        response = self.loan_request(patron.authorization_identifier, pin, book_id)
+        enki_library_id = self.enki_library_id(patron.library)
+        response = self.loan_request(
+            patron.authorization_identifier, pin, book_id, enki_library_id
+        )
         if response.status_code != 200:
             raise CannotFulfill(response.status_code)
         result = json.loads(response.content)['result']
@@ -414,7 +424,10 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         return (url, item_type, expires)
 
     def patron_activity(self, patron, pin):
-        response = self.patron_request(patron.authorization_identifier, pin)
+        enki_library_id = self.enki_library_id(patron.library)
+        response = self.patron_request(
+            patron.authorization_identifier, pin, enki_library_id
+        )
         if response.status_code != 200:
             raise PatronNotFoundOnRemote(response.status_code)
         result = json.loads(response.content).get('result', {})
@@ -434,14 +447,14 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             for hold in holds:
                 yield self.parse_patron_holds(hold)
 
-    def patron_request(self, patron, pin):
+    def patron_request(self, patron, pin, enki_library_id):
         self.log.debug ("Querying Enki for information on patron %s" % patron)
         url = str(self.base_url) + str(self.user_endpoint)
         args = dict()
         args['method'] = "getSEPatronData"
         args['username'] = patron
         args['password'] = pin
-        args['lib'] = self.library_id
+        args['lib'] = enki_library_id
 
         return self.request(url, method='get', params=args)
 
@@ -481,9 +494,16 @@ class MockEnkiAPI(EnkiAPI):
                 _db, name="Test Enki Collection", protocol=EnkiAPI.ENKI
             )
             collection.protocol=EnkiAPI.ENKI
-            collection.external_integration.setting(self.ENKI_LIBRARY_ID_KEY).value = u'c'
         if collection not in library.collections:
             library.collections.append(collection)
+
+        # Set the "Enki library ID" variable between the default library
+        # and this Enki collection.
+        ConfigurationSetting.for_library_and_externalintegration(
+            _db, self.ENKI_LIBRARY_ID_KEY, library,
+            collection.external_integration
+        ).value = 'c'
+
         super(MockEnkiAPI, self).__init__(
             _db, collection, *args, **kwargs
         )
