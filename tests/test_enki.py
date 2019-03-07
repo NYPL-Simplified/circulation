@@ -12,6 +12,7 @@ import pkgutil
 import json
 from core.model import (
     CirculationEvent,
+    ConfigurationSetting,
     Contributor,
     DataSource,
     DeliveryMechanism,
@@ -88,6 +89,21 @@ class TestEnkiAPI(BaseEnkiTest):
     def test_external_integration(self):
         integration = self.api.external_integration(self._db)
         eq_(ExternalIntegration.ENKI, integration.protocol)
+
+    def test_enki_library_id(self):
+        # The default library has already had this value set on its
+        # association with the mock Enki collection.
+        m = self.api.enki_library_id
+        eq_("c", m(self._default_library))
+
+        # Associate another library with the mock Enki collection
+        # and set its Enki library ID.
+        other_library = self._library()
+        integration = self.api.external_integration(self._db)
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, self.api.ENKI_LIBRARY_ID_KEY, other_library, integration
+        ).value = "other library id"
+        eq_("other library id", m(other_library))
 
     def test_collection(self):
         eq_(self.collection, self.api.collection)
