@@ -225,9 +225,8 @@ class TestEnkiAPI(BaseEnkiTest):
         eq_("getRecentActivity", params['method'])
         eq_(1, params['minutes'])
 
-        # The Enki library ID is a known 'safe' value since we're not acting
-        # in the context of any particular library here.
-        eq_("0", params['lib'])
+        # Unlike some API calls, it's not necessary to pass 'lib' in here.
+        assert 'lib' not in params
 
     def test_updated_titles(self):
         one_minute_ago = datetime.datetime.utcnow() - datetime.timedelta(
@@ -299,9 +298,11 @@ class TestEnkiAPI(BaseEnkiTest):
         [method, url, headers, data, params, kwargs] = self.api.requests.pop()
         eq_("get", method)
         eq_("https://enkilibrary.org/API/ListAPI", url)
-        eq_("0", params['lib'])
         eq_("getAllTitles", params['method'])
         eq_("secontent", params['id'])
+
+        # Unlike some API calls, it's not necessary to pass 'lib' in here.
+        assert 'lib' not in params
 
     def test__epoch_to_struct(self):
         """Test the _epoch_to_struct helper method."""
@@ -310,6 +311,7 @@ class TestEnkiAPI(BaseEnkiTest):
     def test_checkout_open_access_parser(self):
         """Test that checkout info for non-ACS Enki books is parsed correctly."""
         data = self.get_data("checked_out_direct.json")
+        result = json.loads(data)
         loan = self.api.parse_patron_loans(result['result']['checkedOutItems'][0])
         eq_(loan.data_source_name, DataSource.ENKI)
         eq_(loan.identifier_type, Identifier.ENKI_ID)
@@ -320,6 +322,7 @@ class TestEnkiAPI(BaseEnkiTest):
     def test_checkout_acs_parser(self):
         """Test that checkout info for ACS Enki books is parsed correctly."""
         data = self.get_data("checked_out_acs.json")
+        result = json.loads(data)
         loan = self.api.parse_patron_loans(result['result']['checkedOutItems'][0])
         eq_(loan.data_source_name, DataSource.ENKI)
         eq_(loan.identifier_type, Identifier.ENKI_ID)

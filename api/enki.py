@@ -227,9 +227,9 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         args = dict(
             method='getRecentActivity',
             minutes=minutes,
-            lib='0'
         )
         response = self.request(url, params=args)
+        set_trace()
         data = json.loads(response.content)
         parser = BibliographicParser()
         for element in data['result']['recentactivity']:
@@ -254,7 +254,9 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             method='getUpdateTitles',
             minutes=minutes,
             id='secontent',
-            lib='0'
+            lib='0', # This is a stand-in value -- it doesn't matter
+                     # which library we ask about since they all have
+                     # the same collection.
         )
         response = self.request(url, params=args)
         for metadata in BibliographicParser().process_all(response.content):
@@ -272,8 +274,10 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         args = dict(
             method="getItem",
             recordid=enki_id,
-            lib='0',
             size="large",
+            lib='0', # This is a stand-in value -- it doesn't matter
+                     # which library we ask about since they all have
+                     # the same collection.
         )
         response = self.request(url, params=args)
         try:
@@ -303,7 +307,6 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         args['id'] = "secontent"
         args['strt'] = strt
         args['qty'] = qty
-        args['lib'] = '0'
         response = self.request(url, params=args)
         for metadata in BibliographicParser().process_all(response.content):
             yield metadata
