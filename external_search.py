@@ -1612,10 +1612,10 @@ class SearchIndexMonitor(WorkSweepMonitor):
                 successes, WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
             )
             # Start work on the next batch.
-            return batch[-1].id
+            return batch[-1].id, len(batch)
         else:
             # We're done.
-            return 0
+            return 0, 0
 
 
 class SearchIndexCoverageProvider(WorkPresentationProvider):
