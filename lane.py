@@ -275,21 +275,7 @@ class Facets(FacetsWithEntryPoint):
     """
     @classmethod
     def default(cls, library):
-        default_collection = library.default_facet(
-            Facets.COLLECTION_FACET_GROUP_NAME
-        )
-        default_availability = library.default_facet(
-            Facets.AVAILABILITY_FACET_GROUP_NAME
-        )
-        default_order = library.default_facet(
-            Facets.ORDER_FACET_GROUP_NAME
-        )
-        return cls(
-            library,
-            collection=default_collection,
-            availability=default_availability,
-            order=default_order,
-        )
+        return cls(library, collection=None, availability=None, order=None)
 
     @classmethod
     def from_request(cls, library, config, get_argument, get_header, worklist,
