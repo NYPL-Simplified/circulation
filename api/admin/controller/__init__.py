@@ -2600,6 +2600,7 @@ class SettingsController(AdminCirculationManagerController):
             self.validate_url,
             self.validate_number,
             self.validate_language_code,
+            self.validate_geographic_areas
         ]
         for validator in validators:
             error = validator(settings)
@@ -2609,7 +2610,12 @@ class SettingsController(AdminCirculationManagerController):
     def _value(self, field):
         # Extract the user's input for this field. If this is a sitewide setting,
         # then the input needs to be accessed via "value" rather than via the setting's key.
-        return flask.request.form.get(field.get("key")) or flask.request.form.get("value")
+        value = flask.request.form.getlist(field.get("key"))
+        if not value:
+            return flask.request.form.get("value")
+        elif len(value) == 1:
+            return value[0]
+        return value
 
     def validate_email(self, settings):
         """Find any email addresses that the user has submitted, and make sure that
@@ -2683,9 +2689,8 @@ class SettingsController(AdminCirculationManagerController):
     def validate_language_code(self, settings):
         # Find the fields that should contain language codes and are not blank.
         language_fields = filter(lambda s: s.get("format") == "language-code" and self._value(s), settings)
-        # Get the language codes that the user entered.
-        language_inputs = [self._value(field) for field in language_fields]
-        for language in language_inputs:
+
+        for language in self._list_of_values(language_fields):
             if not self._is_language(language):
                 return UNKNOWN_LANGUAGE.detailed(_('"%(language)s" is not a valid language code.', language=language))
 
@@ -2693,6 +2698,21 @@ class SettingsController(AdminCirculationManagerController):
         # Check that the input string is in the list of recognized language codes.
         return LanguageCodes.string_to_alpha_3(language)
 
+    def validate_geographic_areas(self, settings):
+        geographic_fields = filter(lambda s: s.get("format") == "geographic" and self._value(s), settings)
+        for value in self._list_of_values(geographic_fields):
+            if value == "everywhere":
+                continue
+            elif isinstance(value, basestring):
+                if len(value) == 2:
+                    set_trace()
+                    pass
+
+    def _list_of_values(self, fields):
+        result = []
+        for field in fields:
+            result += self._value(field)
+        return filter(None, result)
 
 class SitewideRegistrationController(SettingsController):
     """A controller for managing a circulation manager's registrations
