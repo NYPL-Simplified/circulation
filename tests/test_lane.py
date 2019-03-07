@@ -3099,7 +3099,7 @@ class TestWorkListGroups(DatabaseTest):
         random.seed(42)
 
     def test_groups(self):
-        """A comprehensive test of WorkList.groups()"""
+        # A comprehensive test of WorkList.groups()
         def _w(**kwargs):
             """Helper method to create a work with license pool."""
             return self._work(with_license_pool=True, **kwargs)
