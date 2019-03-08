@@ -227,6 +227,7 @@ class TestLibrarySettings(SettingsControllerTest):
             eq_(response.uri, INVALID_NUMBER.uri)
             eq_(response.detail, "Minimum quality for books that show up in 'featured' lanes cannot be greater than 1.")
 
+        # Test an invalid language code
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("uuid", library.uuid),
@@ -235,11 +236,27 @@ class TestLibrarySettings(SettingsControllerTest):
                 (Configuration.WEBSITE_URL, "https://library.library/"),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
                 (Configuration.HELP_EMAIL, "help@example.com"),
-                (Configuration.LARGE_COLLECTION_LANGUAGES, "xyz")
+                (Configuration.LARGE_COLLECTION_LANGUAGES, ["xyz"])
             ])
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, UNKNOWN_LANGUAGE.uri)
             eq_(response.detail, '"xyz" is not a valid language code.')
+
+        # Test an invalid language code buried in a list of valid ones
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", library.short_name),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.LARGE_COLLECTION_LANGUAGES, ["eng", "ger", "fre"]),
+                (Configuration.TINY_COLLECTION_LANGUAGES, ["gre", "abc", "wel"])
+            ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, UNKNOWN_LANGUAGE.uri)
+            eq_(response.detail, '"abc" is not a valid language code.')
 
         # Test a bad contrast ratio between the web foreground and
         # web background colors.
@@ -288,7 +305,7 @@ class TestLibrarySettings(SettingsControllerTest):
                 ("short_name", "nypl"),
                 ("library_description", "Short description of library"),
                 (Configuration.WEBSITE_URL, "https://library.library/"),
-                (Configuration.TINY_COLLECTION_LANGUAGES, 'ger'),
+                (Configuration.TINY_COLLECTION_LANGUAGES, ['ger']),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
                 (Configuration.HELP_EMAIL, "help@example.com"),
                 (Configuration.FEATURED_LANE_SIZE, "5"),

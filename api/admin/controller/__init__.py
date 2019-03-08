@@ -2611,6 +2611,9 @@ class SettingsController(AdminCirculationManagerController):
     def _value(self, field):
         # Extract the user's input for this field. If this is a sitewide setting,
         # then the input needs to be accessed via "value" rather than via the setting's key.
+        # We use getlist instead of get so that, if the field is such that the user can input multiple values
+        # (e.g. language codes), we'll extract all the values, not just the first one.
+
         value = flask.request.form.getlist(field.get("key"))
         if not value:
             return flask.request.form.get("value")
