@@ -2159,9 +2159,10 @@ class TestSearchIndexMonitor(DatabaseTest):
         eq_("Search index update (works)", monitor.service_name)
 
         # The first time we call process_batch we handle the one and
-        # only work in the database. The ID of that work is returned for
-        # next time.
-        eq_(work.id, monitor.process_batch(0))
+        # only work in the database. The ID of that work is returned
+        # for next time, as is the number of works processed by
+        # process_batch -- one.
+        eq_((work.id, 1), monitor.process_batch(0))
         self._db.commit()
 
         # The work was added to the search index.
@@ -2170,6 +2171,7 @@ class TestSearchIndexMonitor(DatabaseTest):
         # A WorkCoverageRecord was created for the Work.
         assert _record(work) is not None
 
-        # The next time we call process_batch, no work is done and the
-        # result is 0, meaning we're done with every work in the system.
-        eq_(0, monitor.process_batch(work.id))
+        # The next time we call process_batch, the result is (0,0),
+        # meaning we're done with every work in the system (the first 0)
+        # and no work was done (the second 0).
+        eq_((0,0), monitor.process_batch(work.id))
