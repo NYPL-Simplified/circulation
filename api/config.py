@@ -103,6 +103,7 @@ class Configuration(CoreConfiguration):
     # Settings for geographic areas associated with the library.
     LIBRARY_FOCUS_AREA = "focus_area"
     LIBRARY_SERVICE_AREA = "service_area"
+    AREA_INPUT_INSTRUCTIONS = _("Accepted formats: <ul><li>Zipcode (US or CA)</li><li>Two-letter US state or CA province abbreviation</li><li>City, state abbreviation</li><li>County, state abbreviation</li></ul>")
 
     # Names of the library-wide link settings.
     TERMS_OF_SERVICE = 'terms-of-service'
@@ -295,6 +296,7 @@ class Configuration(CoreConfiguration):
             "description": _("The library focuses on serving patrons in this geographic area. In most cases this will be a city name like <code>Springfield, OR</code>."),
             "category": "Geographic Areas",
             "format": "geographic",
+            "instructions": AREA_INPUT_INSTRUCTIONS
         },
         {
             "key": LIBRARY_SERVICE_AREA,
@@ -303,6 +305,7 @@ class Configuration(CoreConfiguration):
             "description": _("The full geographic area served by this library. In most cases this is the same as the focus area and can be left blank, but it may be a larger area such as a US state (which should be indicated by its abbreviation, like <code>OR</code>)."),
             "category": "Geographic Areas",
             "format": "geographic",
+            "instructions": AREA_INPUT_INSTRUCTIONS
         },
         {
             "key": MAX_OUTSTANDING_FINES,
