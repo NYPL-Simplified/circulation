@@ -37,8 +37,8 @@ install:
   - tar -xzf ${ES_PATH}.tar.gz
   # Disable bootstrap checks so that Elasticsearch will start up even in
   # a low-resource development environment.
-  - echo 'transport.host: 127.0.0.1' >> ./${ES_PATH}/config/elasticsearch.yml
-  - echo 'http.host: 0.0.0.0' >> ./${ES_PATH}/config/elasticsearch.yml
+  - "echo 'transport.host: 127.0.0.1'" >> ./${ES_PATH}/config/elasticsearch.yml"
+  - "echo 'http.host: 0.0.0.0' >> ./${ES_PATH}/config/elasticsearch.yml"
   - ./${ES_PATH}/bin/elasticsearch &
 
 before_script:
