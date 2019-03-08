@@ -30,8 +30,6 @@ before_install:
   - sleep 10
 
 install:
-  - pip install -r requirements.txt
-  - python -m textblob.download_corpora
   - wget ${ES_DOWNLOAD}
   - export ES_PATH=elasticsearch-${ES_VERSION}
   - tar -xzf ${ES_PATH}.tar.gz
@@ -40,6 +38,8 @@ install:
   - "echo 'transport.host: 127.0.0.1' >> ./${ES_PATH}/config/elasticsearch.yml"
   - "echo 'http.host: 0.0.0.0' >> ./${ES_PATH}/config/elasticsearch.yml"
   - ./${ES_PATH}/bin/elasticsearch &
+  - pip install -r requirements.txt
+  - python -m textblob.download_corpora
 
 before_script:
   - psql -c 'create user simplified_test;' -U postgres
@@ -48,5 +48,5 @@ before_script:
   - psql -c 'create extension pgcrypto;' -U postgres -d simplified_core_test
 
 script:
-  - wget -q --waitretry=1 --retry-connrefused -T 30 -O - http://127.0.0.1:9200
+  - wget -q --waitretry=1 --retry-connrefused -T 60 -O - http://127.0.0.1:9200
   - ./test
