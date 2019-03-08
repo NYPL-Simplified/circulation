@@ -12,6 +12,7 @@ import pkgutil
 import json
 from core.model import (
     CirculationEvent,
+    ConfigurationSetting,
     Contributor,
     DataSource,
     DeliveryMechanism,
@@ -28,7 +29,10 @@ from core.model import (
 )
 from . import DatabaseTest
 from api.authenticator import BasicAuthenticationProvider
-from api.circulation import LoanInfo
+from api.circulation import (
+    FulfillmentInfo,
+    LoanInfo,
+)
 from api.circulation_exceptions import *
 from api.config import CannotLoadConfiguration
 from api.enki import (
@@ -69,32 +73,37 @@ class BaseEnkiTest(DatabaseTest):
 class TestEnkiAPI(BaseEnkiTest):
 
     def test_constructor(self):
-
-        bad_collection = self._collection(
+        # The constructor must be given an Enki collection.
+        collection = self._collection(
             protocol=ExternalIntegration.OVERDRIVE
         )
         assert_raises_regexp(
             ValueError,
             "Collection protocol is Overdrive, but passed into EnkiAPI!",
-            EnkiAPI, self._db, bad_collection
+            EnkiAPI, self._db, collection
         )
 
-        # Without an external integration library ID value, an EnkiAPI cannot be instantiated.
-        bad_collection.protocol = ExternalIntegration.ENKI
-        assert_raises_regexp(
-            CannotLoadConfiguration,
-            "Enki configuration is incomplete.",
-            EnkiAPI,
-            self._db,
-            bad_collection
-        )
-
-        bad_collection.external_integration.setting(EnkiAPI.ENKI_LIBRARY_ID_KEY).value = "1"
-        EnkiAPI(self._db, bad_collection)
+        collection.protocol = ExternalIntegration.ENKI
+        EnkiAPI(self._db, collection)
 
     def test_external_integration(self):
         integration = self.api.external_integration(self._db)
         eq_(ExternalIntegration.ENKI, integration.protocol)
+
+    def test_enki_library_id(self):
+        # The default library has already had this value set on its
+        # association with the mock Enki collection.
+        m = self.api.enki_library_id
+        eq_("c", m(self._default_library))
+
+        # Associate another library with the mock Enki collection
+        # and set its Enki library ID.
+        other_library = self._library()
+        integration = self.api.external_integration(self._db)
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, self.api.ENKI_LIBRARY_ID_KEY, other_library, integration
+        ).value = "other library id"
+        eq_("other library id", m(other_library))
 
     def test_collection(self):
         eq_(self.collection, self.api.collection)
@@ -230,8 +239,10 @@ class TestEnkiAPI(BaseEnkiTest):
         eq_("get", method)
         eq_("https://enkilibrary.org/API/ItemAPI", url)
         eq_("getRecentActivity", params['method'])
-        eq_("c", params['lib'])
         eq_(1, params['minutes'])
+
+        # Unlike some API calls, it's not necessary to pass 'lib' in here.
+        assert 'lib' not in params
 
     def test_updated_titles(self):
         one_minute_ago = datetime.datetime.utcnow() - datetime.timedelta(
@@ -252,8 +263,11 @@ class TestEnkiAPI(BaseEnkiTest):
         eq_("get", method)
         eq_("https://enkilibrary.org/API/ListAPI", url)
         eq_("getUpdateTitles", params['method'])
-        eq_("c", params['lib'])
         eq_(1, params['minutes'])
+
+        # The Enki library ID is a known 'safe' value since we're not acting
+        # in the context of any particular library here.
+        eq_("0", params['lib'])
 
     def test_get_item(self):
         data = self.get_data("get_item_french_title.json")
@@ -270,7 +284,10 @@ class TestEnkiAPI(BaseEnkiTest):
         eq_("https://enkilibrary.org/API/ItemAPI", url)
         eq_("an id", params["recordid"])
         eq_("getItem", params["method"])
-        eq_("c", params['lib'])
+
+        # The Enki library ID is a known 'safe' value since we're not acting
+        # in the context of any particular library here.
+        eq_("0", params['lib'])
 
         # We asked for a large cover image in case this Metadata is
         # to be used to form a local picture of the book's metadata.
@@ -297,18 +314,19 @@ class TestEnkiAPI(BaseEnkiTest):
         [method, url, headers, data, params, kwargs] = self.api.requests.pop()
         eq_("get", method)
         eq_("https://enkilibrary.org/API/ListAPI", url)
-        eq_("c", params['lib'])
         eq_("getAllTitles", params['method'])
         eq_("secontent", params['id'])
+
+        # Unlike some API calls, it's not necessary to pass 'lib' in here.
+        assert 'lib' not in params
 
     def test__epoch_to_struct(self):
         """Test the _epoch_to_struct helper method."""
         eq_(datetime.datetime(1970, 1, 1), EnkiAPI._epoch_to_struct("0"))
 
-    def test_checkout_open_access(self):
+    def test_checkout_open_access_parser(self):
         """Test that checkout info for non-ACS Enki books is parsed correctly."""
         data = self.get_data("checked_out_direct.json")
-        self.api.queue_response(200, content=data)
         result = json.loads(data)
         loan = self.api.parse_patron_loans(result['result']['checkedOutItems'][0])
         eq_(loan.data_source_name, DataSource.ENKI)
@@ -317,16 +335,44 @@ class TestEnkiAPI(BaseEnkiTest):
         eq_(loan.start_date, datetime.datetime(2017, 8, 23, 19, 31, 58, 0))
         eq_(loan.end_date, datetime.datetime(2017, 9, 13, 19, 31, 58, 0))
 
-    def test_checkout_acs(self):
+    def test_checkout_acs_parser(self):
         """Test that checkout info for ACS Enki books is parsed correctly."""
         data = self.get_data("checked_out_acs.json")
-        self.api.queue_response(200, content=data)
         result = json.loads(data)
         loan = self.api.parse_patron_loans(result['result']['checkedOutItems'][0])
         eq_(loan.data_source_name, DataSource.ENKI)
         eq_(loan.identifier_type, Identifier.ENKI_ID)
         eq_(loan.identifier, "3334")
         eq_(loan.start_date, datetime.datetime(2017, 8, 23, 19, 42, 35, 0))
+        eq_(loan.end_date, datetime.datetime(2017, 9, 13, 19, 42, 35, 0))
+
+    def test_checkout_success(self):
+        # Test the checkout() method.
+        patron = self._patron()
+        patron.authorization_identifier = "123"
+        pool = self._licensepool(None)
+
+        data = self.get_data("checked_out_acs.json")
+        self.api.queue_response(200, content=data)
+        loan = self.api.checkout(patron, "pin", pool, "internal format")
+
+        # An appropriate request to the "getSELink" endpoint was made.,
+        [method, url, headers, data, params, kwargs] = self.api.requests.pop()
+        eq_("get", method)
+        eq_(self.api.base_url + "UserAPI", url)
+        eq_("getSELink", params['method'])
+        eq_("123", params['username'])
+        eq_("pin", params['password'])
+
+        # In particular, the Enki library ID associated with the
+        # patron's library was used as the 'lib' parameter.
+        eq_("c", params['lib'])
+
+        # A LoanInfo for the loan was returned.
+        assert isinstance(loan, LoanInfo)
+        eq_(loan.identifier, pool.identifier.identifier)
+        eq_(loan.collection_id, pool.collection.id)
+        eq_(loan.start_date, None)
         eq_(loan.end_date, datetime.datetime(2017, 9, 13, 19, 42, 35, 0))
 
     @raises(AuthorizationFailedException)
@@ -364,31 +410,76 @@ class TestEnkiAPI(BaseEnkiTest):
 
         loan = self.api.checkout(patron,'1234',pool,None)
 
-    def test_fulfillment_open_access(self):
+    def test_fulfillment_open_access_parser(self):
         """Test that fulfillment info for non-ACS Enki books is parsed correctly."""
         data = self.get_data("checked_out_direct.json")
-        self.api.queue_response(200, content=data)
         result = json.loads(data)
         fulfill_data = self.api.parse_fulfill_result(result['result'])
         eq_(fulfill_data[0], """http://cccl.enkilibrary.org/API/UserAPI?method=downloadEContentFile&username=21901000008080&password=deng&lib=1&recordId=2""")
         eq_(fulfill_data[1], 'epub')
 
-    def test_fulfillment_acs(self):
+    def test_fulfillment_acs_parser(self):
         """Test that fulfillment info for ACS Enki books is parsed correctly."""
         data = self.get_data("checked_out_acs.json")
-        self.api.queue_response(200, content=data)
         result = json.loads(data)
         fulfill_data = self.api.parse_fulfill_result(result['result'])
         eq_(fulfill_data[0], """http://afs.enkilibrary.org/fulfillment/URLLink.acsm?action=enterloan&ordersource=Califa&orderid=ACS4-9243146841581187248119581&resid=urn%3Auuid%3Ad5f54da9-8177-43de-a53d-ef521bc113b4&gbauthdate=Wed%2C+23+Aug+2017+19%3A42%3A35+%2B0000&dateval=1503517355&rights=%24lat%231505331755%24&gblver=4&auth=8604f0fc3f014365ea8d3c4198c721ed7ed2c16d""")
         eq_(fulfill_data[1], 'epub')
 
+    def test_fulfill_success(self):
+        # Test the fulfill() method.
+        patron = self._patron()
+        patron.authorization_identifier = "123"
+        pool = self._licensepool(None)
+
+        data = self.get_data("checked_out_acs.json")
+        self.api.queue_response(200, content=data)
+        fulfillment = self.api.fulfill(patron, "pin", pool, "internal format")
+
+        # An appropriate request to the "getSELink" endpoint was made.,
+        [method, url, headers, data, params, kwargs] = self.api.requests.pop()
+        eq_("get", method)
+        eq_(self.api.base_url + "UserAPI", url)
+        eq_("getSELink", params['method'])
+        eq_("123", params['username'])
+        eq_("pin", params['password'])
+
+        # In particular, the Enki library ID associated with the
+        # patron's library was used as the 'lib' parameter.
+        eq_("c", params['lib'])
+
+        # A FulfillmentInfo for the loan was returned.
+        assert isinstance(fulfillment, FulfillmentInfo)
+        eq_(fulfillment.identifier, pool.identifier.identifier)
+        eq_(fulfillment.collection_id, pool.collection.id)
+        eq_(DeliveryMechanism.ADOBE_DRM, fulfillment.content_type)
+        assert fulfillment.content_link.startswith(
+            "http://afs.enkilibrary.org/fulfillment/URLLink.acsm"
+        )
+        eq_(fulfillment.content_expires,
+            datetime.datetime(2017, 9, 13, 19, 42, 35, 0))
+
     def test_patron_activity(self):
         data = self.get_data("patron_response.json")
         self.api.queue_response(200, content=data)
         patron = self._patron()
+        patron.authorization_identifier = "123"
         [loan] = self.api.patron_activity(patron, 'pin')
-        assert isinstance(loan, LoanInfo)
 
+        # An appropriate Enki API call was issued.
+        [method, url, headers, data, params, kwargs] = self.api.requests.pop()
+        eq_("get", method)
+        eq_(self.api.base_url + "UserAPI", url)
+        eq_("getSEPatronData", params['method'])
+        eq_("123", params['username'])
+        eq_("pin", params['password'])
+
+        # In particular, the Enki library ID associated with the
+        # patron's library was used as the 'lib' parameter.
+        eq_("c", params['lib'])
+
+        # The result is a single LoanInfo.
+        assert isinstance(loan, LoanInfo)
         eq_(Identifier.ENKI_ID, loan.identifier_type)
         eq_(DataSource.ENKI, loan.data_source_name)
         eq_("231", loan.identifier)
