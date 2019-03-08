@@ -35,6 +35,7 @@ install:
   - wget ${ES_DOWNLOAD}
   - export ES_PATH=elasticsearch-${ES_VERSION}
   - tar -xzf ${ES_PATH}.tar.gz
+  - ulimit -n 65536
   - ./${ES_PATH}/bin/elasticsearch &
 
 
