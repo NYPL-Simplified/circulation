@@ -45,5 +45,5 @@ before_script:
   - psql -c 'create extension pgcrypto;' -U postgres -d simplified_core_test
 
 script:
-  - wget -q --waitretry=1 --retry-connrefused -T 30 -O - http://127.0.0.1:9200
+  - wget -q --waitretry=1 --retry-connrefused -T 60 -O - http://127.0.0.1:9200
   - ./test
