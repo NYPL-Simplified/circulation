@@ -265,7 +265,7 @@ class DatabaseTest(object):
                  identifier_type=Identifier.GUTENBERG_ID,
                  with_license_pool=False, with_open_access_download=False,
                  title=None, language="eng", authors=None, identifier_id=None,
-                 series=None, collection=None
+                 series=None, collection=None, publicationDate=None
     ):
         id = identifier_id or self._str
         source = DataSource.lookup(self._db, data_source_name)
@@ -288,6 +288,8 @@ class DatabaseTest(object):
             wr.author = unicode(authors[0])
         for author in authors[1:]:
             wr.add_contributor(unicode(author), Contributor.AUTHOR_ROLE)
+        if publicationDate:
+            wr.published = publicationDate
 
         if with_license_pool or with_open_access_download:
             pool = self._licensepool(
