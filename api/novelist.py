@@ -589,15 +589,19 @@ class NoveListAPI(object):
             # initially given to us.
             title = object[3]
             mediaType = self.medium_to_book_format_type_values.get(object[4], "")
-            publicationDate = object[5].strftime("%Y%m%d").replace("-", "")
+
             newItem = dict(
                 isbn=isbn,
                 title=title,
                 mediaType=mediaType,
                 role=role,
-                publicationDate=publicationDate,
                 distributor=distributor
             )
+
+            publicationDate = object[5]
+            if publicationDate:
+                publicationDateString = publicationDate.strftime("%Y%m%d").replace("-", "")
+                newItem["publicationDate"] = publicationDateString
 
             addItem = False
             if role in Contributor.AUTHOR_ROLES:
