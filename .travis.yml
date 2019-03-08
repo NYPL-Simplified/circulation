@@ -10,6 +10,7 @@ addons:
 env:
   global:
     - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_core_test"
+    - SIMPLIFIED_ELASTICSEARCH_VERSION=6
 
 services:
   - postgresql
