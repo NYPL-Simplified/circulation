@@ -122,7 +122,7 @@ UNKNOWN_LANGUAGE = pd(
 )
 
 UNKNOWN_LOCATION = pd(
-    "http://librarysimplified.org/terms/problem/unknown-place",
+    "http://librarysimplified.org/terms/problem/unknown-location",
     status_code=400,
     title=_("Unknown location."),
     detail=_("The submitted geographic location cannot be found.")

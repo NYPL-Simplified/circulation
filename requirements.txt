@@ -21,6 +21,7 @@ money
 pymarc
 accept-types
 uszipcode
+pypostalcode
 watchtower # for cloudwatch logging
 
 # Ensure that we support SNI-based SSL

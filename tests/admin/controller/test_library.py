@@ -258,6 +258,78 @@ class TestLibrarySettings(SettingsControllerTest):
             eq_(response.uri, UNKNOWN_LANGUAGE.uri)
             eq_(response.detail, '"abc" is not a valid language code.')
 
+        # Test invalid geographic input
+
+        # Invalid US zipcode
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "The New York Public Library"),
+                ("short_name", "nypl"),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "default@example.com"),
+                (Configuration.LIBRARY_SERVICE_AREA, ["00000"])
+             ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, UNKNOWN_LOCATION.uri)
+            eq_(response.detail, '"00000" is not a valid U.S. zipcode.')
+
+        # Invalid Canadian zipcode
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "The New York Public Library"),
+                ("short_name", "nypl"),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "default@example.com"),
+                (Configuration.LIBRARY_SERVICE_AREA, ["X1Y"])
+             ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, UNKNOWN_LOCATION.uri)
+            eq_(response.detail, '"X1Y" is not a valid Canadian zipcode.')
+
+        # Invalid 2-letter abbreviation
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "The New York Public Library"),
+                ("short_name", "nypl"),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "default@example.com"),
+                (Configuration.LIBRARY_SERVICE_AREA, ["ZZ"])
+             ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, UNKNOWN_LOCATION.uri)
+            eq_(response.detail, '"ZZ" is not a valid U.S. state or Canadian province abbreviation.')
+
+        # County with wrong state
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "The New York Public Library"),
+                ("short_name", "nypl"),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "default@example.com"),
+                (Configuration.LIBRARY_SERVICE_AREA, ["Fairfield County, FL"])
+             ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, UNKNOWN_LOCATION.uri)
+            eq_(response.detail, 'Unable to locate "Fairfield County, FL".')
+
+        # City with wrong state
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "The New York Public Library"),
+                ("short_name", "nypl"),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.HELP_EMAIL, "help@example.com"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "default@example.com"),
+                (Configuration.LIBRARY_SERVICE_AREA, ["Albany, NJ"])
+             ])
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, UNKNOWN_LOCATION.uri)
+            eq_(response.detail, 'Unable to locate "Albany, NJ".')
+
         # Test a bad contrast ratio between the web foreground and
         # web background colors.
         with self.request_context_with_admin("/", method="POST"):
@@ -306,6 +378,8 @@ class TestLibrarySettings(SettingsControllerTest):
                 ("library_description", "Short description of library"),
                 (Configuration.WEBSITE_URL, "https://library.library/"),
                 (Configuration.TINY_COLLECTION_LANGUAGES, ['ger']),
+                (Configuration.LIBRARY_SERVICE_AREA, ['10025', 'everywhere', 'FL', 'Boston, MA']),
+                (Configuration.LIBRARY_FOCUS_AREA, ['V5K', 'Fairfield County, CT', 'BC']),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
                 (Configuration.HELP_EMAIL, "help@example.com"),
                 (Configuration.FEATURED_LANE_SIZE, "5"),
@@ -323,7 +397,6 @@ class TestLibrarySettings(SettingsControllerTest):
             eq_(response.status_code, 201)
 
         library = get_one(self._db, Library, short_name="nypl")
-
         eq_(library.uuid, response.response[0])
         eq_(library.name, "The New York Public Library")
         eq_(library.short_name, "nypl")

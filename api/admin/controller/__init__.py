@@ -2719,7 +2719,7 @@ class SettingsController(AdminCirculationManagerController):
                 location = value
             elif isinstance(value, basestring):
                 if len(value) == 2:
-                    # Is it a state or province abbreviation?
+                    # Is it a US state or Canadian province abbreviation?
                     query = us_search.query(state=value)
                     if len(query) or value in CA_PROVINCES:
                         locations.append(value)
@@ -2737,7 +2737,7 @@ class SettingsController(AdminCirculationManagerController):
                 elif len(value.split(", ")) == 2:
                     # Is it in the format "[city], [state abbreviation]" or "[county], [state abbreviation]"?
                     city_or_county, state = value.split(", ")
-                    if us_search.by_city_and_state(city_or_county, state) :
+                    if us_search.by_city_and_state(city_or_county, state):
                         locations.append(value)
                     elif len([x for x in us_search.query(state=state, returns=None) if x.county == city_or_county]):
                         locations.append(value)
