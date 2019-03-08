@@ -2705,11 +2705,12 @@ class SettingsController(AdminCirculationManagerController):
 
     def validate_geographic_areas(self, settings):
         # Note: the validator does not recognize data from US territories other than Puerto Rico, and
-        # can recognize Canadian locations only by zipcode.
-        
+        # can recognize Canadian locations only by zipcode or province abbreviation.
+
         geographic_fields = filter(lambda s: s.get("format") == "geographic" and self._value(s), settings)
         us_search = uszipcode.SearchEngine(simple_zipcode=True)
         ca_search = PostalCodeDatabase()
+        CA_PROVINCES = ["AB", "BC", "MB", "NB", "NL", "NT", "NS", "NU", "ON", "PE", "QC", "SK", "YT"]
 
         locations = []
 
@@ -2718,12 +2719,12 @@ class SettingsController(AdminCirculationManagerController):
                 location = value
             elif isinstance(value, basestring):
                 if len(value) == 2:
-                    # Is it a state abbreviation?
+                    # Is it a state or province abbreviation?
                     query = us_search.query(state=value)
-                    if len(query):
+                    if len(query) or value in CA_PROVINCES:
                         locations.append(value)
                     else:
-                        return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. state abbreviation.', value=value))
+                        return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. state or Canadian province abbreviation.', value=value))
 
                 elif len(value) == 3 and re.search("^[A-Za-z]\\d[A-Za-z]", value):
                     # Is it a Canadian zipcode?
