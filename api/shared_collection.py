@@ -65,9 +65,9 @@ class SharedCollectionAPI(object):
         """When you see a Collection that implements protocol X, instantiate
         API class Y to handle that collection.
         """
-        from odl import ODLWithConsolidatedCopiesAPI
+        from odl import ODLAPI
         return {
-            ODLWithConsolidatedCopiesAPI.NAME: ODLWithConsolidatedCopiesAPI,
+            ODLAPI.NAME: ODLAPI,
         }
 
     def api_for_licensepool(self, pool):

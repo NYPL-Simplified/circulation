@@ -120,7 +120,7 @@ from api.adobe_vendor_id import (
     AuthdataUtility,
     DeviceManagementProtocolController,
 )
-from api.odl import MockODLWithConsolidatedCopiesAPI
+from api.odl import MockODLAPI
 from api.shared_collection import SharedCollectionAPI
 import base64
 import feedparser
@@ -2824,7 +2824,7 @@ class TestFeedController(CirculationControllerTest):
                 eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, links[0].get("rel"))
 
             # Shared collection with two books.
-            collection = MockODLWithConsolidatedCopiesAPI.mock_collection(self._db)
+            collection = MockODLAPI.mock_collection(self._db)
             self.english_2.license_pools[0].collection = collection
             work = self._work(title="A", with_license_pool=True, collection=collection)
             self._db.flush()
@@ -3351,7 +3351,7 @@ class TestODLNotificationController(ControllerTest):
     when a loan's status changes."""
 
     def test_notify_success(self):
-        collection = MockODLWithConsolidatedCopiesAPI.mock_collection(self._db)
+        collection = MockODLAPI.mock_collection(self._db)
         patron = self._patron()
         pool = self._licensepool(None, collection=collection)
         pool.licenses_owned = 10
@@ -3394,8 +3394,8 @@ class TestSharedCollectionController(ControllerTest):
 
     def setup(self):
         super(TestSharedCollectionController, self).setup(set_up_circulation_manager=False)
-        from api.odl import ODLWithConsolidatedCopiesAPI
-        self.collection = self._collection(protocol=ODLWithConsolidatedCopiesAPI.NAME)
+        from api.odl import ODLAPI
+        self.collection = self._collection(protocol=ODLAPI.NAME)
         self._default_library.collections = [self.collection]
         self.client, ignore = IntegrationClient.register(self._db, "http://library.org")
         self.app.manager = self.circulation_manager_setup(self._db)

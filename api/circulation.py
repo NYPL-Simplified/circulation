@@ -430,7 +430,7 @@ class CirculationAPI(object):
         from rbdigital import RBDigitalAPI
         from enki import EnkiAPI
         from opds_for_distributors import OPDSForDistributorsAPI
-        from odl import ODLWithConsolidatedCopiesAPI, SharedODLAPI
+        from odl import ODLAPI, SharedODLAPI
         return {
             ExternalIntegration.OVERDRIVE : OverdriveAPI,
             ExternalIntegration.ODILO : OdiloAPI,
@@ -439,7 +439,7 @@ class CirculationAPI(object):
             ExternalIntegration.ONE_CLICK : RBDigitalAPI,
             EnkiAPI.ENKI_EXTERNAL : EnkiAPI,
             OPDSForDistributorsAPI.NAME: OPDSForDistributorsAPI,
-            ODLWithConsolidatedCopiesAPI.NAME: ODLWithConsolidatedCopiesAPI,
+            ODLAPI.NAME: ODLAPI,
             SharedODLAPI.NAME: SharedODLAPI,
         }
 

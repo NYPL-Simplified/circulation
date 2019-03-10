@@ -143,7 +143,7 @@ from adobe_vendor_id import (
 )
 from circulation import CirculationAPI
 from shared_collection import SharedCollectionAPI
-from odl import ODLWithConsolidatedCopiesAPI
+from odl import ODLAPI
 from novelist import (
     NoveListAPI,
     MockNoveListAPI,
@@ -776,7 +776,7 @@ class OPDSFeedController(CirculationManagerController):
             collection_name=collection.name
         )
         lane = CrawlableCollectionBasedLane(None, [collection])
-        if collection.protocol in [ODLWithConsolidatedCopiesAPI.NAME]:
+        if collection.protocol in [ODLAPI.NAME]:
             annotator = SharedCollectionAnnotator(collection, lane)
         else:
             annotator = CirculationManagerAnnotator(lane)
@@ -1780,7 +1780,7 @@ class ODLNotificationController(CirculationManagerController):
             return NO_ACTIVE_LOAN.detailed(_("No loan was found for this identifier."))
 
         collection = loan.license_pool.collection
-        if collection.protocol != ODLWithConsolidatedCopiesAPI.NAME:
+        if collection.protocol != ODLAPI.NAME:
             return INVALID_LOAN_FOR_ODL_NOTIFICATION
 
         api = self.manager.circulation_apis[library.id].api_for_license_pool(loan.license_pool)

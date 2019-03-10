@@ -37,7 +37,7 @@ from api.monitor import (
 )
 
 from api.odl import (
-    ODLWithConsolidatedCopiesAPI,
+    ODLAPI,
     SharedODLAPI,
 )
 
@@ -419,7 +419,7 @@ class TestLoanlikeReaperMonitor(DatabaseTest):
         will be exempt from the reaper.
         """
         for i in (
-                ODLWithConsolidatedCopiesAPI.NAME,
+                ODLAPI.NAME,
                 SharedODLAPI.NAME,
                 ExternalIntegration.OPDS_FOR_DISTRIBUTORS,
         ):

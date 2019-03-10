@@ -12,6 +12,7 @@ from flask import Response
 import feedparser
 from lxml import etree
 from StringIO import StringIO
+import re
 
 from sqlalchemy.sql.expression import or_
 
@@ -20,7 +21,6 @@ from core.opds_import import (
     OPDSImporter,
     OPDSImportMonitor,
 )
-from core.metadata_layer import TimestampData
 from core.monitor import (
     CollectionMonitor,
     TimelineMonitor,
@@ -48,7 +48,8 @@ from core.metadata_layer import (
     CirculationData,
     FormatData,
     IdentifierData,
-    ReplacementPolicy,
+    LicenseData,
+    TimestampData,
 )
 from circulation import (
     BaseCirculationAPI,
@@ -70,54 +71,29 @@ from core.testing import (
 from circulation_exceptions import *
 from shared_collection import BaseSharedCollectionAPI
 
-class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
+class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
     """ODL (Open Distribution to Libraries) is a specification that allows
     libraries to manage their own loans and holds. It offers a deeper level
-    of control to the library, but implementing full ODL support will require
-    changing the circulation manager to keep track of individual copies
-    rather than license pools, and manage its own holds queues.
-
-    'ODL With Consolidated Copies' builds on ODL to provide an API that is
-    more consistent with what other distributors provide. In addition to an
-    ODL feed, the 'ODL With Consolidated Copies' distributor provides an endpoint
-    to get a consolidated copies feed. Each consolidated copy has the total number of
-    licenses owned and available across all the library's copies. In addition, the
-    distributor provides an endpoint to create a loan for a consolidated copy, rather
-    than an individual copy. That endpoint returns an License Status Document
-    (https://readium.github.io/readium-lsd-specification/) and can also be used to
-    check the status of an existing loan.
-
-    When the circulation manager has full ODL support, the consolidated copies
-    code can be removed.
+    of control to the library, but it requires the circulation manager to
+    keep track of individual copies rather than just license pools, and
+    manage its own holds queues.
 
     In addition to circulating books to patrons of a library on the current circulation
     manager, this API can be used to circulate books to patrons of external libraries.
-    Only one circulation manager per ODL collection should use an ODLWithConsolidatedCopiesAPI
+    Only one circulation manager per ODL collection should use an ODLAPI
     - the others should use a SharedODLAPI and configure it to connect to the main
     circulation manager.
     """
 
-    NAME = "ODL with Consolidated Copies"
-    DESCRIPTION = _("Import books from a distributor that uses ODL (Open Distribution to Libraries) and has a consolidated copies API.")
-    CONSOLIDATED_COPIES_URL_KEY = "consolidated_copies_url"
-    CONSOLIDATED_LOAN_URL_KEY = "consolidated_loan_url"
+    NAME = "ODL"
+    DESCRIPTION = _("Import books from a distributor that uses ODL (Open Distribution to Libraries).")
 
     SETTINGS = [
         {
             "key": Collection.EXTERNAL_ACCOUNT_ID_KEY,
-            "label": _("Metadata URL (ODL feed)"),
+            "label": _("ODL feed URL"),
             "required": True,
             "format": "url",
-        },
-        {
-            "key": CONSOLIDATED_COPIES_URL_KEY,
-            "label": _("Consolidated Copies URL"),
-            "required": True,
-        },
-        {
-            "key": CONSOLIDATED_LOAN_URL_KEY,
-            "label": _("Consolidated Loan URL"),
-            "required": True,
         },
         {
             "key": ExternalIntegration.USERNAME,
@@ -183,7 +159,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
     def __init__(self, _db, collection):
         if collection.protocol != self.NAME:
             raise ValueError(
-                "Collection protocol is %s, but passed into ODLWithConsolidatedCopiesAPI!" %
+                "Collection protocol is %s, but passed into ODLAPI!" %
                 collection.protocol
             )
         self.collection_id = collection.id
@@ -193,7 +169,6 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
 
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
-        self.consolidated_loan_url = collection.external_integration.setting(self.CONSOLIDATED_LOAN_URL_KEY).value
         self.analytics = Analytics(_db)
 
     def internal_format(self, delivery_mechanism):
@@ -238,7 +213,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         if loan.external_identifier:
             url = loan.external_identifier
         else:
-            id = loan.license_pool.identifier.identifier
+            id = loan.license.identifier
             checkout_id = str(uuid.uuid1())
             if loan.patron:
                 default_loan_period = self.collection(_db).default_loan_period(
@@ -268,16 +243,28 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
                 _external=True,
             )
 
+            url = loan.license.checkout_url
             params = dict(
-                url=self.consolidated_loan_url,
                 id=id,
                 checkout_id=checkout_id,
                 patron_id=patron_id,
                 expires=(expires.isoformat() + 'Z'),
                 notification_url=notification_url,
             )
-            url = "%(url)s?id=%(id)s&checkout_id=%(checkout_id)s&patron_id=%(patron_id)s&expires=%(expires)s&notification_url=%(notification_url)s" % params
 
+            # Fill in the URL template.
+            match = re.compile("(.*)\{\?(.*)\}").search(url)
+            if match:
+                url, query_params = match.groups()
+                query_params = query_params.split(",")
+                if query_params:
+                    url += "?"
+
+                for param, value in params.items():
+                    if param in query_params:
+                        url += "%s=%s&" % (param, value)
+                if url[-1] == "&":
+                    url = url[:-1]
         response = self._get(url)
 
         try:
@@ -375,7 +362,10 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
 
         # Create a local loan so its database id can be used to
         # receive notifications from the distributor.
-        loan, ignore = licensepool.loan_to(patron_or_client)
+        license = licensepool.best_available_license()
+        if not license:
+            raise NoAvailableCopies()
+        loan, ignore = license.loan_to(patron_or_client)
 
         doc = self.get_license_status_document(loan)
         status = doc.get("status")
@@ -402,6 +392,10 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         loan.start = start
         loan.end = expires
         loan.external_identifier = external_identifier
+
+        # We also need to update the remaining checkouts for the license.
+        if loan.license.remaining_checkouts:
+            loan.license.remaining_checkouts = loan.license.remaining_checkouts - 1
 
         # We have successfully borrowed this book.
         if hold:
@@ -721,30 +715,6 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             ) for hold in remaining_holds
         ]
 
-    def update_consolidated_copy(self, _db, copy_info, analytics=None):
-        """Process information about the current status of a consolidated
-        copy from the consolidated copies feed.
-        """
-        identifier = copy_info.get("identifier")
-        licenses = copy_info.get("licenses")
-        # The remote feed provides the number of licenses available,
-        # but we don't need it - we compute that based on the circulation
-        # manager's internal state instead.
-        available = copy_info.get("available")
-
-        identifier_data = IdentifierData(Identifier.URI, identifier)
-        circulation_data = CirculationData(
-            data_source=self.data_source_name,
-            primary_identifier=identifier_data,
-            licenses_owned=licenses,
-        )
-
-        replacement_policy = ReplacementPolicy(analytics=analytics)
-        pool, ignore = circulation_data.apply(_db, self.collection(_db), replacement_policy)
-
-        # Update licenses available and reserved based on existing loans and holds.
-        self.update_hold_queue(pool)
-
     def update_loan(self, loan, status_doc=None):
         """Check a loan's status, and if it is no longer active, delete the loan
         and update its pool's availability.
@@ -788,22 +758,31 @@ class ODLXMLParser(OPDSXMLParser):
     NAMESPACES = dict(OPDSXMLParser.NAMESPACES,
                       odl="http://opds-spec.org/odl")
 
-class ODLBibliographicImporter(OPDSImporter):
-    """Import bibliographic information and formats from an ODL feed.
+class ODLImporter(OPDSImporter):
+    """Import information and formats from an ODL feed.
 
     The only change from OPDSImporter is that this importer extracts
     format information from 'odl:license' tags.
     """
-    NAME = ODLWithConsolidatedCopiesAPI.NAME
+    NAME = ODLAPI.NAME
     PARSER_CLASS = ODLXMLParser
 
     @classmethod
-    def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None):
+    def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None, do_get=None):
+        do_get = do_get or Representation.cautious_http_get
+
+        # TODO: Review for consistency when updated ODL spec is ready.
         subtag = parser.text_of_optional_subtag
         data = OPDSImporter._detail_for_elementtree_entry(parser, entry_tag, feed_url)
         formats = []
+        licenses = []
+
+        licenses_owned = 0
+        licenses_available = 0
         odl_license_tags = parser._xpath(entry_tag, 'odl:license') or []
         for odl_license_tag in odl_license_tags:
+            # ODL requires license identifiers to be UUIDs.
+            identifier = subtag(odl_license_tag, 'dcterms:identifier').replace("urn:uuid:", "")
             content_type = subtag(odl_license_tag, 'dcterms:format')
             drm_schemes = []
             protection_tags = parser._xpath(odl_license_tag, 'odl:protection') or []
@@ -822,100 +801,82 @@ class ODLBibliographicImporter(OPDSImporter):
                     drm_scheme=drm_scheme,
                     rights_uri=RightsStatus.IN_COPYRIGHT,
                 ))
-            if not data.get('circulation'):
-                data['circulation'] = dict()
-            if not data['circulation'].get('formats'):
-                data['circulation']['formats'] = []
-            data['circulation']['formats'].extend(formats)
+
+            expires = None
+            remaining_checkouts = None
+            available_checkouts = None
+
+            checkout_link = None
+            for link_tag in parser._xpath(odl_license_tag, 'odl:tlink') or []:
+                rel = link_tag.attrib.get("rel")
+                if rel == Hyperlink.BORROW:
+                    checkout_link = link_tag.attrib.get("href")
+                    break
+
+            odl_status_link = None
+            for link_tag in parser._xpath(odl_license_tag, 'atom:link') or []:
+                rel = link_tag.attrib.get("rel")
+                if rel == "http://opds-spec.org/odl/status":
+                    odl_status_link = link_tag.attrib.get("href")
+                    break
+
+            if odl_status_link:
+                # TODO: Feedbooks needs to fix a bug in their status links. This line is a
+                # temporary hack until they do.
+                odl_status_link = odl_status_link.replace("https://loan.feedbooks.net/loan/status/?uuid", "https://license.feedbooks.net/copy/status/?uuid")
+
+                # Some of this is also available directly in the feed, but remaining
+                # checkouts and available checkouts aren't.
+                ignore, ignore, response = do_get(odl_status_link, headers={})
+                status = json.loads(response)
+                expires = status.get("expires")
+                remaining_checkouts = status.get("checkouts", {}).get("left")
+                available_checkouts = status.get("checkouts", {}).get("available")
+
+            concurrent_checkouts = None
+            terms = parser._xpath(odl_license_tag, "odl:terms")
+            if terms:
+                concurrent_checkouts = subtag(terms[0], "odl:concurrent_checkouts")
+
+            licenses_owned += int(concurrent_checkouts or 0)
+            licenses_available += int(available_checkouts or 0)
+
+            licenses.append(LicenseData(
+                identifier=identifier,
+                checkout_url=checkout_link,
+                status_url=odl_status_link,
+                expires=expires,
+                remaining_checkouts=remaining_checkouts,
+                concurrent_checkouts=concurrent_checkouts,
+            ))
+
+        if not data.get('circulation'):
+            data['circulation'] = dict()
+        if not data['circulation'].get('formats'):
+            data['circulation']['formats'] = []
+        data['circulation']['formats'].extend(formats)
+        if not data['circulation'].get('licenses'):
+            data['circulation']['licenses'] = []
+        data['circulation']['licenses'].extend(licenses)
+        data['circulation']['licenses_owned'] = licenses_owned
+        data['circulation']['licenses_available'] = licenses_available
         return data
 
-class ODLBibliographicImportMonitor(OPDSImportMonitor):
-    """Import bibliographic information from an ODL feed."""
-    PROTOCOL = ODLBibliographicImporter.NAME
-    SERVICE_NAME = "ODL Bibliographic Import Monitor"
-
-class ODLConsolidatedCopiesMonitor(CollectionMonitor, TimelineMonitor):
-    """Monitor a consolidated copies feed for circulation information changes.
-
-    This is primarily used to set up availability information when new copies
-    are purchased by the library. When the availability of an existing copy
-    changes, the circulation manager already knows, either because it made the
-    change or because it received a notification from the distributor.
-
-    If a book is returned or revoked outside the circulation manager, and this
-    monitor hears about it before the circulation manager receives a notification,
-    the license pool's availability will be incorrectly incremented when the
-    notification arrives. Hopefully this will be rare, and it won't be a problem
-    once we have full ODL support.
-    """
-
-    SERVICE_NAME = "ODL Consolidated Copies Monitor"
-    PROTOCOL = ODLWithConsolidatedCopiesAPI.NAME
-
-    # If it's the first time we're running this monitor, we need availability
-    # information for every consolidated copy.
-    DEFAULT_START_TIME = CollectionMonitor.NEVER
-
-    def __init__(self, _db, collection=None, api=None, **kwargs):
-        super(ODLConsolidatedCopiesMonitor, self).__init__(_db, collection, **kwargs)
-
-        self.api = api or ODLWithConsolidatedCopiesAPI(_db, collection)
-        self.start_url = collection.external_integration.setting(ODLWithConsolidatedCopiesAPI.CONSOLIDATED_COPIES_URL_KEY).value
-        self.analytics = self.api.analytics
-
-    def catch_up_from(self, start, cutoff, progress):
-        """Find books in the ODL collection that changed recently.
-
-        :progress: A TimestampData representing the time previously
-        covered by this Monitor.
-        """
-        url = self.start_url
-        if start:
-            url += "?since=%s" % (start.isoformat() + 'Z')
-
-        # Go through the consolidated copies feed until we get to a page
-        # with no next link.
-        total_updates = 0
-        while url:
-            response = self.api._get(url)
-            next_url, updates_this_page = self.process_one_page(response)
-            total_updates += updates_this_page
-            if next_url:
-                # Make sure the next url is an absolute url.
-                url = urlparse.urljoin(url, next_url)
-            else:
-                url = None
-        progress.achievements = "Licenses updated: %d." % total_updates
-
-    def process_one_page(self, response):
-        content = json.loads(response.content)
-        total_updates = 0
-
-        # Process each copy in the response and return the next link
-        # if there is one.
-        next_url = None
-        links = content.get("links") or []
-        for link in links:
-            if link.get("rel") == "next":
-                next_url = link.get("href")
-
-        copies = content.get("copies") or []
-        for copy in copies:
-            self.api.update_consolidated_copy(self._db, copy, self.analytics)
-            total_updates += 1
-
-        return next_url, total_updates
+class ODLImportMonitor(OPDSImportMonitor):
+    """Import information from an ODL feed."""
+    PROTOCOL = ODLImporter.NAME
+    SERVICE_NAME = "ODL Import Monitor"
 
 class ODLHoldReaper(CollectionMonitor):
     """Check for holds that have expired and delete them, and update
     the holds queues for their pools."""
 
     SERVICE_NAME = "ODL Hold Reaper"
-    PROTOCOL = ODLWithConsolidatedCopiesAPI.NAME
+    PROTOCOL = ODLAPI.NAME
 
     def __init__(self, _db, collection=None, api=None, **kwargs):
         super(ODLHoldReaper, self).__init__(_db, collection, **kwargs)
-        self.api = api or ODLWithConsolidatedCopiesAPI(_db, collection)
+        self.api = api or ODLAPI(_db, collection)
 
     def run_once(self, progress):
         # Find holds that have expired.
@@ -946,7 +907,7 @@ class ODLHoldReaper(CollectionMonitor):
         progress = TimestampData(achievements=message)
         return progress
 
-class MockODLWithConsolidatedCopiesAPI(ODLWithConsolidatedCopiesAPI):
+class MockODLAPI(ODLAPI):
     """Mock API for tests that overrides _get and _url_for and tracks requests."""
 
     @classmethod
@@ -955,25 +916,23 @@ class MockODLWithConsolidatedCopiesAPI(ODLWithConsolidatedCopiesAPI):
         library = DatabaseTest.make_default_library(_db)
         collection, ignore = get_one_or_create(
             _db, Collection,
-            name="Test ODL With Consolidated Copies Collection", create_method_kwargs=dict(
+            name="Test ODL Collection", create_method_kwargs=dict(
                 external_account_id=u"http://odl",
             )
         )
         integration = collection.create_external_integration(
-            protocol=ODLWithConsolidatedCopiesAPI.NAME
+            protocol=ODLAPI.NAME
         )
         integration.username = u'a'
         integration.password = u'b'
         integration.url = u'http://metadata'
-        integration.set_setting(ODLWithConsolidatedCopiesAPI.CONSOLIDATED_COPIES_URL_KEY, u'http://copies')
-        integration.set_setting(ODLWithConsolidatedCopiesAPI.CONSOLIDATED_LOAN_URL_KEY, u'http://loan')
         library.collections.append(collection)
         return collection
 
     def __init__(self, _db, collection, *args, **kwargs):
         self.responses = []
         self.requests = []
-        super(MockODLWithConsolidatedCopiesAPI, self).__init__(
+        super(MockODLAPI, self).__init__(
             _db, collection, *args, **kwargs
         )
 
@@ -997,7 +956,7 @@ class SharedODLAPI(BaseCirculationAPI):
     by another circulation manager.
     """
     NAME = "Shared ODL For Consortia"
-    DESCRIPTION = _("Import books from an ODL collection that's hosted by another circulation manager in the consortium. If this circulation manager will be the main host for the collection, select %(odl_name)s instead.", odl_name=ODLWithConsolidatedCopiesAPI.NAME)
+    DESCRIPTION = _("Import books from an ODL collection that's hosted by another circulation manager in the consortium. If this circulation manager will be the main host for the collection, select %(odl_name)s instead.", odl_name=ODLAPI.NAME)
 
     SETTINGS = [
         {
@@ -1021,7 +980,7 @@ class SharedODLAPI(BaseCirculationAPI):
     def __init__(self, _db, collection):
         if collection.protocol != self.NAME:
             raise ValueError(
-                "Collection protocol is %s, but passed into ODLWithConsolidatedCopiesAPI!" %
+                "Collection protocol is %s, but passed into SharedODLPI!" %
                 collection.protocol
             )
         self.collection_id = collection.id
@@ -1395,7 +1354,7 @@ class SharedODLImporter(OPDSImporter):
 
 
     @classmethod
-    def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None):
+    def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None, do_get=None):
         data = OPDSImporter._detail_for_elementtree_entry(parser, entry_tag, feed_url)
         borrow_links = [link for link in data.get("links") if link.rel == Hyperlink.BORROW]
 

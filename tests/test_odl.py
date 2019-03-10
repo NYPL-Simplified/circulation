@@ -27,10 +27,9 @@ from core.model import (
     get_one,
 )
 from api.odl import (
-    ODLBibliographicImporter,
-    ODLConsolidatedCopiesMonitor,
+    ODLImporter,
     ODLHoldReaper,
-    MockODLWithConsolidatedCopiesAPI,
+    MockODLAPI,
     SharedODLAPI,
     MockSharedODLAPI,
     SharedODLImporter,
@@ -50,53 +49,60 @@ class BaseODLTest(object):
         path = os.path.join(cls.resource_path, filename)
         return open(path).read()
 
-class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
+class TestODLAPI(DatabaseTest, BaseODLTest):
 
     def setup(self):
-        super(TestODLWithConsolidatedCopiesAPI, self).setup()
-        self.collection = MockODLWithConsolidatedCopiesAPI.mock_collection(self._db)
+        super(TestODLAPI, self).setup()
+        self.collection = MockODLAPI.mock_collection(self._db)
         self.collection.external_integration.set_setting(
             Collection.DATA_SOURCE_NAME_SETTING,
             "Feedbooks"
         )
-        self.api = MockODLWithConsolidatedCopiesAPI(self._db, self.collection)
+        self.api = MockODLAPI(self._db, self.collection)
         self.work = self._work(with_license_pool=True, collection=self.collection)
         self.pool = self.work.license_pools[0]
+        self.license = self._license(
+            self.pool, checkout_url="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}",
+            concurrent_checkouts=1,
+        )
         self.patron = self._patron()
         self.client = self._integration_client()
 
     def test_get_license_status_document_success(self):
         # With a new loan.
-        loan, ignore = self.pool.loan_to(self.patron)
+        loan, ignore = self.license.loan_to(self.patron)
         self.api.queue_response(200, content=json.dumps(dict(status="ready")))
         response = self.api.get_license_status_document(loan)
         requested_url = self.api.requests[0][0]
 
-        expected_url_re = re.compile("(.*)\?id=(.*)&checkout_id=(.*)&patron_id=(.*)&expires=(.*)&notification_url=(.*)")
+        # Unfortunately urlparse doesn't quite work here because the
+        # test notification url has a '?' in it.
+        expected_url_re = re.compile("(.*)/\?(.*)")
         match = expected_url_re.match(requested_url)
         assert match != None
-        (base_url, id, checkout_id, patron_id, expires, notification_url) = match.groups()
+        (base_url, query) = match.groups()
 
-        eq_("http://loan", base_url)
-        eq_(self.pool.identifier.identifier, id)
+        eq_("https://loan.feedbooks.net/loan/get", base_url)
+        assert "id=%s" % self.license.identifier in query
 
         # The checkout id and patron id are random UUIDs.
+        checkout_id = re.compile("checkout_id=([^&]*)(?:\&|$)").search(query).groups()[0]
         assert len(checkout_id) > 0
+        patron_id = re.compile("patron_id=([^&]*)(?:\&|$)").search(query).groups()[0]
         assert len(patron_id) > 0
 
         # Loans expire in 21 days by default.
         now = datetime.datetime.utcnow()
         after_expiration = now + datetime.timedelta(days=23)
+        expires = re.compile("expires=([^&]*)(?:\&|$)").search(query).groups()[0]
         expires = datetime.datetime.strptime(expires, "%Y-%m-%dT%H:%M:%S.%fZ")
         assert expires > now
         assert expires < after_expiration
 
-        assert 'http://odl_notify' in notification_url
-        assert 'library_short_name=%s' % self._default_library.short_name in notification_url
-        assert 'loan_id=%s' % loan.id in notification_url
+        assert 'notification_url=http://odl_notify?loan_id=%s&library_short_name=%s' % (loan.id, self._default_library.short_name) in query
 
         # With an existing loan.
-        loan, ignore = self.pool.loan_to(self.patron)
+        loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
 
         self.api.queue_response(200, content=json.dumps(dict(status="active")))
@@ -105,7 +111,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(loan.external_identifier, requested_url)
 
     def test_get_license_status_document_errors(self):
-        loan, ignore = self.pool.loan_to(self.patron)
+        loan, ignore = self.license.loan_to(self.patron)
 
         self.api.queue_response(200, content="not json")
         assert_raises(
@@ -121,7 +127,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         # A patron has a copy of this book checked out.
         self.pool.licenses_owned = 7
         self.pool.licenses_available = 6
-        loan, ignore = self.pool.loan_to(self.patron)
+        loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = "http://loan/" + self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
@@ -156,7 +162,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         # A patron has the only copy of this book checked out.
         self.pool.licenses_owned = 1
         self.pool.licenses_available = 0
-        loan, ignore = self.pool.loan_to(self.patron)
+        loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = "http://loan/" + self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
@@ -198,7 +204,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         # The loan is already fulfilled.
         self.pool.licenses_owned = 7
         self.pool.licenses_available = 6
-        loan, ignore = self.pool.loan_to(self.patron)
+        loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
@@ -223,7 +229,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         )
 
         # Not checked out according to the distributor.
-        loan, ignore = self.pool.loan_to(self.patron)
+        loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
@@ -239,7 +245,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
 
     def test_checkin_cannot_return(self):
         # Not fulfilled yet, but no return link from the distributor.
-        loan, ignore = self.pool.loan_to(self.patron)
+        loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
@@ -275,6 +281,8 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         # This book is available to check out.
         self.pool.licenses_owned = 6
         self.pool.licenses_available = 6
+        self.license.concurrent_checkouts = 6
+        self.license.remaining_checkouts = 30
 
         # A patron checks out the book successfully.
         loan_url = self._str
@@ -304,11 +312,13 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         # returned by the API.
         db_loan = self._db.query(Loan).one()
         eq_(self.pool, db_loan.license_pool)
+        eq_(self.license, db_loan.license)
         eq_(loan.start_date, db_loan.start)
         eq_(loan.end_date, db_loan.end)
 
-        # The pool's availability has decreased.
+        # The pool's availability and the license's remaining checkouts have decreased.
         eq_(5, self.pool.licenses_available)
+        eq_(29, self.license.remaining_checkouts)
 
     def test_checkout_success_with_hold(self):
         # A patron has this book on hold, and the book just became available to check out.
@@ -316,6 +326,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_available = 0
         self.pool.licenses_reserved = 1
         self.pool.patrons_in_hold_queue = 1
+        self.license.remaining_checkouts = 5
         self.pool.on_hold_to(self.patron, start=datetime.datetime.utcnow() - datetime.timedelta(days=1), position=0)
 
         # The patron checks out the book.
@@ -344,6 +355,11 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(loan_url, loan.external_identifier)
         eq_(1, self._db.query(Loan).count())
 
+        db_loan = self._db.query(Loan).one()
+        eq_(self.pool, db_loan.license_pool)
+        eq_(self.license, db_loan.license)
+        eq_(4, self.license.remaining_checkouts)
+
         # The book is no longer reserved for the patron, and the hold has been deleted.
         eq_(0, self.pool.licenses_reserved)
         eq_(0, self.pool.licenses_available)
@@ -353,7 +369,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
     def test_checkout_already_checked_out(self):
         self.pool.licenses_owned = 2
         self.pool.licenses_available = 1
-        existing_loan, ignore = self.pool.loan_to(self.patron)
+        existing_loan, ignore = self.license.loan_to(self.patron)
         existing_loan.external_identifier = self._str
         existing_loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
@@ -380,7 +396,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         # A different patron has the only copy checked out.
         self.pool.licenses_owned = 1
         self.pool.licenses_available = 0
-        existing_loan, ignore = self.pool.loan_to(self._patron())
+        existing_loan, ignore = self.license.loan_to(self._patron())
 
         assert_raises(
             NoAvailableCopies, self.api.checkout,
@@ -429,6 +445,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
 
     def test_checkout_no_licenses(self):
         self.pool.licenses_owned = 0
+        self.license.remaining_checkouts = 0
 
         assert_raises(
             NoLicenses, self.api.checkout,
@@ -467,7 +484,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(0, self._db.query(Loan).count())
 
     def test_fulfill_success(self):
-        loan, ignore = self.pool.loan_to(self.patron)
+        loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
@@ -497,7 +514,8 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
     def test_fulfill_cannot_fulfill(self):
         self.pool.licenses_owned = 7
         self.pool.licenses_available = 6
-        loan, ignore = self.pool.loan_to(self.patron)
+        self.license.concurrent_checkouts = 7
+        loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
@@ -599,7 +617,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_available = 0
         self.pool.licenses_reserved = 0
         self.pool.licenses_owned = 1
-        loan, ignore = self.pool.loan_to(self._patron(), end=tomorrow)
+        loan, ignore = self.license.loan_to(self._patron(), end=tomorrow)
         self.api._update_hold_end_date(hold)
         eq_(tomorrow, hold.end)
 
@@ -613,6 +631,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         # The hold will be available after the loan expires.
         self.pool.licenses_reserved = 1
         self.pool.licenses_owned = 2
+        self.license.concurrent_checkouts = 2
         self.api._update_hold_end_date(hold)
         eq_(tomorrow, hold.end)
 
@@ -691,7 +710,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
 
         # When there are no other holds and no licenses reserved,
         # hold position is 1.
-        loan, ignore = self.pool.loan_to(self._patron())
+        loan, ignore = self.license.loan_to(self._patron())
         self.api._update_hold_position(hold)
         eq_(1, hold.position)
 
@@ -707,6 +726,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
 
         # If another license is reserved, position goes back to 0.
         self.pool.licenses_owned = 2
+        self.license.concurrent_checkouts = 2
         self.api._update_hold_position(hold)
         eq_(0, hold.position)
 
@@ -769,6 +789,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         # Now there's a reserved hold. If we add another license, it's reserved and,
         # the later hold is also updated.
         self.pool.licenses_owned = 2
+        self.license.concurrent_checkouts = 2
         self.api.update_hold_queue(self.pool)
 
         eq_(0, self.pool.licenses_available)
@@ -780,6 +801,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         # Now there are no more holds. If we add another license,
         # it ends up being available.
         self.pool.licenses_owned = 3
+        self.license.concurrent_checkouts = 3
         self.api.update_hold_queue(self.pool)
         eq_(1, self.pool.licenses_available)
         eq_(2, self.pool.licenses_reserved)
@@ -792,7 +814,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         loans = []
         holds = []
         for i in range(3):
-            loan, ignore = self.pool.loan_to(self._patron(), end=datetime.datetime.utcnow() + datetime.timedelta(days=1))
+            loan, ignore = self.license.loan_to(self._patron(), end=datetime.datetime.utcnow() + datetime.timedelta(days=1))
             loans.append(loan)
         for i in range(3):
             hold, ignore = self.pool.on_hold_to(self._patron(), start=datetime.datetime.utcnow() - datetime.timedelta(days=3-i), position=i+1)
@@ -800,6 +822,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_owned = 5
         self.pool.licenses_available = 0
         self.pool.licenses_reserved = 2
+        self.license.concurrent_checkouts = 5
         self.api.update_hold_queue(self.pool)
         eq_(2, self.pool.licenses_reserved)
         eq_(0, self.pool.licenses_available)
@@ -824,7 +847,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
     def test_place_hold_success(self):
         tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
         self.pool.licenses_owned = 1
-        self.pool.loan_to(self._patron(), end=tomorrow)
+        self.license.loan_to(self._patron(), end=tomorrow)
 
         hold = self.api.place_hold(self.patron, "pin", self.pool, "notifications@librarysimplified.org")
 
@@ -855,7 +878,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
 
     def test_release_hold_success(self):
         self.pool.licenses_owned = 1
-        loan, ignore = self.pool.loan_to(self._patron())
+        loan, ignore = self.license.loan_to(self._patron())
         self.pool.on_hold_to(self.patron, position=1)
 
         eq_(True, self.api.release_hold(self.patron, "pin", self.pool))
@@ -894,7 +917,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_([], self.api.patron_activity(self.patron, "pin"))
 
         # One loan.
-        loan, ignore = self.pool.loan_to(self.patron)
+        loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
         loan.start = datetime.datetime.utcnow() - datetime.timedelta(days=1)
         loan.end = loan.start + datetime.timedelta(days=20)
@@ -911,7 +934,8 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
 
         # Two loans.
         pool2 = self._licensepool(None, collection=self.collection)
-        loan2, ignore = pool2.loan_to(self.patron)
+        license2 = self._license(pool2)
+        loan2, ignore = license2.loan_to(self.patron)
         loan2.external_identifier = self._str
         loan2.start = datetime.datetime.utcnow() - datetime.timedelta(days=4)
         loan2.end = loan2.start + datetime.timedelta(days=14)
@@ -944,7 +968,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
 
         # One hold.
         pool2.licenses_owned = 1
-        other_patron_loan, ignore = pool2.loan_to(self._patron(), end=datetime.datetime.utcnow() + datetime.timedelta(days=1))
+        other_patron_loan, ignore = license2.loan_to(self._patron(), end=datetime.datetime.utcnow() + datetime.timedelta(days=1))
         hold, ignore = pool2.on_hold_to(self.patron)
         hold.start = datetime.datetime.utcnow() - datetime.timedelta(days=2)
         hold.end = hold.start + datetime.timedelta(days=3)
@@ -976,38 +1000,10 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(1, pool2.licenses_available)
         eq_(0, pool2.licenses_reserved)
 
-    def test_update_consolidated_copy(self):
-        edition, pool = self._edition(
-            with_license_pool=True,
-            data_source_name="Feedbooks",
-            identifier_type=Identifier.URI,
-            collection=self.collection,
-        )
-        pool.licenses_owned = 3
-        loan, ignore = pool.loan_to(self._patron())
-        pool.licenses_available = 2
-
-        # The library bought 8 more licenses for this book.
-        consolidated_copy_info = dict(
-            identifier=pool.identifier.identifier,
-            licenses=11,
-        )
-        self.api.update_consolidated_copy(self._db, consolidated_copy_info)
-        eq_(11, pool.licenses_owned)
-        eq_(10, pool.licenses_available)
-
-        # Now five licenses expired.
-        consolidated_copy_info = dict(
-            identifier=pool.identifier.identifier,
-            licenses=6,
-        )
-        self.api.update_consolidated_copy(self._db, consolidated_copy_info)
-        eq_(6, pool.licenses_owned)
-        eq_(5, pool.licenses_available)
-
     def test_update_loan_still_active(self):
         self.pool.licenses_available = 6
-        loan, ignore = self.pool.loan_to(self.patron)
+        self.license.concurrent_checkouts = 6
+        loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
         status_doc = {
             "status": "active",
@@ -1021,7 +1017,8 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
     def test_update_loan_removes_loan(self):
         self.pool.licenses_owned = 7
         self.pool.licenses_available = 6
-        loan, ignore = self.pool.loan_to(self.patron)
+        self.license.concurrent_checkouts = 7
+        loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
         status_doc = {
             "status": "cancelled",
@@ -1037,7 +1034,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_available = 0
         self.pool.licenses_reserved = 0
         self.pool.patrons_in_hold_queue = 1
-        loan, ignore = self.pool.loan_to(self.patron)
+        loan, ignore = self.license.loan_to(self.patron)
         loan.external_identifier = self._str
         hold, ignore = self.pool.on_hold_to(self._patron(), position=1)
         status_doc = {
@@ -1055,6 +1052,8 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         # This book is available to check out.
         self.pool.licenses_owned = 6
         self.pool.licenses_available = 6
+        self.license.concurrent_checkouts = 6
+        self.license.remaining_checkouts = 10
 
         # An integration client checks out the book successfully.
         loan_url = self._str
@@ -1078,12 +1077,14 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(loan_url, loan.external_identifier)
         eq_(1, self._db.query(Loan).count())
 
-        # The pool's availability has decreased.
+        # The pool's availability and the license's remaining checkouts have decreased.
         eq_(5, self.pool.licenses_available)
+        eq_(9, self.license.remaining_checkouts)
 
         # The book can also be placed on hold to an external library,
         # if there are no copies available.
         self.pool.licenses_owned = 1
+        self.license.concurrent_checkouts = 1
 
         hold = self.api.checkout_to_external_library(self.client, self.pool)
 
@@ -1138,7 +1139,8 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         # An integration client has a copy of this book checked out.
         self.pool.licenses_owned = 7
         self.pool.licenses_available = 6
-        loan, ignore = self.pool.loan_to(self.client)
+        self.license.concurrent_checkouts = 7
+        loan, ignore = self.license.loan_to(self.client)
         loan.external_identifier = "http://loan/" + self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
@@ -1170,7 +1172,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(0, self._db.query(Loan).count())
 
     def test_fulfill_for_external_library(self):
-        loan, ignore = self.pool.loan_to(self.client)
+        loan, ignore = self.license.loan_to(self.client)
         loan.external_identifier = self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
@@ -1199,7 +1201,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
 
     def test_release_hold_from_external_library(self):
         self.pool.licenses_owned = 1
-        loan, ignore = self.pool.loan_to(self._patron())
+        loan, ignore = self.license.loan_to(self._patron())
         hold, ignore = self.pool.on_hold_to(self.client, position=1)
 
         eq_(True, self.api.release_hold_from_external_library(self.client, hold))
@@ -1228,12 +1230,12 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(0, other_hold.position)
 
 
-class TestODLBibliographicImporter(DatabaseTest, BaseODLTest):
+class TestODLImporter(DatabaseTest, BaseODLTest):
 
     def test_import(self):
         feed = self.get_data("feedbooks_bibliographic.atom")
         data_source = DataSource.lookup(self._db, "Feedbooks", autocreate=True)
-        collection = MockODLWithConsolidatedCopiesAPI.mock_collection(self._db)
+        collection = MockODLAPI.mock_collection(self._db)
         collection.external_integration.set_setting(
             Collection.DATA_SOURCE_NAME_SETTING,
             data_source.name
@@ -1243,14 +1245,29 @@ class TestODLBibliographicImporter(DatabaseTest, BaseODLTest):
             def canonicalize_author_name(self, identifier, working_display_name):
                 return working_display_name
         metadata_client = MockMetadataClient()
-        importer = ODLBibliographicImporter(
+
+        warrior_time_limited = dict(expires="2019-03-31T03:13:35Z", checkouts=dict(available=1))
+        canadianity_loan_limited = dict(checkouts=dict(left=40, available=10))
+        canadianity_perpetual = dict(checkouts=dict(available=1))
+        midnight_loan_limited_1 = dict(checkouts=dict(left=20, available=1))
+        midnight_loan_limited_2 = dict(checkouts=dict(left=52, available=1))
+        mock_responses = [json.dumps(r) for r in [
+            warrior_time_limited, canadianity_loan_limited, canadianity_perpetual,
+            midnight_loan_limited_1, midnight_loan_limited_2,
+        ]]
+        def do_get(url, headers):
+            return 200, {}, mock_responses.pop(0)
+
+        importer = ODLImporter(
             self._db, collection=collection,
             metadata_client=metadata_client,
+            http_get=do_get,
         )
 
         imported_editions, imported_pools, imported_works, failures = (
             importer.import_from_feed(feed)
         )
+        self._db.commit()
 
         # This importer works the same as the base OPDSImporter, except that
         # it extracts format information from 'odl:license' tags and creates
@@ -1281,6 +1298,17 @@ class TestODLBibliographicImporter(DatabaseTest, BaseODLTest):
         eq_(Representation.EPUB_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.ADOBE_DRM, lpdm.delivery_mechanism.drm_scheme)
         eq_(RightsStatus.IN_COPYRIGHT, lpdm.rights_status.uri)
+        eq_(1, warrior_pool.licenses_owned)
+        eq_(1, warrior_pool.licenses_available)
+        [license] = warrior_pool.licenses
+        eq_("1", license.identifier)
+        eq_("https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}",
+            license.checkout_url)
+        eq_("https://license.feedbooks.net/license/status/?uuid=1",
+            license.status_url)
+        eq_(datetime.datetime(2019, 3, 31, 03, 13, 35), license.expires)
+        eq_(None, license.remaining_checkouts)
+        eq_(1, license.concurrent_checkouts)
 
         # This book has two 'odl:license' tags for the same format and drm scheme
         # (this happens if the library purchases two copies).
@@ -1290,8 +1318,28 @@ class TestODLBibliographicImporter(DatabaseTest, BaseODLTest):
         eq_(Representation.EPUB_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.ADOBE_DRM, lpdm.delivery_mechanism.drm_scheme)
         eq_(RightsStatus.IN_COPYRIGHT, lpdm.rights_status.uri)
+        eq_(11, canadianity_pool.licenses_owned)
+        eq_(11, canadianity_pool.licenses_available)
+        [license1, license2] = sorted(canadianity_pool.licenses, key=lambda x: x.identifier)
+        eq_("2", license1.identifier)
+        eq_("https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}",
+            license1.checkout_url)
+        eq_("https://license.feedbooks.net/license/status/?uuid=2",
+            license1.status_url)
+        eq_(None, license1.expires)
+        eq_(40, license1.remaining_checkouts)
+        eq_(10, license1.concurrent_checkouts)
+        eq_("3", license2.identifier)
+        eq_("https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}",
+            license2.checkout_url)
+        eq_("https://license.feedbooks.net/license/status/?uuid=3",
+            license2.status_url)
+        eq_(None, license2.expires)
+        eq_(None, license2.remaining_checkouts)
+        eq_(1, license2.concurrent_checkouts)
 
         # This book has two 'odl:license' tags, and they have different formats.
+        # TODO: the format+license association is not handled yet.
         [midnight_pool] = [p for p in imported_pools if p.identifier == midnight.primary_identifier]
         eq_(False, midnight_pool.open_access)
         lpdms = midnight_pool.delivery_mechanisms
@@ -1302,128 +1350,37 @@ class TestODLBibliographicImporter(DatabaseTest, BaseODLTest):
             [lpdm.delivery_mechanism.drm_scheme for lpdm in lpdms])
         eq_([RightsStatus.IN_COPYRIGHT, RightsStatus.IN_COPYRIGHT],
             [lpdm.rights_status.uri for lpdm in lpdms])
+        eq_(2, midnight_pool.licenses_owned)
+        eq_(2, midnight_pool.licenses_available)
+        [license1, license2] = sorted(midnight_pool.licenses, key=lambda x: x.identifier)
+        eq_("4", license1.identifier)
+        eq_("https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}",
+            license1.checkout_url)
+        eq_("https://license.feedbooks.net/license/status/?uuid=4",
+            license1.status_url)
+        eq_(None, license1.expires)
+        eq_(20, license1.remaining_checkouts)
+        eq_(1, license1.concurrent_checkouts)
+        eq_("5", license2.identifier)
+        eq_("https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}",
+            license2.checkout_url)
+        eq_("https://license.feedbooks.net/license/status/?uuid=5",
+            license2.status_url)
+        eq_(None, license2.expires)
+        eq_(52, license2.remaining_checkouts)
+        eq_(1, license2.concurrent_checkouts)
 
-class TestODLConsolidatedCopiesMonitor(DatabaseTest, BaseODLTest):
-
-    def test_run_once(self):
-        data_source = DataSource.lookup(self._db, "Feedbooks", autocreate=True)
-        collection = MockODLWithConsolidatedCopiesAPI.mock_collection(self._db)
-        collection.external_integration.set_setting(
-            Collection.DATA_SOURCE_NAME_SETTING,
-            data_source.name
-        )
-        api = MockODLWithConsolidatedCopiesAPI(self._db, collection)
-        monitor = ODLConsolidatedCopiesMonitor(self._db, collection, api=api)
-
-        # Two pools already exist and will be updated by the monitor.
-        edition1, pool1 = self._edition(
-            with_license_pool=True,
-            identifier_type=Identifier.URI,
-            collection=collection,
-            data_source_name=data_source.name,
-        )
-        pool1.licenses_owned = 7
-        pool1.licenses_available = 7
-        edition2, pool2 = self._edition(
-            with_license_pool=True,
-            identifier_type=Identifier.URI,
-            collection=collection,
-            data_source_name=data_source.name,
-        )
-        pool2.licenses_owned = 7
-        pool2.licenses_available = 7
-
-        # One of the identifiers also has a pool in a different collection.
-        pool_from_other_collection = self._licensepool(edition1, collection=self._default_collection)
-        pool_from_other_collection.licenses_owned = 6
-        pool_from_other_collection.licenses_available = 5
-
-        # One additional identifier will appear in the feed, but doesn't have a pool yet.
-        identifier = self._identifier(identifier_type=Identifier.URI)
-
-        page1 = {
-            "links": [
-                { "href": "/page2",
-                  "type": "application/json",
-                  "rel": "next",
-                },
-            ],
-            "copies": [
-                { "identifier": pool1.identifier.identifier,
-                  "licenses": 1,
-                  "available": 1,
-                },
-                { "identifier": identifier.identifier,
-                  "licenses": 4,
-                  "available": 0,
-                }
-            ],
-        }
-        page2 = {
-            "links": [],
-            "copies": [
-                { "identifier": pool2.identifier.identifier,
-                  "licenses": 10,
-                  "available": 4,
-                },
-            ]
-        }
-        api.queue_response(200, content=json.dumps(page1))
-        api.queue_response(200, content=json.dumps(page2))
-
-        progress = monitor.timestamp().to_data()
-        monitor.run_once(progress)
-
-        # The monitor got both pages of the feed.
-        eq_(2, len(api.requests))
-        eq_("http://copies", api.requests[0][0])
-        eq_("http://copies/page2", api.requests[1][0])
-
-        # The two existing pools were updated. We ignored the "available" info
-        # in the document and updated it based on the change to licenses owned.
-        eq_(1, pool1.licenses_owned)
-        eq_(1, pool1.licenses_available)
-        eq_(10, pool2.licenses_owned)
-        eq_(10, pool2.licenses_available)
-
-        # The pool from the other collection wasn't changed.
-        eq_(6, pool_from_other_collection.licenses_owned)
-        eq_(5, pool_from_other_collection.licenses_available)
-
-        # The new identifier got a pool even though we don't
-        # have other information about it yet.
-        eq_(1, len(identifier.licensed_through))
-        eq_(collection, identifier.licensed_through[0].collection)
-        eq_(4, identifier.licensed_through[0].licenses_owned)
-        eq_(4, identifier.licensed_through[0].licenses_available)
-
-        # The TimestampData was updated with the total number of
-        # licenses we heard about.
-        eq_("Licenses updated: 3.", progress.achievements)
-
-        # If the monitor is run in order to catch up to a specific
-        # time, it will subtract 5 minutes from that time and add a
-        # date to the end of the url.
-        api.queue_response(200, content=json.dumps(page2))
-        yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=1)
-        timestamp = TimestampData(start=None, finish=yesterday)
-        monitor.run_once(timestamp)
-
-        eq_(3, len(api.requests))
-        expected_time = yesterday - datetime.timedelta(minutes=5)
-        expected_url = "http://copies?since=%sZ" % expected_time.isoformat()
-        eq_(expected_url, api.requests[2][0])
 
 class TestODLHoldReaper(DatabaseTest, BaseODLTest):
 
     def test_run_once(self):
         data_source = DataSource.lookup(self._db, "Feedbooks", autocreate=True)
-        collection = MockODLWithConsolidatedCopiesAPI.mock_collection(self._db)
+        collection = MockODLAPI.mock_collection(self._db)
         collection.external_integration.set_setting(
             Collection.DATA_SOURCE_NAME_SETTING,
             data_source.name
         )
-        api = MockODLWithConsolidatedCopiesAPI(self._db, collection)
+        api = MockODLAPI(self._db, collection)
         reaper = ODLHoldReaper(self._db, collection, api=api)
 
         now = datetime.datetime.utcnow()
