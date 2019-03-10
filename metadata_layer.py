@@ -40,6 +40,7 @@ from model import (
     Equivalency,
     Hyperlink,
     Identifier,
+    License,
     LicensePool,
     LicensePoolDeliveryMechanism,
     LinkRelations,
@@ -504,6 +505,17 @@ class FormatData(object):
             self.rights_uri = self.link.rights_uri
 
 
+class LicenseData(object):
+    def __init__(self, identifier, checkout_url, status_url, expires=None, remaining_checkouts=None,
+                 concurrent_checkouts=None):
+        self.identifier = identifier
+        self.checkout_url = checkout_url
+        self.status_url = status_url
+        self.expires = expires
+        self.remaining_checkouts = remaining_checkouts
+        self.concurrent_checkouts = concurrent_checkouts
+
+
 class TimestampData(object):
 
     NO_VALUE = Timestamp.NO_VALUE
@@ -845,6 +857,7 @@ class CirculationData(MetaToModelUtility):
             formats=None,
             default_rights_uri=None,
             links=None,
+            licenses=None,
             last_checked=None,
     ):
         """Constructor.
@@ -888,6 +901,8 @@ class CirculationData(MetaToModelUtility):
         self.__links = None
         self.links = links
 
+        # Information about individual terms for each license in a pool.
+        self.licenses = licenses or []
 
     @property
     def links(self):
@@ -1158,6 +1173,33 @@ class CirculationData(MetaToModelUtility):
 
         new_open_access = any(pool.open_access for pool in pools)
         open_access_status_changed = (old_open_access != new_open_access)
+
+        old_licenses = new_licenses = []
+        if pool:
+            old_licenses = list(pool.licenses or [])
+
+            for license in self.licenses:
+                license_obj, ignore = get_one_or_create(
+                    _db, License, identifier=license.identifier,
+                    license_pool_id=pool.id,
+                )
+                license_obj.checkout_url = license.checkout_url
+                license_obj.status_url = license.status_url
+                license_obj.expires = license.expires
+                license_obj.remaining_checkouts = license.remaining_checkouts
+                license_obj.concurrent_checkouts = license.concurrent_checkouts
+                new_licenses.append(license_obj)
+
+        for license in old_licenses:
+            if license not in new_licenses and license.loans:
+                # TODO: For ODL, I don't think this will happen, but
+                # it seems right not to delete the license if it does.
+                # We have the status URL we can use to check on the license,
+                # and if it is removed from the ODL feed when there are
+                # still loans we'll need it.
+                # But if we track individual licenses for other protocols,
+                # we may need to handle this differently.
+                self.log.warn("License %i is no longer available but still has loans.")
 
         # Finally, if we have data for a specific Collection's license
         # for this book, find its LicensePool and update it.

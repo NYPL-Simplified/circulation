@@ -233,7 +233,14 @@ class Loan(Base, LoanAndHoldMixin):
     id = Column(Integer, primary_key=True)
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
     integration_client_id = Column(Integer, ForeignKey('integrationclients.id'), index=True)
+
+    # A Loan is always associated with a LicensePool.
     license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
+
+    # It may also be associated with an individual License if the source
+    # provides information about individual licenses.
+    license_id = Column(Integer, ForeignKey('licenses.id'), index=True, nullable=True)
+
     fulfillment_id = Column(Integer, ForeignKey('licensepooldeliveries.id'))
     start = Column(DateTime, index=True)
     end = Column(DateTime, index=True)

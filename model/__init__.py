@@ -576,6 +576,7 @@ from integrationclient import IntegrationClient
 from library import Library
 from licensing import (
     DeliveryMechanism,
+    License,
     LicensePool,
     LicensePoolDeliveryMechanism,
     PolicyException,
