@@ -3,7 +3,10 @@ import flask
 from flask import Response
 from flask_babel import lazy_gettext as _
 import json
+from pypostalcode import PostalCodeDatabase
+import re
 from StringIO import StringIO
+import uszipcode
 import uuid
 import wcag_contrast_ratio
 
@@ -37,7 +40,8 @@ class LibrarySettingsController(SettingsController):
                 if setting.get("type") == "list":
                     value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
                 else:
-                    value = ConfigurationSetting.for_library(setting.get("key"), library).value
+                    value = self.current_value(setting, library)
+
                 if value:
                     settings[setting.get("key")] = value
             libraries += [dict(
@@ -79,7 +83,10 @@ class LibrarySettingsController(SettingsController):
         if short_name:
             library.short_name = short_name
 
-        self.library_configuration_settings(library)
+        configuration_settings = self.library_configuration_settings(library)
+        if isinstance(configuration_settings, ProblemDetail):
+            return configuration_settings
+
         if is_new:
             # Now that the configuration settings are in place, create
             # a default set of lanes.
@@ -110,11 +117,11 @@ class LibrarySettingsController(SettingsController):
             self.check_input_type,
             self.check_web_color_contrast,
             self.check_header_links,
-            self.validate_formats,
+            self.validate_formats
         ]
         for validation in validations:
             result = validation(settings)
-            if result is not None:
+            if isinstance(result, ProblemDetail):
                 return result
 
     def check_for_missing_fields(self, settings):
@@ -198,7 +205,12 @@ class LibrarySettingsController(SettingsController):
 
     def library_configuration_settings(self, library):
         for setting in Configuration.LIBRARY_SETTINGS:
-            if setting.get("type") == "list":
+            if setting.get("format") == "geographic":
+                locations = self.validate_geographic_areas(self.list_setting(setting))
+                if isinstance(locations, ProblemDetail):
+                    return locations
+                value = locations or self.current_value(setting, library)
+            elif setting.get("type") == "list":
                 value = self.list_setting(setting) or self.current_value(setting, library)
             elif setting.get("type") == "image":
                 value = self.image_setting(setting) or self.current_value(setting, library)
@@ -235,3 +247,55 @@ class LibrarySettingsController(SettingsController):
             image.save(buffer, format="PNG")
             b64 = base64.b64encode(buffer.getvalue())
             return "data:image/png;base64,%s" % b64
+
+    def validate_geographic_areas(self, values):
+        # Note: the validator does not recognize data from US territories other than Puerto Rico, and
+        # can recognize Canadian locations only by FSA (first three characters of zipcode) or by province abbreviation.
+        # geographic_fields = filter(lambda s: s.get("format") == "geographic" and self._value(s), settings)
+        us_search = uszipcode.SearchEngine(simple_zipcode=True)
+        ca_search = PostalCodeDatabase()
+        CA_PROVINCES = ["AB", "BC", "MB", "NB", "NL", "NT", "NS", "NU", "ON", "PE", "QC", "SK", "YT"]
+
+        locations = []
+
+        for value in json.loads(values):
+            if value == "everywhere":
+                locations.append(value)
+            elif len(value) and isinstance(value, basestring):
+                if len(value) == 2:
+                    # Is it a US state or Canadian province abbreviation?
+                    query = us_search.query(state=value)
+                    if len(query) or value in CA_PROVINCES:
+                        locations.append(value)
+                    else:
+                        return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. state or Canadian province abbreviation.', value=value))
+
+                elif len(value) == 3 and re.search("^[A-Za-z]\\d[A-Za-z]", value):
+                    # Is it a Canadian zipcode?
+                    try:
+                        ca_search[value]
+                    except:
+                        return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid Canadian zipcode.', value=value))
+                    locations.append(value)
+
+                elif len(value.split(", ")) == 2:
+                    # Is it in the format "[city], [state abbreviation]" or "[county], [state abbreviation]"?
+                    city_or_county, state = value.split(", ")
+                    if us_search.by_city_and_state(city_or_county, state):
+                        locations.append(value)
+                    elif len([x for x in us_search.query(state=state, returns=None) if x.county == city_or_county]):
+                        locations.append(value)
+                    else:
+                        return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
+
+                elif value.isdigit():
+                    # Is it a US zipcode?
+                    if not us_search.by_zipcode(value):
+                        return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. zipcode.', value=value))
+                    locations.append(value)
+
+                else:
+                    return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
+
+        # TODO: Instead of adding value to locations, add the actual looked-up place
+        return json.dumps(locations)
