@@ -3038,6 +3038,24 @@ class TestFeedController(CirculationControllerTest):
 
         AcquisitionFeed.search = old_search
 
+    def test_misconfigured_search(self):
+
+        class BadSearch(CirculationManager):
+
+            @property
+            def setup_search(self):
+                raise CannotLoadConfiguration("doomed!")
+
+        circulation = BadSearch(self._db, testing=True)
+
+        # An attempt to call FeedController.search() will return a
+        # problem detail.
+        with self.request_context_with_library("/?q=t"):
+            problem = circulation.opds_feeds.search(None)
+            eq_(REMOTE_INTEGRATION_FAILED.uri, problem.uri)
+            eq_(u'The search index for this site is not properly configured.',
+                problem.detail)
+
 
 class TestMARCRecordController(CirculationControllerTest):
     def test_download_page_with_exporter_and_files(self):
