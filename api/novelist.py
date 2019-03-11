@@ -582,21 +582,20 @@ class NoveListAPI(object):
         # If we encounter an existing ISBN and its role is "Primary Author",
         # then that value overrides the existing Author property.
         if isbn == currentIdentifier and existingItem:
-            addItem = False
             if not existingItem.get('author') and role in Contributor.AUTHOR_ROLES:
                 existingItem['author'] = author_or_narrator
             if not existingItem.get('narrator') and role == Contributor.NARRATOR_ROLE:
                 existingItem['narrator'] = author_or_narrator
-                addItem = True
             if role == Contributor.PRIMARY_AUTHOR_ROLE:
                 existingItem['author'] = author_or_narrator
-                addItem = True
             existingItem['role'] = role
 
-            return (currentIdentifier, existingItem, None, addItem)
+            # Always return False to keep processing the currentIdentifier until
+            # we get a new ISBN to process. In that case, return and add all
+            # the data we've accumulated for this object.
+            return (currentIdentifier, existingItem, None, False)
         else:
-            # If we encounter a new ISBN, we take whatever author or narrator value
-            # is initially given.
+            # If we encounter a new ISBN, we take whatever values are initially given.
             title = object[3]
             mediaType = self.medium_to_book_format_type_values.get(object[4], "")
 
@@ -613,17 +612,15 @@ class NoveListAPI(object):
                 publicationDateString = publicationDate.strftime("%Y%m%d").replace("-", "")
                 newItem["publicationDate"] = publicationDateString
 
-            # If we are processing a new item, but we have an existing item,
+            # If we are processing a new item and there is an existing item,
             # then we can add the existing item to the list and keep
-            # the current new item.
+            # the current new item for further data aggregation.
             addItem = True if existingItem else False
             if role in Contributor.AUTHOR_ROLES:
                 newItem['author'] = author_or_narrator
             if role == Contributor.NARRATOR_ROLE:
                 newItem['narrator'] = author_or_narrator
 
-            # We only want to keep this item (addItem == False) and process it
-            # along with the next item only if the role is in `Contributor.AUTHOR_ROLES`.
             return (isbn, existingItem, newItem, addItem)
 
     def put_items_novelist(self, library):
