@@ -122,7 +122,6 @@ from authenticator import (
 from config import (
     Configuration,
     CannotLoadConfiguration,
-    IntegrationException,
 )
 
 from lanes import (
