@@ -9,6 +9,8 @@ from api.sip import SIP2AuthenticationProvider
 from core.util.http import RemoteIntegrationException
 from api.authenticator import PatronData
 
+from core.config import CannotLoadConfiguration
+
 from .. import DatabaseTest
 
 class TestSIP2AuthenticationProvider(DatabaseTest):
@@ -327,3 +329,58 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_(None, patron.authorization_expires)
         eq_(None, patron.external_type)
         eq_('no borrowing privileges', patron.block_reason)
+
+    def test_run_self_tests(self):
+        integration = self._external_integration(self._str)
+        integration.url = "server.com"
+
+        class MockBadConnection(MockSIPClient):
+            def connect(self):
+                # probably a timeout if the server or port values are not valid
+                raise IOError("Could not connect")
+
+        client = MockBadConnection()
+        auth = SIP2AuthenticationProvider(
+            self._default_library, integration, client=client
+        )
+        results = [r for r in auth._run_self_tests(self._db)]
+
+        # If the connection doesn't work then don't bother running the other tests
+        eq_(len(results), 1)
+        eq_(results[0].name, "Test Connection")
+        eq_(results[0].success, False)
+        assert(results[0].exception, IOError("Could not connect"))
+
+        client = MockSIPClient()
+        auth = SIP2AuthenticationProvider(
+            self._default_library, integration, client=client
+        )
+        results = [x for x in auth._run_self_tests(self._db)]
+
+        eq_(len(results), 2)
+        eq_(results[0].name, "Test Connection")
+        eq_(results[0].success, True)
+
+        eq_(results[1].name, "Test Login with username 'None' and password 'None'")
+        eq_(results[1].success, False)
+        assert(results[1].exception, IOError("Error logging in"))
+
+        # Set the log in username and password
+        integration.username = "user1"
+        integration.password = "pass1"
+        client = MockSIPClient(login_user_id="user1", login_password="pass1")
+        auth = SIP2AuthenticationProvider(
+            self._default_library, integration, client=client
+        )
+        results = [x for x in auth._run_self_tests(self._db)]
+
+        eq_(len(results), 3)
+        eq_(results[0].name, "Test Connection")
+        eq_(results[0].success, True)
+
+        eq_(results[1].name, "Test Login with username 'user1' and password 'pass1'")
+        eq_(results[1].success, True)
+
+        eq_(results[2].name, "Authenticating test patron")
+        eq_(results[2].success, False)
+        assert(results[2].exception, CannotLoadConfiguration("No test patron identifier is configured."))
