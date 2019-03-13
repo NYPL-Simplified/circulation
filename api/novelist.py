@@ -609,7 +609,7 @@ class NoveListAPI(object):
 
             publicationDate = object[5]
             if publicationDate:
-                publicationDateString = publicationDate.strftime("%Y%m%d").replace("-", "")
+                publicationDateString = publicationDate.isoformat().replace("-", "")
                 newItem["publicationDate"] = publicationDateString
 
             # If we are processing a new item and there is an existing item,

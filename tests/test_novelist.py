@@ -411,7 +411,7 @@ class TestNoveListAPI(DatabaseTest):
             "Gutenberg")
         book2_from_query = (
             "34567", "Axis 360 ID", "56789",
-            "Title 2", "Book", datetime.date(2013, 1, 1),
+            "Title 2", "Book", datetime.date(1414, 1, 1),
             "Author", "Author 3",
             "Gutenberg")
 
@@ -502,7 +502,7 @@ class TestNoveListAPI(DatabaseTest):
             "role": "Author",
             "author": "Author 3",
             "distributor": "Gutenberg",
-            "publicationDate": "20130101"
+            "publicationDate": "14140101"
             })
         eq_(addItem, True)
 
