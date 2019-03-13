@@ -360,9 +360,11 @@ class TestNoveListAPI(DatabaseTest):
 
     def test_get_items_from_query(self):
         items = self.novelist.get_items_from_query(self._default_library)
+        # There are no books in the current library.
         eq_(items, [])
 
-        edition = self._edition(identifier_type=Identifier.ISBN)
+        # Set up a book for this library.
+        edition = self._edition(identifier_type=Identifier.ISBN, publicationDate="2012-01-01")
         pool = self._licensepool(edition, collection=self._default_collection)
         contributor = self._contributor(sort_name=edition.sort_author, name=edition.author)
 
@@ -373,11 +375,14 @@ class TestNoveListAPI(DatabaseTest):
             title=edition.title,
             mediaType=self.novelist.medium_to_book_format_type_values.get(edition.medium, ""),
             isbn=edition.primary_identifier.identifier,
+            distributor=edition.data_source.name,
+            publicationDate=edition.published.strftime("%Y%m%d")
         )
 
         eq_(items, [item])
 
     def test_create_item_object(self):
+        # We pass no identifier or item to process so we get nothing back.
         (currentIdentifier, existingItem, newItem, addItem) = self.novelist.create_item_object(None, None, None)
         eq_(currentIdentifier, None)
         eq_(existingItem, None)
@@ -386,20 +391,35 @@ class TestNoveListAPI(DatabaseTest):
 
         # Item row from the db query
         # (identifier, identifier type, identifier,
-        # edition title, edition medium,
-        # contribution role, contributor sort name)
-        item_from_query = (
+        # edition title, edition medium, edition published date,
+        # contribution role, contributor sort name
+        # distributor)
+        book1_from_query = (
             "12345", "Axis 360 ID", "23456",
-            "Title 1", "Book",
-            "Author", "Author 1")
-        second_item_from_query = (
+            "Title 1", "Book", datetime.date(2002, 1, 1),
+            "Author", "Author 1",
+            "Gutenberg")
+        book1_from_query_primary_author = (
             "12345", "Axis 360 ID", "23456",
-            "Title 1", "Book",
-            "Primary Author", "Author 2")
+            "Title 1", "Book", datetime.date(2002, 1, 1),
+            "Primary Author", "Author 2",
+            "Gutenberg")
+        book1_narrator_from_query = (
+            "12345", "Axis 360 ID", "23456",
+            "Title 1", "Book", datetime.date(2002, 1, 1),
+            "Narrator", "Narrator 1",
+            "Gutenberg")
+        book2_from_query = (
+            "34567", "Axis 360 ID", "56789",
+            "Title 2", "Book", datetime.date(2013, 1, 1),
+            "Author", "Author 3",
+            "Gutenberg")
+
         (currentIdentifier, existingItem, newItem, addItem) = (
-            self.novelist.create_item_object(item_from_query, None, None)
+            # params: new item, identifier, existing item
+            self.novelist.create_item_object(book1_from_query, None, None)
         )
-        eq_(currentIdentifier, item_from_query[2])
+        eq_(currentIdentifier, book1_from_query[2])
         eq_(existingItem, None)
         eq_(
             newItem,
@@ -408,24 +428,103 @@ class TestNoveListAPI(DatabaseTest):
             "title": "Title 1",
             "role": "Author",
             "author": "Author 1",
-            }
-        )
-        eq_(addItem, True)
+            "distributor": "Gutenberg",
+            "publicationDate": "20020101"
+            })
+        # We want to still process this item along with the next one in case
+        # the following one has the same ISBN.
+        eq_(addItem, False)
 
+        # Note that `newItem` is what we get from the previous call from `create_item_object`.
+        # We are now processing the previous object along with the new one.
+        # This is to check and update the value for `author` if the role changes
+        # to `Primary Author`.
         (currentIdentifier, existingItem, newItem, addItem) = (
-            self.novelist.create_item_object(second_item_from_query, second_item_from_query[2], newItem)
+            self.novelist.create_item_object(
+                book1_from_query_primary_author,
+                currentIdentifier,
+                newItem
+            )
         )
-        eq_(currentIdentifier, item_from_query[2])
+        eq_(currentIdentifier, book1_from_query[2])
         eq_(existingItem,
             {"isbn": "23456",
             "mediaType": "EBook",
             "title": "Title 1",
             "author": "Author 2",
             "role": "Primary Author",
-            }
-        )
+            "distributor": "Gutenberg",
+            "publicationDate": "20020101"
+            })
         eq_(newItem, None)
         eq_(addItem, False)
+
+        # Test that a narrator gets added along with an author.
+        (currentIdentifier, existingItem, newItem, addItem) = (
+            self.novelist.create_item_object(book1_narrator_from_query, currentIdentifier, existingItem)
+        )
+        eq_(currentIdentifier, book1_narrator_from_query[2])
+        eq_(existingItem, 
+            {"isbn": "23456",
+            "mediaType": "EBook",
+            "title": "Title 1",
+            "author": "Author 2",
+            # The role has been updated to author since the last processed item
+            # has an author role. This property is eventually removed before
+            # sending to Novelist so it's not really important.
+            "role": "Narrator",
+            "narrator": "Narrator 1",
+            "distributor": "Gutenberg",
+            "publicationDate": "20020101"
+            })
+        eq_(newItem, None)
+        eq_(addItem, False)
+
+        # New Object
+        (currentIdentifier, existingItem, newItem, addItem) = (
+            self.novelist.create_item_object(book2_from_query, currentIdentifier, existingItem)
+        )
+        eq_(currentIdentifier, book2_from_query[2])
+        eq_(existingItem,
+            {"isbn": "23456",
+            "mediaType": "EBook",
+            "title": "Title 1",
+            "author": "Author 2",
+            "role": "Narrator",
+            "narrator": "Narrator 1",
+            "distributor": "Gutenberg",
+            "publicationDate": "20020101"
+            })
+        eq_(newItem,
+            {"isbn": "56789",
+            "mediaType": "EBook",
+            "title": "Title 2",
+            "role": "Author",
+            "author": "Author 3",
+            "distributor": "Gutenberg",
+            "publicationDate": "20130101"
+            })
+        eq_(addItem, True)
+
+        # New Object
+        # Test that a narrator got added but not an author
+        (currentIdentifier, existingItem, newItem, addItem) = (
+            self.novelist.create_item_object(book1_narrator_from_query, None, None)
+        )
+
+        eq_(currentIdentifier, book1_narrator_from_query[2])
+        eq_(existingItem, None)
+        eq_(newItem,
+            {"isbn": "23456",
+            "mediaType": "EBook",
+            "title": "Title 1",
+            "role": "Narrator",
+            "narrator": "Narrator 1",
+            "distributor": "Gutenberg",
+            "publicationDate": "20020101"
+            })
+        eq_(addItem, False)
+
 
     def test_put_items_novelist(self):
         response = self.novelist.put_items_novelist(self._default_library)
