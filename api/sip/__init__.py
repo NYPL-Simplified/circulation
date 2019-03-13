@@ -9,6 +9,7 @@ from api.sip.client import SIPClient
 from core.util.http import RemoteIntegrationException
 from core.util import MoneyUtility
 from core.model import ExternalIntegration
+import json
 
 class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
@@ -194,9 +195,19 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
         # Log in was successful so test patron's test credentials
         if login.success:
-            results = super(SIP2AuthenticationProvider, self)._run_self_tests(_db)
-            for x in results:
-                yield x
+            results = [r for r in super(SIP2AuthenticationProvider, self)._run_self_tests(_db)]
+            for result in results:
+                yield result
+
+            if results[0].success:
+                def raw_patron_information():
+                    info = sip.patron_information(self.test_username, self.test_password)
+                    return json.dumps(info, indent=1)
+
+                yield self.run_test(
+                    ("Raw test patron information"),
+                    raw_patron_information
+                )
         
 
     @classmethod
