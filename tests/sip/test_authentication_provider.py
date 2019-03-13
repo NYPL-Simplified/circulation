@@ -339,6 +339,11 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
                 # probably a timeout if the server or port values are not valid
                 raise IOError("Could not connect")
 
+        class MockSIPLogin(MockSIPClient):
+            def login(self):
+                if not self.login_user_id and not self.login_password:
+                    raise IOError("Error logging in")
+
         client = MockBadConnection()
         auth = SIP2AuthenticationProvider(
             self._default_library, integration, client=client
@@ -351,7 +356,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_(results[0].success, False)
         assert(results[0].exception, IOError("Could not connect"))
 
-        client = MockSIPClient()
+        client = MockSIPLogin()
         auth = SIP2AuthenticationProvider(
             self._default_library, integration, client=client
         )
@@ -368,7 +373,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         # Set the log in username and password
         integration.username = "user1"
         integration.password = "pass1"
-        client = MockSIPClient(login_user_id="user1", login_password="pass1")
+        client = MockSIPLogin(login_user_id="user1", login_password="pass1")
         auth = SIP2AuthenticationProvider(
             self._default_library, integration, client=client
         )

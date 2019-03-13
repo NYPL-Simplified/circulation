@@ -844,10 +844,6 @@ class MockSIPClient(SIPClient):
         self.status.append("Creating new socket connection.")
         self.reset_connection_state()
         return None
-    
-    def login(self):
-        if not self.login_user_id and not self.login_password:
-            raise IOError("Error logging in")
 
     def do_send(self, data):
         self.requests.append(data)
