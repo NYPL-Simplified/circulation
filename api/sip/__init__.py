@@ -205,6 +205,13 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                     return json.dumps(info, indent=1)
 
                 yield self.run_test(
+                    "Patron information request",
+                    sip.patron_information_request,
+                    self.test_username,
+                    patron_password=self.test_password
+                )
+
+                yield self.run_test(
                     ("Raw test patron information"),
                     raw_patron_information
                 )

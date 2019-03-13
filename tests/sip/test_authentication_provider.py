@@ -8,7 +8,7 @@ from api.sip.client import MockSIPClient
 from api.sip import SIP2AuthenticationProvider
 from core.util.http import RemoteIntegrationException
 from api.authenticator import PatronData
-
+import json
 from core.config import CannotLoadConfiguration
 
 from .. import DatabaseTest
@@ -340,6 +340,8 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
                 raise IOError("Could not connect")
 
         class MockSIPLogin(MockSIPClient):
+            def now(self):
+                return datetime(2019, 1, 1).strftime("%Y%m%d0000%H%M%S")
             def login(self):
                 if not self.login_user_id and not self.login_password:
                     raise IOError("Error logging in")
@@ -408,7 +410,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         auth.test_password = "userpassword1"
         results = [x for x in auth._run_self_tests(self._db)]
 
-        eq_(len(results), 5)
+        eq_(len(results), 6)
         eq_(results[0].name, "Test Connection")
         eq_(results[0].success, True)
 
@@ -423,7 +425,11 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_(results[3].name, "Syncing patron metadata")
         eq_(results[3].success, True)
 
-        eq_(results[4].name, "Raw test patron information")
+        eq_(results[4].name, "Patron information request")
         eq_(results[4].success, True)
-        assert(results[4].result, valid_login_patron)
+        eq_(results[4].result, patronDataClient.patron_information_request("usertest1", "userpassword1"))
+
+        eq_(results[5].name, "Raw test patron information")
+        eq_(results[5].success, True)
+        eq_(results[5].result, json.dumps(valid_login_patron, indent=1))
 
