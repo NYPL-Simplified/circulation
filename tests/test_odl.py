@@ -1247,7 +1247,7 @@ class TestODLImporter(DatabaseTest, BaseODLTest):
                 return working_display_name
         metadata_client = MockMetadataClient()
 
-        warrior_time_limited = dict(expires="2019-03-31T03:13:35Z", checkouts=dict(available=1))
+        warrior_time_limited = dict(checkouts=dict(available=1))
         canadianity_loan_limited = dict(checkouts=dict(left=40, available=10))
         canadianity_perpetual = dict(checkouts=dict(available=1))
         midnight_loan_limited_1 = dict(checkouts=dict(left=20, available=1))

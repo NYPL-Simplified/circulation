@@ -768,8 +768,7 @@ class ODLImporter(OPDSImporter):
         licenses_available = 0
         odl_license_tags = parser._xpath(entry_tag, 'odl:license') or []
         for odl_license_tag in odl_license_tags:
-            # ODL requires license identifiers to be UUIDs.
-            identifier = subtag(odl_license_tag, 'dcterms:identifier').replace("urn:uuid:", "")
+            identifier = subtag(odl_license_tag, 'dcterms:identifier')
             content_type = subtag(odl_license_tag, 'dcterms:format')
             drm_schemes = []
             protection_tags = parser._xpath(odl_license_tag, 'odl:protection') or []
@@ -792,6 +791,7 @@ class ODLImporter(OPDSImporter):
             expires = None
             remaining_checkouts = None
             available_checkouts = None
+            concurrent_checkouts = None
 
             checkout_link = None
             for link_tag in parser._xpath(odl_license_tag, 'odl:tlink') or []:
@@ -803,27 +803,20 @@ class ODLImporter(OPDSImporter):
             odl_status_link = None
             for link_tag in parser._xpath(odl_license_tag, 'atom:link') or []:
                 rel = link_tag.attrib.get("rel")
-                if rel == "http://opds-spec.org/odl/status":
+                if rel == "self":
                     odl_status_link = link_tag.attrib.get("href")
                     break
 
             if odl_status_link:
-                # TODO: Feedbooks needs to fix a bug in their status links. This line is a
-                # temporary hack until they do.
-                odl_status_link = odl_status_link.replace("https://loan.feedbooks.net/loan/status/?uuid", "https://license.feedbooks.net/copy/status/?uuid")
-
-                # Some of this is also available directly in the feed, but remaining
-                # checkouts and available checkouts aren't.
                 ignore, ignore, response = do_get(odl_status_link, headers={})
                 status = json.loads(response)
-                expires = status.get("expires")
                 remaining_checkouts = status.get("checkouts", {}).get("left")
                 available_checkouts = status.get("checkouts", {}).get("available")
 
-            concurrent_checkouts = None
             terms = parser._xpath(odl_license_tag, "odl:terms")
             if terms:
                 concurrent_checkouts = subtag(terms[0], "odl:concurrent_checkouts")
+                expires = subtag(terms[0], "odl:expires")
 
             licenses_owned += int(concurrent_checkouts or 0)
             licenses_available += int(available_checkouts or 0)
