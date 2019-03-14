@@ -103,7 +103,7 @@ class TestSIPClient(object):
                 assert tmpfile.startswith("/tmp")
                 # By the time the SSL socket has been wrapped, the
                 # temporary file has already been removed.  Because of
-                # that we can't verify from within a unit testthat the
+                # that we can't verify from within a unit test that the
                 # correct contents were written to the file.
                 assert not os.path.exists(tmpfile)
         finally:
