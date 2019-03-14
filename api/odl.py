@@ -13,6 +13,7 @@ import feedparser
 from lxml import etree
 from StringIO import StringIO
 import re
+from uritemplate import URITemplate
 
 from sqlalchemy.sql.expression import or_
 
@@ -243,28 +244,14 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
                 _external=True,
             )
 
-            url = loan.license.checkout_url
-            params = dict(
+            url_template = URITemplate(loan.license.checkout_url)
+            url = url_template.expand(
                 id=id,
                 checkout_id=checkout_id,
                 patron_id=patron_id,
                 expires=(expires.isoformat() + 'Z'),
                 notification_url=notification_url,
             )
-
-            # Fill in the URL template.
-            match = re.compile("(.*)\{\?(.*)\}").search(url)
-            if match:
-                url, query_params = match.groups()
-                query_params = query_params.split(",")
-                if query_params:
-                    url += "?"
-
-                for param, value in params.items():
-                    if param in query_params:
-                        url += "%s=%s&" % (param, value)
-                if url[-1] == "&":
-                    url = url[:-1]
         response = self._get(url)
 
         try:

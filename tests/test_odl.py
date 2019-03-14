@@ -8,6 +8,8 @@ import json
 import datetime
 import re
 import base64
+import urllib
+import urlparse
 
 from . import DatabaseTest
 from core.metadata_layer import TimestampData
@@ -75,31 +77,30 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         response = self.api.get_license_status_document(loan)
         requested_url = self.api.requests[0][0]
 
-        # Unfortunately urlparse doesn't quite work here because the
-        # test notification url has a '?' in it.
-        expected_url_re = re.compile("(.*)/\?(.*)")
-        match = expected_url_re.match(requested_url)
-        assert match != None
-        (base_url, query) = match.groups()
+        parsed = urlparse.urlparse(requested_url)
+        eq_("https", parsed.scheme)
+        eq_("loan.feedbooks.net", parsed.netloc)
+        params = urlparse.parse_qs(parsed.query)
 
-        eq_("https://loan.feedbooks.net/loan/get", base_url)
-        assert "id=%s" % self.license.identifier in query
+        eq_(self.license.identifier, params.get("id")[0])
 
         # The checkout id and patron id are random UUIDs.
-        checkout_id = re.compile("checkout_id=([^&]*)(?:\&|$)").search(query).groups()[0]
+        checkout_id = params.get("checkout_id")[0]
         assert len(checkout_id) > 0
-        patron_id = re.compile("patron_id=([^&]*)(?:\&|$)").search(query).groups()[0]
+        patron_id = params.get("patron_id")[0]
         assert len(patron_id) > 0
 
         # Loans expire in 21 days by default.
         now = datetime.datetime.utcnow()
         after_expiration = now + datetime.timedelta(days=23)
-        expires = re.compile("expires=([^&]*)(?:\&|$)").search(query).groups()[0]
+        expires = urllib.unquote_plus(params.get("expires")[0])
         expires = datetime.datetime.strptime(expires, "%Y-%m-%dT%H:%M:%S.%fZ")
         assert expires > now
         assert expires < after_expiration
 
-        assert 'notification_url=http://odl_notify?loan_id=%s&library_short_name=%s' % (loan.id, self._default_library.short_name) in query
+        notification_url = urllib.unquote_plus(params.get("notification_url")[0])
+        eq_("http://odl_notify?loan_id=%s&library_short_name=%s" % (loan.id, self._default_library.short_name),
+            notification_url)
 
         # With an existing loan.
         loan, ignore = self.license.loan_to(self.patron)
