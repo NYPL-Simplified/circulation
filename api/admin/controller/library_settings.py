@@ -257,6 +257,7 @@ class LibrarySettingsController(SettingsController):
         CA_PROVINCES = ["AB", "BC", "MB", "NB", "NL", "NT", "NS", "NU", "ON", "PE", "QC", "SK", "YT"]
 
         locations = []
+        locations_dict = {"US": [], "CA": []}
 
         for value in json.loads(values):
             if value == "everywhere":
@@ -265,7 +266,7 @@ class LibrarySettingsController(SettingsController):
                 if len(value) == 2:
                     # Is it a US state or Canadian province abbreviation?
                     query = us_search.query(state=value)
-                    if len(query) or value in CA_PROVINCES:
+                    if value in CA_PROVINCES or len(query):
                         locations.append(value)
                     else:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. state or Canadian province abbreviation.', value=value))
@@ -273,29 +274,36 @@ class LibrarySettingsController(SettingsController):
                 elif len(value) == 3 and re.search("^[A-Za-z]\\d[A-Za-z]", value):
                     # Is it a Canadian zipcode?
                     try:
-                        ca_search[value]
+                        info = ca_search[value]
+                        locations.append(self.format_place(value, info.city, info.province))
+                        locations_dict["CA"].append(value);
                     except:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid Canadian zipcode.', value=value))
-                    locations.append(value)
 
                 elif len(value.split(", ")) == 2:
                     # Is it in the format "[city], [state abbreviation]" or "[county], [state abbreviation]"?
                     city_or_county, state = value.split(", ")
                     if us_search.by_city_and_state(city_or_county, state):
                         locations.append(value)
+                        locations_dict["US"].append(value);
                     elif len([x for x in us_search.query(state=state, returns=None) if x.county == city_or_county]):
                         locations.append(value)
+                        locations_dict["US"].append(value);
                     else:
                         return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
 
                 elif value.isdigit():
                     # Is it a US zipcode?
-                    if not us_search.by_zipcode(value):
+                    info = us_search.by_zipcode(value)
+                    if not info:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. zipcode.', value=value))
-                    locations.append(value)
-
+                    locations.append(self.format_place(value, info.major_city, info.state))
+                    locations_dict["US"].append(value);
                 else:
                     return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
 
-        # TODO: Instead of adding value to locations, add the actual looked-up place
         return json.dumps(locations)
+
+    def format_place(self, zip, city, state_or_province):
+        info = "%s, %s" % (city, state_or_province)
+        return { zip: info }

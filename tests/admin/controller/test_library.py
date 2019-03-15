@@ -228,7 +228,7 @@ class TestLibrarySettings(SettingsControllerTest):
         # Invalid US zipcode
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: ["00000"]}
+                library, {Configuration.LIBRARY_SERVICE_AREA: "00000"}
             )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, UNKNOWN_LOCATION.uri)
@@ -237,7 +237,7 @@ class TestLibrarySettings(SettingsControllerTest):
         # Invalid Canadian zipcode
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: ["X1Y"]}
+                library, {Configuration.LIBRARY_SERVICE_AREA: "X1Y"}
             )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, UNKNOWN_LOCATION.uri)
@@ -246,7 +246,7 @@ class TestLibrarySettings(SettingsControllerTest):
         # Invalid 2-letter abbreviation
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: ["ZZ"]}
+                library, {Configuration.LIBRARY_SERVICE_AREA: "ZZ"}
             )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, UNKNOWN_LOCATION.uri)
@@ -255,7 +255,7 @@ class TestLibrarySettings(SettingsControllerTest):
         # County with wrong state
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: ["Fairfield County, FL"]}
+                library, {Configuration.LIBRARY_SERVICE_AREA: "Fairfield County, FL"}
             )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, UNKNOWN_LOCATION.uri)
@@ -264,7 +264,7 @@ class TestLibrarySettings(SettingsControllerTest):
         # City with wrong state
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: ["Albany, NJ"]}
+                library, {Configuration.LIBRARY_SERVICE_AREA: "Albany, NJ"}
             )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, UNKNOWN_LOCATION.uri)
