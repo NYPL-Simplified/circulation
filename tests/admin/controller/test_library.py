@@ -312,8 +312,8 @@ class TestLibrarySettings(SettingsControllerTest):
                 ("library_description", "Short description of library"),
                 (Configuration.WEBSITE_URL, "https://library.library/"),
                 (Configuration.TINY_COLLECTION_LANGUAGES, ['ger']),
-                (Configuration.LIBRARY_SERVICE_AREA, ['10025', 'everywhere', 'FL', 'Boston, MA']),
-                (Configuration.LIBRARY_FOCUS_AREA, ['V5K', 'Fairfield County, CT', 'BC']),
+                (Configuration.LIBRARY_SERVICE_AREA, ['06759', 'everywhere', 'MD', 'Boston, MA']),
+                (Configuration.LIBRARY_FOCUS_AREA, ['V5K', 'Broward County, FL', 'QC']),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
                 (Configuration.HELP_EMAIL, "help@example.com"),
                 (Configuration.FEATURED_LANE_SIZE, "5"),
@@ -345,6 +345,10 @@ class TestLibrarySettings(SettingsControllerTest):
                 library).value)
         eq_("data:image/png;base64,%s" % base64.b64encode(image_data),
             ConfigurationSetting.for_library(Configuration.LOGO, library).value)
+        eq_('{"CA": [], "US": [{"06759": "Litchfield, CT"}, "everywhere", "MD", "Boston, MA"]}',
+            ConfigurationSetting.for_library(Configuration.LIBRARY_SERVICE_AREA, library).value)
+        eq_('{"CA": [{"V5K": "Vancouver (North Hastings- Sunrise), British Columbia"}, "QC"], "US": ["Broward County, FL"]}',
+            ConfigurationSetting.for_library(Configuration.LIBRARY_FOCUS_AREA, library).value)
 
         # When the library was created, default lanes were also created
         # according to its language setup. This library has one tiny

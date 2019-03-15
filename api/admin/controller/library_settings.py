@@ -232,9 +232,12 @@ class LibrarySettingsController(SettingsController):
                     value += [option["key"]]
         else:
             # Allow any entered values.
-            value = [item for item in flask.request.form.getlist(setting.get('key')) if item]
+            value = []
+            inputs = flask.request.form.getlist(setting.get("key"))
+            for i in inputs:
+                value.extend(i) if isinstance(i, list) else value.append(i)
 
-        return json.dumps(value)
+        return json.dumps(filter(None, value))
 
     def image_setting(self, setting):
         image_file = flask.request.files.get(setting.get("key"))
@@ -251,23 +254,24 @@ class LibrarySettingsController(SettingsController):
     def validate_geographic_areas(self, values):
         # Note: the validator does not recognize data from US territories other than Puerto Rico, and
         # can recognize Canadian locations only by FSA (first three characters of zipcode) or by province abbreviation.
-        # geographic_fields = filter(lambda s: s.get("format") == "geographic" and self._value(s), settings)
+
         us_search = uszipcode.SearchEngine(simple_zipcode=True)
         ca_search = PostalCodeDatabase()
         CA_PROVINCES = ["AB", "BC", "MB", "NB", "NL", "NT", "NS", "NU", "ON", "PE", "QC", "SK", "YT"]
 
-        locations = []
-        locations_dict = {"US": [], "CA": []}
+        locations = {"US": [], "CA": []}
+        # set_trace()
 
         for value in json.loads(values):
             if value == "everywhere":
-                locations.append(value)
+                locations["US"].append(value)
             elif len(value) and isinstance(value, basestring):
                 if len(value) == 2:
                     # Is it a US state or Canadian province abbreviation?
-                    query = us_search.query(state=value)
-                    if value in CA_PROVINCES or len(query):
-                        locations.append(value)
+                    if value in CA_PROVINCES:
+                        locations["CA"].append(value)
+                    elif len(us_search.query(state=value)):
+                        locations["US"].append(value)
                     else:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. state or Canadian province abbreviation.', value=value))
 
@@ -275,8 +279,7 @@ class LibrarySettingsController(SettingsController):
                     # Is it a Canadian zipcode?
                     try:
                         info = ca_search[value]
-                        locations.append(self.format_place(value, info.city, info.province))
-                        locations_dict["CA"].append(value);
+                        locations["CA"].append(self.format_place(value, info.city, info.province));
                     except:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid Canadian zipcode.', value=value))
 
@@ -284,11 +287,9 @@ class LibrarySettingsController(SettingsController):
                     # Is it in the format "[city], [state abbreviation]" or "[county], [state abbreviation]"?
                     city_or_county, state = value.split(", ")
                     if us_search.by_city_and_state(city_or_county, state):
-                        locations.append(value)
-                        locations_dict["US"].append(value);
+                        locations["US"].append(value);
                     elif len([x for x in us_search.query(state=state, returns=None) if x.county == city_or_county]):
-                        locations.append(value)
-                        locations_dict["US"].append(value);
+                        locations["US"].append(value);
                     else:
                         return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
 
@@ -297,8 +298,7 @@ class LibrarySettingsController(SettingsController):
                     info = us_search.by_zipcode(value)
                     if not info:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. zipcode.', value=value))
-                    locations.append(self.format_place(value, info.major_city, info.state))
-                    locations_dict["US"].append(value);
+                    locations["US"].append(self.format_place(value, info.major_city, info.state));
                 else:
                     return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
 

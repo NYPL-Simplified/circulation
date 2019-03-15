@@ -2700,55 +2700,6 @@ class SettingsController(AdminCirculationManagerController):
         # Check that the input string is in the list of recognized language codes.
         return LanguageCodes.string_to_alpha_3(language)
 
-    # def validate_geographic_areas(self, settings):
-    #     # Note: the validator does not recognize data from US territories other than Puerto Rico, and
-    #     # can recognize Canadian locations only by FSA (first three characters of zipcode) or by province abbreviation.
-    #
-    #     geographic_fields = filter(lambda s: s.get("format") == "geographic" and self._value(s), settings)
-    #     us_search = uszipcode.SearchEngine(simple_zipcode=True)
-    #     ca_search = PostalCodeDatabase()
-    #     CA_PROVINCES = ["AB", "BC", "MB", "NB", "NL", "NT", "NS", "NU", "ON", "PE", "QC", "SK", "YT"]
-    #
-    #     locations = []
-    #
-    #     for value in self._list_of_values(geographic_fields):
-    #         if value == "everywhere":
-    #             location = value
-    #         elif isinstance(value, basestring):
-    #             if len(value) == 2:
-    #                 # Is it a US state or Canadian province abbreviation?
-    #                 query = us_search.query(state=value)
-    #                 if len(query) or value in CA_PROVINCES:
-    #                     locations.append(value)
-    #                 else:
-    #                     return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. state or Canadian province abbreviation.', value=value))
-    #
-    #             elif len(value) == 3 and re.search("^[A-Za-z]\\d[A-Za-z]", value):
-    #                 # Is it a Canadian zipcode?
-    #                 try:
-    #                     ca_search[value]
-    #                 except:
-    #                     return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid Canadian zipcode.', value=value))
-    #                 locations.append(value)
-    #
-    #             elif len(value.split(", ")) == 2:
-    #                 # Is it in the format "[city], [state abbreviation]" or "[county], [state abbreviation]"?
-    #                 city_or_county, state = value.split(", ")
-    #                 if us_search.by_city_and_state(city_or_county, state):
-    #                     locations.append(value)
-    #                 elif len([x for x in us_search.query(state=state, returns=None) if x.county == city_or_county]):
-    #                     locations.append(value)
-    #                 else:
-    #                     return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
-    #
-    #             elif value.isdigit():
-    #                 # Is it a US zipcode?
-    #                 if not us_search.by_zipcode(value):
-    #                     return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. zipcode.', value=value))
-    #                 locations.append(value)
-    #
-    #     # return dict(data=locations)
-
     def _list_of_values(self, fields):
         result = []
         for field in fields:
