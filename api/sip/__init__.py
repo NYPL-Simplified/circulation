@@ -9,6 +9,7 @@ from api.sip.client import SIPClient
 from core.util.http import RemoteIntegrationException
 from core.util import MoneyUtility
 from core.model import ExternalIntegration
+import json
 
 class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
@@ -26,7 +27,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
     SETTINGS = [
         { "key": ExternalIntegration.URL, "label": _("Server"), "required": True },
-        { "key": PORT, "label": _("Port"), "required": True },
+        { "key": PORT, "label": _("Port"), "required": True , "type": "number" },
         { "key": ExternalIntegration.USERNAME, "label": _("Login User ID") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Login Password") },
         { "key": LOCATION_CODE, "label": _("Location Code") },
@@ -160,6 +161,61 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             password = None
         info = self.patron_information(username, password)
         return self.info_to_patrondata(info)
+
+    def _run_self_tests(self, _db):
+        def makeConnection(sip):
+            sip.connect()
+            return sip.connection
+
+        if self.client:
+            sip = self.client
+        else:
+            sip = SIPClient(
+                target_server=self.server, target_port=self.port,
+                login_user_id=self.login_user_id, login_password=self.login_password,
+                location_code=self.location_code, separator=self.field_separator,
+                use_ssl=self.use_ssl, ssl_cert=self.ssl_cert, ssl_key=self.ssl_key
+            )
+        
+        connection = self.run_test(
+            ("Test Connection"),
+            makeConnection,
+            sip
+        )
+        yield connection
+
+        if not connection.success:
+            return
+
+        login = self.run_test(
+            ("Test Login with username '%s' and password '%s'" % (self.login_user_id, self.login_password)),
+            sip.login
+        )
+        yield login
+
+        # Log in was successful so test patron's test credentials
+        if login.success:
+            results = [r for r in super(SIP2AuthenticationProvider, self)._run_self_tests(_db)]
+            for result in results:
+                yield result
+
+            if results[0].success:
+                def raw_patron_information():
+                    info = sip.patron_information(self.test_username, self.test_password)
+                    return json.dumps(info, indent=1)
+
+                yield self.run_test(
+                    "Patron information request",
+                    sip.patron_information_request,
+                    self.test_username,
+                    patron_password=self.test_password
+                )
+
+                yield self.run_test(
+                    ("Raw test patron information"),
+                    raw_patron_information
+                )
+        
 
     @classmethod
     def info_to_patrondata(cls, info, validate_password=True):

@@ -473,6 +473,8 @@ class NoveListAPI(object):
         is being processed. If the next ISBN being processed is new, the existing one
         gets added to the list of items. If the ISBN is the same, then we append
         the Author property since there are multiple contributors.
+
+        :return: a list of Novelist objects to send
         """
         collectionList = []
         for c in library.collections:
@@ -482,14 +484,13 @@ class NoveListAPI(object):
         i1 = aliased(Identifier)
         i2 = aliased(Identifier)
         roles = list(Contributor.AUTHOR_ROLES)
-        # TODO: We should handle the Narrator role properly, by
-        # setting the 'narrator' field in the NoveList API document.
-        # roles.append(Contributor.NARRATOR_ROLE)
+        roles.append(Contributor.NARRATOR_ROLE)
 
         isbnQuery = select(
             [i1.identifier, i1.type, i2.identifier,
-            Edition.title, Edition.medium,
-            Contribution.role, Contributor.sort_name],
+            Edition.title, Edition.medium, Edition.published,
+            Contribution.role, Contributor.sort_name,
+            DataSource.name],
         ).select_from(
             join(LicensePool, i1, i1.id==LicensePool.identifier_id)
             .join(Equivalency, i1.id==Equivalency.input_id, LEFT_OUTER_JOIN)
@@ -500,6 +501,7 @@ class NoveListAPI(object):
             )
             .join(Contribution, Edition.id==Contribution.edition_id)
             .join(Contributor, Contribution.contributor_id==Contributor.id)
+            .join(DataSource, DataSource.id==LicensePool.data_source_id)
         ).where(
             and_(
                 LicensePool.collection_id.in_(collectionList),
@@ -514,6 +516,11 @@ class NoveListAPI(object):
         newItem = None
         existingItem = None
         currentIdentifier = None
+
+        # Loop through the query result. There's a need to keep track of the
+        # previously processed object and the currently processed object because
+        # the identifier could be the same. If it is, we update the data
+        # object to send to Novelist.
         for item in result:
             if newItem:
                 existingItem = newItem
@@ -538,6 +545,17 @@ class NoveListAPI(object):
         is not the same as the new object's ISBN being processed. If the new
         object's ISBN matches the current identifier, the previous object's
         Author property is updated.
+
+        :param object: the current item object to process
+        :param currentIdentifier: the current identifier to process
+        :param existingItem: the previously processed item object
+
+        :return: (
+            current identifier,
+            the existing object if available,
+            a new object if the item wasn't found before,
+            if the item is ready to the added to the list of books to send
+        )
         """
         if not object:
             return (None, None, None, False)
@@ -551,31 +569,59 @@ class NoveListAPI(object):
             # a data error.
             return (None, None, None, False)
 
-        role = object[5]
-        author = object[6] if role in Contributor.AUTHOR_ROLES else ""
+        roles = list(Contributor.AUTHOR_ROLES)
+        roles.append(Contributor.NARRATOR_ROLE)
 
+        role = object[6]
+        author_or_narrator = object[7] if role in roles else ""
+        distributor = object[8]
+
+        # If there's no existing author value but we now get one, add it.
+        # If the role is narrator and it's a new value
+        # (i.e. no "narrator" was already added), then add the narrator.
         # If we encounter an existing ISBN and its role is "Primary Author",
         # then that value overrides the existing Author property.
-        #
-        # TODO: add 'narrator' field when we encounter a Narrator role.
         if isbn == currentIdentifier and existingItem:
+            if not existingItem.get('author') and role in Contributor.AUTHOR_ROLES:
+                existingItem['author'] = author_or_narrator
+            if not existingItem.get('narrator') and role == Contributor.NARRATOR_ROLE:
+                existingItem['narrator'] = author_or_narrator
             if role == Contributor.PRIMARY_AUTHOR_ROLE:
-                existingItem['author'] = author
-                existingItem['role'] = role
+                existingItem['author'] = author_or_narrator
+            existingItem['role'] = role
+
+            # Always return False to keep processing the currentIdentifier until
+            # we get a new ISBN to process. In that case, return and add all
+            # the data we've accumulated for this object.
             return (currentIdentifier, existingItem, None, False)
         else:
-            # If we encounter a new ISBN, we take whatever author value is
-            # initially given to us.
+            # If we encounter a new ISBN, we take whatever values are initially given.
             title = object[3]
             mediaType = self.medium_to_book_format_type_values.get(object[4], "")
+
             newItem = dict(
                 isbn=isbn,
                 title=title,
                 mediaType=mediaType,
-                author=author,
                 role=role,
+                distributor=distributor
             )
-            return (isbn, existingItem, newItem, True)
+
+            publicationDate = object[5]
+            if publicationDate:
+                publicationDateString = publicationDate.isoformat().replace("-", "")
+                newItem["publicationDate"] = publicationDateString
+
+            # If we are processing a new item and there is an existing item,
+            # then we can add the existing item to the list and keep
+            # the current new item for further data aggregation.
+            addItem = True if existingItem else False
+            if role in Contributor.AUTHOR_ROLES:
+                newItem['author'] = author_or_narrator
+            if role == Contributor.NARRATOR_ROLE:
+                newItem['narrator'] = author_or_narrator
+
+            return (isbn, existingItem, newItem, addItem)
 
     def put_items_novelist(self, library):
         items = self.get_items_from_query(library)
