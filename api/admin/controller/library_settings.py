@@ -24,6 +24,7 @@ from PIL import Image
 from api.admin.exceptions import *
 from api.admin.problem_details import *
 from core.util.problem_detail import ProblemDetail
+from core.util import LanguageCodes
 from nose.tools import set_trace
 
 class LibrarySettingsController(SettingsController):
@@ -39,11 +40,17 @@ class LibrarySettingsController(SettingsController):
             for setting in Configuration.LIBRARY_SETTINGS:
                 if setting.get("type") == "list":
                     value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
+                    if setting.get("format") == "language-code":
+                        languages = []
+                        for language in value:
+                            languages.append({language: LanguageCodes.english_names[language]})
+                            value = languages
                 else:
                     value = self.current_value(setting, library)
 
                 if value:
                     settings[setting.get("key")] = value
+
             libraries += [dict(
                 uuid=library.uuid,
                 name=library.name,
