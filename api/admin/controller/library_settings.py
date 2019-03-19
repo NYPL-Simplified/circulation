@@ -42,9 +42,10 @@ class LibrarySettingsController(SettingsController):
                     value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
                     if setting.get("format") == "language-code":
                         languages = []
-                        for language in value:
-                            languages.append({language: LanguageCodes.english_names[language]})
-                            value = languages
+                        if value:
+                            for language in value:
+                                languages.append({language: LanguageCodes.english_names[language]})
+                                value = languages
                 else:
                     value = self.current_value(setting, library)
 
@@ -267,7 +268,6 @@ class LibrarySettingsController(SettingsController):
         CA_PROVINCES = ["AB", "BC", "MB", "NB", "NL", "NT", "NS", "NU", "ON", "PE", "QC", "SK", "YT"]
 
         locations = {"US": [], "CA": []}
-        # set_trace()
 
         for value in json.loads(values):
             if value == "everywhere":
