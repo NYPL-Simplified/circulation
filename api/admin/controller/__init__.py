@@ -2697,7 +2697,7 @@ class SettingsController(AdminCirculationManagerController):
                 return UNKNOWN_LANGUAGE.detailed(_('"%(language)s" is not a valid language code.', language=language))
 
     def _is_language(self, language):
-        # Check that the input string is in the list of recognized language codes.
+        # Check that the input string is in the list of recognized languages or language codes.
         return LanguageCodes.string_to_alpha_3(language)
 
     def _list_of_values(self, fields):
