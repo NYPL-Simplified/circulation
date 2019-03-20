@@ -40,13 +40,6 @@ class LibrarySettingsController(SettingsController):
             for setting in Configuration.LIBRARY_SETTINGS:
                 if setting.get("type") == "list":
                     value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
-                    # if value and setting.get("format") == "language-code":
-                    #     set_trace()
-                    #     languages = []
-                    #     if value:
-                    #         for language in value:
-                    #             languages.append({language: LanguageCodes.english_names[language]})
-                    #             value = languages
                 else:
                     value = self.current_value(setting, library)
 
@@ -221,8 +214,8 @@ class LibrarySettingsController(SettingsController):
                 value = locations or self.current_value(setting, library)
             elif setting.get("type") == "list":
                 value = self.list_setting(setting) or self.current_value(setting, library)
-                # if setting.get("format") == "language-code":
-                #     set_trace()
+                if setting.get("format") == "language-code":
+                    value = json.dumps([LanguageCodes.string_to_alpha_3(language) for language in json.loads(value)])
             elif setting.get("type") == "image":
                 value = self.image_setting(setting) or self.current_value(setting, library)
             else:

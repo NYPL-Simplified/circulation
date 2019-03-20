@@ -65,7 +65,7 @@ class TestLibrarySettings(SettingsControllerTest):
         ).value = json.dumps([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_RANDOM])
         ConfigurationSetting.for_library(
             Configuration.LARGE_COLLECTION_LANGUAGES, l2
-        ).value = json.dumps(["fre"])
+        ).value = json.dumps(["French"])
         # The admin only has access to L1 and L2.
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         self.admin.add_role(AdminRole.LIBRARIAN, l1)
@@ -93,7 +93,7 @@ class TestLibrarySettings(SettingsControllerTest):
                 settings.get(Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
             eq_([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_RANDOM],
                settings.get(Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
-            eq_([{"fre": ["French"]}], settings.get(Configuration.LARGE_COLLECTION_LANGUAGES))
+            eq_(["French"], settings.get(Configuration.LARGE_COLLECTION_LANGUAGES))
 
     def test_libraries_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):
