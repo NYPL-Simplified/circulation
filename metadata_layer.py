@@ -606,21 +606,6 @@ class TimestampData(object):
         elif finish is None:
             finish = start
 
-        # If any of these fields are CLEAR_VALUE, it means that the
-        # corresponding database fields should be cleared out -- they
-        # were irrelevant to this service on this particular run.
-        def _v(x):
-            if x is self.CLEAR_VALUE:
-                return None
-            return x
-
-        achievements = _v(self.achievements)
-        counter = _v(self.counter)
-        counter = _v(self.counter)
-        exception = _v(self.exception)
-        start = _v(start)
-        finish = _v(finish)
-
         return Timestamp.stamp(
             _db, self.service, self.service_type, self.collection(_db),
             start, finish, achievements, counter, exception

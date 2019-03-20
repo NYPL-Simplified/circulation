@@ -247,12 +247,18 @@ class Timestamp(Base):
                 finish = None
             self.finish = finish
         if achievements is not None:
+            if achievements is self.CLEAR_VALUE:
+                achievements = None
             self.achievements = achievements
         if counter is not None:
+            if counter is self.CLEAR_VALUE:
+                counter = None
             self.counter = counter
 
         # Unlike the other fields, None is a realistic value for
         # .exception
+        if exception is self.CLEAR_VALUE:
+            exception = None
         self.exception = exception
 
     def to_data(self):
