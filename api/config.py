@@ -103,6 +103,7 @@ class Configuration(CoreConfiguration):
     # Settings for geographic areas associated with the library.
     LIBRARY_FOCUS_AREA = "focus_area"
     LIBRARY_SERVICE_AREA = "service_area"
+    AREA_INPUT_INSTRUCTIONS = _('<ol>Accepted formats:<li>US zipcode or Canadian FSA</li><li>Two-letter US state or Canadian province abbreviation</li><li>City, US state abbreviation<i>e.g. "Boston, MA"</i></li><li>County, US state abbreviation<i>e.g. "Litchfield County, CT"</i></li></ol>')
 
     # Names of the library-wide link settings.
     TERMS_OF_SERVICE = 'terms-of-service'
@@ -172,16 +173,16 @@ class Configuration(CoreConfiguration):
     LIBRARY_SETTINGS = CoreConfiguration.LIBRARY_SETTINGS + [
         {
             "key": LIBRARY_DESCRIPTION,
-            "label": _("A short description of this library."),
+            "label": _("A short description of this library"),
             "description": _("This will be shown to people who aren't sure they've chosen the right library."),
-            "category": "Additional Information",
+            "category": "Basic Information",
         },
         {
             "key": HELP_EMAIL,
             "label": _("Patron support email address"),
             "description": _("An email address a patron can use if they need help, e.g. 'simplyehelp@yourlibrary.org'."),
             "required": True,
-            "format": "email"
+            "format": "email",
         },
         {
             "key": HELP_WEB,
@@ -205,7 +206,7 @@ class Configuration(CoreConfiguration):
         },
         {
             "key": CONFIGURATION_CONTACT_EMAIL,
-            "label": _("A point of contact for the organization reponsible for configuring this library."),
+            "label": _("A point of contact for the organization reponsible for configuring this library"),
             "description": _("This email address will be shared as part of integrations that you set up through this interface. It will not be shared with the general public. This gives the administrator of the remote integration a way to contact you about problems with this library's use of that integration.<br/>If no value is specified here, the general patron support address will be used."),
             "format": "email",
             "category": "Patron Support",
@@ -291,16 +292,20 @@ class Configuration(CoreConfiguration):
         {
             "key": LIBRARY_FOCUS_AREA,
             "label": _("Focus area"),
-            "type": "text",
+            "type": "list",
             "description": _("The library focuses on serving patrons in this geographic area. In most cases this will be a city name like <code>Springfield, OR</code>."),
-            "category": "Additional Information",
+            "category": "Geographic Areas",
+            "format": "geographic",
+            "instructions": AREA_INPUT_INSTRUCTIONS
         },
         {
             "key": LIBRARY_SERVICE_AREA,
             "label": _("Service area"),
-            "type": "text",
+            "type": "list",
             "description": _("The full geographic area served by this library. In most cases this is the same as the focus area and can be left blank, but it may be a larger area such as a US state (which should be indicated by its abbreviation, like <code>OR</code>)."),
-            "category": "Additional Information",
+            "category": "Geographic Areas",
+            "format": "geographic",
+            "instructions": AREA_INPUT_INSTRUCTIONS
         },
         {
             "key": MAX_OUTSTANDING_FINES,
