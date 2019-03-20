@@ -101,9 +101,9 @@ class Timestamp(Base):
     SCRIPT_TYPE = "script"
 
     # A stand-in value used to indicate that a field in the timestamps
-    # should be set to None. This is necessary because 'None' generally
-    # means 'use the default value'.
-    NO_VALUE = object()
+    # table should be explicitly set to None. Passing in None for most
+    # fields will use default values.
+    CLEAR_VALUE = object()
 
     service_type_enum = Enum(
         MONITOR_TYPE, COVERAGE_PROVIDER_TYPE, SCRIPT_TYPE,
@@ -235,13 +235,13 @@ class Timestamp(Base):
         """
 
         if start is not None:
-            if start is self.NO_VALUE:
+            if start is self.CLEAR_VALUE:
                 # In most cases, None is not a valid value for
                 # Timestamp.start, but this can be overridden.
                 start = None
             self.start = start
         if finish is not None:
-            if finish is self.NO_VALUE:
+            if finish is self.CLEAR_VALUE:
                 # In most cases, None is not a valid value for
                 # Timestamp.finish, but this can be overridden.
                 finish = None

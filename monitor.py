@@ -167,11 +167,12 @@ class Monitor(object):
                 # Assume this Monitor has no special needs surrounding
                 # its timestamp.
                 new_timestamp = TimestampData()
-            if new_timestamp.achievements not in (None, TimestampData.NO_VALUE):
+            ignorable = (None, TimestampData.CLEAR_VALUE)
+            if new_timestamp.achievements not in ignorable:
                 # This eliminates the need to create similar-looking
                 # strings for TimestampData.achievements and for the log.
                 self.log.info(new_timestamp.achievements)
-            if new_timestamp.exception in (None, TimestampData.NO_VALUE):
+            if new_timestamp.exception in ignorable:
                 # run_once() completed with no exceptions being raised.
                 # We can run the cleanup code and finalize the timestamp.
                 self.cleanup()
@@ -195,7 +196,7 @@ class Monitor(object):
                 self.service_name, exc_info=e
             )
             exception = traceback.format_exc()
-        if exception is not None:
+        if exception not in ignorable:
             # We will update Timestamp.exception but not go through
             # the whole TimestampData.apply() process, which might
             # erase the information the Monitor needs to recover from
@@ -244,7 +245,7 @@ class TimelineMonitor(Monitor):
     OVERLAP = datetime.timedelta(minutes=5)
 
     def run_once(self, progress):
-        if progress.finish in (None, progress.NO_VALUE):
+        if progress.finish is None:
             # This monitor has never run before. Use the default
             # start time for this monitor.
             start = self.initial_start_time

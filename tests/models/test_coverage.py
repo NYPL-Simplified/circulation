@@ -97,11 +97,11 @@ class TestTimestamp(DatabaseTest):
         assert stamp3 != stamp
         eq_(self._default_collection, stamp3.collection)
 
-        # Passing in NO_VALUE for start or end will clear an existing
+        # Passing in CLEAR_VALUE for start or end will clear an existing
         # Timestamp.
         stamp4 = Timestamp.stamp(
             self._db, service, type,
-            start=Timestamp.NO_VALUE, finish=Timestamp.NO_VALUE
+            start=Timestamp.CLEAR_VALUE, finish=Timestamp.CLEAR_VALUE
         )
         eq_(stamp4, stamp)
         eq_(None, stamp4.start)
