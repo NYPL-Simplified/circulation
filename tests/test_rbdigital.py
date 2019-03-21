@@ -1305,8 +1305,8 @@ class TestCirculationMonitor(RBDigitalAPITest):
 
         # The TimestampData does not include any timing information
         # -- that will be applied by run().
-        eq_(TimestampData.NO_VALUE, progress.start)
-        eq_(TimestampData.NO_VALUE, progress.finish)
+        eq_(None, progress.start)
+        eq_(None, progress.finish)
 
     def test_process_availability(self):
         monitor = RBDigitalCirculationMonitor(
