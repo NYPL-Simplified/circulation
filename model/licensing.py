@@ -1293,7 +1293,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
     OVERDRIVE_DRM = u"Overdrive DRM"
     BEARER_TOKEN = u"application/vnd.librarysimplified.bearer-token+json"
 
-    STREAMING_PROFILE = ";profile=http://librarysimplified.org/terms/profiles/streaming-media"
+    STREAMING_PROFILE = ';profile="http://librarysimplified.org/terms/profiles/streaming-media"'
     MEDIA_TYPES_FOR_STREAMING = {
         STREAMING_TEXT_CONTENT_TYPE: MediaTypes.TEXT_HTML_MEDIA_TYPE
     }
