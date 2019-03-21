@@ -214,8 +214,12 @@ class Timestamp(Base):
         :param exception: A stack trace for the exception, if any, which
             stopped the service from running.
         """
-        finish = finish or datetime.datetime.utcnow()
-        start = start or finish
+        if start is None and finish is None:
+            start = finish = datetime.datetime.utcnow()
+        elif start is None:
+            start = finish
+        elif finish is None:
+            finish = start
         stamp, was_new = get_one_or_create(
             _db, Timestamp,
             service=service,

@@ -597,18 +597,10 @@ class TimestampData(object):
                 "Not enough information to write TimestampData to the database."
             )
 
-        start = self.start
-        finish = self.finish
-        if start is None and finish is None:
-            start = finish = datetime.datetime.utcnow()
-        elif start is None:
-            start = finish
-        elif finish is None:
-            finish = start
-
         return Timestamp.stamp(
             _db, self.service, self.service_type, self.collection(_db),
-            start, finish, achievements, counter, exception
+            self.start, self.finish, self.achievements, self.counter,
+            self.exception
         )
 
 
