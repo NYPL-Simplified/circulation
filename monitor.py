@@ -160,6 +160,8 @@ class Monitor(object):
 
         this_run_start = datetime.datetime.utcnow()
         exception = None
+
+        ignorable = (None, TimestampData.CLEAR_VALUE)
         try:
             new_timestamp = self.run_once(progress)
             this_run_finish = datetime.datetime.utcnow()
@@ -167,7 +169,6 @@ class Monitor(object):
                 # Assume this Monitor has no special needs surrounding
                 # its timestamp.
                 new_timestamp = TimestampData()
-            ignorable = (None, TimestampData.CLEAR_VALUE)
             if new_timestamp.achievements not in ignorable:
                 # This eliminates the need to create similar-looking
                 # strings for TimestampData.achievements and for the log.
