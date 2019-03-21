@@ -197,7 +197,7 @@ class Monitor(object):
                 self.service_name, exc_info=e
             )
             exception = traceback.format_exc()
-        if exception not in ignorable:
+        if exception is not None:
             # We will update Timestamp.exception but not go through
             # the whole TimestampData.apply() process, which might
             # erase the information the Monitor needs to recover from
