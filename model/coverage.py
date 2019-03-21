@@ -101,9 +101,9 @@ class Timestamp(Base):
     SCRIPT_TYPE = "script"
 
     # A stand-in value used to indicate that a field in the timestamps
-    # should be set to None. This is necessary because 'None' generally
-    # means 'use the default value'.
-    NO_VALUE = object()
+    # table should be explicitly set to None. Passing in None for most
+    # fields will use default values.
+    CLEAR_VALUE = object()
 
     service_type_enum = Enum(
         MONITOR_TYPE, COVERAGE_PROVIDER_TYPE, SCRIPT_TYPE,
@@ -214,8 +214,12 @@ class Timestamp(Base):
         :param exception: A stack trace for the exception, if any, which
             stopped the service from running.
         """
-        finish = finish or datetime.datetime.utcnow()
-        start = start or finish
+        if start is None and finish is None:
+            start = finish = datetime.datetime.utcnow()
+        elif start is None:
+            start = finish
+        elif finish is None:
+            finish = start
         stamp, was_new = get_one_or_create(
             _db, Timestamp,
             service=service,
@@ -235,24 +239,32 @@ class Timestamp(Base):
         """
 
         if start is not None:
-            if start is self.NO_VALUE:
+            if start is self.CLEAR_VALUE:
                 # In most cases, None is not a valid value for
                 # Timestamp.start, but this can be overridden.
                 start = None
             self.start = start
         if finish is not None:
-            if finish is self.NO_VALUE:
+            if finish is self.CLEAR_VALUE:
                 # In most cases, None is not a valid value for
                 # Timestamp.finish, but this can be overridden.
                 finish = None
             self.finish = finish
         if achievements is not None:
+            if achievements is self.CLEAR_VALUE:
+                achievements = None
             self.achievements = achievements
         if counter is not None:
+            if counter is self.CLEAR_VALUE:
+                counter = None
             self.counter = counter
 
-        # Unlike the other fields, None is a realistic value for
-        # .exception
+        # Unlike the other fields, None is the default value for
+        # .exception, so passing in None to mean "use the default" and
+        # None to mean "no exception" mean the same thing. But we'll
+        # support CLEAR_VALUE anyway.
+        if exception is self.CLEAR_VALUE:
+            exception = None
         self.exception = exception
 
     def to_data(self):
