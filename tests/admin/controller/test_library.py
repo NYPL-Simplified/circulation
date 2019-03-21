@@ -21,6 +21,21 @@ from core.model import (
 from test_controller import SettingsControllerTest
 
 class TestLibrarySettings(SettingsControllerTest):
+
+    def library_form(self, library, fields={}):
+
+        defaults = {
+            "uuid": library.uuid,
+            "name": "The New York Public Library",
+            "short_name": library.short_name,
+            Configuration.WEBSITE_URL: "https://library.library/",
+            Configuration.HELP_EMAIL: "help@example.com",
+            Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS: "email@example.com"
+        }
+        defaults.update(fields)
+        form = MultiDict(defaults.items())
+        return form
+
     def test_libraries_get_with_no_libraries(self):
         # Delete any existing library created by the controller test setup.
         library = get_one(self._db, Library)
@@ -107,11 +122,7 @@ class TestLibrarySettings(SettingsControllerTest):
 
         self.admin.add_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("uuid", "1234"),
-                ("name", "Brooklyn Public Library"),
-                ("short_name", "bpl"),
-            ])
+            flask.request.form = self.library_form(library, {"uuid": "1234"})
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, LIBRARY_NOT_FOUND.uri)
 
@@ -145,14 +156,9 @@ class TestLibrarySettings(SettingsControllerTest):
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("name", "The New York Public Library"),
-                ("short_name", "nypl"),
-                ("library_description", "Short description of library"),
-                (Configuration.WEBSITE_URL, "https://library.library/"),
-                (Configuration.HELP_EMAIL, "wrong_email_format"),
-                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "also_wrong"),
-             ])
+            flask.request.form = self.library_form(
+                library, {Configuration.HELP_EMAIL: "wrong_email_format", Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS: "also_wrong"}
+            )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INVALID_EMAIL.uri)
             assert "wrong_email_format" in response.detail
@@ -160,100 +166,117 @@ class TestLibrarySettings(SettingsControllerTest):
         # If you fix the first invalid email address, you proceed to getting an error
         # message about the next one
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("name", "The New York Public Library"),
-                ("short_name", "nypl"),
-                ("library_description", "Short description of library"),
-                (Configuration.WEBSITE_URL, "https://library.library/"),
-                (Configuration.HELP_EMAIL, "help@example.com"),
-                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "also_wrong"),
-             ])
+            flask.request.form = self.library_form(
+                library, {Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS: "still_wrong"}
+            )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INVALID_EMAIL.uri)
-            assert "also_wrong" in response.detail
+            assert "still_wrong" in response.detail
 
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("name", "The New York Public Library"),
-                ("short_name", "nypl"),
-                ("library_description", "Short description of library"),
-                (Configuration.WEBSITE_URL, "bad_url"),
-                (Configuration.HELP_EMAIL, "help@example.com"),
-                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "default@example.com"),
-             ])
+            flask.request.form = self.library_form(
+                library, {Configuration.WEBSITE_URL: "bad_url"}
+            )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INVALID_URL.uri)
             assert "bad_url" in response.detail
 
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("uuid", library.uuid),
-                ("name", "The New York Public Library"),
-                ("short_name", library.short_name),
-                (Configuration.WEBSITE_URL, "https://library.library/"),
-                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
-                (Configuration.HELP_EMAIL, "help@example.com"),
-                (Configuration.LOAN_LIMIT, "not a number!"),
-            ])
+            flask.request.form = self.library_form(
+                library, {Configuration.LOAN_LIMIT: "not a number!"}
+            )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INVALID_NUMBER.uri)
             assert "not a number!" in response.detail
 
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("uuid", library.uuid),
-                ("name", "The New York Public Library"),
-                ("short_name", library.short_name),
-                (Configuration.WEBSITE_URL, "https://library.library/"),
-                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
-                (Configuration.HELP_EMAIL, "help@example.com"),
-                (Configuration.HOLD_LIMIT, "-5"),
-            ])
+            flask.request.form = self.library_form(
+                library, {Configuration.HOLD_LIMIT: "-5"}
+            )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INVALID_NUMBER.uri)
             eq_(response.detail, "Maximum number of books a patron can have on hold at once must be greater than 0.")
 
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("uuid", library.uuid),
-                ("name", "The New York Public Library"),
-                ("short_name", library.short_name),
-                (Configuration.WEBSITE_URL, "https://library.library/"),
-                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
-                (Configuration.HELP_EMAIL, "help@example.com"),
-                (Configuration.MINIMUM_FEATURED_QUALITY, "2"),
-            ])
+            flask.request.form = self.library_form(
+                library, {Configuration.MINIMUM_FEATURED_QUALITY: "2"}
+            )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INVALID_NUMBER.uri)
             eq_(response.detail, "Minimum quality for books that show up in 'featured' lanes cannot be greater than 1.")
 
+        # Test an invalid language code
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("uuid", library.uuid),
-                ("name", "The New York Public Library"),
-                ("short_name", library.short_name),
-                (Configuration.WEBSITE_URL, "https://library.library/"),
-                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
-                (Configuration.HELP_EMAIL, "help@example.com"),
-                (Configuration.LARGE_COLLECTION_LANGUAGES, "xyz")
-            ])
+            flask.request.form = self.library_form(
+                library, {Configuration.LARGE_COLLECTION_LANGUAGES: ["xyz"]}
+            )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, UNKNOWN_LANGUAGE.uri)
             eq_(response.detail, '"xyz" is not a valid language code.')
 
+        # Test an invalid language code buried in a list of valid ones
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = self.library_form(
+                library, {Configuration.LARGE_COLLECTION_LANGUAGES: ["eng", "ger", "fre"], Configuration.TINY_COLLECTION_LANGUAGES: ["gre", "abc", "wel"]}
+            )
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, UNKNOWN_LANGUAGE.uri)
+            eq_(response.detail, '"abc" is not a valid language code.')
+
+        # Test invalid geographic input
+
+        # Invalid US zipcode
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = self.library_form(
+                library, {Configuration.LIBRARY_SERVICE_AREA: "00000"}
+            )
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, UNKNOWN_LOCATION.uri)
+            eq_(response.detail, '"00000" is not a valid U.S. zipcode.')
+
+        # Invalid Canadian zipcode
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = self.library_form(
+                library, {Configuration.LIBRARY_SERVICE_AREA: "X1Y"}
+            )
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, UNKNOWN_LOCATION.uri)
+            eq_(response.detail, '"X1Y" is not a valid Canadian zipcode.')
+
+        # Invalid 2-letter abbreviation
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = self.library_form(
+                library, {Configuration.LIBRARY_SERVICE_AREA: "ZZ"}
+            )
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, UNKNOWN_LOCATION.uri)
+            eq_(response.detail, '"ZZ" is not a valid U.S. state or Canadian province abbreviation.')
+
+        # County with wrong state
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = self.library_form(
+                library, {Configuration.LIBRARY_SERVICE_AREA: "Fairfield County, FL"}
+            )
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, UNKNOWN_LOCATION.uri)
+            eq_(response.detail, 'Unable to locate "Fairfield County, FL".')
+
+        # City with wrong state
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = self.library_form(
+                library, {Configuration.LIBRARY_SERVICE_AREA: "Albany, NJ"}
+            )
+            response = self.manager.admin_library_settings_controller.process_post()
+            eq_(response.uri, UNKNOWN_LOCATION.uri)
+            eq_(response.detail, 'Unable to locate "Albany, NJ".')
+
         # Test a bad contrast ratio between the web foreground and
         # web background colors.
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("uuid", library.uuid),
-                ("name", "The New York Public Library"),
-                ("short_name", library.short_name),
-                (Configuration.WEBSITE_URL, "https://library.library/"),
-                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
-                (Configuration.HELP_EMAIL, "help@example.com"),
-                (Configuration.WEB_BACKGROUND_COLOR, "#000000"),
-                (Configuration.WEB_FOREGROUND_COLOR, "#010101"),
-            ])
+            flask.request.form = self.library_form(
+                library, {Configuration.WEB_BACKGROUND_COLOR: "#000000",
+                Configuration.WEB_FOREGROUND_COLOR: "#010101"}
+            )
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
             assert "contrast-ratio.com/#%23010101-on-%23000000" in response.detail
@@ -288,7 +311,9 @@ class TestLibrarySettings(SettingsControllerTest):
                 ("short_name", "nypl"),
                 ("library_description", "Short description of library"),
                 (Configuration.WEBSITE_URL, "https://library.library/"),
-                (Configuration.TINY_COLLECTION_LANGUAGES, 'ger'),
+                (Configuration.TINY_COLLECTION_LANGUAGES, ['ger']),
+                (Configuration.LIBRARY_SERVICE_AREA, ['06759', 'everywhere', 'MD', 'Boston, MA']),
+                (Configuration.LIBRARY_FOCUS_AREA, ['V5K', 'Broward County, FL', 'QC']),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
                 (Configuration.HELP_EMAIL, "help@example.com"),
                 (Configuration.FEATURED_LANE_SIZE, "5"),
@@ -306,7 +331,6 @@ class TestLibrarySettings(SettingsControllerTest):
             eq_(response.status_code, 201)
 
         library = get_one(self._db, Library, short_name="nypl")
-
         eq_(library.uuid, response.response[0])
         eq_(library.name, "The New York Public Library")
         eq_(library.short_name, "nypl")
@@ -321,6 +345,10 @@ class TestLibrarySettings(SettingsControllerTest):
                 library).value)
         eq_("data:image/png;base64,%s" % base64.b64encode(image_data),
             ConfigurationSetting.for_library(Configuration.LOGO, library).value)
+        eq_('{"CA": [], "US": [{"06759": "Litchfield, CT"}, "everywhere", "MD", "Boston, MA"]}',
+            ConfigurationSetting.for_library(Configuration.LIBRARY_SERVICE_AREA, library).value)
+        eq_('{"CA": [{"V5K": "Vancouver (North Hastings- Sunrise), British Columbia"}, "QC"], "US": ["Broward County, FL"]}',
+            ConfigurationSetting.for_library(Configuration.LIBRARY_FOCUS_AREA, library).value)
 
         # When the library was created, default lanes were also created
         # according to its language setup. This library has one tiny
