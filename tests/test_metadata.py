@@ -1481,6 +1481,23 @@ class TestTimestampData(DatabaseTest):
         eq_("yay", timestamp.achievements)
         eq_("oops", timestamp.exception)
 
+        # We can also use apply() to clear out the values for all
+        # fields other than the ones that uniquely identify the
+        # Timestamp.
+        clear = TimestampData.CLEAR_VALUE
+        d.start = clear
+        d.finish = clear
+        d.counter = clear
+        d.achievements = clear
+        d.exception = clear
+        d.apply(self._db)
+
+        eq_(None, timestamp.start)
+        eq_(None, timestamp.finish)
+        eq_(None, timestamp.counter)
+        eq_(None, timestamp.achievements)
+        eq_(None, timestamp.exception)
+
 
 class TestAssociateWithIdentifiersBasedOnPermanentWorkID(DatabaseTest):
 
