@@ -1337,12 +1337,12 @@ class TestTimestampData(DatabaseTest):
 
     def test_constructor(self):
 
-        # By default, all fields are set to NO_VALUE
+        # By default, all fields are set to None
         d = TimestampData()
         for i in (d.service, d.service_type, d.collection_id,
                   d.start, d.finish, d.achievements, d.counter,
                   d.exception):
-            eq_(i, d.NO_VALUE)
+            eq_(i, None)
 
         # Some, but not all, of the fields can be set to real values.
         d = TimestampData(start="a", finish="b", achievements="c",
@@ -1355,7 +1355,7 @@ class TestTimestampData(DatabaseTest):
 
     def test_is_failure(self):
         # A TimestampData represents failure if its exception is set to
-        # any value other than None or NO_VALUE.
+        # any value other than None or CLEAR_VALUE.
         d = TimestampData()
         eq_(False, d.is_failure)
 
@@ -1365,10 +1365,13 @@ class TestTimestampData(DatabaseTest):
         d.exception = None
         eq_(False, d.is_failure)
 
+        d.exception = d.CLEAR_VALUE
+        eq_(False, d.is_failure)
+
     def test_is_complete(self):
         # A TimestampData is complete if it represents a failure
         # (see above) or if its .finish is set to any value other
-        # than None or NO_VALUE
+        # than None or CLEAR_VALUE
 
         d = TimestampData()
         eq_(False, d.is_complete)
@@ -1379,6 +1382,9 @@ class TestTimestampData(DatabaseTest):
         d.finish = None
         eq_(False, d.is_complete)
 
+        d.finish = d.CLEAR_VALUE
+        eq_(False, d.is_complete)
+
         d.exception = "oops"
         eq_(True, d.is_complete)
 
@@ -1387,7 +1393,7 @@ class TestTimestampData(DatabaseTest):
         # timestamp values to sensible defaults and leaves everything
         # else alone.
 
-        # This TimestampData starts out with everything set to NO_VALUE.
+        # This TimestampData starts out with everything set to None.
         d = TimestampData()
         d.finalize("service", "service_type", self._default_collection)
 
@@ -1400,9 +1406,9 @@ class TestTimestampData(DatabaseTest):
         eq_(d.start, d.finish)
         assert (datetime.datetime.now() - d.start).total_seconds() < 2
 
-        # Other fields are still at NO_VALUE.
+        # Other fields are still at None.
         for i in d.achievements, d.counter, d.exception:
-            eq_(i, d.NO_VALUE)
+            eq_(i, None)
 
     def test_finalize_full(self):
         # You can call finalize() with a complete set of arguments.
@@ -1418,7 +1424,7 @@ class TestTimestampData(DatabaseTest):
         eq_("exception", d.exception)
 
         # If the TimestampData fields are already set to values other
-        # than NO_VALUE, the required fields will be overwritten but
+        # than CLEAR_VALUE, the required fields will be overwritten but
         # the optional fields will be left alone.
         new_collection = self._collection()
         d.finalize(
@@ -1453,7 +1459,7 @@ class TestTimestampData(DatabaseTest):
         )
 
         # Set the basic timestamp information. Optional fields will stay
-        # at NO_VALUE.
+        # at None.
         collection = self._default_collection
         d.finalize("service", Timestamp.SCRIPT_TYPE, collection)
         d.apply(self._db)
@@ -1474,6 +1480,23 @@ class TestTimestampData(DatabaseTest):
         eq_(100, timestamp.counter)
         eq_("yay", timestamp.achievements)
         eq_("oops", timestamp.exception)
+
+        # We can also use apply() to clear out the values for all
+        # fields other than the ones that uniquely identify the
+        # Timestamp.
+        clear = TimestampData.CLEAR_VALUE
+        d.start = clear
+        d.finish = clear
+        d.counter = clear
+        d.achievements = clear
+        d.exception = clear
+        d.apply(self._db)
+
+        eq_(None, timestamp.start)
+        eq_(None, timestamp.finish)
+        eq_(None, timestamp.counter)
+        eq_(None, timestamp.achievements)
+        eq_(None, timestamp.exception)
 
 
 class TestAssociateWithIdentifiersBasedOnPermanentWorkID(DatabaseTest):
