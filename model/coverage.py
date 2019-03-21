@@ -255,8 +255,10 @@ class Timestamp(Base):
                 counter = None
             self.counter = counter
 
-        # Unlike the other fields, None is a realistic value for
-        # .exception
+        # Unlike the other fields, None is the default value for
+        # .exception, so passing in None to mean "use the default" and
+        # None to mean "no exception" mean the same thing. But we'll
+        # support CLEAR_VALUE anyway.
         if exception is self.CLEAR_VALUE:
             exception = None
         self.exception = exception
