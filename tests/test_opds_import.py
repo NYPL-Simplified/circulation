@@ -2142,8 +2142,8 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         
         # The TimestampData returned by run_once does not include any
         # timing information; that's provided by run().
-        eq_(TimestampData.NO_VALUE, progress.start)
-        eq_(TimestampData.NO_VALUE, progress.finish)
+        eq_(None, progress.start)
+        eq_(None, progress.finish)
 
     def test_update_headers(self):
         """Test the _update_headers helper method."""

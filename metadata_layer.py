@@ -506,6 +506,8 @@ class FormatData(object):
 
 class TimestampData(object):
 
+    CLEAR_VALUE = Timestamp.CLEAR_VALUE
+
     def __init__(self, start=None, finish=None, achievements=None,
                  counter=None, exception=None):
         """A constructor intended to be used by a service to customize its
@@ -542,7 +544,7 @@ class TimestampData(object):
     @property
     def is_failure(self):
         """Does this TimestampData represent an unrecoverable failure?"""
-        return self.exception not in (None, Timestamp.CLEAR_VALUE)
+        return self.exception not in (None, self.CLEAR_VALUE)
 
     @property
     def is_complete(self):
@@ -552,9 +554,7 @@ class TimestampData(object):
         An operation is completed if it has failed, or if the time of its
         completion is known.
         """
-        return self.is_failure or self.finish not in (
-            None, Timestamp.CLEAR_VALUE
-        )
+        return self.is_failure or self.finish not in (None, self.CLEAR_VALUE)
 
     def finalize(self, service, service_type, collection, start=None,
                  finish=None, achievements=None, counter=None,
