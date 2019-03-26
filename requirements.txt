@@ -8,7 +8,7 @@ urllib3<1.24 # Travis problem introduced 20181016 - check to see when we can rem
 sqlalchemy==1.2.0
 flask-sqlalchemy-session
 lxml
-flask
+flask>1.0.1
 isbnlib
 nose
 python-dateutil
@@ -20,6 +20,8 @@ Flask-Babel
 money
 pymarc
 accept-types
+uszipcode
+pypostalcode
 watchtower # for cloudwatch logging
 
 # Ensure that we support SNI-based SSL
