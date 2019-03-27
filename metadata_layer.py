@@ -1199,7 +1199,7 @@ class CirculationData(MetaToModelUtility):
                 # still loans we'll need it.
                 # But if we track individual licenses for other protocols,
                 # we may need to handle this differently.
-                self.log.warn("License %i is no longer available but still has loans.")
+                self.log.warn("License %i is no longer available but still has loans." % license.id)
 
         # Finally, if we have data for a specific Collection's license
         # for this book, find its LicensePool and update it.
