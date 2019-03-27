@@ -518,10 +518,10 @@ class LicenseData(object):
 
 class TimestampData(object):
 
-    NO_VALUE = Timestamp.NO_VALUE
+    CLEAR_VALUE = Timestamp.CLEAR_VALUE
 
-    def __init__(self, start=NO_VALUE, finish=NO_VALUE, achievements=NO_VALUE,
-                 counter=NO_VALUE, exception=NO_VALUE):
+    def __init__(self, start=None, finish=None, achievements=None,
+                 counter=None, exception=None):
         """A constructor intended to be used by a service to customize its
         eventual Timestamp.
 
@@ -543,9 +543,9 @@ class TimestampData(object):
         """
 
         # These are set by finalize().
-        self.service = self.NO_VALUE
-        self.service_type = self.NO_VALUE
-        self.collection_id = self.NO_VALUE
+        self.service = None
+        self.service_type = None
+        self.collection_id = None
 
         self.start = start
         self.finish = finish
@@ -556,7 +556,7 @@ class TimestampData(object):
     @property
     def is_failure(self):
         """Does this TimestampData represent an unrecoverable failure?"""
-        return self.exception not in (None, self.NO_VALUE)
+        return self.exception not in (None, self.CLEAR_VALUE)
 
     @property
     def is_complete(self):
@@ -566,11 +566,11 @@ class TimestampData(object):
         An operation is completed if it has failed, or if the time of its
         completion is known.
         """
-        return self.is_failure or self.finish not in (None, self.NO_VALUE)
+        return self.is_failure or self.finish not in (None, self.CLEAR_VALUE)
 
-    def finalize(self, service, service_type, collection, start=NO_VALUE,
-                 finish=NO_VALUE, achievements=NO_VALUE, counter=NO_VALUE,
-                 exception=NO_VALUE):
+    def finalize(self, service, service_type, collection, start=None,
+                 finish=None, achievements=None, counter=None,
+                 exception=None):
         """Finalize any values that were not set during the constructor.
 
         This is intended to be run by the code that originally ran the
@@ -586,56 +586,32 @@ class TimestampData(object):
             self.collection_id = None
         else:
             self.collection_id = collection.id
-        if self.start is self.NO_VALUE:
+        if self.start is None:
             self.start = start
-        if self.finish is self.NO_VALUE:
-            if finish is self.NO_VALUE:
+        if self.finish is None:
+            if finish is None:
                 finish = datetime.datetime.utcnow()
             self.finish = finish
-        if self.start is self.NO_VALUE:
+        if self.start is None:
             self.start = self.finish
-        if self.counter is self.NO_VALUE:
+        if self.counter is None:
             self.counter = counter
-        if self.exception is self.NO_VALUE:
+        if self.exception is None:
             self.exception = exception
 
     def collection(self, _db):
         return get_one(_db, Collection, id=self.collection_id)
 
     def apply(self, _db):
-        if any(x is self.NO_VALUE for x in [self.service, self.service_type,
-                                            self.collection_id]):
+        if any(x is None for x in [self.service, self.service_type]):
             raise ValueError(
                 "Not enough information to write TimestampData to the database."
             )
 
-        start = self.start
-        finish = self.finish
-        if start is self.NO_VALUE and finish is self.NO_VALUE:
-            start = finish = datetime.datetime.utcnow()
-        elif start is self.NO_VALUE:
-            start = finish
-        elif finish is self.NO_VALUE:
-            finish = start
-        # At this point both start and finish are set to real
-        # timestamps.
-
-        # If any of these fields are still NO_VALUE, it means that the
-        # corresponding database fields should be cleared out -- they
-        # were irrelevant to this service on this particular run.
-        def _v(x):
-            if x is self.NO_VALUE:
-                return None
-            return x
-
-        achievements = _v(self.achievements)
-        counter = _v(self.counter)
-        counter = _v(self.counter)
-        exception = _v(self.exception)
-
         return Timestamp.stamp(
             _db, self.service, self.service_type, self.collection(_db),
-            start, finish, achievements, counter, exception
+            self.start, self.finish, self.achievements, self.counter,
+            self.exception
         )
 
 

@@ -160,6 +160,8 @@ class Monitor(object):
 
         this_run_start = datetime.datetime.utcnow()
         exception = None
+
+        ignorable = (None, TimestampData.CLEAR_VALUE)
         try:
             new_timestamp = self.run_once(progress)
             this_run_finish = datetime.datetime.utcnow()
@@ -167,11 +169,11 @@ class Monitor(object):
                 # Assume this Monitor has no special needs surrounding
                 # its timestamp.
                 new_timestamp = TimestampData()
-            if new_timestamp.achievements not in (None, TimestampData.NO_VALUE):
+            if new_timestamp.achievements not in ignorable:
                 # This eliminates the need to create similar-looking
                 # strings for TimestampData.achievements and for the log.
                 self.log.info(new_timestamp.achievements)
-            if new_timestamp.exception in (None, TimestampData.NO_VALUE):
+            if new_timestamp.exception in ignorable:
                 # run_once() completed with no exceptions being raised.
                 # We can run the cleanup code and finalize the timestamp.
                 self.cleanup()
@@ -244,7 +246,7 @@ class TimelineMonitor(Monitor):
     OVERLAP = datetime.timedelta(minutes=5)
 
     def run_once(self, progress):
-        if progress.finish in (None, progress.NO_VALUE):
+        if progress.finish is None:
             # This monitor has never run before. Use the default
             # start time for this monitor.
             start = self.initial_start_time
