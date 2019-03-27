@@ -19,6 +19,7 @@ from core.model import (
     DataSource,
     ExternalIntegration,
     Identifier,
+    Timestamp,
 )
 from core.opds_import import MockMetadataWranglerOPDSLookup
 from core.testing import (
@@ -119,7 +120,7 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         eq_(datetime.datetime(2016, 9, 20, 19, 37, 2), timestamp)
 
     def test_empty_feed_stops_import(self):
-        """We don't follow the 'next' link of an empty feed."""
+        # We don't follow the 'next' link of an empty feed.
         data = sample_data('metadata_updates_empty_response.opds', 'opds')
         self.lookup.queue_response(
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
@@ -210,6 +211,17 @@ class TestMWCollectionUpdateMonitor(MonitorTest):
         # timestamp, and the Timestamp object was not updated.
         eq_(before, new_timestamp.finish)
         eq_(before, self.monitor.timestamp().finish)
+
+        # If timestamp.finish is None before the update is run, and
+        # there are no updates, the default rules about updating
+        # Timestamp.finish will not apply -- it will be explicitly set
+        # to None.
+        self.monitor.timestamp().finish = None
+        self.lookup.queue_response(
+            200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
+        )
+        new_timestamp = self.monitor.run_once(self.ts)
+        eq_(Timestamp.CLEAR_VALUE, new_timestamp.finish)
 
     def test_no_import_loop(self):
         """We stop processing a feed's 'next' link if it links to a URL we've
@@ -394,8 +406,8 @@ class TestMWAuxiliaryMetadataMonitor(MonitorTest):
 
         # The TimestampData returned by run_once() does not include
         # any timing information -- that will be applied by run().
-        eq_(TimestampData.NO_VALUE, progress.start)
-        eq_(TimestampData.NO_VALUE, progress.finish)
+        eq_(None, progress.start)
+        eq_(None, progress.finish)
 
         record = CoverageRecord.lookup(
             overdrive, self.monitor.provider.data_source,
