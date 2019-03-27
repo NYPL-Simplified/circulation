@@ -45,6 +45,8 @@ from ..model import (
     WorkCoverageRecord,
 )
 
+from ..util.http import RemoteIntegrationException
+
 from . import (
     DatabaseTest,
     DummyHTTPClient,
@@ -871,6 +873,36 @@ class TestContributorData(DatabaseTest):
         contributor_data.display_name = "New Author"
         eq_(True, contributor_data.find_sort_name(self._db, [], metadata_client))
         eq_("Author, New", contributor_data.sort_name)
+
+    def test_find_sort_name_survives_metadata_client_exception(self):
+
+        class Mock(ContributorData):
+            # Simulate an integration error from the metadata wrangler side.
+            def display_name_to_sort_name_through_canonicalizer(
+                self, _db, identifiers, metadata_client
+            ):
+                self.called_with = (_db, identifiers, metadata_client)
+                raise RemoteIntegrationException(
+                    "http://url/", "Metadata wrangler failure!"
+                )
+
+        # Here's a ContributorData that's going to run into an error.
+        contributor_data = Mock()
+        contributor_data.display_name = "Iain M. Banks"
+        identifiers = []
+        metadata_client = object()
+        contributor_data.find_sort_name(self._db, identifiers, metadata_client)
+
+        # display_name_to_sort_name_through_canonicalizer was called
+        # with the arguments we expect.
+        eq_((self._db, identifiers, metadata_client),
+            contributor_data.called_with)
+
+        # Although that method raised an exception, we were able to
+        # keep going and use the default display name -> sort name
+        # algorithm to guess at the author name.
+        eq_("Banks, Iain M.", contributor_data.sort_name)
+
 
 class TestLinkData(DatabaseTest):
 
