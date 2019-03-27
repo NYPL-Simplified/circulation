@@ -135,11 +135,10 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         # The patron returns the book successfully.
         lsd = json.dumps({
             "status": "ready",
-            "links": {
-                "return": {
-                    "href": "http://return",
-                },
-            },
+            "links": [{
+                "rel": "return",
+                "href": "http://return",
+            }],
         })
         returned_lsd = json.dumps({
             "status": "returned",
@@ -175,11 +174,10 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         # The first patron returns the book successfully.
         lsd = json.dumps({
             "status": "ready",
-            "links": {
-                "return": {
-                    "href": "http://return",
-                },
-            },
+            "links": [{
+                "rel": "return",
+                "href": "http://return",
+            }],
         })
         returned_lsd = json.dumps({
             "status": "returned",
@@ -263,11 +261,10 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         # The return link doesn't change the status.
         lsd = json.dumps({
             "status": "ready",
-            "links": {
-                "return": {
-                    "href": "http://return",
-                },
-            },
+            "links": [{
+                "rel": "return",
+                "href": "http://return",
+            }],
         })
 
         self.api.queue_response(200, content=lsd)
@@ -292,9 +289,10 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
             "potential_rights": {
                 "end": "3017-10-21T11:12:13Z"
             },
-            "links": {
-                "self": { "href": loan_url }
-            },
+            "links": [{
+                "rel": "self",
+                "href": loan_url,
+            }],
         })
 
         self.api.queue_response(200, content=lsd)
@@ -337,9 +335,10 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
             "potential_rights": {
                 "end": "3017-10-21T11:12:13Z"
             },
-            "links": {
-                "self": { "href": loan_url }
-            },
+            "links": [{
+                "rel": "self",
+                "href": loan_url,
+            }],
         })
 
         self.api.queue_response(200, content=lsd)
@@ -494,12 +493,11 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
             "potential_rights": {
                 "end": "2017-10-21T11:12:13Z"
             },
-            "links": {
-                "license": {
-                    "href": "http://license",
-                    "type": DeliveryMechanism.ADOBE_DRM,
-                },
-            },
+            "links": [{
+                "rel": "license",
+                "href": "http://license",
+                "type": DeliveryMechanism.ADOBE_DRM,
+            }],
         })
 
         self.api.queue_response(200, content=lsd)
@@ -1063,9 +1061,10 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
             "potential_rights": {
                 "end": "3017-10-21T11:12:13Z"
             },
-            "links": {
-                "self": { "href": loan_url }
-            },
+            "links": [{
+                "rel": "self",
+                "href": loan_url,
+            }],
         })
 
         self.api.queue_response(200, content=lsd)
@@ -1113,9 +1112,10 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
             "potential_rights": {
                 "end": "3017-10-21T11:12:13Z"
             },
-            "links": {
-                "self": { "href": loan_url }
-            },
+            "links": [{
+                "rel": "self",
+                "href": loan_url,
+            }],
         })
 
         self.api.queue_response(200, content=lsd)
@@ -1148,11 +1148,10 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         # The patron returns the book successfully.
         lsd = json.dumps({
             "status": "ready",
-            "links": {
-                "return": {
-                    "href": "http://return",
-                },
-            },
+            "links": [{
+                "rel": "return",
+                "href": "http://return",
+            }],
         })
         returned_lsd = json.dumps({
             "status": "returned",
@@ -1182,12 +1181,11 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
             "potential_rights": {
                 "end": "2017-10-21T11:12:13Z"
             },
-            "links": {
-                "license": {
-                    "href": "http://license",
-                    "type": DeliveryMechanism.ADOBE_DRM,
-                },
-            },
+            "links": [{
+                "rel": "license",
+                "href": "http://license",
+                "type": DeliveryMechanism.ADOBE_DRM,
+            }],
         })
 
         self.api.queue_response(200, content=lsd)

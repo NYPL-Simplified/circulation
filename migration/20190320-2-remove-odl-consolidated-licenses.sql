@@ -11,6 +11,10 @@ update externalintegrations set protocol = 'ODL' where protocol = 'ODL with Cons
 
 update collections set external_account_id = 'https://www.feedbooks.com/harvest/odl' where external_account_id = 'https://www.feedbooks.com/library/last_update.atom';
 
+-- Upload any loans with old URLs.
+
+update loans set external_identifier = replace(external_identifier, 'https://loan.feedbooks.net/loan/get/', 'https://license.feedbooks.net/loan/status/');
+
 -- Delete configuration settings that are no longer needed.
 
 delete from configurationsettings where key = 'consolidated_copies_url';

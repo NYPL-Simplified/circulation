@@ -285,7 +285,13 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             self.update_loan(loan, doc)
             raise NotCheckedOut()
 
-        return_url = doc.get("links", {}).get("return", {}).get("href")
+        return_url = None
+        links = doc.get("links", [])
+        for link in links:
+            if link.get("rel") == "return":
+                return_url = link.get("href")
+                break
+
         if not return_url:
             # The distributor didn't provide a link to return this loan.
             raise CannotReturn()
@@ -364,7 +370,12 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             _db.delete(loan)
             raise CannotLoan()
 
-        external_identifier = doc.get("links", {}).get("self", {}).get("href")
+        links = doc.get("links", [])
+        external_identifier = None
+        for link in links:
+            if link.get("rel") == "self":
+                external_identifier = link.get("href")
+                break
         if not external_identifier:
             _db.delete(loan)
             raise CannotLoan()
@@ -423,8 +434,16 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
 
         expires = doc.get("potential_rights", {}).get("end")
         expires = datetime.datetime.strptime(expires, self.TIME_FORMAT)
-        content_link = doc.get("links", {}).get("license", {}).get("href")
-        content_type = doc.get("links", {}).get("license", {}).get("type")
+
+        links = doc.get("links", [])
+        content_link = None
+        content_type = None
+        for link in links:
+            if link.get("rel") == "license":
+                content_link = link.get("href")
+                content_type = link.get("type")
+                break
+
         return FulfillmentInfo(
             licensepool.collection,
             licensepool.data_source.name,
