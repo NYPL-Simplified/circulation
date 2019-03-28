@@ -12,6 +12,7 @@ from ..metadata_layer import (
     ContributorData,
     FormatData,
     IdentifierData,
+    LicenseData,
     LinkData,
     Metadata,
     ReplacementPolicy,
@@ -24,6 +25,7 @@ from ..model import (
     DeliveryMechanism,
     Hyperlink,
     Identifier,
+    License,
     Representation,
     RightsStatus,
     Subject,
@@ -215,6 +217,44 @@ class TestCirculationData(DatabaseTest):
         eq_(1, len(pool.delivery_mechanisms))
         eq_(Representation.EPUB_MEDIA_TYPE, pool.delivery_mechanisms[0].delivery_mechanism.content_type)
         eq_(None, loan.fulfillment)
+
+    def test_apply_adds_new_licenses(self):
+        edition, pool = self._edition(with_license_pool=True)
+
+        # Start with one license for this pool.
+        old_license = self._license(
+            pool, expires=None, remaining_checkouts=2,
+            concurrent_checkouts=3,
+        )
+
+        # And it has been loaned.
+        patron = self._patron()
+        loan, ignore = old_license.loan_to(patron)
+        eq_(old_license, loan.license)
+
+        # We have new circulation data that has a different license.
+        license_data = LicenseData(
+            identifier="8c5fdbfe-c26e-11e8-8706-5254009434c4",
+            checkout_url="https://borrow2",
+            status_url="https://status2",
+            expires=(datetime.datetime.now() + datetime.timedelta(days=7)),
+            remaining_checkouts=None, concurrent_checkouts=1)
+
+        circulation_data = CirculationData(
+            licenses=[license_data],
+            data_source=edition.data_source,
+            primary_identifier=edition.primary_identifier,
+        )
+
+        # If we apply the new CirculationData, we'll add the new license,
+        # but keep the old one as well.
+        circulation_data.apply(self._db, pool.collection)
+        self._db.commit()
+
+        eq_(2, len(pool.licenses))
+        eq_(set([old_license.identifier, license_data.identifier]),
+            set([license.identifier for license in pool.licenses]))
+        eq_(old_license, loan.license)
 
     def test_apply_creates_work_and_presentation_edition_if_needed(self):
         edition = self._edition()

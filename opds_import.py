@@ -734,7 +734,7 @@ class OPDSImporter(object):
         fp_metadata, fp_failures = self.extract_data_from_feedparser(feed=feed, data_source=data_source)
         # gets: medium, measurements, links, contributors, etc.
         xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(
-            feed, data_source=data_source, feed_url=feed_url
+            feed, data_source=data_source, feed_url=feed_url, do_get=self.http_get
         )
 
         if self.map_from_collection:
@@ -916,7 +916,7 @@ class OPDSImporter(object):
 
 
     @classmethod
-    def extract_metadata_from_elementtree(cls, feed, data_source, feed_url=None):
+    def extract_metadata_from_elementtree(cls, feed, data_source, feed_url=None, do_get=None):
         """Parse the OPDS as XML and extract all author and subject
         information, as well as ratings and medium.
 
@@ -961,7 +961,7 @@ class OPDSImporter(object):
         # Then turn Atom <entry> tags into Metadata objects.
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
             identifier, detail, failure = cls.detail_for_elementtree_entry(
-                parser, entry, data_source, feed_url
+                parser, entry, data_source, feed_url, do_get=do_get
             )
             if identifier:
                 if failure:
@@ -1238,7 +1238,7 @@ class OPDSImporter(object):
 
     @classmethod
     def detail_for_elementtree_entry(
-            cls, parser, entry_tag, data_source, feed_url=None,
+            cls, parser, entry_tag, data_source, feed_url=None, do_get=None
     ):
 
         """Turn an <atom:entry> tag into a dictionary of metadata that can be
@@ -1256,7 +1256,7 @@ class OPDSImporter(object):
 
         try:
             data = cls._detail_for_elementtree_entry(
-                parser, entry_tag, feed_url
+                parser, entry_tag, feed_url, do_get=do_get
             )
             return identifier, data, None
 
@@ -1270,7 +1270,7 @@ class OPDSImporter(object):
             return identifier, None, failure
 
     @classmethod
-    def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None):
+    def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None, do_get=None):
         """Helper method that extracts metadata and circulation data from an elementtree
         entry. This method can be overridden in tests to check that callers handle things
         properly when it throws an exception.

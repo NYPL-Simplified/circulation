@@ -20,6 +20,7 @@ from ...model.edition import Edition
 from ...model.identifier import Identifier
 from ...model.licensing import (
     DeliveryMechanism,
+    License,
     LicensePool,
     LicensePoolDeliveryMechanism,
     RightsStatus,
@@ -183,6 +184,129 @@ class TestRightsStatus(DatabaseTest):
 
         # Nope.
         assert_raises(IntegrityError, self._db.commit)
+
+
+class TestLicense(DatabaseTest):
+
+    def setup(self):
+        super(TestLicense, self).setup()
+        self.pool = self._licensepool(None)
+
+        now = datetime.datetime.utcnow()
+        next_year = now + datetime.timedelta(days=365)
+        yesterday = now - datetime.timedelta(days=1)
+
+        self.perpetual = self._license(
+            self.pool, expires=None, remaining_checkouts=None,
+            concurrent_checkouts=1)
+
+        self.time_limited = self._license(
+            self.pool, expires=next_year, remaining_checkouts=None,
+            concurrent_checkouts=1)
+
+        self.loan_limited = self._license(
+            self.pool, expires=None, remaining_checkouts=4,
+            concurrent_checkouts=2)
+
+        self.time_and_loan_limited = self._license(
+            self.pool, expires=next_year + datetime.timedelta(days=1),
+            remaining_checkouts=52, concurrent_checkouts=1)
+
+        self.expired_time_limited = self._license(
+            self.pool, expires=yesterday, remaining_checkouts=None,
+            concurrent_checkouts=1)
+
+        self.expired_loan_limited = self._license(
+            self.pool, expires=None, remaining_checkouts=0,
+            concurrent_checkouts=1)
+
+    def test_loan_to(self):
+        # Verify that loaning a license also loans its pool.
+        pool = self.pool
+        license = self.perpetual
+        patron = self._patron()
+        loan, is_new = license.loan_to(patron)
+        eq_(license, loan.license)
+        eq_(pool, loan.license_pool)
+        eq_(True, is_new)
+
+        loan2, is_new = license.loan_to(patron)
+        eq_(loan, loan2)
+        eq_(license, loan2.license)
+        eq_(pool, loan2.license_pool)
+        eq_(False, is_new)
+
+    def test_license_types(self):
+        eq_(True, self.perpetual.is_perpetual)
+        eq_(False, self.perpetual.is_time_limited)
+        eq_(False, self.perpetual.is_loan_limited)
+        eq_(False, self.perpetual.is_expired)
+
+        eq_(False, self.time_limited.is_perpetual)
+        eq_(True, self.time_limited.is_time_limited)
+        eq_(False, self.time_limited.is_loan_limited)
+        eq_(False, self.time_limited.is_expired)
+
+        eq_(False, self.loan_limited.is_perpetual)
+        eq_(False, self.loan_limited.is_time_limited)
+        eq_(True, self.loan_limited.is_loan_limited)
+        eq_(False, self.loan_limited.is_expired)
+
+        eq_(False, self.time_and_loan_limited.is_perpetual)
+        eq_(True, self.time_and_loan_limited.is_time_limited)
+        eq_(True, self.time_and_loan_limited.is_loan_limited)
+        eq_(False, self.time_and_loan_limited.is_expired)
+
+        eq_(False, self.expired_time_limited.is_perpetual)
+        eq_(True, self.expired_time_limited.is_time_limited)
+        eq_(False, self.expired_time_limited.is_loan_limited)
+        eq_(True, self.expired_time_limited.is_expired)
+
+        eq_(False, self.expired_loan_limited.is_perpetual)
+        eq_(False, self.expired_loan_limited.is_time_limited)
+        eq_(True, self.expired_loan_limited.is_loan_limited)
+        eq_(True, self.expired_loan_limited.is_expired)
+
+    def test_best_available_license(self):
+        next_week = datetime.datetime.now() + datetime.timedelta(days=7)
+        time_limited_2 = self._license(
+            self.pool, expires=next_week, remaining_checkouts=None,
+            concurrent_checkouts=1)
+        loan_limited_2 = self._license(
+            self.pool, expires=None, remaining_checkouts=2,
+            concurrent_checkouts=1)
+
+        # First, we use the time-limited license that's expiring first.
+        eq_(time_limited_2, self.pool.best_available_license())
+        time_limited_2.loan_to(self._patron())
+
+        # When that's not available, we use the next time-limited license.
+        eq_(self.time_limited, self.pool.best_available_license())
+        self.time_limited.loan_to(self._patron())
+
+        # The time-and-loan-limited license also counts as time-limited for this.
+        eq_(self.time_and_loan_limited, self.pool.best_available_license())
+        self.time_and_loan_limited.loan_to(self._patron())
+
+        # Next is the perpetual license.
+        eq_(self.perpetual, self.pool.best_available_license())
+        self.perpetual.loan_to(self._patron())
+
+        # Then the loan-limited license with the most remaining checkouts.
+        eq_(self.loan_limited, self.pool.best_available_license())
+        self.loan_limited.loan_to(self._patron())
+
+        # That license allows 2 concurrent checkouts, so it's still the
+        # best license until it's checked out again.
+        eq_(self.loan_limited, self.pool.best_available_license())
+        self.loan_limited.loan_to(self._patron())
+
+        # There's one more loan-limited license.
+        eq_(loan_limited_2, self.pool.best_available_license())
+        loan_limited_2.loan_to(self._patron())
+
+        # Now all licenses are either loaned out or expired.
+        eq_(None, self.pool.best_available_license())
 
 class TestLicensePool(DatabaseTest):
 

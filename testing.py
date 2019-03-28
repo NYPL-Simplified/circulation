@@ -44,6 +44,7 @@ from model import (
     Identifier,
     IntegrationClient,
     Library,
+    License,
     LicensePool,
     LicensePoolDeliveryMechanism,
     Patron,
@@ -530,6 +531,20 @@ class DatabaseTest(object):
             pool.licenses_owned = pool.licenses_available = 1
 
         return pool
+
+    def _license(self, pool, identifier=None, checkout_url=None, status_url=None,
+                 expires=None, remaining_checkouts=None, concurrent_checkouts=None):
+        identifier = identifier or self._str
+        checkout_url = checkout_url or self._str
+        status_url = status_url or self._str
+        license, ignore = get_one_or_create(
+            self._db, License, identifier=identifier, license_pool=pool,
+            checkout_url=checkout_url,
+            status_url=status_url, expires=expires,
+            remaining_checkouts=remaining_checkouts,
+            concurrent_checkouts=concurrent_checkouts,
+        )
+        return license
 
     def _representation(self, url=None, media_type=None, content=None,
                         mirrored=False):

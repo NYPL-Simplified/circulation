@@ -46,6 +46,57 @@ from sqlalchemy.sql.functions import func
 class PolicyException(Exception):
     pass
 
+class License(Base):
+    """A single license for a work from a given source.
+
+    TODO: This currently assumes all licenses for a pool have the same
+    delivery mechanisms, which may not always be true.
+    """
+
+    __tablename__ = 'licenses'
+    id = Column(Integer, primary_key=True)
+
+    identifier = Column(Unicode)
+    checkout_url = Column(Unicode)
+    status_url = Column(Unicode)
+
+    expires = Column(DateTime)
+    remaining_checkouts = Column(Integer)
+    concurrent_checkouts = Column(Integer)
+
+    # A License belongs to one LicensePool.
+    license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
+
+    # One License can have many Loans.
+    loans = relationship('Loan', backref='license')
+
+    __table_args__ = (
+        UniqueConstraint('identifier', 'license_pool_id'),
+    )
+
+    def loan_to(self, patron_or_client, **kwargs):
+        loan, is_new = self.license_pool.loan_to(patron_or_client, **kwargs)
+        loan.license = self
+        return loan, is_new
+
+    @property
+    def is_perpetual(self):
+        return (self.expires is None) and (self.remaining_checkouts is None)
+
+    @property
+    def is_time_limited(self):
+        return self.expires is not None
+
+    @property
+    def is_loan_limited(self):
+        return self.remaining_checkouts is not None
+
+    @property
+    def is_expired(self):
+        now = datetime.datetime.utcnow()
+        return ((self.expires and self.expires <= now) or
+                (self.remaining_checkouts is not None and self.remaining_checkouts <= 0))
+
 class LicensePool(Base):
     """A pool of undifferentiated licenses for a work from a given source.
     """
@@ -68,6 +119,10 @@ class LicensePool(Base):
     # Each LicensePool has an Edition which contains the metadata used
     # to describe this book.
     presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
+
+    # If the source provides information about individual licenses, the
+    # LicensePool may have many Licenses.
+    licenses = relationship('License', backref='license_pool')
 
     # One LicensePool can have many Loans.
     loans = relationship('Loan', backref='license_pool')
@@ -757,6 +812,45 @@ class LicensePool(Base):
         if external_identifier:
             hold.external_identifier = external_identifier
         return hold, new
+
+    def best_available_license(self):
+        """Determine the next license that should be lent out for this pool.
+
+        Time-limited licenses and perpetual licenses are the best. It doesn't matter which
+        is used first, unless a time-limited license would expire within the loan period, in
+        which case it's better to loan the time-limited license so the perpetual one is still
+        available. We can handle this by always loaning the time-limited one first, followed
+        by perpetual. If there is more than one time-limited license, it's better to use the one
+        expiring soonest.
+
+        If no time-limited or perpetual licenses are available, the next best is a loan-limited
+        license. We should choose the license with the most remaining loans, so that we'll
+        maximize the number of concurrent checkouts available in the future.
+
+        The worst option would be pay-per-use, but we don't yet support any distributors that
+        offer that model.
+        """
+        best = None
+        now = datetime.datetime.utcnow()
+
+        for license in self.licenses:
+            if license.is_expired:
+                continue
+
+            active_loan_count = len([l for l in license.loans if not l.end or l.end > now])
+            if active_loan_count >= license.concurrent_checkouts:
+                continue
+
+            if (
+                not best or
+                (license.is_time_limited and not best.is_time_limited) or
+                (license.is_time_limited and best.is_time_limited and license.expires < best.expires) or
+                (license.is_perpetual and not best.is_time_limited) or
+                (license.is_loan_limited and best.is_loan_limited and license.remaining_checkouts > best.remaining_checkouts)
+                ):
+                best = license
+
+        return best
 
     @classmethod
     def consolidate_works(cls, _db, batch_size=10):
