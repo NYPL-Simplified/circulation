@@ -61,6 +61,7 @@
 <link type="application/epub+zip" href="https://www.feedbooks.com/item/2505887/preview" rel="http://opds-spec.org/acquisition/sample"/>
 <content type="html">&lt;p&gt;&lt;i&gt;&lt;b&gt;&lt;/b&gt;&lt;/i&gt;&lt;i&gt;&lt;b&gt;The blockbuster bestselling series is back!  &lt;/b&gt;&lt;/i&gt;#1 &lt;i&gt;New York Time&lt;/i&gt;s bestselling author of the &lt;i&gt;House of Night &lt;/i&gt;series, P.C. Cast, brings us &lt;i&gt;Sun Warrior&lt;/i&gt;, an epic fantasy set in a world where humans, their animal allies, and the earth itself has been drastically changed. A world filled with beauty and danger and cruelty&#8230;The battle lines have been drawn and Mari, an Earth Walker and Nik, a Companion, who were once from rival clans now find themselves fighting to save each other and their people from destruction.Thaddeus betrayed his own people, killing Nik&#8217;s father and destroying their entire clan. But he wants more. He wants the power he believes Mari has stolen from him and his people and he will do anything he must to get them back, even if it means destroying everything in his path. There is only way to stop Thaddeus, but it means a harrowing journey for Mari and Nik into the heart of darkness. Meanwhile, Dead Eye becomes a willing vessel for the newly awakened god, Death. Death has plans of his own and he, too, will use whatever and whomever he must, including the mad Thaddeus.&lt;/p&gt;</content>
 <odl:license>
+  <dcterms:identifier xsi:type="dcterms:URI">1</dcterms:identifier>
   <dcterms:format>application/epub+zip</dcterms:format>
   <dcterms:source>http://www.feedbooks.com</dcterms:source>
   <opds:price currencycode="USD">60.00</opds:price>
@@ -68,7 +69,7 @@
   <created>2017-10-21T16:00:20+02:00</created>
   <odl:terms>
     <odl:total_checkouts>52</odl:total_checkouts>
-    <odl:expires>2019-10-21T00:00:00+02:00</odl:expires>
+    <odl:expires>2019-03-31T03:13:35+02:00</odl:expires>
     <odl:concurrent_checkouts>1</odl:concurrent_checkouts>
     <odl:maximum_checkout_length>5097600</odl:maximum_checkout_length>
   </odl:terms>
@@ -80,6 +81,7 @@
     <odl:tts>false</odl:tts>
   </odl:protection>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
+  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=1" rel="self"/>
 </odl:license>
 </entry>
 <entry>
@@ -117,14 +119,15 @@
 </link>
 <link type="application/epub+zip" href="https://www.feedbooks.com/item/2225381/preview" rel="http://opds-spec.org/acquisition/sample"/>
 <odl:license>
+  <dcterms:identifier xsi:type="dcterms:URI">2</dcterms:identifier>
   <dcterms:format>application/epub+zip</dcterms:format>
   <dcterms:source>http://www.feedbooks.com</dcterms:source>
   <opds:price currencycode="USD">13.99</opds:price>
   <dcterms:source xsi:type="dcterms:URI">urn:ISBN:9781443449304</dcterms:source>
   <created>2017-10-21T16:00:18+02:00</created>
   <odl:terms>
-    <odl:total_checkouts>26</odl:total_checkouts>
-    <odl:concurrent_checkouts>1</odl:concurrent_checkouts>
+    <odl:total_checkouts>40</odl:total_checkouts>
+    <odl:concurrent_checkouts>10</odl:concurrent_checkouts>
     <odl:maximum_checkout_length>5097600</odl:maximum_checkout_length>
   </odl:terms>
   <odl:protection>
@@ -135,15 +138,16 @@
     <odl:tts>false</odl:tts>
   </odl:protection>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
+  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=2" rel="self"/>
 </odl:license>
 <odl:license>
+  <dcterms:identifier xsi:type="dcterms:URI">3</dcterms:identifier>
   <dcterms:format>application/epub+zip</dcterms:format>
   <dcterms:source>http://www.feedbooks.com</dcterms:source>
   <opds:price currencycode="USD">13.99</opds:price>
   <dcterms:source xsi:type="dcterms:URI">urn:ISBN:9781443449304</dcterms:source>
   <created>2017-10-21T16:00:19+02:00</created>
   <odl:terms>
-    <odl:total_checkouts>26</odl:total_checkouts>
     <odl:concurrent_checkouts>1</odl:concurrent_checkouts>
     <odl:maximum_checkout_length>5097600</odl:maximum_checkout_length>
   </odl:terms>
@@ -155,6 +159,7 @@
     <odl:tts>false</odl:tts>
   </odl:protection>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
+  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=3" rel="self"/>
 </odl:license>
 </entry>
 <entry>
@@ -183,6 +188,7 @@
 <link type="application/epub+zip" href="https://www.feedbooks.com/item/2505900/preview" rel="http://opds-spec.org/acquisition/sample"/>
 <content type="html">&lt;p&gt;&lt;b&gt;&quot;A dark adventure, stunningly written!&quot; &#8212;Jay Asher, #1 &lt;i&gt;New York Times&lt;/i&gt;-bestselling author of &lt;i&gt;Thirteen Reasons Why&lt;/i&gt;&lt;/b&gt;&lt;b&gt;&lt;/b&gt;&lt;b&gt;Set against the fascinating and moody backdrop of a mysterious boarding school, this intricately crafted novel is filled with magical realism, gothic settings, and the perfect hint of romance. &lt;/b&gt;Seventeen-year-old Penny is a lead dancer at the Grande Teatro, a finishing school where she and eleven other young women are training to become the finest ballerinas in Italy. Tucked deep in the woods, the school is overseen by the mysterious and handsome young Master, who keeps the girls ensconced in the estate &#8211; and in the only life Penny has ever known.But when flashes of memories &#8211; memories of a life very different from the one she thinks she&#8217;s been leading &#8211; start to appear, Penny begins to question the Grande Teatro and the motivations of Master. With a kind and attractive kitchen boy, Cricket, at her side, Penny vows to escape the confines of her school and the strict rules that dictate every step she takes. But at every turn, Master finds a way to stop her, and Penny must uncover the secrets of her past before it&#8217;s too late.Debut author Nikki Katz delivers a unique and haunting twist on a classic fairy tale with &lt;i&gt;The Midnight Dance,&lt;/i&gt; chosen by readers like you for Macmillan's young adult imprint Swoon Reads.&lt;b&gt;Praise for &lt;i&gt;The Midnight Dance&lt;/i&gt;, from the Swoon Reads community: &lt;/b&gt;&#8220;This is such a &lt;b&gt;fun, well written twisted story&lt;/b&gt;&#8230; The writing is superb. I love the premise and the Gothic feel to it.&#8221; &#8212;Angie Taylor, reader on SwoonReads.com&#8220;So imaginative and unique! &lt;b&gt;This was a joy to read.&lt;/b&gt;&#8221; &#8212;Anna S., reader on SwoonReads.com&#8220;&lt;b&gt;Well-written and charming&lt;/b&gt; with cheeky bits of humor that will engage any fairytale lover.&#8221; &#8212;Jennifer McKenzie, reader on SwoonReads.com&#8220;A&lt;b&gt; beautifully written&lt;/b&gt; story.&#8221; &#8212;Chen Yan Chang, reader on SwoonReads.com&lt;/p&gt;</content>
 <odl:license>
+  <dcterms:identifier xsi:type="dcterms:URI">4</dcterms:identifier>
   <dcterms:format>application/epub+zip</dcterms:format>
   <dcterms:source>http://www.feedbooks.com</dcterms:source>
   <opds:price currencycode="USD">60.00</opds:price>
@@ -190,7 +196,6 @@
   <created>2017-10-21T16:00:19+02:00</created>
   <odl:terms>
     <odl:total_checkouts>52</odl:total_checkouts>
-    <odl:expires>2019-10-21T00:00:00+02:00</odl:expires>
     <odl:concurrent_checkouts>1</odl:concurrent_checkouts>
     <odl:maximum_checkout_length>5097600</odl:maximum_checkout_length>
   </odl:terms>
@@ -202,8 +207,10 @@
     <odl:tts>false</odl:tts>
   </odl:protection>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
+  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=4" rel="self"/>
 </odl:license>
 <odl:license>
+  <dcterms:identifier xsi:type="dcterms:URI">5</dcterms:identifier>
   <dcterms:format>application/pdf</dcterms:format>
   <dcterms:source>http://www.feedbooks.com</dcterms:source>
   <opds:price currencycode="USD">60.00</opds:price>
@@ -211,7 +218,6 @@
   <created>2017-10-21T16:00:19+02:00</created>
   <odl:terms>
     <odl:total_checkouts>52</odl:total_checkouts>
-    <odl:expires>2019-10-21T00:00:00+02:00</odl:expires>
     <odl:concurrent_checkouts>1</odl:concurrent_checkouts>
     <odl:maximum_checkout_length>5097600</odl:maximum_checkout_length>
   </odl:terms>
@@ -223,6 +229,7 @@
     <odl:tts>false</odl:tts>
   </odl:protection>
   <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
+  <link type="application/vnd.odl.status.1-0+json" href="https://license.feedbooks.net/license/status/?uuid=5" rel="self"/>
 </odl:license>
 </entry>
 </feed>

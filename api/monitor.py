@@ -38,7 +38,7 @@ from core.opds_import import (
 from core.util.http import RemoteIntegrationException
 
 from odl import (
-    ODLWithConsolidatedCopiesAPI,
+    ODLAPI,
     SharedODLAPI,
 )
 
@@ -291,7 +291,7 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
 class LoanlikeReaperMonitor(ReaperMonitor):
 
     SOURCE_OF_TRUTH_PROTOCOLS = [
-        ODLWithConsolidatedCopiesAPI.NAME,
+        ODLAPI.NAME,
         SharedODLAPI.NAME,
         ExternalIntegration.OPDS_FOR_DISTRIBUTORS,
     ]
