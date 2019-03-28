@@ -24,6 +24,7 @@ import re
 from pymarc import MARCReader
 
 from util import LanguageCodes
+from util.http import RemoteIntegrationException
 from util.personal_names import name_tidy
 from util.median import median
 from classifier import Classifier
@@ -312,9 +313,19 @@ class ContributorData(object):
         # Time to break out the big guns. Ask the metadata wrangler
         # if it can find a sort name for this display name.
         if metadata_client:
-            sort_name = self.display_name_to_sort_name_through_canonicalizer(
-                _db, identifiers, metadata_client
-            )
+            try:
+                sort_name = self.display_name_to_sort_name_through_canonicalizer(
+                    _db, identifiers, metadata_client
+                )
+            except RemoteIntegrationException, e:
+                # There was some kind of problem with the metadata
+                # wrangler. Act as though no metadata wrangler had
+                # been provided.
+                log = logging.getLogger("Abstract metadata layer")
+                log.error(
+                    "Metadata client exception while determining sort name for %s",
+                    self.display_name, exc_info=e
+                )
             if sort_name:
                 self.sort_name = sort_name
                 return True
