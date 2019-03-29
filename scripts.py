@@ -120,8 +120,8 @@ from api.opds_for_distributors import (
     OPDSForDistributorsReaperMonitor,
 )
 from api.odl import (
-    ODLBibliographicImporter,
-    ODLBibliographicImportMonitor,
+    ODLImporter,
+    ODLImportMonitor,
     SharedODLImporter,
     SharedODLImportMonitor,
 )
@@ -1694,13 +1694,13 @@ class NovelistSnapshotScript(TimestampScript, LibraryInputScript):
 
                     output.write(result)
 
-class ODLBibliographicImportScript(OPDSImportScript):
-    """Import bibliographic information from the feed associated
+class ODLImportScript(OPDSImportScript):
+    """Import information from the feed associated
     with an ODL collection."""
 
-    IMPORTER_CLASS = ODLBibliographicImporter
-    MONITOR_CLASS = ODLBibliographicImportMonitor
-    PROTOCOL = ODLBibliographicImporter.NAME
+    IMPORTER_CLASS = ODLImporter
+    MONITOR_CLASS = ODLImportMonitor
+    PROTOCOL = ODLImporter.NAME
 
 class SharedODLImportScript(OPDSImportScript):
     IMPORTER_CLASS = SharedODLImporter

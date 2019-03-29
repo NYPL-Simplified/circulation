@@ -28,6 +28,7 @@ from core.model import (
     Identifier,
     LicensePool,
     Loan,
+    Timestamp,
 )
 from core.opds_import import (
     MetadataWranglerOPDSLookup,
@@ -37,7 +38,7 @@ from core.opds_import import (
 from core.util.http import RemoteIntegrationException
 
 from odl import (
-    ODLWithConsolidatedCopiesAPI,
+    ODLAPI,
     SharedODLAPI,
 )
 
@@ -149,7 +150,7 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
 
             # Immediately update the timestamps table so that a later
             # crash doesn't mean we have to redo this work.
-            if new_timestamp:
+            if new_timestamp not in (None, Timestamp.CLEAR_VALUE):
                 timestamp_obj = self.timestamp()
                 timestamp_obj.finish = new_timestamp
                 timestamp_obj.achievements = achievements
@@ -164,10 +165,9 @@ class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
         #
         # Otherwise, the existing timestamp.finish should be used. If
         # that value happens to be None, we need to set
-        # TimestampData.finish to NO_VALUE to make sure it ends up
+        # TimestampData.finish to CLEAR_VALUE to make sure it ends up
         # as None (rather than the current time).
-        finish = new_timestamp or self.timestamp().finish or Timestamp.NO_VALUE
-
+        finish = new_timestamp or self.timestamp().finish or Timestamp.CLEAR_VALUE
         progress.start = start
         progress.finish = finish
         progress.achievements = achievements
@@ -291,7 +291,7 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
 class LoanlikeReaperMonitor(ReaperMonitor):
 
     SOURCE_OF_TRUTH_PROTOCOLS = [
-        ODLWithConsolidatedCopiesAPI.NAME,
+        ODLAPI.NAME,
         SharedODLAPI.NAME,
         ExternalIntegration.OPDS_FOR_DISTRIBUTORS,
     ]

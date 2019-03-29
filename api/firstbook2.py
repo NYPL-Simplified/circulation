@@ -51,7 +51,7 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     SETTINGS = [
         {
             "key": ExternalIntegration.URL, "label": _("URL"),
-            "default": "https://ebooksuat.firstbook.org/api/",
+            "default": "https://ebooksprod.firstbook.org/api/",
             "required": True
         },
         { "key": ExternalIntegration.PASSWORD, "label": _("Key"), "required": True },

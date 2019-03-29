@@ -9,6 +9,7 @@ sqlalchemy==1.2.0
 flask-sqlalchemy-session
 lxml
 flask>1.0.1
+werkzeug>=0.14
 isbnlib
 nose
 python-dateutil
@@ -42,6 +43,7 @@ flask-cors
 PyLD==0.7.3
 pycryptodome
 wcag-contrast-ratio
+uritemplate
 
 # A NYPL-specific requirement
 newrelic
