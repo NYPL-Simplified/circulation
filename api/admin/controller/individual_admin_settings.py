@@ -14,6 +14,7 @@ from core.model import (
 from core.util.problem_detail import ProblemDetail
 from api.admin.exceptions import *
 from api.admin.problem_details import *
+from api.admin.validator import Validator
 
 class IndividualAdminSettingsController(SettingsController):
 
@@ -98,7 +99,7 @@ class IndividualAdminSettingsController(SettingsController):
         and 2) if so, the input is formatted as a valid email address."""
         if not email:
             return INCOMPLETE_CONFIGURATION
-        email_error = self.validate_email(email)
+        email_error = self.validate_formats(email)
         if email_error:
             return email_error
 

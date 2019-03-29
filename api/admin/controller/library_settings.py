@@ -140,7 +140,7 @@ class LibrarySettingsController(SettingsController):
                 _("The configuration is missing a required setting: %(setting)s",
                 setting=missing[0].get("label"))
             )
-
+ ``
     def check_input_type(self, settings):
         for setting in settings:
             if setting.get("type") == "image":
@@ -260,7 +260,6 @@ class LibrarySettingsController(SettingsController):
         CA_PROVINCES = ["AB", "BC", "MB", "NB", "NL", "NT", "NS", "NU", "ON", "PE", "QC", "SK", "YT"]
 
         locations = {"US": [], "CA": []}
-        # set_trace()
 
         for value in json.loads(values):
             if value == "everywhere":
