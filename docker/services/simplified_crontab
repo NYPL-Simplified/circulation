@@ -22,19 +22,19 @@ HOME=/var/www/circulation
 30 3 * * * root core/bin/run update_nyt_bestseller_lists >> /var/log/cron.log 2>&1
 
 # Add newly discovered identifiers to our Metadata Wrangler collection.
-*/10 * * * * sleep $(($RANDOM % 540)) && root core/bin/run metadata_wrangler_collection_registrar >> /var/log/cron.log 2>&1
+*/10 * * * * root sleep $(($RANDOM % 540)) && core/bin/run metadata_wrangler_collection_registrar >> /var/log/cron.log 2>&1
 
 # Remove newly removed identifiers from our Metadata Wrangler collection
-0 */22 * * * sleep $(($RANDOM % 3000)) && root core/bin/run metadata_wrangler_collection_reaper >> /var/log/cron.log 2>&1
+0 */22 * * * root sleep $(($RANDOM % 3000)) && core/bin/run metadata_wrangler_collection_reaper >> /var/log/cron.log 2>&1
 
 # Check whether the Metadata Wrangler has ascertained any new
 # information about books in our collection.
-*/59 * * * * sleep $(($RANDOM % 3000)) && root core/bin/run metadata_wrangler_collection_updates >> /var/log/cron.log 2>&1
+*/59 * * * * root sleep $(($RANDOM % 3000)) && core/bin/run metadata_wrangler_collection_updates >> /var/log/cron.log 2>&1
 
 # If the Metadata Wrangler needs content such as book covers or distributor
 # information that only we can provide, send it over.
-30 21 * * * sleep $(($RANDOM % 3600)) && root core/bin/run metadata_upload_coverage >> /var/log/cron.log 2>&1
-0 3 * * 3 sleep $(($RANDOM % 3600)) && root core/bin/run metadata_wrangler_auxiliary_metadata >> /var/log/cron.log 2>&1
+30 21 * * * root sleep $(($RANDOM % 3600)) && core/bin/run metadata_upload_coverage >> /var/log/cron.log 2>&1
+0 3 * * 3 root sleep $(($RANDOM % 3600)) && core/bin/run metadata_wrangler_auxiliary_metadata >> /var/log/cron.log 2>&1
 
 # If any works are missing up-to-date presentation editions, add them.
 0 20 * * * root core/bin/run work_presentation_editions >> /var/log/cron.log 2>&1
@@ -54,7 +54,7 @@ HOME=/var/www/circulation
 0 2 * * * root core/bin/run database_reaper >> /var/log/cron.log 2>&1
 
 # Sync a library's collection with NoveList
-0 0 * * 0 sleep $(($RANDOM % 3600)) && root core/bin/run novelist_update >> /var/log/cron.log 2>&1
+0 0 * * 0 root sleep $(($RANDOM % 3600)) && core/bin/run novelist_update >> /var/log/cron.log 2>&1
 
 # Generate MARC files for libraries that have a MARC exporter configured.
 0 1 * * * root core/bin/run cache_marc_files >> /var/log/cron.log 2>&1
