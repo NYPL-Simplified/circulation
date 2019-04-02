@@ -114,7 +114,7 @@ from api.bibliotheca import BibliothecaAPI
 from api.axis import Axis360API
 from api.rbdigital import RBDigitalAPI
 from api.enki import EnkiAPI
-from api.odl import ODLWithConsolidatedCopiesAPI, SharedODLAPI
+from api.odl import ODLAPI, SharedODLAPI
 from core.local_analytics_provider import LocalAnalyticsProvider
 
 from api.adobe_vendor_id import AuthdataUtility
@@ -2202,7 +2202,7 @@ class SettingsController(AdminCirculationManagerController):
                      Axis360API,
                      RBDigitalAPI,
                      EnkiAPI,
-                     ODLWithConsolidatedCopiesAPI,
+                     ODLAPI,
                      SharedODLAPI,
                      FeedbooksOPDSImporter,
                     ]
@@ -2697,7 +2697,7 @@ class SettingsController(AdminCirculationManagerController):
                 return UNKNOWN_LANGUAGE.detailed(_('"%(language)s" is not a valid language code.', language=language))
 
     def _is_language(self, language):
-        # Check that the input string is in the list of recognized language codes.
+        # Check that the input string is in the list of recognized languages or language codes.
         return LanguageCodes.string_to_alpha_3(language)
 
     def _list_of_values(self, fields):

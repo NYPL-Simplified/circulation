@@ -63,6 +63,9 @@ class TestLibrarySettings(SettingsControllerTest):
         ConfigurationSetting.for_library(
             Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME, l2
         ).value = json.dumps([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_RANDOM])
+        ConfigurationSetting.for_library(
+            Configuration.LARGE_COLLECTION_LANGUAGES, l2
+        ).value = json.dumps(["French"])
         # The admin only has access to L1 and L2.
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         self.admin.add_role(AdminRole.LIBRARIAN, l1)
@@ -83,13 +86,14 @@ class TestLibrarySettings(SettingsControllerTest):
             eq_(l2.short_name, libraries[1].get("short_name"))
 
             eq_({}, libraries[0].get("settings"))
-            eq_(3, len(libraries[1].get("settings").keys()))
+            eq_(4, len(libraries[1].get("settings").keys()))
             settings = libraries[1].get("settings")
             eq_("5", settings.get(Configuration.FEATURED_LANE_SIZE))
             eq_(FacetConstants.ORDER_RANDOM,
                 settings.get(Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
             eq_([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_RANDOM],
                settings.get(Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
+            eq_(["French"], settings.get(Configuration.LARGE_COLLECTION_LANGUAGES))
 
     def test_libraries_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):
