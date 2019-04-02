@@ -24,6 +24,7 @@ from PIL import Image
 from api.admin.exceptions import *
 from api.admin.problem_details import *
 from core.util.problem_detail import ProblemDetail
+from core.util import LanguageCodes
 from nose.tools import set_trace
 
 class LibrarySettingsController(SettingsController):
@@ -44,6 +45,7 @@ class LibrarySettingsController(SettingsController):
 
                 if value:
                     settings[setting.get("key")] = value
+
             libraries += [dict(
                 uuid=library.uuid,
                 name=library.name,
@@ -212,6 +214,8 @@ class LibrarySettingsController(SettingsController):
                 value = locations or self.current_value(setting, library)
             elif setting.get("type") == "list":
                 value = self.list_setting(setting) or self.current_value(setting, library)
+                if setting.get("format") == "language-code":
+                    value = json.dumps([LanguageCodes.string_to_alpha_3(language) for language in json.loads(value)])
             elif setting.get("type") == "image":
                 value = self.image_setting(setting) or self.current_value(setting, library)
             else:
@@ -260,7 +264,6 @@ class LibrarySettingsController(SettingsController):
         CA_PROVINCES = ["AB", "BC", "MB", "NB", "NL", "NT", "NS", "NU", "ON", "PE", "QC", "SK", "YT"]
 
         locations = {"US": [], "CA": []}
-        # set_trace()
 
         for value in json.loads(values):
             if value == "everywhere":
