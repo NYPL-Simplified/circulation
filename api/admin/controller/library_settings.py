@@ -297,8 +297,9 @@ class LibrarySettingsController(SettingsController):
                     elif len([x for x in us_search.query(state=state, returns=None) if x.county == city_or_county]):
                         locations["US"].append(value);
                     else:
-                        if self.ask_registry(value):
-                            return self.ask_registry(value)
+                        registry_check = self.ask_registry(value)
+                        if registry_check:
+                            return registry_check
                 elif value.isdigit():
                     # Is it a US zipcode?
                     info = us_search.by_zipcode(value)
@@ -306,8 +307,9 @@ class LibrarySettingsController(SettingsController):
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. zipcode.', value=value))
                     locations["US"].append(self.format_place(value, info.major_city, info.state));
                 else:
-                    if self.ask_registry(value):
-                        return self.ask_registry(value)
+                    registry_check = self.ask_registry(value)
+                    if registry_check:
+                        return registry_check
 
         return json.dumps(locations)
 
