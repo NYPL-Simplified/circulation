@@ -16,16 +16,19 @@ from api.lanes import create_default_lanes
 from core.model import (
     ConfigurationSetting,
     create,
+    ExternalIntegration,
     get_one,
     Library,
     Representation,
 )
+from core.util.http import HTTP
 from PIL import Image
 from api.admin.exceptions import *
 from api.admin.problem_details import *
 from core.util.problem_detail import ProblemDetail
 from core.util import LanguageCodes
 from nose.tools import set_trace
+from api.registry import RemoteRegistry
 
 class LibrarySettingsController(SettingsController):
 
@@ -294,8 +297,8 @@ class LibrarySettingsController(SettingsController):
                     elif len([x for x in us_search.query(state=state, returns=None) if x.county == city_or_county]):
                         locations["US"].append(value);
                     else:
-                        return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
-
+                        if self.ask_registry(value):
+                            return self.ask_registry(value)
                 elif value.isdigit():
                     # Is it a US zipcode?
                     info = us_search.by_zipcode(value)
@@ -303,10 +306,33 @@ class LibrarySettingsController(SettingsController):
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. zipcode.', value=value))
                     locations["US"].append(self.format_place(value, info.major_city, info.state));
                 else:
-                    return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
+                    if self.ask_registry(value):
+                        return self.ask_registry(value)
 
         return json.dumps(locations)
 
     def format_place(self, zip, city, state_or_province):
         info = "%s, %s" % (city, state_or_province)
         return { zip: info }
+
+    def ask_registry(self, value):
+        # If the circulation manager doesn't know about this location, check whether the Library Registry does.
+        responses = []
+
+        for registry in RemoteRegistry.for_protocol_and_goal(
+            self._db, ExternalIntegration.OPDS_REGISTRATION, ExternalIntegration.DISCOVERY_GOAL
+        ):
+
+            base_url = registry.integration.url + "/coverage?coverage="
+
+            for nation in ["US", "CA"]:
+                search_term = '{"%s": "%s"}' % (nation, value)
+                response = HTTP.debuggable_get(base_url + search_term)
+                unknown_place = json.loads(response.content).get("unknown")
+                # If the registry hasn't found the place, it will return a value for "unknown";
+                # otherwise, :unknown_place will be None.
+                responses.append(unknown_place)
+
+        if all(responses):
+            # If every registry has reported that the place is unknown for both the US and Canada, return an error message.
+            return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
