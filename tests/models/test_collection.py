@@ -715,13 +715,22 @@ class TestCollection(DatabaseTest):
             self._db, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, 0, 1
         )
 
+        # delete() will not work on a collection that's not marked for
+        # deletion.
+        assert_raises_regexp(
+            Exception,
+            "Cannot delete %s: it is not marked for deletion." % collection.name,
+            collection.delete
+        )
+
         # Delete the collection.
+        collection.marked_for_deletion = True
         collection.delete()
 
-        # The collection has been deleted.
+        # It's gone.
         assert collection not in self._db.query(Collection).all()
 
-        # The connection with the default library has been broken.
+        # The default library now has no collections.
         eq_([], self._default_library.collections)
 
         # The deletion of the Collection's sole LicensePool has

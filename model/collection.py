@@ -723,10 +723,10 @@ class Collection(Base, HasFullTableCache):
         that can be confined to the background and survive interruption.
         """
         _db = Session.object_session(self)
-        #if not self.marked_for_deletion:
-        #    raise Exception(
-        #        "Cannot delete %s: it is not marked for deletion." % self.name
-        #    )
+        if not self.marked_for_deletion:
+            raise Exception(
+                "Cannot delete %s: it is not marked for deletion." % self.name
+            )
 
         # Delete all the license pools.
         for i, pool in enumerate(self.licensepools):
