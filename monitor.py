@@ -793,7 +793,11 @@ class ReaperMonitor(Monitor):
         self.log.info("Deleting %d row(s)", qu.count())
         for i in qu:
             self.log.info("Deleting %r", i)
-            self._db.delete(i)
+            self.delete(i)
+
+    def delete(self, row):
+        """Delete a row from the database."""
+        self._db.delete(row)
 
     def query(self):
         return self._db.query(self.MODEL_CLASS).filter(self.where_clause)
@@ -821,3 +825,25 @@ class PatronRecordReaper(ReaperMonitor):
     TIMESTAMP_FIELD = 'authorization_expires'
     MAX_AGE = 60
 ReaperMonitor.REGISTRY.append(PatronRecordReaper)
+
+
+class CollectionReaper(ReaperMonitor):
+    """Remove collections that have been marked for deletion."""
+    MODEL_CLASS = Collection
+
+    @property
+    def where_clause(self):
+        """A SQLAlchemy clause that identifies the database rows to be reaped.
+        """
+        return Collection.marked_for_deletion == True
+
+    def delete(self, collection):
+        """Delete a Collection from the database.
+
+        Database deletion of a Collection might take a really long
+        time, so we call a special method that will do the deletion
+        incrementally and can pick up where it left off if there's a
+        failure.
+        """
+        collection.delete()
+ReaperMonitor.REGISTRY.append(CollectionReaper)

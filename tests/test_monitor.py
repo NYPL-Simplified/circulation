@@ -36,6 +36,7 @@ from ..model import (
 from ..monitor import (
     CachedFeedReaper,
     CollectionMonitor,
+    CollectionReaper,
     CoverageProvidersFailed,
     CredentialReaper,
     CustomListEntrySweepMonitor,
@@ -971,3 +972,40 @@ class TestReaperMonitor(DatabaseTest):
         eq_([active], remaining)
 
         eq_([], self._db.query(Credential).all())
+
+
+class TestCollectionReaper(DatabaseTest):
+
+    def test_query(self):
+        # This reaper is looking for collections that are marked for
+        # deletion.
+        collection = self._default_collection
+        reaper = CollectionReaper(self._db)
+        eq_([], reaper.query().all())
+
+        collection.marked_for_deletion = True
+        eq_([collection], reaper.query().all())
+
+    def test_reaper_delete_calls_collection_delete(self):
+        # Unlike most ReaperMonitors, CollectionReaper.delete()
+        # is overridden to call delete() on the object it was passed,
+        # rather than just doing a database delete.
+        class MockCollection(object):
+            def delete(self):
+                self.was_called = True
+        collection = MockCollection()
+        reaper = CollectionReaper(self._db)
+        reaper.delete(collection)
+        eq_(True, collection.was_called)
+
+    def test_run_once(self):
+        # End-to-end test
+        c1 = self._default_collection
+        c2 = self._collection()
+        c2.marked_for_deletion = True
+        reaper = CollectionReaper(self._db)
+        reaper.run_once()
+
+        # The Collection marked for deletion has been deleted; the other
+        # one is unaffected.
+        eq_([c1], self._db.query(Collection).all())
