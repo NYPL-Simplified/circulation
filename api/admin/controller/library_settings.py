@@ -269,6 +269,7 @@ class LibrarySettingsController(SettingsController):
         locations = {"US": [], "CA": []}
 
         for value in json.loads(values):
+            flagged = False
             if value == "everywhere":
                 locations["US"].append(value)
             elif len(value) and isinstance(value, basestring):
@@ -280,7 +281,6 @@ class LibrarySettingsController(SettingsController):
                         locations["US"].append(value)
                     else:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. state or Canadian province abbreviation.', value=value))
-
                 elif len(value) == 3 and re.search("^[A-Za-z]\\d[A-Za-z]", value):
                     # Is it a Canadian zipcode?
                     try:
@@ -288,7 +288,6 @@ class LibrarySettingsController(SettingsController):
                         locations["CA"].append(self.format_place(value, info.city, info.province));
                     except:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid Canadian zipcode.', value=value))
-
                 elif len(value.split(", ")) == 2:
                     # Is it in the format "[city], [state abbreviation]" or "[county], [state abbreviation]"?
                     city_or_county, state = value.split(", ")
@@ -297,9 +296,8 @@ class LibrarySettingsController(SettingsController):
                     elif len([x for x in us_search.query(state=state, returns=None) if x.county == city_or_county]):
                         locations["US"].append(value);
                     else:
-                        registry_check = self.ask_registry(value)
-                        if registry_check:
-                            return registry_check
+                        # Flag this as needing to be checked with the registry
+                        flagged = True
                 elif value.isdigit():
                     # Is it a US zipcode?
                     info = us_search.by_zipcode(value)
@@ -307,9 +305,19 @@ class LibrarySettingsController(SettingsController):
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. zipcode.', value=value))
                     locations["US"].append(self.format_place(value, info.major_city, info.state));
                 else:
-                    registry_check = self.ask_registry(value)
+                    flagged = True
+
+            if flagged:
+                for nation in ["US", "CA"]:
+                    service_area_object = '{"%s": "%s"}' % (nation, value)
+
+                    registry_check = self.ask_registry(service_area_object)
                     if registry_check:
-                        return registry_check
+                        locations[nation].append(value)
+                        # If the registry has established that this is a US location, don't bother also trying to find it in Canada
+                        break
+                    else:
+                        return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
 
         return json.dumps(locations)
 
@@ -317,24 +325,14 @@ class LibrarySettingsController(SettingsController):
         info = "%s, %s" % (city, state_or_province)
         return { zip: info }
 
-    def ask_registry(self, value):
+    def ask_registry(self, service_area_object):
         # If the circulation manager doesn't know about this location, check whether the Library Registry does.
-        responses = []
-
         for registry in RemoteRegistry.for_protocol_and_goal(
             self._db, ExternalIntegration.OPDS_REGISTRATION, ExternalIntegration.DISCOVERY_GOAL
         ):
-
             base_url = registry.integration.url + "/coverage?coverage="
 
-            for nation in ["US", "CA"]:
-                search_term = '{"%s": "%s"}' % (nation, value)
-                response = HTTP.debuggable_get(base_url + search_term)
-                unknown_place = json.loads(response.content).get("unknown")
-                # If the registry hasn't found the place, it will return a value for "unknown";
-                # otherwise, :unknown_place will be None.
-                responses.append(unknown_place)
-
-        if all(responses):
-            # If every registry has reported that the place is unknown for both the US and Canada, return an error message.
-            return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
+            response = HTTP.debuggable_get(base_url + service_area_object)
+            unknown_place = json.loads(response.content).get("unknown")
+            if not unknown_place:
+                return True
