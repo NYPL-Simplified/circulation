@@ -34,6 +34,7 @@ from ...model.licensing import (
     Hold,
     Loan,
     License,
+    LicensePool,
 )
 from ...model.work import MaterializedWorkWithGenre as work_model
 
@@ -704,7 +705,8 @@ class TestCollection(DatabaseTest):
         )
         setting2.value = "value2"
 
-        # It's got a LicensePool, which has a License, which has a loan.
+        # It's got a Work that has a LicensePool, which has a License,
+        # which has a loan.
         work = self._work(with_license_pool=True)
         [pool] = work.license_pools
         license = self._license(pool)
@@ -726,6 +728,22 @@ class TestCollection(DatabaseTest):
             self._db, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, 0, 1
         )
 
+        # There's a second Work which has _two_ LicensePools from two
+        # different Collections -- the one we're about to delete and
+        # another Collection.
+        work2 = self._work(with_license_pool=True)
+        collection2 = self._collection()
+        pool2 = self._licensepool(None, collection=collection2)
+        work2.license_pools.append(pool2)
+
+        # Finally, here's a mock ExternalSearchIndex so we can track when
+        # Works are removed from the search index.
+        class MockExternalSearchIndex(object):
+            removed = []
+            def remove_work(self, work):
+                self.removed.append(work)
+        index = MockExternalSearchIndex()
+
         # delete() will not work on a collection that's not marked for
         # deletion.
         assert_raises_regexp(
@@ -736,7 +754,7 @@ class TestCollection(DatabaseTest):
 
         # Delete the collection.
         collection.marked_for_deletion = True
-        collection.delete()
+        collection.delete(search_index=index)
 
         # It's gone.
         assert collection not in self._db.query(Collection).all()
@@ -756,8 +774,17 @@ class TestCollection(DatabaseTest):
         # LicensePool, so they can and should survive the deletion of
         # the Collection in which they were originally created.
 
-        # The Work is still around -- it just no longer has any LicensePools.
+        # The first Work is still around -- it just no longer has any
+        # LicensePools.
         eq_([], work.license_pools)
+
+        # The second Work is still around, and it still has the other
+        # LicensePool.
+        eq_([pool2], work2.license_pools)
+
+        # Our search index was told to remove the first work (which no longer
+        # has any LicensePools), but not the second.
+        eq_([work], index.removed)
 
         # The ExternalIntegration and its settings are still around,
         # since multiple Collections can be based on the same
@@ -767,6 +794,17 @@ class TestCollection(DatabaseTest):
         for s in (setting1, setting2):
             assert s in settings
 
+        # If no search_index is passed into delete() (the default behavior),
+        # we try to instantiate the normal ExternalSearchIndex object. Since
+        # no search index is configured, this will raise an exception -- but
+        # delete() will catch the exception and carry out the delete,
+        # without trying to delete any Works from the search index.
+        collection2.marked_for_deletion = True
+        collection2.delete()
+
+        # We've now deleted every LicensePool created for this test.
+        eq_(0, self._db.query(LicensePool).count())
+        eq_([], work2.license_pools)
 
 class TestCollectionForMetadataWrangler(DatabaseTest):
 

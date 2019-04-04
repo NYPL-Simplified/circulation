@@ -13,6 +13,7 @@ from coverage import (
     WorkCoverageRecord,
 )
 from configuration import (
+    CannotLoadConfiguration,
     ConfigurationSetting,
     ExternalIntegration,
 )
@@ -725,32 +726,41 @@ class Collection(Base, HasFullTableCache):
             )
         return query
 
-    def delete(self):
+    def delete(self, search_index=None):
         """Delete a collection.
 
         Collections can have hundreds of thousands of
         LicensePools. This deletes a collection gradually in a way
         that can be confined to the background and survive interruption.
         """
-        _db = Session.object_session(self)
         if not self.marked_for_deletion:
             raise Exception(
                 "Cannot delete %s: it is not marked for deletion." % self.name
             )
 
+        _db = Session.object_session(self)
+        if not search_index:
+            try:
+                from ..external_search import ExternalSearchIndex
+                search_index = ExternalSearchIndex(_db)
+            except CannotLoadConfiguration, e:
+                # No search index is configured. This is fine -- just skip
+                # that part.
+                pass
+
         # Delete all the license pools. This should be the only part
         # of the application where LicensePools are permanently
         # deleted.
         for i, pool in enumerate(self.licensepools):
+            work = pool.work
             _db.delete(pool)
             if not i % 100:
                 _db.commit()
-            # TODO: If the LicensePool's Work has no other
-            # LicensePools, the Work should be removed from the search
-            # index. We can't do this now because we currently have no
-            # way of removing something from the search index. This
-            # only affects search engine performance -- it won't cause
-            # phantom books to show up in search results.
+            if work and search_index and not work.license_pools:
+                search_index.remove_work(work)
+                # TODO: ideally we'd delete the Work itself, but
+                # that's another thing we don't normally do, and it
+                # might have side effects we haven't considered.
 
         # Now delete the Collection itself.
         _db.delete(self)
