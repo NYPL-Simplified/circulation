@@ -705,7 +705,8 @@ class TestCollection(DatabaseTest):
         setting2.value = "value2"
 
         # It's got a LicensePool, which has a License, which has a loan.
-        pool = self._licensepool(None)
+        work = self._work(with_license_pool=True)
+        [pool] = work.license_pools
         license = self._license(pool)
         patron = self._patron()
         loan, is_new = license.loan_to(patron)
@@ -754,6 +755,9 @@ class TestCollection(DatabaseTest):
         # n.b. Annotations are associated with Identifier, not
         # LicensePool, so they can and should survive the deletion of
         # the Collection in which they were originally created.
+
+        # The Work is still around -- it just no longer has any LicensePools.
+        eq_([], work.license_pools)
 
         # The ExternalIntegration and its settings are still around,
         # since multiple Collections can be based on the same
