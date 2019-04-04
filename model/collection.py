@@ -738,11 +738,19 @@ class Collection(Base, HasFullTableCache):
                 "Cannot delete %s: it is not marked for deletion." % self.name
             )
 
-        # Delete all the license pools.
+        # Delete all the license pools. This should be the only part
+        # of the application where LicensePools are permanently
+        # deleted.
         for i, pool in enumerate(self.licensepools):
             _db.delete(pool)
             if not i % 100:
                 _db.commit()
+            # TODO: If the LicensePool's Work has no other
+            # LicensePools, the Work should be removed from the search
+            # index. We can't do this now because we currently have no
+            # way of removing something from the search index. This
+            # only affects search engine performance -- it won't cause
+            # phantom books to show up in search results.
 
         # Now delete the Collection itself.
         _db.delete(self)
