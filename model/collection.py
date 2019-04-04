@@ -709,6 +709,29 @@ class Collection(Base, HasFullTableCache):
             )
         return query
 
+    def delete(self):
+        """Delete a collection.
+
+        Collections can have hundreds of thousands of
+        LicensePools. This deletes a collection gradually in a way
+        that can be confined to the background and survive interruption.
+        """
+        _db = Session.object_session(self)
+        #if not self.marked_for_deletion:
+        #    raise Exception(
+        #        "Cannot delete %s: it is not marked for deletion." % self.name
+        #    )
+
+        # Delete all the license pools.
+        for i, pool in enumerate(self.licensepools):
+            _db.delete(pool)
+            if not i % 100:
+                _db.commit()
+
+        # Now delete the Collection itself.
+        _db.delete(self)
+        _db.commit()
+
 
 collections_libraries = Table(
     'collections_libraries', Base.metadata,

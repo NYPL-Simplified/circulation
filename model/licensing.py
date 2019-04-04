@@ -68,7 +68,9 @@ class License(Base):
     license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
 
     # One License can have many Loans.
-    loans = relationship('Loan', backref='license')
+    loans = relationship(
+        'Loan', backref='license', cascade='all, delete-orphan'
+    )
 
     __table_args__ = (
         UniqueConstraint('identifier', 'license_pool_id'),
@@ -122,20 +124,30 @@ class LicensePool(Base):
 
     # If the source provides information about individual licenses, the
     # LicensePool may have many Licenses.
-    licenses = relationship('License', backref='license_pool')
+    licenses = relationship(
+        'License', backref='license_pool', cascade='all, delete-orphan'
+    )
 
     # One LicensePool can have many Loans.
-    loans = relationship('Loan', backref='license_pool')
+    loans = relationship(
+        'Loan', backref='license_pool', cascade='all, delete-orphan'
+    )
 
     # One LicensePool can have many Holds.
-    holds = relationship('Hold', backref='license_pool')
+    holds = relationship(
+        'Hold', backref='license_pool', cascade='all, delete-orphan'
+    )
 
     # One LicensePool can have many CirculationEvents
     circulation_events = relationship(
-        "CirculationEvent", backref="license_pool")
+        "CirculationEvent", backref="license_pool",
+        cascade='all, delete-orphan'
+    )
 
     # One LicensePool can be associated with many Complaints.
-    complaints = relationship('Complaint', backref='license_pool')
+    complaints = relationship(
+        'Complaint', backref='license_pool', cascade='all, delete-orphan'
+    )
 
     # The date this LicensePool was first created in our db
     # (the date we first discovered that ​we had that book in ​our collection).

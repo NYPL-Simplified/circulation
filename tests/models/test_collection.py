@@ -18,7 +18,9 @@ from ...model.coverage import (
     CoverageRecord,
     WorkCoverageRecord,
 )
+from ...model.circulationevent import CirculationEvent
 from ...model.collection import Collection
+from ...model.complaint import Complaint
 from ...model.configuration import (
     ConfigurationSetting,
     ExternalIntegration,
@@ -28,6 +30,11 @@ from ...model.datasource import DataSource
 from ...model.edition import Edition
 from ...model.hasfulltablecache import HasFullTableCache
 from ...model.identifier import Identifier
+from ...model.licensing import (
+    Hold,
+    Loan,
+    License,
+)
 from ...model.work import MaterializedWorkWithGenre as work_model
 
 class TestCollection(DatabaseTest):
@@ -665,6 +672,75 @@ class TestCollection(DatabaseTest):
             [DataSource.OVERDRIVE, DataSource.RB_DIGITAL]
         )
         expect(qu, [overdrive_ebook])
+
+    def test_delete(self):
+        """Verify that Collection.delete will only operate on collections
+        flagged for deletion, and that deletion cascades to all
+        relevant related database objects.
+        """
+
+        # This collection is doomed.
+        collection = self._default_collection
+
+        # It's associated with a library.
+        assert self._default_library in collection.libraries
+
+        # It has an ExternalIntegration, which has some settings.
+        integration = collection.external_integration
+        setting1 = integration.set_setting("integration setting", "value2")
+        setting2 = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library+integration setting",
+            self._default_library, integration, 
+        )
+        setting2.value = "value2"
+
+        # It's got a LicensePool, which has a License, which has a loan.
+        pool = self._licensepool(None)
+        license = self._license(pool)
+        patron = self._patron()
+        loan, is_new = license.loan_to(patron)
+
+        # The LicensePool also has a hold.
+        patron2 = self._patron()
+        hold, is_new = pool.on_hold_to(patron2)
+        
+        # And a Complaint.
+        complaint, is_new = Complaint.register(
+            pool, list(Complaint.VALID_TYPES)[0],
+            source=None, detail=None
+        )
+
+        # And a CirculationEvent.
+        CirculationEvent.log(
+            self._db, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, 0, 1
+        )
+
+        # Delete the collection.
+        collection.delete()
+
+        # The collection and its ExternalIntegration has been deleted.
+        assert collection not in self._db.query(Collection).all()
+
+        assert integration not in self._db.query(ExternalIntegration).all()
+
+        settings = self._db.query(ConfigurationSetting).all()
+        for s in (setting1, setting2):
+            assert s not in settings
+
+        # The connection with the default library has been broken.
+        eq_([], self._default_library.collections)
+
+        # The deletion of the Collection's sole LicensePool has
+        # cascaded to Loan, Hold, Complaint, License, and
+        # CirculationEvent.
+        eq_([], patron.loans)
+        eq_([], patron2.holds)
+        for cls in (Loan, Hold, Complaint, License, CirculationEvent):
+            eq_([], self._db.query(cls).all())
+
+        # n.b. Annotations are associated with Identifier, not
+        # LicensePool, so they can and should survive the deletion of
+        # the Collection in which they were originally created.
 
 
 class TestCollectionForMetadataWrangler(DatabaseTest):
