@@ -718,14 +718,8 @@ class TestCollection(DatabaseTest):
         # Delete the collection.
         collection.delete()
 
-        # The collection and its ExternalIntegration has been deleted.
+        # The collection has been deleted.
         assert collection not in self._db.query(Collection).all()
-
-        assert integration not in self._db.query(ExternalIntegration).all()
-
-        settings = self._db.query(ConfigurationSetting).all()
-        for s in (setting1, setting2):
-            assert s not in settings
 
         # The connection with the default library has been broken.
         eq_([], self._default_library.collections)
@@ -741,6 +735,14 @@ class TestCollection(DatabaseTest):
         # n.b. Annotations are associated with Identifier, not
         # LicensePool, so they can and should survive the deletion of
         # the Collection in which they were originally created.
+
+        # The ExternalIntegration and its settings are still around,
+        # since multiple Collections can be based on the same
+        # ExternalIntegration.
+        assert integration in self._db.query(ExternalIntegration).all()
+        settings = self._db.query(ConfigurationSetting).all()
+        for s in (setting1, setting2):
+            assert s in settings
 
 
 class TestCollectionForMetadataWrangler(DatabaseTest):
