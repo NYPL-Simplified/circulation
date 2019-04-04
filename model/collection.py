@@ -101,7 +101,7 @@ class Collection(Base, HasFullTableCache):
     # When deleting a collection, this flag is set to True so that the deletion
     # script can take care of deleting it in the background. This is
     # useful for deleting large collections which can timeout when deleting.
-    set_to_delete = Column(Boolean, default=False)
+    marked_for_deletion = Column(Boolean, default=False)
 
     # A collection may have many child collections. For example,
     # An Overdrive collection may have many children corresponding
