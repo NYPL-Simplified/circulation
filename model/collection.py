@@ -211,8 +211,10 @@ class Collection(Base, HasFullTableCache):
     def by_protocol(cls, _db, protocol):
         """Query collections that get their licenses through the given protocol.
 
+        Collections marked for deletion are not included.
+
         :param protocol: Protocol to use. If this is None, all
-        Collections will be returned.
+        Collections will be returned except those marked for deletion.
         """
         qu = _db.query(Collection)
         if protocol:
@@ -220,12 +222,18 @@ class Collection(Base, HasFullTableCache):
             ExternalIntegration,
             ExternalIntegration.id==Collection.external_integration_id).filter(
                 ExternalIntegration.goal==ExternalIntegration.LICENSE_GOAL
-            ).filter(ExternalIntegration.protocol==protocol)
+            ).filter(ExternalIntegration.protocol==protocol).filter(
+                Collection.marked_for_deletion==False
+            )
+
         return qu
 
     @classmethod
     def by_datasource(cls, _db, data_source):
-        """Query collections that are associated with the given DataSource."""
+        """Query collections that are associated with the given DataSource.
+
+        Collections marked for deletion are not included.
+        """
         if isinstance(data_source, DataSource):
             data_source = data_source.name
 
@@ -233,7 +241,9 @@ class Collection(Base, HasFullTableCache):
                 cls.external_integration_id==ExternalIntegration.id)\
             .join(ExternalIntegration.settings)\
             .filter(ConfigurationSetting.key==Collection.DATA_SOURCE_NAME_SETTING)\
-            .filter(ConfigurationSetting.value==data_source)
+            .filter(ConfigurationSetting.value==data_source).filter(
+                Collection.marked_for_deletion==False
+            )
         return qu
 
     @hybrid_property

@@ -96,6 +96,12 @@ class TestCollection(DatabaseTest):
         eq_(set([self.collection, c1, c2]),
             set(Collection.by_protocol(self._db, None).all()))
 
+        # A collection marked for deletion is filtered out.
+        c1.marked_for_deletion = True
+        eq_([self.collection],
+            Collection.by_protocol(self._db, overdrive).all())
+
+
     def test_by_datasource(self):
         """Collections can be found by their associated DataSource"""
         c1 = self._collection(data_source_name=DataSource.GUTENBERG)
@@ -109,6 +115,10 @@ class TestCollection(DatabaseTest):
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         eq_(set([c2]),
             set(Collection.by_datasource(self._db, overdrive).all()))
+
+        # A collection marked for deletion is filtered out.
+        c2.marked_for_deletion = True
+        eq_(0, Collection.by_datasource(self._db, overdrive).count())
 
     def test_parents(self):
         # Collections can return all their parents recursively.
@@ -690,7 +700,7 @@ class TestCollection(DatabaseTest):
         setting1 = integration.set_setting("integration setting", "value2")
         setting2 = ConfigurationSetting.for_library_and_externalintegration(
             self._db, "library+integration setting",
-            self._default_library, integration, 
+            self._default_library, integration,
         )
         setting2.value = "value2"
 
@@ -703,7 +713,7 @@ class TestCollection(DatabaseTest):
         # The LicensePool also has a hold.
         patron2 = self._patron()
         hold, is_new = pool.on_hold_to(patron2)
-        
+
         # And a Complaint.
         complaint, is_new = Complaint.register(
             pool, list(Complaint.VALID_TYPES)[0],
