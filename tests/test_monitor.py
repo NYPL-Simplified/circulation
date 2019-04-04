@@ -948,7 +948,8 @@ class TestReaperMonitor(DatabaseTest):
         eternal = self._credential()
 
         m = CredentialReaper(self._db)
-        m.run_once()
+        result = m.run_once()
+        eq_("Items deleted: 1", result.achievements)
 
         # The expired credential has been reaped; the others
         # are still in the database.
@@ -967,7 +968,8 @@ class TestReaperMonitor(DatabaseTest):
         active.expires = now - datetime.timedelta(
             days=PatronRecordReaper.MAX_AGE - 1
         )
-        m.run_once()
+        result = m.run_once()
+        eq_("Items deleted: 1", result.achievements)
         remaining = self._db.query(Patron).all()
         eq_([active], remaining)
 
@@ -1004,8 +1006,9 @@ class TestCollectionReaper(DatabaseTest):
         c2 = self._collection()
         c2.marked_for_deletion = True
         reaper = CollectionReaper(self._db)
-        reaper.run_once()
+        result = reaper.run_once()
 
         # The Collection marked for deletion has been deleted; the other
         # one is unaffected.
         eq_([c1], self._db.query(Collection).all())
+        eq_("Items deleted: 1", result.achievements)

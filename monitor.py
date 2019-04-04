@@ -794,6 +794,8 @@ class ReaperMonitor(Monitor):
         for i in qu:
             self.log.info("Deleting %r", i)
             self.delete(i)
+            rows_deleted += 1
+        return TimestampData(achievements="Items deleted: %d" % rows_deleted)
 
     def delete(self, row):
         """Delete a row from the database."""
