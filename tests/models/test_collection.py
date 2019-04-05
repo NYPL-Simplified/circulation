@@ -18,7 +18,9 @@ from ...model.coverage import (
     CoverageRecord,
     WorkCoverageRecord,
 )
+from ...model.circulationevent import CirculationEvent
 from ...model.collection import Collection
+from ...model.complaint import Complaint
 from ...model.configuration import (
     ConfigurationSetting,
     ExternalIntegration,
@@ -28,6 +30,12 @@ from ...model.datasource import DataSource
 from ...model.edition import Edition
 from ...model.hasfulltablecache import HasFullTableCache
 from ...model.identifier import Identifier
+from ...model.licensing import (
+    Hold,
+    Loan,
+    License,
+    LicensePool,
+)
 from ...model.work import MaterializedWorkWithGenre as work_model
 
 class TestCollection(DatabaseTest):
@@ -89,6 +97,12 @@ class TestCollection(DatabaseTest):
         eq_(set([self.collection, c1, c2]),
             set(Collection.by_protocol(self._db, None).all()))
 
+        # A collection marked for deletion is filtered out.
+        c1.marked_for_deletion = True
+        eq_([self.collection],
+            Collection.by_protocol(self._db, overdrive).all())
+
+
     def test_by_datasource(self):
         """Collections can be found by their associated DataSource"""
         c1 = self._collection(data_source_name=DataSource.GUTENBERG)
@@ -102,6 +116,10 @@ class TestCollection(DatabaseTest):
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         eq_(set([c2]),
             set(Collection.by_datasource(self._db, overdrive).all()))
+
+        # A collection marked for deletion is filtered out.
+        c2.marked_for_deletion = True
+        eq_(0, Collection.by_datasource(self._db, overdrive).count())
 
     def test_parents(self):
         # Collections can return all their parents recursively.
@@ -666,6 +684,127 @@ class TestCollection(DatabaseTest):
         )
         expect(qu, [overdrive_ebook])
 
+    def test_delete(self):
+        """Verify that Collection.delete will only operate on collections
+        flagged for deletion, and that deletion cascades to all
+        relevant related database objects.
+        """
+
+        # This collection is doomed.
+        collection = self._default_collection
+
+        # It's associated with a library.
+        assert self._default_library in collection.libraries
+
+        # It has an ExternalIntegration, which has some settings.
+        integration = collection.external_integration
+        setting1 = integration.set_setting("integration setting", "value2")
+        setting2 = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library+integration setting",
+            self._default_library, integration,
+        )
+        setting2.value = "value2"
+
+        # It's got a Work that has a LicensePool, which has a License,
+        # which has a loan.
+        work = self._work(with_license_pool=True)
+        [pool] = work.license_pools
+        license = self._license(pool)
+        patron = self._patron()
+        loan, is_new = license.loan_to(patron)
+
+        # The LicensePool also has a hold.
+        patron2 = self._patron()
+        hold, is_new = pool.on_hold_to(patron2)
+
+        # And a Complaint.
+        complaint, is_new = Complaint.register(
+            pool, list(Complaint.VALID_TYPES)[0],
+            source=None, detail=None
+        )
+
+        # And a CirculationEvent.
+        CirculationEvent.log(
+            self._db, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, 0, 1
+        )
+
+        # There's a second Work which has _two_ LicensePools from two
+        # different Collections -- the one we're about to delete and
+        # another Collection.
+        work2 = self._work(with_license_pool=True)
+        collection2 = self._collection()
+        pool2 = self._licensepool(None, collection=collection2)
+        work2.license_pools.append(pool2)
+
+        # Finally, here's a mock ExternalSearchIndex so we can track when
+        # Works are removed from the search index.
+        class MockExternalSearchIndex(object):
+            removed = []
+            def remove_work(self, work):
+                self.removed.append(work)
+        index = MockExternalSearchIndex()
+
+        # delete() will not work on a collection that's not marked for
+        # deletion.
+        assert_raises_regexp(
+            Exception,
+            "Cannot delete %s: it is not marked for deletion." % collection.name,
+            collection.delete
+        )
+
+        # Delete the collection.
+        collection.marked_for_deletion = True
+        collection.delete(search_index=index)
+
+        # It's gone.
+        assert collection not in self._db.query(Collection).all()
+
+        # The default library now has no collections.
+        eq_([], self._default_library.collections)
+
+        # The deletion of the Collection's sole LicensePool has
+        # cascaded to Loan, Hold, Complaint, License, and
+        # CirculationEvent.
+        eq_([], patron.loans)
+        eq_([], patron2.holds)
+        for cls in (Loan, Hold, Complaint, License, CirculationEvent):
+            eq_([], self._db.query(cls).all())
+
+        # n.b. Annotations are associated with Identifier, not
+        # LicensePool, so they can and should survive the deletion of
+        # the Collection in which they were originally created.
+
+        # The first Work is still around -- it just no longer has any
+        # LicensePools.
+        eq_([], work.license_pools)
+
+        # The second Work is still around, and it still has the other
+        # LicensePool.
+        eq_([pool2], work2.license_pools)
+
+        # Our search index was told to remove the first work (which no longer
+        # has any LicensePools), but not the second.
+        eq_([work], index.removed)
+
+        # The ExternalIntegration and its settings are still around,
+        # since multiple Collections can be based on the same
+        # ExternalIntegration.
+        assert integration in self._db.query(ExternalIntegration).all()
+        settings = self._db.query(ConfigurationSetting).all()
+        for s in (setting1, setting2):
+            assert s in settings
+
+        # If no search_index is passed into delete() (the default behavior),
+        # we try to instantiate the normal ExternalSearchIndex object. Since
+        # no search index is configured, this will raise an exception -- but
+        # delete() will catch the exception and carry out the delete,
+        # without trying to delete any Works from the search index.
+        collection2.marked_for_deletion = True
+        collection2.delete()
+
+        # We've now deleted every LicensePool created for this test.
+        eq_(0, self._db.query(LicensePool).count())
+        eq_([], work2.license_pools)
 
 class TestCollectionForMetadataWrangler(DatabaseTest):
 
