@@ -471,6 +471,14 @@ class TestSweepMonitor(DatabaseTest):
         monitor = MockSweepMonitor(self._db, batch_size=-1)
         eq_(MockSweepMonitor.DEFAULT_BATCH_SIZE, monitor.batch_size)
 
+    def test_run_against_empty_table(self):
+        # If there's nothing in the table to be swept, a SweepMonitor runs
+        # to completion and accomplishes nothing.
+        self.monitor.run()
+        timestamp = self.monitor.timestamp()
+        eq_("Records processed: 0.", timestamp.achievements)
+        eq_(None, timestamp.exception)
+
     def test_run_sweeps_entire_table(self):
         # Three Identifiers -- the batch size is 2.
         i1, i2, i3 = [self._identifier() for i in range(3)]
