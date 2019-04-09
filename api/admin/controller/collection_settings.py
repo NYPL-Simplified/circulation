@@ -57,6 +57,8 @@ class CollectionSettingsController(SettingsController):
                 protocolClass = self.find_protocol_class(collection_object)
 
             collection_dict["self_test_results"] = self._get_prior_test_results(collection_object, protocolClass)
+            collection_dict["marked_for_deletion"] = collection_object.marked_for_deletion
+
             collections.append(collection_dict)
 
         return dict(
@@ -298,5 +300,7 @@ class CollectionSettingsController(SettingsController):
             return MISSING_COLLECTION
         if len(collection.children) > 0:
             return CANNOT_DELETE_COLLECTION_WITH_CHILDREN
-        self._db.delete(collection)
+        
+        # Flag the collection to be deleted by script in the background.
+        collection.marked_for_deletion = True
         return Response(unicode(_("Deleted")), 200)
