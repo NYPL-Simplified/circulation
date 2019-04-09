@@ -9,6 +9,28 @@
 # /bin directory. It assumes your LIBSIMPLE_DIR is /var/www/circulation
 # unless you set the environment variable otherwise.
 
+# Process an optional delay in starting the script. This parameter takes
+# the maximum number of minutes to delay (using sleep) the start of the script
+# to be run. This allows us to stagger script start times in cron so all the
+# scripts don't hit the database at the same time. 
+# example: bin/run -d 12 script
+# Will delay starting the script between 0 - 12 minutes
+while getopts ":d:" opt; do
+  case $opt in
+    d)
+      DELAY=$(($RANDOM % $OPTARG))
+      sleep $(($DELAY * 60))
+      # Fix parameter order for rest of script.
+      shift
+      shift
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument."
+      exit 127
+      ;;
+  esac
+done
+
 # This is the full script as entered and may include a directory name
 # relative to Library Simplified directory/circulation/bin.
 SCRIPT_PATH="$1"
