@@ -6,6 +6,7 @@ import json
 from pypostalcode import PostalCodeDatabase
 import re
 from StringIO import StringIO
+import urllib
 import uszipcode
 import uuid
 import wcag_contrast_ratio
@@ -309,15 +310,18 @@ class LibrarySettingsController(SettingsController):
 
             if flagged:
                 for nation in ["US", "CA"]:
-                    service_area_object = '{"%s": "%s"}' % (nation, value)
-
+                    service_area_object = urllib.quote('{"%s": "%s"}' % (nation, value))
                     registry_check = self.ask_registry(service_area_object)
-                    if registry_check:
+                    if registry_check and isinstance(registry_check, ProblemDetail):
+                        return registry_check
+                    elif registry_check:
                         locations[nation].append(value)
+                        flagged = False
                         # If the registry has established that this is a US location, don't bother also trying to find it in Canada
                         break
-                    else:
-                        return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
+
+            if flagged:
+                return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
 
         return json.dumps(locations)
 
@@ -333,6 +337,9 @@ class LibrarySettingsController(SettingsController):
             base_url = registry.integration.url + "/coverage?coverage="
 
             response = HTTP.debuggable_get(base_url + service_area_object)
+            if not response.status_code == 200:
+                return REMOTE_INTEGRATION_FAILED.detailed(_("Unable to contact the registry at %(url)s.", url=registry.integration.url))
+
             unknown_place = json.loads(response.content).get("unknown")
             if not unknown_place:
                 return True
