@@ -1356,6 +1356,7 @@ class Work(Base):
              Work.summary_text,
              Work.quality,
              Work.rating,
+             Work.random,
              Work.popularity,
             ],
             Work.id.in_((w.id for w in works))

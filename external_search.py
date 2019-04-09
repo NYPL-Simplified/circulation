@@ -597,7 +597,7 @@ class ExternalSearchIndex(HasSelfTests):
 
 class ExternalSearchIndexVersions(object):
 
-    VERSIONS = ['v2', 'v3']
+    VERSIONS = ['v2', 'v3', 'v4']
 
     @classmethod
     def latest(cls):
@@ -612,11 +612,96 @@ class ExternalSearchIndexVersions(object):
         return getattr(cls, version_method)()
 
     @classmethod
-    def map_fields(cls, fields, field_description):
-        mapping = {"properties": {}}
+    def map_fields(cls, fields, field_description, mapping=None):
+        mapping = mapping or {"properties": {}}
         for field in fields:
             mapping["properties"][field] = field_description
         return mapping
+
+    @classmethod
+    def v4_body(cls):
+        """The v4 body adds raw versions of a work's sort_title and
+        sort_author, so that lists can be sorted by those fields rather
+        than by relevance.
+        """
+        if MAJOR_VERSION == 1:
+            string_type = 'string'
+        else:
+            string_type = 'text'
+
+        settings = {
+            "analysis": {
+                "filter": {
+                    "en_stop_filter": {
+                        "type": "stop",
+                        "stopwords": ["_english_"]
+                    },
+                    "en_stem_filter": {
+                        "type": "stemmer",
+                        "name": "english"
+                    },
+                    "en_stem_minimal_filter": {
+                        "type": "stemmer",
+                        "name": "english"
+                    },
+                },
+                "analyzer" : {
+                    "en_analyzer": {
+                        "type": "custom",
+                        "char_filter": ["html_strip"],
+                        "tokenizer": "standard",
+                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
+                    },
+                    "en_minimal_analyzer": {
+                        "type": "custom",
+                        "char_filter": ["html_strip"],
+                        "tokenizer": "standard",
+                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
+                    },
+                }
+            }
+        }
+
+        mapping = cls.map_fields(
+            fields=["title", "series", "subtitle", "summary", "classifications.term"],
+            field_description={
+                "type": string_type,
+                "analyzer": "en_analyzer",
+                "fields": {
+                    "minimal": {
+                        "type": string_type,
+                        "analyzer": "en_minimal_analyzer"},
+                    "standard": {
+                        "type": string_type,
+                        "analyzer": "standard"
+                    }
+                }}
+        )
+
+        # These fields are used for sorting and filtering search
+        # results, but not for handling search queries.
+        fields_for_type = {
+            string_type: ['sort_author', 'sort_title'],
+            'date': ['availability_time'],
+            'boolean': ['availability', 'open_access'],
+            'float': ['random'],
+        }
+
+        for type, fields in fields_for_type.items():
+            mapping = cls.map_fields(
+                fields=fields,
+                field_description={
+                    "type": type,
+                    "index": False,
+                    "store": True,
+                },
+                mapping=mapping
+            )
+
+        mappings = { ExternalSearchIndex.work_document_type : mapping }
+
+        return dict(settings=settings, mappings=mappings)
+
 
     @classmethod
     def v3_body(cls):
