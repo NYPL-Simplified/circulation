@@ -1396,15 +1396,36 @@ class Work(Base):
         from customlist import CustomListEntry
         from licensing import LicensePool
 
-        collections = select(
-            [LicensePool.collection_id]
+        # We need information about LicensePools for a few reasons:
+        #
+        # * We always want to filter out Works that are not available in
+        #   any of the collections associated with a given library.
+        # * A patron may want to sort a list of books by availability
+        #   date.
+        # * A patron may want to show only books currently available
+        #   or open-access books.
+        #
+        # Whenever LicensePool.open_access is changed, or
+        # licenses_available moves to zero or away from zero, the
+        # LicensePool signals that its Work needs reindexing.
+        licensepools = select(
+            [
+                LicensePool.id,
+                LicensePool.collection_id,
+                LicensePool.open_access,
+                LicensePool.licenses_available > 0,
+                LicensePool.availability_time,
+            ]
         ).where(
             and_(
                 LicensePool.work_id==work_id_column,
-                or_(LicensePool.open_access, LicensePool.licenses_owned>0)
+                or_(
+                    LicensePool.open_access, 
+                    LicensePool.licenses_owned>0,
+                )
             )
-        ).alias("collections_subquery")
-        collections_json = query_to_json_array(collections)
+        ).alias("licensepools_subquery")
+        licensepools_json = query_to_json_array(licensepools)
 
         # This subquery gets CustomList IDs for all lists
         # that contain the work.
@@ -1518,6 +1539,7 @@ class Work(Base):
         search_data = select(
             [works_alias.c.work_id.label("_id"),
              works_alias.c.title,
+             works_alias.c.sort_title,
              works_alias.c.subtitle,
              works_alias.c.series,
              works_alias.c.language,
@@ -1528,6 +1550,7 @@ class Work(Base):
              works_alias.c.publisher,
              works_alias.c.imprint,
              works_alias.c.permanent_work_id,
+             works_alias.c.random,
 
              # Convert true/false to "Fiction"/"Nonfiction".
              case(
@@ -1544,7 +1567,7 @@ class Work(Base):
              works_alias.c.popularity,
 
              # Here are all the subqueries.
-             collections_json.label("collections"),
+             licensepools_json.label("licensepools"),
              customlists_json.label("customlists"),
              contributors_json.label("contributors"),
              subjects_json.label("classifications"),
@@ -1559,6 +1582,7 @@ class Work(Base):
         search_json = query_to_json(search_data)
 
         result = _db.execute(search_json)
+        set_trace()
         if result:
             return [r[0] for r in result]
 

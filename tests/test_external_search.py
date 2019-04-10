@@ -581,6 +581,12 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         query = self.search.query_works
         expect = self._expect_results
 
+        # Next, test sorting.
+        from ..lane import SearchFacets
+        facets = SearchFacets(order=SearchFacets.ORDER_AUTHOR)
+        expect([self.moby_dick], None, None, facets=facets)
+        set_trace()
+
         # First, test pagination.
         first_item = Pagination(size=1, offset=0)
         expect(self.moby_dick, "moby dick", None, first_item)

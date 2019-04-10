@@ -393,6 +393,7 @@ class ExternalSearchIndex(HasSelfTests):
         a = time.time()
         # NOTE: This is the code that actually executes the ElasticSearch
         # request.
+        set_trace()
         results = search[start:stop]
         if debug:
             b = time.time()
@@ -954,6 +955,8 @@ class Query(SearchBase):
                 else:
                     query = Q("bool", must=query, filter=built_filter)
 
+            # TODO: add the sort order, if there is one
+
         # There you go!
         return query
 
@@ -961,6 +964,11 @@ class Query(SearchBase):
         """Build an Elasticsearch Query object for this query string.
         """
         query_string = self.query_string
+
+        if not query_string:
+            # There is no 'query' part of this Query -- we will return
+            # all records that match the filter.
+            return self.match_all_query()
 
         # The search query will create a dis_max query, which tests a
         # number of hypotheses about what the query string might
@@ -1085,6 +1093,10 @@ class Query(SearchBase):
             kwargs = dict(should=queries, minimum_should_match=1)
 
         return Q("bool", boost=float(boost), **kwargs)
+
+    @classmethod
+    def match_all_query(cls):
+        return Q("match_all")
 
     @classmethod
     def simple_query_string_query(cls, query_string, fields=None):
@@ -1220,11 +1232,12 @@ class QueryParser(object):
         # get chomped up by the search for 'fiction'.
 
         # Handle the 'romance' part of 'young adult romance'
-        genre, genre_match = KeywordBasedClassifier.genre_match(query_string)
-        if genre:
-            query_string = self.add_match_query(
-                genre.name, 'genres.name', query_string, genre_match
-            )
+        if query_string:
+            genre, genre_match = KeywordBasedClassifier.genre_match(query_string)
+            if genre:
+                query_string = self.add_match_query(
+                    genre.name, 'genres.name', query_string, genre_match
+                )
 
         # Handle the 'young adult' part of 'young adult romance'
         audience, audience_match = KeywordBasedClassifier.audience_match(
@@ -1346,6 +1359,10 @@ class Filter(SearchBase):
     This covers every reason you might want to not exclude a search
     result that would otherise match the query string -- wrong media,
     wrong language, not available in the patron's library, etc.
+
+    This also covers every way you might want to order the search
+    results: either by relevance to the search query (the default), or
+    by a specific field (e.g. author) as described by a Facets object.
     """
 
     @classmethod
