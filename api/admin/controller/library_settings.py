@@ -340,6 +340,6 @@ class LibrarySettingsController(SettingsController):
             if not response.status_code == 200:
                 return REMOTE_INTEGRATION_FAILED.detailed(_("Unable to contact the registry at %(url)s.", url=registry.integration.url))
 
-            unknown_place = json.loads(response.content).get("unknown")
-            if not unknown_place:
+            found_place = not (json.loads(response.content).get("unknown") or json.loads(response.content).get("ambiguous"))
+            if found_place:
                 return True
