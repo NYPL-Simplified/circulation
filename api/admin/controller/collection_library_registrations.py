@@ -3,7 +3,7 @@ import flask
 from flask import Response
 from flask_babel import lazy_gettext as _
 from api.admin.problem_details import *
-from api.odl import ODLWithConsolidatedCopiesAPI, SharedODLAPI
+from api.odl import SharedODLAPI
 from api.registry import (
     Registration,
     RemoteRegistry,

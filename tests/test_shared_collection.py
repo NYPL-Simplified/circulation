@@ -15,7 +15,7 @@ from api.shared_collection import (
     BaseSharedCollectionAPI,
 )
 from core.config import CannotLoadConfiguration
-from api.odl import ODLWithConsolidatedCopiesAPI
+from api.odl import ODLAPI
 from core.model import (
     ConfigurationSetting,
     Hold,
@@ -91,10 +91,10 @@ class TestSharedCollectionAPI(DatabaseTest):
         eq_("doomed!", e.message)
 
     def test_api_for_licensepool(self):
-        collection = self._collection(protocol=ODLWithConsolidatedCopiesAPI.NAME)
+        collection = self._collection(protocol=ODLAPI.NAME)
         edition, pool = self._edition(with_license_pool=True, collection=collection)
         shared_collection = SharedCollectionAPI(self._db)
-        assert isinstance(shared_collection.api_for_licensepool(pool), ODLWithConsolidatedCopiesAPI)
+        assert isinstance(shared_collection.api_for_licensepool(pool), ODLAPI)
 
     def test_api_for_collection(self):
         collection = self._collection()
@@ -103,9 +103,9 @@ class TestSharedCollectionAPI(DatabaseTest):
         # raises an exception.
         assert_raises(CirculationException, shared_collection.api, collection)
 
-        collection.protocol = ODLWithConsolidatedCopiesAPI.NAME
+        collection.protocol = ODLAPI.NAME
         shared_collection = SharedCollectionAPI(self._db)
-        assert isinstance(shared_collection.api(collection), ODLWithConsolidatedCopiesAPI)
+        assert isinstance(shared_collection.api(collection), ODLAPI)
 
     def test_register(self):
         # An auth document URL is required to register.

@@ -6,7 +6,7 @@ from nose.tools import (
 import flask
 from werkzeug import MultiDict
 from api.admin.exceptions import *
-from api.odl import ODLWithConsolidatedCopiesAPI, SharedODLAPI
+from api.odl import SharedODLAPI
 from api.registry import (
     Registration,
     RemoteRegistry,
