@@ -755,6 +755,12 @@ class SearchFacets(FacetsWithEntryPoint):
         """
         super(SearchFacets, self).modify_search_filter(filter)
 
+        if self.order is not None:
+            # By default, search results are ordered by quality of the
+            # match. This SearchFacets object wants to order them some
+            # other way.
+            set_trace()
+
         # The incoming 'media' argument takes precedence over any
         # media restriction defined by the WorkList or the EntryPoint.
         if self.media == Edition.ALL_MEDIUM:

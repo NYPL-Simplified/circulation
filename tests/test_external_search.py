@@ -594,6 +594,14 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             "moby dick", None, two_per_page
         )
 
+        # Normally, a search for 'moby duck' would be ordered by relevance.
+        # But we can force the results to be ordered by title instead.
+        facets = SearchFacets(order=SearchFacets.ORDER_TITLE)
+        expect(
+            [self.moby_dick, self.moby_duck],
+            "moby duck", None, facets=facets
+        )
+
         # Now try some different search queries.
 
         # Search in title.
