@@ -1410,7 +1410,7 @@ class Work(Base):
         # LicensePool signals that its Work needs reindexing.
         licensepools = select(
             [
-                LicensePool.id.label('id'),
+                LicensePool.id.label('licensepool_id'),
                 LicensePool.collection_id.label('collection_id'),
                 LicensePool.open_access.label('open_access'),
                 LicensePool.licenses_available.label('available') > 0,
@@ -1435,7 +1435,7 @@ class Work(Base):
         # should be featured for a lane based on CustomLists.
         customlists = select(
             [
-                CustomListEntry.list_id.label('id'),
+                CustomListEntry.list_id.label('list_id'),
                 CustomListEntry.featured.label('featured')
             ]
         ).where(

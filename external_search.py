@@ -1460,7 +1460,7 @@ class Filter(SearchBase):
         f = None
         if collection_ids:
             ids = filter_ids(collection_ids)
-            f = chain(f, F('terms', **{'collections.collection_id' : ids}))
+            f = chain(f, F('terms', **{'licensepools.collection_id' : ids}))
 
         if self.media:
             f = chain(f, F('terms', medium=scrub_list(self.media)))

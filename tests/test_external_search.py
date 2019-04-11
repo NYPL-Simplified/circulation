@@ -581,11 +581,6 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         query = self.search.query_works
         expect = self._expect_results
 
-        # Next, test sorting.
-        from ..lane import SearchFacets
-        facets = SearchFacets(order=SearchFacets.ORDER_AUTHOR)
-        expect([self.moby_dick], None, None, facets=facets)
-
         # First, test pagination.
         first_item = Pagination(size=1, offset=0)
         expect(self.moby_dick, "moby dick", None, first_item)
@@ -1733,7 +1728,7 @@ class TestFilter(DatabaseTest):
         # restriction imposed by the fact that does_not_inherit
         # is, itself, associated with a specific library.
         filter = Filter.from_worklist(self._db, does_not_inherit, facets)
-        eq_({'terms': {'collections.collection_id': [self._default_collection.id]}},
+        eq_({'terms': {'licensepools.collection_id': [self._default_collection.id]}},
             filter.build().to_dict())
 
     def test_build(self):
@@ -1816,7 +1811,7 @@ class TestFilter(DatabaseTest):
         # spaces, and converts to lowercase.
 
         eq_(
-            {'terms': {'collections.collection_id': [self._default_collection.id]}},
+            {'terms': {'licensepools.collection_id': [self._default_collection.id]}},
             collection.to_dict()
         )
 
