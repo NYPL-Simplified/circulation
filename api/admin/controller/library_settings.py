@@ -260,8 +260,7 @@ class LibrarySettingsController(SettingsController):
             return "data:image/png;base64,%s" % b64
 
     def validate_geographic_areas(self, values):
-        # Note: the validator does not recognize data from US territories other than Puerto Rico, and
-        # can recognize Canadian locations only by FSA (first three characters of zipcode) or by province abbreviation.
+        # Note: the validator does not recognize data from US territories other than Puerto Rico.
 
         us_search = uszipcode.SearchEngine(simple_zipcode=True)
         ca_search = PostalCodeDatabase()
@@ -308,20 +307,14 @@ class LibrarySettingsController(SettingsController):
                 else:
                     flagged = True
 
-            if flagged:
-                for nation in ["US", "CA"]:
-                    service_area_object = urllib.quote('{"%s": "%s"}' % (nation, value))
-                    registry_check = self.ask_registry(service_area_object)
-                    if registry_check and isinstance(registry_check, ProblemDetail):
-                        return registry_check
-                    elif registry_check:
-                        locations[nation].append(value)
-                        flagged = False
-                        # If the registry has established that this is a US location, don't bother also trying to find it in Canada
-                        break
-
-            if flagged:
-                return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
+                if flagged:
+                    registry_response = self.find_location_through_registry(value)
+                    if registry_response and isinstance(registry_response, ProblemDetail):
+                        return registry_response
+                    elif registry_response:
+                        locations[registry_response].append(value)
+                    else:
+                        return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
 
         return json.dumps(locations)
 
@@ -329,18 +322,32 @@ class LibrarySettingsController(SettingsController):
         info = "%s, %s" % (city, state_or_province)
         return { zip: info }
 
-    def ask_registry(self, service_area_object):
+    def find_location_through_registry(self, value):
+        for nation in ["US", "CA"]:
+            service_area_object = urllib.quote('{"%s": "%s"}' % (nation, value))
+            registry_check = self.ask_registry(service_area_object)
+            if registry_check and isinstance(registry_check, ProblemDetail):
+                return registry_check
+            elif registry_check:
+                # If the registry has established that this is a US location, don't bother also trying to find it in Canada
+                return nation
+
+    def ask_registry(self, service_area_object, do_get=HTTP.debuggable_get):
         # If the circulation manager doesn't know about this location, check whether the Library Registry does.
+        result = None
         for registry in RemoteRegistry.for_protocol_and_goal(
             self._db, ExternalIntegration.OPDS_REGISTRATION, ExternalIntegration.DISCOVERY_GOAL
         ):
             base_url = registry.integration.url + "/coverage?coverage="
 
-            response = HTTP.debuggable_get(base_url + service_area_object)
+            response = do_get(base_url + service_area_object)
             if not response.status_code == 200:
-                return REMOTE_INTEGRATION_FAILED.detailed(_("Unable to contact the registry at %(url)s.", url=registry.integration.url))
+                result = REMOTE_INTEGRATION_FAILED.detailed(_("Unable to contact the registry at %(url)s.", url=registry.integration.url))
 
-            content = json.loads(response.content)
-            found_place = not (content.get("unknown") or content.get("ambiguous"))
-            if found_place:
-                return True
+            if hasattr(response, "content"):
+                content = json.loads(response.content)
+                found_place = not (content.get("unknown") or content.get("ambiguous"))
+                if found_place:
+                    return True
+
+        return result

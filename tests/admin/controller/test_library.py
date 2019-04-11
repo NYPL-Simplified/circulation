@@ -6,18 +6,26 @@ from nose.tools import (
 import base64
 import flask
 import json
+import urllib
 from StringIO import StringIO
 from werkzeug import ImmutableMultiDict, MultiDict
 from api.admin.exceptions import *
 from api.config import Configuration
+from api.registry import (
+    Registration,
+    RemoteRegistry,
+)
 from core.facets import FacetConstants
 from core.model import (
     AdminRole,
+    ConfigurationSetting,
+    ExternalIntegration,
     get_one,
     get_one_or_create,
-    ConfigurationSetting,
     Library,
 )
+from core.testing import MockRequestsResponse
+from api.admin.controller.library_settings import LibrarySettingsController
 from test_controller import SettingsControllerTest
 
 class TestLibrarySettings(SettingsControllerTest):
@@ -94,6 +102,92 @@ class TestLibrarySettings(SettingsControllerTest):
             eq_([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_RANDOM],
                settings.get(Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
             eq_(["French"], settings.get(Configuration.LARGE_COLLECTION_LANGUAGES))
+
+    def test_libraries_geographic_errors(self):
+        original_controller = self.manager.admin_library_settings_controller
+        db = self._db
+        class Mock(LibrarySettingsController):
+            def __init__(self):
+                self._db = db
+                self.value = None
+
+            def mock_find_location_through_registry(self, value):
+                self.value = value
+            def mock_find_location_through_registry_with_error(self, value):
+                self.value = value
+                return REMOTE_INTEGRATION_FAILED
+
+        controller = Mock()
+        controller.find_location_through_registry = controller.mock_find_location_through_registry
+        library = self._library()
+
+        # Test invalid geographic input
+
+        # Invalid US zipcode
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = self.library_form(
+                library, {Configuration.LIBRARY_SERVICE_AREA: "00000"}
+            )
+            response = controller.process_post()
+            eq_(response.uri, UNKNOWN_LOCATION.uri)
+            eq_(response.detail, '"00000" is not a valid U.S. zipcode.')
+            # The controller should have returned the problem detail without bothering to ask the registry.
+            eq_(controller.value, None)
+
+        # Invalid Canadian zipcode
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = self.library_form(
+                library, {Configuration.LIBRARY_SERVICE_AREA: "X1Y"}
+            )
+            response = controller.process_post()
+            eq_(response.uri, UNKNOWN_LOCATION.uri)
+            eq_(response.detail, '"X1Y" is not a valid Canadian zipcode.')
+            # The controller should have returned the problem detail without bothering to ask the registry.
+            eq_(controller.value, None)
+
+        # Invalid 2-letter abbreviation
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = self.library_form(
+                library, {Configuration.LIBRARY_SERVICE_AREA: "ZZ"}
+            )
+            response = controller.process_post()
+            eq_(response.uri, UNKNOWN_LOCATION.uri)
+            eq_(response.detail, '"ZZ" is not a valid U.S. state or Canadian province abbreviation.')
+            # The controller should have returned the problem detail without bothering to ask the registry.
+            eq_(controller.value, None)
+
+        # County with wrong state
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = self.library_form(
+                library, {Configuration.LIBRARY_SERVICE_AREA: "Fairfield County, FL"}
+            )
+            response = controller.process_post()
+            eq_(response.uri, UNKNOWN_LOCATION.uri)
+            eq_(response.detail, 'Unable to locate "Fairfield County, FL".')
+            # The controller should go ahead and call find_location_through_registry
+            eq_(controller.value, "Fairfield County, FL")
+
+        # City with wrong state
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = self.library_form(
+                library, {Configuration.LIBRARY_SERVICE_AREA: "Albany, NJ"}
+            )
+            response = controller.process_post()
+            eq_(response.uri, UNKNOWN_LOCATION.uri)
+            eq_(response.detail, 'Unable to locate "Albany, NJ".')
+            # The controller should go ahead and call find_location_through_registry
+            eq_(controller.value, "Albany, NJ")
+
+        # Can't connect to registry
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = self.library_form(
+                library, {Configuration.LIBRARY_SERVICE_AREA: "Ontario"}
+            )
+            controller.find_location_through_registry = controller.mock_find_location_through_registry_with_error
+            response = controller.process_post()
+            eq_(controller.value, "Ontario")
+            # The controller goes ahead and calls find_location_through_registry, but it can't connect to the registry.
+            eq_(response.uri, REMOTE_INTEGRATION_FAILED.uri)
 
     def test_libraries_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):
@@ -226,53 +320,6 @@ class TestLibrarySettings(SettingsControllerTest):
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, UNKNOWN_LANGUAGE.uri)
             eq_(response.detail, '"abc" is not a valid language code.')
-
-        # Test invalid geographic input
-
-        # Invalid US zipcode
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: "00000"}
-            )
-            response = self.manager.admin_library_settings_controller.process_post()
-            eq_(response.uri, UNKNOWN_LOCATION.uri)
-            eq_(response.detail, '"00000" is not a valid U.S. zipcode.')
-
-        # Invalid Canadian zipcode
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: "X1Y"}
-            )
-            response = self.manager.admin_library_settings_controller.process_post()
-            eq_(response.uri, UNKNOWN_LOCATION.uri)
-            eq_(response.detail, '"X1Y" is not a valid Canadian zipcode.')
-
-        # Invalid 2-letter abbreviation
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: "ZZ"}
-            )
-            response = self.manager.admin_library_settings_controller.process_post()
-            eq_(response.uri, UNKNOWN_LOCATION.uri)
-            eq_(response.detail, '"ZZ" is not a valid U.S. state or Canadian province abbreviation.')
-
-        # County with wrong state
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: "Fairfield County, FL"}
-            )
-            response = self.manager.admin_library_settings_controller.process_post()
-            eq_(response.uri, UNKNOWN_LOCATION.uri)
-            eq_(response.detail, 'Unable to locate "Fairfield County, FL".')
-
-        # City with wrong state
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: "Albany, NJ"}
-            )
-            response = self.manager.admin_library_settings_controller.process_post()
-            eq_(response.uri, UNKNOWN_LOCATION.uri)
-            eq_(response.detail, 'Unable to locate "Albany, NJ".')
 
         # Test a bad contrast ratio between the web foreground and
         # web background colors.
@@ -444,3 +491,86 @@ class TestLibrarySettings(SettingsControllerTest):
 
         library = get_one(self._db, Library, uuid=library.uuid)
         eq_(None, library)
+
+    def test_find_location_through_registry(self):
+        library = self._default_library
+        controller = self.manager.admin_library_settings_controller
+        original_ask_registry = controller.ask_registry
+        get = self.do_request
+        test = self
+        class Mock(LibrarySettingsController):
+            called_with = []
+            def mock_ask_registry(self, service_area_object):
+                places = {"US": ["Chicago"], "CA": ["Ontario"]}
+                service_area_info = json.loads(urllib.unquote(service_area_object))
+                nation = service_area_info.keys()[0]
+                city_or_county = service_area_info.values()[0]
+                if city_or_county == "ERROR":
+                    test.responses.append(MockRequestsResponse(502))
+                elif city_or_county in places[nation]:
+                    self.called_with.append(service_area_info)
+                    test.responses.append(MockRequestsResponse(200, content=json.dumps(dict(unknown=None, ambiguous=None))))
+                else:
+                    self.called_with.append(service_area_info)
+                    test.responses.append(MockRequestsResponse(200, content=json.dumps(dict(unknown=[city_or_county]))))
+                return original_ask_registry(service_area_object, get)
+
+        mock_controller = Mock(controller)
+        mock_controller.ask_registry = mock_controller.mock_ask_registry
+
+        self._registry("https://registry_url")
+
+        us_response = mock_controller.find_location_through_registry("Chicago")
+        eq_(len(mock_controller.called_with), 1)
+        eq_({"US": "Chicago"}, mock_controller.called_with[0])
+        eq_(us_response, "US")
+
+        mock_controller.called_with = []
+
+        ca_response = mock_controller.find_location_through_registry("Ontario")
+        eq_(len(mock_controller.called_with), 2)
+        eq_({"US": "Ontario"}, mock_controller.called_with[0])
+        eq_({"CA": "Ontario"}, mock_controller.called_with[1])
+        eq_(ca_response, "CA")
+
+        mock_controller.called_with = []
+
+        nowhere_response = mock_controller.find_location_through_registry("Not a real place")
+        eq_(len(mock_controller.called_with), 2)
+        eq_({"US": "Not a real place"}, mock_controller.called_with[0])
+        eq_({"CA": "Not a real place"}, mock_controller.called_with[1])
+        eq_(nowhere_response, None)
+
+        error_response = mock_controller.find_location_through_registry("ERROR")
+        eq_(error_response.detail, "Unable to contact the registry at https://registry_url.")
+        eq_(error_response.status_code, 502)
+
+    def test_ask_registry(self):
+        controller = self.manager.admin_library_settings_controller
+        test = self
+        class Mock(LibrarySettingsController):
+            called_with = []
+            def mock_ask_registry(self, service_area_object):
+                for registry in RemoteRegistry.for_protocol_and_goal(
+                    self._db, ExternalIntegration.OPDS_REGISTRATION, ExternalIntegration.DISCOVERY_GOAL
+                ):
+                    self.called_with.append(registry)
+                test.responses.append(MockRequestsResponse(200))
+                controller.ask_registry(service_area_object, test.do_request)
+
+        registry_1 = self._registry("https://registry_1_url")
+        registry_2 = self._registry("https://registry_2_url")
+        registry_3 = self._registry("https://registry_3_url")
+
+        mock_controller = Mock(controller)
+        mock_controller.ask_registry = mock_controller.mock_ask_registry
+
+        # Problem: the controller only seems to know about registry_3.  Am I setting up the registries
+        # wrong, or does the controller need some additional configuration in order to understand that
+        # the most recently added registry shouldn't replace the previously existing one, or...?
+
+    def _registry(self, url):
+        integration = self._external_integration(
+            protocol=ExternalIntegration.OPDS_REGISTRATION, goal=ExternalIntegration.DISCOVERY_GOAL, url=url
+        )
+        return RemoteRegistry(integration)
