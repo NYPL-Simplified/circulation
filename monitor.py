@@ -408,6 +408,7 @@ class SweepMonitor(CollectionMonitor):
                 self.service_name, offset, new_offset,
                 (batch_ended_at-batch_started_at).total_seconds()
             )
+            achievements = "Records processed: %d." % total_processed
 
             offset = new_offset
             if offset == 0:
@@ -416,7 +417,6 @@ class SweepMonitor(CollectionMonitor):
 
             # We need to do another batch. If it should raise an exception,
             # we don't want to lose the progress we've already made.
-            achievements = "Records processed: %d." % total_processed
             timestamp.update(
                 counter=new_offset, finish=batch_ended_at,
                 achievements=achievements
