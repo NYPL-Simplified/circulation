@@ -265,8 +265,6 @@ class FacetsWithEntryPoint(FacetConstants):
         if self.entrypoint:
             self.entrypoint.modify_search_filter(filter)
 
-        set_trace()
-
         return filter
 
 

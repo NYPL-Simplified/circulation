@@ -393,7 +393,6 @@ class ExternalSearchIndex(HasSelfTests):
         a = time.time()
         # NOTE: This is the code that actually executes the ElasticSearch
         # request.
-        set_trace()
         results = search[start:stop]
         if debug:
             b = time.time()
@@ -1232,12 +1231,11 @@ class QueryParser(object):
         # get chomped up by the search for 'fiction'.
 
         # Handle the 'romance' part of 'young adult romance'
-        if query_string:
-            genre, genre_match = KeywordBasedClassifier.genre_match(query_string)
-            if genre:
-                query_string = self.add_match_query(
-                    genre.name, 'genres.name', query_string, genre_match
-                )
+        genre, genre_match = KeywordBasedClassifier.genre_match(query_string)
+        if genre:
+            query_string = self.add_match_query(
+                genre.name, 'genres.name', query_string, genre_match
+            )
 
         # Handle the 'young adult' part of 'young adult romance'
         audience, audience_match = KeywordBasedClassifier.audience_match(

@@ -1402,19 +1402,19 @@ class Work(Base):
         #   any of the collections associated with a given library.
         # * A patron may want to sort a list of books by availability
         #   date.
-        # * A patron may want to show only books currently available
-        #   or open-access books.
+        # * A patron may want to show only books currently available,
+        #   or only open-access books.
         #
         # Whenever LicensePool.open_access is changed, or
         # licenses_available moves to zero or away from zero, the
         # LicensePool signals that its Work needs reindexing.
         licensepools = select(
             [
-                LicensePool.id,
-                LicensePool.collection_id,
-                LicensePool.open_access,
-                LicensePool.licenses_available > 0,
-                LicensePool.availability_time,
+                LicensePool.id.label('id'),
+                LicensePool.collection_id.label('collection_id'),
+                LicensePool.open_access.label('open_access'),
+                LicensePool.licenses_available.label('available') > 0,
+                LicensePool.availability_time.label('availability_time'),
             ]
         ).where(
             and_(
@@ -1429,8 +1429,15 @@ class Work(Base):
 
         # This subquery gets CustomList IDs for all lists
         # that contain the work.
+        #
+        # We also keep track of whether the work is featured on any
+        # given list. This is used when determining which works
+        # should be featured for a lane based on CustomLists.
         customlists = select(
-            [CustomListEntry.list_id]
+            [
+                CustomListEntry.list_id.label('id'),
+                CustomListEntry.featured.label('featured')
+            ]
         ).where(
             CustomListEntry.work_id==work_id_column
         ).alias("listentries_subquery")
@@ -1582,7 +1589,6 @@ class Work(Base):
         search_json = query_to_json(search_data)
 
         result = _db.execute(search_json)
-        set_trace()
         if result:
             return [r[0] for r in result]
 
