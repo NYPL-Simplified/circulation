@@ -1264,7 +1264,7 @@ class SharedODLAPI(BaseCirculationAPI):
         activity = []
         for loan in loans:
             info_url = loan.external_identifier
-            response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "404"])
+            response = self._get(info_url, patron=patron, allowed_response_codes=["2xx", "3xx", "404"])
             if response.status_code == 404:
                 # 404 is returned when the loan has been deleted. Leave this loan out of the result.
                 continue
@@ -1293,7 +1293,7 @@ class SharedODLAPI(BaseCirculationAPI):
             )
         for hold in holds:
             info_url = hold.external_identifier
-            response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "404"])
+            response = self._get(info_url, patron=patron, allowed_response_codes=["2xx", "3xx", "404"])
             if response.status_code == 404:
                 # 404 is returned when the hold has been deleted. Leave this hold out of the result.
                 continue
@@ -1451,7 +1451,7 @@ class MockSharedODLAPI(SharedODLAPI):
             0, MockRequestsResponse(status_code, headers, content)
         )
 
-    def _get(self, url, headers=None, allowed_response_codes=None):
+    def _get(self, url, patron=None, headers=None, allowed_response_codes=None):
         allowed_response_codes = allowed_response_codes or ["2xx", "3xx"]
         self.requests.append(url)
         response = self.responses.pop()
