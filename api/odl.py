@@ -1442,6 +1442,7 @@ class MockSharedODLAPI(SharedODLAPI):
     def __init__(self, _db, collection, *args, **kwargs):
         self.responses = []
         self.requests = []
+        self.request_args = []
         super(MockSharedODLAPI, self).__init__(
             _db, collection, *args, **kwargs
         )
@@ -1454,5 +1455,6 @@ class MockSharedODLAPI(SharedODLAPI):
     def _get(self, url, patron=None, headers=None, allowed_response_codes=None):
         allowed_response_codes = allowed_response_codes or ["2xx", "3xx"]
         self.requests.append(url)
+        self.request_args.append((patron, headers, allowed_response_codes))
         response = self.responses.pop()
         return HTTP._process_response(url, response, allowed_response_codes=allowed_response_codes)
