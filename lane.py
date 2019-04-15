@@ -565,6 +565,30 @@ class Facets(FacetsWithEntryPoint):
             order_by_sorted = [order_by[0].desc()] + [x.asc() for x in order_by[1:]]
         return order_by_sorted, order_by
 
+    SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME = {
+        FacetConstants.ORDER_TITLE : "sort_title",
+        FacetConstants.ORDER_AUTHOR : "sort_author",
+        FacetConstants.ORDER_LAST_UPDATE : 'last_update_time',
+        FacetConstants.ORDER_ADDED_TO_COLLECTION : 'availability_time',
+        FacetConstants.ORDER_SERIES_POSITION : 'series_position',
+        FacetConstants.ORDER_WORK_ID : 'work_id',
+        FacetConstants.ORDER_RANDOM : 'random',
+    }
+
+    def modify_search_filter(self, filter):
+        """Modify the given external_search.Filter object
+        so that it reflects this SearchFacets object.
+        """
+        super(Facets, self).modify_search_filter(filter)
+
+        if self.order:
+            order = self.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME.get(self.order)
+            if order:
+                filter.order = order
+                filter.order_ascending = self.order_ascending
+            else:
+                logging.error("Unrecognized sort order: %s", self.order)
+
 
 class FeaturedFacets(FacetsWithEntryPoint):
 
@@ -754,12 +778,6 @@ class SearchFacets(FacetsWithEntryPoint):
         so that it reflects this SearchFacets object.
         """
         super(SearchFacets, self).modify_search_filter(filter)
-
-        if self.order is not None:
-            # By default, search results are ordered by quality of the
-            # match. This SearchFacets object wants to order them some
-            # other way.
-            set_trace()
 
         # The incoming 'media' argument takes precedence over any
         # media restriction defined by the WorkList or the EntryPoint.

@@ -17,6 +17,7 @@ from elasticsearch.exceptions import ElasticsearchException
 
 from ..config import CannotLoadConfiguration
 from ..lane import (
+    Facets,
     Lane,
     Pagination,
 )
@@ -594,14 +595,6 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             "moby dick", None, two_per_page
         )
 
-        # Normally, a search for 'moby duck' would be ordered by relevance.
-        # But we can force the results to be ordered by title instead.
-        facets = SearchFacets(order=SearchFacets.ORDER_TITLE)
-        expect(
-            [self.moby_dick, self.moby_duck],
-            "moby duck", None, facets=facets
-        )
-
         # Now try some different search queries.
 
         # Search in title.
@@ -867,6 +860,88 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             languages="en"
         )
         expect(self.sherlock, "sherlock holmes", f)
+
+
+class TestSearchOrder(EndToEndExternalSearchTest):
+
+    def setup(self):
+        super(TestSearchOrder, self).setup()
+        _work = self.default_work
+
+        if self.search:
+            self.moby_dick = _work(title="Moby Dick", authors="Herman Melville", fiction=True)
+            self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
+            self.moby_dick.presentation_edition.series = "Classics"
+            self.moby_dick.summary_text = "Ishmael"
+            self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
+            self.moby_dick.set_presentation_ready()
+            self.moby_dick.random = 0.1
+
+            self.moby_duck = _work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
+            self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
+            self.moby_duck.summary_text = "A compulsively readable narrative"
+            self.moby_duck.presentation_edition.publisher = "Penguin"
+            self.moby_duck.set_presentation_ready()
+            self.moby_duck.random = 0.9
+
+    def test_ordering(self):
+
+        if not self.search:
+            logging.error(
+                "Search is not configured, skipping test_ordering."
+            )
+            return
+
+        # Add all the works created in the setup to the search index.
+        SearchIndexCoverageProvider(
+            self._db, search_index_client=self.search
+        ).run_once_and_update_timestamp()
+
+        # Sleep to give the index time to catch up.
+        time.sleep(2)
+
+        expect = self._expect_results
+
+        # We can sort by the last update time of the Work -- this would
+        # be used when creating a crawlable feed.
+        facets = Facets(self._default_library, None, None, Facets.ORDER_LAST_UPDATE, False)
+        filter = Filter(facets=facets)
+        expect([self.moby_duck, self.moby_dick], "moby", filter)
+
+
+        facets = Facets(self._default_library, None, None, Facets.ORDER_RANDOM, order_ascending=True)
+        filter = Filter(facets=facets)
+        expect([self.moby_dick, self.moby_duck], "moby", filter)
+
+        # Normally, a search for 'moby duck' would be ordered by relevance.
+        # But we can force the results to be ordered by title instead,
+        # which makes 'moby dick' show up first.
+        facets = Facets(self._default_library, None, None, order=Facets.ORDER_TITLE, order_ascending=True)
+        filter = Filter(facets=facets)
+        expect([self.moby_dick, self.moby_duck], "moby duck", filter)
+
+        # We can sort by title descending.
+        facets = Facets(
+            self._default_library, None, None, Facets.ORDER_TITLE, order_ascending=False
+        )
+        filter = Filter(facets=facets)
+        expect([self.moby_duck, self.moby_dick], "moby", filter)
+
+        # 'Hohn' sorts before 'Melville'.
+        facets = Facets(self._default_library, None, None, Facets.ORDER_AUTHOR)
+        filter = Filter(facets=facets)
+        expect([self.moby_duck, self.moby_dick], "moby", filter)
+
+        # We can sort by the value of work.random. 0.1 < 0.9
+        facets = Facets(self._default_library, None, None, Facets.ORDER_RANDOM, order_ascending=True)
+        filter = Filter(facets=facets)
+        expect([self.moby_dick, self.moby_duck], "moby", filter)
+
+        # We can sort by the last update time of the Work -- this would
+        # be used when creating a crawlable feed.
+        facets = Facets(self._default_library, None, None, Facets.ORDER_LAST_UPDATE, False)
+        filter = Filter(facets=facets)
+        expect([self.moby_duck, self.moby_dick], "moby", filter)
 
 
 class TestExactMatches(EndToEndExternalSearchTest):

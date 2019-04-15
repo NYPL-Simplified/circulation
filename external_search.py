@@ -29,6 +29,7 @@ from classifier import (
     GradeLevelClassifier,
     AgeClassifier,
 )
+from facets import FacetConstants
 from model import (
     numericrange_to_tuple,
     Collection,
@@ -273,9 +274,7 @@ class ExternalSearchIndex(HasSelfTests):
         self.log.info("Creating index %s", index_name)
         body = ExternalSearchIndexVersions.latest_body()
         body.setdefault('settings', {}).update(index_settings)
-        index = self.indices.create(
-            index=index_name, body=body
-        )
+        index = self.indices.create(index=index_name, body=body)
 
     def transfer_current_alias(self, _db, new_index):
         """Force -current alias onto a new index"""
@@ -338,6 +337,8 @@ class ExternalSearchIndex(HasSelfTests):
         query = Query(query_string, filter)
         query_without_filter = Query(query_string)
         search = self.search.query(query.build())
+        if filter:
+            search = filter.specify_sort_order(search)
         if debug:
             search = search.extra(explain=True)
 
@@ -379,6 +380,7 @@ class ExternalSearchIndex(HasSelfTests):
         :return: A list of Work IDs that match the query string, or
             (if return_raw_results is True) a list of dictionaries
             representing search results.
+
         """
         if not self.works_alias:
             return []
@@ -398,10 +400,11 @@ class ExternalSearchIndex(HasSelfTests):
             b = time.time()
             self.log.info("Elasticsearch query completed in %.2fsec", b-a)
             for i, result in enumerate(results):
+                set_trace()
                 self.log.debug(
                     '%02d "%s" (%s) work=%s score=%.3f shard=%s',
                     i, result.title, result.author, result.meta['id'],
-                    result.meta['score'], result.meta['shard']
+                    result.meta['score'] or 0, result.meta['shard']
                 )
         if return_raw_results:
             return results
@@ -680,10 +683,14 @@ class ExternalSearchIndexVersions(object):
 
         # These fields are used for sorting and filtering search
         # results, but not for handling search queries.
+        #
+        # TODO: We need un-analyzed series as well as analyzed.
+        # Possibly the same for sort_author, or ID of primary contributor.
         fields_for_type = {
-            string_type: ['sort_author', 'sort_title'],
-            'date': ['availability_time'],
+            'keyword': ['sort_author', 'sort_title'],
+            'date': ['availability_time', 'last_update_time'],
             'boolean': ['availability', 'open_access'],
+            'integer': ['series_position'],
             'float': ['random'],
         }
 
@@ -953,8 +960,6 @@ class Query(SearchBase):
                     query = Q("filtered", query=query, filter=built_filter)
                 else:
                     query = Q("bool", must=query, filter=built_filter)
-
-            # TODO: add the sort order, if there is one
 
         # There you go!
         return query
@@ -1397,7 +1402,7 @@ class Filter(SearchBase):
     def __init__(self, collections=None, media=None, languages=None,
                  fiction=None, audiences=None, target_age=None,
                  genre_restriction_sets=None, customlist_restriction_sets=None,
-                 facets=None
+                 facets=None, order=None, order_ascending=False
     ):
 
         if isinstance(collections, Library):
@@ -1435,6 +1440,9 @@ class Filter(SearchBase):
             ]
         else:
             self.customlist_restriction_sets = []
+
+        self.order = order
+        self.order_ascending = order
 
         # Give the Facets object a chance to modify any or all of this
         # information.
@@ -1488,8 +1496,15 @@ class Filter(SearchBase):
         for customlist_ids in self.customlist_restriction_sets:
             ids = filter_ids(customlist_ids)
             f = chain(f, F('terms', **{'customlists.list_id' : ids}))
-
         return f
+
+    def specify_sort_order(self, search):
+        if not self.order:
+            return search
+        order = self.order
+        if self.order_ascending is False:
+            order = '-' + order
+        return search.sort(order)
 
     @property
     def target_age_filter(self):

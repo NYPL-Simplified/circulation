@@ -1343,6 +1343,7 @@ class Work(Base):
              Edition.title,
              Edition.subtitle,
              Edition.series,
+             Edition.series_position,
              Edition.language,
              Edition.sort_title,
              Edition.author,
@@ -1358,6 +1359,7 @@ class Work(Base):
              Work.rating,
              Work.random,
              Work.popularity,
+             Work.last_update_time
             ],
             Work.id.in_((w.id for w in works))
         ).select_from(
