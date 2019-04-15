@@ -19,6 +19,7 @@ from core.facets import FacetConstants
 from core.model import (
     AdminRole,
     ConfigurationSetting,
+    create,
     ExternalIntegration,
     get_one,
     get_one_or_create,
@@ -547,30 +548,78 @@ class TestLibrarySettings(SettingsControllerTest):
 
     def test_ask_registry(self):
         controller = self.manager.admin_library_settings_controller
-        test = self
-        class Mock(LibrarySettingsController):
-            called_with = []
-            def mock_ask_registry(self, service_area_object):
-                for registry in RemoteRegistry.for_protocol_and_goal(
-                    self._db, ExternalIntegration.OPDS_REGISTRATION, ExternalIntegration.DISCOVERY_GOAL
-                ):
-                    self.called_with.append(registry)
-                test.responses.append(MockRequestsResponse(200))
-                controller.ask_registry(service_area_object, test.do_request)
 
         registry_1 = self._registry("https://registry_1_url")
         registry_2 = self._registry("https://registry_2_url")
         registry_3 = self._registry("https://registry_3_url")
 
-        mock_controller = Mock(controller)
-        mock_controller.ask_registry = mock_controller.mock_ask_registry
+        true_response = MockRequestsResponse(200, content="{}")
+        unknown_response = MockRequestsResponse(200, content='{"unknown": "place"}')
+        ambiguous_response = MockRequestsResponse(200, content='{"ambiguous": "place"}')
+        problem_response = MockRequestsResponse(404)
 
-        # Problem: the controller only seems to know about registry_3.  Am I setting up the registries
-        # wrong, or does the controller need some additional configuration in order to understand that
-        # the most recently added registry shouldn't replace the previously existing one, or...?
+        # Registry 1 knows about the place
+        self.responses.append(true_response)
+        response_1 = controller.ask_registry(json.dumps({"CA": "Ontario"}), self.do_request)
+        eq_(response_1, True)
+        eq_(len(self.requests), 1)
+        request_1 = self.requests.pop()
+        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Ontario"}')
+
+        # Registry 1 says the place is unknown, but Registry 2 finds it.
+        self.responses.append(true_response)
+        self.responses.append(unknown_response)
+        response_2 = controller.ask_registry(json.dumps({"CA": "Ontario"}), self.do_request)
+        eq_(response_2, True)
+        eq_(len(self.requests), 2)
+        request_2 = self.requests.pop()
+        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Ontario"}')
+        request_1 = self.requests.pop()
+        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Ontario"}')
+
+        # Registry_1 says the place is ambiguous and Registry_2 says it's unknown, but Registry_3 finds it.
+        self.responses.append(true_response)
+        self.responses.append(unknown_response)
+        self.responses.append(ambiguous_response)
+        response_3 = controller.ask_registry(json.dumps({"CA": "Ontario"}), self.do_request)
+        eq_(response_3, True)
+        eq_(len(self.requests), 3)
+        request_3 = self.requests.pop()
+        eq_(request_3[0], 'https://registry_3_url/coverage?coverage={"CA": "Ontario"}')
+        request_2 = self.requests.pop()
+        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Ontario"}')
+        request_1 = self.requests.pop()
+        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Ontario"}')
+
+        # Registry 1 returns a problem detail, but Registry 2 finds the place
+        self.responses.append(true_response)
+        self.responses.append(problem_response)
+        response_4 = controller.ask_registry(json.dumps({"CA": "Ontario"}), self.do_request)
+        eq_(response_4, True)
+        eq_(len(self.requests), 2)
+        request_2 = self.requests.pop()
+        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Ontario"}')
+        request_1 = self.requests.pop()
+        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Ontario"}')
+
+        # Registry 1 returns a problem detail and the other two registries can't find the place
+        self.responses.append(unknown_response)
+        self.responses.append(ambiguous_response)
+        self.responses.append(problem_response)
+        response_5 = controller.ask_registry(json.dumps({"CA": "Ontario"}), self.do_request)
+        eq_(response_5.status_code, 502)
+        eq_(response_5.detail, "Unable to contact the registry at https://registry_1_url.")
+        eq_(len(self.requests), 3)
+        request_3 = self.requests.pop()
+        eq_(request_3[0], 'https://registry_3_url/coverage?coverage={"CA": "Ontario"}')
+        request_2 = self.requests.pop()
+        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Ontario"}')
+        request_1 = self.requests.pop()
+        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Ontario"}')
 
     def _registry(self, url):
-        integration = self._external_integration(
-            protocol=ExternalIntegration.OPDS_REGISTRATION, goal=ExternalIntegration.DISCOVERY_GOAL, url=url
+        integration, is_new = create(
+            self._db, ExternalIntegration, protocol=ExternalIntegration.OPDS_REGISTRATION, goal=ExternalIntegration.DISCOVERY_GOAL
         )
+        integration.url = url
         return RemoteRegistry(integration)
