@@ -792,6 +792,7 @@ class TestWork(DatabaseTest):
         self._default_library.collections.append(collection2)
         pool2 = self._licensepool(edition=edition, collection=collection2)
         pool2.work_id = work.id
+        work.license_pools.append(pool2)
 
         # Create a third Collection that's just hanging around, not
         # doing anything.
@@ -880,8 +881,17 @@ class TestWork(DatabaseTest):
         # the 'licensepools' section.
         licensepools = search_doc['licensepools']
         eq_(2, len(licensepools))
+        set_trace()
+        eq_(set([x.id for x in work.license_pools]),
+            set([x['licensepool_id'] for x in licensepools]))
+
+        # Each item in the 'licensepools' section has a variety of useful information
+        # about the corresponding LicensePool.
         for pool in work.license_pools:
-            assert dict(collection_id=pool.collection.id) in collections
+            [match] = [x for x in licensepools if x['licensepool_id'] == pool.id]
+            eq_(pool.open_access, match['open_access'])
+            eq_(pool.collection_id, match['collection_id'])
+            eq_('', match['availability_time'])
 
         contributors = search_doc['contributors']
         eq_(2, len(contributors))
