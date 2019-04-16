@@ -1551,8 +1551,8 @@ class Work(Base):
              works_alias.c.sort_title,
              works_alias.c.subtitle,
              works_alias.c.series,
+             works_alias.c.series_position,
              works_alias.c.language,
-             works_alias.c.sort_title,
              works_alias.c.author,
              works_alias.c.sort_author,
              works_alias.c.medium,
@@ -1560,6 +1560,7 @@ class Work(Base):
              works_alias.c.imprint,
              works_alias.c.permanent_work_id,
              works_alias.c.random,
+             works_alias.c.last_update_time,
 
              # Convert true/false to "Fiction"/"Nonfiction".
              case(

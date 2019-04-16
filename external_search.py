@@ -400,7 +400,6 @@ class ExternalSearchIndex(HasSelfTests):
             b = time.time()
             self.log.info("Elasticsearch query completed in %.2fsec", b-a)
             for i, result in enumerate(results):
-                set_trace()
                 self.log.debug(
                     '%02d "%s" (%s) work=%s score=%.3f shard=%s',
                     i, result.title, result.author, result.meta['id'],
@@ -665,31 +664,52 @@ class ExternalSearchIndexVersions(object):
             }
         }
 
+        # For most string fields, we want to apply the standard analyzer (for most searches)
+        # and the minimal analyzer (to privilege near-exact matches).
+        basic_string_fields = {
+            "minimal": {
+                "type": string_type,
+                "analyzer": "en_minimal_analyzer"},
+            "standard": {
+                "type": string_type,
+                "analyzer": "standard"
+            }
+        }
         mapping = cls.map_fields(
             fields=["title", "series", "subtitle", "summary", "classifications.term"],
             field_description={
                 "type": string_type,
                 "analyzer": "en_analyzer",
-                "fields": {
-                    "minimal": {
-                        "type": string_type,
-                        "analyzer": "en_minimal_analyzer"},
-                    "standard": {
-                        "type": string_type,
-                        "analyzer": "standard"
-                    }
-                }}
+                "fields": basic_string_fields
+            }
+        )
+
+        # Series must be analyzed (so it can be used in searches) but also present as a keyword
+        # (so it can be used in a filter when listing books from a specific series).
+        basic_string_plus_keyword = dict(basic_string_fields)
+        basic_string_plus_keyword["keyword"] = {
+            "type": "keyword",
+            "index": False,
+            "store": True,
+        }
+        mapping = cls.map_fields(
+            fields=["series"],
+            field_description={
+                "type": string_type,
+                "analyzer": "en_analyzer",
+                "fields": basic_string_plus_keyword,
+            }
         )
 
         # These fields are used for sorting and filtering search
         # results, but not for handling search queries.
         #
-        # TODO: We need un-analyzed series as well as analyzed.
-        # Possibly the same for sort_author, or ID of primary contributor.
+        # When we list books by a specific author, we're applying a filter on sort_author,
+        # not author.
         fields_for_type = {
             'keyword': ['sort_author', 'sort_title'],
-            'date': ['availability_time', 'last_update_time'],
-            'boolean': ['availability', 'open_access'],
+            'date': ['licensepools.availability_time', 'last_update_time'],
+            'boolean': ['licensepools.availability', 'licensepools.open_access'],
             'integer': ['series_position'],
             'float': ['random'],
         }

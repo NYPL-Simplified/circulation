@@ -569,9 +569,9 @@ class Facets(FacetsWithEntryPoint):
         FacetConstants.ORDER_TITLE : "sort_title",
         FacetConstants.ORDER_AUTHOR : "sort_author",
         FacetConstants.ORDER_LAST_UPDATE : 'last_update_time',
-        FacetConstants.ORDER_ADDED_TO_COLLECTION : 'availability_time',
+        FacetConstants.ORDER_ADDED_TO_COLLECTION : 'licensepools.availability_time',
         FacetConstants.ORDER_SERIES_POSITION : 'series_position',
-        FacetConstants.ORDER_WORK_ID : 'work_id',
+        FacetConstants.ORDER_WORK_ID : '_id',
         FacetConstants.ORDER_RANDOM : 'random',
     }
 
@@ -588,7 +588,6 @@ class Facets(FacetsWithEntryPoint):
                 filter.order_ascending = self.order_ascending
             else:
                 logging.error("Unrecognized sort order: %s", self.order)
-
 
 class FeaturedFacets(FacetsWithEntryPoint):
 

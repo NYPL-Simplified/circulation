@@ -4,6 +4,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
+import datetime
 import json
 import logging
 import time
@@ -872,17 +873,21 @@ class TestSearchOrder(EndToEndExternalSearchTest):
             self.moby_dick = _work(title="Moby Dick", authors="Herman Melville", fiction=True)
             self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
             self.moby_dick.presentation_edition.series = "Classics"
+            self.moby_dick.presentation_edition.series_position = 10
             self.moby_dick.summary_text = "Ishmael"
             self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
             self.moby_dick.set_presentation_ready()
             self.moby_dick.random = 0.1
+            self.moby_dick.last_update_time = datetime.datetime.now()
 
             self.moby_duck = _work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
             self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
             self.moby_duck.summary_text = "A compulsively readable narrative"
+            self.moby_duck.presentation_edition.series_position = 1
             self.moby_duck.presentation_edition.publisher = "Penguin"
             self.moby_duck.set_presentation_ready()
             self.moby_duck.random = 0.9
+            self.moby_duck.last_update_time = datetime.datetime.now()
 
     def test_ordering(self):
 
@@ -900,48 +905,56 @@ class TestSearchOrder(EndToEndExternalSearchTest):
         # Sleep to give the index time to catch up.
         time.sleep(2)
 
-        expect = self._expect_results
+        def assert_order(sort_field, order):
+            """Verify that when the books created during test setup are ordered by
+            the given `sort_field`, they show up in the given `order`.
 
-        # We can sort by the last update time of the Work -- this would
-        # be used when creating a crawlable feed.
-        facets = Facets(self._default_library, None, None, Facets.ORDER_LAST_UPDATE, False)
-        filter = Filter(facets=facets)
-        expect([self.moby_duck, self.moby_dick], "moby", filter)
+            Also verify that when the search is ordered descending,
+            the same books show up in the opposite order. This proves
+            that `sort_field` isn't being ignored creating a test that
+            only succeeds by chance.
+            """
+            expect = self._expect_results
+            facets = Facets(
+                self._default_library, None, None, order=sort_field, order_ascending=True
+            )
+            # TODO: It should not be necessary to pass in a query string at all. In a real
+            # scenario we will use sorting to generate paginated feeds, which have a filter
+            # defined by their lane but no query string.
+            expect(order, "moby", Filter(facets=facets))
 
+            facets.order_ascending = False
+            expect(list(reversed(order)), "moby", Filter(facets=facets))
 
-        facets = Facets(self._default_library, None, None, Facets.ORDER_RANDOM, order_ascending=True)
-        filter = Filter(facets=facets)
-        expect([self.moby_dick, self.moby_duck], "moby", filter)
+        # We can sort by title.
+        assert_order(Facets.ORDER_TITLE, [self.moby_dick, self.moby_duck])
 
-        # Normally, a search for 'moby duck' would be ordered by relevance.
-        # But we can force the results to be ordered by title instead,
-        # which makes 'moby dick' show up first.
-        facets = Facets(self._default_library, None, None, order=Facets.ORDER_TITLE, order_ascending=True)
-        filter = Filter(facets=facets)
-        expect([self.moby_dick, self.moby_duck], "moby duck", filter)
-
-        # We can sort by title descending.
-        facets = Facets(
-            self._default_library, None, None, Facets.ORDER_TITLE, order_ascending=False
-        )
-        filter = Filter(facets=facets)
-        expect([self.moby_duck, self.moby_dick], "moby", filter)
-
-        # 'Hohn' sorts before 'Melville'.
-        facets = Facets(self._default_library, None, None, Facets.ORDER_AUTHOR)
-        filter = Filter(facets=facets)
-        expect([self.moby_duck, self.moby_dick], "moby", filter)
+        # We can sort by author; 'Hohn' sorts before 'Melville'.
+        assert_order(Facets.ORDER_AUTHOR, [self.moby_duck, self.moby_dick])
 
         # We can sort by the value of work.random. 0.1 < 0.9
-        facets = Facets(self._default_library, None, None, Facets.ORDER_RANDOM, order_ascending=True)
-        filter = Filter(facets=facets)
-        expect([self.moby_dick, self.moby_duck], "moby", filter)
+        assert_order(Facets.ORDER_RANDOM, [self.moby_dick, self.moby_duck])
 
         # We can sort by the last update time of the Work -- this would
         # be used when creating a crawlable feed.
-        facets = Facets(self._default_library, None, None, Facets.ORDER_LAST_UPDATE, False)
-        filter = Filter(facets=facets)
-        expect([self.moby_duck, self.moby_dick], "moby", filter)
+        assert_order(Facets.ORDER_LAST_UPDATE, [self.moby_dick, self.moby_duck])
+
+        # We can sort by series position. Here, the books aren't in
+        # the same series; in a real scenario we would also filter on
+        # the value of 'series'.
+        assert_order(Facets.ORDER_SERIES_POSITION, [self.moby_duck, self.moby_dick])
+
+        # We can sort by the time the Work's LicensePools were first seen -- this
+        # would be used when showing patrons 'new' stuff.
+        #
+        # TODO: Consider the case where the two works have multiple
+        # licensepools in different collections, and the ordering
+        # should be different based on which collection we're
+        # considering.
+        assert_order(Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_dick, self.moby_duck])
+
+        # We can sort by internal work ID, which isn't very useful.
+        assert_order(Facets.ORDER_WORK_ID, [self.moby_dick, self.moby_duck])
 
 
 class TestExactMatches(EndToEndExternalSearchTest):
