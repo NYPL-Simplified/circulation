@@ -161,7 +161,7 @@ class TestExternalSearch(ExternalSearchTest):
         """
         if not self.search:
             return
-        eq_("test_index-v3", self.search.works_index_name(self._db))
+        eq_("test_index-v4", self.search.works_index_name(self._db))
 
     def test_setup_index_creates_new_index(self):
         if not self.search:

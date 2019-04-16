@@ -1359,7 +1359,7 @@ class Work(Base):
              Work.rating,
              Work.random,
              Work.popularity,
-             Work.last_update_time
+             func.to_char(Work.last_update_time, 'YYYY-MM-DD"T"HH24:MI:SS').label('last_update_time')
             ],
             Work.id.in_((w.id for w in works))
         ).select_from(
@@ -1416,7 +1416,7 @@ class Work(Base):
                 LicensePool.collection_id.label('collection_id'),
                 LicensePool.open_access.label('open_access'),
                 LicensePool.licenses_available.label('available') > 0,
-                LicensePool.availability_time.label('availability_time'),
+                func.to_char(LicensePool.availability_time, 'YYYY-MM-DD"T"HH24:MI:SS').label('availability_time')
             ]
         ).where(
             and_(
