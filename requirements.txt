@@ -43,6 +43,7 @@ flask-cors
 PyLD==0.7.3
 pycryptodome
 wcag-contrast-ratio
+uritemplate
 
 # A NYPL-specific requirement
 newrelic

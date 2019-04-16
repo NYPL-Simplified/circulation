@@ -137,7 +137,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
         return RehostingPolicy.rights_uri(rights, source, publication_year)
 
     @classmethod
-    def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None):
+    def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None, do_get=None):
         """Determine a more accurate value for this entry's default rights
         URI.
 
@@ -147,7 +147,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
         Feedparser.
         """
         detail = super(FeedbooksOPDSImporter, cls)._detail_for_elementtree_entry(
-            parser, entry_tag, feed_url
+            parser, entry_tag, feed_url, do_get=do_get
         )
         rights_uri = cls.rights_uri_from_entry_tag(entry_tag)
         circulation = detail.setdefault('circulation', {})

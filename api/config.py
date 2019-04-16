@@ -77,7 +77,7 @@ class Configuration(CoreConfiguration):
     SMALL_COLLECTION_LANGUAGES = "small_collections"
     TINY_COLLECTION_LANGUAGES = "tiny_collections"
 
-    LANGUAGE_DESCRIPTION = _('Each value must be an <a href="https://www.loc.gov/standards/iso639-2/php/code_list.php" target="_blank">ISO-639-2</a> language code.')
+    LANGUAGE_DESCRIPTION = _('Each value can be either the full name of a language or an <a href="https://www.loc.gov/standards/iso639-2/php/code_list.php" target="_blank">ISO-639-2</a> language code.')
 
     HIDDEN_CONTENT_TYPES = "hidden_content_types"
 
@@ -103,7 +103,16 @@ class Configuration(CoreConfiguration):
     # Settings for geographic areas associated with the library.
     LIBRARY_FOCUS_AREA = "focus_area"
     LIBRARY_SERVICE_AREA = "service_area"
-    AREA_INPUT_INSTRUCTIONS = _('<ol>Accepted formats:<li>US zipcode or Canadian FSA</li><li>Two-letter US state or Canadian province abbreviation</li><li>City, US state abbreviation<i>e.g. "Boston, MA"</i></li><li>County, US state abbreviation<i>e.g. "Litchfield County, CT"</i></li></ol>')
+    AREA_INPUT_INSTRUCTIONS = _(
+        """<ol>Accepted formats:
+            <li>US zipcode or Canadian FSA</li>
+            <li>Two-letter US state abbreviation</li>
+            <li>City, US state abbreviation<i>e.g. "Boston, MA"</i></li>
+            <li>County, US state abbreviation<i>e.g. "Litchfield County, CT"</i></li>
+            <li>Canadian province name or two-letter abbreviation</li>
+            <li>City, Canadian province name/abbreviation<i>e.g. "Stratford, Ontario"/"Stratford, ON"</i></li>
+        </ol>"""
+    )
 
     # Names of the library-wide link settings.
     TERMS_OF_SERVICE = 'terms-of-service'

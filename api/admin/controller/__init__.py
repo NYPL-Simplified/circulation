@@ -115,7 +115,7 @@ from api.bibliotheca import BibliothecaAPI
 from api.axis import Axis360API
 from api.rbdigital import RBDigitalAPI
 from api.enki import EnkiAPI
-from api.odl import ODLWithConsolidatedCopiesAPI, SharedODLAPI
+from api.odl import ODLAPI, SharedODLAPI
 from core.local_analytics_provider import LocalAnalyticsProvider
 
 from api.adobe_vendor_id import AuthdataUtility
@@ -2203,7 +2203,7 @@ class SettingsController(AdminCirculationManagerController):
                      Axis360API,
                      RBDigitalAPI,
                      EnkiAPI,
-                     ODLWithConsolidatedCopiesAPI,
+                     ODLAPI,
                      SharedODLAPI,
                      FeedbooksOPDSImporter,
                     ]

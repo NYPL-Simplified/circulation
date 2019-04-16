@@ -664,6 +664,7 @@ class TestCollectionSettings(SettingsControllerTest):
 
     def test_collection_delete(self):
         collection = self._collection()
+        eq_(False, collection.marked_for_deletion)
 
         with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
@@ -675,8 +676,12 @@ class TestCollectionSettings(SettingsControllerTest):
             response = self.manager.admin_collection_settings_controller.process_delete(collection.id)
             eq_(response.status_code, 200)
 
-        collection = get_one(self._db, Collection, id=collection.id)
-        eq_(None, collection)
+        # The collection should still be available because it is not immediately deleted.
+        # The collection will be deleted in the background by a script, but it is
+        # now marked for deletion
+        fetchedCollection = get_one(self._db, Collection, id=collection.id)
+        eq_(collection, fetchedCollection)
+        eq_(True, fetchedCollection.marked_for_deletion)
 
     def test_collection_delete_cant_delete_parent(self):
         parent = self._collection(protocol=ExternalIntegration.OVERDRIVE)
