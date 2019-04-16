@@ -104,7 +104,7 @@ class TestLibrarySettings(SettingsControllerTest):
                settings.get(Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
             eq_(["French"], settings.get(Configuration.LARGE_COLLECTION_LANGUAGES))
 
-    def test_libraries_geographic_errors(self):
+    def test_validate_geographic_areas(self):
         original_controller = self.manager.admin_library_settings_controller
         db = self._db
         class Mock(LibrarySettingsController):
@@ -117,6 +117,9 @@ class TestLibrarySettings(SettingsControllerTest):
             def mock_find_location_through_registry_with_error(self, value):
                 self.value = value
                 return REMOTE_INTEGRATION_FAILED
+            def mock_find_location_through_registry_success(self, value):
+                self.value = value
+                return "CA"
 
         controller = Mock()
         controller.find_location_through_registry = controller.mock_find_location_through_registry
@@ -189,6 +192,11 @@ class TestLibrarySettings(SettingsControllerTest):
             eq_(controller.value, "Ontario")
             # The controller goes ahead and calls find_location_through_registry, but it can't connect to the registry.
             eq_(response.uri, REMOTE_INTEGRATION_FAILED.uri)
+
+        # The registry successfully finds the place
+        controller.find_location_through_registry = controller.mock_find_location_through_registry_success
+        response = controller.validate_geographic_areas('["Ontario"]')
+        eq_(response, '{"CA": ["Ontario"], "US": []}')
 
     def test_libraries_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):
@@ -501,7 +509,7 @@ class TestLibrarySettings(SettingsControllerTest):
         test = self
         class Mock(LibrarySettingsController):
             called_with = []
-            def mock_ask_registry(self, service_area_object):
+            def ask_registry(self, service_area_object):
                 places = {"US": ["Chicago"], "CA": ["Ontario"]}
                 service_area_info = json.loads(urllib.unquote(service_area_object))
                 nation = service_area_info.keys()[0]
@@ -517,7 +525,6 @@ class TestLibrarySettings(SettingsControllerTest):
                 return original_ask_registry(service_area_object, get)
 
         mock_controller = Mock(controller)
-        mock_controller.ask_registry = mock_controller.mock_ask_registry
 
         self._registry("https://registry_url")
 
