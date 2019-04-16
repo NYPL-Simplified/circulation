@@ -698,7 +698,8 @@ class ExternalSearchIndexVersions(object):
                 "type": string_type,
                 "analyzer": "en_analyzer",
                 "fields": basic_string_plus_keyword,
-            }
+            },
+            mapping=mapping
         )
 
         # These fields are used for sorting and filtering search

@@ -1365,7 +1365,7 @@ class Work(Base):
              Work.popularity,
              func.to_char(
                  Work.last_update_time,
-                 self.ELASTICSEARCH_TIME_FORMAT
+                 cls.ELASTICSEARCH_TIME_FORMAT
              ).label('last_update_time')
             ],
             Work.id.in_((w.id for w in works))
@@ -1425,7 +1425,7 @@ class Work(Base):
                 LicensePool.licenses_available.label('available') > 0,
                 func.to_char(
                     LicensePool.availability_time,
-                    self.ELASTICSEARCH_TIME_FORMAT
+                    cls.ELASTICSEARCH_TIME_FORMAT
                 ).label('availability_time')
             ]
         ).where(
