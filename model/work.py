@@ -1308,6 +1308,10 @@ class Work(Base):
         else:
             self.secondary_appeal = self.NO_APPEAL
 
+    # This can be used in func.to_char to convert a SQL datetime into a string
+    # that Elasticsearch can parse as a date.
+    ELASTICSEARCH_TIME_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS"."MS'
+
     @classmethod
     def to_search_documents(cls, works, policy=None):
         """Generate search documents for these Works.
@@ -1359,7 +1363,10 @@ class Work(Base):
              Work.rating,
              Work.random,
              Work.popularity,
-             func.to_char(Work.last_update_time, 'YYYY-MM-DD"T"HH24:MI:SS').label('last_update_time')
+             func.to_char(
+                 Work.last_update_time,
+                 self.ELASTICSEARCH_TIME_FORMAT
+             ).label('last_update_time')
             ],
             Work.id.in_((w.id for w in works))
         ).select_from(
@@ -1416,7 +1423,10 @@ class Work(Base):
                 LicensePool.collection_id.label('collection_id'),
                 LicensePool.open_access.label('open_access'),
                 LicensePool.licenses_available.label('available') > 0,
-                func.to_char(LicensePool.availability_time, 'YYYY-MM-DD"T"HH24:MI:SS').label('availability_time')
+                func.to_char(
+                    LicensePool.availability_time,
+                    self.ELASTICSEARCH_TIME_FORMAT
+                ).label('availability_time')
             ]
         ).where(
             and_(
