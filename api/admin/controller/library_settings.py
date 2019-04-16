@@ -6,6 +6,7 @@ import json
 from pypostalcode import PostalCodeDatabase
 import re
 from StringIO import StringIO
+import urllib
 import uszipcode
 import uuid
 import wcag_contrast_ratio
@@ -16,16 +17,19 @@ from api.lanes import create_default_lanes
 from core.model import (
     ConfigurationSetting,
     create,
+    ExternalIntegration,
     get_one,
     Library,
     Representation,
 )
+from core.util.http import HTTP
 from PIL import Image
 from api.admin.exceptions import *
 from api.admin.problem_details import *
 from core.util.problem_detail import ProblemDetail
 from core.util import LanguageCodes
 from nose.tools import set_trace
+from api.registry import RemoteRegistry
 
 class LibrarySettingsController(SettingsController):
 
@@ -256,8 +260,7 @@ class LibrarySettingsController(SettingsController):
             return "data:image/png;base64,%s" % b64
 
     def validate_geographic_areas(self, values):
-        # Note: the validator does not recognize data from US territories other than Puerto Rico, and
-        # can recognize Canadian locations only by FSA (first three characters of zipcode) or by province abbreviation.
+        # Note: the validator does not recognize data from US territories other than Puerto Rico.
 
         us_search = uszipcode.SearchEngine(simple_zipcode=True)
         ca_search = PostalCodeDatabase()
@@ -266,6 +269,7 @@ class LibrarySettingsController(SettingsController):
         locations = {"US": [], "CA": []}
 
         for value in json.loads(values):
+            flagged = False
             if value == "everywhere":
                 locations["US"].append(value)
             elif len(value) and isinstance(value, basestring):
@@ -277,7 +281,6 @@ class LibrarySettingsController(SettingsController):
                         locations["US"].append(value)
                     else:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. state or Canadian province abbreviation.', value=value))
-
                 elif len(value) == 3 and re.search("^[A-Za-z]\\d[A-Za-z]", value):
                     # Is it a Canadian zipcode?
                     try:
@@ -285,7 +288,6 @@ class LibrarySettingsController(SettingsController):
                         locations["CA"].append(self.format_place(value, info.city, info.province));
                     except:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid Canadian zipcode.', value=value))
-
                 elif len(value.split(", ")) == 2:
                     # Is it in the format "[city], [state abbreviation]" or "[county], [state abbreviation]"?
                     city_or_county, state = value.split(", ")
@@ -294,8 +296,8 @@ class LibrarySettingsController(SettingsController):
                     elif len([x for x in us_search.query(state=state, returns=None) if x.county == city_or_county]):
                         locations["US"].append(value);
                     else:
-                        return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
-
+                        # Flag this as needing to be checked with the registry
+                        flagged = True
                 elif value.isdigit():
                     # Is it a US zipcode?
                     info = us_search.by_zipcode(value)
@@ -303,10 +305,49 @@ class LibrarySettingsController(SettingsController):
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. zipcode.', value=value))
                     locations["US"].append(self.format_place(value, info.major_city, info.state));
                 else:
-                    return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
+                    flagged = True
+
+                if flagged:
+                    registry_response = self.find_location_through_registry(value)
+                    if registry_response and isinstance(registry_response, ProblemDetail):
+                        return registry_response
+                    elif registry_response:
+                        locations[registry_response].append(value)
+                    else:
+                        return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
 
         return json.dumps(locations)
 
     def format_place(self, zip, city, state_or_province):
         info = "%s, %s" % (city, state_or_province)
         return { zip: info }
+
+    def find_location_through_registry(self, value):
+        for nation in ["US", "CA"]:
+            service_area_object = urllib.quote('{"%s": "%s"}' % (nation, value))
+            registry_check = self.ask_registry(service_area_object)
+            if registry_check and isinstance(registry_check, ProblemDetail):
+                return registry_check
+            elif registry_check:
+                # If the registry has established that this is a US location, don't bother also trying to find it in Canada
+                return nation
+
+    def ask_registry(self, service_area_object, do_get=HTTP.debuggable_get):
+        # If the circulation manager doesn't know about this location, check whether the Library Registry does.
+        result = None
+        for registry in RemoteRegistry.for_protocol_and_goal(
+            self._db, ExternalIntegration.OPDS_REGISTRATION, ExternalIntegration.DISCOVERY_GOAL
+        ):
+            base_url = registry.integration.url + "/coverage?coverage="
+
+            response = do_get(base_url + service_area_object)
+            if not response.status_code == 200:
+                result = REMOTE_INTEGRATION_FAILED.detailed(_("Unable to contact the registry at %(url)s.", url=registry.integration.url))
+
+            if hasattr(response, "content"):
+                content = json.loads(response.content)
+                found_place = not (content.get("unknown") or content.get("ambiguous"))
+                if found_place:
+                    return True
+
+        return result
