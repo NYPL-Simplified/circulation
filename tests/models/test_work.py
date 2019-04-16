@@ -876,12 +876,12 @@ class TestWork(DatabaseTest):
         eq_(work.popularity, search_doc['popularity'])
         eq_(dict(lower=7, upper=8), search_doc['target_age'])
 
-        # Each collection in which the Work is found is listed in
-        # the 'collections' section.
-        collections = search_doc['collections']
-        eq_(2, len(collections))
-        for collection in self._default_library.collections:
-            assert dict(collection_id=collection.id) in collections
+        # Each LicensePool for the Work is listed in
+        # the 'licensepools' section.
+        licensepools = search_doc['licensepools']
+        eq_(2, len(licensepools))
+        for pool in work.license_pools:
+            assert dict(collection_id=pool.collection.id) in collections
 
         contributors = search_doc['contributors']
         eq_(2, len(contributors))
