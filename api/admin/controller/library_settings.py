@@ -146,7 +146,7 @@ class LibrarySettingsController(SettingsController):
                 _("The configuration is missing a required setting: %(setting)s",
                 setting=missing[0].get("label"))
             )
- ``
+ 
     def check_input_type(self, settings):
         for setting in settings:
             if setting.get("type") == "image":
