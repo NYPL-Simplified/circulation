@@ -2597,7 +2597,8 @@ class SettingsController(AdminCirculationManagerController):
         # a string.
         settings = settings or self._get_settings()
         form = flask.request.form or None
-        error = Validator().validate(settings, form)
+        files = flask.request.files or None
+        error = Validator().validate(settings, form, files)
         if error:
             return error
 

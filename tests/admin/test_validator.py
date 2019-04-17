@@ -6,6 +6,7 @@ from nose.tools import (
 import json
 from api.admin.validator import Validator
 from api.config import Configuration
+from StringIO import StringIO
 from werkzeug import MultiDict
 
 class TestValidator():
@@ -123,16 +124,47 @@ class TestValidator():
         eq_(response.detail, '"abc" is not a valid language code.')
         eq_(response.status_code, 400)
 
+    def test_validate_image(self):
+        def create_image_file(format_string):
+            image_data = '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x01\x03\x00\x00\x00%\xdbV\xca\x00\x00\x00\x06PLTE\xffM\x00\x01\x01\x01\x8e\x1e\xe5\x1b\x00\x00\x00\x01tRNS\xcc\xd24V\xfd\x00\x00\x00\nIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82'
+            class TestImageFile(StringIO):
+                headers = { "Content-Type": "image/" + format_string }
+            return TestImageFile(image_data)
+            return result
+
+        [png, jpeg, gif, invalid] = [
+            MultiDict([(Configuration.LOGO, create_image_file(x))]) for x in ["png", "jpeg", "gif", "abc"]
+        ]
+
+        png_response = Validator().validate_image(Configuration.LIBRARY_SETTINGS, None, png)
+        eq_(png_response, None)
+        jpeg_response = Validator().validate_image(Configuration.LIBRARY_SETTINGS, None, jpeg)
+        eq_(jpeg_response, None)
+        gif_response = Validator().validate_image(Configuration.LIBRARY_SETTINGS, None, gif)
+        eq_(gif_response, None)
+
+        abc_response = Validator().validate_image(Configuration.LIBRARY_SETTINGS, None, invalid)
+        eq_(abc_response.detail, 'Upload for Logo image must be in GIF, PNG, or JPG format. (Upload was image/abc.)')
+        eq_(abc_response.status_code, 400)
+
     def test_validate(self):
         called = []
         class Mock(Validator):
-            def validate_email(self, settings, form):
+            def validate_email(self, settings, form, files):
                 called.append("validate_email")
-            def validate_url(self, settings, form):
+            def validate_url(self, settings, form, files):
                 called.append("validate_url")
-            def validate_number(self, settings, form):
+            def validate_number(self, settings, form, files):
                 called.append("validate_number")
-            def validate_language_code(self, settings, form):
+            def validate_language_code(self, settings, form, files):
                 called.append("validate_language_code")
-        Mock().validate(Configuration.LIBRARY_SETTINGS, None)
-        eq_(called, ['validate_email', 'validate_url', 'validate_number', 'validate_language_code'])
+            def validate_image(self, settings, form, files):
+                called.append("validate_image")
+        Mock().validate(Configuration.LIBRARY_SETTINGS, None, None)
+        eq_(called, [
+            'validate_email',
+            'validate_url',
+            'validate_number',
+            'validate_language_code',
+            'validate_image'
+        ])

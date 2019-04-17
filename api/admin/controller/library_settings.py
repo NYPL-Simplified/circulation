@@ -120,7 +120,7 @@ class LibrarySettingsController(SettingsController):
         settings = Configuration.LIBRARY_SETTINGS
         validations = [
             self.check_for_missing_fields,
-            self.check_input_type,
+            # self.check_input_type,
             self.check_web_color_contrast,
             self.check_header_links,
             self.validate_formats
@@ -146,11 +146,6 @@ class LibrarySettingsController(SettingsController):
                 _("The configuration is missing a required setting: %(setting)s",
                 setting=missing[0].get("label"))
             )
- 
-    def check_input_type(self, settings):
-        for setting in settings:
-            if setting.get("type") == "image":
-                return self.check_image_type(setting)
 
     def check_web_color_contrast(self, settings):
         """Verify that the web background color and web foreground
@@ -194,18 +189,6 @@ class LibrarySettingsController(SettingsController):
             library_with_short_name = get_one(self._db, Library, short_name=short_name)
             if library_with_short_name:
                 return LIBRARY_SHORT_NAME_ALREADY_IN_USE
-
-    def check_image_type(self, setting):
-        allowed_types = [Representation.JPEG_MEDIA_TYPE, Representation.PNG_MEDIA_TYPE, Representation.GIF_MEDIA_TYPE]
-        image_file = flask.request.files.get(setting.get("key"))
-        if image_file:
-            image_type = image_file.headers.get("Content-Type")
-            if image_type not in allowed_types:
-                return INVALID_CONFIGURATION_OPTION.detailed(_(
-                    "Upload for %(setting)s must be in GIF, PNG, or JPG format. (Upload was %(format)s.)",
-                    setting=setting.get("label"),
-                    format=image_type))
-
 
 # Configuration settings:
 
