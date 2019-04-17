@@ -9,7 +9,7 @@ import re
 
 class Validator(object):
 
-    def validate(self, settings, form, files):
+    def validate(self, settings, content):
         validators = [
             self.validate_email,
             self.validate_url,
@@ -19,11 +19,11 @@ class Validator(object):
         ]
 
         for validator in validators:
-            error = validator(settings, form, files)
+            error = validator(settings, content)
             if error:
                 return error
 
-    def validate_email(self, settings, form, files):
+    def validate_email(self, settings, content):
         """Find any email addresses that the user has submitted, and make sure that
         they are in a valid format.
         This method is used by individual_admin_settings and library_settings.
@@ -31,6 +31,7 @@ class Validator(object):
         # If :param settings is a list of objects--i.e. the LibrarySettingsController
         # is calling this method--then we need to pull out the relevant input strings
         # to validate.
+        form = content.get("form")
         if isinstance(settings, (list,)):
             # Find the fields that have to do with email addresses and are not blank
             email_fields = filter(lambda s: s.get("format") == "email" and self._value(s, form), settings)
@@ -41,6 +42,7 @@ class Validator(object):
         # If the IndividualAdminSettingsController is calling this method, then we already have the
         # input string; it was passed in directly.
             email_inputs = [settings]
+
         for email in email_inputs:
             if not self._is_email(email):
                 return INVALID_EMAIL.detailed(_('"%(email)s" is not a valid email address.', email=email))
@@ -50,10 +52,11 @@ class Validator(object):
         email_format = ".+\@.+\..+"
         return re.search(email_format, email)
 
-    def validate_url(self, settings, form, files):
+    def validate_url(self, settings, content):
         """Find any URLs that the user has submitted, and make sure that
         they are in a valid format."""
         # Find the fields that have to do with URLs and are not blank.
+        form = content.get("form")
         if isinstance(settings, (list,)):
             url_fields = filter(lambda s: s.get("format") == "url" and self._value(s, form), settings)
 
@@ -69,10 +72,11 @@ class Validator(object):
         has_protocol = any([url.startswith(protocol + "://") for protocol in "http", "https"])
         return has_protocol or (url in allowed)
 
-    def validate_number(self, settings, form, files):
+    def validate_number(self, settings, content):
         """Find any numbers that the user has submitted, and make sure that they are 1) actually numbers,
         2) positive, and 3) lower than the specified maximum, if there is one."""
         # Find the fields that should have numeric input and are not blank.
+        form = content.get("form")
         if isinstance(settings, (list,)):
             number_fields = filter(lambda s: s.get("type") == "number" and self._value(s, form), settings)
             for field in number_fields:
@@ -94,8 +98,9 @@ class Validator(object):
         if max and input > max:
             return INVALID_NUMBER.detailed(_('%(field)s cannot be greater than %(max)s.', field=field.get("label"), max=max))
 
-    def validate_language_code(self, settings, form, files):
+    def validate_language_code(self, settings, content):
         # Find the fields that should contain language codes and are not blank.
+        form = content.get("form")
         if isinstance(settings, (list,)):
             language_fields = filter(lambda s: s.get("format") == "language-code" and self._value(s, form), settings)
 
@@ -107,8 +112,9 @@ class Validator(object):
         # Check that the input string is in the list of recognized language codes.
         return LanguageCodes.string_to_alpha_3(language)
 
-    def validate_image(self, settings, form, files):
+    def validate_image(self, settings, content):
         # Find the fields that contain image uploads and are not blank.
+        files = content.get("files")
         if files and isinstance(settings, (list,)):
             image_settings = filter(lambda s: s.get("type") == "image" and self._value(s, files), settings)
             for setting in image_settings:
