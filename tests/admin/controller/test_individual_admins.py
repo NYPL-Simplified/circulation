@@ -119,17 +119,6 @@ class TestIndividualAdmins(SettingsControllerTest):
             response = self.manager.admin_individual_admin_settings_controller.process_post()
             eq_(response.uri, UNKNOWN_ROLE.uri)
 
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("email", "wrong!"),
-                ("password", "pass"),
-                ("roles", json.dumps([{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }])),
-            ])
-            response = self.manager.admin_individual_admin_settings_controller.process_post()
-            eq_(response.uri, INVALID_EMAIL.uri)
-            assert "wrong!" in response.detail
-
-
     def test_individual_admins_post_permissions(self):
         l1 = self._library()
         l2 = self._library()

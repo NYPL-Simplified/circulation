@@ -82,6 +82,12 @@ class TestValidator():
         eq_(response.detail, '"ten" is not a number.')
         eq_(response.status_code, 400)
 
+        # Invalid: below minimum
+        form = MultiDict([("hold_limit", -5)])
+        response = Validator().validate_number(Configuration.LIBRARY_SETTINGS, form)
+        eq_(response.detail, 'Maximum number of books a patron can have on hold at once must be greater than 0.')
+        eq_(response.status_code, 400)
+
         # Valid: below maximum
         form = MultiDict([("minimum_featured_quality", ".9")])
         response = Validator().validate_number(Configuration.LIBRARY_SETTINGS, form)
