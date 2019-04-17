@@ -150,6 +150,3 @@ class Validator(object):
         elif len(value) == 1:
             return value[0]
         return value
-
-class GeographicLookup(Validator):
-    pass
