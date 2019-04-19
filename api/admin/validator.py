@@ -24,6 +24,9 @@ class Validator(object):
                 return error
 
     def _extract_inputs(self, settings, value, form, key="format", is_list=False, should_zip=False):
+        if not (isinstance(settings, (list,))):
+            return []
+
         fields = filter(lambda s: s.get(key) == value and self._value(s, form), settings)
 
         if is_list:
@@ -117,9 +120,9 @@ class Validator(object):
         # Find the fields that contain image uploads and are not blank.
         files = content.get("files")
         if files:
-            image_inputs = self._extract_inputs(settings, "image", files, key="type")
+            image_inputs = self._extract_inputs(settings, "image", files, key="type", should_zip=True)
 
-            for image in image_inputs:
+            for setting, image in image_inputs:
                 invalid_format = self._image_format_error(image)
                 if invalid_format:
                     return INVALID_CONFIGURATION_OPTION.detailed(_(
