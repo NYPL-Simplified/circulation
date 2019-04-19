@@ -23,26 +23,35 @@ class Validator(object):
             if error:
                 return error
 
+    def _extract_inputs(self, settings, value, form, key="format", is_list=False, should_zip=False):
+        fields = filter(lambda s: s.get(key) == value and self._value(s, form), settings)
+
+        if is_list:
+            values = self._list_of_values(fields, form)
+        else:
+            values = [self._value(field, form) for field in fields]
+
+        if should_zip:
+            return zip(fields, values)
+        else:
+            return values
+
     def validate_email(self, settings, content):
         """Find any email addresses that the user has submitted, and make sure that
         they are in a valid format.
         This method is used by individual_admin_settings and library_settings.
         """
-        # If :param settings is a list of objects--i.e. the LibrarySettingsController
-        # is calling this method--then we need to pull out the relevant input strings
-        # to validate.
-        form = content.get("form")
         if isinstance(settings, (list,)):
-            # Find the fields that have to do with email addresses and are not blank
-            email_fields = filter(lambda s: s.get("format") == "email" and self._value(s, form), settings)
-            # Narrow the email-related fields down to the ones for which the user actually entered a value
-            email_inputs = [self._value(field, form) for field in email_fields]
-            # Now check that each email input is in a valid format
+            # If :param settings is a list of objects--i.e. the LibrarySettingsController
+            # is calling this method--then we need to pull out the relevant input strings
+            # to validate.
+            email_inputs = self._extract_inputs(settings, "email", content.get("form"))
         else:
-        # If the IndividualAdminSettingsController is calling this method, then we already have the
-        # input string; it was passed in directly.
+            # If the IndividualAdminSettingsController is calling this method, then we already have the
+            # input string; it was passed in directly.
             email_inputs = [settings]
 
+        # Now check that each email input is in a valid format
         for email in email_inputs:
             if not self._is_email(email):
                 return INVALID_EMAIL.detailed(_('"%(email)s" is not a valid email address.', email=email))
@@ -56,17 +65,14 @@ class Validator(object):
         """Find any URLs that the user has submitted, and make sure that
         they are in a valid format."""
         # Find the fields that have to do with URLs and are not blank.
-        form = content.get("form")
-        if isinstance(settings, (list,)):
-            url_fields = filter(lambda s: s.get("format") == "url" and self._value(s, form), settings)
+        url_inputs = self._extract_inputs(settings, "url", content.get("form"), should_zip=True)
 
-            for field in url_fields:
-                url = self._value(field, form)
-                # In a few special cases, we want to allow a value that isn't a normal URL;
-                # for example, the patron web client URL can be set to "*".
-                allowed = field.get("allowed") or []
-                if not self._is_url(url, allowed):
-                    return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=url))
+        for field, url in url_inputs:
+            # In a few special cases, we want to allow a value that isn't a normal URL;
+            # for example, the patron web client URL can be set to "*".
+            allowed = field.get("allowed") or []
+            if not self._is_url(url, allowed):
+                return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=url))
 
     def _is_url(self, url, allowed):
         has_protocol = any([url.startswith(protocol + "://") for protocol in "http", "https"])
@@ -76,37 +82,32 @@ class Validator(object):
         """Find any numbers that the user has submitted, and make sure that they are 1) actually numbers,
         2) positive, and 3) lower than the specified maximum, if there is one."""
         # Find the fields that should have numeric input and are not blank.
-        form = content.get("form")
-        if isinstance(settings, (list,)):
-            number_fields = filter(lambda s: s.get("type") == "number" and self._value(s, form), settings)
-            for field in number_fields:
-                if self._number_error(field, form):
-                    return self._number_error(field, form)
+        number_inputs = self._extract_inputs(settings, "number", content.get("form"), key="type", should_zip=True)
+        for field, number in number_inputs:
+            error = self._number_error(field, number)
+            if error:
+                return error
 
-    def _number_error(self, field, form):
-        input = form.get(field.get("key")) or form.get("value")
+    def _number_error(self, field, number):
         min = field.get("min") or 0
         max = field.get("max")
 
         try:
-            input = float(input)
+            number = float(number)
         except ValueError:
-            return INVALID_NUMBER.detailed(_('"%(input)s" is not a number.', input=input))
+            return INVALID_NUMBER.detailed(_('"%(number)s" is not a number.', number=number))
 
-        if input < min:
+        if number < min:
             return INVALID_NUMBER.detailed(_('%(field)s must be greater than %(min)s.', field=field.get("label"), min=min))
-        if max and input > max:
+        if max and number > max:
             return INVALID_NUMBER.detailed(_('%(field)s cannot be greater than %(max)s.', field=field.get("label"), max=max))
 
     def validate_language_code(self, settings, content):
         # Find the fields that should contain language codes and are not blank.
-        form = content.get("form")
-        if isinstance(settings, (list,)):
-            language_fields = filter(lambda s: s.get("format") == "language-code" and self._value(s, form), settings)
-
-            for language in self._list_of_values(language_fields, form):
-                if not self._is_language(language):
-                    return UNKNOWN_LANGUAGE.detailed(_('"%(language)s" is not a valid language code.', language=language))
+        language_inputs = self._extract_inputs(settings, "language-code", content.get("form"), is_list=True)
+        for language in language_inputs:
+            if not self._is_language(language):
+                return UNKNOWN_LANGUAGE.detailed(_('"%(language)s" is not a valid language code.', language=language))
 
     def _is_language(self, language):
         # Check that the input string is in the list of recognized language codes.
@@ -115,11 +116,11 @@ class Validator(object):
     def validate_image(self, settings, content):
         # Find the fields that contain image uploads and are not blank.
         files = content.get("files")
-        if files and isinstance(settings, (list,)):
-            image_settings = filter(lambda s: s.get("type") == "image" and self._value(s, files), settings)
-            for setting in image_settings:
-                image_file = files.get(setting.get("key"))
-                invalid_format = self._image_format_error(image_file)
+        if files:
+            image_inputs = self._extract_inputs(settings, "image", files, key="type")
+
+            for image in image_inputs:
+                invalid_format = self._image_format_error(image)
                 if invalid_format:
                     return INVALID_CONFIGURATION_OPTION.detailed(_(
                         "Upload for %(setting)s must be in GIF, PNG, or JPG format. (Upload was %(format)s.)",

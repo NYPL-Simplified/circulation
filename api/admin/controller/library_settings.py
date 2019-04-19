@@ -59,7 +59,7 @@ class LibrarySettingsController(SettingsController):
             )]
         return dict(libraries=libraries, settings=Configuration.LIBRARY_SETTINGS)
 
-    def process_post(self):
+    def process_post(self, validator=GeographicValidator()):
         self.require_system_admin()
 
         library = None
@@ -90,7 +90,7 @@ class LibrarySettingsController(SettingsController):
         if short_name:
             library.short_name = short_name
 
-        configuration_settings = self.library_configuration_settings(library)
+        configuration_settings = self.library_configuration_settings(library, validator)
         if isinstance(configuration_settings, ProblemDetail):
             return configuration_settings
 
@@ -121,7 +121,6 @@ class LibrarySettingsController(SettingsController):
         settings = Configuration.LIBRARY_SETTINGS
         validations = [
             self.check_for_missing_fields,
-            # self.check_input_type,
             self.check_web_color_contrast,
             self.check_header_links,
             self.validate_formats
@@ -193,10 +192,10 @@ class LibrarySettingsController(SettingsController):
 
 # Configuration settings:
 
-    def library_configuration_settings(self, library):
+    def library_configuration_settings(self, library, validator):
         for setting in Configuration.LIBRARY_SETTINGS:
             if setting.get("format") == "geographic":
-                locations = GeographicValidator().validate_geographic_areas(self.list_setting(setting), self._db)
+                locations = validator.validate_geographic_areas(self.list_setting(setting), self._db)
                 if isinstance(locations, ProblemDetail):
                     return locations
                 value = locations or self.current_value(setting, library)

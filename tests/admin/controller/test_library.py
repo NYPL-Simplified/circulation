@@ -27,6 +27,7 @@ from core.model import (
 )
 from core.testing import MockRequestsResponse
 from api.admin.controller.library_settings import LibrarySettingsController
+from api.admin.geographic_validator import GeographicValidator
 from test_controller import SettingsControllerTest
 
 class TestLibrarySettings(SettingsControllerTest):
@@ -203,6 +204,14 @@ class TestLibrarySettings(SettingsControllerTest):
             headers = { "Content-Type": "image/png" }
         image_data = '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x01\x03\x00\x00\x00%\xdbV\xca\x00\x00\x00\x06PLTE\xffM\x00\x01\x01\x01\x8e\x1e\xe5\x1b\x00\x00\x00\x01tRNS\xcc\xd24V\xfd\x00\x00\x00\nIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82'
 
+        original_validate = GeographicValidator().validate_geographic_areas
+        class MockValidator(GeographicValidator):
+            def __init__(self):
+                self.was_called = False
+            def validate_geographic_areas(self, values, db):
+                self.was_called = True
+                return original_validate(values, db)
+
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "The New York Public Library"),
@@ -225,7 +234,9 @@ class TestLibrarySettings(SettingsControllerTest):
             flask.request.files = MultiDict([
                 (Configuration.LOGO, TestFileUpload(image_data)),
             ])
-            response = self.manager.admin_library_settings_controller.process_post()
+            validator = MockValidator()
+            response = self.manager.admin_library_settings_controller.process_post(validator)
+
             eq_(response.status_code, 201)
 
         library = get_one(self._db, Library, short_name="nypl")
@@ -243,6 +254,7 @@ class TestLibrarySettings(SettingsControllerTest):
                 library).value)
         eq_("data:image/png;base64,%s" % base64.b64encode(image_data),
             ConfigurationSetting.for_library(Configuration.LOGO, library).value)
+        eq_(validator.was_called, True)
         eq_('{"CA": [], "US": [{"06759": "Litchfield, CT"}, "everywhere", "MD", "Boston, MA"]}',
             ConfigurationSetting.for_library(Configuration.LIBRARY_SERVICE_AREA, library).value)
         eq_('{"CA": [{"V5K": "Vancouver (North Hastings- Sunrise), British Columbia"}, "QC"], "US": ["Broward County, FL"]}',

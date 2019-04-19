@@ -2591,7 +2591,7 @@ class SettingsController(AdminCirculationManagerController):
         [protocol] = [p for p in self.protocols if p.get("name") == flask.request.form.get("protocol")]
         return protocol.get("settings")
 
-    def validate_formats(self, settings=None):
+    def validate_formats(self, settings=None, validator=Validator()):
         # If the service has self.protocols set, we can extract the list of settings here;
         # otherwise, the settings have to be passed in as an argument--either a list or
         # a string.
@@ -2601,7 +2601,7 @@ class SettingsController(AdminCirculationManagerController):
             files = flask.request.files
         except:
             files = None
-        error = Validator().validate(settings, dict(form=form, files=files))
+        error = validator.validate(settings, dict(form=form, files=files))
         if error:
             return error
 
