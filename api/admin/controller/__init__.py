@@ -542,7 +542,6 @@ class SignInController(AdminController):
 
     def error_response(self, problem_detail):
         """Returns a problem detail as an HTML response"""
-        # set_trace()
         html = self.ERROR_RESPONSE_TEMPLATE % dict(
             status_code=problem_detail.status_code,
             message=problem_detail.detail
