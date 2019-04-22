@@ -34,8 +34,9 @@ from api.admin.controller import (
     PatronController,
     TimestampsController
 )
-from api.admin.problem_details import *
 from api.admin.exceptions import *
+from api.admin.problem_details import *
+from api.admin.validator import Validator
 from api.admin.routes import setup_admin
 from api.config import (
     Configuration,
@@ -3333,3 +3334,39 @@ class TestSettingsController(SettingsControllerTest):
         i2, is_new2 = m(protocol_definitions, "allow one", goal)
         eq_(False, is_new2)
         eq_(DUPLICATE_INTEGRATION, i2)
+
+    def test_validate_formats(self):
+        class MockValidator(Validator):
+            def __init__(self):
+                self.was_called = False
+                self.args = []
+            def validate(self, settings, content):
+                self.was_called = True
+                self.args.append(settings)
+                self.args.append(content)
+            def validate_error(self, settings, content):
+                return INVALID_EMAIL
+
+        validator = MockValidator()
+
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "The New York Public Library"),
+                ("short_name", "nypl"),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
+                (Configuration.HELP_EMAIL, "help@example.com")
+            ])
+            flask.request.files = MultiDict([
+                (Configuration.LOGO, StringIO())
+            ])
+            response = self.manager.admin_settings_controller.validate_formats(Configuration.LIBRARY_SETTINGS, validator)
+            eq_(response, None)
+            eq_(validator.was_called, True)
+            eq_(validator.args[0], Configuration.LIBRARY_SETTINGS)
+            eq_(validator.args[1], {"files": flask.request.files, "form": flask.request.form})
+
+            validator.validate = validator.validate_error
+            # If the validator returns an problem detail, validate_formats returns it.
+            response = self.manager.admin_settings_controller.validate_formats(Configuration.LIBRARY_SETTINGS, validator)
+            eq_(response, INVALID_EMAIL)

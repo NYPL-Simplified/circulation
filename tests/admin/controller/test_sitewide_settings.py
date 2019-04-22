@@ -65,33 +65,6 @@ class TestSitewideSettings(SettingsControllerTest):
             response = self.manager.admin_sitewide_configuration_settings_controller.process_post()
             eq_(response, MISSING_SITEWIDE_SETTING_VALUE)
 
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("key", Configuration.BASE_URL_KEY),
-                ("value", "bad_url")
-            ])
-            response = self.manager.admin_sitewide_configuration_settings_controller.process_post()
-            eq_(response.uri, INVALID_URL.uri)
-            assert "bad_url" in response.detail
-
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("key", Configuration.GROUPED_MAX_AGE_POLICY),
-                ("value", "not a number!")
-            ])
-            response = self.manager.admin_sitewide_configuration_settings_controller.process_post()
-            eq_(response.uri, INVALID_NUMBER.uri)
-            assert "not a number!" in response.detail
-
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("key", Configuration.STATIC_FILE_CACHE_TIME),
-                ("value", "-5")
-            ])
-            response = self.manager.admin_sitewide_configuration_settings_controller.process_post()
-            eq_(response.uri, INVALID_NUMBER.uri)
-            eq_("Cache time for static images and JS and CSS files (in seconds) must be greater than 0.", response.detail)
-
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([

@@ -27,6 +27,7 @@ from core.model import (
 )
 from core.testing import MockRequestsResponse
 from api.admin.controller.library_settings import LibrarySettingsController
+from api.admin.geographic_validator import GeographicValidator
 from test_controller import SettingsControllerTest
 
 class TestLibrarySettings(SettingsControllerTest):
@@ -104,100 +105,6 @@ class TestLibrarySettings(SettingsControllerTest):
                settings.get(Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME))
             eq_(["French"], settings.get(Configuration.LARGE_COLLECTION_LANGUAGES))
 
-    def test_validate_geographic_areas(self):
-        original_controller = self.manager.admin_library_settings_controller
-        db = self._db
-        class Mock(LibrarySettingsController):
-            def __init__(self):
-                self._db = db
-                self.value = None
-
-            def mock_find_location_through_registry(self, value):
-                self.value = value
-            def mock_find_location_through_registry_with_error(self, value):
-                self.value = value
-                return REMOTE_INTEGRATION_FAILED
-            def mock_find_location_through_registry_success(self, value):
-                self.value = value
-                return "CA"
-
-        controller = Mock()
-        controller.find_location_through_registry = controller.mock_find_location_through_registry
-        library = self._library()
-
-        # Test invalid geographic input
-
-        # Invalid US zipcode
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: "00000"}
-            )
-            response = controller.process_post()
-            eq_(response.uri, UNKNOWN_LOCATION.uri)
-            eq_(response.detail, '"00000" is not a valid U.S. zipcode.')
-            # The controller should have returned the problem detail without bothering to ask the registry.
-            eq_(controller.value, None)
-
-        # Invalid Canadian zipcode
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: "X1Y"}
-            )
-            response = controller.process_post()
-            eq_(response.uri, UNKNOWN_LOCATION.uri)
-            eq_(response.detail, '"X1Y" is not a valid Canadian zipcode.')
-            # The controller should have returned the problem detail without bothering to ask the registry.
-            eq_(controller.value, None)
-
-        # Invalid 2-letter abbreviation
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: "ZZ"}
-            )
-            response = controller.process_post()
-            eq_(response.uri, UNKNOWN_LOCATION.uri)
-            eq_(response.detail, '"ZZ" is not a valid U.S. state or Canadian province abbreviation.')
-            # The controller should have returned the problem detail without bothering to ask the registry.
-            eq_(controller.value, None)
-
-        # County with wrong state
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: "Fairfield County, FL"}
-            )
-            response = controller.process_post()
-            eq_(response.uri, UNKNOWN_LOCATION.uri)
-            eq_(response.detail, 'Unable to locate "Fairfield County, FL".')
-            # The controller should go ahead and call find_location_through_registry
-            eq_(controller.value, "Fairfield County, FL")
-
-        # City with wrong state
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: "Albany, NJ"}
-            )
-            response = controller.process_post()
-            eq_(response.uri, UNKNOWN_LOCATION.uri)
-            eq_(response.detail, 'Unable to locate "Albany, NJ".')
-            # The controller should go ahead and call find_location_through_registry
-            eq_(controller.value, "Albany, NJ")
-
-        # Can't connect to registry
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.LIBRARY_SERVICE_AREA: "Ontario"}
-            )
-            controller.find_location_through_registry = controller.mock_find_location_through_registry_with_error
-            response = controller.process_post()
-            eq_(controller.value, "Ontario")
-            # The controller goes ahead and calls find_location_through_registry, but it can't connect to the registry.
-            eq_(response.uri, REMOTE_INTEGRATION_FAILED.uri)
-
-        # The registry successfully finds the place
-        controller.find_location_through_registry = controller.mock_find_location_through_registry_success
-        response = controller.validate_geographic_areas('["Ontario"]')
-        eq_(response, '{"CA": ["Ontario"], "US": []}')
-
     def test_libraries_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -262,74 +169,6 @@ class TestLibrarySettings(SettingsControllerTest):
             response = self.manager.admin_library_settings_controller.process_post()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.HELP_EMAIL: "wrong_email_format", Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS: "also_wrong"}
-            )
-            response = self.manager.admin_library_settings_controller.process_post()
-            eq_(response.uri, INVALID_EMAIL.uri)
-            assert "wrong_email_format" in response.detail
-
-        # If you fix the first invalid email address, you proceed to getting an error
-        # message about the next one
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS: "still_wrong"}
-            )
-            response = self.manager.admin_library_settings_controller.process_post()
-            eq_(response.uri, INVALID_EMAIL.uri)
-            assert "still_wrong" in response.detail
-
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.WEBSITE_URL: "bad_url"}
-            )
-            response = self.manager.admin_library_settings_controller.process_post()
-            eq_(response.uri, INVALID_URL.uri)
-            assert "bad_url" in response.detail
-
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.LOAN_LIMIT: "not a number!"}
-            )
-            response = self.manager.admin_library_settings_controller.process_post()
-            eq_(response.uri, INVALID_NUMBER.uri)
-            assert "not a number!" in response.detail
-
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.HOLD_LIMIT: "-5"}
-            )
-            response = self.manager.admin_library_settings_controller.process_post()
-            eq_(response.uri, INVALID_NUMBER.uri)
-            eq_(response.detail, "Maximum number of books a patron can have on hold at once must be greater than 0.")
-
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.MINIMUM_FEATURED_QUALITY: "2"}
-            )
-            response = self.manager.admin_library_settings_controller.process_post()
-            eq_(response.uri, INVALID_NUMBER.uri)
-            eq_(response.detail, "Minimum quality for books that show up in 'featured' lanes cannot be greater than 1.")
-
-        # Test an invalid language code
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.LARGE_COLLECTION_LANGUAGES: ["xyz"]}
-            )
-            response = self.manager.admin_library_settings_controller.process_post()
-            eq_(response.uri, UNKNOWN_LANGUAGE.uri)
-            eq_(response.detail, '"xyz" is not a valid language code.')
-
-        # Test an invalid language code buried in a list of valid ones
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = self.library_form(
-                library, {Configuration.LARGE_COLLECTION_LANGUAGES: ["eng", "ger", "fre"], Configuration.TINY_COLLECTION_LANGUAGES: ["gre", "abc", "wel"]}
-            )
-            response = self.manager.admin_library_settings_controller.process_post()
-            eq_(response.uri, UNKNOWN_LANGUAGE.uri)
-            eq_(response.detail, '"abc" is not a valid language code.')
-
         # Test a bad contrast ratio between the web foreground and
         # web background colors.
         with self.request_context_with_admin("/", method="POST"):
@@ -365,6 +204,14 @@ class TestLibrarySettings(SettingsControllerTest):
             headers = { "Content-Type": "image/png" }
         image_data = '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x01\x03\x00\x00\x00%\xdbV\xca\x00\x00\x00\x06PLTE\xffM\x00\x01\x01\x01\x8e\x1e\xe5\x1b\x00\x00\x00\x01tRNS\xcc\xd24V\xfd\x00\x00\x00\nIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82'
 
+        original_validate = GeographicValidator().validate_geographic_areas
+        class MockValidator(GeographicValidator):
+            def __init__(self):
+                self.was_called = False
+            def validate_geographic_areas(self, values, db):
+                self.was_called = True
+                return original_validate(values, db)
+
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "The New York Public Library"),
@@ -387,7 +234,9 @@ class TestLibrarySettings(SettingsControllerTest):
             flask.request.files = MultiDict([
                 (Configuration.LOGO, TestFileUpload(image_data)),
             ])
-            response = self.manager.admin_library_settings_controller.process_post()
+            validator = MockValidator()
+            response = self.manager.admin_library_settings_controller.process_post(validator)
+
             eq_(response.status_code, 201)
 
         library = get_one(self._db, Library, short_name="nypl")
@@ -405,6 +254,7 @@ class TestLibrarySettings(SettingsControllerTest):
                 library).value)
         eq_("data:image/png;base64,%s" % base64.b64encode(image_data),
             ConfigurationSetting.for_library(Configuration.LOGO, library).value)
+        eq_(validator.was_called, True)
         eq_('{"CA": [], "US": [{"06759": "Litchfield, CT"}, "everywhere", "MD", "Boston, MA"]}',
             ConfigurationSetting.for_library(Configuration.LIBRARY_SERVICE_AREA, library).value)
         eq_('{"CA": [{"V5K": "Vancouver (North Hastings- Sunrise), British Columbia"}, "QC"], "US": ["Broward County, FL"]}',
@@ -500,133 +350,3 @@ class TestLibrarySettings(SettingsControllerTest):
 
         library = get_one(self._db, Library, uuid=library.uuid)
         eq_(None, library)
-
-    def test_find_location_through_registry(self):
-        library = self._default_library
-        controller = self.manager.admin_library_settings_controller
-        original_ask_registry = controller.ask_registry
-        get = self.do_request
-        test = self
-        class Mock(LibrarySettingsController):
-            called_with = []
-            def ask_registry(self, service_area_object):
-                places = {"US": ["Chicago"], "CA": ["Ontario"]}
-                service_area_info = json.loads(urllib.unquote(service_area_object))
-                nation = service_area_info.keys()[0]
-                city_or_county = service_area_info.values()[0]
-                if city_or_county == "ERROR":
-                    test.responses.append(MockRequestsResponse(502))
-                elif city_or_county in places[nation]:
-                    self.called_with.append(service_area_info)
-                    test.responses.append(MockRequestsResponse(200, content=json.dumps(dict(unknown=None, ambiguous=None))))
-                else:
-                    self.called_with.append(service_area_info)
-                    test.responses.append(MockRequestsResponse(200, content=json.dumps(dict(unknown=[city_or_county]))))
-                return original_ask_registry(service_area_object, get)
-
-        mock_controller = Mock(controller)
-
-        self._registry("https://registry_url")
-
-        us_response = mock_controller.find_location_through_registry("Chicago")
-        eq_(len(mock_controller.called_with), 1)
-        eq_({"US": "Chicago"}, mock_controller.called_with[0])
-        eq_(us_response, "US")
-
-        mock_controller.called_with = []
-
-        ca_response = mock_controller.find_location_through_registry("Ontario")
-        eq_(len(mock_controller.called_with), 2)
-        eq_({"US": "Ontario"}, mock_controller.called_with[0])
-        eq_({"CA": "Ontario"}, mock_controller.called_with[1])
-        eq_(ca_response, "CA")
-
-        mock_controller.called_with = []
-
-        nowhere_response = mock_controller.find_location_through_registry("Not a real place")
-        eq_(len(mock_controller.called_with), 2)
-        eq_({"US": "Not a real place"}, mock_controller.called_with[0])
-        eq_({"CA": "Not a real place"}, mock_controller.called_with[1])
-        eq_(nowhere_response, None)
-
-        error_response = mock_controller.find_location_through_registry("ERROR")
-        eq_(error_response.detail, "Unable to contact the registry at https://registry_url.")
-        eq_(error_response.status_code, 502)
-
-    def test_ask_registry(self):
-        controller = self.manager.admin_library_settings_controller
-
-        registry_1 = self._registry("https://registry_1_url")
-        registry_2 = self._registry("https://registry_2_url")
-        registry_3 = self._registry("https://registry_3_url")
-
-        true_response = MockRequestsResponse(200, content="{}")
-        unknown_response = MockRequestsResponse(200, content='{"unknown": "place"}')
-        ambiguous_response = MockRequestsResponse(200, content='{"ambiguous": "place"}')
-        problem_response = MockRequestsResponse(404)
-
-        # Registry 1 knows about the place
-        self.responses.append(true_response)
-        response_1 = controller.ask_registry(json.dumps({"CA": "Ontario"}), self.do_request)
-        eq_(response_1, True)
-        eq_(len(self.requests), 1)
-        request_1 = self.requests.pop()
-        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Ontario"}')
-
-        # Registry 1 says the place is unknown, but Registry 2 finds it.
-        self.responses.append(true_response)
-        self.responses.append(unknown_response)
-        response_2 = controller.ask_registry(json.dumps({"CA": "Ontario"}), self.do_request)
-        eq_(response_2, True)
-        eq_(len(self.requests), 2)
-        request_2 = self.requests.pop()
-        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Ontario"}')
-        request_1 = self.requests.pop()
-        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Ontario"}')
-
-        # Registry_1 says the place is ambiguous and Registry_2 says it's unknown, but Registry_3 finds it.
-        self.responses.append(true_response)
-        self.responses.append(unknown_response)
-        self.responses.append(ambiguous_response)
-        response_3 = controller.ask_registry(json.dumps({"CA": "Ontario"}), self.do_request)
-        eq_(response_3, True)
-        eq_(len(self.requests), 3)
-        request_3 = self.requests.pop()
-        eq_(request_3[0], 'https://registry_3_url/coverage?coverage={"CA": "Ontario"}')
-        request_2 = self.requests.pop()
-        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Ontario"}')
-        request_1 = self.requests.pop()
-        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Ontario"}')
-
-        # Registry 1 returns a problem detail, but Registry 2 finds the place
-        self.responses.append(true_response)
-        self.responses.append(problem_response)
-        response_4 = controller.ask_registry(json.dumps({"CA": "Ontario"}), self.do_request)
-        eq_(response_4, True)
-        eq_(len(self.requests), 2)
-        request_2 = self.requests.pop()
-        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Ontario"}')
-        request_1 = self.requests.pop()
-        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Ontario"}')
-
-        # Registry 1 returns a problem detail and the other two registries can't find the place
-        self.responses.append(unknown_response)
-        self.responses.append(ambiguous_response)
-        self.responses.append(problem_response)
-        response_5 = controller.ask_registry(json.dumps({"CA": "Ontario"}), self.do_request)
-        eq_(response_5.status_code, 502)
-        eq_(response_5.detail, "Unable to contact the registry at https://registry_1_url.")
-        eq_(len(self.requests), 3)
-        request_3 = self.requests.pop()
-        eq_(request_3[0], 'https://registry_3_url/coverage?coverage={"CA": "Ontario"}')
-        request_2 = self.requests.pop()
-        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Ontario"}')
-        request_1 = self.requests.pop()
-        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Ontario"}')
-
-    def _registry(self, url):
-        integration, is_new = create(
-            self._db, ExternalIntegration, protocol=ExternalIntegration.OPDS_REGISTRATION, goal=ExternalIntegration.DISCOVERY_GOAL
-        )
-        integration.url = url
-        return RemoteRegistry(integration)
