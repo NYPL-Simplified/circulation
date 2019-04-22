@@ -452,10 +452,12 @@ class SignInController(AdminController):
     ERROR_RESPONSE_TEMPLATE = """<!DOCTYPE HTML>
 <html lang="en">
 <head><meta charset="utf8"></head>
-<body>
+<body style="{error}">
 <p><strong>%(status_code)d ERROR:</strong> %(message)s</p>
+<hr style="{hr}">
+<a href="/admin/sign_in" style="{link}">Try again</a>
 </body>
-</html>"""
+</html>""".format(error=error_style, hr=hr_style, link=small_link_style)
 
     SIGN_IN_TEMPLATE = """<!DOCTYPE HTML>
 <html lang="en">
@@ -540,6 +542,7 @@ class SignInController(AdminController):
 
     def error_response(self, problem_detail):
         """Returns a problem detail as an HTML response"""
+        # set_trace()
         html = self.ERROR_RESPONSE_TEMPLATE % dict(
             status_code=problem_detail.status_code,
             message=problem_detail.detail
