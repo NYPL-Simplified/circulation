@@ -118,17 +118,6 @@ class TestSearchServices(SettingsControllerTest):
             response = controller.process_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("name", "Name"),
-                ("protocol", ExternalIntegration.ELASTICSEARCH),
-                (ExternalIntegration.URL, "bad_url"),
-                (ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, "works-index-prefix"),
-            ])
-            response = self.manager.admin_search_services_controller.process_services()
-            eq_(response.uri, INVALID_URL.uri)
-            assert "bad_url" in response.detail
-
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
