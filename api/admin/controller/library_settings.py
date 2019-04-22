@@ -59,11 +59,12 @@ class LibrarySettingsController(SettingsController):
             )]
         return dict(libraries=libraries, settings=Configuration.LIBRARY_SETTINGS)
 
-    def process_post(self, validator=GeographicValidator()):
+    def process_post(self, validator=None):
         self.require_system_admin()
 
         library = None
         is_new = False
+        validator = validator or GeographicValidator()
 
         library_uuid = flask.request.form.get("uuid")
         library = self.get_library_from_uuid(library_uuid)

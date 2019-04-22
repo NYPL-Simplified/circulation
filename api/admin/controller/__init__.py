@@ -2591,10 +2591,11 @@ class SettingsController(AdminCirculationManagerController):
         [protocol] = [p for p in self.protocols if p.get("name") == flask.request.form.get("protocol")]
         return protocol.get("settings")
 
-    def validate_formats(self, settings=None, validator=Validator()):
+    def validate_formats(self, settings=None, validator=None):
         # If the service has self.protocols set, we can extract the list of settings here;
         # otherwise, the settings have to be passed in as an argument--either a list or
         # a string.
+        validator = validator or Validator()
         settings = settings or self._get_settings()
         form = flask.request.form or None
         try:
