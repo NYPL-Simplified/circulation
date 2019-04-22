@@ -101,16 +101,6 @@ class TestDiscoveryServices(SettingsControllerTest):
             response = self.manager.admin_discovery_services_controller.process_discovery_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("name", "Name"),
-                ("protocol", ExternalIntegration.OPDS_REGISTRATION),
-                (ExternalIntegration.URL, "bad_url"),
-            ])
-            response = self.manager.admin_discovery_services_controller.process_discovery_services()
-            eq_(response.uri, INVALID_URL.uri)
-            assert "bad_url" in response.detail
-
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([

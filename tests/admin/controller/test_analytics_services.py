@@ -157,17 +157,6 @@ class TestAnalyticsServices(SettingsControllerTest):
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", service.id),
-                ("name", "analytics name"),
-                ("protocol", GoogleAnalyticsProvider.__module__),
-                ("url", "bad_url")
-            ])
-            response = self.manager.admin_analytics_services_controller.process_analytics_services()
-            eq_(response.uri, INVALID_URL.uri)
-            assert "bad_url" in response.detail
-
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("id", service.id),
                 ("protocol", GoogleAnalyticsProvider.__module__),
                 ("name", "some other analytics name"),
                 (ExternalIntegration.URL, "http://test"),

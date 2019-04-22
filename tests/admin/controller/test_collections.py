@@ -330,18 +330,6 @@ class TestCollectionSettings(SettingsControllerTest):
             response = self.manager.admin_collection_settings_controller.process_collections()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("name", "collection1"),
-                ("protocol", "Axis 360"),
-                ("password", "password"),
-                ("external_account_id", "account_id"),
-                ("url", "bad_url")
-            ])
-            response = self.manager.admin_collection_settings_controller.process_collections()
-            eq_(response.uri, INVALID_URL.uri)
-            assert "bad_url" in response.detail
-
     def test_collections_post_create(self):
         l1, ignore = create(
             self._db, Library, name="Library 1", short_name="L1",

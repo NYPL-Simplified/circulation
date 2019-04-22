@@ -100,18 +100,6 @@ class TestAdminAuthServices(SettingsControllerTest):
             response = self.manager.admin_auth_services_controller.process_admin_auth_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("name", "oauth"),
-                ("protocol", "Google OAuth"),
-                ("url", "bad_url"),
-                ("username", "username"),
-                ("password", "password"),
-            ])
-            response = self.manager.admin_auth_services_controller.process_admin_auth_services()
-            eq_(response.uri, INVALID_URL.uri)
-            assert "bad_url" in response.detail
-
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         self._db.flush()
         with self.request_context_with_admin("/", method="POST"):
