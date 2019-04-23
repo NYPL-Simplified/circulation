@@ -17,7 +17,8 @@ apt-get update && $minimal_apt_get_install python-dev \
   libffi-dev \
   libjpeg-dev \
   nodejs \
-  npm
+  npm \
+  libpq-dev
 
 # Create a user.
 useradd -ms /bin/bash -U simplified
