@@ -62,7 +62,7 @@ class PatronAuthServicesController(SettingsController):
     def process_post(self):
         protocol = flask.request.form.get("protocol")
         is_new = False
-        error = self.validate_form_fields(protocol)
+        error = self.validate_form_fields(protocol) or self.validate_formats()
         if error:
             return error
 
