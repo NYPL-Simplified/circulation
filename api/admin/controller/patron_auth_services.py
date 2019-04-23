@@ -62,9 +62,9 @@ class PatronAuthServicesController(SettingsController):
     def process_post(self):
         protocol = flask.request.form.get("protocol")
         is_new = False
-        error = self.validate_form_fields(protocol)
-        if error:
-            return error
+        protocol_error = self.validate_form_fields(protocol)
+        if protocol_error:
+            return protocol_error
 
         id = flask.request.form.get("id")
         if id:
@@ -81,6 +81,9 @@ class PatronAuthServicesController(SettingsController):
             )
             if isinstance(auth_service, ProblemDetail):
                 return auth_service
+            format_error = self.validate_formats()
+            if format_error:
+                return format_error
 
         name = self.get_name(auth_service)
         if isinstance(name, ProblemDetail):

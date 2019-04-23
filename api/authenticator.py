@@ -2072,7 +2072,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     DEFAULT_TOKEN_EXPIRATION_DAYS = 42
 
     SETTINGS = [
-        { "key": OAUTH_TOKEN_EXPIRATION_DAYS, "label": _("Days until OAuth token expires") },
+        { "key": OAUTH_TOKEN_EXPIRATION_DAYS, "type": "number", "label": _("Days until OAuth token expires") },
     ] + AuthenticationProvider.SETTINGS
 
     # Name of the site-wide ConfigurationSetting containing the secret
