@@ -81,9 +81,11 @@ class PatronAuthServicesController(SettingsController):
             )
             if isinstance(auth_service, ProblemDetail):
                 return auth_service
-            format_error = self.validate_formats()
-            if format_error:
-                return format_error
+
+        format_error = self.validate_formats()
+        if format_error:
+            self._db.rollback()
+            return format_error
 
         name = self.get_name(auth_service)
         if isinstance(name, ProblemDetail):

@@ -273,7 +273,7 @@ class TestPatronAuth(SettingsControllerTest):
                 ("name", "some auth name"),
                 ("id", auth_service.id),
                 ("protocol", MilleniumPatronAPI.__module__),
-                (ExternalIntegration.URL, "url"),
+                (ExternalIntegration.URL, "http://url"),
                 (M.AUTHENTICATION_MODE, "Invalid mode"),
                 (M.VERIFY_CERTIFICATE, "true"),
             ] + common_args)
