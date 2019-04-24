@@ -1524,12 +1524,12 @@ class Filter(SearchBase):
         def chain_nested(path, f):
             nested_filters[path] = chain(nested_filters.get(path), f)
 
+        f = None
+
         collection_ids = filter_ids(self.collection_ids)
         if collection_ids:
-            ids = filter_ids(collection_ids)
-            chain_nested("licensepools", F('terms', **{'collection_id' : ids}))
+            f = chain(f, self.collection_id_filter)
 
-        f = None
         if self.media:
             f = chain(f, F('terms', medium=scrub_list(self.media)))
 
@@ -1559,18 +1559,54 @@ class Filter(SearchBase):
 
         if nested_filters:
             nested = None
+            set_trace()
             for path, nested_filter in nested_filters.items():
-                nested = Nested(path=path, filter=nested_filter)
+                nested = Q('nested', path=path, filter=nested_filter)
             if nested:
                 f = chain(f, nested)                
         return f
 
+    @property
+    def collection_id_filter(self):
+        """Helper method to generate a filter on licensepools.collection_id.
+
+        This is used both in building the initial filter and in
+        applying a filter during sorting.
+        """
+        ids = self._filter_ids(self.collection_ids)
+        if not ids:
+            return None
+        return F('terms', **{'licensepools.collection_id' : ids})
+
     def specify_sort_order(self, search):
         if not self.order:
             return search
-        order = self.order
-        if self.order_ascending is False:
-            order = '-' + order
+
+        order_field = self.order
+        if '.' in order_field:
+            # We're sorting by a nested field.
+            if self.order_ascending is False:
+                order = "desc"
+            else:
+                order = "asc"
+            nested_filter=None
+            mode = 'min'
+            if order_field == 'licensepools.availability_time':
+                collection_ids = self._filter_ids(self.collection_ids)
+                if collection_ids:
+                    nested_filter = dict(
+                        terms={
+                            "licensepools.collection_id": self.collection_ids
+                        }
+                    )
+            order_description = dict(order=order, mode=mode)
+            if nested_filter:
+                order_description['nested_filter'] = nested_filter
+            order = { order_field : order_description }
+        else:
+            order = order_field
+            if self.order_ascending is False:
+                order = '-' + order
         return search.sort(order)
 
     @property

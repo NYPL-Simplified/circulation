@@ -924,7 +924,7 @@ class TestSearchOrder(EndToEndExternalSearchTest):
         ).run_once_and_update_timestamp()
 
         # Sleep to give the index time to catch up.
-        time.sleep(2)
+        time.sleep(1)
 
         def assert_order(sort_field, order, **filter_kwargs):
             """Verify that when the books created during test setup are ordered by
@@ -952,6 +952,22 @@ class TestSearchOrder(EndToEndExternalSearchTest):
             facets.order_ascending = False
             expect(list(reversed(order)), "moby", Filter(facets=facets, **filter_kwargs))
 
+        # We can sort by the time the Work's LicensePools were first
+        # seen -- this would be used when showing patrons 'new' stuff.
+        #
+        # The LicensePools showed up in different orders in different
+        # collections, so filtering by collection will give different
+        # results.
+        assert_order(
+            Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_dick, self.moby_duck],
+            collections=[self.collection1]
+        )
+
+        assert_order(
+            Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_duck, self.moby_dick],
+            collections=[self.collection2]
+        )
+
         # We can sort by title.
         assert_order(Facets.ORDER_TITLE, [self.moby_dick, self.moby_duck])
 
@@ -972,22 +988,6 @@ class TestSearchOrder(EndToEndExternalSearchTest):
 
         # We can sort by internal work ID, which isn't very useful.
         assert_order(Facets.ORDER_WORK_ID, [self.moby_dick, self.moby_duck])
-
-        # We can sort by the time the Work's LicensePools were first
-        # seen -- this would be used when showing patrons 'new' stuff.
-        #
-        # The LicensePools showed up in different orders in different
-        # collections, so filtering by collection will give different
-        # results.
-        assert_order(
-            Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_dick, self.moby_duck],
-            collections=[self.collection1]
-        )
-
-        assert_order(
-            Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_duck, self.moby_dick],
-            collections=[self.collection2]
-        )
 
 
 class TestExactMatches(EndToEndExternalSearchTest):
