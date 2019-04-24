@@ -274,7 +274,6 @@ class ExternalSearchIndex(HasSelfTests):
         self.log.info("Creating index %s", index_name)
         body = ExternalSearchIndexVersions.latest_body()
         body.setdefault('settings', {}).update(index_settings)
-        set_trace()
         index = self.indices.create(index=index_name, body=body)
 
     def transfer_current_alias(self, _db, new_index):
@@ -622,6 +621,29 @@ class ExternalSearchIndexVersions(object):
         return mapping
 
     @classmethod
+    def map_fields_by_type(cls, fields_by_type, mapping=None):
+        """Create a mapping for a number of fields of different types.
+
+        It's assumed these fields will be used in filtering and
+        sorting, not searching -- thus their values are stored but not
+        indexed. (TODO: ???)
+
+        :param fields_by_type: A dictionary mapping Elasticsearch types
+            to field names.
+        """
+        for type, fields in fields_by_type.items():
+            mapping = cls.map_fields(
+                fields=fields,
+                field_description={
+                    "type": type,
+                    "index": False,
+                    "store": True,
+                },
+                mapping=mapping
+            )
+        return mapping
+
+    @classmethod
     def v4_body(cls):
         """The v4 body adds raw versions of a work's sort_title and
         sort_author, so that lists can be sorted by those fields rather
@@ -708,49 +730,39 @@ class ExternalSearchIndexVersions(object):
         #
         # When we list books by a specific author, we're applying a filter on sort_author,
         # not author.
-        fields_for_type = {
+        fields_by_type = {
             'keyword': ['sort_author', 'sort_title'],
             'date': ['last_update_time'],
             'integer': ['series_position'],
             'float': ['random'],
         }
+        mapping = cls.map_fields_by_type(fields_by_type, mapping)
 
-        for type, fields in fields_for_type.items():
-            mapping = cls.map_fields(
-                fields=fields,
-                field_description={
-                    "type": type,
-                    "index": False,
-                    "store": True,
-                },
-                mapping=mapping
-            )
-
-        # TODO: This isn't working.
-        licensepool_mapping = dict()
-        fields_for_licensepool_type = {
-            'date': ['availability_time', 'last_update_time'],
+        # Build separate mappings for the nested data types --
+        # currently just licensepools.
+        licensepool_fields_by_type = {
+            'date': ['availability_time'],
             'boolean': ['availability', 'open_access'],
         }
-        for type, fields in fields_for_type.items():
-            licensepool_mapping = cls.map_fields(
-                fields=fields,
-                field_description={
-                    "type": type,
-                    "index": False,
-                    "store": True,
-                },
-                mapping=licensepool_mapping
-            )
-        mapping = cls.map_fields(
-            fields=['licensepool'],
-            field_description=dict(type='nested', fields=licensepool_mapping)
+        licensepool_definition = cls.map_fields_by_type(
+            licensepool_fields_by_type
         )
-        set_trace()
+
+        # Add the nested data type mappings to the main mapping.
+        for type_name, type_definition in [
+            ('licensepool', licensepool_definition),
+        ]:
+            type_definition['type'] = 'nested'
+            mapping = cls.map_fields(
+                fields=[type_name],
+                field_description=type_definition,
+                mapping=mapping,
+            )
+
+        # Finally, name the mapping to connect it to the 'works'
+        # document type.
         mappings = { ExternalSearchIndex.work_document_type : mapping }
-
         return dict(settings=settings, mappings=mappings)
-
 
     @classmethod
     def v3_body(cls):
@@ -1551,7 +1563,6 @@ class Filter(SearchBase):
                 nested = Nested(path=path, filter=nested_filter)
             if nested:
                 f = chain(f, nested)                
-            set_trace()
         return f
 
     def specify_sort_order(self, search):
@@ -1676,7 +1687,6 @@ class Filter(SearchBase):
     @classmethod
     def _chain_nested(cls, main, subfilter):
         """Either chain together or start a new chain."""
-        set_trace()
         if not isinstance(main, Nested):
             # This is a regular query that's about to become a nested query.
             main = Nested(main)
