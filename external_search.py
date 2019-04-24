@@ -1007,14 +1007,21 @@ class Query(SearchBase):
         """Make an Elasticsearch-DSL query object out of this query."""
         query = self.query()
 
-        # Add the filter, if there is one.
+        # Add the filter, if there is one. This may also result in a
+        # nested query, since some filters can only be applied in the
+        # context of a nested query.
         if self.filter:
+            kwargs = {}
             built_filter = self.filter.build()
+            if MAJOR_VERSION == 1:
+                query_type='filtered'
+                kwargs = dict(query=query)
+            else:
+                query_type='bool'
+                kwargs = dict(must=query)
             if built_filter:
-                if MAJOR_VERSION == 1:
-                    query = Q("filtered", query=query, filter=built_filter)
-                else:
-                    query = Q("bool", must=query, filter=built_filter)
+                kwargs['filter'] = built_filter
+                query = Q(query_type, **kwargs)
 
         # There you go!
         return query
