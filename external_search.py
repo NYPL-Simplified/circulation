@@ -12,7 +12,7 @@ try:
     from elasticsearch_dsl import F
     MAJOR_VERSION = 1
 except ImportError, e:
-    from elasticsearch_dsl import Q as F
+    from elasticsearch_dsl import Q as F, Nested
     MAJOR_VERSION = 6
 from elasticsearch_dsl.query import (
     Bool,
@@ -274,6 +274,7 @@ class ExternalSearchIndex(HasSelfTests):
         self.log.info("Creating index %s", index_name)
         body = ExternalSearchIndexVersions.latest_body()
         body.setdefault('settings', {}).update(index_settings)
+        set_trace()
         index = self.indices.create(index=index_name, body=body)
 
     def transfer_current_alias(self, _db, new_index):
@@ -709,8 +710,7 @@ class ExternalSearchIndexVersions(object):
         # not author.
         fields_for_type = {
             'keyword': ['sort_author', 'sort_title'],
-            'date': ['licensepools.availability_time', 'last_update_time'],
-            'boolean': ['licensepools.availability', 'licensepools.open_access'],
+            'date': ['last_update_time'],
             'integer': ['series_position'],
             'float': ['random'],
         }
@@ -726,6 +726,27 @@ class ExternalSearchIndexVersions(object):
                 mapping=mapping
             )
 
+        # TODO: This isn't working.
+        licensepool_mapping = dict()
+        fields_for_licensepool_type = {
+            'date': ['availability_time', 'last_update_time'],
+            'boolean': ['availability', 'open_access'],
+        }
+        for type, fields in fields_for_type.items():
+            licensepool_mapping = cls.map_fields(
+                fields=fields,
+                field_description={
+                    "type": type,
+                    "index": False,
+                    "store": True,
+                },
+                mapping=licensepool_mapping
+            )
+        mapping = cls.map_fields(
+            fields=['licensepool'],
+            field_description=dict(type='nested', fields=licensepool_mapping)
+        )
+        set_trace()
         mappings = { ExternalSearchIndex.work_document_type : mapping }
 
         return dict(settings=settings, mappings=mappings)
@@ -1485,12 +1506,18 @@ class Filter(SearchBase):
 
         chain = _chain_filters or self._chain_filters
 
+        # If necessary, the contents of this dictionary will be used
+        # at the end of this method to turn this into a nested filter.
+        nested_filters = dict()
+        def chain_nested(path, f):
+            nested_filters[path] = chain(nested_filters.get(path), f)
+
         collection_ids = filter_ids(self.collection_ids)
-        f = None
         if collection_ids:
             ids = filter_ids(collection_ids)
-            f = chain(f, F('terms', **{'licensepools.collection_id' : ids}))
+            chain_nested("licensepools", F('terms', **{'collection_id' : ids}))
 
+        f = None
         if self.media:
             f = chain(f, F('terms', medium=scrub_list(self.media)))
 
@@ -1517,6 +1544,14 @@ class Filter(SearchBase):
         for customlist_ids in self.customlist_restriction_sets:
             ids = filter_ids(customlist_ids)
             f = chain(f, F('terms', **{'customlists.list_id' : ids}))
+
+        if nested_filters:
+            nested = None
+            for path, nested_filter in nested_filters.items():
+                nested = Nested(path=path, filter=nested_filter)
+            if nested:
+                f = chain(f, nested)                
+            set_trace()
         return f
 
     def specify_sort_order(self, search):
@@ -1630,6 +1665,21 @@ class Filter(SearchBase):
     @classmethod
     def _chain_filters(cls, existing, new):
         """Either chain two filters together or start a new chain."""
+        if existing:
+            # We're combining two filters.
+            new = existing & new
+        else:
+            # There was no previous filter -- the 'new' one is it.
+            pass
+        return new
+
+    @classmethod
+    def _chain_nested(cls, main, subfilter):
+        """Either chain together or start a new chain."""
+        set_trace()
+        if not isinstance(main, Nested):
+            # This is a regular query that's about to become a nested query.
+            main = Nested(main)
         if existing:
             # We're combining two filters.
             new = existing & new
