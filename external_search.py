@@ -8,11 +8,12 @@ from elasticsearch_dsl import (
     Search,
     Q,
 )
+from elasticsearch_dsl.query import Nested
 try:
     from elasticsearch_dsl import F
     MAJOR_VERSION = 1
 except ImportError, e:
-    from elasticsearch_dsl import Q as F, Nested
+    from elasticsearch_dsl import Q as F
     MAJOR_VERSION = 6
 from elasticsearch_dsl.query import (
     Bool,
@@ -336,7 +337,10 @@ class ExternalSearchIndex(HasSelfTests):
 
         query = Query(query_string, filter)
         query_without_filter = Query(query_string)
-        search = self.search.query(query.build())
+        base_query, nested_filters = query.build()
+        search = self.search.query(base_query)
+        for (path, subfilter) in nested_filters:
+            search = search.filter('nested', path=path, query=subfilter)
         if filter:
             search = filter.specify_sort_order(search)
         if debug:
@@ -1010,21 +1014,22 @@ class Query(SearchBase):
         # Add the filter, if there is one. This may also result in a
         # nested query, since some filters can only be applied in the
         # context of a nested query.
+        nested_filters = []
         if self.filter:
             kwargs = {}
-            built_filter = self.filter.build()
-            if MAJOR_VERSION == 1:
-                query_type='filtered'
-                kwargs = dict(query=query)
-            else:
-                query_type='bool'
-                kwargs = dict(must=query)
+            built_filter, nested_filters = self.filter.build()
             if built_filter:
-                kwargs['filter'] = built_filter
+                if MAJOR_VERSION == 1:
+                    query_type='filtered'
+                    kwargs = dict(query=query)
+                else:
+                    query_type='bool'
+                    kwargs = dict(must=query)
+                if built_filter:
+                    kwargs['filter'] = built_filter
                 query = Q(query_type, **kwargs)
-
         # There you go!
-        return query
+        return query, nested_filters
 
     def query(self):
         """Build an Elasticsearch Query object for this query string.
@@ -1514,6 +1519,9 @@ class Filter(SearchBase):
     def build(self, _chain_filters=None):
         """Convert this object to an Elasticsearch Filter object.
 
+        :return: A 2-tuple (filter, nested_query). Some filters can only
+            be represented as nested queries that contain filters.
+
         :param _chain_filters: Mock function to use instead of
         Filter._chain_filters
         """
@@ -1526,10 +1534,13 @@ class Filter(SearchBase):
 
         chain = _chain_filters or self._chain_filters
 
-        collection_ids = filter_ids(self.collection_ids)
         f = None
+        nested_filters = []
+
+        collection_ids = filter_ids(self.collection_ids)
         if collection_ids:
-            f = chain(f, F('terms', **{'licensepools.collection_id' : collection_ids}))
+            collection_match = F('terms', **{'licensepools.collection_id' : collection_ids})
+            nested_filters.append(('licensepools', collection_match))
 
         if self.media:
             f = chain(f, F('terms', medium=scrub_list(self.media)))
@@ -1557,7 +1568,7 @@ class Filter(SearchBase):
         for customlist_ids in self.customlist_restriction_sets:
             ids = filter_ids(customlist_ids)
             f = chain(f, F('terms', **{'customlists.list_id' : ids}))
-        return f
+        return f, nested_filters
 
     def specify_sort_order(self, search):
         if not self.order:
