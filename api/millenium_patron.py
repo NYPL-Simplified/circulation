@@ -71,7 +71,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     ]
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "label": _("URL"), "required": True },
+        { "key": ExternalIntegration.URL, "format": "url", "label": _("URL"), "required": True },
         { "key": VERIFY_CERTIFICATE, "label": _("Certificate Verification"),
           "type": "select", "options": [
               { "key": "true", "label": _("Verify Certificate Normally (Required for production)") },

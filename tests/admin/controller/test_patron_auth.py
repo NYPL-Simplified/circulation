@@ -7,6 +7,7 @@ import flask
 from flask_babel import lazy_gettext as _
 import json
 from werkzeug import MultiDict
+from api.admin.controller.patron_auth_services import PatronAuthServicesController
 from api.admin.exceptions import *
 from api.authenticator import (
     AuthenticationProvider,
@@ -272,7 +273,7 @@ class TestPatronAuth(SettingsControllerTest):
                 ("name", "some auth name"),
                 ("id", auth_service.id),
                 ("protocol", MilleniumPatronAPI.__module__),
-                (ExternalIntegration.URL, "url"),
+                (ExternalIntegration.URL, "http://url"),
                 (M.AUTHENTICATION_MODE, "Invalid mode"),
                 (M.VERIFY_CERTIFICATE, "true"),
             ] + common_args)
@@ -354,7 +355,22 @@ class TestPatronAuth(SettingsControllerTest):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_patron_auth_services_controller.process_patron_auth_services)
 
+    def _get_mock(self):
+        manager = self.manager
+        class Mock(PatronAuthServicesController):
+            def __init__(self, manager):
+                self.validate_formats_call_count = 0
+                super(Mock, self).__init__(manager)
+            def validate_formats(self):
+                self.validate_formats_call_count += 1
+                super(Mock, self).validate_formats()
+
+        self.manager.admin_patron_auth_services_controller = Mock(manager)
+        return self.manager.admin_patron_auth_services_controller
+
     def test_patron_auth_services_post_create(self):
+        mock_controller = self._get_mock()
+
         library, ignore = create(
             self._db, Library, name="Library", short_name="L",
         )
@@ -370,8 +386,10 @@ class TestPatronAuth(SettingsControllerTest):
                     AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION: "^1234",
                 }])),
             ] + self._common_basic_auth_arguments())
-            response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
+
+            response = mock_controller.process_patron_auth_services()
             eq_(response.status_code, 201)
+            eq_(mock_controller.validate_formats_call_count, 1)
 
         auth_service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.PATRON_AUTH_GOAL)
         eq_(auth_service.id, int(response.response[0]))
@@ -390,8 +408,9 @@ class TestPatronAuth(SettingsControllerTest):
                 (MilleniumPatronAPI.VERIFY_CERTIFICATE, "true"),
                 (MilleniumPatronAPI.AUTHENTICATION_MODE, MilleniumPatronAPI.PIN_AUTHENTICATION_MODE),
             ] + common_args)
-            response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
+            response = mock_controller.process_patron_auth_services()
             eq_(response.status_code, 201)
+            eq_(mock_controller.validate_formats_call_count, 2)
 
         auth_service2 = get_one(self._db, ExternalIntegration,
                                goal=ExternalIntegration.PATRON_AUTH_GOAL,
@@ -409,6 +428,8 @@ class TestPatronAuth(SettingsControllerTest):
         eq_([], auth_service2.libraries)
 
     def test_patron_auth_services_post_edit(self):
+        mock_controller = self._get_mock()
+
         l1, ignore = create(
             self._db, Library, name="Library 1", short_name="L1",
         )
@@ -438,6 +459,7 @@ class TestPatronAuth(SettingsControllerTest):
             ] + self._common_basic_auth_arguments())
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
             eq_(response.status_code, 200)
+            eq_(mock_controller.validate_formats_call_count, 1)
 
         eq_(auth_service.id, int(response.response[0]))
         eq_(SimpleAuthenticationProvider.__module__, auth_service.protocol)
