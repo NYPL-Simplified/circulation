@@ -1,3 +1,4 @@
+from collections import defaultdict
 from nose.tools import set_trace
 import json
 from elasticsearch import Elasticsearch
@@ -339,8 +340,9 @@ class ExternalSearchIndex(HasSelfTests):
         query_without_filter = Query(query_string)
         base_query, nested_filters = query.build()
         search = self.search.query(base_query)
-        for (path, subfilter) in nested_filters:
-            search = search.filter('nested', path=path, query=subfilter)
+        for path, subfilters in nested_filters.items():
+            for subfilter in subfilters:
+                search = search.filter('nested', path=path, query=subfilter)
         if filter:
             search = filter.specify_sort_order(search)
         if debug:
@@ -1008,13 +1010,18 @@ class Query(SearchBase):
         self.filter = filter
 
     def build(self):
-        """Make an Elasticsearch-DSL query object out of this query."""
+        """Make an Elasticsearch-DSL query object out of this query.
+
+        :return: A 2-tuple (Query, nested subfilters). The nested
+            subfilters can only be applied on the Query that will be
+            formed out of this one.
+        """
         query = self.query()
 
-        # Add the filter, if there is one. This may also result in a
-        # nested query, since some filters can only be applied in the
+        # Add the filter, if there is one. This may also result in a number
+        # of nested , since some filters can only be applied in the
         # context of a nested query.
-        nested_filters = []
+        nested_filters = {}
         if self.filter:
             kwargs = {}
             built_filter, nested_filters = self.filter.build()
@@ -1519,8 +1526,11 @@ class Filter(SearchBase):
     def build(self, _chain_filters=None):
         """Convert this object to an Elasticsearch Filter object.
 
-        :return: A 2-tuple (filter, nested_query). Some filters can only
-            be represented as nested queries that contain filters.
+        :return: A 2-tuple (filter, nested_filters). Filters on fields
+           within nested documents must be defined in terms of a
+           nested query, which can only be created after this method
+           runs. `nested_filters` is a dictionary that maps a path to a
+           list of filters to apply to that path.
 
         :param _chain_filters: Mock function to use instead of
         Filter._chain_filters
@@ -1535,12 +1545,12 @@ class Filter(SearchBase):
         chain = _chain_filters or self._chain_filters
 
         f = None
-        nested_filters = []
+        nested_filters = defaultdict(list)
 
         collection_ids = filter_ids(self.collection_ids)
         if collection_ids:
             collection_match = F('terms', **{'licensepools.collection_id' : collection_ids})
-            nested_filters.append(('licensepools', collection_match))
+            nested_filters['licensepools'].append(collection_match)
 
         if self.media:
             f = chain(f, F('terms', medium=scrub_list(self.media)))
