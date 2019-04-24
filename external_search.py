@@ -344,7 +344,7 @@ class ExternalSearchIndex(HasSelfTests):
             for subfilter in subfilters:
                 search = search.filter('nested', path=path, query=subfilter)
         if filter:
-            search = filter.specify_sort_order(search)
+            search = filter.specify_sort_order(search, nested_filters)
         if debug:
             search = search.extra(explain=True)
 
@@ -1549,7 +1549,9 @@ class Filter(SearchBase):
 
         collection_ids = filter_ids(self.collection_ids)
         if collection_ids:
-            collection_match = F('terms', **{'licensepools.collection_id' : collection_ids})
+            collection_match = F(
+                'terms', **{'licensepools.collection_id' : collection_ids}
+            )
             nested_filters['licensepools'].append(collection_match)
 
         if self.media:
@@ -1580,7 +1582,7 @@ class Filter(SearchBase):
             f = chain(f, F('terms', **{'customlists.list_id' : ids}))
         return f, nested_filters
 
-    def specify_sort_order(self, search):
+    def specify_sort_order(self, search, nested_filters):
         if not self.order:
             return search
 
@@ -1593,6 +1595,7 @@ class Filter(SearchBase):
                 order = "asc"
             nested=None
             if order_field == 'licensepools.availability_time':
+                set_trace()
                 # We're sorting works by the time they became
                 # available to a library. This means we only want to
                 # consider the availability times of license pools
