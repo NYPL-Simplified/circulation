@@ -453,10 +453,12 @@ class SignInController(AdminController):
     ERROR_RESPONSE_TEMPLATE = """<!DOCTYPE HTML>
 <html lang="en">
 <head><meta charset="utf8"></head>
-<body>
+<body style="{error}">
 <p><strong>%(status_code)d ERROR:</strong> %(message)s</p>
+<hr style="{hr}">
+<a href="/admin/sign_in" style="{link}">Try again</a>
 </body>
-</html>"""
+</html>""".format(error=error_style, hr=hr_style, link=small_link_style)
 
     SIGN_IN_TEMPLATE = """<!DOCTYPE HTML>
 <html lang="en">
