@@ -741,6 +741,7 @@ class ExternalSearchIndexVersions(object):
         # Build separate mappings for the nested data types --
         # currently just licensepools.
         licensepool_fields_by_type = {
+            'integer': ['collection_id'],
             'date': ['availability_time'],
             'boolean': ['availability', 'open_access'],
         }
