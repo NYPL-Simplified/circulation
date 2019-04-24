@@ -750,7 +750,7 @@ class ExternalSearchIndexVersions(object):
 
         # Add the nested data type mappings to the main mapping.
         for type_name, type_definition in [
-            ('licensepool', licensepool_definition),
+            ('licensepools', licensepool_definition),
         ]:
             type_definition['type'] = 'nested'
             mapping = cls.map_fields(
@@ -1518,17 +1518,10 @@ class Filter(SearchBase):
 
         chain = _chain_filters or self._chain_filters
 
-        # If necessary, the contents of this dictionary will be used
-        # at the end of this method to turn this into a nested filter.
-        nested_filters = dict()
-        def chain_nested(path, f):
-            nested_filters[path] = chain(nested_filters.get(path), f)
-
-        f = None
-
         collection_ids = filter_ids(self.collection_ids)
+        f = None
         if collection_ids:
-            f = chain(f, self.collection_id_filter)
+            f = chain(f, F('terms', **{'licensepools.collection_id' : collection_ids}))
 
         if self.media:
             f = chain(f, F('terms', medium=scrub_list(self.media)))
@@ -1556,27 +1549,7 @@ class Filter(SearchBase):
         for customlist_ids in self.customlist_restriction_sets:
             ids = filter_ids(customlist_ids)
             f = chain(f, F('terms', **{'customlists.list_id' : ids}))
-
-        if nested_filters:
-            nested = None
-            set_trace()
-            for path, nested_filter in nested_filters.items():
-                nested = Q('nested', path=path, filter=nested_filter)
-            if nested:
-                f = chain(f, nested)                
         return f
-
-    @property
-    def collection_id_filter(self):
-        """Helper method to generate a filter on licensepools.collection_id.
-
-        This is used both in building the initial filter and in
-        applying a filter during sorting.
-        """
-        ids = self._filter_ids(self.collection_ids)
-        if not ids:
-            return None
-        return F('terms', **{'licensepools.collection_id' : ids})
 
     def specify_sort_order(self, search):
         if not self.order:
@@ -1589,20 +1562,31 @@ class Filter(SearchBase):
                 order = "desc"
             else:
                 order = "asc"
-            nested_filter=None
-            mode = 'min'
+            nested=None
             if order_field == 'licensepools.availability_time':
+                # We're sorting works by the time they became
+                # available to a library. This means we only want to
+                # consider the availability times of license pools
+                # found in one of the library's collections.
                 collection_ids = self._filter_ids(self.collection_ids)
                 if collection_ids:
-                    nested_filter = dict(
-                        terms={
-                            "licensepools.collection_id": self.collection_ids
-                        }
+                    nested = dict(
+                        path="licensepools",
+                        filter=dict(
+                            terms={
+                                "licensepools.collection_id": self.collection_ids
+                            }
+                        ),
                     )
-            order_description = dict(order=order, mode=mode)
-            if nested_filter:
-                order_description['nested_filter'] = nested_filter
-            order = { order_field : order_description }
+
+                # If a book shows up in multiple collections, we're only
+                # interested in the collection that had it the earliest.
+                mode = 'min'
+
+            sort_description = dict(order=order, mode=mode)
+            if nested:
+                sort_description['nested'] = nested
+            order = { order_field : sort_description }
         else:
             order = order_field
             if self.order_ascending is False:
