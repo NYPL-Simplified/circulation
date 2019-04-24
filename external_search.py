@@ -636,7 +636,7 @@ class ExternalSearchIndexVersions(object):
                 fields=fields,
                 field_description={
                     "type": type,
-                    "index": False,
+                    "index": type != 'keyword',
                     "store": True,
                 },
                 mapping=mapping
