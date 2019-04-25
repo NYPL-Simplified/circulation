@@ -1358,13 +1358,42 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_('http://opds-spec.org/acquisition/open-access', open_access.attrib.get("rel"))
 
         loan2_links = annotator.acquisition_links(
-            loan2.license_pool, loan2, None, None, feed, loan2.license_pool.identifier)
+            loan2.license_pool, loan2, None, None, feed,
+            loan2.license_pool.identifier
+        )
         # Fulfill and revoke.
         [revoke, fulfill] = sorted(loan2_links, key=lambda x: x.attrib.get("rel"))
         assert 'revoke_loan_or_hold' in revoke.attrib.get("href")
         eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
         assert "fulfill" in fulfill.attrib.get("href")
         eq_('http://opds-spec.org/acquisition', fulfill.attrib.get("rel"))
+
+        # If a book is ready to be fulfilled, but the library has
+        # hidden all of its available content types, the fulfill link does
+        # not show up -- only the revoke link.
+        hidden = self._default_library.setting(
+            Configuration.HIDDEN_CONTENT_TYPES
+        )
+        available_types = [
+            lpdm.delivery_mechanism.content_type
+            for lpdm in loan2.license_pool.delivery_mechanisms
+        ]
+        hidden.value = json.dumps(available_types)
+
+        # The list of hidden content types is stored in the Annotator
+        # constructor, so this particular test needs a fresh Annotator.
+        annotator_with_hidden_types = LibraryLoanAndHoldAnnotator(
+            None, None, self._default_library, test_mode=True
+        )
+        loan2_links = annotator_with_hidden_types.acquisition_links(
+            loan2.license_pool, loan2, None, None, feed,
+            loan2.license_pool.identifier
+        )
+        [revoke] = loan2_links
+        eq_('http://librarysimplified.org/terms/rel/revoke',
+            revoke.attrib.get("rel"))
+        # Un-hide the content types so the test can continue.
+        hidden.value = None
 
         hold_links = annotator.acquisition_links(
             hold.license_pool, None, hold, None, feed, hold.license_pool.identifier)
@@ -1493,6 +1522,7 @@ class TestLibraryAnnotator(VendorIDTest):
             link, key=lambda x: x.tag
         )
         eq_(mech2.delivery_mechanism.content_type, indirect.attrib['type'])
+
 
 class TestSharedCollectionAnnotator(DatabaseTest):
     def setup(self):
