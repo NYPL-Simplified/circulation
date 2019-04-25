@@ -1692,6 +1692,11 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         eq_(datetime.datetime(2018, 3, 29, 17, 44, 11), loan_info.end_date)
         eq_([loan.external_identifier], self.api.requests)
 
+        # The _get method was passed a patron - this is necessary because
+        # the patron_activity method may be called from a thread without
+        # access to the flask request.
+        eq_(self.patron, self.api.request_args[0][0])
+
         # The patron's loan has been deleted on the remote.
         self.api.queue_response(404, content="No loan here")
         activity = self.api.patron_activity(self.patron, "pin")
