@@ -6,6 +6,7 @@ import json
 from pypostalcode import PostalCodeDatabase
 import re
 from StringIO import StringIO
+import urllib
 import uszipcode
 import uuid
 import wcag_contrast_ratio
@@ -16,16 +17,20 @@ from api.lanes import create_default_lanes
 from core.model import (
     ConfigurationSetting,
     create,
+    ExternalIntegration,
     get_one,
     Library,
     Representation,
 )
+from core.util.http import HTTP
 from PIL import Image
 from api.admin.exceptions import *
 from api.admin.problem_details import *
+from api.admin.geographic_validator import GeographicValidator
 from core.util.problem_detail import ProblemDetail
 from core.util import LanguageCodes
 from nose.tools import set_trace
+from api.registry import RemoteRegistry
 
 class LibrarySettingsController(SettingsController):
 
@@ -54,11 +59,12 @@ class LibrarySettingsController(SettingsController):
             )]
         return dict(libraries=libraries, settings=Configuration.LIBRARY_SETTINGS)
 
-    def process_post(self):
+    def process_post(self, validator=None):
         self.require_system_admin()
 
         library = None
         is_new = False
+        validator = validator or GeographicValidator()
 
         library_uuid = flask.request.form.get("uuid")
         library = self.get_library_from_uuid(library_uuid)
@@ -85,7 +91,7 @@ class LibrarySettingsController(SettingsController):
         if short_name:
             library.short_name = short_name
 
-        configuration_settings = self.library_configuration_settings(library)
+        configuration_settings = self.library_configuration_settings(library, validator)
         if isinstance(configuration_settings, ProblemDetail):
             return configuration_settings
 
@@ -116,7 +122,6 @@ class LibrarySettingsController(SettingsController):
         settings = Configuration.LIBRARY_SETTINGS
         validations = [
             self.check_for_missing_fields,
-            self.check_input_type,
             self.check_web_color_contrast,
             self.check_header_links,
             self.validate_formats
@@ -142,11 +147,6 @@ class LibrarySettingsController(SettingsController):
                 _("The configuration is missing a required setting: %(setting)s",
                 setting=missing[0].get("label"))
             )
-
-    def check_input_type(self, settings):
-        for setting in settings:
-            if setting.get("type") == "image":
-                return self.check_image_type(setting)
 
     def check_web_color_contrast(self, settings):
         """Verify that the web background color and web foreground
@@ -191,24 +191,12 @@ class LibrarySettingsController(SettingsController):
             if library_with_short_name:
                 return LIBRARY_SHORT_NAME_ALREADY_IN_USE
 
-    def check_image_type(self, setting):
-        allowed_types = [Representation.JPEG_MEDIA_TYPE, Representation.PNG_MEDIA_TYPE, Representation.GIF_MEDIA_TYPE]
-        image_file = flask.request.files.get(setting.get("key"))
-        if image_file:
-            image_type = image_file.headers.get("Content-Type")
-            if image_type not in allowed_types:
-                return INVALID_CONFIGURATION_OPTION.detailed(_(
-                    "Upload for %(setting)s must be in GIF, PNG, or JPG format. (Upload was %(format)s.)",
-                    setting=setting.get("label"),
-                    format=image_type))
-
-
 # Configuration settings:
 
-    def library_configuration_settings(self, library):
+    def library_configuration_settings(self, library, validator):
         for setting in Configuration.LIBRARY_SETTINGS:
             if setting.get("format") == "geographic":
-                locations = self.validate_geographic_areas(self.list_setting(setting))
+                locations = validator.validate_geographic_areas(self.list_setting(setting), self._db)
                 if isinstance(locations, ProblemDetail):
                     return locations
                 value = locations or self.current_value(setting, library)
@@ -254,59 +242,3 @@ class LibrarySettingsController(SettingsController):
             image.save(buffer, format="PNG")
             b64 = base64.b64encode(buffer.getvalue())
             return "data:image/png;base64,%s" % b64
-
-    def validate_geographic_areas(self, values):
-        # Note: the validator does not recognize data from US territories other than Puerto Rico, and
-        # can recognize Canadian locations only by FSA (first three characters of zipcode) or by province abbreviation.
-
-        us_search = uszipcode.SearchEngine(simple_zipcode=True)
-        ca_search = PostalCodeDatabase()
-        CA_PROVINCES = ["AB", "BC", "MB", "NB", "NL", "NT", "NS", "NU", "ON", "PE", "QC", "SK", "YT"]
-
-        locations = {"US": [], "CA": []}
-
-        for value in json.loads(values):
-            if value == "everywhere":
-                locations["US"].append(value)
-            elif len(value) and isinstance(value, basestring):
-                if len(value) == 2:
-                    # Is it a US state or Canadian province abbreviation?
-                    if value in CA_PROVINCES:
-                        locations["CA"].append(value)
-                    elif len(us_search.query(state=value)):
-                        locations["US"].append(value)
-                    else:
-                        return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. state or Canadian province abbreviation.', value=value))
-
-                elif len(value) == 3 and re.search("^[A-Za-z]\\d[A-Za-z]", value):
-                    # Is it a Canadian zipcode?
-                    try:
-                        info = ca_search[value]
-                        locations["CA"].append(self.format_place(value, info.city, info.province));
-                    except:
-                        return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid Canadian zipcode.', value=value))
-
-                elif len(value.split(", ")) == 2:
-                    # Is it in the format "[city], [state abbreviation]" or "[county], [state abbreviation]"?
-                    city_or_county, state = value.split(", ")
-                    if us_search.by_city_and_state(city_or_county, state):
-                        locations["US"].append(value);
-                    elif len([x for x in us_search.query(state=state, returns=None) if x.county == city_or_county]):
-                        locations["US"].append(value);
-                    else:
-                        return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
-
-                elif value.isdigit():
-                    # Is it a US zipcode?
-                    info = us_search.by_zipcode(value)
-                    if not info:
-                        return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. zipcode.', value=value))
-                    locations["US"].append(self.format_place(value, info.major_city, info.state));
-                else:
-                    return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
-
-        return json.dumps(locations)
-
-    def format_place(self, zip, city, state_or_province):
-        info = "%s, %s" % (city, state_or_province)
-        return { zip: info }

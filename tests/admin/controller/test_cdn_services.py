@@ -100,17 +100,6 @@ class TestCDNServices(SettingsControllerTest):
             response = self.manager.admin_cdn_services_controller.process_cdn_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("name", "Name"),
-                ("protocol", ExternalIntegration.CDN),
-                (ExternalIntegration.URL, "bad url"),
-                (Configuration.CDN_MIRRORED_DOMAIN_KEY, "mirrored domain"),
-            ])
-            response = self.manager.admin_cdn_services_controller.process_cdn_services()
-            eq_(response.uri, INVALID_URL.uri)
-            assert "bad url" in response.detail
-
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
