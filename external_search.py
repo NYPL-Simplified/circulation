@@ -1042,7 +1042,9 @@ class Query(SearchBase):
                 # This ensures that the filter logic is executed in
                 # filter context rather than query context.
                 subquery = Bool(filter=subfilter)
-                search = search.filter(type='nested', path=path, query=subquery)
+                search = search.filter(
+                    name_or_query='nested', path=path, query=subquery
+                )
 
         # Apply any necessary sort order.
         if self.filter:

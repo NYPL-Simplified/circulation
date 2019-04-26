@@ -1268,7 +1268,7 @@ class TestQuery(DatabaseTest):
         # into Search.filter(). This applied an additional filter on the
         # 'licensepools' subdocument.
         [filter_call] = built.nested_filter_calls
-        eq_('nested', filter_call['type'])
+        eq_('nested', filter_call['name_or_query'])
         eq_('licensepools', filter_call['path'])
         filter_as_query = filter_call['query']
         eq_(Bool(filter=nested_licensepool_filter), filter_as_query)
