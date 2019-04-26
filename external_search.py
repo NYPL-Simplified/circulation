@@ -649,9 +649,13 @@ class ExternalSearchIndexVersions(object):
 
     @classmethod
     def v4_body(cls):
-        """The v4 body adds raw versions of a work's sort_title and
-        sort_author, so that lists can be sorted by those fields rather
-        than by relevance.
+        """The v4 body adds a significant number of fields so that
+        queries can sort by those fields rather than by term relevance.
+
+        v3 had a 'collections' collection that listed the collections
+        through which a work is made available. In v4, detailed
+        information about each LicensePool (not just its collection
+        ID) is kept in a nested data type ('licensepools').
         """
         if MAJOR_VERSION == 1:
             string_type = 'string'
