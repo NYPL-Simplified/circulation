@@ -276,7 +276,9 @@ class ExternalSearchIndex(HasSelfTests):
         self.log.info("Creating index %s", index_name)
         body = ExternalSearchIndexVersions.latest_body()
         body.setdefault('settings', {}).update(index_settings)
-        index = self.indices.create(index=index_name, body=body)
+        index = self.indices.create(
+            index=index_name, body=body
+        )
 
     def transfer_current_alias(self, _db, new_index):
         """Force -current alias onto a new index"""
@@ -336,8 +338,8 @@ class ExternalSearchIndex(HasSelfTests):
     def create_search_doc(self, query_string, filter,
                     debug, return_raw_results):
 
-        query_without_filter = Query(query_string)
         query = Query(query_string, filter)
+        query_without_filter = Query(query_string)
         search = query.build(self.search)
         if debug:
             search = search.extra(explain=True)
