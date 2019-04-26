@@ -1432,7 +1432,7 @@ class Work(Base):
             and_(
                 LicensePool.work_id==work_id_column,
                 or_(
-                    LicensePool.open_access, 
+                    LicensePool.open_access,
                     LicensePool.licenses_owned>0,
                 )
             )

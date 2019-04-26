@@ -264,7 +264,6 @@ class FacetsWithEntryPoint(FacetConstants):
         """
         if self.entrypoint:
             self.entrypoint.modify_search_filter(filter)
-
         return filter
 
 

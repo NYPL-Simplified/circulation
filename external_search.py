@@ -1024,23 +1024,19 @@ class Query(SearchBase):
         """
         query = self.query()
 
-        # Add the filter, if there is one. This may also result in a number
-        # of nested , since some filters can only be applied in the
-        # context of a nested query.
+        # Add the filter, if there is one. This may also result in a
+        # number of nested filters, which need to be passed up the
+        # call stack so they can be applied in the context of
+        # subqueries of a completed query.
         nested_filters = {}
         if self.filter:
-            kwargs = {}
+            # TODO: Would be simpler if build() returned nested_queries.
             built_filter, nested_filters = self.filter.build()
             if built_filter:
                 if MAJOR_VERSION == 1:
-                    query_type='filtered'
-                    kwargs = dict(query=query)
+                    query = Q("filtered", query=query, filter=built_filter)
                 else:
-                    query_type='bool'
-                    kwargs = dict(must=query)
-                if built_filter:
-                    kwargs['filter'] = built_filter
-                query = Q(query_type, **kwargs)
+                    query = Q("bool", must=query, filter=built_filter)
         # There you go!
         return query, nested_filters
 
@@ -1048,11 +1044,6 @@ class Query(SearchBase):
         """Build an Elasticsearch Query object for this query string.
         """
         query_string = self.query_string
-
-        if not query_string:
-            # There is no 'query' part of this Query -- we will return
-            # all records that match the filter.
-            return self.match_all_query()
 
         # The search query will create a dis_max query, which tests a
         # number of hypotheses about what the query string might
@@ -1177,10 +1168,6 @@ class Query(SearchBase):
             kwargs = dict(should=queries, minimum_should_match=1)
 
         return Q("bool", boost=float(boost), **kwargs)
-
-    @classmethod
-    def match_all_query(cls):
-        return Q("match_all")
 
     @classmethod
     def simple_query_string_query(cls, query_string, fields=None):
@@ -1733,20 +1720,6 @@ class Filter(SearchBase):
     @classmethod
     def _chain_filters(cls, existing, new):
         """Either chain two filters together or start a new chain."""
-        if existing:
-            # We're combining two filters.
-            new = existing & new
-        else:
-            # There was no previous filter -- the 'new' one is it.
-            pass
-        return new
-
-    @classmethod
-    def _chain_nested(cls, main, subfilter):
-        """Either chain together or start a new chain."""
-        if not isinstance(main, Nested):
-            # This is a regular query that's about to become a nested query.
-            main = Nested(main)
         if existing:
             # We're combining two filters.
             new = existing & new
