@@ -1153,9 +1153,31 @@ class TestQuery(DatabaseTest):
         eq_("filter", query.filter)
 
     def test_build(self):
-        # Verify that the build() method combines the 'query' part of the
-        # Query and the 'filter' part to create a single Elasticsearch
-        # query object.
+        # Verify that the build() method combines the 'query' part of
+        # the Query and the 'filter' part to create a single
+        # Elasticsearch Search object, complete with (if necessary)
+        # subqueries and sort ordering.
+
+        class MockSearch(object):
+            # A mock of the Elasticsearch-DSL `Search` object.
+            # TODO: This belongs in the test of Query.build()
+            def __init__(self):
+                self.query = None
+                self.filters = []
+
+            def filter(self, *args, **kwargs):
+                """Simulate the application of a nested filter."""
+                self.filters.append((args, kwargs))
+                return self
+
+            def query(self, query):
+                """Simulate the creation of an Elasticsearch-DSL `Search`
+                object from an Elasticsearch-DSL `Query` object.
+                """
+                self.query = query
+                return self
+
+
         class Mock(Query):
             def query(self):
                 return Q("simple_query_string", query=self.query_string)
@@ -1877,28 +1899,39 @@ class TestFilter(DatabaseTest):
 
         # build() takes the information in the Filter object, scrubs
         # it, and uses _chain_filters to chain together a number of
-        # sub-filters.
+        # alternate hypotheses. It returns a 2-tuple with a main Filter
+        # and a dictionary describing additional filters to be applied
+        # to subdocuments.
         #
         # Let's try it with some simple cases before mocking
         # _chain_filters for a more detailed test.
 
-        # Start with an empty filter.
+        def assert_filter(expect, filter, _chain_filters=None):
+            """Helper method for the most common case, where a
+            Filter.build() returns a main filter and no nested filters.
+            """
+            main, nested = filter.build(_chain_filters)
+            eq_(expect, main.to_dict())
+            eq_({}, nested)
+
+        # Start with an empty filter. No filter is built and there are no
+        # nested filters.
         filter = Filter()
-        eq_(None, filter.build())
+        eq_((None, {}), filter.build())
 
         # Add a medium clause to the filter.
         filter.media = "a medium"
         medium_built = {'terms': {'medium': ['amedium']}}
-        eq_(medium_built, filter.build().to_dict())
+        assert_filter(medium_built, filter)
 
         # Add a language clause to the filter.
         filter.languages = ["lang1", "LANG2"]
         language_built = {'terms': {'language': ['lang1', 'lang2']}}
 
         # Now both the medium clause and the language clause must match.
-        eq_(
+        assert_filter(
             {'bool': {'must': [medium_built, language_built]}},
-            filter.build().to_dict()
+            filter
         )
 
         # Now let's mock _chain_filters so we don't have to check
@@ -1932,28 +1965,38 @@ class TestFilter(DatabaseTest):
         # At this point every item on this Filter that can be set, has been
         # set. When we run build, we'll end up with the output of our mocked
         # chain() method -- a list of small filters.
-        built = filter.build(_chain_filters=chain)
+        built, nested = filter.build(_chain_filters=chain)
 
-        # Every restriction imposed on the Filter object becomes an
+        # This time we do see a nested
+        # filter. licensepools.collection_id is in the nested
+        # licensepools document, so the 'current collection'
+        # restriction must be described in terms of a nested filter on
+        # that document.
+        [licensepool_filter] = nested.pop('licensepools')
+        eq_(
+            {'terms': {'licensepools.collection_id': [self._default_collection.id]}},
+            licensepool_filter.to_dict()
+        )
+
+        # There are no other nested filters.
+        eq_({}, nested)
+
+        # Every other restriction imposed on the Filter object becomes an
         # Elasticsearch filter object in this list.
-        (collection, medium, language, fiction, audience, target_age,
+        (medium, language, fiction, audience, target_age,
          literary_fiction_filter, fantasy_or_horror_filter,
          best_sellers_filter, staff_picks_filter) = built
 
         # Test them one at a time.
         #
         # Throughout this test, notice that the data model objects --
-        # Collections, Genres, and CustomLists -- have been replaced with
-        # their database IDs. This is done by filter_ids.
+        # Collections (above), Genres, and CustomLists -- have been
+        # replaced with their database IDs. This is done by
+        # filter_ids.
         #
         # Also, audience, medium, and language have been run through
         # scrub_list, which turns scalar values into lists, removes
         # spaces, and converts to lowercase.
-
-        eq_(
-            {'terms': {'licensepools.collection_id': [self._default_collection.id]}},
-            collection.to_dict()
-        )
 
         # These we tested earlier -- we're just making sure the same
         # documents are put into the full filter.
@@ -1984,7 +2027,7 @@ class TestFilter(DatabaseTest):
         # We tried fiction; now try nonfiction.
         filter = Filter()
         filter.fiction = False
-        eq_({'term': {'fiction': 'nonfiction'}}, filter.build().to_dict())
+        assert_filter({'term': {'fiction': 'nonfiction'}}, filter)
 
     def test_target_age_filter(self):
         # Test an especially complex subfilter.
