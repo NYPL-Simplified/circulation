@@ -1852,13 +1852,24 @@ class TestFilter(DatabaseTest):
         )
         does_not_inherit.inherit_parent_restrictions = False
 
-        # Because of that, the final filter we end up with is nearly
-        # empty. The only restriction here is the collection
-        # restriction imposed by the fact that does_not_inherit
+        # Because of that, the final filter we end up with is
+        # nearly empty. The only restriction here is the collection
+        # restriction imposed by the fact that `does_not_inherit`
         # is, itself, associated with a specific library.
         filter = Filter.from_worklist(self._db, does_not_inherit, facets)
+
+        built_filter, subfilters = filter.build()
+
+        # The collection restriction is not reflected in the main
+        # filter; rather it's in a subfilter that will be applied to the
+        # 'licensepools' subdocument, where the collection ID lives.
+        eq_(None, built_filter)
+        [subfilter] = subfilters.pop('licensepools')
         eq_({'terms': {'licensepools.collection_id': [self._default_collection.id]}},
-            filter.build().to_dict())
+            subfilter.to_dict())
+
+        # No other subfilters were specified.
+        eq_({}, subfilters)
 
     def test_build(self):
         # Test the ability to turn a Filter into an ElasticSearch

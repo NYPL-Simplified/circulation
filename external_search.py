@@ -1025,7 +1025,7 @@ class Query(SearchBase):
         # such licensepools.collection_id.
         if self.filter:
             base_filter, nested_filters = self.filter.build()
-            if built_filter:
+            if base_filter:
                 if MAJOR_VERSION == 1:
                     query = Q("filtered", query=query, filter=base_filter)
                 else:
