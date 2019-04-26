@@ -9,7 +9,6 @@ from elasticsearch_dsl import (
     Search,
     Q,
 )
-from elasticsearch_dsl.query import Nested
 try:
     from elasticsearch_dsl import F
     MAJOR_VERSION = 1
