@@ -338,17 +338,13 @@ class ExternalSearchIndex(HasSelfTests):
 
         query = Query(query_string, filter)
         query_without_filter = Query(query_string)
-        base_query, nested_filters = query.build()
+        base_query, nested_queries = query.build()
         search = self.search.query(base_query)
-        for path, subfilters in nested_filters.items():
-            for subfilter in subfilters:
-                # Create a nested query with the given path.
-                # The empty 'bool' query allows us to use the subfilter
-                # in filter context rather than query context.
-                filter_query = Bool(filter=subfilter)
-                search = search.filter('nested', path=path, query=filter_query)
+        for path, subqueries in nested_queries.items():
+            for subquery in subqueries:
+                search = search.filter('nested', path=path, query=subquery)
         if filter:
-            search = filter.specify_sort_order(search, nested_filters)
+            search = filter.specify_sort_order(search)
         if debug:
             search = search.extra(explain=True)
 
@@ -1018,27 +1014,27 @@ class Query(SearchBase):
     def build(self):
         """Make an Elasticsearch-DSL query object out of this query.
 
-        :return: A 2-tuple (Query, nested subfilters). The nested
-            subfilters can only be applied on the Query that will be
+        :return: A 2-tuple (Query, nested queries). The nested
+            subqueries can only be applied to the Query that will be
             formed out of this one.
         """
         query = self.query()
-
+        nested_queries = {}
         # Add the filter, if there is one. This may also result in a
-        # number of nested filters, which need to be passed up the
-        # call stack so they can be applied in the context of
-        # subqueries of a completed query.
-        nested_filters = {}
+        # number of nested queries, which need to be passed up the
+        # call stack so they can be applied to a completed query.
+        #
+        # This happens when a filter applies to a field in a sub-document,
+        # such licensepools.collection_id.
         if self.filter:
-            # TODO: Would be simpler if build() returned nested_queries.
-            built_filter, nested_filters = self.filter.build()
+            built_filter, nested_queries = self.filter.build()
             if built_filter:
                 if MAJOR_VERSION == 1:
                     query = Q("filtered", query=query, filter=built_filter)
                 else:
                     query = Q("bool", must=query, filter=built_filter)
         # There you go!
-        return query, nested_filters
+        return query, nested_queries
 
     def query(self):
         """Build an Elasticsearch Query object for this query string.
@@ -1519,11 +1515,12 @@ class Filter(SearchBase):
     def build(self, _chain_filters=None):
         """Convert this object to an Elasticsearch Filter object.
 
-        :return: A 2-tuple (filter, nested_filters). Filters on fields
+        :return: A 2-tuple (filter, nested_queries). Filters on fields
            within nested documents must be defined in terms of a
-           nested query, which can only be created after this method
-           runs. `nested_filters` is a dictionary that maps a path to a
-           list of filters to apply to that path.
+           nested query, which can be applied to the query that will
+           eventually be created from this filter.
+           `nested_queries` is a dictionary that maps a path to a
+           query to apply to that path.
 
         :param _chain_filters: Mock function to use instead of
         Filter._chain_filters
@@ -1538,14 +1535,21 @@ class Filter(SearchBase):
         chain = _chain_filters or self._chain_filters
 
         f = None
-        nested_filters = defaultdict(list)
+        nested_queries = defaultdict(list)
+
+        def add_nested_query(path, nested_filter):
+            # Convert a filter into a simple query. This
+            # makes sure Elasticsearch executes the logic of the
+            # filter in filter context rather than query context.
+            nested_query = Bool(filter=nested_filter)
+            nested_queries[path].append(nested_query)
 
         collection_ids = filter_ids(self.collection_ids)
         if collection_ids:
             collection_match = F(
                 'terms', **{'licensepools.collection_id' : collection_ids}
             )
-            nested_filters['licensepools'].append(collection_match)
+            add_nested_query('licensepools', collection_match)
 
         if self.media:
             f = chain(f, F('terms', medium=scrub_list(self.media)))
@@ -1573,9 +1577,9 @@ class Filter(SearchBase):
         for customlist_ids in self.customlist_restriction_sets:
             ids = filter_ids(customlist_ids)
             f = chain(f, F('terms', **{'customlists.list_id' : ids}))
-        return f, nested_filters
+        return f, nested_queries
 
-    def specify_sort_order(self, search, nested_filters):
+    def specify_sort_order(self, search):
         if not self.order:
             return search
 
