@@ -1048,7 +1048,9 @@ class Query(SearchBase):
 
         # Apply any necessary sort order.
         if self.filter:
-            search = self.filter.specify_sort_order(search)
+            order = self.filter.sort_order
+            if order is not None:
+                search = search.sort(order)
 
         # All done!
         return search
@@ -1588,9 +1590,13 @@ class Filter(SearchBase):
             f = chain(f, F('terms', **{'customlists.list_id' : ids}))
         return f, nested_filters
 
-    def specify_sort_order(self, search):
+    @property
+    def sort_order(self):
+        """Create a description, for use in an Elasticsearch document,
+        explaining how search results should be ordered.
+        """
         if not self.order:
-            return search
+            return None
 
         order_field = self.order
         if '.' in order_field:
@@ -1611,7 +1617,7 @@ class Filter(SearchBase):
                         path="licensepools",
                         filter=dict(
                             terms={
-                                "licensepools.collection_id": self.collection_ids
+                                "licensepools.collection_id": collection_ids
                             }
                         ),
                     )
@@ -1619,6 +1625,10 @@ class Filter(SearchBase):
                 # If a book shows up in multiple collections, we're only
                 # interested in the collection that had it the earliest.
                 mode = 'min'
+            else:
+                raise ValueError(
+                    "I don't know how to sort by %s." % order_field
+                )
 
             sort_description = dict(order=order, mode=mode)
             if nested:
@@ -1628,7 +1638,7 @@ class Filter(SearchBase):
             order = order_field
             if self.order_ascending is False:
                 order = '-' + order
-        return search.sort(order)
+        return order
 
     @property
     def target_age_filter(self):

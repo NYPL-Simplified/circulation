@@ -953,22 +953,6 @@ class TestSearchOrder(EndToEndExternalSearchTest):
             facets.order_ascending = False
             expect(list(reversed(order)), "moby", Filter(facets=facets, **filter_kwargs))
 
-        # We can sort by the time the Work's LicensePools were first
-        # seen -- this would be used when showing patrons 'new' stuff.
-        #
-        # The LicensePools showed up in different orders in different
-        # collections, so filtering by collection will give different
-        # results.
-        assert_order(
-            Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_dick, self.moby_duck],
-            collections=[self.collection1]
-        )
-
-        assert_order(
-            Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_duck, self.moby_dick],
-            collections=[self.collection2]
-        )
-
         # We can sort by title.
         assert_order(Facets.ORDER_TITLE, [self.moby_dick, self.moby_duck])
 
@@ -989,6 +973,31 @@ class TestSearchOrder(EndToEndExternalSearchTest):
 
         # We can sort by internal work ID, which isn't very useful.
         assert_order(Facets.ORDER_WORK_ID, [self.moby_dick, self.moby_duck])
+
+        # We can sort by the time the Work's LicensePools were first
+        # seen -- this would be used when showing patrons 'new' stuff.
+        #
+        # The LicensePools showed up in different orders in different
+        # collections, so filtering by collection will give different
+        # results.
+        assert_order(
+            Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_dick, self.moby_duck],
+            collections=[self.collection1]
+        )
+
+        assert_order(
+            Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_duck, self.moby_dick],
+            collections=[self.collection2]
+        )
+
+        # If a work shows up with multiple availability times through
+        # multiple collections, the earliest availability time for
+        # that work is used. Since collection 1 was created before
+        # collection 2, that means collection 1's ordering holds here.
+        assert_order(
+            Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_dick, self.moby_duck],
+            collections=[self.collection1, self.collection2]
+        )
 
 
 class TestExactMatches(EndToEndExternalSearchTest):
@@ -1273,8 +1282,9 @@ class TestQuery(DatabaseTest):
         filter_as_query = filter_call['query']
         eq_(Bool(filter=nested_licensepool_filter), filter_as_query)
 
-        # If the Filter specifies a sort order, Filter.specify_sort_order
-        # is called. It modifies the MockSearch object appropriately.
+        # If the Filter specifies a sort order, Filter.sort_order is
+        # used to convert it to appropriate Elasticsearch syntax, and
+        # the MockSearch object is modified appropriately.
         filter = Filter(order='somefield', order_ascending=False)
         qu = MockQuery("query string", filter=filter)
         built = qu.build(search)
@@ -2105,6 +2115,86 @@ class TestFilter(DatabaseTest):
         filter = Filter()
         filter.fiction = False
         assert_filter({'term': {'fiction': 'nonfiction'}}, filter)
+
+    def test_sort_order(self):
+        # Test the Filter.sort_order property.
+
+        # No sort order.
+        f = Filter()
+        eq_(None, f.sort_order)
+
+        # A simple field, either ascending or descending.
+        f.order='field'
+        eq_(False, f.order_ascending)
+        eq_('-field', f.sort_order)
+        f.order_ascending = True
+        eq_('field', f.sort_order)
+
+        # You can't sort by some random subdocument field, because there's
+        # not enough information to know how to aggregate multiple values.
+        f.order='subdocument.field'
+        assert_raises_regexp(
+            ValueError, "I don't know how to sort by subdocument.field",
+            lambda: f.sort_order,
+        )
+
+        # It's possible to sort by every field in
+        # Facets.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME. These are the
+        # sort orders that are actually used.
+        used_orders = Facets.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME
+        added_to_collection = used_orders[Facets.ORDER_ADDED_TO_COLLECTION]
+        for v in used_orders.values():
+            f.order = v
+            order = f.sort_order
+
+            # In most cases, the sort order is the same as the field
+            # name.
+            if v != added_to_collection:
+                eq_(order, v)
+
+        # The only complicated case is when a feed is ordered by date
+        # added to the collection. This requires an aggregate function
+        # and potentially a nested filter.
+        f.order = added_to_collection
+        order = f.sort_order
+
+        # Here there's no nested filter but there is an aggregate
+        # function. If a book is available through multiple
+        # collections, we sort by the _earliest_ availability time.
+        simple_nested_configuration = {
+            'licensepools.availability_time': {'mode': 'min', 'order': 'asc'}
+        }
+        eq_(simple_nested_configuration, order)
+
+        # Setting a collection ID restriction will add a nested filter.
+        f.collection_ids = [self._default_collection]
+        order = f.sort_order
+
+        # The nested filter ensures that when sorting the results, we
+        # only consider availability times from license pools that
+        # match our collection filter.
+        #
+        # Filter.build() will apply the collection filter separately
+        # to the 'filter' part of the query -- that's what actually
+        # stops books from showing up if they're in the wrong collection.
+        #
+        # This just makes sure that the books show up in the right _order_
+        # for any given set of collections.
+        nested_filter = order['licensepools.availability_time'].pop('nested')
+        eq_(
+            {'path': 'licensepools',
+             'filter': {
+                 'terms': {
+                     'licensepools.collection_id': [self._default_collection.id]
+                 }
+             }
+            },
+            nested_filter
+        )
+
+        # Apart from the nested filter, this is the same configuration
+        # as before.
+        eq_(simple_nested_configuration, order)
 
     def test_target_age_filter(self):
         # Test an especially complex subfilter.
