@@ -342,7 +342,11 @@ class ExternalSearchIndex(HasSelfTests):
         search = self.search.query(base_query)
         for path, subfilters in nested_filters.items():
             for subfilter in subfilters:
-                search = search.filter('nested', path=path, query=subfilter)
+                # Create a nested query with the given path.
+                # The empty 'bool' query allows us to use the subfilter
+                # in filter context rather than query context.
+                filter_query = Bool(filter=subfilter)
+                search = search.filter('nested', path=path, query=filter_query)
         if filter:
             search = filter.specify_sort_order(search, nested_filters)
         if debug:
@@ -630,10 +634,6 @@ class ExternalSearchIndexVersions(object):
     def map_fields_by_type(cls, fields_by_type, mapping=None):
         """Create a mapping for a number of fields of different types.
 
-        It's assumed these fields will be used in filtering and
-        sorting, not searching -- thus their values are stored but not
-        indexed. (TODO: ???)
-
         :param fields_by_type: A dictionary mapping Elasticsearch types
             to field names.
         """
@@ -642,7 +642,13 @@ class ExternalSearchIndexVersions(object):
                 fields=fields,
                 field_description={
                     "type": type,
-                    "index": type != 'keyword',
+                    # TODO: In some cases we can get away with setting
+                    # index: False here, which would presumably lead
+                    # to a smaller index and faster updates. However,
+                    # it might hurt performance of searches. When this
+                    # code is more mature we can do a side-by-side
+                    # comparison.
+                    "index": True,
                     "store": True,
                 },
                 mapping=mapping
@@ -1595,7 +1601,6 @@ class Filter(SearchBase):
                 order = "asc"
             nested=None
             if order_field == 'licensepools.availability_time':
-                set_trace()
                 # We're sorting works by the time they became
                 # available to a library. This means we only want to
                 # consider the availability times of license pools
