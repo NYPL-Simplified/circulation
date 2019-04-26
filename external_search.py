@@ -1022,7 +1022,7 @@ class Query(SearchBase):
         # subqueries.
         #
         # This happens when a filter applies to a field in a sub-document,
-        # such licensepools.collection_id.
+        # such as licensepools.collection_id.
         if self.filter:
             base_filter, nested_filters = self.filter.build()
             if base_filter:
@@ -1042,7 +1042,7 @@ class Query(SearchBase):
                 # This ensures that the filter logic is executed in
                 # filter context rather than query context.
                 subquery = Bool(filter=subfilter)
-                search = search.filter('nested', path=path, query=subquery)
+                search = search.filter(type='nested', path=path, query=subquery)
 
         # Apply any necessary sort order.
         if self.filter:
@@ -1520,7 +1520,7 @@ class Filter(SearchBase):
             self.customlist_restriction_sets = []
 
         self.order = order
-        self.order_ascending = order
+        self.order_ascending = order_ascending
 
         # Give the Facets object a chance to modify any or all of this
         # information.

@@ -14,6 +14,7 @@ from . import (
     DatabaseTest,
 )
 
+from elasticsearch_dsl.query import Bool
 from elasticsearch.exceptions import ElasticsearchException
 
 from ..config import CannotLoadConfiguration
@@ -1154,54 +1155,130 @@ class TestQuery(DatabaseTest):
 
     def test_build(self):
         # Verify that the build() method combines the 'query' part of
-        # the Query and the 'filter' part to create a single
+        # a Query and the 'filter' part to create a single
         # Elasticsearch Search object, complete with (if necessary)
         # subqueries and sort ordering.
 
         class MockSearch(object):
-            # A mock of the Elasticsearch-DSL `Search` object.
-            # TODO: This belongs in the test of Query.build()
-            def __init__(self):
-                self.query = None
-                self.filters = []
+            """A mock of the Elasticsearch-DSL `Search` object.
 
-            def filter(self, *args, **kwargs):
-                """Simulate the application of a nested filter."""
-                self.filters.append((args, kwargs))
-                return self
+            Calls to Search methods tend to create a new Search object
+            based on the old one. This mock simulates that behavior.
+            If necessary, you can look at all MockSearch objects
+            created by to get to a certain point by following the
+            .parent relation.
+            """
+            def __init__(
+                    self, parent=None, query=None, nested_filter_calls=None,
+                    order=None
+            ):
+                self.parent = parent
+                self._query = query
+                self.nested_filter_calls = nested_filter_calls or []
+                self.order = order
+
+            def filter(self, **kwargs):
+                """Simulate the application of a nested filter.
+
+                :return: A new MockSearch object.
+                """
+                new_filters = self.nested_filter_calls + [kwargs]
+                return MockSearch(self, self._query, new_filters, self.order)
 
             def query(self, query):
                 """Simulate the creation of an Elasticsearch-DSL `Search`
                 object from an Elasticsearch-DSL `Query` object.
+
+                :return: A New MockSearch object.
                 """
-                self.query = query
-                return self
+                return MockSearch(
+                    self, query, self.nested_filter_calls, self.order
+                )
 
+            def sort(self, order):
+                """Simulate the application of a sort order."""
+                return MockSearch(
+                    self, self._query, self.nested_filter_calls, order
+                )
 
-        class Mock(Query):
+        class MockQuery(Query):
+            # A Mock of the Query object from external_search
+            # (not the one from Elasticsearch-DSL).
             def query(self):
                 return Q("simple_query_string", query=self.query_string)
 
-        # If there's a filter, an ElasticSearch query object is created.
+        # Test the simple case where the Query has no filter.
+        qu = MockQuery("query string", filter=None)
+        search = MockSearch()
+        built = qu.build(search)
+
+        # The return value is a new MockSearch object based on the one
+        # that was passed in.
+        assert isinstance(built, MockSearch)
+        eq_(search, built.parent)
+
+        # The result of Query.query() is used as-is as the basis for
+        # the Search object.
+        eq_(qu.query(), built._query)
+
+        # No nested filters were applied.
+        eq_([], built.nested_filter_calls)
+
+        # If there's a filter, a boolean Query object is created to
+        # combine the original Query with the filter.
         filter = Filter(fiction=True)
-        m = Mock("query string", filter=filter)
-        filtered = m.build()
+        qu = MockQuery("query string", filter=filter)
+        built = qu.build(search)
 
-        # The 'query' part came from calling Query.query()
-        # The 'filter' part came from Filter.build()
-        if MAJOR_VERSION == 1:
-            eq_(filtered.query, m.query())
-            eq_(filtered.filter, filter.build())
-        else:
-            eq_(filtered.must, [m.query()])
-            eq_(filtered.filter, [filter.build()])
+        # The 'must' part of this new Query came from calling
+        # Query.query() on the original Query object.
+        #
+        # The 'filter' part came from calling Filter.build() on the
+        # main filter.
+        underlying_query = built._query
+        main_filter, nested_filters = filter.build()
+        eq_(underlying_query.must, [qu.query()])
+        eq_(underlying_query.filter, [main_filter])
 
-        # If there's no filter, the return value of Query.query()
-        # is used as-is.
-        m.filter = None
-        unfiltered = m.build()
-        eq_(unfiltered, m.query())
-        assert not hasattr(unfiltered, 'filter')
+        # There are no nested filters, and filter() was never called
+        # on the mock Search object.
+        eq_({}, nested_filters)
+        eq_([], built.nested_filter_calls)
+
+        # Now let's try a combination of regular filters and nested filters.
+        filter = Filter(
+            fiction=True,
+            collections=[self._default_collection]
+        )
+        qu = MockQuery("query string", filter=filter)
+        built = qu.build(search)
+        underlying_query = built._query
+
+        # We get a main filter (for the fiction restriction) and a
+        # single nested filter (for the collection restriction).
+        main_filter, nested_filters = filter.build()
+        [nested_licensepool_filter] = nested_filters.pop('licensepools')
+        eq_({}, nested_filters)
+
+        # As before, the main filter has been applied to the underlying
+        # query.
+        eq_(underlying_query.filter, [main_filter])
+
+        # The nested filter was converted into a Bool query and passed
+        # into Search.filter(). This applied an additional filter on the
+        # 'licensepools' subdocument.
+        [filter_call] = built.nested_filter_calls
+        eq_('nested', filter_call['type'])
+        eq_('licensepools', filter_call['path'])
+        filter_as_query = filter_call['query']
+        eq_(Bool(filter=nested_licensepool_filter), filter_as_query)
+
+        # If the Filter specifies a sort order, Filter.specify_sort_order
+        # is called. It modifies the MockSearch object appropriately.
+        filter = Filter(order='somefield', order_ascending=False)
+        qu = MockQuery("query string", filter=filter)
+        built = qu.build(search)
+        eq_("-somefield", built.order)
 
     def test_query(self):
         # The query() method calls a number of other methods
