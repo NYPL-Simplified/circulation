@@ -872,6 +872,63 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         expect(self.sherlock, "sherlock holmes", f)
 
 
+class TestFacetFilters(EndToEndExternalSearchTest):
+
+    def setup(self):
+        super(TestFacetFilters, self).setup()
+        _work = self.default_work
+
+        if self.search:
+
+            # A low-quality open-access work.
+            self.horse = _work(
+                title="Diseases of the Horse", with_open_access_download=True
+            )
+            self.horse = 0.2
+
+            # A high-quality open-access work.
+            self.moby = _work(
+                title="Moby-Dick", with_open_access_download=True
+            )
+            self.moby.quality = 0.8
+
+            # A currently available commercially-licensed work.
+            self.duck = _work(title='Moby Duck')
+            self.duck.license_pools[0].licenses_available = 1
+
+            # A currently unavailable commercially-licensed work.
+            self.becoming = _work(title='Becoming')
+            self.becoming.license_pools[0].licenses_available = 0
+
+    def test_facet_filtering(self):
+
+        if not self.search:
+            logging.error(
+                "Search is not configured, skipping test_facet_filtering."
+            )
+            return
+
+        # Add all the works created in the setup to the search index.
+        SearchIndexCoverageProvider(
+            self._db, search_index_client=self.search
+        ).run_once_and_update_timestamp()
+
+        # Sleep to give the index time to catch up.
+        time.sleep(1)
+
+        def expect(collection, availability, works):
+            facets = Facets(
+                self._default_library, availability, collection,
+                order=Facets.ORDER_TITLE
+            )
+            self._expect_results(
+                works, None, Filter(facets=facets), order=False
+            )
+
+        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, 
+               [self.horse, self.moby, self.duck, self.becoming])
+
+
 class TestSearchOrder(EndToEndExternalSearchTest):
 
     def setup(self):
