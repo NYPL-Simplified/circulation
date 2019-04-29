@@ -640,7 +640,7 @@ class ExternalSearchIndexVersions(object):
                     # code is more mature we can do a side-by-side
                     # comparison.
                     "index": True,
-                    "store": True,
+                    "store": False,
                 },
                 mapping=mapping
             )
