@@ -15,6 +15,7 @@ from ...model.circulationevent import CirculationEvent
 from ...model.collection import CollectionMissing
 from ...model.complaint import Complaint
 from ...model.contributor import Contributor
+from ...model.coverage import WorkCoverageRecord
 from ...model.datasource import DataSource
 from ...model.edition import Edition
 from ...model.identifier import Identifier
@@ -430,8 +431,18 @@ class TestLicensePool(DatabaseTest):
     def test_update_availability(self):
         work = self._work(with_license_pool=True)
         work.last_update_time = None
+        # There's no existing record of this Work interacting
+        # with the search index.
+        eq_(
+            [],
+            [
+                x for x in work.coverage_records
+                if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+            ]
+        )
 
         [pool] = work.license_pools
+        pool.licenses_owned = 0
         pool.update_availability(30, 20, 2, 0)
         eq_(30, pool.licenses_owned)
         eq_(20, pool.licenses_available)
@@ -440,6 +451,20 @@ class TestLicensePool(DatabaseTest):
 
         # Updating availability also modified work.last_update_time.
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
+
+        # Since we went from owning no licenses to owning some licenses,
+        # the Work is now marked as needing to be reindexed.
+        [coverage_record] = [
+            x for x in work.coverage_records
+            if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+        ]
+        eq_(WorkCoverageRecord.REGISTERED, coverage_record.status)
+
+        # The same thing happens when we go from owning some licenses
+        # to owning no licenses.
+        coverage_record.status == WorkCoverageRecord.SUCCESS
+        pool.update_availability(0, 0, 0, 0)
+        eq_(WorkCoverageRecord.REGISTERED, coverage_record.status)
 
     def test_update_availability_triggers_analytics(self):
         work = self._work(with_license_pool=True)
@@ -519,6 +544,28 @@ class TestLicensePool(DatabaseTest):
 
         # Only the two open-access download links show up.
         eq_(set([oa1, oa2]), set(pool.open_access_links))
+
+    def test_set_open_access_status(self):
+
+        # This LicensePool has an open-access download, but somehow it
+        # got into a state where .open_access is false.
+        work = self._work(with_open_access_download=True)
+        [pool] = work.license_pools
+        pool.open_access = False
+        [coverage_record] = [
+            x for x in work.coverage_records
+            if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+        ]
+        # Let's pretend this Work has already been indexed.
+        coverage_record.status == WorkCoverageRecord.SUCCESS
+
+        # set_open_access_status will fix this.
+        pool.set_open_access_status()
+        eq_(True, pool.open_access)
+
+        # Since the Work associated with the LicensePool went from
+        # not-open-access to open-access, it needs to be reindexed.
+        eq_(WorkCoverageRecord.REGISTERED, coverage_record.status)
 
     def test_better_open_access_pool_than(self):
 
