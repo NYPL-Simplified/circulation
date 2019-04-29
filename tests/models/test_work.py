@@ -194,10 +194,12 @@ class TestWork(DatabaseTest):
         # The author of the Work is the author of its primary work record.
         eq_("Alice Adder, Bob Bitshifter", work.author)
 
-        # This Work starts out with a single CoverageRecord reflecting the
-        # work done to generate its initial OPDS entry, and then it adds choose-edition
-        # as a primary edition is set.
-        [choose_edition, generate_opds] = sorted(work.coverage_records, key=lambda x: x.operation)
+        # This Work starts out with a single CoverageRecord reflecting
+        # the work done to generate its initial OPDS entry, and then
+        # it adds choose-edition as a primary edition is set. The
+        # search index CoverageRecord is a marker for work that must
+        # be done in the future, and is not tested here.
+        [choose_edition, generate_opds, update_search_index] = sorted(work.coverage_records, key=lambda x: x.operation)
         assert (generate_opds.operation == WorkCoverageRecord.GENERATE_OPDS_OPERATION)
         assert (choose_edition.operation == WorkCoverageRecord.CHOOSE_EDITION_OPERATION)
 
@@ -1009,12 +1011,9 @@ class TestWork(DatabaseTest):
 
 
     def test_reindex_on_availability_change(self):
-        """A change in a LicensePool's availability creates a
-        WorkCoverageRecord indicating that the work needs to be
-        re-indexed.
-        """
-        work = self._work(with_open_access_download=True)
-        [pool] = work.license_pools
+        # A change in a LicensePool's availability creates a
+        # WorkCoverageRecord indicating that the work needs to be
+        # re-indexed.
         def find_record(work):
             """Find the Work's 'update search index operation'
             WorkCoverageRecord.
@@ -1031,13 +1030,34 @@ class TestWork(DatabaseTest):
         registered = WorkCoverageRecord.REGISTERED
         success = WorkCoverageRecord.SUCCESS
 
-        # The work starts off with no relevant WorkCoverageRecord.
-        eq_(None, find_record(work))
+        # A Work with no LicensePool isn't registered as needing
+        # indexing. (It will be indexed anyway, but it's not registered
+        # as needing it.)
+        no_licensepool = self._work()
+        eq_(None, find_record(no_licensepool))
+
+        # A Work with a LicensePool starts off in a state where it
+        # needs to be indexed.
+        work = self._work(with_open_access_download=True)
+        [pool] = work.license_pools
+        record = find_record(work)
+        eq_(registered, record.status)
 
         # If it stops being open-access, it needs to be reindexed.
+        record.status = success
         pool.open_access = False
         record = find_record(work)
         eq_(registered, record.status)
+
+        # If it becomes open-access again, it needs to be reindexed.
+        record.status = success
+        pool.open_access = True
+        record = find_record(work)
+        eq_(registered, record.status)
+
+        # Set it back to non-open-access so that licenses_owned
+        # becomes relevant.
+        pool.open_access = False
 
         # If its licenses_owned goes from zero to nonzero, it needs to
         # be reindexed.
@@ -1076,9 +1096,22 @@ class TestWork(DatabaseTest):
         # its former Work needs to be reindexed.
         record.status = success
         self._db.delete(pool)
-        work = self._db.query(Work).one()
+        work = self._db.query(Work).filter(Work.id==work.id).one()
         record = find_record(work)
         eq_(registered, record.status)
+
+        # If a LicensePool is moved in from another Work, _both_ Works
+        # need to be reindexed.
+        record.status = success
+        another_work = self._work(with_license_pool=True)
+        [another_pool] = another_work.license_pools
+        work.license_pools.append(another_pool)
+        eq_([], another_work.license_pools)
+
+        for work in (work, another_work):
+            record = find_record(work)
+            eq_(registered, record.status)
+
 
     def test_reset_coverage(self):
         # Test the methods that reset coverage for works, indicating
