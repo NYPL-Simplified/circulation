@@ -1024,6 +1024,36 @@ class TestLicensePool(DatabaseTest):
         # patrons in the hold queue.
         eq_((6,0,1,3), calc(CE.DISTRIBUTOR_LICENSE_ADD, 1))
 
+    def test_changing_licensepool_work_updates_search_index(self):
+        def index_coverage(w):
+            # Locate the coverage record used to update a Work's
+            # search index, if it exists.
+            records = [
+                x for x in w.coverage_records
+                if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+            ]
+            if len(records) == 1:
+                return records[0]
+            return None
+
+        # We've got two Works, one with a LicensePool and one without.
+        w1 = self._work(with_license_pool=True)
+        [pool] = w1.license_pools
+        w2 = self._work()
+
+        # Neither of these Works has search index coverage.
+        for w in w1, w2:
+            eq_(None, index_coverage(w2))
+
+        # Move the LicensePool from one Work to the other.
+        w2.license_pools.append(pool)
+        eq_([], w1.license_pools)
+
+        # Both works now need to be reindexed.
+        for work in (w1, w2):
+            record = index_coverage(work)
+            eq_(record.status, WorkCoverageRecord.REGISTERED)
+
 
 class TestLicensePoolDeliveryMechanism(DatabaseTest):
 

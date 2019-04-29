@@ -247,10 +247,32 @@ def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initia
 # Certain ORM events, however they occur, indicate that a work's
 # external index needs updating.
 
+@event.listens_for(LicensePool.work_id, 'set')
+def licensepool_work_set(target, value, oldvalue, initiator):
+    """When a LicensePool is associated with a Work, the Work needs to be
+    reindexed.
+    """
+    work = target.work
+    if not work:
+        return
+    if value == oldvalue:
+        return
+    work.external_index_needs_updating()
+
+@event.listens_for(Work.license_pools, 'remove')
+def licensepool_removed_from_work(target, value, initiator):
+    """When a Work loses a LicensePool, it needs to be reindexed.
+
+    NOTE: This happens even when this listener is not present, and I
+    don't understand why. The relevant test is
+    TestLicensePool.test_changing_licensepool_work_updates_search_index.
+    """
+    target.external_index_needs_updating()
+
 @event.listens_for(LicensePool, 'after_delete')
 def licensepool_deleted(mapper, connection, target):
-    """A LicensePool should never be deleted, but if it is, we need to
-    keep the search index up to date.
+    """A LicensePool is deleted only when its collection is deleted.
+    If this happens, we need to keep the Work's index up to date.
     """
     work = target.work
     if work:
