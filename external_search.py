@@ -720,7 +720,7 @@ class ExternalSearchIndexVersions(object):
         basic_string_plus_keyword["keyword"] = {
             "type": "keyword",
             "index": False,
-            "store": True,
+            "store": False,
         }
         mapping = cls.map_fields(
             fields=["series"],
