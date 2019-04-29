@@ -945,13 +945,10 @@ class TestSearchOrder(EndToEndExternalSearchTest):
             facets = Facets(
                 self._default_library, None, None, order=sort_field, order_ascending=True
             )
-            # TODO: It should not be necessary to pass in a query string at all. In a real
-            # scenario we will use sorting to generate paginated feeds, which have a filter
-            # defined by their lane but no query string.
-            expect(order, "moby", Filter(facets=facets, **filter_kwargs))
+            expect(order, None, Filter(facets=facets, **filter_kwargs))
 
             facets.order_ascending = False
-            expect(list(reversed(order)), "moby", Filter(facets=facets, **filter_kwargs))
+            expect(list(reversed(order)), None, Filter(facets=facets, **filter_kwargs))
 
         # We can sort by title.
         assert_order(Facets.ORDER_TITLE, [self.moby_dick, self.moby_duck])
@@ -1336,6 +1333,13 @@ class TestQuery(DatabaseTest):
                 self._combine_hypotheses_called_with = hypotheses
                 return hypotheses
 
+        # Before we get started, try an easy case. If there is no query
+        # string we get a match_all query that returns everything.
+        query = Mock(None)
+        result = query.query()
+        eq_(dict(match_all=dict()), result.to_dict())
+
+        # Now try a real query string.
         q = "query string"
         query = Mock(q)
         result = query.query()

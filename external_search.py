@@ -1065,6 +1065,10 @@ class Query(SearchBase):
         """
         query_string = self.query_string
 
+        if query_string is None:
+            # There is no query string.
+            return Q("match_all")
+
         # The search query will create a dis_max query, which tests a
         # number of hypotheses about what the query string might
         # 'really' mean. For each book, the highest-rated hypothesis
