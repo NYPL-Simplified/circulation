@@ -1848,9 +1848,8 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(True, is_new)
 
     def test_potential_open_access_works_for_permanent_work_id(self):
-        """Test of the _potential_open_access_works_for_permanent_work_id
-        helper method.
-        """
+        # Test of the _potential_open_access_works_for_permanent_work_id
+        # helper method.
 
         # Here are two editions of the same book with the same PWID.
         title = 'Siddhartha'
@@ -1868,6 +1867,7 @@ class TestWorkConsolidation(DatabaseTest):
         e2.permanent_work_id = "pwid"
 
         w1 = Work()
+        self._db.add(w1)
         for lp in [lp1, lp2]:
             w1.license_pools.append(lp)
             lp.open_access = True
@@ -1956,11 +1956,13 @@ class TestWorkConsolidation(DatabaseTest):
         # Finally, let's see what happens when there are two Works where
         # there should be one.
         w2 = Work()
+        self._db.add(w2)
         w2.license_pools.append(lp2)
         pools, counts = m()
 
         # This work is irrelevant and will not show up at all.
         w3 = Work()
+        self._db.add(w3)
 
         # Both Works have one associated LicensePool, so they have
         # equal claim to being 'the' Work for this work
