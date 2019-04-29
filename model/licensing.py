@@ -413,11 +413,6 @@ class LicensePool(Base):
         else:
             self.open_access = False
 
-        if old_status != self.open_access and self.work:
-            # This may change whether the Work shows up in various
-            # searches.
-            self.work.external_index_needs_updating()
-
     def set_presentation_edition(self, equivalent_editions=None):
         """Create or update the presentation Edition for this LicensePool.
         The presentation Edition is made of metadata from all Editions
@@ -606,13 +601,6 @@ class LicensePool(Base):
                 old_licenses_reserved, old_patrons_in_hold_queue
             )
             logging.info(message, *args)
-
-        if (old_licenses_owned == 0) != (self.licenses_owned == 0):
-            # We went from owning no licenses to owning some licenses,
-            # or vice versa. This may change whether the Work shows up
-            # in various searches.
-            if self.work:
-                self.work.external_index_needs_updating()
 
         return changes_made
 
