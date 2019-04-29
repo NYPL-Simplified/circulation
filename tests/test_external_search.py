@@ -411,7 +411,9 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
 
         if self.search:
 
-            self.moby_dick = _work(title="Moby Dick", authors="Herman Melville", fiction=True)
+            self.moby_dick = _work(
+                title="Moby Dick", authors="Herman Melville", fiction=True,
+            )
             self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
             self.moby_dick.presentation_edition.series = "Classics"
             self.moby_dick.summary_text = "Ishmael"
@@ -557,6 +559,12 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             sherlock_2, is_new = self.sherlock_pool_2.calculate_work()
             eq_(self.sherlock, sherlock_2)
             eq_(2, len(self.sherlock.license_pools))
+
+            # This book looks good for some search results, but we own
+            # no copies of it, so it will never show up.
+            self.no_copies = _work(title="Moby Dick 2")
+            self.no_copies.license_pools[0].licenses_owned = 0
+
 
     def test_query_works(self):
         # An end-to-end test of the search functionality.
@@ -943,7 +951,8 @@ class TestSearchOrder(EndToEndExternalSearchTest):
             """
             expect = self._expect_results
             facets = Facets(
-                self._default_library, None, None, order=sort_field, order_ascending=True
+                self._default_library, Facets.COLLECTION_FULL,
+                Facets.AVAILABLE_ALL, order=sort_field, order_ascending=True
             )
             expect(order, None, Filter(facets=facets, **filter_kwargs))
 

@@ -1422,7 +1422,9 @@ class Work(Base):
                 LicensePool.id.label('licensepool_id'),
                 LicensePool.collection_id.label('collection_id'),
                 LicensePool.open_access.label('open_access'),
-                LicensePool.licenses_available.label('available') > 0,
+                (LicensePool.licenses_available > 0).label('available'),
+                (LicensePool.licenses_owned > 0).label('owned'),
+                Work.quality.label('quality'),
                 func.to_char(
                     LicensePool.availability_time,
                     cls.ELASTICSEARCH_TIME_FORMAT

@@ -1021,7 +1021,7 @@ class Query(SearchBase):
             to run this specific query.
         """
         query = self.query()
-        nested_filters = {}
+        nested_filters = defaultdict(list)
         # Add the filter, if there is one. This may also result in a
         # number of nested filters, which need to be converted into
         # subqueries.
@@ -1040,6 +1040,15 @@ class Query(SearchBase):
         # tied to a specific server). Turn it into a Search object
         # (which is).
         search = elasticsearch.query(query)
+
+        # We always want to eliminate books for which no copies are
+        # currently owned. It's easier to stay consistent by indexing
+        # all of a Work's licensepools, even when no copies are owned,
+        # than to add and remove works from the index (TODO: is this
+        # really true?)
+        nested_filters['licensepools'].append(
+            F('term', **{'licensepools.owned' : True})
+        )
 
         # Now we can convert any nested filters into nested queries.
         for path, subfilters in nested_filters.items():
@@ -1493,12 +1502,23 @@ class Filter(SearchBase):
     def __init__(self, collections=None, media=None, languages=None,
                  fiction=None, audiences=None, target_age=None,
                  genre_restriction_sets=None, customlist_restriction_sets=None,
-                 facets=None, order=None, order_ascending=False
+                 facets=None, availability_filter=None,
+                 subcollection_filter=None, order=None, order_ascending=False,
+                 minimum_featured_quality=0.65
     ):
 
         if isinstance(collections, Library):
             # Find all works in this Library's collections.
             collections = collections.collections
+            minimum_featured_quality = collections.minimum_featured_quality
+        else:
+            # Outside of the context of a library, the idea of a
+            # 'minumum featured quality' has no meaning. This feature
+            # should not be used outside a library context, but just
+            # in case, we'll set it to 0 to include everything.
+            minimum_featured_quality = 0
+        self.minimum_featured_quality = minimum_featured_quality
+
         self.collection_ids = self._filter_ids(collections)
 
         self.media = media
@@ -1532,6 +1552,10 @@ class Filter(SearchBase):
         else:
             self.customlist_restriction_sets = []
 
+        # These are generally set by the Facets object, but it's also
+        # possible to pass values into the constructor.
+        self.availability = availability_filter
+        self.subcollection = subcollection_filter
         self.order = order
         self.order_ascending = order_ascending
 
@@ -1597,6 +1621,31 @@ class Filter(SearchBase):
         for customlist_ids in self.customlist_restriction_sets:
             ids = filter_ids(customlist_ids)
             f = chain(f, F('terms', **{'customlists.list_id' : ids}))
+
+        if self.availability==FacetConstants.AVAILABLE_NOW:
+            # Only open-access books and books with currently available
+            # copies should be displayed.
+            open_access = F('term', **{'licensepools.open_access' : True})
+            available = F('term', **{'licensepools.available' : True})
+            nested_filters['licensepools'].append(
+                F('bool', should=[open_access, available])
+            )
+
+        if self.subcollection==FacetConstants.COLLECTION_MAIN:
+            # Exclude open-access books with a quality of less than
+            # 0.3.
+            not_open_access = F('term', **{'licensepools.open_access' : False})
+            decent_quality = self._match_range('licensepools.quality', 'gte', 0.3)
+            nested_filters['licensepools'].append(
+                F('bool', should=[not_open_access, decent_quality])
+            )
+        elif self.subcollection==FacetConstants.COLLECTION_FEATURED:
+            # Exclude books with a quality of less than the library's
+            # minimum featured quality.
+            range_query = self._match_range(
+                'quality', 'gte', self.minimum_featured_quality
+            )
+            f = chain(f, range_query)
         return f, nested_filters
 
     @property
