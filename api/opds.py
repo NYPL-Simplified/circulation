@@ -239,14 +239,15 @@ class CirculationManagerAnnotator(Annotator):
         borrow_links = []
         if can_borrow:
             # Borrowing a book gives you an OPDS entry that gives you
-            # fulfillment links.
+            # fulfillment links for every visible delivery mechanism.
+            visible_mechanisms = self.visible_delivery_mechanisms(
+                active_license_pool
+            )
             if set_mechanism_at_borrow and active_license_pool:
                 # The ebook distributor requires that the delivery
                 # mechanism be set at the point of checkout. This means
                 # a separate borrow link for each mechanism.
-                for mechanism in self.visible_delivery_mechanisms(
-                        active_license_pool
-                ):
+                for mechanism in visible_mechanisms:
                     borrow_links.append(
                         self.borrow_link(
                             active_license_pool,
@@ -258,13 +259,13 @@ class CirculationManagerAnnotator(Annotator):
                 # The ebook distributor does not require that the
                 # delivery mechanism be set at the point of
                 # checkout. This means a single borrow link with
-                # indirectAcquisition tags for every delivery
+                # indirectAcquisition tags for every visible delivery
                 # mechanism. If a delivery mechanism must be set, it
                 # will be set at the point of fulfillment.
                 borrow_links.append(
                     self.borrow_link(
                         active_license_pool,
-                        None, active_license_pool.delivery_mechanisms,
+                        None, visible_mechanisms,
                         active_hold
                     )
                 )
