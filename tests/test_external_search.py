@@ -1389,6 +1389,41 @@ class TestQuery(DatabaseTest):
         filter_as_query = filter_call['query']
         eq_(Bool(filter=nested_licensepool_filter), filter_as_query)
 
+        # Now we're going to test how queries are built to accommodate
+        # various restrictions imposed by a Facets object.
+        def from_facets(*args, **kwargs):
+            """Build a Query object from a set of facets, then call
+            build() on it.
+            """
+            facets = Facets(self._default_library, *args, **kwargs)
+            filter = Filter(facets=facets)
+            qu = MockQuery("query string", filter=filter)
+            built = qu.build(search)
+
+            # Verify and remove the ownership filter.
+            assert_ownership_filter(built)
+
+            # Return the rest to be verified in a test-specific way.
+            return built
+
+        # When using the 'main' collection...
+        built = from_facets(Facets.COLLECTION_MAIN, None, None)
+
+        # An additional nested filter is applied.
+        [exclude_lq_open_access] = built.nested_filter_calls
+        eq_('nested', exclude_lq_open_access['name_or_query'])
+        eq_('licensepools', exclude_lq_open_access['path'])
+
+        # It excludes open-access books known to be of low quality.
+        nested_filter = exclude_lq_open_access['query']
+        not_open_access = {'term': {'licensepools.open_access': False}},
+        decent_quality = Filter._match_range('licensepools.quality', 'gte', 0.3).to_dict()
+        eq_(
+            nested_filter.to_dict(),
+            {'bool': {'filter': [{'bool': {'should': [not_open_access, decent_quality]}}]}}
+        )
+        
+
         # If the Filter specifies a sort order, Filter.sort_order is
         # used to convert it to appropriate Elasticsearch syntax, and
         # the MockSearch object is modified appropriately.
