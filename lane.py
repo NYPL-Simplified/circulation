@@ -584,6 +584,9 @@ class Facets(FacetsWithEntryPoint):
         """
         super(Facets, self).modify_search_filter(filter)
 
+        if self.library:
+            filter.minimum_featured_quality = self.library.minimum_featured_quality
+
         filter.availability = self.availability
         filter.subcollection = self.collection
         if self.order:

@@ -1380,6 +1380,10 @@ class Work(Base):
             works_alias.name + '.' + works_alias.c.work_id.name
         )
 
+        work_quality_column = literal_column(
+            works_alias.name + '.' + works_alias.c.quality.name
+        )
+
         def query_to_json(query):
             """Convert the results of a query to a JSON object."""
             return select(
@@ -1424,7 +1428,7 @@ class Work(Base):
                 LicensePool.open_access.label('open_access'),
                 (LicensePool.licenses_available > 0).label('available'),
                 (LicensePool.licenses_owned > 0).label('owned'),
-                Work.quality.label('quality'),
+                work_quality_column,
                 func.to_char(
                     LicensePool.availability_time,
                     cls.ELASTICSEARCH_TIME_FORMAT

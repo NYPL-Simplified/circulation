@@ -918,7 +918,7 @@ class TestFacetFilters(EndToEndExternalSearchTest):
         # Sleep to give the index time to catch up.
         time.sleep(1)
 
-        def expect(collection, availability, works):
+        def expect(availability, collection, works):
             facets = Facets(
                 self._default_library, availability, collection,
                 order=Facets.ORDER_TITLE
@@ -932,8 +932,8 @@ class TestFacetFilters(EndToEndExternalSearchTest):
                [self.becoming, self.horse, self.moby, self.duck])
 
         # Show only works that can be borrowed right now.
-        set_trace()
-        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW)
+        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW,
+               [self.horse, self.moby, self.duck])
 
         # Show only open-access works.
         expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_OPEN_ACCESS, 

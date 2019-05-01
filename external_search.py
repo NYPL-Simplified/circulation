@@ -1507,7 +1507,6 @@ class Filter(SearchBase):
                  subcollection_filter=None, order=None, order_ascending=False,
                  minimum_featured_quality=0.65
     ):
-
         if isinstance(collections, Library):
             # Find all works in this Library's collections.
             collections = collections.collections
@@ -1517,6 +1516,9 @@ class Filter(SearchBase):
             # 'minumum featured quality' has no meaning. This feature
             # should not be used outside a library context, but just
             # in case, we'll set it to 0 to include everything.
+            #
+            # The Facets object may have a better answer. If so, it
+            # will provide it when we call modify_search_filter().
             minimum_featured_quality = 0
         self.minimum_featured_quality = minimum_featured_quality
 
