@@ -932,6 +932,7 @@ class TestFacetFilters(EndToEndExternalSearchTest):
                [self.becoming, self.horse, self.moby, self.duck])
 
         # Show only works that can be borrowed right now.
+        set_trace()
         expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW)
 
         # Show only open-access works.
