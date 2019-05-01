@@ -1416,21 +1416,65 @@ class TestQuery(DatabaseTest):
 
         # It excludes open-access books known to be of low quality.
         nested_filter = exclude_lq_open_access['query']
-        not_open_access = {'term': {'licensepools.open_access': False}},
-        decent_quality = Filter._match_range('licensepools.quality', 'gte', 0.3).to_dict()
+        not_open_access = {'term': {'licensepools.open_access': False}}
+        decent_quality = Filter._match_range('licensepools.quality', 'gte', 0.3)
         eq_(
             nested_filter.to_dict(),
             {'bool': {'filter': [{'bool': {'should': [not_open_access, decent_quality]}}]}}
         )
-        
+
+        # When using the 'featured' collection...
+        built = from_facets(Facets.COLLECTION_FEATURED, None, None)
+
+        # There is no nested filter.
+        eq_([], built.nested_filter_calls)
+
+        # A non-nested filter is applied on the 'quality' field.
+        [quality_filter] = built._query.filter
+        expect = Filter._match_range('quality', 'gte', self._default_library.minimum_featured_quality)
+        eq_(expect, quality_filter.to_dict())
+
+        # When using the AVAILABLE_OPEN_ACCESS availability restriction...
+        built = from_facets(Facets.COLLECTION_FULL,
+                            Facets.AVAILABLE_OPEN_ACCESS, None)
+
+        # An additional nested filter is applied.
+        [available_now] = built.nested_filter_calls
+        eq_('nested', available_now['name_or_query'])
+        eq_('licensepools', available_now['path'])
+
+        # It finds only license pools that are open access.
+        nested_filter = available_now['query']
+        open_access = {'term': {'licensepools.open_access': True}}
+        eq_(
+            nested_filter.to_dict(),
+            {'bool': {'filter': [open_access]}}
+        )
+
+        # When using the AVAILABLE_NOW restriction...
+        built = from_facets(Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW, None)
+
+        # An additional nested filter is applied.
+        [available_now] = built.nested_filter_calls
+        eq_('nested', available_now['name_or_query'])
+        eq_('licensepools', available_now['path'])
+
+        # It finds only license pools that are open access *or* that have
+        # active licenses.
+        nested_filter = available_now['query']
+        available = {'term': {'licensepools.available': True}}
+        eq_(
+            nested_filter.to_dict(),
+            {'bool': {'filter': [{'bool': {'should': [open_access, available]}}]}}
+        )
 
         # If the Filter specifies a sort order, Filter.sort_order is
         # used to convert it to appropriate Elasticsearch syntax, and
         # the MockSearch object is modified appropriately.
-        filter = Filter(order='somefield', order_ascending=False)
-        qu = MockQuery("query string", filter=filter)
-        built = qu.build(search)
-        eq_("-somefield", built.order)
+        built = from_facets(
+            None, None, order=Facets.ORDER_RANDOM, order_ascending=False
+        )
+        eq_("-random", built.order)
 
     def test_query(self):
         # The query() method calls a number of other methods
