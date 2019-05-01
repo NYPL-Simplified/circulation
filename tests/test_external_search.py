@@ -1306,14 +1306,35 @@ class TestQuery(DatabaseTest):
         # The return value is a new MockSearch object based on the one
         # that was passed in.
         assert isinstance(built, MockSearch)
-        eq_(search, built.parent)
+        eq_(search, built.parent.parent)
 
         # The result of Query.query() is used as-is as the basis for
         # the Search object.
         eq_(qu.query(), built._query)
 
-        # No nested filters were applied.
-        eq_([], built.nested_filter_calls)
+        # A nested filter is always applied, to filter out
+        # LicensePools that were once part of a collection but
+        # currently have no owned licenses.
+        def assert_ownership_filter(built):
+            # Extract the call that created the ownership filter
+            # and verify its structure.
+
+            # It's always the last filter applied.
+            unowned_filter = built.nested_filter_calls.pop()
+
+            # It's a nested filter...
+            eq_('nested', unowned_filter['name_or_query'])
+
+            # ...applied to the 'licensepools' subdocument.
+            eq_('licensepools', unowned_filter['path'])
+
+            # For a license pool to be counted, it either must be open
+            # access or the collection must currently own licenses for
+            # it.
+            owned = dict(term={'licensepools.owned': True})
+            open_access = dict(term={'licensepools.open_access': True})
+            expect = {'bool': {'filter': [{'bool': {'should': [owned, open_access]}}]}}
+            eq_(expect, unowned_filter['query'].to_dict())
 
         # If there's a filter, a boolean Query object is created to
         # combine the original Query with the filter.
@@ -1331,8 +1352,10 @@ class TestQuery(DatabaseTest):
         eq_(underlying_query.must, [qu.query()])
         eq_(underlying_query.filter, [main_filter])
 
-        # There are no nested filters, and filter() was never called
-        # on the mock Search object.
+        # There are no nested filters, apart from the ownership
+        # filter, and filter() was never called on the mock Search
+        # object.
+        assert_ownership_filter(built)
         eq_({}, nested_filters)
         eq_([], built.nested_filter_calls)
 
@@ -1345,9 +1368,11 @@ class TestQuery(DatabaseTest):
         built = qu.build(search)
         underlying_query = built._query
 
-        # We get a main filter (for the fiction restriction) and a
-        # single nested filter (for the collection restriction).
+        # We get a main filter (for the fiction restriction) and two
+        # nested filters (one for the collection restriction, one for
+        # the ownership restriction).
         main_filter, nested_filters = filter.build()
+        assert_ownership_filter(built)
         [nested_licensepool_filter] = nested_filters.pop('licensepools')
         eq_({}, nested_filters)
 

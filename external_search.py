@@ -1509,17 +1509,6 @@ class Filter(SearchBase):
         if isinstance(collections, Library):
             # Find all works in this Library's collections.
             collections = collections.collections
-            minimum_featured_quality = collections.minimum_featured_quality
-        else:
-            # Outside of the context of a library, the idea of a
-            # 'minumum featured quality' has no meaning. This feature
-            # should not be used outside a library context, but just
-            # in case, we'll set it to 0 to include everything.
-            #
-            # The Facets object may have a better answer. If so, it
-            # will provide it when we call modify_search_filter().
-            minimum_featured_quality = 0
-        self.minimum_featured_quality = minimum_featured_quality
 
         self.collection_ids = self._filter_ids(collections)
 
@@ -1554,8 +1543,10 @@ class Filter(SearchBase):
         else:
             self.customlist_restriction_sets = []
 
-        # These are generally set by the Facets object, but it's also
-        # possible to pass values into the constructor.
+        # These are generally set by the Facets object, but for some
+        # of them it's also possible to pass values into the
+        # constructor.
+        self.minimum_featured_quality = 0
         self.availability = availability_filter
         self.subcollection = subcollection_filter
         self.order = order
