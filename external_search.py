@@ -1503,8 +1503,7 @@ class Filter(SearchBase):
     def __init__(self, collections=None, media=None, languages=None,
                  fiction=None, audiences=None, target_age=None,
                  genre_restriction_sets=None, customlist_restriction_sets=None,
-                 facets=None, availability_filter=None,
-                 subcollection_filter=None, order=None, order_ascending=False
+                 facets=None,
     ):
         if isinstance(collections, Library):
             # Find all works in this Library's collections.
@@ -1543,14 +1542,13 @@ class Filter(SearchBase):
         else:
             self.customlist_restriction_sets = []
 
-        # These are generally set by the Facets object, but for some
-        # of them it's also possible to pass values into the
-        # constructor.
+        # These values may be set by the Facets constructor; this just
+        # establishes default values for them.
         self.minimum_featured_quality = 0
-        self.availability = availability_filter
-        self.subcollection = subcollection_filter
-        self.order = order
-        self.order_ascending = order_ascending
+        self.availability = None
+        self.subcollection = None
+        self.order = None
+        self.order_ascending = False
 
         # Give the Facets object a chance to modify any or all of this
         # information.

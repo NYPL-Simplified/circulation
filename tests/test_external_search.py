@@ -2315,6 +2315,7 @@ class TestFilter(DatabaseTest):
         # No sort order.
         f = Filter()
         eq_(None, f.sort_order)
+        eq_(False, f.order_ascending)
 
         # A simple field, either ascending or descending.
         f.order='field'
