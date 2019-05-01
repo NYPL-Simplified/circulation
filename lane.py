@@ -576,10 +576,19 @@ class Facets(FacetsWithEntryPoint):
 
     def modify_search_filter(self, filter):
         """Modify the given external_search.Filter object
-        so that it reflects this SearchFacets object.
+        so that it reflects the settings of this Facets object.
+
+        This is the Elasticsearch equivalent of apply(). However, the
+        Elasticsearch implementation of (e.g.) the meaning of the
+        different availabilty statuses is kept in Filter.build().
         """
         super(Facets, self).modify_search_filter(filter)
 
+        if self.library:
+            filter.minimum_featured_quality = self.library.minimum_featured_quality
+
+        filter.availability = self.availability
+        filter.subcollection = self.collection
         if self.order:
             order = self.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME.get(self.order)
             if order:
@@ -587,6 +596,7 @@ class Facets(FacetsWithEntryPoint):
                 filter.order_ascending = self.order_ascending
             else:
                 logging.error("Unrecognized sort order: %s", self.order)
+
 
 class FeaturedFacets(FacetsWithEntryPoint):
 

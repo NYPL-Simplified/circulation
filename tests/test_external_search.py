@@ -411,7 +411,9 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
 
         if self.search:
 
-            self.moby_dick = _work(title="Moby Dick", authors="Herman Melville", fiction=True)
+            self.moby_dick = _work(
+                title="Moby Dick", authors="Herman Melville", fiction=True,
+            )
             self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
             self.moby_dick.presentation_edition.series = "Classics"
             self.moby_dick.summary_text = "Ishmael"
@@ -557,6 +559,12 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             sherlock_2, is_new = self.sherlock_pool_2.calculate_work()
             eq_(self.sherlock, sherlock_2)
             eq_(2, len(self.sherlock.license_pools))
+
+            # This book looks good for some search results, but we own
+            # no copies of it, so it will never show up.
+            self.no_copies = _work(title="Moby Dick 2")
+            self.no_copies.license_pools[0].licenses_owned = 0
+
 
     def test_query_works(self):
         # An end-to-end test of the search functionality.
@@ -864,6 +872,82 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         expect(self.sherlock, "sherlock holmes", f)
 
 
+class TestFacetFilters(EndToEndExternalSearchTest):
+
+    def setup(self):
+        super(TestFacetFilters, self).setup()
+        _work = self.default_work
+
+        if self.search:
+
+            # A low-quality open-access work.
+            self.horse = _work(
+                title="Diseases of the Horse", with_open_access_download=True
+            )
+            self.horse.quality = 0.2
+
+            # A high-quality open-access work.
+            self.moby = _work(
+                title="Moby Dick", with_open_access_download=True
+            )
+            self.moby.quality = 0.8
+
+            # A currently available commercially-licensed work.
+            self.duck = _work(title='Moby Duck')
+            self.duck.license_pools[0].licenses_available = 1
+            self.duck.quality = 0.5
+            
+            # A currently unavailable commercially-licensed work.
+            self.becoming = _work(title='Becoming')
+            self.becoming.license_pools[0].licenses_available = 0
+            self.becoming.quality = 0.9
+
+    def test_facet_filtering(self):
+
+        if not self.search:
+            logging.error(
+                "Search is not configured, skipping test_facet_filtering."
+            )
+            return
+
+        # Add all the works created in the setup to the search index.
+        SearchIndexCoverageProvider(
+            self._db, search_index_client=self.search
+        ).run_once_and_update_timestamp()
+
+        # Sleep to give the index time to catch up.
+        time.sleep(1)
+
+        def expect(availability, collection, works):
+            facets = Facets(
+                self._default_library, availability, collection,
+                order=Facets.ORDER_TITLE
+            )
+            self._expect_results(
+                works, None, Filter(facets=facets), order=False
+            )
+
+        # Get all the books in alphabetical order by title.
+        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, 
+               [self.becoming, self.horse, self.moby, self.duck])
+
+        # Show only works that can be borrowed right now.
+        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW,
+               [self.horse, self.moby, self.duck])
+
+        # Show only open-access works.
+        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_OPEN_ACCESS, 
+               [self.horse, self.moby])
+
+        # Show only featured-quality works.
+        expect(Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, 
+               [self.becoming, self.moby])
+
+        # Eliminate low-quality open-access works.
+        expect(Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, 
+               [self.becoming, self.moby, self.duck])
+
+
 class TestSearchOrder(EndToEndExternalSearchTest):
 
     def setup(self):
@@ -943,7 +1027,8 @@ class TestSearchOrder(EndToEndExternalSearchTest):
             """
             expect = self._expect_results
             facets = Facets(
-                self._default_library, None, None, order=sort_field, order_ascending=True
+                self._default_library, Facets.COLLECTION_FULL,
+                Facets.AVAILABLE_ALL, order=sort_field, order_ascending=True
             )
             expect(order, None, Filter(facets=facets, **filter_kwargs))
 
@@ -1221,14 +1306,35 @@ class TestQuery(DatabaseTest):
         # The return value is a new MockSearch object based on the one
         # that was passed in.
         assert isinstance(built, MockSearch)
-        eq_(search, built.parent)
+        eq_(search, built.parent.parent)
 
         # The result of Query.query() is used as-is as the basis for
         # the Search object.
         eq_(qu.query(), built._query)
 
-        # No nested filters were applied.
-        eq_([], built.nested_filter_calls)
+        # A nested filter is always applied, to filter out
+        # LicensePools that were once part of a collection but
+        # currently have no owned licenses.
+        open_access = dict(term={'licensepools.open_access': True})
+        def assert_ownership_filter(built):
+            # Extract the call that created the ownership filter
+            # and verify its structure.
+
+            # It's always the last filter applied.
+            unowned_filter = built.nested_filter_calls.pop()
+
+            # It's a nested filter...
+            eq_('nested', unowned_filter['name_or_query'])
+
+            # ...applied to the 'licensepools' subdocument.
+            eq_('licensepools', unowned_filter['path'])
+
+            # For a license pool to be counted, it either must be open
+            # access or the collection must currently own licenses for
+            # it.
+            owned = dict(term={'licensepools.owned': True})
+            expect = {'bool': {'filter': [{'bool': {'should': [owned, open_access]}}]}}
+            eq_(expect, unowned_filter['query'].to_dict())
 
         # If there's a filter, a boolean Query object is created to
         # combine the original Query with the filter.
@@ -1246,8 +1352,9 @@ class TestQuery(DatabaseTest):
         eq_(underlying_query.must, [qu.query()])
         eq_(underlying_query.filter, [main_filter])
 
-        # There are no nested filters, and filter() was never called
-        # on the mock Search object.
+        # There are no nested filters (apart from the ownership
+        # filter), and filter() was never called on the mock Search object.
+        assert_ownership_filter(built)
         eq_({}, nested_filters)
         eq_([], built.nested_filter_calls)
 
@@ -1260,9 +1367,11 @@ class TestQuery(DatabaseTest):
         built = qu.build(search)
         underlying_query = built._query
 
-        # We get a main filter (for the fiction restriction) and a
-        # single nested filter (for the collection restriction).
+        # We get a main filter (for the fiction restriction) and two
+        # nested filters (one for the collection restriction, one for
+        # the ownership restriction).
         main_filter, nested_filters = filter.build()
+        assert_ownership_filter(built)
         [nested_licensepool_filter] = nested_filters.pop('licensepools')
         eq_({}, nested_filters)
 
@@ -1279,13 +1388,91 @@ class TestQuery(DatabaseTest):
         filter_as_query = filter_call['query']
         eq_(Bool(filter=nested_licensepool_filter), filter_as_query)
 
+        # Now we're going to test how queries are built to accommodate
+        # various restrictions imposed by a Facets object.
+        def from_facets(*args, **kwargs):
+            """Build a Query object from a set of facets, then call
+            build() on it.
+            """
+            facets = Facets(self._default_library, *args, **kwargs)
+            filter = Filter(facets=facets)
+            qu = MockQuery("query string", filter=filter)
+            built = qu.build(search)
+
+            # Verify and remove the ownership filter.
+            assert_ownership_filter(built)
+
+            # Return the rest to be verified in a test-specific way.
+            return built
+
+        # When using the 'main' collection...
+        built = from_facets(Facets.COLLECTION_MAIN, None, None)
+
+        # An additional nested filter is applied.
+        [exclude_lq_open_access] = built.nested_filter_calls
+        eq_('nested', exclude_lq_open_access['name_or_query'])
+        eq_('licensepools', exclude_lq_open_access['path'])
+
+        # It excludes open-access books known to be of low quality.
+        nested_filter = exclude_lq_open_access['query']
+        not_open_access = {'term': {'licensepools.open_access': False}}
+        decent_quality = Filter._match_range('licensepools.quality', 'gte', 0.3)
+        eq_(
+            nested_filter.to_dict(),
+            {'bool': {'filter': [{'bool': {'should': [not_open_access, decent_quality]}}]}}
+        )
+
+        # When using the 'featured' collection...
+        built = from_facets(Facets.COLLECTION_FEATURED, None, None)
+
+        # There is no nested filter.
+        eq_([], built.nested_filter_calls)
+
+        # A non-nested filter is applied on the 'quality' field.
+        [quality_filter] = built._query.filter
+        expect = Filter._match_range('quality', 'gte', self._default_library.minimum_featured_quality)
+        eq_(expect, quality_filter.to_dict())
+
+        # When using the AVAILABLE_OPEN_ACCESS availability restriction...
+        built = from_facets(Facets.COLLECTION_FULL,
+                            Facets.AVAILABLE_OPEN_ACCESS, None)
+
+        # An additional nested filter is applied.
+        [available_now] = built.nested_filter_calls
+        eq_('nested', available_now['name_or_query'])
+        eq_('licensepools', available_now['path'])
+
+        # It finds only license pools that are open access.
+        nested_filter = available_now['query']
+        eq_(
+            nested_filter.to_dict(),
+            {'bool': {'filter': [open_access]}}
+        )
+
+        # When using the AVAILABLE_NOW restriction...
+        built = from_facets(Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW, None)
+
+        # An additional nested filter is applied.
+        [available_now] = built.nested_filter_calls
+        eq_('nested', available_now['name_or_query'])
+        eq_('licensepools', available_now['path'])
+
+        # It finds only license pools that are open access *or* that have
+        # active licenses.
+        nested_filter = available_now['query']
+        available = {'term': {'licensepools.available': True}}
+        eq_(
+            nested_filter.to_dict(),
+            {'bool': {'filter': [{'bool': {'should': [open_access, available]}}]}}
+        )
+
         # If the Filter specifies a sort order, Filter.sort_order is
         # used to convert it to appropriate Elasticsearch syntax, and
         # the MockSearch object is modified appropriately.
-        filter = Filter(order='somefield', order_ascending=False)
-        qu = MockQuery("query string", filter=filter)
-        built = qu.build(search)
-        eq_("-somefield", built.order)
+        built = from_facets(
+            None, None, order=Facets.ORDER_RANDOM, order_ascending=False
+        )
+        eq_("-random", built.order)
 
     def test_query(self):
         # The query() method calls a number of other methods
@@ -2126,6 +2313,7 @@ class TestFilter(DatabaseTest):
         # No sort order.
         f = Filter()
         eq_(None, f.sort_order)
+        eq_(False, f.order_ascending)
 
         # A simple field, either ascending or descending.
         f.order='field'

@@ -1021,7 +1021,7 @@ class Query(SearchBase):
             to run this specific query.
         """
         query = self.query()
-        nested_filters = {}
+        nested_filters = defaultdict(list)
         # Add the filter, if there is one. This may also result in a
         # number of nested filters, which need to be converted into
         # subqueries.
@@ -1040,6 +1040,16 @@ class Query(SearchBase):
         # tied to a specific server). Turn it into a Search object
         # (which is).
         search = elasticsearch.query(query)
+
+        # We always want to eliminate books for which no copies are
+        # currently owned. It's easier to stay consistent by indexing
+        # all of a Work's licensepools, even when no copies are owned,
+        # than to add and remove works from the index (TODO: is this
+        # really true?)
+        owns_licenses = F('term', **{'licensepools.owned' : True})
+        open_access = F('term', **{'licensepools.open_access' : True})
+        owned = F('bool', should=[owns_licenses, open_access])
+        nested_filters['licensepools'].append(owned)
 
         # Now we can convert any nested filters into nested queries.
         for path, subfilters in nested_filters.items():
@@ -1493,7 +1503,7 @@ class Filter(SearchBase):
     def __init__(self, collections=None, media=None, languages=None,
                  fiction=None, audiences=None, target_age=None,
                  genre_restriction_sets=None, customlist_restriction_sets=None,
-                 facets=None, order=None, order_ascending=False
+                 facets=None,
     ):
 
         if isinstance(collections, Library):
@@ -1532,8 +1542,13 @@ class Filter(SearchBase):
         else:
             self.customlist_restriction_sets = []
 
-        self.order = order
-        self.order_ascending = order_ascending
+        # Establish default values for additional restrictions that may be
+        # imposed by the Facets object.
+        self.minimum_featured_quality = 0
+        self.availability = None
+        self.subcollection = None
+        self.order = None
+        self.order_ascending = False
 
         # Give the Facets object a chance to modify any or all of this
         # information.
@@ -1597,6 +1612,34 @@ class Filter(SearchBase):
         for customlist_ids in self.customlist_restriction_sets:
             ids = filter_ids(customlist_ids)
             f = chain(f, F('terms', **{'customlists.list_id' : ids}))
+
+        open_access = F('term', **{'licensepools.open_access' : True})
+        if self.availability==FacetConstants.AVAILABLE_NOW:
+            # Only open-access books and books with currently available
+            # copies should be displayed.
+            available = F('term', **{'licensepools.available' : True})
+            nested_filters['licensepools'].append(
+                F('bool', should=[open_access, available])
+            )
+        elif self.availability==FacetConstants.AVAILABLE_OPEN_ACCESS:
+            # Only open-access books should be displayed.
+            nested_filters['licensepools'].append(open_access)
+
+        if self.subcollection==FacetConstants.COLLECTION_MAIN:
+            # Exclude open-access books with a quality of less than
+            # 0.3.
+            not_open_access = F('term', **{'licensepools.open_access' : False})
+            decent_quality = self._match_range('licensepools.quality', 'gte', 0.3)
+            nested_filters['licensepools'].append(
+                F('bool', should=[not_open_access, decent_quality])
+            )
+        elif self.subcollection==FacetConstants.COLLECTION_FEATURED:
+            # Exclude books with a quality of less than the library's
+            # minimum featured quality.
+            range_query = self._match_range(
+                'quality', 'gte', self.minimum_featured_quality
+            )
+            f = chain(f, range_query)
         return f, nested_filters
 
     @property

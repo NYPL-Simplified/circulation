@@ -630,6 +630,49 @@ class TestFacets(DatabaseTest):
         eq_("I don't understand what 'no such collection' refers to.",
             invalid_collection.detail)
 
+    def test_modify_search_filter(self):
+        
+        # Test superclass behavior -- filter is modified by entrypoint.
+        facets = Facets(
+            self._default_library, None, None, None,
+            entrypoint=AudiobooksEntryPoint
+        )
+        filter = Filter()
+        facets.modify_search_filter(filter)
+        eq_([Edition.AUDIO_MEDIUM], filter.media)
+
+        # Now test the subclass behavior.
+        facets = Facets(
+            self._default_library, "some collection", "some availability",
+            order=Facets.ORDER_ADDED_TO_COLLECTION, order_ascending="yep"
+        )
+        facets.modify_search_filter(filter)
+
+        # The library's minimum featured quality is passed in.
+        eq_(self._default_library.minimum_featured_quality,
+            filter.minimum_featured_quality)
+
+        # Availability and collection are propagated with no 
+        # validation.
+        eq_("some availability", filter.availability)
+        eq_("some collection", filter.subcollection)
+
+        # The sort order constant is converted to the name of an
+        # Elasticsearch field.
+        expect = Facets.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME[
+            Facets.ORDER_ADDED_TO_COLLECTION
+        ]
+        eq_(expect, filter.order)
+        eq_("yep", filter.order_ascending)
+
+        # Specifying an invalid sort order doesn't cause a crash, but you
+        # don't get a sort order.
+        facets = Facets(self._default_library, None, None, "invalid order")
+        filter = Filter()
+        facets.modify_search_filter(filter)
+        eq_(None, filter.order)
+        
+
 class TestFacetsApply(DatabaseTest):
 
     def test_apply(self):

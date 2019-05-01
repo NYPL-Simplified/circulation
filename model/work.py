@@ -1380,6 +1380,10 @@ class Work(Base):
             works_alias.name + '.' + works_alias.c.work_id.name
         )
 
+        work_quality_column = literal_column(
+            works_alias.name + '.' + works_alias.c.quality.name
+        )
+
         def query_to_json(query):
             """Convert the results of a query to a JSON object."""
             return select(
@@ -1417,12 +1421,18 @@ class Work(Base):
         # Whenever LicensePool.open_access is changed, or
         # licenses_available moves to zero or away from zero, the
         # LicensePool signals that its Work needs reindexing.
+        #
+        # The work quality field is stored in the main document, but
+        # it's also stored here, so that we can apply a nested filter
+        # that combines quality with other fields found only in the subdocument.
         licensepools = select(
             [
                 LicensePool.id.label('licensepool_id'),
                 LicensePool.collection_id.label('collection_id'),
                 LicensePool.open_access.label('open_access'),
-                LicensePool.licenses_available.label('available') > 0,
+                (LicensePool.licenses_available > 0).label('available'),
+                (LicensePool.licenses_owned > 0).label('owned'),
+                work_quality_column,
                 func.to_char(
                     LicensePool.availability_time,
                     cls.ELASTICSEARCH_TIME_FORMAT
