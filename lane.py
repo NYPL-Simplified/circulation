@@ -597,6 +597,7 @@ class Facets(FacetsWithEntryPoint):
             else:
                 logging.error("Unrecognized sort order: %s", self.order)
 
+
 class FeaturedFacets(FacetsWithEntryPoint):
 
     """A simple faceting object that configures a query so that the 'most
