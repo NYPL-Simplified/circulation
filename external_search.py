@@ -1504,8 +1504,7 @@ class Filter(SearchBase):
                  fiction=None, audiences=None, target_age=None,
                  genre_restriction_sets=None, customlist_restriction_sets=None,
                  facets=None, availability_filter=None,
-                 subcollection_filter=None, order=None, order_ascending=False,
-                 minimum_featured_quality=0.65
+                 subcollection_filter=None, order=None, order_ascending=False
     ):
         if isinstance(collections, Library):
             # Find all works in this Library's collections.

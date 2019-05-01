@@ -1421,6 +1421,10 @@ class Work(Base):
         # Whenever LicensePool.open_access is changed, or
         # licenses_available moves to zero or away from zero, the
         # LicensePool signals that its Work needs reindexing.
+        #
+        # The work quality field is stored in the main document, but
+        # it's also stored here, so that we can apply a nested filter
+        # that combines quality with other fields found only in the subdocument.
         licensepools = select(
             [
                 LicensePool.id.label('licensepool_id'),

@@ -794,6 +794,8 @@ class TestWork(DatabaseTest):
         self._default_library.collections.append(collection2)
         pool2 = self._licensepool(edition=edition, collection=collection2)
         pool2.work_id = work.id
+        pool2.licenses_available = 0
+        pool2.licenses_owned = 10
         work.license_pools.append(pool2)
 
         # Create a third Collection that's just hanging around, not
@@ -911,6 +913,15 @@ class TestWork(DatabaseTest):
             [match] = [x for x in licensepools if x['licensepool_id'] == pool.id]
             eq_(pool.open_access, match['open_access'])
             eq_(pool.collection_id, match['collection_id'])
+
+            eq_(pool.licenses_available > 0, match['available'])
+            eq_(pool.licenses_owned > 0, match['owned'])
+
+            # The work quality is stored in the main document, but
+            # it's also stored in the license pool subdocument so that
+            # we can apply a nested filter that includes quality +
+            # information from the subdocument.
+            eq_(work.quality, match['quality'])
 
             assert_time_match(
                 pool.availability_time, match['availability_time']
