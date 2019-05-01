@@ -1046,9 +1046,10 @@ class Query(SearchBase):
         # all of a Work's licensepools, even when no copies are owned,
         # than to add and remove works from the index (TODO: is this
         # really true?)
-        nested_filters['licensepools'].append(
-            F('term', **{'licensepools.owned' : True})
-        )
+        owns_licenses = F('term', **{'licensepools.owned' : True})
+        open_access = F('term', **{'licensepools.open_access' : True})
+        owned = F('bool', should=[owns_licenses, open_access])
+        nested_filters['licensepools'].append(owned)
 
         # Now we can convert any nested filters into nested queries.
         for path, subfilters in nested_filters.items():
@@ -1622,14 +1623,17 @@ class Filter(SearchBase):
             ids = filter_ids(customlist_ids)
             f = chain(f, F('terms', **{'customlists.list_id' : ids}))
 
+        open_access = F('term', **{'licensepools.open_access' : True})
         if self.availability==FacetConstants.AVAILABLE_NOW:
             # Only open-access books and books with currently available
             # copies should be displayed.
-            open_access = F('term', **{'licensepools.open_access' : True})
             available = F('term', **{'licensepools.available' : True})
             nested_filters['licensepools'].append(
                 F('bool', should=[open_access, available])
             )
+        elif self.availability==FacetConstants.AVAILABLE_OPEN_ACCESS:
+            # Only open-access books should be displayed.
+            nested_filters['licensepools'].append(open_access)
 
         if self.subcollection==FacetConstants.COLLECTION_MAIN:
             # Exclude open-access books with a quality of less than

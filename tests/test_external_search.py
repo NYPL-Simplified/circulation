@@ -884,21 +884,23 @@ class TestFacetFilters(EndToEndExternalSearchTest):
             self.horse = _work(
                 title="Diseases of the Horse", with_open_access_download=True
             )
-            self.horse = 0.2
+            self.horse.quality = 0.2
 
             # A high-quality open-access work.
             self.moby = _work(
-                title="Moby-Dick", with_open_access_download=True
+                title="Moby Dick", with_open_access_download=True
             )
             self.moby.quality = 0.8
 
             # A currently available commercially-licensed work.
             self.duck = _work(title='Moby Duck')
             self.duck.license_pools[0].licenses_available = 1
-
+            self.duck.quality = 0.5
+            
             # A currently unavailable commercially-licensed work.
             self.becoming = _work(title='Becoming')
             self.becoming.license_pools[0].licenses_available = 0
+            self.becoming.quality = 0.9
 
     def test_facet_filtering(self):
 
@@ -925,8 +927,24 @@ class TestFacetFilters(EndToEndExternalSearchTest):
                 works, None, Filter(facets=facets), order=False
             )
 
+        # Get all the books in alphabetical order by title.
         expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, 
-               [self.horse, self.moby, self.duck, self.becoming])
+               [self.becoming, self.horse, self.moby, self.duck])
+
+        # Show only works that can be borrowed right now.
+        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW)
+
+        # Show only open-access works.
+        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_OPEN_ACCESS, 
+               [self.horse, self.moby])
+
+        # Show only featured-quality works.
+        expect(Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, 
+               [self.becoming, self.moby])
+
+        # Eliminate low-quality open-access works.
+        expect(Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, 
+               [self.becoming, self.moby, self.duck])
 
 
 class TestSearchOrder(EndToEndExternalSearchTest):
