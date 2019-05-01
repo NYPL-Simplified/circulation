@@ -1315,6 +1315,7 @@ class TestQuery(DatabaseTest):
         # A nested filter is always applied, to filter out
         # LicensePools that were once part of a collection but
         # currently have no owned licenses.
+        open_access = dict(term={'licensepools.open_access': True})
         def assert_ownership_filter(built):
             # Extract the call that created the ownership filter
             # and verify its structure.
@@ -1332,7 +1333,6 @@ class TestQuery(DatabaseTest):
             # access or the collection must currently own licenses for
             # it.
             owned = dict(term={'licensepools.owned': True})
-            open_access = dict(term={'licensepools.open_access': True})
             expect = {'bool': {'filter': [{'bool': {'should': [owned, open_access]}}]}}
             eq_(expect, unowned_filter['query'].to_dict())
 
@@ -1352,9 +1352,8 @@ class TestQuery(DatabaseTest):
         eq_(underlying_query.must, [qu.query()])
         eq_(underlying_query.filter, [main_filter])
 
-        # There are no nested filters, apart from the ownership
-        # filter, and filter() was never called on the mock Search
-        # object.
+        # There are no nested filters (apart from the ownership
+        # filter), and filter() was never called on the mock Search object.
         assert_ownership_filter(built)
         eq_({}, nested_filters)
         eq_([], built.nested_filter_calls)
@@ -1445,7 +1444,6 @@ class TestQuery(DatabaseTest):
 
         # It finds only license pools that are open access.
         nested_filter = available_now['query']
-        open_access = {'term': {'licensepools.open_access': True}}
         eq_(
             nested_filter.to_dict(),
             {'bool': {'filter': [open_access]}}

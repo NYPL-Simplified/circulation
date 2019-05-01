@@ -1505,10 +1505,10 @@ class Filter(SearchBase):
                  genre_restriction_sets=None, customlist_restriction_sets=None,
                  facets=None,
     ):
+
         if isinstance(collections, Library):
             # Find all works in this Library's collections.
             collections = collections.collections
-
         self.collection_ids = self._filter_ids(collections)
 
         self.media = media
@@ -1542,8 +1542,8 @@ class Filter(SearchBase):
         else:
             self.customlist_restriction_sets = []
 
-        # These values may be set by the Facets constructor; this just
-        # establishes default values for them.
+        # Establish default values for additional restrictions that may be
+        # imposed by the Facets object.
         self.minimum_featured_quality = 0
         self.availability = None
         self.subcollection = None
