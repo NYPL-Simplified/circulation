@@ -390,6 +390,7 @@ class ExternalSearchIndex(HasSelfTests):
         if not pagination:
             from lane import Pagination
             pagination = Pagination.default()
+        search = pagination.modify_search_query(search)
         start = pagination.offset
         stop = start + pagination.size
 
@@ -1063,9 +1064,9 @@ class Query(SearchBase):
 
         # Apply any necessary sort order.
         if self.filter:
-            order = self.filter.sort_order
-            if order is not None:
-                search = search.sort(order)
+            order_fields = self.filter.sort_order
+            if order_fields:
+                search = search.sort(*order_fields)
 
         # All done!
         return search
@@ -1647,16 +1648,19 @@ class Filter(SearchBase):
         """Create a description, for use in an Elasticsearch document,
         explaining how search results should be ordered.
         """
+        order_fields = []
+
         if not self.order:
-            return None
+            return order_fields
+
+        if self.order_ascending is False:
+            ascending = "desc"
+        else:
+            ascending = "asc"
 
         order_field = self.order
         if '.' in order_field:
             # We're sorting by a nested field.
-            if self.order_ascending is False:
-                order = "desc"
-            else:
-                order = "asc"
             nested=None
             if order_field == 'licensepools.availability_time':
                 # We're sorting works by the time they became
@@ -1682,15 +1686,15 @@ class Filter(SearchBase):
                     "I don't know how to sort by %s." % order_field
                 )
 
-            sort_description = dict(order=order, mode=mode)
+            sort_description = dict(order=ascending, mode=mode)
             if nested:
                 sort_description['nested'] = nested
             order = { order_field : sort_description }
         else:
-            order = order_field
-            if self.order_ascending is False:
-                order = '-' + order
-        return order
+            order = {order_field : ascending }
+        order_fields.append(order)
+        order_fields.append(dict(work_id="asc"))
+        return order_fields
 
     @property
     def target_age_filter(self):

@@ -888,6 +888,27 @@ class Pagination(object):
         """Modify the given query with OFFSET and LIMIT."""
         return qu.offset(self.offset).limit(self.size)
 
+    def modify_search_query(self, search):
+        # Do nothing -- all necessary pagination information is kept in
+        # offset and size, which external_search knows how to apply.
+        return search
+
+class SearchAfterPagination(Pagination):
+    """A Pagination implementation that starts a page in terms of the
+    last item on the previous page, rather than in terms of an index into
+    a paginated list.
+    """
+    def __init__(self, previous_id, limit):
+        self.previous_id = previous_id
+        self.limit = limit
+
+    @property
+    def offset(self):
+        return 0
+
+    def modify_search_query(self, search):
+        return search
+
 
 class WorkList(object):
     """An object that can obtain a list of Work/MaterializedWorkWithGenre

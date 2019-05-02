@@ -1567,6 +1567,7 @@ class Work(Base):
         # search document.
         search_data = select(
             [works_alias.c.work_id.label("_id"),
+             works_alias.c.work_id.label("work_id"),
              works_alias.c.title,
              works_alias.c.sort_title,
              works_alias.c.subtitle,
