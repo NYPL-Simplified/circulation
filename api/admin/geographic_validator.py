@@ -39,11 +39,12 @@ class GeographicValidator(Validator):
                         locations["US"].append(value)
                     else:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. state or Canadian province abbreviation.', value=value))
-                elif len(value) == 3 and re.search("^[A-Za-z]\\d[A-Za-z]", value):
+                # elif len(value) == 3 and re.search("^[A-Za-z]\\d[A-Za-z]", value):
+                elif self.is_zip(value, "CA"):
                     # Is it a Canadian zipcode?
                     try:
-                        info = ca_search[value]
-                        locations["CA"].append(self.format_place(value, info.city, info.province));
+                        self.look_up_zip(value, "CA")
+                        locations["CA"].append(value);
                     except:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid Canadian zipcode.', value=value))
                 elif len(value.split(", ")) == 2:
@@ -56,12 +57,12 @@ class GeographicValidator(Validator):
                     else:
                         # Flag this as needing to be checked with the registry
                         flagged = True
-                elif value.isdigit():
+                elif self.is_zip(value, "US"):
                     # Is it a US zipcode?
-                    info = us_search.by_zipcode(value)
+                    info = self.look_up_zip(value, "US")
                     if not info:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. zipcode.', value=value))
-                    locations["US"].append(self.format_place(value, info.major_city, info.state));
+                    locations["US"].append(value);
                 else:
                     flagged = True
 
@@ -73,12 +74,28 @@ class GeographicValidator(Validator):
                         locations[registry_response].append(value)
                     else:
                         return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s".', value=value))
-
         return json.dumps(locations)
 
+    def is_zip(self, value, country):
+        if country == "US":
+            return len(value) == 5 and value.isdigit()
+        elif country == "CA":
+            return len(value) == 3 and re.search("^[A-Za-z]\\d[A-Za-z]", value)
+
+    def look_up_zip(self, zip, country, formatted=False):
+        if country == "US":
+            info = uszipcode.SearchEngine(simple_zipcode=True).by_zipcode(zip)
+            if formatted:
+                info = self.format_place(zip, info.major_city, info.state)
+        elif country == "CA":
+            info = PostalCodeDatabase()[zip]
+            if formatted:
+                info = self.format_place(zip, info.city, info.province)
+        return info
+
     def format_place(self, zip, city, state_or_province):
-        info = "%s, %s" % (city, state_or_province)
-        return { zip: info }
+        details = "%s, %s" % (city, state_or_province)
+        return { zip: details }
 
     def find_location_through_registry(self, value, db):
         for nation in ["US", "CA"]:
@@ -109,4 +126,3 @@ class GeographicValidator(Validator):
                     return True
 
         return result
-    
