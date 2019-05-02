@@ -897,10 +897,14 @@ class SearchAfterPagination(Pagination):
     """A Pagination implementation that starts a page in terms of the
     last item on the previous page, rather than in terms of an index into
     a paginated list.
+
+    This only works with Elasticsearch.
     """
     def __init__(self, previous_id, limit):
         self.previous_id = previous_id
         self.limit = limit
+        self.last_item_this_page = None
+        self.sort_fields = None
 
     @property
     def offset(self):
@@ -915,11 +919,14 @@ class SearchAfterPagination(Pagination):
         # this requires more context than Pagination currently has.
         return None
 
-    def next_page(self, this_page):
-        if not this_page:
+    def next_page(self):
+        if not this_page: 
             # This page is empty; there is no next page.
             return None
-        return SearchAfterPagination(this_page[-1].sort_values, self.limit)
+        if not self.last_item_this_page:
+            # This might happen because we forgot to set last_item_this_page.
+            return None
+        return SearchAfterPagination(last_item_this_page, self.limit)
 
 
 class WorkList(object):
