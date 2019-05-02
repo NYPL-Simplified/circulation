@@ -909,6 +909,18 @@ class SearchAfterPagination(Pagination):
     def modify_search_query(self, search):
         return search
 
+    def previous_page(self):
+        # TODO: We can get the previous page by reversing the sort
+        # order and finding the _next_ page of the reversed list. But
+        # this requires more context than Pagination currently has.
+        return None
+
+    def next_page(self, this_page):
+        if not this_page:
+            # This page is empty; there is no next page.
+            return None
+        return SearchAfterPagination(this_page[-1].sort_values, self.limit)
+
 
 class WorkList(object):
     """An object that can obtain a list of Work/MaterializedWorkWithGenre
