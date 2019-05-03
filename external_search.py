@@ -334,12 +334,12 @@ class ExternalSearchIndex(HasSelfTests):
 
         return base_works_index
 
-    def create_search_doc(self, query_string, filter,
-                    debug, return_raw_results):
+    def create_search_doc(self, query_string, filter, pagination,
+                          debug, return_raw_results):
 
         query = Query(query_string, filter)
         query_without_filter = Query(query_string)
-        search = query.build(self.search)
+        search = query.build(self.search, pagination)
         if debug:
             search = search.extra(explain=True)
 
@@ -386,11 +386,11 @@ class ExternalSearchIndex(HasSelfTests):
         if not self.works_alias:
             return []
 
-        search = self.create_search_doc(query_string, filter=filter, debug=debug, return_raw_results=return_raw_results)
         if not pagination:
             from lane import Pagination
             pagination = Pagination.default()
-        search = pagination.modify_search_query(search)
+
+        search = self.create_search_doc(query_string, filter=filter, pagination=pagination, debug=debug, return_raw_results=return_raw_results)
         start = pagination.offset
         stop = start + pagination.size
 
@@ -407,9 +407,23 @@ class ExternalSearchIndex(HasSelfTests):
                     i, result.title, result.author, result.meta['id'],
                     result.meta['score'] or 0, result.meta['shard']
                 )
+
+        # Turn the Search object into a list of result objects and a
+        # list of result IDs (which is probably what we'll be
+        # returning).
+        result_ids = []
+        result_objs = []
+        for x in results:
+            result_objs.append(x)
+            result_ids.append(int(x.meta['id']))
+
+        # Tell the Pagination object about this page -- this will help
+        # it set up for generating a link to the next page.
+        pagination.learn_about_page(result_objs)
+
         if return_raw_results:
-            return results
-        return [int(result.meta['id']) for result in results]
+            return result_objs
+        return result_ids
 
     def bulk_update(self, works, retry_on_batch_failure=True):
         """Upload a batch of works to the search index at once."""
@@ -741,7 +755,7 @@ class ExternalSearchIndexVersions(object):
         fields_by_type = {
             'keyword': ['sort_author', 'sort_title'],
             'date': ['last_update_time'],
-            'integer': ['series_position'],
+            'integer': ['series_position', 'work_id'],
             'float': ['random'],
         }
         mapping = cls.map_fields_by_type(fields_by_type, mapping)
@@ -1011,7 +1025,7 @@ class Query(SearchBase):
         self.query_string = query_string
         self.filter = filter
 
-    def build(self, elasticsearch):
+    def build(self, elasticsearch, pagination):
         """Make an Elasticsearch-DSL Search object out of this query.
 
         :param elasticsearch: An Elasticsearch-DSL Search object. This
@@ -1067,6 +1081,10 @@ class Query(SearchBase):
             order_fields = self.filter.sort_order
             if order_fields:
                 search = search.sort(*order_fields)
+            pagination.order_fields = [x.keys()[0] for x in order_fields]
+
+        # Apply any necessary pagination.
+        pagination.modify_search_query(search)
 
         # All done!
         return search
@@ -1693,7 +1711,10 @@ class Filter(SearchBase):
         else:
             order = {order_field : ascending }
         order_fields.append(order)
-        order_fields.append(dict(work_id="asc"))
+        order_fields.append(dict(_id="asc"))
+        # This is a better solution but it requires reindexing everything,
+        # so I'll do it after I get basic pagination working.
+        #order_fields.append(dict(work_id="asc"))
         return order_fields
 
     @property
@@ -1837,7 +1858,7 @@ class MockExternalSearchIndex(ExternalSearchIndex):
     def exists(self, index, doc_type, id):
         return self._key(index, doc_type, id) in self.docs
 
-    def create_search_doc(self, query_string, filter=None, debug=False, return_raw_results=False):
+    def create_search_doc(self, query_string, filter=None, pagination=None, debug=False, return_raw_results=False):
         return self.docs.values()
 
     def query_works(self, query_string, filter, pagination, debug=False, return_raw_results=False, search=None):
