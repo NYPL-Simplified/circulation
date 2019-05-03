@@ -1075,9 +1075,9 @@ class Query(SearchBase):
             order_fields = self.filter.sort_order
             if order_fields:
                 search = search.sort(*order_fields)
-            pagination.order_fields = [x.keys()[0] for x in order_fields]
 
-        # Apply any necessary pagination.
+        # Apply any necessary query restrictions imposed by the
+        # Pagination object.
         pagination.modify_search_query(search)
 
         # All done!
@@ -1659,6 +1659,11 @@ class Filter(SearchBase):
     def sort_order(self):
         """Create a description, for use in an Elasticsearch document,
         explaining how search results should be ordered.
+
+        :return: A list of dictionaries, each dictionary mapping a
+        field name to an explanation of how to sort that
+        field. Usually the explanation is a simple string, either
+        'asc' or 'desc'.
         """
         order_fields = []
 
@@ -1672,12 +1677,11 @@ class Filter(SearchBase):
 
         # These sort order fields are inserted as necessary between
         # the primary sort order field and the tiebreaker field (work
-        # ID). A feed sorted by author should be secondarily sorted by
-        # title. A feed sorted by availability time should be
-        # secondarily sorted by author and then title. A field sorted
-        # by title should be secondarily sorted by author. This makes
-        # it more likely that the sort order makes sense to a human by
-        # putting off the opaque tiebreaker for as long as possible.
+        # ID). This makes it more likely that the sort order makes
+        # sense to a human, by putting off the opaque tiebreaker for
+        # as long as possible. For example, a feed sorted by author
+        # will be secondarily sorted by title and work ID, not just by
+        # work ID.
         default_sort_order = ['sort_author', 'sort_title', 'work_id']
 
         order_field = self.order
@@ -1845,8 +1849,14 @@ class SortKeyPagination(Pagination):
                  size=Pagination.DEFAULT_SIZE):
         self.size = size
         self.last_item_on_previous_page = last_item_on_previous_page
-        self.last_item_on_this_page = None
+
+        # This variable is set as a side effect of modify_search_query(),
+        # before the query is run.
         self.order_fields = None
+
+        # These variables are set by page_loaded(), after the query
+        # is run.
+        self.last_item_on_this_page = None
         self.this_page_size = None
 
     @property
@@ -1874,6 +1884,11 @@ class SortKeyPagination(Pagination):
 
         :param search: An elasticsearch-dsl Search object.
         """
+        # Keep track of the names of the order fields, so that when
+        # the results are loaded we can store the corresponding field
+        # values for the last item on this page.
+        self.order_fields = [x.keys()[0] for x in search._sort]
+
         if self.last_item_on_previous_page:
             search = search.update_from_dict(
                 dict(search_after=self.last_item_on_previous_page)
@@ -1914,15 +1929,16 @@ class SortKeyPagination(Pagination):
         SortKeyPagination object capable of generating the subsequent
         page.
 
-        :param search: An elasticsearch-dsl Search object that has been
-        used to perform a search.
+        :param page: A list of elasticsearch-dsl Hit objects.
         """
-        self.this_page_size = len(page)
+        super(SortKeyPagination, self).page_loaded(page)
         if page:
             last_item = page[-1]
 
             # Capture only the fields of the last item that are used as
-            # sort keys. These are necessary to find the next page.
+            # sort keys. When .next_page is called, this will let us
+            # create a new SortKeyPagination representing the page
+            # that starts immediately after that item.
             values = [last_item[key] for key in self.order_fields]
         else:
             # There's nothing on this page, so there's no next page
