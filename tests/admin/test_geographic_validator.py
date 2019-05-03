@@ -14,8 +14,10 @@ from core.model import (
 )
 from core.testing import MockRequestsResponse
 import json
+import pypostalcode
 from tests.admin.controller.test_controller import SettingsControllerTest
 import urllib
+import uszipcode
 from werkzeug import MultiDict
 
 class TestGeographicValidator(SettingsControllerTest):
@@ -215,3 +217,29 @@ class TestGeographicValidator(SettingsControllerTest):
         )
         integration.url = url
         return RemoteRegistry(integration)
+
+    def test_is_zip(self):
+        validator = GeographicValidator()
+        eq_(validator.is_zip("06759", "US"), True)
+        eq_(validator.is_zip("J2S", "US"), False)
+        eq_(validator.is_zip("1234", "US"), False)
+        eq_(validator.is_zip("1a234", "US"), False)
+
+        eq_(validator.is_zip("J2S", "CA"), True)
+        eq_(validator.is_zip("06759", "CA"), False)
+        eq_(validator.is_zip("12S", "CA"), False)
+        # "J2S 0A1" is a legit Canadian zipcode, but pypostalcode, which we use for looking up Canadian zipcodes,
+        # only takes the FSA (the first three characters).
+        eq_(validator.is_zip("J2S 0A1", "CA"), False)
+
+    def test_look_up_zip(self):
+        validator = GeographicValidator()
+        us_zip_unformatted = validator.look_up_zip("06759", "US")
+        assert isinstance(us_zip_unformatted, uszipcode.SimpleZipcode)
+        us_zip_formatted = validator.look_up_zip("06759", "US", True)
+        eq_(us_zip_formatted, {'06759': u'Litchfield, CT'})
+
+        ca_zip_unformatted = validator.look_up_zip("R2V", "CA")
+        assert isinstance(ca_zip_unformatted, pypostalcode.PostalCode)
+        ca_zip_formatted = validator.look_up_zip("R2V", "CA", True)
+        eq_(ca_zip_formatted, {'R2V': u'Winnipeg (Seven Oaks East), Manitoba'})

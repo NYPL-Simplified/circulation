@@ -80,7 +80,7 @@ class GeographicValidator(Validator):
         if country == "US":
             return len(value) == 5 and value.isdigit()
         elif country == "CA":
-            return len(value) == 3 and re.search("^[A-Za-z]\\d[A-Za-z]", value)
+            return len(value) == 3 and bool(re.search("^[A-Za-z]\\d[A-Za-z]", value))
 
     def look_up_zip(self, zip, country, formatted=False):
         if country == "US":
