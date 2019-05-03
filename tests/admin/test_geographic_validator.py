@@ -79,14 +79,14 @@ class TestGeographicValidator(SettingsControllerTest):
 
         # Can't connect to registry
         mock.find_location_through_registry = mock.mock_find_location_through_registry_with_error
-        response = mock.validate_geographic_areas('["Ontario"]', self._db)
+        response = mock.validate_geographic_areas('["Victoria, BC"]', self._db)
         # The controller goes ahead and calls find_location_through_registry, but it can't connect to the registry.
         eq_(response.uri, REMOTE_INTEGRATION_FAILED.uri)
 
         # The registry successfully finds the place
         mock.find_location_through_registry = mock.mock_find_location_through_registry_success
-        response = mock.validate_geographic_areas('["Ontario"]', self._db)
-        eq_(response, '{"CA": ["Ontario"], "US": []}')
+        response = mock.validate_geographic_areas('["Victoria, BC"]', self._db)
+        eq_(response, '{"CA": ["Victoria, BC"], "US": []}')
 
     def test_find_location_through_registry(self):
         get = self.do_request
@@ -96,7 +96,7 @@ class TestGeographicValidator(SettingsControllerTest):
         class Mock(GeographicValidator):
             called_with = []
             def mock_ask_registry(self, service_area_object, db):
-                places = {"US": ["Chicago"], "CA": ["Ontario"]}
+                places = {"US": ["Chicago"], "CA": ["Victoria, BC"]}
                 service_area_info = json.loads(urllib.unquote(service_area_object))
                 nation = service_area_info.keys()[0]
                 city_or_county = service_area_info.values()[0]
@@ -122,10 +122,10 @@ class TestGeographicValidator(SettingsControllerTest):
 
         mock.called_with = []
 
-        ca_response = mock.find_location_through_registry("Ontario", self._db)
+        ca_response = mock.find_location_through_registry("Victoria, BC", self._db)
         eq_(len(mock.called_with), 2)
-        eq_({"US": "Ontario"}, mock.called_with[0])
-        eq_({"CA": "Ontario"}, mock.called_with[1])
+        eq_({"US": "Victoria, BC"}, mock.called_with[0])
+        eq_({"CA": "Victoria, BC"}, mock.called_with[1])
         eq_(ca_response, "CA")
 
         mock.called_with = []
@@ -154,62 +154,62 @@ class TestGeographicValidator(SettingsControllerTest):
 
         # Registry 1 knows about the place
         self.responses.append(true_response)
-        response_1 = validator.ask_registry(json.dumps({"CA": "Ontario"}), self._db, self.do_request)
+        response_1 = validator.ask_registry(json.dumps({"CA": "Victoria, BC"}), self._db, self.do_request)
         eq_(response_1, True)
         eq_(len(self.requests), 1)
         request_1 = self.requests.pop()
-        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Ontario"}')
+        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Victoria, BC"}')
 
         # Registry 1 says the place is unknown, but Registry 2 finds it.
         self.responses.append(true_response)
         self.responses.append(unknown_response)
-        response_2 = validator.ask_registry(json.dumps({"CA": "Ontario"}), self._db, self.do_request)
+        response_2 = validator.ask_registry(json.dumps({"CA": "Victoria, BC"}), self._db, self.do_request)
         eq_(response_2, True)
         eq_(len(self.requests), 2)
         request_2 = self.requests.pop()
-        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Ontario"}')
+        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Victoria, BC"}')
         request_1 = self.requests.pop()
-        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Ontario"}')
+        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Victoria, BC"}')
 
         # Registry_1 says the place is ambiguous and Registry_2 says it's unknown, but Registry_3 finds it.
         self.responses.append(true_response)
         self.responses.append(unknown_response)
         self.responses.append(ambiguous_response)
-        response_3 = validator.ask_registry(json.dumps({"CA": "Ontario"}), self._db, self.do_request)
+        response_3 = validator.ask_registry(json.dumps({"CA": "Victoria, BC"}), self._db, self.do_request)
         eq_(response_3, True)
         eq_(len(self.requests), 3)
         request_3 = self.requests.pop()
-        eq_(request_3[0], 'https://registry_3_url/coverage?coverage={"CA": "Ontario"}')
+        eq_(request_3[0], 'https://registry_3_url/coverage?coverage={"CA": "Victoria, BC"}')
         request_2 = self.requests.pop()
-        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Ontario"}')
+        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Victoria, BC"}')
         request_1 = self.requests.pop()
-        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Ontario"}')
+        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Victoria, BC"}')
 
         # Registry 1 returns a problem detail, but Registry 2 finds the place
         self.responses.append(true_response)
         self.responses.append(problem_response)
-        response_4 = validator.ask_registry(json.dumps({"CA": "Ontario"}), self._db, self.do_request)
+        response_4 = validator.ask_registry(json.dumps({"CA": "Victoria, BC"}), self._db, self.do_request)
         eq_(response_4, True)
         eq_(len(self.requests), 2)
         request_2 = self.requests.pop()
-        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Ontario"}')
+        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Victoria, BC"}')
         request_1 = self.requests.pop()
-        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Ontario"}')
+        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Victoria, BC"}')
 
         # Registry 1 returns a problem detail and the other two registries can't find the place
         self.responses.append(unknown_response)
         self.responses.append(ambiguous_response)
         self.responses.append(problem_response)
-        response_5 = validator.ask_registry(json.dumps({"CA": "Ontario"}), self._db, self.do_request)
+        response_5 = validator.ask_registry(json.dumps({"CA": "Victoria, BC"}), self._db, self.do_request)
         eq_(response_5.status_code, 502)
         eq_(response_5.detail, "Unable to contact the registry at https://registry_1_url.")
         eq_(len(self.requests), 3)
         request_3 = self.requests.pop()
-        eq_(request_3[0], 'https://registry_3_url/coverage?coverage={"CA": "Ontario"}')
+        eq_(request_3[0], 'https://registry_3_url/coverage?coverage={"CA": "Victoria, BC"}')
         request_2 = self.requests.pop()
-        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Ontario"}')
+        eq_(request_2[0], 'https://registry_2_url/coverage?coverage={"CA": "Victoria, BC"}')
         request_1 = self.requests.pop()
-        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Ontario"}')
+        eq_(request_1[0], 'https://registry_1_url/coverage?coverage={"CA": "Victoria, BC"}')
 
     def _registry(self, url):
         integration, is_new = create(

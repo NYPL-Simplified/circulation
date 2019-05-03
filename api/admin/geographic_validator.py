@@ -22,7 +22,21 @@ class GeographicValidator(Validator):
 
         us_search = uszipcode.SearchEngine(simple_zipcode=True)
         ca_search = PostalCodeDatabase()
-        CA_PROVINCES = ["AB", "BC", "MB", "NB", "NL", "NT", "NS", "NU", "ON", "PE", "QC", "SK", "YT"]
+        CA_PROVINCES = {
+            "AB": "Alberta",
+            "BC": "British Columbia",
+            "MB": "Manitoba",
+            "NB": "New Brunswick",
+            "NL": "Newfoundland and Labrador",
+            "NT": "Northwest Territories",
+            "NS": "Nova Scotia",
+            "NU": "Nunavut",
+            "ON": "Ontario",
+            "PE": "Prince Edward Island",
+            "QC": "Quebec",
+            "SK": "Saskatchewan",
+            "YT": "Yukon Territories"
+        }
 
         locations = {"US": [], "CA": []}
 
@@ -34,17 +48,25 @@ class GeographicValidator(Validator):
                 if len(value) == 2:
                     # Is it a US state or Canadian province abbreviation?
                     if value in CA_PROVINCES:
-                        locations["CA"].append(value)
+                        locations["CA"].append(CA_PROVINCES[value])
                     elif len(us_search.query(state=value)):
                         locations["US"].append(value)
                     else:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid U.S. state or Canadian province abbreviation.', value=value))
-                # elif len(value) == 3 and re.search("^[A-Za-z]\\d[A-Za-z]", value):
+                elif value in CA_PROVINCES.values():
+                    locations["CA"].append(value)
                 elif self.is_zip(value, "CA"):
                     # Is it a Canadian zipcode?
                     try:
-                        self.look_up_zip(value, "CA")
-                        locations["CA"].append(value);
+                        info = self.look_up_zip(value, "CA")
+                        formatted = "%s, %s" % (info.city, info.province)
+                        # In some cases--mainly involving very small towns--even if the zip code is valid,
+                        # the registry won't recognize the name of the place to which it corresponds.
+                        registry_response = self.find_location_through_registry(formatted, db)
+                        if registry_response:
+                            locations["CA"].append(formatted);
+                        else:
+                            return UNKNOWN_LOCATION.detailed(_('Unable to locate "%(value)s" (%(formatted)s).  Try entering the name of a larger area.', value=value, formatted=formatted))
                     except:
                         return UNKNOWN_LOCATION.detailed(_('"%(value)s" is not a valid Canadian zipcode.', value=value))
                 elif len(value.split(", ")) == 2:
