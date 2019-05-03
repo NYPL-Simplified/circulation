@@ -42,6 +42,7 @@ from ..external_search import (
     SearchBase,
     SearchIndexCoverageProvider,
     SearchIndexMonitor,
+    SortKeyPagination,
 )
 # NOTE: external_search took care of handling the differences between
 # Elasticsearch versions and making sure 'Q' and 'F' are set
@@ -365,14 +366,16 @@ class EndToEndExternalSearchTest(ExternalSearchTest):
         if isinstance(works, Work):
             works = [works]
 
-        results = self.search.query_works(*query_args, debug=True)
+        should_be_ordered = kwargs.pop('ordered', True)
+
+        results = self.search.query_works(*query_args, debug=True, **kwargs)
         expect = [x.id for x in works]
         expect_ids = ", ".join(map(str, expect))
         expect_titles = ", ".join([x.title for x in works])
         result_works = self._db.query(Work).filter(Work.id.in_(results))
         result_works_dict = {}
 
-        if not kwargs.pop('ordered', True):
+        if not should_be_ordered:
             expect = set(expect)
             results = set(results)
 
@@ -1034,6 +1037,31 @@ class TestSearchOrder(EndToEndExternalSearchTest):
 
             facets.order_ascending = False
             expect(list(reversed(order)), None, Filter(facets=facets, **filter_kwargs))
+
+            # Get each item in the list as a separate page. This proves
+            # that pagination based on SortKeyPagination works for this
+            # sort order.
+            facets.order_ascending = True
+            to_process = list(order)
+            results = []
+            pagination = SortKeyPagination(size=1)
+            while to_process:
+                filter = Filter(facets=facets, **filter_kwargs)
+                expect_page = [to_process.pop(0)]
+                expect(expect_page, None, filter, pagination=pagination)
+                pagination = pagination.next_page
+
+            # Now try the same test in reverse order.
+            facets.order_ascending = False
+            to_process = list(reversed(order))
+            results = []
+            pagination = SortKeyPagination(size=1)
+            while to_process:
+                filter = Filter(facets=facets, **filter_kwargs)
+                expect_page = [to_process.pop(0)]
+                expect(expect_page, None, filter, pagination=pagination)
+                pagination = pagination.next_page
+
 
         # We can sort by title.
         assert_order(Facets.ORDER_TITLE, [self.moby_dick, self.moby_duck])

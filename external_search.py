@@ -411,8 +411,8 @@ class ExternalSearchIndex(HasSelfTests):
         # Convert the Search object into a list of hits.
         results = [x for x in results]
 
-        # Tell the Pagination object about this page -- this will help
-        # it set up for generating a link to the next page.
+        # Tell the Pagination object about this page -- this may help
+        # it set up to generate a link to the next page.
         pagination.page_loaded(results)
 
         if return_raw_results:
@@ -1666,6 +1666,7 @@ class Filter(SearchBase):
         'asc' or 'desc'.
         """
         order_fields = []
+        order_field_keys = []
 
         if not self.order:
             return order_fields
@@ -1718,11 +1719,12 @@ class Filter(SearchBase):
         else:
             order = {order_field : ascending }
         order_fields.append(order)
+        order_field_keys.append(order_field)
 
         # Apply any parts of the default sort order not yet covered,
         # concluding (in most cases) with work_id, the tiebreaker field.
         for x in default_sort_order:
-            if x not in order_fields:
+            if x not in order_field_keys:
                 order_fields.append({x: "asc"})
 
         return order_fields
@@ -1850,10 +1852,6 @@ class SortKeyPagination(Pagination):
         self.size = size
         self.last_item_on_previous_page = last_item_on_previous_page
 
-        # This variable is set as a side effect of modify_search_query(),
-        # before the query is run.
-        self.order_fields = None
-
         # These variables are set by page_loaded(), after the query
         # is run.
         self.last_item_on_this_page = None
@@ -1884,11 +1882,6 @@ class SortKeyPagination(Pagination):
 
         :param search: An elasticsearch-dsl Search object.
         """
-        # Keep track of the names of the order fields, so that when
-        # the results are loaded we can store the corresponding field
-        # values for the last item on this page.
-        self.order_fields = [x.keys()[0] for x in search._sort]
-
         if self.last_item_on_previous_page:
             search = search.update_from_dict(
                 dict(search_after=self.last_item_on_previous_page)
@@ -1924,7 +1917,7 @@ class SortKeyPagination(Pagination):
         that would be useful to know when reasoning about earlier or
         later pages.
 
-        Specifically, keep track of the sort keys of the last item on
+        Specifically, keep track of the sort value of the last item on
         this page, so that self.next_page will create a
         SortKeyPagination object capable of generating the subsequent
         page.
@@ -1934,12 +1927,7 @@ class SortKeyPagination(Pagination):
         super(SortKeyPagination, self).page_loaded(page)
         if page:
             last_item = page[-1]
-
-            # Capture only the fields of the last item that are used as
-            # sort keys. When .next_page is called, this will let us
-            # create a new SortKeyPagination representing the page
-            # that starts immediately after that item.
-            values = [last_item[key] for key in self.order_fields]
+            values = list(last_item.meta.sort)
         else:
             # There's nothing on this page, so there's no next page
             # either.
