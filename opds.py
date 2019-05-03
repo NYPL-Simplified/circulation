@@ -697,7 +697,7 @@ class AcquisitionFeed(OPDSFeed):
             works = []
         else:
             works = works_q.all()
-            pagination.this_page_size = len(works)
+            pagination.page_loaded(works)
         feed = cls(_db, title, url, works, annotator)
 
         entrypoints = facets.selectable_entrypoints(lane)

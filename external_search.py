@@ -408,22 +408,16 @@ class ExternalSearchIndex(HasSelfTests):
                     result.meta['score'] or 0, result.meta['shard']
                 )
 
-        # Turn the Search object into a list of result objects and a
-        # list of result IDs (which is probably what we'll be
-        # returning).
-        result_ids = []
-        result_objs = []
-        for x in results:
-            result_objs.append(x)
-            result_ids.append(int(x.meta['id']))
+        # Convert the Search object into a list of hits.
+        results = [x for x in results]
 
         # Tell the Pagination object about this page -- this will help
         # it set up for generating a link to the next page.
-        pagination.learn_about_page(result_objs)
+        pagination.page_loaded(results)
 
         if return_raw_results:
-            return result_objs
-        return result_ids
+            return results
+        return [int(result.meta['id']) for result in results]
 
     def bulk_update(self, works, retry_on_batch_failure=True):
         """Upload a batch of works to the search index at once."""
@@ -1684,7 +1678,7 @@ class Filter(SearchBase):
         # by title should be secondarily sorted by author. This makes
         # it more likely that the sort order makes sense to a human by
         # putting off the opaque tiebreaker for as long as possible.
-        default_sort_order = ['sort_author', 'sort_title']
+        default_sort_order = ['sort_author', 'sort_title', 'work_id']
 
         order_field = self.order
         if '.' in order_field:
@@ -1721,16 +1715,12 @@ class Filter(SearchBase):
             order = {order_field : ascending }
         order_fields.append(order)
 
-        # Apply any parts of the default sort order not yet covered.
+        # Apply any parts of the default sort order not yet covered,
+        # concluding (in most cases) with work_id, the tiebreaker field.
         for x in default_sort_order:
             if x not in order_fields:
                 order_fields.append({x: "asc"})
 
-        # Apply the tiebreaker field.
-        order_fields.append(dict(_id="asc"))
-        # This is a better solution but it requires reindexing everything,
-        # so I'll do it after I get basic pagination working.
-        #order_fields.append(dict(work_id="asc"))
         return order_fields
 
     @property
@@ -1845,10 +1835,11 @@ class Filter(SearchBase):
         return new
 
 
-class SearchAfterPagination(Pagination):
-    """An Elasticsearch-specific implementation of Pagination that 
-    allows pagination through the 'search_after' feature rather
-    than a numeric index.
+class SortKeyPagination(Pagination):
+    """An Elasticsearch-specific implementation of Pagination that
+    paginates search results by tracking where in a sorted list the
+    previous page left off, rather than using a numeric index into the
+    list.
     """
     def __init__(self, last_item_on_previous_page=None,
                  size=Pagination.DEFAULT_SIZE):
@@ -1874,10 +1865,15 @@ class SearchAfterPagination(Pagination):
 
     def apply(self, qu):
         raise NotImplementedError(
-            "SearchAfterPagination does not work with database queries."
+            "SortKeyPagination does not work with database queries."
         )
 
     def modify_search_query(self, search):
+        """Modify the given Search object so that it starts
+        picking up items immediately after the previous page.
+
+        :param search: An elasticsearch-dsl Search object.
+        """
         if self.last_item_on_previous_page:
             search = search.update_from_dict(
                 dict(search_after=self.last_item_on_previous_page)
@@ -1890,36 +1886,44 @@ class SearchAfterPagination(Pagination):
         # order and asking for the _next_ page of the reversed list,
         # using the sort keys of the _first_ item as the search_after.
         # But this is really confusing, it requires more context than
-        # Pagination currently has, and this feature isn't necessary
-        # for our current implementation.
+        # SortKeyPagination currently has, and this feature isn't
+        # necessary for our current implementation.
         return None
 
     @property
     def next_page(self):
+        """If possible, create a new SortKeyPagination representing the 
+        next page of results.
+        """
         if self.this_page_size == 0:
             # This page is empty; there is no next page.
             return None
         if not self.last_item_on_this_page:
-            # This might happen because learn_about_page hasn't been
-            # called yet. At any rate, we can't say anything about the
-            # next page.
+            # This probably means load_page wasn't called. At any
+            # rate, we can't say anything about the next page.
             return None
-        return SearchAfterPagination(self.last_item_on_this_page, self.size)
+        return SortKeyPagination(self.last_item_on_this_page, self.size)
 
-    def learn_about_page(self, page):
+    def page_loaded(self, page):
+        """An actual page of results has been fetched. Keep any internal state
+        that would be useful to know when reasoning about earlier or
+        later pages.
+
+        Specifically, keep track of the sort keys of the last item on
+        this page, so that self.next_page will create a
+        SortKeyPagination object capable of generating the subsequent
+        page.
+
+        :param search: An elasticsearch-dsl Search object that has been
+        used to perform a search.
+        """
         self.this_page_size = len(page)
         if page:
             last_item = page[-1]
 
             # Capture only the fields of the last item that are used as
             # sort keys. These are necessary to find the next page.
-            values = []
-            for key in self.order_fields:
-                if key == '_id':
-                    value = last_item.meta.id
-                else:
-                    value = last_item[key]
-                values.append(value)
+            values = [last_item[key] for key in self.order_fields]
         else:
             # There's nothing on this page, so there's no next page
             # either.

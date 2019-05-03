@@ -891,8 +891,8 @@ class Pagination(object):
         # offset and size, which external_search knows how to apply.
         return search
 
-    def learn_about_page(self, page):
-        """Now that the actual page has been fetched, keep any internal state
+    def page_loaded(self, page):
+        """An actual page of results has been fetched. Keep any internal state
         that would be useful to know when reasoning about earlier or
         later pages.
         """
