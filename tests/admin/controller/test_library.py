@@ -240,7 +240,7 @@ class TestLibrarySettings(SettingsControllerTest):
                 (Configuration.WEBSITE_URL, "https://library.library/"),
                 (Configuration.TINY_COLLECTION_LANGUAGES, ['ger']),
                 (Configuration.LIBRARY_SERVICE_AREA, ['06759', 'everywhere', 'MD', 'Boston, MA']),
-                (Configuration.LIBRARY_FOCUS_AREA, ['V5K', 'Broward County, FL', 'QC']),
+                (Configuration.LIBRARY_FOCUS_AREA, ['Manitoba', 'Broward County, FL', 'QC']),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
                 (Configuration.HELP_EMAIL, "help@example.com"),
                 (Configuration.FEATURED_LANE_SIZE, "5"),
@@ -256,7 +256,6 @@ class TestLibrarySettings(SettingsControllerTest):
             ])
             validator = MockValidator()
             response = self.manager.admin_library_settings_controller.process_post(validator)
-
             eq_(response.status_code, 201)
 
         library = get_one(self._db, Library, short_name="nypl")
@@ -277,7 +276,7 @@ class TestLibrarySettings(SettingsControllerTest):
         eq_(validator.was_called, True)
         eq_('{"CA": [], "US": ["06759", "everywhere", "MD", "Boston, MA"]}',
             ConfigurationSetting.for_library(Configuration.LIBRARY_SERVICE_AREA, library).value)
-        eq_('{"CA": ["V5K", "QC"], "US": ["Broward County, FL"]}',
+        eq_('{"CA": ["Manitoba", "Quebec"], "US": ["Broward County, FL"]}',
             ConfigurationSetting.for_library(Configuration.LIBRARY_FOCUS_AREA, library).value)
 
         # When the library was created, default lanes were also created
