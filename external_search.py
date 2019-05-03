@@ -39,6 +39,7 @@ from model import (
     Work,
     WorkCoverageRecord,
 )
+from lane import Pagination
 from monitor import WorkSweepMonitor
 from coverage import (
     CoverageFailure,
@@ -387,7 +388,6 @@ class ExternalSearchIndex(HasSelfTests):
             return []
 
         if not pagination:
-            from lane import Pagination
             pagination = Pagination.default()
 
         search = self.create_search_doc(query_string, filter=filter, pagination=pagination, debug=debug, return_raw_results=return_raw_results)
@@ -1676,6 +1676,16 @@ class Filter(SearchBase):
         else:
             ascending = "asc"
 
+        # These sort order fields are inserted as necessary between
+        # the primary sort order field and the tiebreaker field (work
+        # ID). A feed sorted by author should be secondarily sorted by
+        # title. A feed sorted by availability time should be
+        # secondarily sorted by author and then title. A field sorted
+        # by title should be secondarily sorted by author. This makes
+        # it more likely that the sort order makes sense to a human by
+        # putting off the opaque tiebreaker for as long as possible.
+        default_sort_order = ['sort_author', 'sort_title']
+
         order_field = self.order
         if '.' in order_field:
             # We're sorting by a nested field.
@@ -1703,7 +1713,6 @@ class Filter(SearchBase):
                 raise ValueError(
                     "I don't know how to sort by %s." % order_field
                 )
-
             sort_description = dict(order=ascending, mode=mode)
             if nested:
                 sort_description['nested'] = nested
@@ -1711,6 +1720,13 @@ class Filter(SearchBase):
         else:
             order = {order_field : ascending }
         order_fields.append(order)
+
+        # Apply any parts of the default sort order not yet covered.
+        for x in default_sort_order:
+            if x not in order_fields:
+                order_fields.append({x: "asc"})
+
+        # Apply the tiebreaker field.
         order_fields.append(dict(_id="asc"))
         # This is a better solution but it requires reindexing everything,
         # so I'll do it after I get basic pagination working.
@@ -1827,6 +1843,88 @@ class Filter(SearchBase):
             # There was no previous filter -- the 'new' one is it.
             pass
         return new
+
+
+class SearchAfterPagination(Pagination):
+    """An Elasticsearch-specific implementation of Pagination that 
+    allows pagination through the 'search_after' feature rather
+    than a numeric index.
+    """
+    def __init__(self, last_item_on_previous_page=None,
+                 size=Pagination.DEFAULT_SIZE):
+        self.size = size
+        self.last_item_on_previous_page = last_item_on_previous_page
+        self.last_item_on_this_page = None
+        self.order_fields = None
+        self.this_page_size = None
+
+    @property
+    def offset(self):
+        # This object never uses the traditional offset system; offset
+        # is determined relative to the last item on the previous
+        # page.
+        return 0
+
+    @property
+    def total_size(self):
+        # Although we technically know the total size after the first
+        # page of results has been obtained, we don't use this feature
+        # in pagination, so act like we don't.
+        return None
+
+    def apply(self, qu):
+        raise NotImplementedError(
+            "SearchAfterPagination does not work with database queries."
+        )
+
+    def modify_search_query(self, search):
+        if self.last_item_on_previous_page:
+            search = search.update_from_dict(
+                dict(search_after=self.last_item_on_previous_page)
+            )
+        return search
+
+    @property
+    def previous_page(self):
+        # TODO: We can get the previous page by flipping the sort
+        # order and asking for the _next_ page of the reversed list,
+        # using the sort keys of the _first_ item as the search_after.
+        # But this is really confusing, it requires more context than
+        # Pagination currently has, and this feature isn't necessary
+        # for our current implementation.
+        return None
+
+    @property
+    def next_page(self):
+        if self.this_page_size == 0:
+            # This page is empty; there is no next page.
+            return None
+        if not self.last_item_on_this_page:
+            # This might happen because learn_about_page hasn't been
+            # called yet. At any rate, we can't say anything about the
+            # next page.
+            return None
+        return SearchAfterPagination(self.last_item_on_this_page, self.size)
+
+    def learn_about_page(self, page):
+        self.this_page_size = len(page)
+        if page:
+            last_item = page[-1]
+
+            # Capture only the fields of the last item that are used as
+            # sort keys. These are necessary to find the next page.
+            values = []
+            for key in self.order_fields:
+                if key == '_id':
+                    value = last_item.meta.id
+                else:
+                    value = last_item[key]
+                values.append(value)
+        else:
+            # There's nothing on this page, so there's no next page
+            # either.
+            values = None
+        self.last_item_on_this_page = values
 
 
 class MockExternalSearchIndex(ExternalSearchIndex):

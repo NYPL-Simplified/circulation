@@ -53,10 +53,6 @@ from entrypoint import (
     EntryPoint,
     EverythingEntryPoint,
 )
-from external_search import (
-    Filter,
-    Query,
-)
 from model import (
     directly_modified,
     get_one_or_create,
@@ -851,6 +847,8 @@ class Pagination(object):
 
     @property
     def next_page(self):
+        if not self.has_next_page:
+            return None
         return Pagination(self.offset+self.size, self.size)
 
     @property
@@ -900,83 +898,6 @@ class Pagination(object):
         """
         self.this_page_size = len(page)
 
-
-class SearchAfterPagination(Pagination):
-    """A Pagination implementation that starts a page in terms of the
-    last item on the previous page, rather than in terms of an index into
-    a paginated list.
-
-    This only works with Elasticsearch.
-    """
-    def __init__(self, last_item_on_previous_page=None,
-                 size=Pagination.DEFAULT_SIZE):
-        self.size = size
-        self.last_item_on_previous_page = last_item_on_previous_page
-        self.last_item_on_this_page = None
-        self.order_fields = None
-        self.this_page_size = None
-
-    @property
-    def offset(self):
-        # This object never uses the traditional offset system; offset
-        # is determined relative to the last item on the previous
-        # page.
-        return 0
-
-    @property
-    def total_size(self):
-        # Although we technically know the total size after the first
-        # page of results has been obtained, we don't use this feature
-        # in pagination, so act like we don't.
-        return None
-
-    def apply(self, qu):
-        raise NotImplementedError(
-            "SearchAfterPagination does not work with database queries."
-        )
-
-    def modify_search_query(self, search):
-        if self.last_item_on_previous_page:
-            search = search.update_from_dict(
-                dict(search_after=self.last_item_on_previous_page)
-            )
-        return search
-
-    def previous_page(self):
-        # TODO: We can get the previous page by reversing the sort
-        # order and finding the _next_ page of the reversed list. But
-        # this requires more context than Pagination currently has.
-        return None
-
-    def next_page(self):
-        if self.this_page_size == 0:
-            # This page is empty; there is no next page.
-            return None
-        if not self.last_item_on_this_page:
-            # This might happen because learn_about_page hasn't been
-            # called yet.
-            return None
-        return SearchAfterPagination(self.last_item_on_this_page, self.size)
-
-    def learn_about_page(self, page):
-        self.this_page_size = len(page)
-        if page:
-            last_item = page[-1]
-
-            # Capture only the fields of the last item that are relevant
-            # to finding the next page.
-            values = []
-            for key in self.order_fields:
-                if key == '_id':
-                    value = last_item.meta.id
-                else:
-                    value = last_item[key]
-                values.append(value)
-        else:
-            # There's nothing on this page, so there's no next page
-            # either.
-            values = None
-        self.last_item_on_this_page = values
 
 class WorkList(object):
     """An object that can obtain a list of Work/MaterializedWorkWithGenre
@@ -1460,6 +1381,7 @@ class WorkList(object):
         corresponding to all the Works that belong in this
         WorkList. Then convert those IDs into Work objects.
         """
+        from external_search import Filter
         filter = Filter.from_worklist(_db, self, facets)
         work_ids = search_client.query_works(
             None, filter, pagination, debug=True
@@ -1801,6 +1723,7 @@ class WorkList(object):
                 offset=0, size=Pagination.DEFAULT_SEARCH_SIZE
             )
 
+        from external_search import Filter
         filter = Filter.from_worklist(_db, self, facets)
         try:
             work_ids = search_client.query_works(
