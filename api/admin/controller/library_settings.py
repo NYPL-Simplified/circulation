@@ -45,6 +45,9 @@ class LibrarySettingsController(SettingsController):
             for setting in Configuration.LIBRARY_SETTINGS:
                 if setting.get("type") == "list":
                     value = ConfigurationSetting.for_library(setting.get("key"), library).json_value
+                    if value and setting.get("format") == "geographic":
+                        value = self.get_extra_geographic_information(value)
+
                 else:
                     value = self.current_value(setting, library)
 
@@ -192,6 +195,20 @@ class LibrarySettingsController(SettingsController):
                 return LIBRARY_SHORT_NAME_ALREADY_IN_USE
 
 # Configuration settings:
+
+    def get_extra_geographic_information(self, value):
+        validator = GeographicValidator()
+
+        for country in value:
+            zips = [x for x in value[country] if validator.is_zip(x, country)]
+            other = [x for x in value[country] if not x in zips]
+            zips_with_extra_info = []
+            for zip in zips:
+                info = validator.look_up_zip(zip, country, formatted=True)
+                zips_with_extra_info.append(info)
+            value[country] = zips_with_extra_info + other
+
+        return value
 
     def library_configuration_settings(self, library, validator):
         for setting in Configuration.LIBRARY_SETTINGS:
