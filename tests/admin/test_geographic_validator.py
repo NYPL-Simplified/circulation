@@ -63,6 +63,11 @@ class TestGeographicValidator(SettingsControllerTest):
         # The validator should have returned the problem detail without bothering to ask the registry.
         eq_(mock.value, None)
 
+        # Validator converts Canadian 2-letter abbreviations into province names, without needing to ask the registry.
+        response = mock.validate_geographic_areas('["NL"]', self._db)
+        eq_(response, '{"CA": ["Newfoundland and Labrador"], "US": []}')
+        eq_(mock.value, None)
+
         # County with wrong state
         response = mock.validate_geographic_areas('["Fairfield County, FL"]', self._db)
         eq_(response.uri, UNKNOWN_LOCATION.uri)
@@ -76,6 +81,12 @@ class TestGeographicValidator(SettingsControllerTest):
         eq_(response.detail, 'Unable to locate "Albany, NJ".')
         # The validator should go ahead and call find_location_through_registry
         eq_(mock.value, "Albany, NJ")
+
+        # The Canadian zip code is valid, but it corresponds to a place too small for the registry to know about it.
+        response = mock.validate_geographic_areas('["J5J"]', self._db)
+        eq_(response.uri, UNKNOWN_LOCATION.uri)
+        eq_(response.detail, 'Unable to locate "J5J" (Saint-Sophie, Quebec).  Try entering the name of a larger area.')
+        eq_(mock.value, "Saint-Sophie, Quebec")
 
         # Can't connect to registry
         mock.find_location_through_registry = mock.mock_find_location_through_registry_with_error
