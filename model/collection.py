@@ -381,7 +381,8 @@ class Collection(Base, HasFullTableCache):
     @property
     def unique_account_id(self):
         """Identifier that uniquely represents this Collection of works"""
-        if (self.data_source.name in self.GLOBAL_COLLECTION_DATA_SOURCES
+        if (self.data_source
+            and self.data_source.name in self.GLOBAL_COLLECTION_DATA_SOURCES
             and not self.parent):
             # Every top-level collection from this data source has the
             # same catalog. Treat them all as one collection named
