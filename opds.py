@@ -31,6 +31,7 @@ from cdn import cdnify
 from config import Configuration
 from classifier import Classifier
 from entrypoint import EntryPoint
+from external_search import ExternalSearchIndex
 from facets import FacetConstants
 from model import (
     BaseMaterializedWork,
@@ -660,9 +661,12 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def page(cls, _db, title, url, lane, annotator,
              cache_type=None, facets=None, pagination=None,
-             force_refresh=False
+             force_refresh=False, search_client=None
     ):
         """Create a feed representing one page of works from a given lane.
+
+        :param search_client: An ExternalSearchIndex to use when
+        determining which titles should appear in the feed.
 
         :return: CachedFeed (if use_cache is True) or unicode
         """
@@ -691,13 +695,8 @@ class AcquisitionFeed(OPDSFeed):
             if usable:
                 return cached.content
 
-        works_q = lane.works(_db, facets, pagination)
-        if not works_q:
-            # The Lane believes that creating this feed is a bad idea.
-            works = []
-        else:
-            works = works_q.all()
-            pagination.page_loaded(works)
+        search_client = search_client or ExternalSearchIndex(_db)
+        works = lane.works_from_search(_db, facets, pagination, search_client)
         feed = cls(_db, title, url, works, annotator)
 
         entrypoints = facets.selectable_entrypoints(lane)
