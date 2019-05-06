@@ -1715,6 +1715,54 @@ class TestWorkList(DatabaseTest):
         wl.works(self._db, facets=facets)
         eq_(facets, wl.apply_filters_called_with)
 
+    def test_works_from_search(self):
+
+        # Create two books and add them to the materialized view.
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+        self.add_to_materialized_view([w1, w2])
+
+        # Create a WorkList
+        worklist = WorkList()
+        worklist.initialize(self._default_library, languages=['eng'])
+
+        # This mock search client will return work IDs in a specific
+        # order.
+        class MockSearchClient(object):
+            def query_works(self, query, filter, pagination, debug):
+                self.called_with = (query, filter, pagination, debug)
+                return [w2.id, w1.id]
+        search_client = MockSearchClient()
+
+        facets = Facets.default(self._default_library)
+        original_pagination = object()
+        works = worklist.works_from_search(
+            self._db, facets, original_pagination, search_client
+        )
+
+        # We got the results we expected in the order we expected.
+        eq_([w2.id, w1.id], [x.works_id for x in works])
+
+        # The search client's query_works() method was called to get
+        # those results.
+        query, filter, pagination, debug = search_client.called_with
+
+        # There was no search query -- the search client is instructed
+        # to find _all_ titles that match the criteria.
+        eq_(None, query)
+
+        # Those criteria are defined by the filter for the given WorkList
+        # and facet set.
+        expect_filter = Filter.from_worklist(self._db, worklist, facets)
+        eq_(expect_filter.build(), filter.build())
+        eq_(expect_filter.sort_order, filter.sort_order)
+
+        # The pagination object is passed through as-is.
+        eq_(original_pagination, pagination)
+
+        # Debug is always true for the time being.
+        eq_(True, debug)
+
     def test_works_for_specific_ids(self):
         # Create two works and put them in the materialized view.
         w1 = self._work(with_license_pool=True)
