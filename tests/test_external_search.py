@@ -2643,7 +2643,38 @@ class TestSortKeyPagination(DatabaseTest):
         )
 
     def test_modify_search_query(self):
-        pass
+        class MockSearch(object):
+            called_with = "not called"
+            def update_from_dict(self, dict):
+                self.called_with = dict
+                return "modified search object"
+
+        search = MockSearch()
+
+        # We start off in a state where we don't know the last item on the
+        # previous page.
+        pagination = SortKeyPagination()
+
+        # In this case, modify_search_query does nothing but return
+        # the object it was passed.
+        eq_(search, pagination.modify_search_query(search))
+        eq_("not called", search.called_with)
+
+        # Now we find out the last item on the previous page -- in
+        # real life, this is because we call page_loaded() and then
+        # next_page().
+        last_item = object()
+        pagination.last_item_on_previous_page = last_item
+
+        # Now, modify_search_query() calls update_from_dict() on our
+        # mock ElasticSearch `Search` object, passing in the last item
+        # on the previous page. The return value of
+        # modify_search_query() becomes the active Search object.
+        eq_("modified search object", pagination.modify_search_query(search))
+
+        # The Elasticsearch object was modified to use the
+        # 'search_after' feature.
+        eq_(dict(search_after=last_item), search.called_with)
 
     def test_next_page(self):
         pass
