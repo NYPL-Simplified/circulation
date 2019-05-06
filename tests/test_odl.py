@@ -212,10 +212,8 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         })
 
         self.api.queue_response(200, content=lsd)
-        assert_raises(
-            CannotReturn, self.api.checkin,
-            self.patron, "pin", self.pool,
-        )
+        # Checking in the book silently does nothing.
+        self.api.checkin(self.patron, "pinn", self.pool)
         eq_(1, len(self.api.requests))
         eq_(6, self.pool.licenses_available)
         eq_(1, self._db.query(Loan).count())
@@ -253,12 +251,11 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         })
 
         self.api.queue_response(200, content=lsd)
-        assert_raises(
-            CannotReturn, self.api.checkin,
-            self.patron, "pin", self.pool,
-        )
+        # Checking in silently does nothing.
+        self.api.checkin(self.patron, "pin", self.pool)
 
-        # The return link doesn't change the status.
+        # If the return link doesn't change the status, it still
+        # silently ignores the problem.
         lsd = json.dumps({
             "status": "ready",
             "links": [{
@@ -270,10 +267,7 @@ class TestODLAPI(DatabaseTest, BaseODLTest):
         self.api.queue_response(200, content=lsd)
         self.api.queue_response(200, content="Deleted")
         self.api.queue_response(200, content=lsd)
-        assert_raises(
-            RemoteRefusedReturn, self.api.checkin,
-            self.patron, "pin", self.pool,
-        )
+        self.api.checkin(self.patron, "pin", self.pool)
 
     def test_checkout_success(self):
         # This book is available to check out.
