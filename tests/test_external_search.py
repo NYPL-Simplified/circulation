@@ -927,7 +927,7 @@ class TestFacetFilters(EndToEndExternalSearchTest):
                 order=Facets.ORDER_TITLE
             )
             self._expect_results(
-                works, None, Filter(facets=facets), order=False
+                works, None, Filter(facets=facets), ordered=False
             )
 
         # Get all the books in alphabetical order by title.
@@ -2358,43 +2358,67 @@ class TestFilter(DatabaseTest):
 
         # No sort order.
         f = Filter()
-        eq_(None, f.sort_order)
+        eq_([], f.sort_order)
         eq_(False, f.order_ascending)
+
+        def validate_sort_order(filter, main_field):
+            """Validate the 'easy' part of the sort order -- the tiebreaker
+            fields. Return the 'difficult' part.
+
+            :return: The first part of the sort order -- the field that
+            is potentially difficult.
+            """
+
+            # The tiebreaker fields are always in the same order, but
+            # if the main sort field is one of the tiebreaker fields,
+            # it's removed from the list -- there's no need to sort on
+            # that field a second time.
+            default_sort_fields = [
+                {x: "asc"} for x in ['sort_author', 'sort_title', 'work_id']
+                if x != main_field
+            ]
+            eq_(default_sort_fields, filter.sort_order[1:])
+            return filter.sort_order[0]
 
         # A simple field, either ascending or descending.
         f.order='field'
         eq_(False, f.order_ascending)
-        eq_('-field', f.sort_order)
+        first_field = validate_sort_order(f, 'field')
+
+        eq_(dict(field='desc'), first_field)
+
         f.order_ascending = True
-        eq_('field', f.sort_order)
+        first_field = validate_sort_order(f, 'field')
+        eq_(dict(field='asc'), first_field)
 
         # You can't sort by some random subdocument field, because there's
         # not enough information to know how to aggregate multiple values.
-        f.order='subdocument.field'
+        #
+        # You _can_ sort by license pool availability time -- that's
+        # tested below -- but it's complicated.
+        f.order = 'subdocument.field'
         assert_raises_regexp(
             ValueError, "I don't know how to sort by subdocument.field",
             lambda: f.sort_order,
         )
 
         # It's possible to sort by every field in
-        # Facets.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME. These are the
-        # sort orders that are actually used.
+        # Facets.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME.
         used_orders = Facets.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME
         added_to_collection = used_orders[Facets.ORDER_ADDED_TO_COLLECTION]
-        for v in used_orders.values():
-            f.order = v
-            order = f.sort_order
-
-            # In most cases, the sort order is the same as the field
-            # name.
-            if v != added_to_collection:
-                eq_(order, v)
+        for sort_field in used_orders.values():
+            if sort_field == added_to_collection:
+                # This is the complicated case, tested below.
+                continue
+            f.order = sort_field
+            first_field = validate_sort_order(f, sort_field)
+            eq_({sort_field: 'asc'}, first_field)
 
         # The only complicated case is when a feed is ordered by date
         # added to the collection. This requires an aggregate function
         # and potentially a nested filter.
         f.order = added_to_collection
-        order = f.sort_order
+        first_field = validate_sort_order(f, sort_field)
 
         # Here there's no nested filter but there is an aggregate
         # function. If a book is available through multiple
@@ -2402,11 +2426,11 @@ class TestFilter(DatabaseTest):
         simple_nested_configuration = {
             'licensepools.availability_time': {'mode': 'min', 'order': 'asc'}
         }
-        eq_(simple_nested_configuration, order)
+        eq_(simple_nested_configuration, first_field)
 
         # Setting a collection ID restriction will add a nested filter.
         f.collection_ids = [self._default_collection]
-        order = f.sort_order
+        first_field = validate_sort_order(f, 'licensepools.availability_time')
 
         # The nested filter ensures that when sorting the results, we
         # only consider availability times from license pools that
@@ -2418,7 +2442,7 @@ class TestFilter(DatabaseTest):
         #
         # This just makes sure that the books show up in the right _order_
         # for any given set of collections.
-        nested_filter = order['licensepools.availability_time'].pop('nested')
+        nested_filter = first_field['licensepools.availability_time'].pop('nested')
         eq_(
             {'path': 'licensepools',
              'filter': {
@@ -2430,9 +2454,9 @@ class TestFilter(DatabaseTest):
             nested_filter
         )
 
-        # Apart from the nested filter, this is the same configuration
-        # as before.
-        eq_(simple_nested_configuration, order)
+        # Apart from the nested filter, this is the same ordering
+        # configuration as before.
+        eq_(simple_nested_configuration, first_field)
 
     def test_target_age_filter(self):
         # Test an especially complex subfilter.
