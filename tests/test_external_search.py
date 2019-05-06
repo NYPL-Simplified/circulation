@@ -2676,6 +2676,47 @@ class TestSortKeyPagination(DatabaseTest):
         # 'search_after' feature.
         eq_(dict(search_after=last_item), search.called_with)
 
+    def test_page_loaded(self):
+        # Test what happens to a SortKeyPagination object when a page of
+        # results is loaded.
+        this_page = SortKeyPagination()
+
+        # Mock an Elasticsearch 'hit' object -- we'll be accessing
+        # hit.meta.sort.
+        class MockMeta(object):
+            def __init__(self, sort_key):
+                self.sort = sort_key
+
+        class MockItem(object):
+            def __init__(self, sort_key):
+                self.meta = MockMeta(sort_key)
+
+        # Make a page of results, each with a unique sort key.
+        hits = [
+            MockItem(['sort', 'key', num]) for num in range(5)
+        ]
+        last_hit = hits[-1]
+
+        # Tell the page about the results.
+        this_page.page_loaded(hits)
+
+        # We know the size.
+        eq_(5, this_page.this_page_size)
+
+        # We know the sort key of the last item in the page.
+        eq_(last_hit.meta.sort, this_page.last_item_on_this_page)
+
+        # This code has coverage elsewhere, but just so you see how it
+        # works -- we can now get the next page...
+        next_page = this_page.next_page
+
+        # And it's defined in terms of the last item on its
+        # predecessor. When we pass the new pagination object into
+        # create_search_doc, it'll call this object's
+        # modify_search_query method. The resulting search query will
+        # pick up right where the previous page left off.
+        eq_(last_hit.meta.sort, next_page.last_item_on_previous_page)
+
     def test_next_page(self):
 
         # To start off, we can't say anything about the next page,
@@ -2702,9 +2743,6 @@ class TestSortKeyPagination(DatabaseTest):
         # page, but the page size is zero, there is no next page.
         first_page.this_page_size = 0
         eq_(None, first_page.next_page)
-
-    def test_page_loaded(self):
-        pass
 
 
 class TestBulkUpdate(DatabaseTest):
