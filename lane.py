@@ -1376,22 +1376,6 @@ class WorkList(object):
             )
         return qu
 
-    def works_from_search(self, _db, facets=None, pagination=None, search_client=None):
-        """Create a query against a search index that finds the work IDs
-        corresponding to all the Works that belong in this
-        WorkList. Then convert those IDs into Work objects.
-        """
-        from external_search import Filter
-        filter = Filter.from_worklist(_db, self, facets)
-        work_ids = search_client.query_works(
-            None, filter, pagination, debug=True
-        )
-        if work_ids:
-            results = self.works_for_specific_ids(_db, work_ids)
-        else:
-            results = []
-        return results
-
     def works_for_specific_ids(self, _db, work_ids):
         """Create the appearance of having called works(),
         but return the specific MaterializedWorks identified by `work_ids`.
