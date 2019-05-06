@@ -2677,7 +2677,31 @@ class TestSortKeyPagination(DatabaseTest):
         eq_(dict(search_after=last_item), search.called_with)
 
     def test_next_page(self):
-        pass
+
+        # To start off, we can't say anything about the next page,
+        # because we don't know anything about _this_ page.
+        first_page = SortKeyPagination()
+        eq_(None, first_page.next_page)
+
+        # Let's learn about this page.
+        first_page.this_page_size = 10
+        last_item = object()
+        first_page.last_item_on_this_page = last_item
+
+        # When we call next_page, the last item on this page becomes the
+        # next page's "last item on previous_page"
+        next_page = first_page.next_page
+        eq_(last_item, next_page.last_item_on_previous_page)
+
+        # Again, we know nothing about this page, since we haven't
+        # loaded it yet.
+        eq_(None, next_page.this_page_size)
+        eq_(None, next_page.last_item_on_this_page)
+
+        # In the unlikely event that we know the last item on the
+        # page, but the page size is zero, there is no next page.
+        first_page.this_page_size = 0
+        eq_(None, first_page.next_page)
 
     def test_page_loaded(self):
         pass
