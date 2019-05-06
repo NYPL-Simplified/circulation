@@ -1042,26 +1042,31 @@ class TestSearchOrder(EndToEndExternalSearchTest):
             # that pagination based on SortKeyPagination works for this
             # sort order.
             facets.order_ascending = True
-            to_process = list(order)
+            to_process = list(order) + [[]]
             results = []
             pagination = SortKeyPagination(size=1)
             while to_process:
                 filter = Filter(facets=facets, **filter_kwargs)
-                expect_page = [to_process.pop(0)]
-                expect(expect_page, None, filter, pagination=pagination)
+                expect_result = to_process.pop(0)
+                expect(expect_result, None, filter, pagination=pagination)
                 pagination = pagination.next_page
+            # We are now off the edge of the list -- we got an empty page
+            # of results and there is no next page.
+            eq_(None, pagination)
 
             # Now try the same test in reverse order.
             facets.order_ascending = False
-            to_process = list(reversed(order))
+            to_process = list(reversed(order)) + [[]]
             results = []
             pagination = SortKeyPagination(size=1)
             while to_process:
                 filter = Filter(facets=facets, **filter_kwargs)
-                expect_page = [to_process.pop(0)]
-                expect(expect_page, None, filter, pagination=pagination)
+                expect_result = to_process.pop(0)
+                expect(expect_result, None, filter, pagination=pagination)
                 pagination = pagination.next_page
-
+            # We are now off the edge of the list -- we got an empty page
+            # of results and there is no next page.
+            eq_(None, pagination)
 
         # We can sort by title.
         assert_order(Facets.ORDER_TITLE, [self.moby_dick, self.moby_duck])
