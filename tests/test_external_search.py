@@ -2610,6 +2610,48 @@ class TestFilter(DatabaseTest):
         eq_(chained, f1 & f2)
 
 
+class TestSortKeyPagination(DatabaseTest):
+    """Test the Elasticsearch-implementation of Pagination that does
+    pagination by tracking the last item on the previous page,
+    rather than by tracking the number of items seen so far.
+    """
+    def test_unimplemented_features(self):
+        # Check certain features of a normal Pagination object that
+        # are not implemented in SortKeyPagination.
+
+        # Set up a realistic SortKeyPagination -- certain things
+        # will remain undefined.
+        pagination = SortKeyPagination(last_item_on_previous_page=object())
+        pagination.this_page_size = 100
+        pagination.last_item_on_this_page = object()
+
+        # The offset is always zero.
+        eq_(0, pagination.offset)
+
+        # The total size is always undefined, even though we could
+        # theoretically track it.
+        eq_(None, pagination.total_size)
+
+        # The previous page is always undefined, through theoretically
+        # we could navigate backwards.
+        eq_(None, pagination.previous_page)
+
+        assert_raises_regexp(
+            NotImplementedError,
+            "SortKeyPagination does not work with database queries.",
+            pagination.apply, object()
+        )
+
+    def test_modify_search_query(self):
+        pass
+
+    def test_next_page(self):
+        pass
+
+    def test_page_loaded(self):
+        pass
+
+
 class TestBulkUpdate(DatabaseTest):
 
     def test_works_not_presentation_ready_removed_from_index(self):
