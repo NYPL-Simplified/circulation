@@ -1019,7 +1019,7 @@ class Query(SearchBase):
         self.query_string = query_string
         self.filter = filter
 
-    def build(self, elasticsearch, pagination):
+    def build(self, elasticsearch, pagination=None):
         """Make an Elasticsearch-DSL Search object out of this query.
 
         :param elasticsearch: An Elasticsearch-DSL Search object. This
@@ -1077,8 +1077,12 @@ class Query(SearchBase):
                 search = search.sort(*order_fields)
 
         # Apply any necessary query restrictions imposed by the
-        # Pagination object.
-        pagination.modify_search_query(search)
+        # Pagination object. This may happen through modification or
+        # by returning an entirely new Search object.
+        if pagination:
+            result = pagination.modify_search_query(search)
+            if result is not None:
+                search = result
 
         # All done!
         return search

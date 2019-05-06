@@ -1314,10 +1314,10 @@ class TestQuery(DatabaseTest):
                     self, query, self.nested_filter_calls, self.order
                 )
 
-            def sort(self, order):
+            def sort(self, *order_fields):
                 """Simulate the application of a sort order."""
                 return MockSearch(
-                    self, self._query, self.nested_filter_calls, order
+                    self, self._query, self.nested_filter_calls, order_fields
                 )
 
         class MockQuery(Query):
@@ -1326,19 +1326,29 @@ class TestQuery(DatabaseTest):
             def query(self):
                 return Q("simple_query_string", query=self.query_string)
 
+        class MockPagination(object):
+            def modify_search_query(self, search):
+                return search.filter(name_or_query="pagination modified")
+
         # Test the simple case where the Query has no filter.
         qu = MockQuery("query string", filter=None)
         search = MockSearch()
-        built = qu.build(search)
+        pagination = MockPagination()
+        built = qu.build(search, pagination)
 
         # The return value is a new MockSearch object based on the one
         # that was passed in.
         assert isinstance(built, MockSearch)
-        eq_(search, built.parent.parent)
+        eq_(search, built.parent.parent.parent)
 
         # The result of Query.query() is used as-is as the basis for
         # the Search object.
         eq_(qu.query(), built._query)
+
+        # The modification introduced by the MockPagination was the
+        # last filter applied.
+        pagination_filter = built.nested_filter_calls.pop()
+        eq_("pagination modified", pagination_filter['name_or_query'])
 
         # A nested filter is always applied, to filter out
         # LicensePools that were once part of a collection but
@@ -1347,8 +1357,6 @@ class TestQuery(DatabaseTest):
         def assert_ownership_filter(built):
             # Extract the call that created the ownership filter
             # and verify its structure.
-
-            # It's always the last filter applied.
             unowned_filter = built.nested_filter_calls.pop()
 
             # It's a nested filter...
@@ -1500,7 +1508,17 @@ class TestQuery(DatabaseTest):
         built = from_facets(
             None, None, order=Facets.ORDER_RANDOM, order_ascending=False
         )
-        eq_("-random", built.order)
+
+        # We asked for a random sort order, and that's the primary
+        # sort field.
+        order = list(built.order)
+        eq_(dict(random="desc"), order.pop(0))
+
+        # But a number of other sort fields are also employed to act
+        # as tiebreakers.
+        for tiebreaker_field in ('sort_author', 'sort_title', 'work_id'):
+            eq_({tiebreaker_field: "asc"}, order.pop(0))
+        eq_([], order)
 
     def test_query(self):
         # The query() method calls a number of other methods
