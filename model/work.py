@@ -1364,6 +1364,7 @@ class Work(Base):
              Work.random,
              Work.popularity,
              Work.presentation_ready,
+             Work.presentation_edition_id,
              func.to_char(
                  Work.last_update_time,
                  cls.ELASTICSEARCH_TIME_FORMAT
@@ -1381,11 +1382,13 @@ class Work(Base):
             works_alias.name + '.' + works_alias.c.work_id.name
         )
 
+        work_presentation_edition_id_column = literal_column(
+            works_alias.name + '.' + works_alias.c.presentation_edition_id.name
+        )
+
         work_quality_column = literal_column(
             works_alias.name + '.' + works_alias.c.quality.name
         )
-
-        work_medium_column = Edition.medium
 
         def query_to_json(query):
             """Convert the results of a query to a JSON object."""
@@ -1441,7 +1444,7 @@ class Work(Base):
                 (LicensePool.licenses_available > 0).label('available'),
                 (LicensePool.licenses_owned > 0).label('owned'),
                 work_quality_column,
-                work_medium_column,
+                Edition.medium,
                 func.to_char(
                     LicensePool.availability_time,
                     cls.ELASTICSEARCH_TIME_FORMAT
@@ -1450,6 +1453,7 @@ class Work(Base):
         ).where(
             and_(
                 LicensePool.work_id==work_id_column,
+                work_presentation_edition_id_column==Edition.id,
                 or_(
                     LicensePool.open_access,
                     LicensePool.licenses_owned>0,

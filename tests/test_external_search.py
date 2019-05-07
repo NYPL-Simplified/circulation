@@ -553,6 +553,14 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             self.not_presentation_ready = _work(title="Moby Dick 2")
             self.not_presentation_ready.presentation_ready = False
 
+        # Just a basic check to make sure the search document query
+        # doesn't contain over-zealous joins. This is the main place
+        # where we make a large number of works and generate search
+        # documents for them.
+        eq_(1, len(self.moby_dick.to_search_document()['licensepools']))
+        eq_("Audio",
+            self.pride_audio.to_search_document()['licensepools'][0]['medium'])
+
     def test_query_works(self):
         # An end-to-end test of the search functionality.
         #
@@ -839,7 +847,6 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         # an empty set of lists.
         expect([], "lincoln", Filter(customlist_restriction_sets=[[]]))
 
-
         # Filter based on collection ID.
 
         # "A Tiny Book" isn't in the default collection.
@@ -857,6 +864,22 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             languages="en"
         )
         expect(self.sherlock, "sherlock holmes", f)
+
+        # Filters that come from site or library settings.
+
+        # The source for the 'Pride and Prejudice' audiobook has been
+        # excluded, so it won't show up in search results.
+        f = Filter(
+            excluded_audiobook_data_sources=[
+                self.pride_audio.license_pools[0].data_source
+            ]
+        )
+        expect([self.pride], "pride and prejudice", f)
+
+        # "Moby Duck" is not currently available, so it won't show up in
+        # search results if allow_holds is False.
+        f = Filter(allow_holds=False)
+        expect([], "moby duck", f)
 
 
 class TestFacetFilters(EndToEndExternalSearchTest):

@@ -36,6 +36,7 @@ from model import (
     Collection,
     ConfigurationSetting,
     DataSource,
+    Edition,
     ExternalIntegration,
     Library,
     Work,
