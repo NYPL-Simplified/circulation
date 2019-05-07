@@ -747,6 +747,7 @@ class ExternalSearchIndexVersions(object):
         # When we list books by a specific author, we're applying a filter on sort_author,
         # not author.
         fields_by_type = {
+            'boolean': ['presentation_ready'],
             'keyword': ['sort_author', 'sort_title'],
             'date': ['last_update_time'],
             'integer': ['series_position', 'work_id'],
@@ -1039,11 +1040,17 @@ class Query(SearchBase):
         # such as licensepools.collection_id.
         if self.filter:
             base_filter, nested_filters = self.filter.build()
-            if base_filter:
-                if MAJOR_VERSION == 1:
-                    query = Q("filtered", query=query, filter=base_filter)
-                else:
-                    query = Q("bool", must=query, filter=base_filter)
+        else:
+            base_filter = None
+            nested_filters = defaultdict(list)
+
+        # Even if no other filter is applied, we only want to show
+        # works that are presentation-ready.
+        base_filter = Filter._chain_filters(
+            base_filter, F('term', **{"presentation_ready":True})
+        )
+        if base_filter:
+            query = Q("bool", must=query, filter=base_filter)
 
         # We now have an Elasticsearch-DSL Query object (which isn't
         # tied to a specific server). Turn it into a Search object
@@ -1596,6 +1603,7 @@ class Filter(SearchBase):
 
         f = None
         nested_filters = defaultdict(list)
+
         collection_ids = filter_ids(self.collection_ids)
         if collection_ids:
             collection_match = F(

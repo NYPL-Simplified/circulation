@@ -1363,6 +1363,7 @@ class Work(Base):
              Work.rating,
              Work.random,
              Work.popularity,
+             Work.presentation_ready,
              func.to_char(
                  Work.last_update_time,
                  cls.ELASTICSEARCH_TIME_FORMAT
@@ -1407,12 +1408,15 @@ class Work(Base):
             Subject,
         )
         from customlist import CustomListEntry
-        from licensing import LicensePool
+        from licensing import LicensePool, LicensePoolDeliveryMechanism
 
         # We need information about LicensePools for a few reasons:
         #
-        # * We always want to filter out Works that are not available in
-        #   any of the collections associated with a given library.
+        # * We always want to filter out Works that are not available
+        #   in any of the collections associated with a given library
+        #   -- either because no licenses are owned, because the
+        #   LicensePools are suppressed, or because there are no
+        #   delivery mechanisms.
         # * A patron may want to sort a list of books by availability
         #   date.
         # * A patron may want to show only books currently available,
@@ -1428,6 +1432,7 @@ class Work(Base):
         licensepools = select(
             [
                 LicensePool.id.label('licensepool_id'),
+                LicensePool.data_source_id.label('data_source_id'),
                 LicensePool.collection_id.label('collection_id'),
                 LicensePool.open_access.label('open_access'),
                 (LicensePool.licenses_available > 0).label('available'),
@@ -1444,7 +1449,8 @@ class Work(Base):
                 or_(
                     LicensePool.open_access,
                     LicensePool.licenses_owned>0,
-                )
+                ),
+                LicensePool.suppressed==False,
             )
         ).alias("licensepools_subquery")
         licensepools_json = query_to_json_array(licensepools)
@@ -1580,6 +1586,7 @@ class Work(Base):
              works_alias.c.publisher,
              works_alias.c.imprint,
              works_alias.c.permanent_work_id,
+             works_alias.c.presentation_ready,
              works_alias.c.random,
              works_alias.c.last_update_time,
 
