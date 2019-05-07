@@ -426,7 +426,7 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
             self.moby_duck.summary_text = "A compulsively readable narrative"
             self.moby_duck.presentation_edition.publisher = "Penguin"
-            # This book is not currently available. It will still show up
+            # This book is not currently loanable. It will still show up
             # in search results unless the library's settings disable it.
             self.moby_duck.license_pools[0].licenses_available = 0
 
@@ -496,10 +496,10 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             self.age_2_10 = _work()
             self.age_2_10.target_age = NumericRange(2, 10, '[]')
 
-            self.pride = _work(title="Pride and Prejudice")
+            self.pride = _work(title="Pride and Prejudice (E)")
             self.pride.presentation_edition.medium = Edition.BOOK_MEDIUM
 
-            self.pride_audio = _work(title="Pride and Prejudice")
+            self.pride_audio = _work(title="Pride and Prejudice (A)")
             self.pride_audio.presentation_edition.medium = Edition.AUDIO_MEDIUM
 
             self.sherlock = _work(

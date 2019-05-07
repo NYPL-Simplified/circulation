@@ -764,6 +764,7 @@ class ExternalSearchIndexVersions(object):
             'integer': ['collection_id', 'data_source_id'],
             'date': ['availability_time'],
             'boolean': ['availability', 'open_access', 'suppressed'],
+            'keyword': ['medium'],
         }
         licensepool_definition = cls.map_fields_by_type(
             licensepool_fields_by_type
@@ -1714,7 +1715,7 @@ class Filter(SearchBase):
         # currently available should be considered.
         if not self.allow_holds:
             licenses_available = F('term', **{'licensepools.available' : True})
-            currently_available = F('bool', should=[owns_licenses, open_access])
+            currently_available = F('bool', should=[licenses_available, open_access])
             nested_filters['licensepools'].append(currently_available)
 
         return f, nested_filters
