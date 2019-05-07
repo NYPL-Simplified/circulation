@@ -1437,6 +1437,7 @@ class Work(Base):
                 LicensePool.data_source_id.label('data_source_id'),
                 LicensePool.collection_id.label('collection_id'),
                 LicensePool.open_access.label('open_access'),
+                LicensePool.suppressed,
                 (LicensePool.licenses_available > 0).label('available'),
                 (LicensePool.licenses_owned > 0).label('owned'),
                 work_quality_column,
@@ -1453,7 +1454,6 @@ class Work(Base):
                     LicensePool.open_access,
                     LicensePool.licenses_owned>0,
                 ),
-                LicensePool.suppressed==False,
             )
         ).alias("licensepools_subquery")
         licensepools_json = query_to_json_array(licensepools)
