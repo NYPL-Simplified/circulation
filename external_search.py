@@ -1693,6 +1693,27 @@ class Filter(SearchBase):
                 'quality', 'gte', self.minimum_featured_quality
             )
             f = chain(f, range_query)
+
+        # Some sources of audiobooks may be excluded because the
+        # server can't fulfill them or the anticipated client can't
+        # play them.
+        excluded = self.excluded_audio_data_sources
+        if excluded:
+            audio = F('term', **{'licensepools.medium': Edition.AUDIO_MEDIUM})
+            excluded_audio_source = F(
+                'terms', **{'licensepools.data_source_id' : excluded}
+            )
+            excluded_audio = F('bool', must=[audio, excluded_audio_source])
+            not_excluded_audio = F('bool', must_not=excluded_audio)
+            nested_filters['licensepools'].append(not_excluded_audio)
+
+        # If holds are not allowed, only license pools that are
+        # currently available should be considered.
+        if not self.allow_holds:
+            licenses_available = F('term', **{'licensepools.available' : True})
+            currently_available = F('bool', should=[owns_licenses, open_access])
+            nested_filters['licensepools'].append(currently_available)
+
         return f, nested_filters
 
     @classmethod
@@ -1745,26 +1766,6 @@ class Filter(SearchBase):
         open_access = F('term', **{'licensepools.open_access' : True})
         currently_owned = F('bool', should=[owns_licenses, open_access])
         nested_filters['licensepools'].append(currently_owned)
-
-        # Some sources of audiobooks may be excluded because the
-        # server can't fulfill them or the anticipated client can't
-        # play them.
-        excluded = self.excluded_audio_data_sources
-        if excluded:
-            audio = F('term', **{'licensepools.medium': Edition.AUDIO_MEDIUM})
-            excluded_audio_source = F(
-                'terms', **{'licensepools.data_source_id' : excluded}
-            )
-            excluded_audio = F('bool', must=[audio, excluded_audio_source])
-            not_excluded_audio = F('bool', must_not=excluded_audio)
-            nested_filters['licensepools'].append(not_excluded_audio)
-
-        # If holds are not allowed, only license pools that are
-        # currently available should be considered.
-        if not self.allow_holds:
-            licenses_available = F('term', **{'licensepools.available' : True})
-            currently_available = F('bool', should=[owns_licenses, open_access])
-            nested_filters['licensepools'].append(currently_available)
 
         return base_filter, nested_filters
 
