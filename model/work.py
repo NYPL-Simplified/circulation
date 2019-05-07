@@ -1385,6 +1385,8 @@ class Work(Base):
             works_alias.name + '.' + works_alias.c.quality.name
         )
 
+        work_medium_column = Edition.medium
+
         def query_to_json(query):
             """Convert the results of a query to a JSON object."""
             return select(
@@ -1438,6 +1440,7 @@ class Work(Base):
                 (LicensePool.licenses_available > 0).label('available'),
                 (LicensePool.licenses_owned > 0).label('owned'),
                 work_quality_column,
+                work_medium_column,
                 func.to_char(
                     LicensePool.availability_time,
                     cls.ELASTICSEARCH_TIME_FORMAT
