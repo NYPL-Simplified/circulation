@@ -1697,7 +1697,7 @@ class Filter(SearchBase):
         # Some sources of audiobooks may be excluded because the
         # server can't fulfill them or the anticipated client can't
         # play them.
-        excluded = self.excluded_audio_data_sources
+        excluded = self.excluded_audiobook_data_sources
         if excluded:
             audio = F('term', **{'licensepools.medium': Edition.AUDIO_MEDIUM})
             excluded_audio_source = F(
@@ -1718,8 +1718,7 @@ class Filter(SearchBase):
 
     @classmethod
     def apply_universal_restrictions(
-            cls, _db, base_filter, nested_filters,
-            _chain_filters=None
+            cls, base_filter, nested_filters, _chain_filters=None
     ):
         """Apply restrictions that are always applied, even in the absence of
         other filters.
