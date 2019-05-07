@@ -1724,9 +1724,6 @@ class Filter(SearchBase):
         """Apply restrictions that are always applied, even in the absence of
         other filters.
 
-        Some other filters are generally applied but depend on library-specific
-        settings.
-
         :param base_filter: A previously created Filter object (may be None).
         :param nested_filters: A semi-populated list of filters on
             sub-documents such as 'licensepools'.
