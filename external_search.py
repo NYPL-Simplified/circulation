@@ -1737,7 +1737,7 @@ class Filter(SearchBase):
         # TODO: It would be great to be able to filter out
         # LicensePools that have no delivery mechanisms. That's the
         # only part of Collection.restrict_to_ready_deliverable_works
-        # not implemented here or in .
+        # not already implemented in this class.
 
         # TODO: If we wanted to implement the Gutenberg audience hack
         # for Elasticsearch (lane.py:WorkList.audience_filter_clauses)
