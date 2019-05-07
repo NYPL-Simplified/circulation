@@ -421,60 +421,47 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             self.moby_dick.presentation_edition.series = "Classics"
             self.moby_dick.summary_text = "Ishmael"
             self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
-            self.moby_dick.set_presentation_ready()
 
             self.moby_duck = _work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
             self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
             self.moby_duck.summary_text = "A compulsively readable narrative"
             self.moby_duck.presentation_edition.publisher = "Penguin"
-            self.moby_duck.set_presentation_ready()
+            # This book is not currently available. It will still show up
+            # in search results unless the library's settings disable it.
+            self.moby_duck.license_pools[0].licenses_available = 0
 
             self.title_match = _work(title="Match")
-            self.title_match.set_presentation_ready()
 
             self.subtitle_match = _work(title="SubtitleM")
             self.subtitle_match.presentation_edition.subtitle = "Match"
-            self.subtitle_match.set_presentation_ready()
 
             self.summary_match = _work(title="SummaryM")
             self.summary_match.summary_text = "Match"
-            self.summary_match.set_presentation_ready()
 
             self.publisher_match = _work(title="PublisherM")
             self.publisher_match.presentation_edition.publisher = "Match"
-            self.publisher_match.set_presentation_ready()
 
             self.tess = _work(title="Tess of the d'Urbervilles")
-            self.tess.set_presentation_ready()
 
             self.tiffany = _work(title="Breakfast at Tiffany's")
-            self.tiffany.set_presentation_ready()
 
             self.les_mis = _work()
             self.les_mis.presentation_edition.title = u"Les Mis\u00E9rables"
-            self.les_mis.set_presentation_ready()
 
             self.modern_romance = _work()
             self.modern_romance.presentation_edition.title = u"Modern Romance"
-            self.modern_romance.set_presentation_ready()
 
             self.lincoln = _work(genre="Biography & Memoir", title="Abraham Lincoln")
-            self.lincoln.set_presentation_ready()
 
             self.washington = _work(genre="Biography", title="George Washington")
-            self.washington.set_presentation_ready()
 
             self.lincoln_vampire = _work(title="Abraham Lincoln: Vampire Hunter", genre="Fantasy")
-            self.lincoln_vampire.set_presentation_ready()
 
             self.children_work = _work(title="Alice in Wonderland", audience=Classifier.AUDIENCE_CHILDREN)
-            self.children_work.set_presentation_ready()
 
             self.ya_work = _work(title="Go Ask Alice", audience=Classifier.AUDIENCE_YOUNG_ADULT)
-            self.ya_work.set_presentation_ready()
 
             self.adult_work = _work(title="Still Alice", audience=Classifier.AUDIENCE_ADULT)
-            self.adult_work.set_presentation_ready()
 
             self.ya_romance = _work(
                 title="Gumby In Love",
@@ -483,58 +470,46 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             self.ya_romance.presentation_edition.subtitle = (
                 "Modern Fairytale Series, Volume 7"
             )
-            self.ya_romance.set_presentation_ready()
 
             self.no_age = _work()
             self.no_age.summary_text = "President Barack Obama's election in 2008 energized the United States"
-            self.no_age.set_presentation_ready()
 
             self.age_4_5 = _work()
             self.age_4_5.target_age = NumericRange(4, 5, '[]')
             self.age_4_5.summary_text = "President Barack Obama's election in 2008 energized the United States"
-            self.age_4_5.set_presentation_ready()
 
             self.age_5_6 = _work(fiction=False)
             self.age_5_6.target_age = NumericRange(5, 6, '[]')
-            self.age_5_6.set_presentation_ready()
 
             self.obama = _work(genre="Biography & Memoir")
             self.obama.target_age = NumericRange(8, 8, '[]')
             self.obama.summary_text = "President Barack Obama's election in 2008 energized the United States"
-            self.obama.set_presentation_ready()
 
             self.dodger = _work()
             self.dodger.target_age = NumericRange(8, 8, '[]')
             self.dodger.summary_text = "Willie finds himself running for student council president"
-            self.dodger.set_presentation_ready()
 
             self.age_9_10 = _work()
             self.age_9_10.target_age = NumericRange(9, 10, '[]')
             self.age_9_10.summary_text = "President Barack Obama's election in 2008 energized the United States"
-            self.age_9_10.set_presentation_ready()
 
             self.age_2_10 = _work()
             self.age_2_10.target_age = NumericRange(2, 10, '[]')
-            self.age_2_10.set_presentation_ready()
 
             self.pride = _work(title="Pride and Prejudice")
             self.pride.presentation_edition.medium = Edition.BOOK_MEDIUM
-            self.pride.set_presentation_ready()
 
             self.pride_audio = _work(title="Pride and Prejudice")
             self.pride_audio.presentation_edition.medium = Edition.AUDIO_MEDIUM
-            self.pride_audio.set_presentation_ready()
 
             self.sherlock = _work(
                 title="The Adventures of Sherlock Holmes",
                 with_open_access_download=True
             )
             self.sherlock.presentation_edition.language = "en"
-            self.sherlock.set_presentation_ready()
 
             self.sherlock_spanish = _work(title="Las Aventuras de Sherlock Holmes")
             self.sherlock_spanish.presentation_edition.language = "es"
-            self.sherlock_spanish.set_presentation_ready()
 
             # Create a custom list that contains a few books.
             self.presidential, ignore = self._customlist(
@@ -549,7 +524,6 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
                 title="A Tiny Book", with_license_pool=True,
                 collection=self.tiny_collection
             )
-            self.tiny_book.set_presentation_ready()
 
             # Both collections contain 'The Adventures of Sherlock
             # Holmes", but each collection licenses the book through a
@@ -563,11 +537,21 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             eq_(self.sherlock, sherlock_2)
             eq_(2, len(self.sherlock.license_pools))
 
-            # This book looks good for some search results, but we own
-            # no copies of it, so it will never show up.
+            # These books look good for some search results, but they
+            # will be filtered out by the universal filters, and will
+            # never show up in results.
+
+            # We own no copies of this book.
             self.no_copies = _work(title="Moby Dick 2")
             self.no_copies.license_pools[0].licenses_owned = 0
 
+            # This book's only license pool has been suppressed.
+            self.suppressed = _work(title="Moby Dick 2")
+            self.suppressed.license_pools[0].suppressed = True
+
+            # This book is not presentation_ready.
+            self.not_presentation_ready = _work(title="Moby Dick 2")
+            self.not_presentation_ready.presentation_ready = False
 
     def test_query_works(self):
         # An end-to-end test of the search functionality.
