@@ -34,6 +34,8 @@ from facets import FacetConstants
 from model import (
     numericrange_to_tuple,
     Collection,
+    ConfigurationSetting,
+    DataSource,
     ExternalIntegration,
     Library,
     Work,
@@ -1514,7 +1516,7 @@ class Filter(SearchBase):
         excluded = (
             ConfigurationSetting.excluded_audio_data_sources(_db)
         )
-        excluded_audio_data_sources = [
+        excluded_audiobook_data_sources = [
             DataSource.lookup(_db, x) for x in excluded
         ]
 
@@ -1522,7 +1524,7 @@ class Filter(SearchBase):
             library, media, languages, fiction, audiences,
             target_age, genre_id_restrictions, customlist_id_restrictions,
             facets,
-            excluded_audio_data_sources=excluded_audio_data_sources,
+            excluded_audiobook_data_sources=excluded_audiobook_data_sources,
             allow_holds=library.allow_holds,
         )
 
