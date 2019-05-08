@@ -1031,6 +1031,8 @@ class Query(SearchBase):
         object is ready to run a search against an Elasticsearch server,
         but it doesn't represent any particular Elasticsearch query.
 
+        :param filter_class:
+
         :return: An Elasticsearch-DSL Search object that's prepared
             to run this specific query.
         """
@@ -1051,10 +1053,11 @@ class Query(SearchBase):
         # Add restrictions that are always applied -- no suppressed
         # license pools, work must be presentation ready, etc.
         base_filter, nested_filters = Filter.apply_universal_restrictions(
-            base_filter, nested_filters
+            self.filter
         )
 
-        query = Q("bool", must=query, filter=base_filter)
+        if base_filter:
+            query = Q("bool", must=query, filter=base_filter)
 
         # We now have an Elasticsearch-DSL Query object (which isn't
         # tied to a specific server). Turn it into a Search object
@@ -1522,7 +1525,7 @@ class Filter(SearchBase):
             DataSource.lookup(_db, x) for x in excluded
         ]
 
-        filter = cls(
+        return cls(
             library, media, languages, fiction, audiences,
             target_age, genre_id_restrictions, customlist_id_restrictions,
             facets,
@@ -1721,21 +1724,23 @@ class Filter(SearchBase):
         return f, nested_filters
 
     @classmethod
-    def apply_universal_restrictions(
-            cls, base_filter, nested_filters, _chain_filters=None
-    ):
+    def apply_universal_restrictions(cls, filter, _chain_filters=None):
         """Apply restrictions that are always applied, even in the absence of
         other filters.
 
-        :param base_filter: A previously created Filter object (may be None).
-        :param nested_filters: A semi-populated list of filters on
-            sub-documents such as 'licensepools'.
+        :param filter: A previously created Filter object (may be None).
         :param _chain_filters: Mock function to use instead of
             Filter._chain_filters
 
         :return: A 2-tuple (base_filter, nested_filters).
         """
         _chain_filters = _chain_filters or cls._chain_filters
+
+        if filter:
+            base_filter, nested_filters = filter.build()
+        else:
+            base_filter = None
+            nested_filters = defaultdict(list)
 
         # TODO: It would be great to be able to filter out
         # LicensePools that have no delivery mechanisms. That's the

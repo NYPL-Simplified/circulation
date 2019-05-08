@@ -4,6 +4,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
+from collections import defaultdict
 import datetime
 import json
 import logging
@@ -1342,6 +1343,33 @@ class TestQuery(DatabaseTest):
             def modify_search_query(self, search):
                 return search.filter(name_or_query="pagination modified")
 
+        # That's a lot of mocks, but here's one more. Mock the
+        # Filter.apply_universal_restrictions() method. It makes all
+        # kinds of modifications to queries, so it's better to test it
+        # separately. We mock it here just to make sure the code is
+        # being run.
+        class MockFilter(object):
+            @classmethod
+            def apply_universal_restrictions(cls, filter):
+                cls.called_with = filter
+                if filter:
+                    return filter.build()
+                else:
+                    return None, defaultdict(list)
+
+            @classmethod
+            def validate(cls, query):
+                """Verify that apply_universal_restrictions() has been called
+                on the filter associated with the given `query`.
+                """
+                eq_(query.filter, cls.called_with)
+
+                # Reset for next time.
+                cls.called_with = None
+
+        old_apply_universal_restrictions = Filter.apply_universal_restrictions
+        Filter.apply_universal_restrictions = MockFilter.apply_universal_restrictions
+
         # Test the simple case where the Query has no filter.
         qu = MockQuery("query string", filter=None)
         search = MockSearch()
@@ -1351,44 +1379,28 @@ class TestQuery(DatabaseTest):
         # The return value is a new MockSearch object based on the one
         # that was passed in.
         assert isinstance(built, MockSearch)
-        eq_(search, built.parent.parent.parent)
+        eq_(search, built.parent.parent)
 
-        # The result of Query.query() is used as-is as the basis for
+        # The result of Query.query() is used as the basis for
         # the Search object.
         eq_(qu.query(), built._query)
 
-        # The modification introduced by the MockPagination was the
-        # last filter applied.
+        # apply_universal_restrictions was called appropriately, but
+        # it made no changes because it's a mock.
+        MockFilter.validate(qu)
+
+        # The MockPagination was then used to modify the filter.
         pagination_filter = built.nested_filter_calls.pop()
         eq_("pagination modified", pagination_filter['name_or_query'])
 
-        # A nested filter is always applied, to filter out
-        # LicensePools that were once part of a collection but
-        # currently have no owned licenses.
-        open_access = dict(term={'licensepools.open_access': True})
-        def assert_ownership_filter(built):
-            # Extract the call that created the ownership filter
-            # and verify its structure.
-            unowned_filter = built.nested_filter_calls.pop()
-
-            # It's a nested filter...
-            eq_('nested', unowned_filter['name_or_query'])
-
-            # ...applied to the 'licensepools' subdocument.
-            eq_('licensepools', unowned_filter['path'])
-
-            # For a license pool to be counted, it either must be open
-            # access or the collection must currently own licenses for
-            # it.
-            owned = dict(term={'licensepools.owned': True})
-            expect = {'bool': {'filter': [{'bool': {'should': [owned, open_access]}}]}}
-            eq_(expect, unowned_filter['query'].to_dict())
+        # Now test some cases where the query has a filter.
 
         # If there's a filter, a boolean Query object is created to
         # combine the original Query with the filter.
         filter = Filter(fiction=True)
         qu = MockQuery("query string", filter=filter)
         built = qu.build(search)
+        MockFilter.validate(qu)
 
         # The 'must' part of this new Query came from calling
         # Query.query() on the original Query object.
@@ -1400,9 +1412,8 @@ class TestQuery(DatabaseTest):
         eq_(underlying_query.must, [qu.query()])
         eq_(underlying_query.filter, [main_filter])
 
-        # There are no nested filters (apart from the ownership
-        # filter), and filter() was never called on the mock Search object.
-        assert_ownership_filter(built)
+        # There are no nested filters, and filter() was never called
+        # on the mock Search object.
         eq_({}, nested_filters)
         eq_([], built.nested_filter_calls)
 
@@ -1413,13 +1424,12 @@ class TestQuery(DatabaseTest):
         )
         qu = MockQuery("query string", filter=filter)
         built = qu.build(search)
+        MockFilter.validate(qu)
         underlying_query = built._query
 
-        # We get a main filter (for the fiction restriction) and two
-        # nested filters (one for the collection restriction, one for
-        # the ownership restriction).
+        # We get a main filter (for the fiction restriction) and one
+        # nested filter.
         main_filter, nested_filters = filter.build()
-        assert_ownership_filter(built)
         [nested_licensepool_filter] = nested_filters.pop('licensepools')
         eq_({}, nested_filters)
 
@@ -1446,9 +1456,7 @@ class TestQuery(DatabaseTest):
             filter = Filter(facets=facets)
             qu = MockQuery("query string", filter=filter)
             built = qu.build(search)
-
-            # Verify and remove the ownership filter.
-            assert_ownership_filter(built)
+            MockFilter.validate(qu)
 
             # Return the rest to be verified in a test-specific way.
             return built
@@ -1492,6 +1500,7 @@ class TestQuery(DatabaseTest):
 
         # It finds only license pools that are open access.
         nested_filter = available_now['query']
+        open_access = dict(term={'licensepools.open_access': True})
         eq_(
             nested_filter.to_dict(),
             {'bool': {'filter': [open_access]}}
@@ -1531,6 +1540,9 @@ class TestQuery(DatabaseTest):
         for tiebreaker_field in ('sort_author', 'sort_title', 'work_id'):
             eq_({tiebreaker_field: "asc"}, order.pop(0))
         eq_([], order)
+
+        # Finally, undo the mock of Filter.apply_universal_restrictions
+        Filter.apply_universal_restrictions = old_apply_universal_restrictions
 
     def test_query(self):
         # The query() method calls a number of other methods
@@ -2615,6 +2627,30 @@ class TestFilter(DatabaseTest):
         # The chained filter is the conjunction of the two input
         # filters.
         eq_(chained, f1 & f2)
+
+    def test_apply_universal_restrictions(self):
+
+        # A nested filter is always applied, to filter out
+        # LicensePools that were once part of a collection but
+        # currently have no owned licenses.
+        open_access = dict(term={'licensepools.open_access': True})
+        def assert_ownership_filter(built):
+            # Extract the call that created the ownership filter
+            # and verify its structure.
+            unowned_filter = built.nested_filter_calls.pop()
+
+            # It's a nested filter...
+            eq_('nested', unowned_filter['name_or_query'])
+
+            # ...applied to the 'licensepools' subdocument.
+            eq_('licensepools', unowned_filter['path'])
+
+            # For a license pool to be counted, it either must be open
+            # access or the collection must currently own licenses for
+            # it.
+            owned = dict(term={'licensepools.owned': True})
+            expect = {'bool': {'filter': [{'bool': {'should': [owned, open_access]}}]}}
+            eq_(expect, unowned_filter['query'].to_dict())
 
 
 class TestSortKeyPagination(DatabaseTest):
