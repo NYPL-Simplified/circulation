@@ -53,10 +53,6 @@ from entrypoint import (
     EntryPoint,
     EverythingEntryPoint,
 )
-from external_search import (
-    Filter,
-    Query,
-)
 from model import (
     directly_modified,
     get_one_or_create,
@@ -851,6 +847,8 @@ class Pagination(object):
 
     @property
     def next_page(self):
+        if not self.has_next_page:
+            return None
         return Pagination(self.offset+self.size, self.size)
 
     @property
@@ -885,8 +883,20 @@ class Pagination(object):
         return True
 
     def apply(self, qu):
-        """Modify the given query with OFFSET and LIMIT."""
+        """Modify the given database query with OFFSET and LIMIT."""
         return qu.offset(self.offset).limit(self.size)
+
+    def modify_search_query(self, search):
+        # Do nothing -- all necessary pagination information is kept in
+        # offset and size, which external_search knows how to apply.
+        return search
+
+    def page_loaded(self, page):
+        """An actual page of results has been fetched. Keep any internal state
+        that would be useful to know when reasoning about earlier or
+        later pages.
+        """
+        self.this_page_size = len(page)
 
 
 class WorkList(object):
@@ -1697,6 +1707,7 @@ class WorkList(object):
                 offset=0, size=Pagination.DEFAULT_SEARCH_SIZE
             )
 
+        from external_search import Filter
         filter = Filter.from_worklist(_db, self, facets)
         try:
             work_ids = search_client.query_works(

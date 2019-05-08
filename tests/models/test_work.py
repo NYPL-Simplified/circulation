@@ -878,6 +878,7 @@ class TestWork(DatabaseTest):
 
         search_doc = work.to_search_document()
         eq_(work.id, search_doc['_id'])
+        eq_(work.id, search_doc['work_id'])
         eq_(work.title, search_doc['title'])
         eq_(edition.subtitle, search_doc['subtitle'])
         eq_(edition.series, search_doc['series'])

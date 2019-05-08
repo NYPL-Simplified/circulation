@@ -42,6 +42,7 @@ from ..external_search import (
     SearchBase,
     SearchIndexCoverageProvider,
     SearchIndexMonitor,
+    SortKeyPagination,
 )
 # NOTE: external_search took care of handling the differences between
 # Elasticsearch versions and making sure 'Q' and 'F' are set
@@ -365,14 +366,16 @@ class EndToEndExternalSearchTest(ExternalSearchTest):
         if isinstance(works, Work):
             works = [works]
 
-        results = self.search.query_works(*query_args, debug=True)
+        should_be_ordered = kwargs.pop('ordered', True)
+
+        results = self.search.query_works(*query_args, debug=True, **kwargs)
         expect = [x.id for x in works]
         expect_ids = ", ".join(map(str, expect))
         expect_titles = ", ".join([x.title for x in works])
         result_works = self._db.query(Work).filter(Work.id.in_(results))
         result_works_dict = {}
 
-        if not kwargs.pop('ordered', True):
+        if not should_be_ordered:
             expect = set(expect)
             results = set(results)
 
@@ -924,7 +927,7 @@ class TestFacetFilters(EndToEndExternalSearchTest):
                 order=Facets.ORDER_TITLE
             )
             self._expect_results(
-                works, None, Filter(facets=facets), order=False
+                works, None, Filter(facets=facets), ordered=False
             )
 
         # Get all the books in alphabetical order by title.
@@ -1034,6 +1037,36 @@ class TestSearchOrder(EndToEndExternalSearchTest):
 
             facets.order_ascending = False
             expect(list(reversed(order)), None, Filter(facets=facets, **filter_kwargs))
+
+            # Get each item in the list as a separate page. This proves
+            # that pagination based on SortKeyPagination works for this
+            # sort order.
+            facets.order_ascending = True
+            to_process = list(order) + [[]]
+            results = []
+            pagination = SortKeyPagination(size=1)
+            while to_process:
+                filter = Filter(facets=facets, **filter_kwargs)
+                expect_result = to_process.pop(0)
+                expect(expect_result, None, filter, pagination=pagination)
+                pagination = pagination.next_page
+            # We are now off the edge of the list -- we got an empty page
+            # of results and there is no next page.
+            eq_(None, pagination)
+
+            # Now try the same test in reverse order.
+            facets.order_ascending = False
+            to_process = list(reversed(order)) + [[]]
+            results = []
+            pagination = SortKeyPagination(size=1)
+            while to_process:
+                filter = Filter(facets=facets, **filter_kwargs)
+                expect_result = to_process.pop(0)
+                expect(expect_result, None, filter, pagination=pagination)
+                pagination = pagination.next_page
+            # We are now off the edge of the list -- we got an empty page
+            # of results and there is no next page.
+            eq_(None, pagination)
 
         # We can sort by title.
         assert_order(Facets.ORDER_TITLE, [self.moby_dick, self.moby_duck])
@@ -1286,10 +1319,10 @@ class TestQuery(DatabaseTest):
                     self, query, self.nested_filter_calls, self.order
                 )
 
-            def sort(self, order):
+            def sort(self, *order_fields):
                 """Simulate the application of a sort order."""
                 return MockSearch(
-                    self, self._query, self.nested_filter_calls, order
+                    self, self._query, self.nested_filter_calls, order_fields
                 )
 
         class MockQuery(Query):
@@ -1298,19 +1331,29 @@ class TestQuery(DatabaseTest):
             def query(self):
                 return Q("simple_query_string", query=self.query_string)
 
+        class MockPagination(object):
+            def modify_search_query(self, search):
+                return search.filter(name_or_query="pagination modified")
+
         # Test the simple case where the Query has no filter.
         qu = MockQuery("query string", filter=None)
         search = MockSearch()
-        built = qu.build(search)
+        pagination = MockPagination()
+        built = qu.build(search, pagination)
 
         # The return value is a new MockSearch object based on the one
         # that was passed in.
         assert isinstance(built, MockSearch)
-        eq_(search, built.parent.parent)
+        eq_(search, built.parent.parent.parent)
 
         # The result of Query.query() is used as-is as the basis for
         # the Search object.
         eq_(qu.query(), built._query)
+
+        # The modification introduced by the MockPagination was the
+        # last filter applied.
+        pagination_filter = built.nested_filter_calls.pop()
+        eq_("pagination modified", pagination_filter['name_or_query'])
 
         # A nested filter is always applied, to filter out
         # LicensePools that were once part of a collection but
@@ -1319,8 +1362,6 @@ class TestQuery(DatabaseTest):
         def assert_ownership_filter(built):
             # Extract the call that created the ownership filter
             # and verify its structure.
-
-            # It's always the last filter applied.
             unowned_filter = built.nested_filter_calls.pop()
 
             # It's a nested filter...
@@ -1472,7 +1513,17 @@ class TestQuery(DatabaseTest):
         built = from_facets(
             None, None, order=Facets.ORDER_RANDOM, order_ascending=False
         )
-        eq_("-random", built.order)
+
+        # We asked for a random sort order, and that's the primary
+        # sort field.
+        order = list(built.order)
+        eq_(dict(random="desc"), order.pop(0))
+
+        # But a number of other sort fields are also employed to act
+        # as tiebreakers.
+        for tiebreaker_field in ('sort_author', 'sort_title', 'work_id'):
+            eq_({tiebreaker_field: "asc"}, order.pop(0))
+        eq_([], order)
 
     def test_query(self):
         # The query() method calls a number of other methods
@@ -2312,43 +2363,67 @@ class TestFilter(DatabaseTest):
 
         # No sort order.
         f = Filter()
-        eq_(None, f.sort_order)
+        eq_([], f.sort_order)
         eq_(False, f.order_ascending)
+
+        def validate_sort_order(filter, main_field):
+            """Validate the 'easy' part of the sort order -- the tiebreaker
+            fields. Return the 'difficult' part.
+
+            :return: The first part of the sort order -- the field that
+            is potentially difficult.
+            """
+
+            # The tiebreaker fields are always in the same order, but
+            # if the main sort field is one of the tiebreaker fields,
+            # it's removed from the list -- there's no need to sort on
+            # that field a second time.
+            default_sort_fields = [
+                {x: "asc"} for x in ['sort_author', 'sort_title', 'work_id']
+                if x != main_field
+            ]
+            eq_(default_sort_fields, filter.sort_order[1:])
+            return filter.sort_order[0]
 
         # A simple field, either ascending or descending.
         f.order='field'
         eq_(False, f.order_ascending)
-        eq_('-field', f.sort_order)
+        first_field = validate_sort_order(f, 'field')
+
+        eq_(dict(field='desc'), first_field)
+
         f.order_ascending = True
-        eq_('field', f.sort_order)
+        first_field = validate_sort_order(f, 'field')
+        eq_(dict(field='asc'), first_field)
 
         # You can't sort by some random subdocument field, because there's
         # not enough information to know how to aggregate multiple values.
-        f.order='subdocument.field'
+        #
+        # You _can_ sort by license pool availability time -- that's
+        # tested below -- but it's complicated.
+        f.order = 'subdocument.field'
         assert_raises_regexp(
             ValueError, "I don't know how to sort by subdocument.field",
             lambda: f.sort_order,
         )
 
         # It's possible to sort by every field in
-        # Facets.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME. These are the
-        # sort orders that are actually used.
+        # Facets.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME.
         used_orders = Facets.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME
         added_to_collection = used_orders[Facets.ORDER_ADDED_TO_COLLECTION]
-        for v in used_orders.values():
-            f.order = v
-            order = f.sort_order
-
-            # In most cases, the sort order is the same as the field
-            # name.
-            if v != added_to_collection:
-                eq_(order, v)
+        for sort_field in used_orders.values():
+            if sort_field == added_to_collection:
+                # This is the complicated case, tested below.
+                continue
+            f.order = sort_field
+            first_field = validate_sort_order(f, sort_field)
+            eq_({sort_field: 'asc'}, first_field)
 
         # The only complicated case is when a feed is ordered by date
         # added to the collection. This requires an aggregate function
         # and potentially a nested filter.
         f.order = added_to_collection
-        order = f.sort_order
+        first_field = validate_sort_order(f, sort_field)
 
         # Here there's no nested filter but there is an aggregate
         # function. If a book is available through multiple
@@ -2356,11 +2431,11 @@ class TestFilter(DatabaseTest):
         simple_nested_configuration = {
             'licensepools.availability_time': {'mode': 'min', 'order': 'asc'}
         }
-        eq_(simple_nested_configuration, order)
+        eq_(simple_nested_configuration, first_field)
 
         # Setting a collection ID restriction will add a nested filter.
         f.collection_ids = [self._default_collection]
-        order = f.sort_order
+        first_field = validate_sort_order(f, 'licensepools.availability_time')
 
         # The nested filter ensures that when sorting the results, we
         # only consider availability times from license pools that
@@ -2372,7 +2447,7 @@ class TestFilter(DatabaseTest):
         #
         # This just makes sure that the books show up in the right _order_
         # for any given set of collections.
-        nested_filter = order['licensepools.availability_time'].pop('nested')
+        nested_filter = first_field['licensepools.availability_time'].pop('nested')
         eq_(
             {'path': 'licensepools',
              'filter': {
@@ -2384,9 +2459,9 @@ class TestFilter(DatabaseTest):
             nested_filter
         )
 
-        # Apart from the nested filter, this is the same configuration
-        # as before.
-        eq_(simple_nested_configuration, order)
+        # Apart from the nested filter, this is the same ordering
+        # configuration as before.
+        eq_(simple_nested_configuration, first_field)
 
     def test_target_age_filter(self):
         # Test an especially complex subfilter.
@@ -2533,6 +2608,141 @@ class TestFilter(DatabaseTest):
         # The chained filter is the conjunction of the two input
         # filters.
         eq_(chained, f1 & f2)
+
+
+class TestSortKeyPagination(DatabaseTest):
+    """Test the Elasticsearch-implementation of Pagination that does
+    pagination by tracking the last item on the previous page,
+    rather than by tracking the number of items seen so far.
+    """
+    def test_unimplemented_features(self):
+        # Check certain features of a normal Pagination object that
+        # are not implemented in SortKeyPagination.
+
+        # Set up a realistic SortKeyPagination -- certain things
+        # will remain undefined.
+        pagination = SortKeyPagination(last_item_on_previous_page=object())
+        pagination.this_page_size = 100
+        pagination.last_item_on_this_page = object()
+
+        # The offset is always zero.
+        eq_(0, pagination.offset)
+
+        # The total size is always undefined, even though we could
+        # theoretically track it.
+        eq_(None, pagination.total_size)
+
+        # The previous page is always undefined, through theoretically
+        # we could navigate backwards.
+        eq_(None, pagination.previous_page)
+
+        assert_raises_regexp(
+            NotImplementedError,
+            "SortKeyPagination does not work with database queries.",
+            pagination.apply, object()
+        )
+
+    def test_modify_search_query(self):
+        class MockSearch(object):
+            called_with = "not called"
+            def update_from_dict(self, dict):
+                self.called_with = dict
+                return "modified search object"
+
+        search = MockSearch()
+
+        # We start off in a state where we don't know the last item on the
+        # previous page.
+        pagination = SortKeyPagination()
+
+        # In this case, modify_search_query does nothing but return
+        # the object it was passed.
+        eq_(search, pagination.modify_search_query(search))
+        eq_("not called", search.called_with)
+
+        # Now we find out the last item on the previous page -- in
+        # real life, this is because we call page_loaded() and then
+        # next_page().
+        last_item = object()
+        pagination.last_item_on_previous_page = last_item
+
+        # Now, modify_search_query() calls update_from_dict() on our
+        # mock ElasticSearch `Search` object, passing in the last item
+        # on the previous page. The return value of
+        # modify_search_query() becomes the active Search object.
+        eq_("modified search object", pagination.modify_search_query(search))
+
+        # The Elasticsearch object was modified to use the
+        # 'search_after' feature.
+        eq_(dict(search_after=last_item), search.called_with)
+
+    def test_page_loaded(self):
+        # Test what happens to a SortKeyPagination object when a page of
+        # results is loaded.
+        this_page = SortKeyPagination()
+
+        # Mock an Elasticsearch 'hit' object -- we'll be accessing
+        # hit.meta.sort.
+        class MockMeta(object):
+            def __init__(self, sort_key):
+                self.sort = sort_key
+
+        class MockItem(object):
+            def __init__(self, sort_key):
+                self.meta = MockMeta(sort_key)
+
+        # Make a page of results, each with a unique sort key.
+        hits = [
+            MockItem(['sort', 'key', num]) for num in range(5)
+        ]
+        last_hit = hits[-1]
+
+        # Tell the page about the results.
+        this_page.page_loaded(hits)
+
+        # We know the size.
+        eq_(5, this_page.this_page_size)
+
+        # We know the sort key of the last item in the page.
+        eq_(last_hit.meta.sort, this_page.last_item_on_this_page)
+
+        # This code has coverage elsewhere, but just so you see how it
+        # works -- we can now get the next page...
+        next_page = this_page.next_page
+
+        # And it's defined in terms of the last item on its
+        # predecessor. When we pass the new pagination object into
+        # create_search_doc, it'll call this object's
+        # modify_search_query method. The resulting search query will
+        # pick up right where the previous page left off.
+        eq_(last_hit.meta.sort, next_page.last_item_on_previous_page)
+
+    def test_next_page(self):
+
+        # To start off, we can't say anything about the next page,
+        # because we don't know anything about _this_ page.
+        first_page = SortKeyPagination()
+        eq_(None, first_page.next_page)
+
+        # Let's learn about this page.
+        first_page.this_page_size = 10
+        last_item = object()
+        first_page.last_item_on_this_page = last_item
+
+        # When we call next_page, the last item on this page becomes the
+        # next page's "last item on previous_page"
+        next_page = first_page.next_page
+        eq_(last_item, next_page.last_item_on_previous_page)
+
+        # Again, we know nothing about this page, since we haven't
+        # loaded it yet.
+        eq_(None, next_page.this_page_size)
+        eq_(None, next_page.last_item_on_this_page)
+
+        # In the unlikely event that we know the last item on the
+        # page, but the page size is zero, there is no next page.
+        first_page.this_page_size = 0
+        eq_(None, first_page.next_page)
 
 
 class TestBulkUpdate(DatabaseTest):

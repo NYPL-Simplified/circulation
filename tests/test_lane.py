@@ -1213,10 +1213,12 @@ class TestPagination(DatabaseTest):
         # Here, the last item on this page is the last item in the dataset.
         pagination.offset = 1
         eq_(False, pagination.has_next_page)
+        eq_(None, pagination.next_page)
 
         # If we somehow go over the end of the dataset, there is no next page.
         pagination.offset = 400
         eq_(False, pagination.has_next_page)
+        eq_(None, pagination.next_page)
 
         # If both total_size and this_page_size are set, total_size
         # takes precedence.
@@ -1228,6 +1230,7 @@ class TestPagination(DatabaseTest):
         pagination.total_size = 0
         pagination.this_page_size = 10
         eq_(False, pagination.has_next_page)
+        eq_(None, pagination.next_page)
 
     def test_has_next_page_this_page_size(self):
         """Test the ability of Pagination.this_page_size to control whether there is a next page."""
@@ -1254,6 +1257,20 @@ class TestPagination(DatabaseTest):
         # next page when there actually is.
         pagination.this_page_size = 1
         eq_(True, pagination.has_next_page)
+
+    def test_page_loaded(self):
+        # Test page_loaded(), which lets the Pagination object see the
+        # size of the current page.
+        pagination = Pagination()
+        eq_(None, pagination.this_page_size)
+        pagination.page_loaded([1,2,3])
+        eq_(3, pagination.this_page_size)
+
+    def test_modify_search_query(self):
+        # The default implementation of modify_search_query is a no-op.
+        pagination = Pagination()
+        o = object()
+        eq_(o, pagination.modify_search_query(o))
 
 
 class MockFeaturedWorks(object):

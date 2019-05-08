@@ -39,6 +39,7 @@ from model import (
     Work,
     WorkCoverageRecord,
 )
+from lane import Pagination
 from monitor import WorkSweepMonitor
 from coverage import (
     CoverageFailure,
@@ -334,12 +335,12 @@ class ExternalSearchIndex(HasSelfTests):
 
         return base_works_index
 
-    def create_search_doc(self, query_string, filter,
-                    debug, return_raw_results):
+    def create_search_doc(self, query_string, filter, pagination,
+                          debug, return_raw_results):
 
         query = Query(query_string, filter)
         query_without_filter = Query(query_string)
-        search = query.build(self.search)
+        search = query.build(self.search, pagination)
         if debug:
             search = search.extra(explain=True)
 
@@ -386,10 +387,10 @@ class ExternalSearchIndex(HasSelfTests):
         if not self.works_alias:
             return []
 
-        search = self.create_search_doc(query_string, filter=filter, debug=debug, return_raw_results=return_raw_results)
         if not pagination:
-            from lane import Pagination
             pagination = Pagination.default()
+
+        search = self.create_search_doc(query_string, filter=filter, pagination=pagination, debug=debug, return_raw_results=return_raw_results)
         start = pagination.offset
         stop = start + pagination.size
 
@@ -406,6 +407,14 @@ class ExternalSearchIndex(HasSelfTests):
                     i, result.title, result.author, result.meta['id'],
                     result.meta['score'] or 0, result.meta['shard']
                 )
+
+        # Convert the Search object into a list of hits.
+        results = [x for x in results]
+
+        # Tell the Pagination object about this page -- this may help
+        # it set up to generate a link to the next page.
+        pagination.page_loaded(results)
+
         if return_raw_results:
             return results
         return [int(result.meta['id']) for result in results]
@@ -740,7 +749,7 @@ class ExternalSearchIndexVersions(object):
         fields_by_type = {
             'keyword': ['sort_author', 'sort_title'],
             'date': ['last_update_time'],
-            'integer': ['series_position'],
+            'integer': ['series_position', 'work_id'],
             'float': ['random'],
         }
         mapping = cls.map_fields_by_type(fields_by_type, mapping)
@@ -1010,7 +1019,7 @@ class Query(SearchBase):
         self.query_string = query_string
         self.filter = filter
 
-    def build(self, elasticsearch):
+    def build(self, elasticsearch, pagination=None):
         """Make an Elasticsearch-DSL Search object out of this query.
 
         :param elasticsearch: An Elasticsearch-DSL Search object. This
@@ -1063,9 +1072,17 @@ class Query(SearchBase):
 
         # Apply any necessary sort order.
         if self.filter:
-            order = self.filter.sort_order
-            if order is not None:
-                search = search.sort(order)
+            order_fields = self.filter.sort_order
+            if order_fields:
+                search = search.sort(*order_fields)
+
+        # Apply any necessary query restrictions imposed by the
+        # Pagination object. This may happen through modification or
+        # by returning an entirely new Search object.
+        if pagination:
+            result = pagination.modify_search_query(search)
+            if result is not None:
+                search = result
 
         # All done!
         return search
@@ -1646,17 +1663,35 @@ class Filter(SearchBase):
     def sort_order(self):
         """Create a description, for use in an Elasticsearch document,
         explaining how search results should be ordered.
+
+        :return: A list of dictionaries, each dictionary mapping a
+        field name to an explanation of how to sort that
+        field. Usually the explanation is a simple string, either
+        'asc' or 'desc'.
         """
+        order_fields = []
+        order_field_keys = []
+
         if not self.order:
-            return None
+            return order_fields
+
+        if self.order_ascending is False:
+            ascending = "desc"
+        else:
+            ascending = "asc"
+
+        # These sort order fields are inserted as necessary between
+        # the primary sort order field and the tiebreaker field (work
+        # ID). This makes it more likely that the sort order makes
+        # sense to a human, by putting off the opaque tiebreaker for
+        # as long as possible. For example, a feed sorted by author
+        # will be secondarily sorted by title and work ID, not just by
+        # work ID.
+        default_sort_order = ['sort_author', 'sort_title', 'work_id']
 
         order_field = self.order
         if '.' in order_field:
             # We're sorting by a nested field.
-            if self.order_ascending is False:
-                order = "desc"
-            else:
-                order = "asc"
             nested=None
             if order_field == 'licensepools.availability_time':
                 # We're sorting works by the time they became
@@ -1681,16 +1716,22 @@ class Filter(SearchBase):
                 raise ValueError(
                     "I don't know how to sort by %s." % order_field
                 )
-
-            sort_description = dict(order=order, mode=mode)
+            sort_description = dict(order=ascending, mode=mode)
             if nested:
                 sort_description['nested'] = nested
             order = { order_field : sort_description }
         else:
-            order = order_field
-            if self.order_ascending is False:
-                order = '-' + order
-        return order
+            order = {order_field : ascending }
+        order_fields.append(order)
+        order_field_keys.append(order_field)
+
+        # Apply any parts of the default sort order not yet covered,
+        # concluding (in most cases) with work_id, the tiebreaker field.
+        for x in default_sort_order:
+            if x not in order_field_keys:
+                order_fields.append({x: "asc"})
+
+        return order_fields
 
     @property
     def target_age_filter(self):
@@ -1804,6 +1845,100 @@ class Filter(SearchBase):
         return new
 
 
+class SortKeyPagination(Pagination):
+    """An Elasticsearch-specific implementation of Pagination that
+    paginates search results by tracking where in a sorted list the
+    previous page left off, rather than using a numeric index into the
+    list.
+    """
+    def __init__(self, last_item_on_previous_page=None,
+                 size=Pagination.DEFAULT_SIZE):
+        self.size = size
+        self.last_item_on_previous_page = last_item_on_previous_page
+
+        # These variables are set by page_loaded(), after the query
+        # is run.
+        self.last_item_on_this_page = None
+        self.this_page_size = None
+
+    @property
+    def offset(self):
+        # This object never uses the traditional offset system; offset
+        # is determined relative to the last item on the previous
+        # page.
+        return 0
+
+    @property
+    def total_size(self):
+        # Although we technically know the total size after the first
+        # page of results has been obtained, we don't use this feature
+        # in pagination, so act like we don't.
+        return None
+
+    def apply(self, qu):
+        raise NotImplementedError(
+            "SortKeyPagination does not work with database queries."
+        )
+
+    def modify_search_query(self, search):
+        """Modify the given Search object so that it starts
+        picking up items immediately after the previous page.
+
+        :param search: An elasticsearch-dsl Search object.
+        """
+        if self.last_item_on_previous_page:
+            search = search.update_from_dict(
+                dict(search_after=self.last_item_on_previous_page)
+            )
+        return search
+
+    @property
+    def previous_page(self):
+        # TODO: We can get the previous page by flipping the sort
+        # order and asking for the _next_ page of the reversed list,
+        # using the sort keys of the _first_ item as the search_after.
+        # But this is really confusing, it requires more context than
+        # SortKeyPagination currently has, and this feature isn't
+        # necessary for our current implementation.
+        return None
+
+    @property
+    def next_page(self):
+        """If possible, create a new SortKeyPagination representing the 
+        next page of results.
+        """
+        if self.this_page_size == 0:
+            # This page is empty; there is no next page.
+            return None
+        if not self.last_item_on_this_page:
+            # This probably means load_page wasn't called. At any
+            # rate, we can't say anything about the next page.
+            return None
+        return SortKeyPagination(self.last_item_on_this_page, self.size)
+
+    def page_loaded(self, page):
+        """An actual page of results has been fetched. Keep any internal state
+        that would be useful to know when reasoning about earlier or
+        later pages.
+
+        Specifically, keep track of the sort value of the last item on
+        this page, so that self.next_page will create a
+        SortKeyPagination object capable of generating the subsequent
+        page.
+
+        :param page: A list of elasticsearch-dsl Hit objects.
+        """
+        super(SortKeyPagination, self).page_loaded(page)
+        if page:
+            last_item = page[-1]
+            values = list(last_item.meta.sort)
+        else:
+            # There's nothing on this page, so there's no next page
+            # either.
+            values = None
+        self.last_item_on_this_page = values
+
+
 class MockExternalSearchIndex(ExternalSearchIndex):
 
     work_document_type = 'work-type'
@@ -1833,7 +1968,7 @@ class MockExternalSearchIndex(ExternalSearchIndex):
     def exists(self, index, doc_type, id):
         return self._key(index, doc_type, id) in self.docs
 
-    def create_search_doc(self, query_string, filter=None, debug=False, return_raw_results=False):
+    def create_search_doc(self, query_string, filter=None, pagination=None, debug=False, return_raw_results=False):
         return self.docs.values()
 
     def query_works(self, query_string, filter, pagination, debug=False, return_raw_results=False, search=None):
