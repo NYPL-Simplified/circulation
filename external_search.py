@@ -1744,7 +1744,9 @@ class Filter(SearchBase):
 
         # TODO: If we wanted to implement the Gutenberg audience hack
         # for Elasticsearch (lane.py:WorkList.audience_filter_clauses)
-        # it would go here.
+        # it would go here. But we no longer carry books of that sort,
+        # and it's probably better to write a migration script that
+        # hides any leftovers.
 
         # We only want to show works that are presentation-ready.
         base_filter = Filter._chain_filters(

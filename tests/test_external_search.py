@@ -879,7 +879,7 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         # "Moby Duck" is not currently available, so it won't show up in
         # search results if allow_holds is False.
         f = Filter(allow_holds=False)
-        expect([], "moby duck", f)
+        expect([self.moby_dick], "moby duck", f)
 
 
 class TestFacetFilters(EndToEndExternalSearchTest):
