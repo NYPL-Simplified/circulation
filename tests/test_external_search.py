@@ -19,6 +19,7 @@ from elasticsearch_dsl.query import (
     Bool,
     Query as elasticsearch_dsl_query,
     Term,
+    Terms,
 )
 from elasticsearch.exceptions import ElasticsearchException
 
@@ -2625,12 +2626,12 @@ class TestFilter(DatabaseTest):
     def test_apply_universal_restrictions(self):
         # Test Filter.apply_universal_restrictions.
 
-        # There are two possibilities -- either a Filter comes in, or 
-        # None comes in.
+        # There are two possibilities -- either None comes in, or a
+        # Filter comes in.
+        no_filter = None
         some_filter = Filter(
             fiction=True, collections=[self._default_collection]
         )
-        no_filter = None
 
         # Either way, a base elasticsearch-dsl filter and a dictionary
         # of nested filters comes out.
@@ -2643,47 +2644,72 @@ class TestFilter(DatabaseTest):
         )
 
         # The same transformations have been applied to both sets of
-        # filters.
+        # filters:
 
-        # The base filter has been modified to find only
-        # presentation-ready works. When there was no initial filter,
-        # there's now a filter with a single term.
+        # First, the base filter has been modified to find only
+        # presentation-ready works.
+
+        # When there was no initial filter, there's now a filter with
+        # a single term.
         presentation_ready = Term(presentation_ready=True)
         eq_([presentation_ready], base_none)
 
         # When there was an initial base filter (a restriction on
         # fiction status), the 'presentation-ready' filter has been
-        # combined with the initial f (_mock_chain turns the complex
-        # process of combining two elasticsearch-dsl filters into the
-        # simple process of adding them to the list.
+        # combined with the initial filter.
+        #
+        # _mock_chain() turns the complex process of combining two
+        # elasticsearch-dsl filters into the simple process of putting
+        # them both in a list.
         must_be_fiction, nested_without_restrictions = some_filter.build()
         eq_(must_be_fiction, Term(fiction='fiction'))
         eq_([must_be_fiction, presentation_ready], base_some)
 
+        # The nested filters are nearly identical. There are nested
+        # restrictions on the 'licensepools' subdocument, but no
+        # others.
+        eq_(['licensepools'], nested_none.keys())
+        eq_(['licensepools'], nested_some.keys())
 
+        # nested_some has one extra restriction on the 'licensepools'
+        # subdocument...
+        eq_(nested_none['licensepools'], nested_some['licensepools'][1:])
 
-        # A nested filter is always applied, to filter out
-        # LicensePools that were once part of a collection but
-        # currently have no owned licenses.
-        open_access = dict(term={'licensepools.open_access': True})
-        def assert_ownership_filter(built):
-            # Extract the call that created the ownership filter
-            # and verify its structure.
-            unowned_filter = built.nested_filter_calls.pop()
+        # ...and it's the collection ID restriction imposed by the original
+        # Filter.
+        [collection_id_restriction] = nested_without_restrictions['licensepools']
+        eq_(nested_some['licensepools'][0], collection_id_restriction)
+        eq_(
+            Terms(**{
+                "licensepools.collection_id": [
+                    self._default_collection.id
+                ]
+            }),
+            collection_id_restriction
+        )
+        
+        # So, we've now established that similar filters are returned
+        # whether None or a Filter is passed in, and we've established
+        # that the only change to the base filter is a restriction on
+        # a work's presentation-ready status.
 
-            # It's a nested filter...
-            eq_('nested', unowned_filter['name_or_query'])
+        # Now it's time to look at the two nested filters that are applied
+        # to the 'licensepools' subdocument.
+        not_suppressed, owned_or_open_access = nested_none['licensepools']
 
-            # ...applied to the 'licensepools' subdocument.
-            eq_('licensepools', unowned_filter['path'])
+        # The first one is simple -- the license pool must not be
+        # suppressed.
+        eq_(Term(**{"licensepools.suppressed": False}),
+            not_suppressed)
 
-            # For a license pool to be counted, it either must be open
-            # access or the collection must currently own licenses for
-            # it.
-            owned = dict(term={'licensepools.owned': True})
-            expect = {'bool': {'filter': [{'bool': {'should': [owned, open_access]}}]}}
-            eq_(expect, unowned_filter['query'].to_dict())
+        # The second one is a little more complex
+        owned = Term(**{"licensepools.owned": True})
+        open_access = Term(**{"licensepools.open_access": True})
 
+        # We only count license pools that are open-access _or_ that have
+        # currently owned licenses.
+        eq_(Bool(should=[owned, open_access]), owned_or_open_access)
+        
     def _mock_chain(self, filters, new_filter):
         """A mock of _chain_filters so we don't have to check
         test results against super-complicated Elasticsearch
