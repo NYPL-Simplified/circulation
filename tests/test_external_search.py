@@ -15,7 +15,11 @@ from . import (
     DatabaseTest,
 )
 
-from elasticsearch_dsl.query import Bool
+from elasticsearch_dsl.query import (
+    Bool,
+    Query as elasticsearch_dsl_query,
+    Term,
+)
 from elasticsearch.exceptions import ElasticsearchException
 
 from ..config import CannotLoadConfiguration
@@ -2282,17 +2286,7 @@ class TestFilter(DatabaseTest):
             filter
         )
 
-        # Now let's mock _chain_filters so we don't have to check
-        # our test results against super-complicated Elasticsearch
-        # filter objects.
-        #
-        # Instead, we'll get a list of smaller filter objects.
-        def chain(filters, new_filter):
-            if filters is None:
-                # This is the first filter:
-                filters = []
-            filters.append(new_filter)
-            return filters
+        chain = self._mock_chain
 
         filter.collection_ids = [self._default_collection]
         filter.fiction = True
@@ -2629,6 +2623,44 @@ class TestFilter(DatabaseTest):
         eq_(chained, f1 & f2)
 
     def test_apply_universal_restrictions(self):
+        # Test Filter.apply_universal_restrictions.
+
+        # There are two possibilities -- either a Filter comes in, or 
+        # None comes in.
+        some_filter = Filter(
+            fiction=True, collections=[self._default_collection]
+        )
+        no_filter = None
+
+        # Either way, a base elasticsearch-dsl filter and a dictionary
+        # of nested filters comes out.
+        base_none, nested_none = Filter.apply_universal_restrictions(
+            no_filter, self._mock_chain
+        )
+
+        base_some, nested_some = Filter.apply_universal_restrictions(
+            some_filter, self._mock_chain
+        )
+
+        # The same transformations have been applied to both sets of
+        # filters.
+
+        # The base filter has been modified to find only
+        # presentation-ready works. When there was no initial filter,
+        # there's now a filter with a single term.
+        presentation_ready = Term(presentation_ready=True)
+        eq_([presentation_ready], base_none)
+
+        # When there was an initial base filter (a restriction on
+        # fiction status), the 'presentation-ready' filter has been
+        # combined with the initial f (_mock_chain turns the complex
+        # process of combining two elasticsearch-dsl filters into the
+        # simple process of adding them to the list.
+        must_be_fiction, nested_without_restrictions = some_filter.build()
+        eq_(must_be_fiction, Term(fiction='fiction'))
+        eq_([must_be_fiction, presentation_ready], base_some)
+
+
 
         # A nested filter is always applied, to filter out
         # LicensePools that were once part of a collection but
@@ -2651,6 +2683,22 @@ class TestFilter(DatabaseTest):
             owned = dict(term={'licensepools.owned': True})
             expect = {'bool': {'filter': [{'bool': {'should': [owned, open_access]}}]}}
             eq_(expect, unowned_filter['query'].to_dict())
+
+    def _mock_chain(self, filters, new_filter):
+        """A mock of _chain_filters so we don't have to check
+        test results against super-complicated Elasticsearch
+        filter objects.
+
+        Instead, we'll get a list of smaller filter objects.
+        """
+        if filters is None:
+            # There are no active filters.
+            filters = []
+        if isinstance(filters, elasticsearch_dsl_query):
+            # An initial filter was passed in. Convert it to a list.
+            filters = [filters]
+        filters.append(new_filter)
+        return filters
 
 
 class TestSortKeyPagination(DatabaseTest):

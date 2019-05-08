@@ -1728,6 +1728,8 @@ class Filter(SearchBase):
         """Apply restrictions that are always applied, even in the absence of
         other filters.
 
+        This is a class method only because `filter` may be None.
+
         :param filter: A previously created Filter object (may be None).
         :param _chain_filters: Mock function to use instead of
             Filter._chain_filters
@@ -1754,7 +1756,7 @@ class Filter(SearchBase):
         # hides any leftovers.
 
         # We only want to show works that are presentation-ready.
-        base_filter = Filter._chain_filters(
+        base_filter = _chain_filters(
             base_filter, F('term', **{"presentation_ready":True})
         )
 
