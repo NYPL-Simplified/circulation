@@ -23,13 +23,17 @@ from elasticsearch_dsl.query import (
 )
 from elasticsearch.exceptions import ElasticsearchException
 
-from ..config import CannotLoadConfiguration
+from ..config import (
+    Configuration,
+    CannotLoadConfiguration,
+)
 from ..lane import (
     Facets,
     Lane,
     Pagination,
 )
 from ..model import (
+    ConfigurationSetting,
     Edition,
     ExternalIntegration,
     Genre,
@@ -2168,6 +2172,12 @@ class TestFilter(DatabaseTest):
         # WorkList.inherited_value() and WorkList.inherited_values()
         # are used to determine what should go into the constructor.
 
+        # Disable any excluded audiobook data sources -- they will
+        # introduce unwanted extra clauses into our filters.
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.EXCLUDED_AUDIO_DATA_SOURCES
+        ).value = json.dumps([])
+
         parent = self._lane(
             display_name="Parent Lane", library=self._default_library
         )
@@ -2239,6 +2249,7 @@ class TestFilter(DatabaseTest):
         # filter; rather it's in a subfilter that will be applied to the
         # 'licensepools' subdocument, where the collection ID lives.
         eq_(None, built_filter)
+
         [subfilter] = subfilters.pop('licensepools')
         eq_({'terms': {'licensepools.collection_id': [self._default_collection.id]}},
             subfilter.to_dict())

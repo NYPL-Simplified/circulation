@@ -1038,24 +1038,15 @@ class Query(SearchBase):
         """
         query = self.query()
         nested_filters = defaultdict(list)
-        # Add the filter, if there is one. This may also result in a
-        # number of nested filters, which need to be converted into
-        # subqueries.
-        #
-        # This happens when a filter applies to a field in a sub-document,
-        # such as licensepools.collection_id.
-        if self.filter:
-            base_filter, nested_filters = self.filter.build()
-        else:
-            base_filter = None
-            nested_filters = defaultdict(list)
 
-        # Add restrictions that are always applied -- no suppressed
-        # license pools, work must be presentation ready, etc.
+        # Do the initial build of the filter, and apply restrictions
+        # that are always applied -- no suppressed license pools, work
+        # must be presentation ready, etc.
         base_filter, nested_filters = Filter.apply_universal_restrictions(
             self.filter
         )
 
+        # Combine the query and the corresponding filter.
         if base_filter:
             query = Q("bool", must=query, filter=base_filter)
 
