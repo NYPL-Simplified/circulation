@@ -1039,11 +1039,15 @@ class Query(SearchBase):
         query = self.query()
         nested_filters = defaultdict(list)
 
-        # Do the initial build of the filter, and apply restrictions
-        # that are always applied -- no suppressed license pools, work
-        # must be presentation ready, etc.
-        base_filter, nested_filters = Filter.apply_universal_restrictions(
-            self.filter
+        # Convert the resulting Filter into two dictionaries -- one
+        # describing the base filter and one describing the nested
+        # filters.
+        base_filter, nested_filters = self.filter.build()
+
+        # Combine the Filter associated with this query with the
+        # universal filter -- works must be presentation-ready, etc.
+        query_filter = Filter._chain_filters(
+            base_filter, Filter.universal_base_filter()
         )
 
         # Combine the query and the corresponding filter.
@@ -1054,6 +1058,11 @@ class Query(SearchBase):
         # tied to a specific server). Turn it into a Search object
         # (which is).
         search = elasticsearch.query(query)
+
+        # Update the 'nested filters' dictionary with the universal
+        # nested restrictions -- no suppressed license pools, etc.
+        for key, values in Filter.universal_nested_filters().items():
+            nested_filters[key].extend(values)
 
         # Now we can convert any nested filters into nested queries.
         for path, subfilters in nested_filters.items():
@@ -1690,7 +1699,7 @@ class Filter(SearchBase):
             range_query = self._match_range(
                 'quality', 'gte', self.minimum_featured_quality
             )
-            f = chain(f, range_query)
+            f = chain(f, F('bool', must=range_query))
 
         # Some sources of audiobooks may be excluded because the
         # server can't fulfill them or the anticipated client can't
@@ -1715,41 +1724,39 @@ class Filter(SearchBase):
         return f, nested_filters
 
     @classmethod
-    def apply_universal_restrictions(cls, filter, _chain_filters=None):
-        """Apply restrictions that are always applied, even in the absence of
-        other filters.
+    def universal_base_filter(cls, _chain_filters=None):
+        """Build a set of restrictions on the main search document that are
+        always applied, even in the absence of other filters.
 
-        This is a class method only because `filter` may be None.
-
-        :param filter: A previously created Filter object (may be None).
         :param _chain_filters: Mock function to use instead of
             Filter._chain_filters
 
-        :return: A 2-tuple (base_filter, nested_filters).
+        :return: A Filter object.
+
         """
+
         _chain_filters = _chain_filters or cls._chain_filters
 
-        if filter:
-            base_filter, nested_filters = filter.build()
-        else:
-            base_filter = None
-            nested_filters = defaultdict(list)
-
-        # TODO: It would be great to be able to filter out
-        # LicensePools that have no delivery mechanisms. That's the
-        # only part of Collection.restrict_to_ready_deliverable_works
-        # not already implemented in this class.
-
-        # TODO: If we wanted to implement the Gutenberg audience hack
-        # for Elasticsearch (lane.py:WorkList.audience_filter_clauses)
-        # it would go here. But we no longer carry books of that sort,
-        # and it's probably better to write a migration script that
-        # hides any leftovers.
+        base_filter = None
 
         # We only want to show works that are presentation-ready.
         base_filter = _chain_filters(
             base_filter, F('term', **{"presentation_ready":True})
         )
+
+        return base_filter
+
+    @classmethod
+    def universal_nested_filters(cls):
+        """Build a set of restrictions on subdocuments that are
+        always applied, even in the absence of other filters.
+        """
+        nested_filters = defaultdict(list)
+
+        # TODO: It would be great to be able to filter out
+        # LicensePools that have no delivery mechanisms. That's the
+        # only part of Collection.restrict_to_ready_deliverable_works
+        # not already implemented in this class.
 
         # We don't want to consider license pools that have been
         # suppressed, or of which there are currently no licensed
@@ -1767,7 +1774,7 @@ class Filter(SearchBase):
         currently_owned = F('bool', should=[owns_licenses, open_access])
         nested_filters['licensepools'].append(currently_owned)
 
-        return base_filter, nested_filters
+        return nested_filters
 
     @property
     def sort_order(self):
