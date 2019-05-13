@@ -34,6 +34,7 @@ from ..lane import (
 )
 from ..model import (
     ConfigurationSetting,
+    DataSource,
     Edition,
     ExternalIntegration,
     Genre,
@@ -2229,12 +2230,16 @@ class TestFilter(DatabaseTest):
 
         # Disable any excluded audiobook data sources -- they will
         # introduce unwanted extra clauses into our filters.
-        ConfigurationSetting.sitewide(
+        excluded_audio_sources = ConfigurationSetting.sitewide(
             self._db, Configuration.EXCLUDED_AUDIO_DATA_SOURCES
-        ).value = json.dumps([])
+        )
+        excluded_audio_sources.value = json.dumps([])
+
+        library = self._default_library
+        eq_(True, library.allow_holds)
 
         parent = self._lane(
-            display_name="Parent Lane", library=self._default_library
+            display_name="Parent Lane", library=library
         )
         parent.media = Edition.AUDIO_MEDIUM
         parent.languages = ["eng", "fra"]
@@ -2264,6 +2269,7 @@ class TestFilter(DatabaseTest):
         eq_(parent.audiences, filter.audiences)
         eq_((parent.target_age.lower, parent.target_age.upper),
             filter.target_age)
+        eq_(True, filter.allow_holds)
 
         # Filter.from_worklist passed the mock Facets object in to
         # the Filter constructor, which called its modify_search_filter()
@@ -2311,6 +2317,19 @@ class TestFilter(DatabaseTest):
 
         # No other subfilters were specified.
         eq_({}, subfilters)
+
+        # If the library does not allow holds, this information is
+        # propagated to its Filter.
+        library.setting(library.ALLOW_HOLDS).value = False
+        filter = Filter.from_worklist(self._db, parent, facets)
+        eq_(False, library.allow_holds)
+
+        # Any excluded audio sources in the sitewide settings
+        # will be propagated to all Filters.
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        excluded_audio_sources.value = json.dumps([overdrive.name])
+        filter = Filter.from_worklist(self._db, parent, facets)
+        eq_([overdrive.id], filter.excluded_audiobook_data_sources)
 
     def test_build(self):
         # Test the ability to turn a Filter into an ElasticSearch
