@@ -1373,7 +1373,19 @@ class TestQuery(DatabaseTest):
                 return dict(nested_called=[cls.universal_nested])
 
             @classmethod
-            def validate(cls, search, with_pagination=False):
+            def validate_universal_nested_filter(cls, search):
+                universal_nested = search.nested_filter_calls.pop()
+                eq_(
+                    dict(
+                        name_or_query='nested',
+                        path='nested_called',
+                        query=Bool(filter=[cls.universal_nested])
+                    ),
+                    universal_nested
+                )
+
+            @classmethod
+            def validate_universal_calls(cls):
                 """Verify that both universal methods were called
                 and that the return values were incorporated into
                 the query being built by `search`.
@@ -1384,27 +1396,6 @@ class TestQuery(DatabaseTest):
                 """
                 eq_(True, cls.universal_called)
                 eq_(True, cls.nested_called)
-
-                # The mocked universal base filter was the first
-                # filter to be applied.
-                universal_base = search._query.filter.pop(0)
-                eq_(cls.universal_base, universal_base)
-
-                if with_pagination:
-                    # The pagination filter was the last one to be applied.
-                    pagination = search.nested_filter_calls.pop()
-                    eq_(dict(name_or_query='pagination modified'), pagination)
-
-                # The mocked universal nested filter was applied
-                # just before that.
-                universal_nested = search.nested_filter_calls.pop()
-                eq_(
-                    dict(
-                        name_or_query='nested',
-                        path='nested_called',
-                        query=Bool(filter=[cls.universal_nested])
-                    ),
-                    universal_nested)
 
                 # Reset for next time.
                 cls.base_called = None
@@ -1427,13 +1418,25 @@ class TestQuery(DatabaseTest):
         eq_(search, built.parent.parent.parent)
 
         # The (mocked) universal base query and universal nested
-        # queries were used to modify the filter, as was the
-        # Pagination object.
-        MockFilter.validate(built, with_pagination=True)
+        # queries were called.
+        MockFilter.validate_universal_calls()
+
+        # The mocked universal base filter was the first
+        # base filter to be applied.
+        universal_base = built._query.filter.pop(0)
+        eq_(MockFilter.universal_base, universal_base)
+
+        # The pagination filter was the last one to be applied.
+        pagination = built.nested_filter_calls.pop()
+        eq_(dict(name_or_query='pagination modified'), pagination)
+
+        # The mocked universal nested filter was applied
+        # just before that.
+        MockFilter.validate_universal_nested_filter(built)
 
         # The result of Query.query() is used as the basis for
         # the Search object.
-        eq_(qu.query(), built._query)
+        eq_(Bool(must=qu.query()), built._query)
 
         # Now test some cases where the query has a filter.
 
@@ -1442,7 +1445,7 @@ class TestQuery(DatabaseTest):
         filter = Filter(fiction=True)
         qu = MockQuery("query string", filter=filter)
         built = qu.build(search)
-        MockFilter.validate(qu)
+        MockFilter.validate_universal_calls()
 
         # The 'must' part of this new Query came from calling
         # Query.query() on the original Query object.
@@ -1450,14 +1453,25 @@ class TestQuery(DatabaseTest):
         # The 'filter' part came from calling Filter.build() on the
         # main filter.
         underlying_query = built._query
-        main_filter, nested_filters = filter.build()
-        eq_(underlying_query.must, [qu.query()])
-        eq_(underlying_query.filter, [main_filter])
 
-        # There are no nested filters, and filter() was never called
-        # on the mock Search object.
+        # The query we passed in is used as the 'must' part of the
+        eq_(underlying_query.must, [qu.query()])
+        main_filter, nested_filters = filter.build()
+
+        # The filter we passed in was combined with the universal
+        # filter into a boolean query with its own 'must'.
+        eq_(
+            underlying_query.filter,
+            [Bool(must=[main_filter, MockFilter.universal_base])]
+        )
+
+        # There are no nested filters, apart from the universal one.
         eq_({}, nested_filters)
+        MockFilter.validate_universal_nested_filter(built)
         eq_([], built.nested_filter_calls)
+
+        # At this point the universal filters are more trouble than they're
+        # worth. Disable them for the rest of the test.
 
         # Now let's try a combination of regular filters and nested filters.
         filter = Filter(
