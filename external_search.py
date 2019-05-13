@@ -1042,17 +1042,22 @@ class Query(SearchBase):
         # Convert the resulting Filter into two dictionaries -- one
         # describing the base filter and one describing the nested
         # filters.
-        base_filter, nested_filters = self.filter.build()
+        if self.filter:
+            base_filter, nested_filters = self.filter.build()
+        else:
+            base_filter = None
+            nested_filters = defaultdict(list)
 
         # Combine the Filter associated with this query with the
         # universal filter -- works must be presentation-ready, etc.
+
         query_filter = Filter._chain_filters(
             base_filter, Filter.universal_base_filter()
         )
 
         # Combine the query and the corresponding filter.
-        if base_filter:
-            query = Q("bool", must=query, filter=base_filter)
+        if query_filter:
+            query = Q("bool", must=query, filter=query_filter)
 
         # We now have an Elasticsearch-DSL Query object (which isn't
         # tied to a specific server). Turn it into a Search object

@@ -1352,32 +1352,68 @@ class TestQuery(DatabaseTest):
             def modify_search_query(self, search):
                 return search.filter(name_or_query="pagination modified")
 
-        # That's a lot of mocks, but here's one more. Mock the
-        # Filter.apply_universal_restrictions() method. It makes all
-        # kinds of modifications to queries, so it's better to test it
-        # separately. We mock it here just to make sure the code is
-        # being run.
+        # That's a lot of mocks, but here's one more. Mock the Filter
+        # class's universal_base_filter() and
+        # universal_nested_filters() methods. These methods queue up
+        # all kinds of modifications to queries, so it's better to
+        # replace them with simpler versions.
         class MockFilter(object):
-            @classmethod
-            def apply_universal_restrictions(cls, filter):
-                cls.called_with = filter
-                if filter:
-                    return filter.build()
-                else:
-                    return None, defaultdict(list)
+
+            universal_base = F('term', universal_base_called=True)
+            universal_nested = F('term', universal_nested_called=True)
 
             @classmethod
-            def validate(cls, query):
-                """Verify that apply_universal_restrictions() has been called
-                on the filter associated with the given `query`.
+            def universal_base_filter(cls):
+                cls.universal_called=True
+                return cls.universal_base
+
+            @classmethod
+            def universal_nested_filters(cls):
+                cls.nested_called = True
+                return dict(nested_called=[cls.universal_nested])
+
+            @classmethod
+            def validate(cls, search, with_pagination=False):
+                """Verify that both universal methods were called
+                and that the return values were incorporated into
+                the query being built by `search`.
+
+                This method modifies the `search` object in place so
+                that the rest of a test can ignore all the universal
+                stuff.
                 """
-                eq_(query.filter, cls.called_with)
+                eq_(True, cls.universal_called)
+                eq_(True, cls.nested_called)
+
+                # The mocked universal base filter was the first
+                # filter to be applied.
+                universal_base = search._query.filter.pop(0)
+                eq_(cls.universal_base, universal_base)
+
+                if with_pagination:
+                    # The pagination filter was the last one to be applied.
+                    pagination = search.nested_filter_calls.pop()
+                    eq_(dict(name_or_query='pagination modified'), pagination)
+
+                # The mocked universal nested filter was applied
+                # just before that.
+                universal_nested = search.nested_filter_calls.pop()
+                eq_(
+                    dict(
+                        name_or_query='nested',
+                        path='nested_called',
+                        query=Bool(filter=[cls.universal_nested])
+                    ),
+                    universal_nested)
 
                 # Reset for next time.
-                cls.called_with = None
+                cls.base_called = None
+                cls.nested_called = None
 
-        old_apply_universal_restrictions = Filter.apply_universal_restrictions
-        Filter.apply_universal_restrictions = MockFilter.apply_universal_restrictions
+        original_base = Filter.universal_base_filter
+        original_nested = Filter.universal_nested_filters
+        Filter.universal_base_filter = MockFilter.universal_base_filter
+        Filter.universal_nested_filters = MockFilter.universal_nested_filters
 
         # Test the simple case where the Query has no filter.
         qu = MockQuery("query string", filter=None)
@@ -1388,19 +1424,16 @@ class TestQuery(DatabaseTest):
         # The return value is a new MockSearch object based on the one
         # that was passed in.
         assert isinstance(built, MockSearch)
-        eq_(search, built.parent.parent)
+        eq_(search, built.parent.parent.parent)
+
+        # The (mocked) universal base query and universal nested
+        # queries were used to modify the filter, as was the
+        # Pagination object.
+        MockFilter.validate(built, with_pagination=True)
 
         # The result of Query.query() is used as the basis for
         # the Search object.
         eq_(qu.query(), built._query)
-
-        # apply_universal_restrictions was called appropriately, but
-        # it made no changes because it's a mock.
-        MockFilter.validate(qu)
-
-        # The MockPagination was then used to modify the filter.
-        pagination_filter = built.nested_filter_calls.pop()
-        eq_("pagination modified", pagination_filter['name_or_query'])
 
         # Now test some cases where the query has a filter.
 
@@ -1550,8 +1583,9 @@ class TestQuery(DatabaseTest):
             eq_({tiebreaker_field: "asc"}, order.pop(0))
         eq_([], order)
 
-        # Finally, undo the mock of Filter.apply_universal_restrictions
-        Filter.apply_universal_restrictions = old_apply_universal_restrictions
+        # Finally, undo the mock of the Filter class methods
+        Filter.universal_base_filter = original_base
+        Filter.universal_nested_filters = original_nested
 
     def test_query(self):
         # The query() method calls a number of other methods
