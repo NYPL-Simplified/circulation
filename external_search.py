@@ -1051,9 +1051,13 @@ class Query(SearchBase):
         # Combine the Filter associated with this query with the
         # universal filter -- works must be presentation-ready, etc.
 
-        query_filter = Filter._chain_filters(
-            base_filter, Filter.universal_base_filter()
-        )
+        universal_base_filter = Filter.universal_base_filter()
+        if universal_base_filter:
+            query_filter = Filter._chain_filters(
+                base_filter, universal_base_filter
+            )
+        else:
+            query_filter = base_filter
 
         # Combine the query and the corresponding filter.
         if query_filter:
@@ -1066,7 +1070,8 @@ class Query(SearchBase):
 
         # Update the 'nested filters' dictionary with the universal
         # nested restrictions -- no suppressed license pools, etc.
-        for key, values in Filter.universal_nested_filters().items():
+        universal_nested_filters = Filter.universal_nested_filters() or {}
+        for key, values in universal_nested_filters.items():
             nested_filters[key].extend(values)
 
         # Now we can convert any nested filters into nested queries.

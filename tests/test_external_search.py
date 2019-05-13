@@ -1359,30 +1359,19 @@ class TestQuery(DatabaseTest):
         # replace them with simpler versions.
         class MockFilter(object):
 
-            universal_base = F('term', universal_base_called=True)
-            universal_nested = F('term', universal_nested_called=True)
+            universal_base_term = F('term', universal_base_called=True)
+            universal_nested_term = F('term', universal_nested_called=True)
+            universal_nested_filter = dict(nested_called=[universal_nested_term])
 
             @classmethod
             def universal_base_filter(cls):
                 cls.universal_called=True
-                return cls.universal_base
+                return cls.universal_base_term
 
             @classmethod
             def universal_nested_filters(cls):
                 cls.nested_called = True
-                return dict(nested_called=[cls.universal_nested])
-
-            @classmethod
-            def validate_universal_nested_filter(cls, search):
-                universal_nested = search.nested_filter_calls.pop()
-                eq_(
-                    dict(
-                        name_or_query='nested',
-                        path='nested_called',
-                        query=Bool(filter=[cls.universal_nested])
-                    ),
-                    universal_nested
-                )
+                return cls.universal_nested_filter
 
             @classmethod
             def validate_universal_calls(cls):
@@ -1423,8 +1412,8 @@ class TestQuery(DatabaseTest):
 
         # The mocked universal base filter was the first
         # base filter to be applied.
-        universal_base = built._query.filter.pop(0)
-        eq_(MockFilter.universal_base, universal_base)
+        universal_base_term = built._query.filter.pop(0)
+        eq_(MockFilter.universal_base_term, universal_base_term)
 
         # The pagination filter was the last one to be applied.
         pagination = built.nested_filter_calls.pop()
@@ -1432,7 +1421,15 @@ class TestQuery(DatabaseTest):
 
         # The mocked universal nested filter was applied
         # just before that.
-        MockFilter.validate_universal_nested_filter(built)
+        universal_nested = built.nested_filter_calls.pop()
+        eq_(
+            dict(
+                name_or_query='nested',
+                path='nested_called',
+                query=Bool(filter=[MockFilter.universal_nested_term])
+            ),
+            universal_nested
+        )
 
         # The result of Query.query() is used as the basis for
         # the Search object.
@@ -1459,19 +1456,29 @@ class TestQuery(DatabaseTest):
         main_filter, nested_filters = filter.build()
 
         # The filter we passed in was combined with the universal
-        # filter into a boolean query with its own 'must'.
+        # base filter into a boolean query, with its own 'must'.
         eq_(
             underlying_query.filter,
-            [Bool(must=[main_filter, MockFilter.universal_base])]
+            [Bool(must=[main_filter, MockFilter.universal_base_term])]
         )
 
         # There are no nested filters, apart from the universal one.
         eq_({}, nested_filters)
-        MockFilter.validate_universal_nested_filter(built)
+        universal_nested = built.nested_filter_calls.pop()
+        eq_(
+            dict(
+                name_or_query='nested',
+                path='nested_called',
+                query=Bool(filter=[MockFilter.universal_nested_term])
+            ),
+            universal_nested
+        )
         eq_([], built.nested_filter_calls)
 
         # At this point the universal filters are more trouble than they're
         # worth. Disable them for the rest of the test.
+        MockFilter.universal_base_term = None
+        MockFilter.universal_nested_filter = None
 
         # Now let's try a combination of regular filters and nested filters.
         filter = Filter(
@@ -1480,7 +1487,6 @@ class TestQuery(DatabaseTest):
         )
         qu = MockQuery("query string", filter=filter)
         built = qu.build(search)
-        MockFilter.validate(qu)
         underlying_query = built._query
 
         # We get a main filter (for the fiction restriction) and one
@@ -1512,7 +1518,6 @@ class TestQuery(DatabaseTest):
             filter = Filter(facets=facets)
             qu = MockQuery("query string", filter=filter)
             built = qu.build(search)
-            MockFilter.validate(qu)
 
             # Return the rest to be verified in a test-specific way.
             return built
@@ -1542,8 +1547,10 @@ class TestQuery(DatabaseTest):
 
         # A non-nested filter is applied on the 'quality' field.
         [quality_filter] = built._query.filter
-        expect = Filter._match_range('quality', 'gte', self._default_library.minimum_featured_quality)
-        eq_(expect, quality_filter.to_dict())
+        quality_range = Filter._match_range(
+            'quality', 'gte', self._default_library.minimum_featured_quality
+        )
+        eq_(F('bool', must=quality_range), quality_filter)
 
         # When using the AVAILABLE_OPEN_ACCESS availability restriction...
         built = from_facets(Facets.COLLECTION_FULL,
