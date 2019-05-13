@@ -1031,15 +1031,13 @@ class Query(SearchBase):
         object is ready to run a search against an Elasticsearch server,
         but it doesn't represent any particular Elasticsearch query.
 
-        :param filter_class:
-
         :return: An Elasticsearch-DSL Search object that's prepared
             to run this specific query.
         """
         query = self.query()
         nested_filters = defaultdict(list)
 
-        # Convert the resulting Filter into two dictionaries -- one
+        # Convert the resulting Filter into two objects -- one
         # describing the base filter and one describing the nested
         # filters.
         if self.filter:
@@ -1048,9 +1046,8 @@ class Query(SearchBase):
             base_filter = None
             nested_filters = defaultdict(list)
 
-        # Combine the Filter associated with this query with the
-        # universal filter -- works must be presentation-ready, etc.
-
+        # Combine the query's base Filter with the universal base
+        # filter -- works must be presentation-ready, etc.
         universal_base_filter = Filter.universal_base_filter()
         if universal_base_filter:
             query_filter = Filter._chain_filters(
@@ -1058,8 +1055,6 @@ class Query(SearchBase):
             )
         else:
             query_filter = base_filter
-
-        # Combine the query and the corresponding filter.
         if query_filter:
             query = Q("bool", must=query, filter=query_filter)
 
@@ -1068,13 +1063,15 @@ class Query(SearchBase):
         # (which is).
         search = elasticsearch.query(query)
 
-        # Update the 'nested filters' dictionary with the universal
-        # nested restrictions -- no suppressed license pools, etc.
+        # Now update the 'nested filters' dictionary with the
+        # universal nested filters -- no suppressed license pools,
+        # etc.
         universal_nested_filters = Filter.universal_nested_filters() or {}
         for key, values in universal_nested_filters.items():
             nested_filters[key].extend(values)
 
-        # Now we can convert any nested filters into nested queries.
+        # Now we can convert any nested filters (universal or
+        # otherwise) into nested queries.
         for path, subfilters in nested_filters.items():
             for subfilter in subfilters:
                 # This ensures that the filter logic is executed in
@@ -1648,7 +1645,6 @@ class Filter(SearchBase):
 
         f = None
         nested_filters = defaultdict(list)
-
         collection_ids = filter_ids(self.collection_ids)
         if collection_ids:
             collection_match = F(
@@ -1720,15 +1716,15 @@ class Filter(SearchBase):
             excluded_audio_source = F(
                 'terms', **{'licensepools.data_source_id' : excluded}
             )
-            excluded_audio = F('bool', must=[audio, excluded_audio_source])
-            not_excluded_audio = F('bool', must_not=excluded_audio)
+            excluded_audio = Bool(must=[audio, excluded_audio_source])
+            not_excluded_audio = Bool(must_not=excluded_audio)
             nested_filters['licensepools'].append(not_excluded_audio)
 
         # If holds are not allowed, only license pools that are
         # currently available should be considered.
         if not self.allow_holds:
             licenses_available = F('term', **{'licensepools.available' : True})
-            currently_available = F('bool', should=[licenses_available, open_access])
+            currently_available = Bool(should=[licenses_available, open_access])
             nested_filters['licensepools'].append(currently_available)
 
         return f, nested_filters

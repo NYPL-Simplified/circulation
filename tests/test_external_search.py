@@ -2222,6 +2222,13 @@ class TestFilter(DatabaseTest):
         filter = Filter(facets=facets)
         eq_(filter, facets.called_with)
 
+        # Some arguments to the constructor only exist as keyword
+        # arguments, but you can't pass in whatever keywords you want.
+        assert_raises_regexp(
+            ValueError, "Unknown keyword arguments",
+            Filter, no_such_keyword="nope"
+        )
+
     def test_from_worklist(self):
         # Any WorkList can be converted into a Filter.
         #
@@ -2378,6 +2385,9 @@ class TestFilter(DatabaseTest):
         filter.fiction = True
         filter.audiences = 'CHILDREN'
         filter.target_age = (2,3)
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        filter.excluded_audiobook_data_sources = [overdrive.id]
+        filter.allow_holds = False
 
         # We want books that are literary fiction, *and* either
         # fantasy or horror.
@@ -2395,16 +2405,34 @@ class TestFilter(DatabaseTest):
         # chain() method -- a list of small filters.
         built, nested = filter.build(_chain_filters=chain)
 
-        # This time we do see a nested
-        # filter. licensepools.collection_id is in the nested
-        # licensepools document, so the 'current collection'
-        # restriction must be described in terms of a nested filter on
-        # that document.
-        [licensepool_filter] = nested.pop('licensepools')
+        # This time we do see a nested filter. The information
+        # necessary to enforce the 'current collection', 'excluded
+        # audiobook sources', and 'no holds' restrictions is kept in
+        # the nested 'licensepools' document, so those restrictions
+        # must be described in terms of nested filters on that
+        # document.
+        [licensepool_filter, excluded_audiobooks_filter, no_holds_filter] = nested.pop('licensepools')
+
+        # The 'current collection' filter.
         eq_(
             {'terms': {'licensepools.collection_id': [self._default_collection.id]}},
             licensepool_filter.to_dict()
         )
+
+        # The 'excluded audiobooks' filter.
+        audio = F('term', **{'licensepools.medium': Edition.AUDIO_MEDIUM})
+        excluded_audio_source = F(
+            'terms', **{'licensepools.data_source_id' : [overdrive.id]}
+        )
+        excluded_audio = Bool(must=[audio, excluded_audio_source])
+        not_excluded_audio = Bool(must_not=excluded_audio)
+        eq_(not_excluded_audio, excluded_audiobooks_filter)
+
+        # The 'no holds' filter.
+        open_access = F('term', **{'licensepools.open_access' : True})
+        licenses_available = F('term', **{'licensepools.available' : True})
+        currently_available = Bool(should=[licenses_available, open_access])
+        eq_(currently_available, no_holds_filter)
 
         # There are no other nested filters.
         eq_({}, nested)
