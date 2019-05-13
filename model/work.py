@@ -1420,7 +1420,7 @@ class Work(Base):
         # * We always want to filter out Works that are not available
         #   in any of the collections associated with a given library
         #   -- either because no licenses are owned, because the
-        #   LicensePools are suppressed, or because there are no
+        #   LicensePools are suppressed, or (TODO) because there are no
         #   delivery mechanisms.
         # * A patron may want to sort a list of books by availability
         #   date.

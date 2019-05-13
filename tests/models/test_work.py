@@ -887,7 +887,6 @@ class TestWork(DatabaseTest):
         eq_(work.sort_title, search_doc['sort_title'])
         eq_(work.author, search_doc['author'])
         eq_(work.sort_author, search_doc['sort_author'])
-        eq_(edition.medium, search_doc['medium'])
         eq_(edition.publisher, search_doc['publisher'])
         eq_(edition.imprint, search_doc['imprint'])
         eq_(edition.permanent_work_id, search_doc['permanent_work_id'])
@@ -898,6 +897,7 @@ class TestWork(DatabaseTest):
         eq_(work.rating, search_doc['rating'])
         eq_(work.popularity, search_doc['popularity'])
         eq_(work.random, search_doc['random'])
+        eq_(work.presentation_ready, search_doc['presentation_ready'])
         assert_time_match(work.last_update_time, search_doc['last_update_time'])
         eq_(dict(lower=7, upper=8), search_doc['target_age'])
 
@@ -914,6 +914,8 @@ class TestWork(DatabaseTest):
             [match] = [x for x in licensepools if x['licensepool_id'] == pool.id]
             eq_(pool.open_access, match['open_access'])
             eq_(pool.collection_id, match['collection_id'])
+            eq_(pool.suppressed, match['suppressed'])
+            eq_(pool.data_source_id, match['data_source_id'])
 
             eq_(pool.licenses_available > 0, match['available'])
             eq_(pool.licenses_owned > 0, match['owned'])
@@ -927,6 +929,14 @@ class TestWork(DatabaseTest):
             assert_time_match(
                 pool.availability_time, match['availability_time']
             )
+
+            # The medium of the work's presentation edition is stored
+            # in the main document, but it's also stored in the
+            # license poolsubdocument, so that we can filter out
+            # license pools that represent audiobooks from unsupported
+            # sources.
+            eq_(edition.medium, search_doc['medium'])
+            eq_(edition.medium, match['medium'])
 
         contributors = search_doc['contributors']
         eq_(2, len(contributors))
