@@ -4,6 +4,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
+from collections import defaultdict
 import datetime
 import json
 import logging
@@ -14,16 +15,26 @@ from . import (
     DatabaseTest,
 )
 
-from elasticsearch_dsl.query import Bool
+from elasticsearch_dsl.query import (
+    Bool,
+    Query as elasticsearch_dsl_query,
+    Term,
+    Terms,
+)
 from elasticsearch.exceptions import ElasticsearchException
 
-from ..config import CannotLoadConfiguration
+from ..config import (
+    Configuration,
+    CannotLoadConfiguration,
+)
 from ..lane import (
     Facets,
     Lane,
     Pagination,
 )
 from ..model import (
+    ConfigurationSetting,
+    DataSource,
     Edition,
     ExternalIntegration,
     Genre,
@@ -421,60 +432,47 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             self.moby_dick.presentation_edition.series = "Classics"
             self.moby_dick.summary_text = "Ishmael"
             self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
-            self.moby_dick.set_presentation_ready()
 
             self.moby_duck = _work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
             self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
             self.moby_duck.summary_text = "A compulsively readable narrative"
             self.moby_duck.presentation_edition.publisher = "Penguin"
-            self.moby_duck.set_presentation_ready()
+            # This book is not currently loanable. It will still show up
+            # in search results unless the library's settings disable it.
+            self.moby_duck.license_pools[0].licenses_available = 0
 
             self.title_match = _work(title="Match")
-            self.title_match.set_presentation_ready()
 
             self.subtitle_match = _work(title="SubtitleM")
             self.subtitle_match.presentation_edition.subtitle = "Match"
-            self.subtitle_match.set_presentation_ready()
 
             self.summary_match = _work(title="SummaryM")
             self.summary_match.summary_text = "Match"
-            self.summary_match.set_presentation_ready()
 
             self.publisher_match = _work(title="PublisherM")
             self.publisher_match.presentation_edition.publisher = "Match"
-            self.publisher_match.set_presentation_ready()
 
             self.tess = _work(title="Tess of the d'Urbervilles")
-            self.tess.set_presentation_ready()
 
             self.tiffany = _work(title="Breakfast at Tiffany's")
-            self.tiffany.set_presentation_ready()
 
             self.les_mis = _work()
             self.les_mis.presentation_edition.title = u"Les Mis\u00E9rables"
-            self.les_mis.set_presentation_ready()
 
             self.modern_romance = _work()
             self.modern_romance.presentation_edition.title = u"Modern Romance"
-            self.modern_romance.set_presentation_ready()
 
             self.lincoln = _work(genre="Biography & Memoir", title="Abraham Lincoln")
-            self.lincoln.set_presentation_ready()
 
             self.washington = _work(genre="Biography", title="George Washington")
-            self.washington.set_presentation_ready()
 
             self.lincoln_vampire = _work(title="Abraham Lincoln: Vampire Hunter", genre="Fantasy")
-            self.lincoln_vampire.set_presentation_ready()
 
             self.children_work = _work(title="Alice in Wonderland", audience=Classifier.AUDIENCE_CHILDREN)
-            self.children_work.set_presentation_ready()
 
             self.ya_work = _work(title="Go Ask Alice", audience=Classifier.AUDIENCE_YOUNG_ADULT)
-            self.ya_work.set_presentation_ready()
 
             self.adult_work = _work(title="Still Alice", audience=Classifier.AUDIENCE_ADULT)
-            self.adult_work.set_presentation_ready()
 
             self.ya_romance = _work(
                 title="Gumby In Love",
@@ -483,58 +481,46 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             self.ya_romance.presentation_edition.subtitle = (
                 "Modern Fairytale Series, Volume 7"
             )
-            self.ya_romance.set_presentation_ready()
 
             self.no_age = _work()
             self.no_age.summary_text = "President Barack Obama's election in 2008 energized the United States"
-            self.no_age.set_presentation_ready()
 
             self.age_4_5 = _work()
             self.age_4_5.target_age = NumericRange(4, 5, '[]')
             self.age_4_5.summary_text = "President Barack Obama's election in 2008 energized the United States"
-            self.age_4_5.set_presentation_ready()
 
             self.age_5_6 = _work(fiction=False)
             self.age_5_6.target_age = NumericRange(5, 6, '[]')
-            self.age_5_6.set_presentation_ready()
 
             self.obama = _work(genre="Biography & Memoir")
             self.obama.target_age = NumericRange(8, 8, '[]')
             self.obama.summary_text = "President Barack Obama's election in 2008 energized the United States"
-            self.obama.set_presentation_ready()
 
             self.dodger = _work()
             self.dodger.target_age = NumericRange(8, 8, '[]')
             self.dodger.summary_text = "Willie finds himself running for student council president"
-            self.dodger.set_presentation_ready()
 
             self.age_9_10 = _work()
             self.age_9_10.target_age = NumericRange(9, 10, '[]')
             self.age_9_10.summary_text = "President Barack Obama's election in 2008 energized the United States"
-            self.age_9_10.set_presentation_ready()
 
             self.age_2_10 = _work()
             self.age_2_10.target_age = NumericRange(2, 10, '[]')
-            self.age_2_10.set_presentation_ready()
 
-            self.pride = _work(title="Pride and Prejudice")
+            self.pride = _work(title="Pride and Prejudice (E)")
             self.pride.presentation_edition.medium = Edition.BOOK_MEDIUM
-            self.pride.set_presentation_ready()
 
-            self.pride_audio = _work(title="Pride and Prejudice")
+            self.pride_audio = _work(title="Pride and Prejudice (A)")
             self.pride_audio.presentation_edition.medium = Edition.AUDIO_MEDIUM
-            self.pride_audio.set_presentation_ready()
 
             self.sherlock = _work(
                 title="The Adventures of Sherlock Holmes",
                 with_open_access_download=True
             )
             self.sherlock.presentation_edition.language = "en"
-            self.sherlock.set_presentation_ready()
 
             self.sherlock_spanish = _work(title="Las Aventuras de Sherlock Holmes")
             self.sherlock_spanish.presentation_edition.language = "es"
-            self.sherlock_spanish.set_presentation_ready()
 
             # Create a custom list that contains a few books.
             self.presidential, ignore = self._customlist(
@@ -549,7 +535,6 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
                 title="A Tiny Book", with_license_pool=True,
                 collection=self.tiny_collection
             )
-            self.tiny_book.set_presentation_ready()
 
             # Both collections contain 'The Adventures of Sherlock
             # Holmes", but each collection licenses the book through a
@@ -563,11 +548,21 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             eq_(self.sherlock, sherlock_2)
             eq_(2, len(self.sherlock.license_pools))
 
-            # This book looks good for some search results, but we own
-            # no copies of it, so it will never show up.
+            # These books look good for some search results, but they
+            # will be filtered out by the universal filters, and will
+            # never show up in results.
+
+            # We own no copies of this book.
             self.no_copies = _work(title="Moby Dick 2")
             self.no_copies.license_pools[0].licenses_owned = 0
 
+            # This book's only license pool has been suppressed.
+            self.suppressed = _work(title="Moby Dick 2")
+            self.suppressed.license_pools[0].suppressed = True
+
+            # This book is not presentation_ready.
+            self.not_presentation_ready = _work(title="Moby Dick 2")
+            self.not_presentation_ready.presentation_ready = False
 
     def test_query_works(self):
         # An end-to-end test of the search functionality.
@@ -581,6 +576,14 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
                 "Search is not configured, skipping test_query_works."
             )
             return
+
+        # First, run some basic checks to make sure the search
+        # document query doesn't contain over-zealous joins. This test
+        # class is the main place where we make a large number of
+        # works and generate search documents for them.
+        eq_(1, len(self.moby_dick.to_search_document()['licensepools']))
+        eq_("Audio",
+            self.pride_audio.to_search_document()['licensepools'][0]['medium'])
 
         # Add all the works created in the setup to the search index.
         SearchIndexCoverageProvider(
@@ -855,7 +858,6 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         # an empty set of lists.
         expect([], "lincoln", Filter(customlist_restriction_sets=[[]]))
 
-
         # Filter based on collection ID.
 
         # "A Tiny Book" isn't in the default collection.
@@ -873,6 +875,22 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             languages="en"
         )
         expect(self.sherlock, "sherlock holmes", f)
+
+        # Filters that come from site or library settings.
+
+        # The source for the 'Pride and Prejudice' audiobook has been
+        # excluded, so it won't show up in search results.
+        f = Filter(
+            excluded_audiobook_data_sources=[
+                self.pride_audio.license_pools[0].data_source
+            ]
+        )
+        expect([self.pride], "pride and prejudice", f)
+
+        # "Moby Duck" is not currently available, so it won't show up in
+        # search results if allow_holds is False.
+        f = Filter(allow_holds=False)
+        expect([self.moby_dick], "moby duck", f)
 
 
 class TestFacetFilters(EndToEndExternalSearchTest):
@@ -1335,6 +1353,49 @@ class TestQuery(DatabaseTest):
             def modify_search_query(self, search):
                 return search.filter(name_or_query="pagination modified")
 
+        # That's a lot of mocks, but here's one more. Mock the Filter
+        # class's universal_base_filter() and
+        # universal_nested_filters() methods. These methods queue up
+        # all kinds of modifications to queries, so it's better to
+        # replace them with simpler versions.
+        class MockFilter(object):
+
+            universal_base_term = F('term', universal_base_called=True)
+            universal_nested_term = F('term', universal_nested_called=True)
+            universal_nested_filter = dict(nested_called=[universal_nested_term])
+
+            @classmethod
+            def universal_base_filter(cls):
+                cls.universal_called=True
+                return cls.universal_base_term
+
+            @classmethod
+            def universal_nested_filters(cls):
+                cls.nested_called = True
+                return cls.universal_nested_filter
+
+            @classmethod
+            def validate_universal_calls(cls):
+                """Verify that both universal methods were called
+                and that the return values were incorporated into
+                the query being built by `search`.
+
+                This method modifies the `search` object in place so
+                that the rest of a test can ignore all the universal
+                stuff.
+                """
+                eq_(True, cls.universal_called)
+                eq_(True, cls.nested_called)
+
+                # Reset for next time.
+                cls.base_called = None
+                cls.nested_called = None
+
+        original_base = Filter.universal_base_filter
+        original_nested = Filter.universal_nested_filters
+        Filter.universal_base_filter = MockFilter.universal_base_filter
+        Filter.universal_nested_filters = MockFilter.universal_nested_filters
+
         # Test the simple case where the Query has no filter.
         qu = MockQuery("query string", filter=None)
         search = MockSearch()
@@ -1346,42 +1407,43 @@ class TestQuery(DatabaseTest):
         assert isinstance(built, MockSearch)
         eq_(search, built.parent.parent.parent)
 
-        # The result of Query.query() is used as-is as the basis for
+        # The (mocked) universal base query and universal nested
+        # queries were called.
+        MockFilter.validate_universal_calls()
+
+        # The mocked universal base filter was the first
+        # base filter to be applied.
+        universal_base_term = built._query.filter.pop(0)
+        eq_(MockFilter.universal_base_term, universal_base_term)
+
+        # The pagination filter was the last one to be applied.
+        pagination = built.nested_filter_calls.pop()
+        eq_(dict(name_or_query='pagination modified'), pagination)
+
+        # The mocked universal nested filter was applied
+        # just before that.
+        universal_nested = built.nested_filter_calls.pop()
+        eq_(
+            dict(
+                name_or_query='nested',
+                path='nested_called',
+                query=Bool(filter=[MockFilter.universal_nested_term])
+            ),
+            universal_nested
+        )
+
+        # The result of Query.query() is used as the basis for
         # the Search object.
-        eq_(qu.query(), built._query)
+        eq_(Bool(must=qu.query()), built._query)
 
-        # The modification introduced by the MockPagination was the
-        # last filter applied.
-        pagination_filter = built.nested_filter_calls.pop()
-        eq_("pagination modified", pagination_filter['name_or_query'])
-
-        # A nested filter is always applied, to filter out
-        # LicensePools that were once part of a collection but
-        # currently have no owned licenses.
-        open_access = dict(term={'licensepools.open_access': True})
-        def assert_ownership_filter(built):
-            # Extract the call that created the ownership filter
-            # and verify its structure.
-            unowned_filter = built.nested_filter_calls.pop()
-
-            # It's a nested filter...
-            eq_('nested', unowned_filter['name_or_query'])
-
-            # ...applied to the 'licensepools' subdocument.
-            eq_('licensepools', unowned_filter['path'])
-
-            # For a license pool to be counted, it either must be open
-            # access or the collection must currently own licenses for
-            # it.
-            owned = dict(term={'licensepools.owned': True})
-            expect = {'bool': {'filter': [{'bool': {'should': [owned, open_access]}}]}}
-            eq_(expect, unowned_filter['query'].to_dict())
+        # Now test some cases where the query has a filter.
 
         # If there's a filter, a boolean Query object is created to
         # combine the original Query with the filter.
         filter = Filter(fiction=True)
         qu = MockQuery("query string", filter=filter)
         built = qu.build(search)
+        MockFilter.validate_universal_calls()
 
         # The 'must' part of this new Query came from calling
         # Query.query() on the original Query object.
@@ -1389,15 +1451,35 @@ class TestQuery(DatabaseTest):
         # The 'filter' part came from calling Filter.build() on the
         # main filter.
         underlying_query = built._query
-        main_filter, nested_filters = filter.build()
-        eq_(underlying_query.must, [qu.query()])
-        eq_(underlying_query.filter, [main_filter])
 
-        # There are no nested filters (apart from the ownership
-        # filter), and filter() was never called on the mock Search object.
-        assert_ownership_filter(built)
+        # The query we passed in is used as the 'must' part of the
+        eq_(underlying_query.must, [qu.query()])
+        main_filter, nested_filters = filter.build()
+
+        # The filter we passed in was combined with the universal
+        # base filter into a boolean query, with its own 'must'.
+        eq_(
+            underlying_query.filter,
+            [Bool(must=[main_filter, MockFilter.universal_base_term])]
+        )
+
+        # There are no nested filters, apart from the universal one.
         eq_({}, nested_filters)
+        universal_nested = built.nested_filter_calls.pop()
+        eq_(
+            dict(
+                name_or_query='nested',
+                path='nested_called',
+                query=Bool(filter=[MockFilter.universal_nested_term])
+            ),
+            universal_nested
+        )
         eq_([], built.nested_filter_calls)
+
+        # At this point the universal filters are more trouble than they're
+        # worth. Disable them for the rest of the test.
+        MockFilter.universal_base_term = None
+        MockFilter.universal_nested_filter = None
 
         # Now let's try a combination of regular filters and nested filters.
         filter = Filter(
@@ -1408,11 +1490,9 @@ class TestQuery(DatabaseTest):
         built = qu.build(search)
         underlying_query = built._query
 
-        # We get a main filter (for the fiction restriction) and two
-        # nested filters (one for the collection restriction, one for
-        # the ownership restriction).
+        # We get a main filter (for the fiction restriction) and one
+        # nested filter.
         main_filter, nested_filters = filter.build()
-        assert_ownership_filter(built)
         [nested_licensepool_filter] = nested_filters.pop('licensepools')
         eq_({}, nested_filters)
 
@@ -1439,9 +1519,6 @@ class TestQuery(DatabaseTest):
             filter = Filter(facets=facets)
             qu = MockQuery("query string", filter=filter)
             built = qu.build(search)
-
-            # Verify and remove the ownership filter.
-            assert_ownership_filter(built)
 
             # Return the rest to be verified in a test-specific way.
             return built
@@ -1471,8 +1548,10 @@ class TestQuery(DatabaseTest):
 
         # A non-nested filter is applied on the 'quality' field.
         [quality_filter] = built._query.filter
-        expect = Filter._match_range('quality', 'gte', self._default_library.minimum_featured_quality)
-        eq_(expect, quality_filter.to_dict())
+        quality_range = Filter._match_range(
+            'quality', 'gte', self._default_library.minimum_featured_quality
+        )
+        eq_(F('bool', must=quality_range), quality_filter)
 
         # When using the AVAILABLE_OPEN_ACCESS availability restriction...
         built = from_facets(Facets.COLLECTION_FULL,
@@ -1485,6 +1564,7 @@ class TestQuery(DatabaseTest):
 
         # It finds only license pools that are open access.
         nested_filter = available_now['query']
+        open_access = dict(term={'licensepools.open_access': True})
         eq_(
             nested_filter.to_dict(),
             {'bool': {'filter': [open_access]}}
@@ -1524,6 +1604,10 @@ class TestQuery(DatabaseTest):
         for tiebreaker_field in ('sort_author', 'sort_title', 'work_id'):
             eq_({tiebreaker_field: "asc"}, order.pop(0))
         eq_([], order)
+
+        # Finally, undo the mock of the Filter class methods
+        Filter.universal_base_filter = original_base
+        Filter.universal_nested_filters = original_nested
 
     def test_query(self):
         # The query() method calls a number of other methods
@@ -2138,14 +2222,31 @@ class TestFilter(DatabaseTest):
         filter = Filter(facets=facets)
         eq_(filter, facets.called_with)
 
+        # Some arguments to the constructor only exist as keyword
+        # arguments, but you can't pass in whatever keywords you want.
+        assert_raises_regexp(
+            ValueError, "Unknown keyword arguments",
+            Filter, no_such_keyword="nope"
+        )
+
     def test_from_worklist(self):
         # Any WorkList can be converted into a Filter.
         #
         # WorkList.inherited_value() and WorkList.inherited_values()
         # are used to determine what should go into the constructor.
 
+        # Disable any excluded audiobook data sources -- they will
+        # introduce unwanted extra clauses into our filters.
+        excluded_audio_sources = ConfigurationSetting.sitewide(
+            self._db, Configuration.EXCLUDED_AUDIO_DATA_SOURCES
+        )
+        excluded_audio_sources.value = json.dumps([])
+
+        library = self._default_library
+        eq_(True, library.allow_holds)
+
         parent = self._lane(
-            display_name="Parent Lane", library=self._default_library
+            display_name="Parent Lane", library=library
         )
         parent.media = Edition.AUDIO_MEDIUM
         parent.languages = ["eng", "fra"]
@@ -2175,6 +2276,7 @@ class TestFilter(DatabaseTest):
         eq_(parent.audiences, filter.audiences)
         eq_((parent.target_age.lower, parent.target_age.upper),
             filter.target_age)
+        eq_(True, filter.allow_holds)
 
         # Filter.from_worklist passed the mock Facets object in to
         # the Filter constructor, which called its modify_search_filter()
@@ -2215,12 +2317,26 @@ class TestFilter(DatabaseTest):
         # filter; rather it's in a subfilter that will be applied to the
         # 'licensepools' subdocument, where the collection ID lives.
         eq_(None, built_filter)
+
         [subfilter] = subfilters.pop('licensepools')
         eq_({'terms': {'licensepools.collection_id': [self._default_collection.id]}},
             subfilter.to_dict())
 
         # No other subfilters were specified.
         eq_({}, subfilters)
+
+        # If the library does not allow holds, this information is
+        # propagated to its Filter.
+        library.setting(library.ALLOW_HOLDS).value = False
+        filter = Filter.from_worklist(self._db, parent, facets)
+        eq_(False, library.allow_holds)
+
+        # Any excluded audio sources in the sitewide settings
+        # will be propagated to all Filters.
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        excluded_audio_sources.value = json.dumps([overdrive.name])
+        filter = Filter.from_worklist(self._db, parent, facets)
+        eq_([overdrive.id], filter.excluded_audiobook_data_sources)
 
     def test_build(self):
         # Test the ability to turn a Filter into an ElasticSearch
@@ -2263,22 +2379,15 @@ class TestFilter(DatabaseTest):
             filter
         )
 
-        # Now let's mock _chain_filters so we don't have to check
-        # our test results against super-complicated Elasticsearch
-        # filter objects.
-        #
-        # Instead, we'll get a list of smaller filter objects.
-        def chain(filters, new_filter):
-            if filters is None:
-                # This is the first filter:
-                filters = []
-            filters.append(new_filter)
-            return filters
+        chain = self._mock_chain
 
         filter.collection_ids = [self._default_collection]
         filter.fiction = True
         filter.audiences = 'CHILDREN'
         filter.target_age = (2,3)
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        filter.excluded_audiobook_data_sources = [overdrive.id]
+        filter.allow_holds = False
 
         # We want books that are literary fiction, *and* either
         # fantasy or horror.
@@ -2296,16 +2405,34 @@ class TestFilter(DatabaseTest):
         # chain() method -- a list of small filters.
         built, nested = filter.build(_chain_filters=chain)
 
-        # This time we do see a nested
-        # filter. licensepools.collection_id is in the nested
-        # licensepools document, so the 'current collection'
-        # restriction must be described in terms of a nested filter on
-        # that document.
-        [licensepool_filter] = nested.pop('licensepools')
+        # This time we do see a nested filter. The information
+        # necessary to enforce the 'current collection', 'excluded
+        # audiobook sources', and 'no holds' restrictions is kept in
+        # the nested 'licensepools' document, so those restrictions
+        # must be described in terms of nested filters on that
+        # document.
+        [licensepool_filter, excluded_audiobooks_filter, no_holds_filter] = nested.pop('licensepools')
+
+        # The 'current collection' filter.
         eq_(
             {'terms': {'licensepools.collection_id': [self._default_collection.id]}},
             licensepool_filter.to_dict()
         )
+
+        # The 'excluded audiobooks' filter.
+        audio = F('term', **{'licensepools.medium': Edition.AUDIO_MEDIUM})
+        excluded_audio_source = F(
+            'terms', **{'licensepools.data_source_id' : [overdrive.id]}
+        )
+        excluded_audio = Bool(must=[audio, excluded_audio_source])
+        not_excluded_audio = Bool(must_not=excluded_audio)
+        eq_(not_excluded_audio, excluded_audiobooks_filter)
+
+        # The 'no holds' filter.
+        open_access = F('term', **{'licensepools.open_access' : True})
+        licenses_available = F('term', **{'licensepools.available' : True})
+        currently_available = Bool(should=[licenses_available, open_access])
+        eq_(currently_available, no_holds_filter)
 
         # There are no other nested filters.
         eq_({}, nested)
@@ -2608,6 +2735,54 @@ class TestFilter(DatabaseTest):
         # The chained filter is the conjunction of the two input
         # filters.
         eq_(chained, f1 & f2)
+
+    def test_universal_base_filter(self):
+        # Test the base filters that are always applied.
+
+        # We only want to show works that are presentation ready.
+        base = Filter.universal_base_filter(self._mock_chain)
+        eq_([Term(presentation_ready=True)], base)
+
+    def test_universal_nested_filters(self):
+        # Test the nested filters that are always applied.
+
+        nested = Filter.universal_nested_filters()
+
+        # Currently all nested filters operate on the 'licensepools'
+        # subdocument.
+        [not_suppressed, currently_owned] = nested.pop('licensepools')
+        eq_({}, nested)
+
+        # Let's look at those filters.
+
+        # The first one is simple -- the license pool must not be
+        # suppressed.
+        eq_(Term(**{"licensepools.suppressed": False}),
+            not_suppressed)
+
+        # The second one is a little more complex
+        owned = Term(**{"licensepools.owned": True})
+        open_access = Term(**{"licensepools.open_access": True})
+
+        # We only count license pools that are open-access _or_ that have
+        # currently owned licenses.
+        eq_(Bool(should=[owned, open_access]), currently_owned)
+        
+    def _mock_chain(self, filters, new_filter):
+        """A mock of _chain_filters so we don't have to check
+        test results against super-complicated Elasticsearch
+        filter objects.
+
+        Instead, we'll get a list of smaller filter objects.
+        """
+        if filters is None:
+            # There are no active filters.
+            filters = []
+        if isinstance(filters, elasticsearch_dsl_query):
+            # An initial filter was passed in. Convert it to a list.
+            filters = [filters]
+        filters.append(new_filter)
+        return filters
 
 
 class TestSortKeyPagination(DatabaseTest):

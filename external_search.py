@@ -34,6 +34,9 @@ from facets import FacetConstants
 from model import (
     numericrange_to_tuple,
     Collection,
+    ConfigurationSetting,
+    DataSource,
+    Edition,
     ExternalIntegration,
     Library,
     Work,
@@ -747,6 +750,7 @@ class ExternalSearchIndexVersions(object):
         # When we list books by a specific author, we're applying a filter on sort_author,
         # not author.
         fields_by_type = {
+            'boolean': ['presentation_ready'],
             'keyword': ['sort_author', 'sort_title'],
             'date': ['last_update_time'],
             'integer': ['series_position', 'work_id'],
@@ -757,9 +761,10 @@ class ExternalSearchIndexVersions(object):
         # Build separate mappings for the nested data types --
         # currently just licensepools.
         licensepool_fields_by_type = {
-            'integer': ['collection_id'],
+            'integer': ['collection_id', 'data_source_id'],
             'date': ['availability_time'],
-            'boolean': ['availability', 'open_access'],
+            'boolean': ['availability', 'open_access', 'suppressed'],
+            'keyword': ['medium'],
         }
         licensepool_definition = cls.map_fields_by_type(
             licensepool_fields_by_type
@@ -1031,36 +1036,42 @@ class Query(SearchBase):
         """
         query = self.query()
         nested_filters = defaultdict(list)
-        # Add the filter, if there is one. This may also result in a
-        # number of nested filters, which need to be converted into
-        # subqueries.
-        #
-        # This happens when a filter applies to a field in a sub-document,
-        # such as licensepools.collection_id.
+
+        # Convert the resulting Filter into two objects -- one
+        # describing the base filter and one describing the nested
+        # filters.
         if self.filter:
             base_filter, nested_filters = self.filter.build()
-            if base_filter:
-                if MAJOR_VERSION == 1:
-                    query = Q("filtered", query=query, filter=base_filter)
-                else:
-                    query = Q("bool", must=query, filter=base_filter)
+        else:
+            base_filter = None
+            nested_filters = defaultdict(list)
+
+        # Combine the query's base Filter with the universal base
+        # filter -- works must be presentation-ready, etc.
+        universal_base_filter = Filter.universal_base_filter()
+        if universal_base_filter:
+            query_filter = Filter._chain_filters(
+                base_filter, universal_base_filter
+            )
+        else:
+            query_filter = base_filter
+        if query_filter:
+            query = Q("bool", must=query, filter=query_filter)
 
         # We now have an Elasticsearch-DSL Query object (which isn't
         # tied to a specific server). Turn it into a Search object
         # (which is).
         search = elasticsearch.query(query)
 
-        # We always want to eliminate books for which no copies are
-        # currently owned. It's easier to stay consistent by indexing
-        # all of a Work's licensepools, even when no copies are owned,
-        # than to add and remove works from the index (TODO: is this
-        # really true?)
-        owns_licenses = F('term', **{'licensepools.owned' : True})
-        open_access = F('term', **{'licensepools.open_access' : True})
-        owned = F('bool', should=[owns_licenses, open_access])
-        nested_filters['licensepools'].append(owned)
+        # Now update the 'nested filters' dictionary with the
+        # universal nested filters -- no suppressed license pools,
+        # etc.
+        universal_nested_filters = Filter.universal_nested_filters() or {}
+        for key, values in universal_nested_filters.items():
+            nested_filters[key].extend(values)
 
-        # Now we can convert any nested filters into nested queries.
+        # Now we can convert any nested filters (universal or
+        # otherwise) into nested queries.
         for path, subfilters in nested_filters.items():
             for subfilter in subfilters:
                 # This ensures that the filter logic is executed in
@@ -1511,17 +1522,41 @@ class Filter(SearchBase):
         inherit_some = worklist.inherited_values
         genre_id_restrictions = inherit_some('genre_ids')
         customlist_id_restrictions = inherit_some('customlist_ids')
+
+        # See if there are any excluded audiobook sources on this
+        # site.
+        excluded = (
+            ConfigurationSetting.excluded_audio_data_sources(_db)
+        )
+        excluded_audiobook_data_sources = [
+            DataSource.lookup(_db, x) for x in excluded
+        ]
+
         return cls(
             library, media, languages, fiction, audiences,
             target_age, genre_id_restrictions, customlist_id_restrictions,
-            facets
+            facets,
+            excluded_audiobook_data_sources=excluded_audiobook_data_sources,
+            allow_holds=library.allow_holds,
         )
+
 
     def __init__(self, collections=None, media=None, languages=None,
                  fiction=None, audiences=None, target_age=None,
                  genre_restriction_sets=None, customlist_restriction_sets=None,
-                 facets=None,
+                 facets=None, **kwargs
     ):
+        """
+        These minor arguments were made into unnamed keyword arguments to
+        avoid cluttering the method signature:
+
+        `param excluded_audiobook_data_sources`: A list of DataSources that
+        provide audiobooks known to be unsupported on this system.
+        Such audiobooks will always be excluded from results.
+
+        `param allow_holds`: If this is False, books with no available
+        copies will be excluded from results.
+        """
 
         if isinstance(collections, Library):
             # Find all works in this Library's collections.
@@ -1559,6 +1594,20 @@ class Filter(SearchBase):
         else:
             self.customlist_restriction_sets = []
 
+        # Pull less-important values out of the keyword arguments.
+        excluded_audiobook_data_sources = kwargs.pop(
+            'excluded_audiobook_data_sources', []
+        )
+        self.excluded_audiobook_data_sources = self._filter_ids(
+            excluded_audiobook_data_sources
+        )
+        self.allow_holds = kwargs.pop('allow_holds', True)
+
+        # At this point there should be no keyword arguments -- you can't pass
+        # whatever you want into this method.
+        if kwargs:
+            raise ValueError("Unknown keyword arguments: %r" % kwargs)
+
         # Establish default values for additional restrictions that may be
         # imposed by the Facets object.
         self.minimum_featured_quality = 0
@@ -1583,7 +1632,7 @@ class Filter(SearchBase):
            to a list of filters to apply to that path.
 
         :param _chain_filters: Mock function to use instead of
-        Filter._chain_filters
+            Filter._chain_filters
         """
 
         # Since a Filter object can be modified after it's created, we
@@ -1656,8 +1705,82 @@ class Filter(SearchBase):
             range_query = self._match_range(
                 'quality', 'gte', self.minimum_featured_quality
             )
-            f = chain(f, range_query)
+            f = chain(f, F('bool', must=range_query))
+
+        # Some sources of audiobooks may be excluded because the
+        # server can't fulfill them or the anticipated client can't
+        # play them.
+        excluded = self.excluded_audiobook_data_sources
+        if excluded:
+            audio = F('term', **{'licensepools.medium': Edition.AUDIO_MEDIUM})
+            excluded_audio_source = F(
+                'terms', **{'licensepools.data_source_id' : excluded}
+            )
+            excluded_audio = Bool(must=[audio, excluded_audio_source])
+            not_excluded_audio = Bool(must_not=excluded_audio)
+            nested_filters['licensepools'].append(not_excluded_audio)
+
+        # If holds are not allowed, only license pools that are
+        # currently available should be considered.
+        if not self.allow_holds:
+            licenses_available = F('term', **{'licensepools.available' : True})
+            currently_available = Bool(should=[licenses_available, open_access])
+            nested_filters['licensepools'].append(currently_available)
+
         return f, nested_filters
+
+    @classmethod
+    def universal_base_filter(cls, _chain_filters=None):
+        """Build a set of restrictions on the main search document that are
+        always applied, even in the absence of other filters.
+
+        :param _chain_filters: Mock function to use instead of
+            Filter._chain_filters
+
+        :return: A Filter object.
+
+        """
+
+        _chain_filters = _chain_filters or cls._chain_filters
+
+        base_filter = None
+
+        # We only want to show works that are presentation-ready.
+        base_filter = _chain_filters(
+            base_filter, F('term', **{"presentation_ready":True})
+        )
+
+        return base_filter
+
+    @classmethod
+    def universal_nested_filters(cls):
+        """Build a set of restrictions on subdocuments that are
+        always applied, even in the absence of other filters.
+        """
+        nested_filters = defaultdict(list)
+
+        # TODO: It would be great to be able to filter out
+        # LicensePools that have no delivery mechanisms. That's the
+        # only part of Collection.restrict_to_ready_deliverable_works
+        # not already implemented in this class.
+
+        # We don't want to consider license pools that have been
+        # suppressed, or of which there are currently no licensed
+        # copies. This might lead to a Work being filtered out
+        # entirely.
+        #
+        # It's easier to stay consistent by indexing all Works and
+        # filtering them out later, than to do it by adding and
+        # removing works from the index.
+        not_suppressed = F('term', **{'licensepools.suppressed' : False})
+        nested_filters['licensepools'].append(not_suppressed)
+
+        owns_licenses = F('term', **{'licensepools.owned' : True})
+        open_access = F('term', **{'licensepools.open_access' : True})
+        currently_owned = F('bool', should=[owns_licenses, open_access])
+        nested_filters['licensepools'].append(currently_owned)
+
+        return nested_filters
 
     @property
     def sort_order(self):
