@@ -564,14 +564,6 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             self.not_presentation_ready = _work(title="Moby Dick 2")
             self.not_presentation_ready.presentation_ready = False
 
-        # Just a basic check to make sure the search document query
-        # doesn't contain over-zealous joins. This is the main place
-        # where we make a large number of works and generate search
-        # documents for them.
-        eq_(1, len(self.moby_dick.to_search_document()['licensepools']))
-        eq_("Audio",
-            self.pride_audio.to_search_document()['licensepools'][0]['medium'])
-
     def test_query_works(self):
         # An end-to-end test of the search functionality.
         #
@@ -584,6 +576,14 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
                 "Search is not configured, skipping test_query_works."
             )
             return
+
+        # First, run some basic checks to make sure the search
+        # document query doesn't contain over-zealous joins. This test
+        # class is the main place where we make a large number of
+        # works and generate search documents for them.
+        eq_(1, len(self.moby_dick.to_search_document()['licensepools']))
+        eq_("Audio",
+            self.pride_audio.to_search_document()['licensepools'][0]['medium'])
 
         # Add all the works created in the setup to the search index.
         SearchIndexCoverageProvider(
