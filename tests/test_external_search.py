@@ -892,6 +892,18 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         f = Filter(allow_holds=False)
         expect([self.moby_dick], "moby duck", f)
 
+        # Finally, let's do some end-to-end tests of
+        # WorkList.works_from_search_index.
+        #
+        # This is a simple method that puts together a few pieces
+        # tested separately, so we don't need to go all-out.
+        fiction = WorkList()
+        fiction.initialize(self._default_library, languages=["eng"])
+
+        facets = Facets(
+            self._default_library, order=Facets.ORDER_TITLE
+        )
+        fiction.works_from_search_index(facets, pagination, self.search)
 
 class TestFacetFilters(EndToEndExternalSearchTest):
 
