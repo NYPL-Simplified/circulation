@@ -31,6 +31,7 @@ from ..lane import (
     Facets,
     Lane,
     Pagination,
+    WorkList,
 )
 from ..model import (
     ConfigurationSetting,
@@ -901,9 +902,14 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         fiction.initialize(self._default_library, languages=["eng"])
 
         facets = Facets(
-            self._default_library, order=Facets.ORDER_TITLE
+            self._default_library, None, None, order=Facets.ORDER_TITLE
         )
-        fiction.works_from_search_index(facets, pagination, self.search)
+        pagination = SortKeyPagination(size=2)
+        works = fiction.works_from_search_index(
+            self._db, facets, pagination, self.search
+        )
+        pass
+
 
 class TestFacetFilters(EndToEndExternalSearchTest):
 
