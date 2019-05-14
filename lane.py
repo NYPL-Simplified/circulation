@@ -1678,7 +1678,7 @@ class WorkList(object):
         return items
 
     @classmethod
-    def _lazy_load(cls, qu, work_model):
+    def _lazy_load(cls, qu, work_model=mw):
         """Avoid eager loading of objects that are contained in the
         materialized view.
         """
