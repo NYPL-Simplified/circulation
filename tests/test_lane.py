@@ -1716,15 +1716,33 @@ class TestWorkList(DatabaseTest):
         eq_(facets, wl.apply_filters_called_with)
 
     def test_works_for_specific_ids(self):
-        # Create two works and put them in the materialized view.
+        # Create two works.
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)
-        self.add_to_materialized_view([w1, w2])
+
+        # Right now, works_for_specific_ids won't return anything,
+        # because the works aren't in the materialized view.
         wl = WorkList()
         wl.initialize(self._default_library)
+        eq_([], wl.works_for_specific_ids(self._db, [w2.id]))
 
-        # Now we're going to ask for a WorkList that contains specific
-        # Works, such as those returned from a search request.
+        # We can get results by telling it to use Work as the work model
+        # instead.
+        eq_([w2], wl.works_for_specific_ids(self._db, [w2.id], Work))
+
+        # Works are returned in the order we ask for.
+        for ordering in ([w1, w2], [w2, w1]):
+            ids = [x.id for x in ordering]
+            eq_(ordering, wl.works_for_specific_ids(self._db, ids, Work))
+
+        # If we ask for a work ID that's not in the materialized view,
+        # we don't get it.
+        eq_([], wl.works_for_specific_ids(self._db, [-100], Work))
+
+        # Now add the works to the materialized view, and verify that
+        # similar tests pass when works_for_specific_ids is told to
+        # look for MaterializedWork objects (this is the default).
+        self.add_to_materialized_view([w1, w2])
 
         # If we ask for w2 only, we get (the materialized view's
         # version of) w2 only.
@@ -1737,14 +1755,12 @@ class TestWorkList(DatabaseTest):
             mv_works = wl.works_for_specific_ids(self._db, ids)
             eq_(ids, [x.works_id for x in mv_works])
 
-        # If we ask for a work ID that's not in the materialized view,
-        # we don't get it.
-        eq_([], wl.works_for_specific_ids(self._db, [-100]))
-
-        # If we ask for a work that's not deliverable, we don't get it.
+        # Finally, test that undeliverable works are filtered out.
         for lpdm in w2.license_pools[0].delivery_mechanisms:
             self._db.delete(lpdm)
-        eq_([], wl.works_for_specific_ids(self._db, [w2.id]))
+            from ..model import MaterializedWorkWithGenre
+            for m in (Work, MaterializedWorkWithGenre):
+                eq_([], wl.works_for_specific_ids(self._db, [w2.id], m))
 
     def test_apply_filters(self):
 

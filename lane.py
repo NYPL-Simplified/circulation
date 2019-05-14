@@ -1324,7 +1324,6 @@ class WorkList(object):
         :return: A Query, or None if the WorkList is deemed to be a
            bad idea in the first place.
         """
-        mw = mw
         # apply_filters() will apply the genre
         # restrictions.
 
@@ -1376,38 +1375,59 @@ class WorkList(object):
             )
         return qu
 
-    def works_for_specific_ids(self, _db, work_ids):
-        """Create the appearance of having called works(),
-        but return the specific MaterializedWorks identified by `work_ids`.
+    def works_for_specific_ids(self, _db, work_ids, work_model=mw):
+        """Create the appearance of having called works(), but return the
+        specific MaterializedWorks or Works identified by `work_ids`.
+
+        :param _db: A database connection
+        :param work_ids: A list of Work IDs
+        :param work_model: By default, this method will return
+            MaterializedWorkWithGenre objects. Pass in Work here
+            to return Work objects.
         """
 
-        # Get a list of MaterializedWorkWithGenre objects as though we
-        # had called works().
-        mw = mw
-        qu = _db.query(mw).join(
-            LicensePool, mw.license_pool_id==LicensePool.id
-        ).filter(
-            mw.works_id.in_(work_ids),
-            LicensePool.work_id.in_(work_ids),
+        # Get a list of Work or MaterializedWorkWithView objects, using
+        # the same rules applied in works() and works_from_search().
+        if work_model == mw:
+            work_id_field = work_model.works_id
+            qu = _db.query(work_model).join(
+                LicensePool, LicensePool.id == work_model.license_pool_id
+            )
+            edition_model = mw
+        else:
+            work_id_field = work_model.id
+            qu = _db.query(work_model).join(
+                work_model.license_pools
+            ).join(
+                work_model.presentation_edition
+            )
+            edition_model = Edition
+        qu = qu.filter(
+            work_id_field.in_(work_ids),
+            LicensePool.work_id.in_(work_ids), # Query optimization
         ).enable_eagerloads(False)
-        qu = self._lazy_load(qu)
-        qu = self._defer_unused_fields(qu)
-        qu = self.only_show_ready_deliverable_works(_db, qu)
-        qu = qu.distinct(mw.works_id)
+        qu = self._lazy_load(qu, work_model)
+        qu = self._defer_unused_fields(qu, work_model)
+        qu = self.only_show_ready_deliverable_works(
+            _db, qu, work_model=work_model, edition_model=edition_model
+        )
+        qu = qu.distinct(work_id_field)
         work_by_id = dict()
         a = time.time()
         works = qu.all()
 
-        # Put the MaterializedWork objects in the same order as their
-        # work_ids were.
-        for mw in works:
-            work_by_id[mw.works_id] = mw
+        # Put the results in the same order as the work_ids were.
+        for w in works:
+            if work_model == mw:
+                work_id = w.works_id
+            else:
+                work_id = w.id
+            work_by_id[work_id] = w
         results = [work_by_id[x] for x in work_ids if x in work_by_id]
 
         b = time.time()
         logging.debug(
-            "Obtained %d MaterializedWork objects in %.2fsec",
-            len(results), b-a
+            "Obtained %d works in %.2fsec", len(results), b-a
         )
         return results
 
@@ -1600,7 +1620,8 @@ class WorkList(object):
         return qu, clauses
 
     def only_show_ready_deliverable_works(
-            self, _db, query, show_suppressed=False
+            self, _db, query, show_suppressed=False, work_model=mw,
+            edition_model=mw
     ):
         """Restrict a query to show only presentation-ready works present in
         an appropriate collection which the default client can
@@ -1610,7 +1631,7 @@ class WorkList(object):
         LicensePool.
         """
         return Collection.restrict_to_ready_deliverable_works(
-            query, mw, show_suppressed=show_suppressed,
+            query, work_model, edition_model, show_suppressed=show_suppressed,
             collection_ids=self.collection_ids
         )
 
@@ -1657,27 +1678,31 @@ class WorkList(object):
         return items
 
     @classmethod
-    def _lazy_load(cls, qu):
+    def _lazy_load(cls, qu, work_model):
         """Avoid eager loading of objects that are contained in the
         materialized view.
         """
+        if work_model == mw:
+            pool = work_model.license_pool
+        else:
+            pool = work_model.license_pools
         return qu.options(
-            lazyload(mw.license_pool, LicensePool.data_source),
-            lazyload(mw.license_pool, LicensePool.identifier),
-            lazyload(mw.license_pool, LicensePool.presentation_edition),
+            lazyload(pool, LicensePool.data_source),
+            lazyload(pool, LicensePool.identifier),
+            lazyload(pool, LicensePool.presentation_edition),
         )
 
     @classmethod
-    def _defer_unused_fields(cls, query):
+    def _defer_unused_fields(cls, query, work_model=mw):
         """Some applications use the simple OPDS entry and some
         applications use the verbose. Whichever one we don't need,
         we can stop from even being sent over from the
         database.
         """
         if Configuration.DEFAULT_OPDS_FORMAT == "simple_opds_entry":
-            return query.options(defer(mw.verbose_opds_entry))
+            return query.options(defer(work_model.verbose_opds_entry))
         else:
-            return query.options(defer(mw.simple_opds_entry))
+            return query.options(defer(work_model.simple_opds_entry))
 
     @property
     def search_target(self):
