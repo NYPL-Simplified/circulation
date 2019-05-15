@@ -20,7 +20,13 @@ area_settings = _db.query(ConfigurationSetting).filter(
     or_(ConfigurationSetting._value != None, ConfigurationSetting._value == "")
     ).all()
 
-settings_with_wrong_format = [s for s in area_settings if isinstance(json.loads(s._value), (list,))]
+settings_with_wrong_format = []
+for s in area_settings:
+    try:
+        if not type(json.loads(s._value)) is dict:
+            settings_with_wrong_format.append(s)
+    except:
+        settings_with_wrong_format.append(s)
 
 for setting in settings_with_wrong_format:
     formatted_info = GeographicValidator().validate_geographic_areas(setting._value, _db)
