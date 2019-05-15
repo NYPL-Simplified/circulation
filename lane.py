@@ -1378,6 +1378,9 @@ class WorkList(object):
     def works_from_search_index(
         self, _db, facets, pagination, search_client=None, debug=True
     ):
+        """Retrieve a list of Work objects, the way works() does,
+        but use the search index instead of the materialized view.
+        """
         from external_search import (
             Filter,
             ExternalSearchIndex,
