@@ -1716,7 +1716,9 @@ class TestWorkList(DatabaseTest):
         eq_(facets, wl.apply_filters_called_with)
 
     def test_works_from_search_index(self):
-        """Test the method that fetches """
+        """Test the method that uses the search index to fetch a list of Works
+        appropriate for a given WorkList.
+        """
 
         class MockSearchClient(object):
             """Respond to search requests with some fake work IDs."""
