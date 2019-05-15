@@ -1385,7 +1385,8 @@ class WorkList(object):
         search_client = search_client or ExternalSearchIndex(_db)
         filter = Filter.from_worklist(_db, self, facets)
         work_ids = search_client.query_works(
-            None, filter, pagination, debug=debug
+            query_string=None, filter=filter, pagination=pagination,
+            debug=debug
         )
         return self.works_for_specific_ids(_db, work_ids, Work)
 
