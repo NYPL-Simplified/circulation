@@ -1375,6 +1375,24 @@ class WorkList(object):
             )
         return qu
 
+    def works_from_search_index(
+        self, _db, facets, pagination, search_client=None, debug=True
+    ):
+        """Retrieve a list of Work objects, the way works() does,
+        but use the search index instead of the materialized view.
+        """
+        from external_search import (
+            Filter,
+            ExternalSearchIndex,
+        )
+        search_client = search_client or ExternalSearchIndex(_db)
+        filter = Filter.from_worklist(_db, self, facets)
+        work_ids = search_client.query_works(
+            query_string=None, filter=filter, pagination=pagination,
+            debug=debug
+        )
+        return self.works_for_specific_ids(_db, work_ids, Work)
+
     def works_for_specific_ids(self, _db, work_ids, work_model=mw):
         """Create the appearance of having called works(), but return the
         specific MaterializedWorks or Works identified by `work_ids`.

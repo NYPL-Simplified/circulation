@@ -31,6 +31,7 @@ from ..lane import (
     Facets,
     Lane,
     Pagination,
+    WorkList,
 )
 from ..model import (
     ConfigurationSetting,
@@ -492,7 +493,9 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
             self.age_5_6 = _work(fiction=False)
             self.age_5_6.target_age = NumericRange(5, 6, '[]')
 
-            self.obama = _work(genre="Biography & Memoir")
+            self.obama = _work(
+                title="Barack Obama", genre="Biography & Memoir"
+            )
             self.obama.target_age = NumericRange(8, 8, '[]')
             self.obama.summary_text = "President Barack Obama's election in 2008 energized the United States"
 
@@ -517,10 +520,10 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
                 title="The Adventures of Sherlock Holmes",
                 with_open_access_download=True
             )
-            self.sherlock.presentation_edition.language = "en"
+            self.sherlock.presentation_edition.language = "eng"
 
             self.sherlock_spanish = _work(title="Las Aventuras de Sherlock Holmes")
-            self.sherlock_spanish.presentation_edition.language = "es"
+            self.sherlock_spanish.presentation_edition.language = "spa"
 
             # Create a custom list that contains a few books.
             self.presidential, ignore = self._customlist(
@@ -766,9 +769,9 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         expect(self.pride_audio, "pride and prejudice", audio_filter)
 
         # Filters on languages
-        english = Filter(languages="en")
-        spanish = Filter(languages="es")
-        both = Filter(languages=["en", "es"])
+        english = Filter(languages="eng")
+        spanish = Filter(languages="spa")
+        both = Filter(languages=["eng", "spa"])
 
         expect(self.sherlock, "sherlock", english)
         expect(self.sherlock_spanish, "sherlock", spanish)
@@ -872,7 +875,7 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         # being searched, it only shows up in search results once.
         f = Filter(
             collections=[self._default_collection, self.tiny_collection],
-            languages="en"
+            languages="eng"
         )
         expect(self.sherlock, "sherlock holmes", f)
 
@@ -891,6 +894,52 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         # search results if allow_holds is False.
         f = Filter(allow_holds=False)
         expect([self.moby_dick], "moby duck", f)
+
+        # Finally, let's do some end-to-end tests of
+        # WorkList.works_from_search_index.
+        #
+        # That's a simple method that puts together a few pieces
+        # which are tested separately, so we don't need to go all-out.
+        def pages(worklist):
+            """Iterate over a WorkList until it ends, and return all of the
+            pages.
+            """
+            pagination = SortKeyPagination(size=2)
+            facets = Facets(
+                self._default_library, None, None, order=Facets.ORDER_TITLE
+            )
+            pages = []
+            while pagination:
+                pages.append(worklist.works_from_search_index(
+                    self._db, facets, pagination, self.search
+                ))
+                pagination = pagination.next_page
+
+            # The last page should always be empty -- that's how we
+            # knew we'd reached the end.
+            eq_([], pages[-1])
+
+            # Return all the other pages for verification.
+            return pages[:-1]
+
+        # Test a WorkList based on a custom list.
+        presidential = WorkList()
+        presidential.initialize(
+            self._default_library, customlists=[self.presidential]
+        )
+        p1, p2 = pages(presidential)
+        eq_([self.lincoln, self.obama], p1)
+        eq_([self.washington], p2)
+
+        # Test a WorkList based on a language.
+        spanish = WorkList()
+        spanish.initialize(self._default_library, languages=['spa'])
+        eq_([[self.sherlock_spanish]], pages(spanish))
+
+        # Test a WorkList based on a genre.
+        biography_wl = WorkList()
+        biography_wl.initialize(self._default_library, genres=[biography])
+        eq_([[self.lincoln, self.obama]], pages(biography_wl))
 
 
 class TestFacetFilters(EndToEndExternalSearchTest):
