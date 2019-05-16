@@ -918,7 +918,7 @@ class TestWork(DatabaseTest):
             eq_(pool.data_source_id, match['data_source_id'])
 
             eq_(pool.licenses_available > 0, match['available'])
-            eq_(pool.licenses_owned > 0, match['owned'])
+            eq_(pool.licenses_owned > 0, match['licensed'])
 
             # The work quality is stored in the main document, but
             # it's also stored in the license pool subdocument so that

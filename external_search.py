@@ -396,7 +396,6 @@ class ExternalSearchIndex(HasSelfTests):
         search = self.create_search_doc(query_string, filter=filter, pagination=pagination, debug=debug, return_raw_results=return_raw_results)
         start = pagination.offset
         stop = start + pagination.size
-
         a = time.time()
         # NOTE: This is the code that actually executes the ElasticSearch
         # request.
