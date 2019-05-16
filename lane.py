@@ -72,7 +72,7 @@ from model import (
     Library,
     LicensePool,
     LicensePoolDeliveryMechanism,
-    MaterializedWorkWithGenre as work_model,
+    MaterializedWorkWithGenre as mw,
     Session,
     Work,
     WorkGenre,
@@ -474,13 +474,13 @@ class Facets(FacetsWithEntryPoint):
         for use in an ORDER BY clause.
         """
         order_facet_to_database_field = {
-            cls.ORDER_ADDED_TO_COLLECTION: work_model.availability_time,
-            cls.ORDER_WORK_ID : work_model.works_id,
-            cls.ORDER_TITLE : work_model.sort_title,
-            cls.ORDER_AUTHOR : work_model.sort_author,
-            cls.ORDER_LAST_UPDATE : work_model.last_update_time,
-            cls.ORDER_SERIES_POSITION : work_model.series_position,
-            cls.ORDER_RANDOM : work_model.random,
+            cls.ORDER_ADDED_TO_COLLECTION: mw.availability_time,
+            cls.ORDER_WORK_ID : mw.works_id,
+            cls.ORDER_TITLE : mw.sort_title,
+            cls.ORDER_AUTHOR : mw.sort_author,
+            cls.ORDER_LAST_UPDATE : mw.last_update_time,
+            cls.ORDER_SERIES_POSITION : mw.series_position,
+            cls.ORDER_RANDOM : mw.random,
         }
         return order_facet_to_database_field[order_facet]
 
@@ -510,14 +510,14 @@ class Facets(FacetsWithEntryPoint):
             # 0.3.
             or_clause = or_(
                 LicensePool.open_access==False,
-                work_model.quality >= 0.3
+                mw.quality >= 0.3
             )
             qu = qu.filter(or_clause)
         elif self.collection == self.COLLECTION_FEATURED:
             # Exclude books with a quality of less than the library's
             # minimum featured quality.
             qu = qu.filter(
-                work_model.quality >= self.library.minimum_featured_quality
+                mw.quality >= self.library.minimum_featured_quality
             )
 
         # Set the ORDER BY clause.
@@ -534,9 +534,9 @@ class Facets(FacetsWithEntryPoint):
         """Given these Facets, create a complete ORDER BY clause for queries
         against WorkModelWithGenre.
         """
-        work_id = work_model.works_id
+        work_id = mw.works_id
         default_sort_order = [
-            work_model.sort_author, work_model.sort_title, work_id
+            mw.sort_author, mw.sort_title, work_id
         ]
 
         primary_order_by = self.order_facet_to_database_field(self.order)
@@ -639,9 +639,9 @@ class FeaturedFacets(FacetsWithEntryPoint):
         qu = super(FeaturedFacets, self).apply(_db, qu)
         quality = self.quality_tier_field()
         qu = qu.order_by(
-            quality.desc(), work_model.random.desc(), work_model.works_id
+            quality.desc(), mw.random.desc(), mw.works_id
         )
-        qu = qu.distinct(quality, work_model.random, work_model.works_id)
+        qu = qu.distinct(quality, mw.random, mw.works_id)
         return qu
 
     def quality_tier_field(self):
@@ -667,7 +667,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
             return self._quality_tier_field
         featurable_quality = self.minimum_featured_quality
 
-        mwg = work_model
+        mwg = mw
         # Being of featureable quality is great.
         featurable_quality = case(
             [(mwg.quality >= featurable_quality, 5)],
@@ -1324,7 +1324,6 @@ class WorkList(object):
         :return: A Query, or None if the WorkList is deemed to be a
            bad idea in the first place.
         """
-        mw = work_model
         # apply_filters() will apply the genre
         # restrictions.
 
@@ -1376,38 +1375,77 @@ class WorkList(object):
             )
         return qu
 
-    def works_for_specific_ids(self, _db, work_ids):
-        """Create the appearance of having called works(),
-        but return the specific MaterializedWorks identified by `work_ids`.
+    def works_from_search_index(
+        self, _db, facets, pagination, search_client=None, debug=True
+    ):
+        """Retrieve a list of Work objects, the way works() does,
+        but use the search index instead of the materialized view.
+        """
+        from external_search import (
+            Filter,
+            ExternalSearchIndex,
+        )
+        search_client = search_client or ExternalSearchIndex(_db)
+        filter = Filter.from_worklist(_db, self, facets)
+        work_ids = search_client.query_works(
+            query_string=None, filter=filter, pagination=pagination,
+            debug=debug
+        )
+        return self.works_for_specific_ids(_db, work_ids, Work)
+
+    def works_for_specific_ids(self, _db, work_ids, work_model=mw):
+        """Create the appearance of having called works(), but return the
+        specific MaterializedWorks or Works identified by `work_ids`.
+
+        :param _db: A database connection
+        :param work_ids: A list of Work IDs
+        :param work_model: By default, this method will return
+            MaterializedWorkWithGenre objects. Pass in Work here
+            to return Work objects.
         """
 
-        # Get a list of MaterializedWorkWithGenre objects as though we
-        # had called works().
-        mw = work_model
-        qu = _db.query(mw).join(
-            LicensePool, mw.license_pool_id==LicensePool.id
-        ).filter(
-            mw.works_id.in_(work_ids),
-            LicensePool.work_id.in_(work_ids),
+        # Get a list of Work or MaterializedWorkWithView objects, using
+        # the same rules applied in works() and works_from_search().
+        if work_model == mw:
+            work_id_field = work_model.works_id
+            qu = _db.query(work_model).join(
+                LicensePool, LicensePool.id == work_model.license_pool_id
+            )
+            edition_model = mw
+        else:
+            work_id_field = work_model.id
+            qu = _db.query(work_model).join(
+                work_model.license_pools
+            ).join(
+                work_model.presentation_edition
+            )
+            edition_model = Edition
+        qu = qu.filter(
+            work_id_field.in_(work_ids),
+            LicensePool.work_id.in_(work_ids), # Query optimization
         ).enable_eagerloads(False)
-        qu = self._lazy_load(qu)
-        qu = self._defer_unused_fields(qu)
-        qu = self.only_show_ready_deliverable_works(_db, qu)
-        qu = qu.distinct(mw.works_id)
+        qu = self._lazy_load(qu, work_model)
+        qu = self._defer_unused_fields(qu, work_model)
+        qu = self.only_show_ready_deliverable_works(
+            _db, qu, work_model=work_model, edition_model=edition_model
+        )
+        qu = qu.distinct(work_id_field)
         work_by_id = dict()
         a = time.time()
         works = qu.all()
 
-        # Put the MaterializedWork objects in the same order as their
-        # work_ids were.
-        for mw in works:
-            work_by_id[mw.works_id] = mw
+        # Put the results in the same order as the work_ids were.
+        for w in works:
+            if work_model == mw:
+                work_id = w.works_id
+            else:
+                work_id = w.id
+            work_by_id[work_id] = w
         results = [work_by_id[x] for x in work_ids if x in work_by_id]
 
         b = time.time()
         logging.debug(
-            "Obtained %d MaterializedWork objects in %.2fsec",
-            len(results), b-a
+            "Obtained %d works in %.2fsec", len(results), b-a
         )
         return results
 
@@ -1439,7 +1477,7 @@ class WorkList(object):
             # the query and making it distinct. In the absence
             # of any ordering information, we will make the query distinct
             # based on work ID.
-            qu = qu.distinct(work_model.works_id)
+            qu = qu.distinct(mw.works_id)
 
         if pagination:
             qu = pagination.apply(qu)
@@ -1461,20 +1499,20 @@ class WorkList(object):
 
         clauses = self.audience_filter_clauses(_db, qu)
         if self.languages:
-            clauses.append(work_model.language.in_(self.languages))
+            clauses.append(mw.language.in_(self.languages))
         if self.media:
-            clauses.append(work_model.medium.in_(self.media))
+            clauses.append(mw.medium.in_(self.media))
         if self.genre_ids:
             already_filtered_genre_id_on_materialized_view = getattr(
                 qu, 'genre_id_filtered', False
             )
             if already_filtered_genre_id_on_materialized_view:
                 wg = aliased(WorkGenre)
-                qu = qu.join(wg, wg.work_id==work_model.works_id)
+                qu = qu.join(wg, wg.work_id==mw.works_id)
                 field = wg.genre_id
             else:
                 qu.genre_id_filtered = True
-                field = work_model.genre_id
+                field = mw.genre_id
             clauses.append(field.in_(self.genre_ids))
 
         if self.customlist_ids:
@@ -1495,7 +1533,7 @@ class WorkList(object):
         """
         if not self.audiences:
             return []
-        clauses = [work_model.audience.in_(self.audiences)]
+        clauses = [mw.audience.in_(self.audiences)]
         if (Classifier.AUDIENCE_CHILDREN in self.audiences
             or Classifier.AUDIENCE_YOUNG_ADULT in self.audiences):
             # TODO: A huge hack to exclude Project Gutenberg
@@ -1527,7 +1565,7 @@ class WorkList(object):
         `clauses` is a list of SQLAlchemy statements for use in a
         filter() or case() statement.
         """
-        from model import MaterializedWorkWithGenre as work_model
+        from model import MaterializedWorkWithGenre as mw
         if not self.uses_customlists:
             # This lane does not require that books be on any particular
             # CustomList.
@@ -1548,16 +1586,16 @@ class WorkList(object):
         else:
             a_entry = CustomListEntry
 
-        clause = a_entry.work_id==work_model.works_id
+        clause = a_entry.work_id==mw.works_id
         if not already_filtered_customlist_on_materialized_view:
             # Since this is the first join, we're treating
-            # work_model.list_id as a stand-in for CustomListEntry.list_id,
+            # mw.list_id as a stand-in for CustomListEntry.list_id,
             # which means we should force them to be the same when joining
             # the view to the table.
             #
             # For subsequent joins, this won't apply -- we want to
             # match a _different_ list's entry for the same work.
-            clause = and_(clause, a_entry.list_id==work_model.list_id)
+            clause = and_(clause, a_entry.list_id==mw.list_id)
         if outer_join:
             qu = qu.outerjoin(a_entry, clause)
         else:
@@ -1579,7 +1617,7 @@ class WorkList(object):
         if customlist_ids is not None:
             clauses.append(a_entry.list_id.in_(customlist_ids))
             if not already_filtered_customlist_on_materialized_view:
-                clauses.append(work_model.list_id.in_(customlist_ids))
+                clauses.append(mw.list_id.in_(customlist_ids))
                 # Now that we've put a restriction on the materialized
                 # view's list_id, we need to signal that no future
                 # call to this method should put a restriction on the
@@ -1600,7 +1638,8 @@ class WorkList(object):
         return qu, clauses
 
     def only_show_ready_deliverable_works(
-            self, _db, query, show_suppressed=False
+            self, _db, query, show_suppressed=False, work_model=mw,
+            edition_model=mw
     ):
         """Restrict a query to show only presentation-ready works present in
         an appropriate collection which the default client can
@@ -1610,7 +1649,7 @@ class WorkList(object):
         LicensePool.
         """
         return Collection.restrict_to_ready_deliverable_works(
-            query, work_model, show_suppressed=show_suppressed,
+            query, work_model, edition_model, show_suppressed=show_suppressed,
             collection_ids=self.collection_ids
         )
 
@@ -1657,18 +1696,22 @@ class WorkList(object):
         return items
 
     @classmethod
-    def _lazy_load(cls, qu):
+    def _lazy_load(cls, qu, work_model=mw):
         """Avoid eager loading of objects that are contained in the
         materialized view.
         """
+        if work_model == mw:
+            pool = work_model.license_pool
+        else:
+            pool = work_model.license_pools
         return qu.options(
-            lazyload(work_model.license_pool, LicensePool.data_source),
-            lazyload(work_model.license_pool, LicensePool.identifier),
-            lazyload(work_model.license_pool, LicensePool.presentation_edition),
+            lazyload(pool, LicensePool.data_source),
+            lazyload(pool, LicensePool.identifier),
+            lazyload(pool, LicensePool.presentation_edition),
         )
 
     @classmethod
-    def _defer_unused_fields(cls, query):
+    def _defer_unused_fields(cls, query, work_model=mw):
         """Some applications use the simple OPDS entry and some
         applications use the verbose. Whichever one we don't need,
         we can stop from even being sent over from the
@@ -1846,7 +1889,7 @@ class WorkList(object):
         )
 
         lane_query = lane_query.order_by(
-            text("quality_tier desc"), work_model.random.desc()
+            text("quality_tier desc"), mw.random.desc()
         )
 
         # Allow some overage to reduce the risk that we'll have to
@@ -1865,8 +1908,8 @@ class WorkList(object):
         window_start, window_end = self.featured_window(target_size, facets)
         if window_start > 0 and window_start < 1:
             query = query.filter(
-                work_model.random <= window_end,
-                work_model.random >= window_start
+                mw.random <= window_end,
+                mw.random >= window_start
             )
         return query
 
@@ -2269,7 +2312,7 @@ class Lane(Base, WorkList):
     def update_size(self, _db):
         """Update the stored estimate of the number of Works in this Lane."""
         query = self.works(_db).limit(None)
-        query = query.distinct(work_model.works_id)
+        query = query.distinct(mw.works_id)
 
         # Do the estimate for every known entry point.
         by_entrypoint = dict()
@@ -2582,7 +2625,7 @@ class Lane(Base, WorkList):
             clauses.append(LicensePool.data_source==self.license_datasource)
 
         if self.fiction is not None:
-            clauses.append(work_model.fiction==self.fiction)
+            clauses.append(mw.fiction==self.fiction)
 
         clauses.extend(self.age_range_filter_clauses())
 
@@ -2603,7 +2646,7 @@ class Lane(Base, WorkList):
             or Classifier.AUDIENCE_ADULTS_ONLY in self.audiences):
             # Books for adults don't have target ages. If we're including
             # books for adults, allow the target age to be empty.
-            audience_has_no_target_age = work_model.target_age == None
+            audience_has_no_target_age = mw.target_age == None
         else:
             audience_has_no_target_age = False
 
@@ -2612,7 +2655,7 @@ class Lane(Base, WorkList):
         # must overlap that of the lane.
         return [
             or_(
-                work_model.target_age.overlaps(self.target_age),
+                mw.target_age.overlaps(self.target_age),
                 audience_has_no_target_age
             )
         ]

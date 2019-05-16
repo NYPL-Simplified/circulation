@@ -1715,16 +1715,100 @@ class TestWorkList(DatabaseTest):
         wl.works(self._db, facets=facets)
         eq_(facets, wl.apply_filters_called_with)
 
+    def test_works_from_search_index(self):
+        """Test the method that uses the search index to fetch a list of Works
+        appropriate for a given WorkList.
+        """
+
+        class MockSearchClient(object):
+            """Respond to search requests with some fake work IDs."""
+            fake_work_ids = [1, 10, 100, 1000]
+            def query_works(self, **kwargs):
+                self.called_with = kwargs
+                return self.fake_work_ids
+
+        class MockWorkList(WorkList):
+            """Mock the process of turning work IDs into Work objects."""
+            fake_work_list = "a list of works"
+            def works_for_specific_ids(self, _db, work_ids, work_model):
+                self.called_with = (_db, work_ids, work_model)
+                return self.fake_work_list
+
+        # Here's a WorkList.
+        wl = MockWorkList()
+        wl.initialize(self._default_library, languages=["eng"])
+        facets = Facets(
+            self._default_library, None, None, order=Facets.ORDER_TITLE
+        )
+        mock_pagination = object()
+        mock_debug = object()
+        search_client = MockSearchClient()
+
+        # Ask the WorkList for a page of works, using the search index
+        # to drive the query instead of the database.
+        result = wl.works_from_search_index(
+            self._db, facets, mock_pagination, search_client, mock_debug
+        )
+
+        # MockSearchClient.query_works was used to grab a list of work
+        # IDs.
+        query_works_kwargs = search_client.called_with
+
+        # Our facets and the requirements of the WorkList were used to
+        # make a Filter object, which was passed as the 'filter'
+        # keyword argument.
+        filter = query_works_kwargs.pop('filter')
+        eq_(Filter.from_worklist(self._db, wl, facets).build(),
+            filter.build())
+
+        # The other arguments to query_works are either constants or
+        # our mock objects.
+        eq_(dict(query_string=None,
+                 pagination=mock_pagination,
+                 debug=mock_debug),
+            query_works_kwargs
+        )
+
+        # The fake work IDs returned from query_works() were passed into
+        # works_for_specific_ids().
+        eq_(
+            (self._db, search_client.fake_work_ids, Work),
+            wl.called_with
+        )
+
+        # And the fake return value of works_for_specific_ids() was
+        # used as the return value of works_from_search_index(), the
+        # method we're testing.
+        eq_(wl.fake_work_list, result)
+
     def test_works_for_specific_ids(self):
-        # Create two works and put them in the materialized view.
+        # Create two works.
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)
-        self.add_to_materialized_view([w1, w2])
+
+        # Right now, works_for_specific_ids won't return anything,
+        # because the works aren't in the materialized view.
         wl = WorkList()
         wl.initialize(self._default_library)
+        eq_([], wl.works_for_specific_ids(self._db, [w2.id]))
 
-        # Now we're going to ask for a WorkList that contains specific
-        # Works, such as those returned from a search request.
+        # We can get results by telling it to use Work as the work model
+        # instead.
+        eq_([w2], wl.works_for_specific_ids(self._db, [w2.id], Work))
+
+        # Works are returned in the order we ask for.
+        for ordering in ([w1, w2], [w2, w1]):
+            ids = [x.id for x in ordering]
+            eq_(ordering, wl.works_for_specific_ids(self._db, ids, Work))
+
+        # If we ask for a work ID that's not in the materialized view,
+        # we don't get it.
+        eq_([], wl.works_for_specific_ids(self._db, [-100], Work))
+
+        # Now add the works to the materialized view, and verify that
+        # similar tests pass when works_for_specific_ids is told to
+        # look for MaterializedWork objects (this is the default).
+        self.add_to_materialized_view([w1, w2])
 
         # If we ask for w2 only, we get (the materialized view's
         # version of) w2 only.
@@ -1737,14 +1821,12 @@ class TestWorkList(DatabaseTest):
             mv_works = wl.works_for_specific_ids(self._db, ids)
             eq_(ids, [x.works_id for x in mv_works])
 
-        # If we ask for a work ID that's not in the materialized view,
-        # we don't get it.
-        eq_([], wl.works_for_specific_ids(self._db, [-100]))
-
-        # If we ask for a work that's not deliverable, we don't get it.
+        # Finally, test that undeliverable works are filtered out.
         for lpdm in w2.license_pools[0].delivery_mechanisms:
             self._db.delete(lpdm)
-        eq_([], wl.works_for_specific_ids(self._db, [w2.id]))
+            from ..model import MaterializedWorkWithGenre
+            for m in (Work, MaterializedWorkWithGenre):
+                eq_([], wl.works_for_specific_ids(self._db, [w2.id], m))
 
     def test_apply_filters(self):
 
