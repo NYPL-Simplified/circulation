@@ -901,10 +901,10 @@ class WorkController(AdminCirculationManagerController):
             return work
 
         if not provider and work.license_pools:
-            provider = MetadataWranglerCollectionRegistrar(work.license_pools[0].collection)
-
-        if not provider:
-            return METADATA_REFRESH_FAILURE
+            try:
+                provider = MetadataWranglerCollectionRegistrar(work.license_pools[0].collection)
+            except CannotLoadConfiguration:
+                return METADATA_REFRESH_FAILURE
 
         identifier = work.presentation_edition.primary_identifier
         try:
