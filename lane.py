@@ -1336,9 +1336,6 @@ class WorkList(object):
             qu = _db.query(mw)
 
         # Apply some database optimizations.
-        qu = self._lazy_load(qu)
-        qu = self._defer_unused_fields(qu)
-
         # apply_filters() requires that the query include a join
         # against LicensePool. If nothing else, the `facets` may
         # restrict the query to currently available items.
@@ -1356,23 +1353,9 @@ class WorkList(object):
                 mw.collection_id.in_(self.collection_ids)
             )
         qu = self.apply_filters(_db, qu, facets, pagination)
-        if qu:
-            qu = qu.options(
-                contains_eager(mw.license_pool),
-                # TODO: Strictly speaking, these joinedload calls are
-                # only needed by the circulation manager. This code could
-                # be moved to circulation and everyone else who uses this
-                # would be a little faster. (But right now there is no one
-                # else who uses this.)
 
-                # These speed up the process of generating acquisition links.
-                joinedload("license_pool", "delivery_mechanisms"),
-                joinedload("license_pool", "delivery_mechanisms", "delivery_mechanism"),
-                # These speed up the process of generating the open-access link
-                # for open-access works.
-                joinedload("license_pool", "delivery_mechanisms", "resource"),
-                joinedload("license_pool", "delivery_mechanisms", "resource", "representation"),
-            )
+        qu = self._modify_loading(qu)
+        qu = self._defer_unused_fields(qu)
         return qu
 
     def works_from_search_index(
@@ -1423,13 +1406,15 @@ class WorkList(object):
         qu = qu.filter(
             work_id_field.in_(work_ids),
             LicensePool.work_id.in_(work_ids), # Query optimization
-        ).enable_eagerloads(False)
-        qu = self._lazy_load(qu, work_model)
+        )
+        qu = self._modify_loading(qu, work_model)
         qu = self._defer_unused_fields(qu, work_model)
         qu = self.only_show_ready_deliverable_works(
             _db, qu, work_model=work_model, edition_model=edition_model
         )
         qu = qu.distinct(work_id_field)
+        from model import dump_query as dq
+
         work_by_id = dict()
         a = time.time()
         works = qu.all()
@@ -1444,8 +1429,8 @@ class WorkList(object):
         results = [work_by_id[x] for x in work_ids if x in work_by_id]
 
         b = time.time()
-        logging.debug(
-            "Obtained %d works in %.2fsec", len(results), b-a
+        logging.info(
+            "Obtained %s x %d in %.2fsec", work_model.__name__, len(results), b-a
         )
         return results
 
@@ -1696,19 +1681,47 @@ class WorkList(object):
         return items
 
     @classmethod
-    def _lazy_load(cls, qu, work_model=mw):
-        """Avoid eager loading of objects that are contained in the
-        materialized view.
-        """
+    def _modify_loading(cls, qu, work_model=mw):
+        # Avoid eager loading of objects that are already being loaded
+        # -- whether through the materialized view or through a join
+        # within the query.
         if work_model == mw:
             pool = work_model.license_pool
+            qu = qu.options(
+                contains_eager(mw.license_pool),
+                lazyload(pool, LicensePool.data_source),
+                lazyload(pool, LicensePool.identifier),
+                lazyload(pool, LicensePool.presentation_edition),
+            )
+            qu = qu.enable_eagerloads(False)
+            license_pool_name = 'license_pool'
         else:
-            pool = work_model.license_pools
-        return qu.options(
-            lazyload(pool, LicensePool.data_source),
-            lazyload(pool, LicensePool.identifier),
-            lazyload(pool, LicensePool.presentation_edition),
+            qu = qu.options(
+                contains_eager(work_model.presentation_edition),
+                contains_eager(work_model.license_pools),
+            )
+            license_pool_name = 'license_pools'
+
+        # Load some objects associated with the license pool to speed
+        # up the process of generating OPDS feeds -- the main reason
+        # this method is called.
+
+        # TODO: Strictly speaking, these joinedload calls are
+        # only needed by the circulation manager. This code could
+        # be moved to circulation and everyone else who uses this
+        # would be a little faster. (But right now there is no one
+        # else who uses this.)
+        qu = qu.options(
+            # These speed up the process of generating acquisition links.
+            joinedload(license_pool_name, "delivery_mechanisms"),
+            joinedload(license_pool_name, "delivery_mechanisms", "delivery_mechanism"),
+
+            # These speed up the process of generating the open-access link
+            # for open-access works.
+            joinedload(license_pool_name, "delivery_mechanisms", "resource"),
+            joinedload(license_pool_name, "delivery_mechanisms", "resource", "representation"),
         )
+        return qu
 
     @classmethod
     def _defer_unused_fields(cls, query, work_model=mw):
