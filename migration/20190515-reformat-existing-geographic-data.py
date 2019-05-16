@@ -1,6 +1,5 @@
 from nose.tools import set_trace
 from sqlalchemy.sql import *
-import ast
 import json
 import os
 import sys
@@ -20,18 +19,10 @@ area_settings = _db.query(ConfigurationSetting).filter(
     or_(ConfigurationSetting._value != None, ConfigurationSetting._value == "")
     ).all()
 
-def convert_to_list(string):
-    # If the string is in the format '["Waterford, CT"]', load it as a list
-    # so that each item in it can be formatted
-    try:
-        return json.loads(ast.literal_eval(string))
-    except:
-        return None
-
 def format(value):
     result = []
     try:
-        value = convert_to_list(value) or json.loads(value)
+        value = json.loads(value)
         if type(value) is list:
             for x in value:
                 result += format(x)
