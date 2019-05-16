@@ -1774,7 +1774,7 @@ class Filter(SearchBase):
         not_suppressed = F('term', **{'licensepools.suppressed' : False})
         nested_filters['licensepools'].append(not_suppressed)
 
-        owns_licenses = F('term', **{'licensepools.owned' : True})
+        owns_licenses = F('term', **{'licensepools.licensed' : True})
         open_access = F('term', **{'licensepools.open_access' : True})
         currently_owned = F('bool', should=[owns_licenses, open_access])
         nested_filters['licensepools'].append(currently_owned)
