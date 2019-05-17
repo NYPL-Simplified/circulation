@@ -1259,7 +1259,6 @@ class TestOPDS(DatabaseTest):
         fantasy_lane = self.fantasy
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
-        self.add_to_materialized_view([work1, work2], True)
 
         pagination = Pagination(size=1)
         search_client = MockExternalSearchIndex()

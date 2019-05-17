@@ -1353,7 +1353,6 @@ class WorkList(object):
                 mw.collection_id.in_(self.collection_ids)
             )
         qu = self.apply_filters(_db, qu, facets, pagination)
-
         qu = self._modify_loading(qu)
         qu = self._defer_unused_fields(qu)
         return qu
@@ -1774,7 +1773,7 @@ class WorkList(object):
                 exc_info=e
             )
         if work_ids:
-            results = self.works_for_specific_ids(_db, work_ids)
+            results = self.works_for_specific_ids(_db, work_ids, Work)
 
         return results
 

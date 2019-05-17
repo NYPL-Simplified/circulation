@@ -1709,6 +1709,7 @@ class TestWorkList(DatabaseTest):
         class Mock(WorkList):
             def apply_filters(self, _db, qu, facets, pagination):
                 self.apply_filters_called_with = facets
+                return qu
         wl = Mock()
         wl.initialize(self._default_library)
         facets = FacetsWithEntryPoint()
