@@ -2326,9 +2326,9 @@ class TestWorkList(DatabaseTest):
         # Test the successful execution of WorkList.search()
 
         class MockWorkList(WorkList):
-            def works_for_specific_ids(self, _db, work_ids):
-                self.works_for_specific_ids_called_with = (_db, work_ids)
-                return "A bunch of MaterializedWorkWithGenres"
+            def works_for_specific_ids(self, _db, work_ids, work_model):
+                self.works_for_specific_ids_called_with = (_db, work_ids, work_model)
+                return "A bunch of Works"
 
         wl = MockWorkList()
         wl.initialize(
@@ -2350,13 +2350,13 @@ class TestWorkList(DatabaseTest):
         # The results of query_works were passed into
         # MockWorkList.works_for_specific_ids.
         eq_(
-            (self._db, "A bunch of work IDs"),
+            (self._db, "A bunch of work IDs", Work),
             wl.works_for_specific_ids_called_with
         )
 
         # The return value of MockWorkList.works_for_specific_ids is
         # used as the return value of query_works().
-        eq_("A bunch of MaterializedWorkWithGenres", results)
+        eq_("A bunch of Works", results)
 
         # From this point on we are only interested in the arguments
         # passed in to query_works, since MockSearchClient always
@@ -2924,10 +2924,9 @@ class TestLane(DatabaseTest):
         )
         eq_(results, target_results)
 
-        # The single search result was converted to a MaterializedWorkWithGenre.
+        # The single search result was returned as a Work.
         [result] = results
-        assert isinstance(result, work_model)
-        eq_(work.id, result.works_id)
+        eq_(work, result)
 
         # This still works if the lane is its own search_target.
         lane.root_for_patron_type = ["A"]

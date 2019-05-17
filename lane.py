@@ -1,3 +1,4 @@
+# encoding: utf-8
 from collections import defaultdict
 from nose.tools import set_trace
 import datetime
