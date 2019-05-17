@@ -890,6 +890,14 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         )
         expect([self.pride], "pride and prejudice", f)
 
+        # Here, a different data source is excluded, and it shows up.
+        f = Filter(
+            excluded_audiobook_data_sources=[
+                DataSource.lookup(self._db, DataSource.BIBLIOTHECA)
+            ]
+        )
+        expect([self.pride, self.pride_audio], "pride and prejudice", f)
+
         # "Moby Duck" is not currently available, so it won't show up in
         # search results if allow_holds is False.
         f = Filter(allow_holds=False)
