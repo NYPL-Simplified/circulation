@@ -1412,7 +1412,6 @@ class WorkList(object):
             _db, qu, work_model=work_model, edition_model=edition_model
         )
         qu = qu.distinct(work_id_field)
-
         work_by_id = dict()
         a = time.time()
         works = qu.all()
@@ -1428,7 +1427,7 @@ class WorkList(object):
 
         b = time.time()
         logging.info(
-            "Obtained %sx%d in %.2fsec", work_model.__name__, len(results), b-a
+            u"Obtained %s×%d in %.2fsec", work_model.__name__, len(results), b-a
         )
         return results
 
@@ -1680,6 +1679,9 @@ class WorkList(object):
 
     @classmethod
     def _modify_loading(cls, qu, work_model=mw):
+        """Optimize a query by modifying which the related objects that get
+        pulled from the database.
+        """
         # Avoid eager loading of objects that are already being loaded
         # -- whether through the materialized view or through a join
         # within the query.
@@ -1700,9 +1702,9 @@ class WorkList(object):
             )
             license_pool_name = 'license_pools'
 
-        # Load some objects associated with the license pool to speed
-        # up the process of generating OPDS feeds -- the main reason
-        # this method is called.
+        # Load some objects that wouldn't normally be loaded. This
+        # will speed up the process of generating OPDS feeds, which is
+        # the main reason this method is called.
 
         # TODO: Strictly speaking, these joinedload calls are
         # only needed by the circulation manager. This code could
