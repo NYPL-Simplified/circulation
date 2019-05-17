@@ -92,7 +92,7 @@ class KansasAuthenticationAPI(BasicAuthenticationProvider):
         element = authorize_response.find("LibraryID")
         library_identifier = element.text if element is not None else None
         element = authorize_response.find('Status')
-        if not element:
+        if element is None:
             self.log.info("Status element not found in response from server. Deny Access.")
         authorized = True if element is not None and element.text == "1" else False
         return authorized, patron_name, library_identifier
