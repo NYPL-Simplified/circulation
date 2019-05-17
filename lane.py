@@ -1413,7 +1413,6 @@ class WorkList(object):
             _db, qu, work_model=work_model, edition_model=edition_model
         )
         qu = qu.distinct(work_id_field)
-        from model import dump_query as dq
 
         work_by_id = dict()
         a = time.time()
@@ -1430,7 +1429,7 @@ class WorkList(object):
 
         b = time.time()
         logging.info(
-            "Obtained %s x %d in %.2fsec", work_model.__name__, len(results), b-a
+            "Obtained %sx%d in %.2fsec", work_model.__name__, len(results), b-a
         )
         return results
 
