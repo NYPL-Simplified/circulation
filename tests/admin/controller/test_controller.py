@@ -969,6 +969,14 @@ class TestWorkController(AdminControllerTest):
             eq_(METADATA_REFRESH_FAILURE.status_code, response.status_code)
             eq_(METADATA_REFRESH_FAILURE.detail, response.detail)
 
+            # If we don't pass in a provider, it will also fail because there
+            # isn't one connfigured.
+            response = self.manager.admin_work_controller.refresh_metadata(
+                lp.identifier.type, lp.identifier.identifier
+            )
+            eq_(METADATA_REFRESH_FAILURE.status_code, response.status_code)
+            eq_(METADATA_REFRESH_FAILURE.detail, response.detail)
+
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
             assert_raises(AdminNotAuthorized,
