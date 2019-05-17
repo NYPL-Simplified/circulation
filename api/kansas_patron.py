@@ -1,14 +1,13 @@
 from flask_babel import lazy_gettext as _
-import requests
 import logging
 from authenticator import (
     BasicAuthenticationProvider,
     PatronData,
 )
 from config import CannotLoadConfiguration
-from circulation_exceptions import RemoteInitiatedServerError
 from core.model import ExternalIntegration
 from lxml import etree
+from core.util.http import HTTP
 
 
 class KansasAuthenticationAPI(BasicAuthenticationProvider):
@@ -50,18 +49,7 @@ class KansasAuthenticationAPI(BasicAuthenticationProvider):
         # Create XML doc for request
         authorization_request = self.create_authorize_request(username, password)
         # Post request to the server
-        try:
-            response = self.post_request(authorization_request)
-        except requests.exceptions.ConnectionError, e:
-            raise RemoteInitiatedServerError(
-                str(e.message),
-                self.NAME
-            )
-        if response.status_code != 200:
-            msg = "Got unexpected response code %d. Content: %s" % (
-                response.status_code, response.content
-            )
-            raise RemoteInitiatedServerError(msg, self.NAME)
+        response = self.post_request(authorization_request)
         # Parse response from server
         authorized, patron_name, library_identifier = self.parse_authorize_response(response.content)
         if not authorized:
@@ -114,7 +102,12 @@ class KansasAuthenticationAPI(BasicAuthenticationProvider):
 
         Defined solely so it can be overridden in the mock.
         """
-        return requests.post(self.base_url, data, headers={"Content-Type": "application/xml"})
+        return HTTP.post_with_timeout(
+            self.base_url,
+            data,
+            headers={"Content-Type": "application/xml"},
+            allowed_response_codes=['2xx'],
+        )
 
 
 # Specify which of the classes defined in this module is the
