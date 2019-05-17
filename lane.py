@@ -1680,8 +1680,8 @@ class WorkList(object):
 
     @classmethod
     def _modify_loading(cls, qu, work_model=mw):
-        """Optimize a query by modifying which the related objects that get
-        pulled from the database.
+        """Optimize a query for use in generating OPDS feeds, by modifying
+        which related objects get pulled from the database.
         """
         # Avoid eager loading of objects that are already being loaded
         # -- whether through the materialized view or through a join
@@ -1703,9 +1703,8 @@ class WorkList(object):
             )
             license_pool_name = 'license_pools'
 
-        # Load some objects that wouldn't normally be loaded. This
-        # will speed up the process of generating OPDS feeds, which is
-        # the main reason this method is called.
+        # Load some objects that wouldn't normally be loaded, but
+        # which are necessary when generating OPDS feeds.
 
         # TODO: Strictly speaking, these joinedload calls are
         # only needed by the circulation manager. This code could
