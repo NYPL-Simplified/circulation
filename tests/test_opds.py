@@ -921,14 +921,16 @@ class TestOPDS(DatabaseTest):
         work1 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
         work2 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
 
-        self.add_to_materialized_view([work1, work2], True)
+        search_engine = MockExternalSearchIndex()
+        search_engine.bulk_update([work1, work2])
+
         facets = Facets.default(self._default_library)
         pagination = Pagination(size=1)
 
         def make_page(pagination):
             return AcquisitionFeed.page(
                 self._db, "test", self._url, lane, TestAnnotator,
-                pagination=pagination
+                pagination=pagination, search_engine=search_engine
             )
         cached_works = make_page(pagination)
         parsed = feedparser.parse(unicode(cached_works))
@@ -976,7 +978,8 @@ class TestOPDS(DatabaseTest):
         old_cache_count = self._db.query(CachedFeed).count()
         raw_page = AcquisitionFeed.page(
             self._db, "test", self._url, lane, TestAnnotator,
-            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE
+            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE,
+            search_engine=search_engine
         )
 
         # Unicode is returned instead of a CachedFeed object.
@@ -995,14 +998,16 @@ class TestOPDS(DatabaseTest):
         work1 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
         work2 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
 
-        self.add_to_materialized_view([work1, work2], True)
+        search_engine = MockExternalSearchIndex()
+        search_engine.bulk_update([work1, work2])
+
         facets = Facets.default(self._default_library)
         pagination = Pagination(size=1)
 
         def make_page(pagination):
             return AcquisitionFeed.page(
                 self._db, "test", self._url, lane, TestAnnotator,
-                pagination=pagination
+                pagination=pagination, search_engine=search_engine
             )
         cached_works = make_page(pagination)
         parsed = feedparser.parse(unicode(cached_works))
@@ -1039,7 +1044,8 @@ class TestOPDS(DatabaseTest):
         old_cache_count = self._db.query(CachedFeed).count()
         raw_page = AcquisitionFeed.page(
             self._db, "test", self._url, lane, TestAnnotator,
-            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE
+            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE,
+            search_engine=search_engine
         )
 
         # Unicode is returned instead of a CachedFeed object.
@@ -1209,14 +1215,15 @@ class TestOPDS(DatabaseTest):
         work1.quality = 0.75
         work2 = self._work(genre=Mystery, with_open_access_download=True)
         work2.quality = 0.75
-        self.add_to_materialized_view([work1, work2], True)
+        search_engine = MockExternalSearchIndex()
+        search_engine.bulk_update([work1, work2])
 
         library.setting(library.FEATURED_LANE_SIZE).value = 2
         annotator = TestAnnotator()
 
         feed = AcquisitionFeed.groups(
             self._db, "test", self._url, test_lane, annotator,
-            force_refresh=True
+            force_refresh=True, search_engine=search_engine
         )
 
         # The lane has no sublanes, so a page feed was created for it
@@ -1241,7 +1248,7 @@ class TestOPDS(DatabaseTest):
         sublane = self._lane(parent=test_lane)
         feed = AcquisitionFeed.groups(
             self._db, "test", self._url, test_lane, annotator,
-            force_refresh=True
+            force_refresh=True, search_engine=search_engine
         )
         assert mock.called_with is not None
 
@@ -1317,12 +1324,14 @@ class TestOPDS(DatabaseTest):
         work1 = self._work(title="The Original Title",
                            genre=Epic_Fantasy, with_open_access_download=True)
         fantasy_lane = self.fantasy
-        self.add_to_materialized_view([work1], True)
+
+        search_engine = MockExternalSearchIndex()
+        search_engine.bulk_update([work1])
 
         def make_page():
             return AcquisitionFeed.page(
                 self._db, "test", self._url, fantasy_lane, TestAnnotator,
-                pagination=Pagination.default()
+                pagination=Pagination.default(), search_engine=search_engine
             )
 
         af = AcquisitionFeed
@@ -1339,7 +1348,7 @@ class TestOPDS(DatabaseTest):
             title="A Brand New Title",
             genre=Epic_Fantasy, with_open_access_download=True
         )
-        self.add_to_materialized_view([work2], True)
+        search_engine.bulk_update([work2])
 
         # The new work does not show up in the feed because
         # we get the old cached version.

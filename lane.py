@@ -1358,7 +1358,7 @@ class WorkList(object):
         return qu
 
     def works_from_search_index(
-        self, _db, facets, pagination, search_client=None, debug=False
+        self, _db, facets, pagination, search_engine=None, debug=False
     ):
         """Retrieve a list of Work objects, the way works() does,
         but use the search index instead of the materialized view.
@@ -1367,9 +1367,9 @@ class WorkList(object):
             Filter,
             ExternalSearchIndex,
         )
-        search_client = search_client or ExternalSearchIndex(_db)
+        search_engine = search_engine or ExternalSearchIndex(_db)
         filter = Filter.from_worklist(_db, self, facets)
-        work_ids = search_client.query_works(
+        work_ids = search_engine.query_works(
             query_string=None, filter=filter, pagination=pagination,
             debug=debug
         )

@@ -547,7 +547,7 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def groups(cls, _db, title, url, lane, annotator,
                cache_type=None, force_refresh=False, facets=None,
-               search_client=None, search_debug=False
+               search_engine=None, search_debug=False
     ):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
@@ -602,7 +602,7 @@ class AcquisitionFeed(OPDSFeed):
                 _db, title, url, lane, annotator,
                 cache_type=cache_type,
                 force_refresh=force_refresh,
-                facets=None, search_client=search_client,
+                facets=None, search_engine=search_engine,
                 search_debug=search_debug
             )
             return cached
@@ -663,7 +663,7 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def page(cls, _db, title, url, lane, annotator,
              cache_type=None, facets=None, pagination=None,
-             force_refresh=False, search_client=None,
+             force_refresh=False, search_engine=None,
              search_debug=False
     ):
         """Create a feed representing one page of works from a given lane.
@@ -696,7 +696,7 @@ class AcquisitionFeed(OPDSFeed):
                 return cached.content
 
         works = lane.works_from_search_index(
-            _db, facets, pagination, search_client=search_client,
+            _db, facets, pagination, search_engine=search_engine,
             debug=search_debug
         )
         pagination.page_loaded(works)
