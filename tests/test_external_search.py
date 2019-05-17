@@ -2818,7 +2818,7 @@ class TestFilter(DatabaseTest):
             not_suppressed)
 
         # The second one is a little more complex
-        owned = Term(**{"licensepools.owned": True})
+        owned = Term(**{"licensepools.licensed": True})
         open_access = Term(**{"licensepools.open_access": True})
 
         # We only count license pools that are open-access _or_ that have

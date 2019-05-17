@@ -763,7 +763,7 @@ class ExternalSearchIndexVersions(object):
         licensepool_fields_by_type = {
             'integer': ['collection_id', 'data_source_id'],
             'date': ['availability_time'],
-            'boolean': ['availability', 'open_access', 'suppressed'],
+            'boolean': ['availability', 'open_access', 'suppressed', 'licensed'],
             'keyword': ['medium'],
         }
         licensepool_definition = cls.map_fields_by_type(
