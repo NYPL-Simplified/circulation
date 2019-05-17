@@ -1045,7 +1045,7 @@ class TestSearchOrder(EndToEndExternalSearchTest):
             self.moby_dick.random = 0.1
             self.moby_dick.last_update_time = datetime.datetime.now()
 
-            self.moby_duck = _work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
+            self.moby_duck = _work(title="Moby Duck", authors="donovan hohn", fiction=False)
             self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
             self.moby_duck.summary_text = "A compulsively readable narrative"
             self.moby_duck.presentation_edition.series_position = 1

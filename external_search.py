@@ -641,20 +641,24 @@ class ExternalSearchIndexVersions(object):
             to field names.
         """
         for type, fields in fields_by_type.items():
+            description={
+                "type": type,
+                # TODO: In some cases we can get away with setting
+                # index: False here, which would presumably lead
+                # to a smaller index and faster updates. However,
+                # it might hurt performance of searches. When this
+                # code is more mature we can do a side-by-side
+                # comparison.
+                "index": True,
+                "store": False,
+            }
+            if type == 'keyword':
+                description['normalizer'] = "sortable"
+
             mapping = cls.map_fields(
                 fields=fields,
-                field_description={
-                    "type": type,
-                    # TODO: In some cases we can get away with setting
-                    # index: False here, which would presumably lead
-                    # to a smaller index and faster updates. However,
-                    # it might hurt performance of searches. When this
-                    # code is more mature we can do a side-by-side
-                    # comparison.
-                    "index": True,
-                    "store": False,
-                },
-                mapping=mapping
+                mapping=mapping,
+                field_description=description,
             )
         return mapping
 
@@ -688,6 +692,13 @@ class ExternalSearchIndexVersions(object):
                         "type": "stemmer",
                         "name": "english"
                     },
+                },
+                "normalizer": {
+                    "sortable" : {
+                        "type": "custom",
+                        "char_filter": [],
+                        "filter": ["lowercase", "asciifolding"],
+                    }
                 },
                 "analyzer" : {
                     "en_analyzer": {
@@ -733,6 +744,10 @@ class ExternalSearchIndexVersions(object):
             "type": "keyword",
             "index": False,
             "store": False,
+            # We don't sort on series, but we do filter, and this will
+            # group together books in the same series if the series
+            # name differs by capitalization or placement of accents.
+            "normalizer": "sortable"
         }
         mapping = cls.map_fields(
             fields=["series"],
