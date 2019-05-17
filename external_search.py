@@ -3,7 +3,10 @@ from nose.tools import set_trace
 import json
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk
-from elasticsearch.exceptions import ElasticsearchException
+from elasticsearch.exceptions import (
+    RequestError,
+    ElasticsearchException,
+)
 from elasticsearch_dsl import (
     Index,
     Search,
@@ -194,6 +197,10 @@ class ExternalSearchIndex(HasSelfTests):
         if works_index and integration:
             try:
                 self.set_works_index_and_alias(_db)
+            except RequestError, e:
+                # This is almost certainly a problem with our code,
+                # not a communications error.
+                raise e
             except ElasticsearchException, e:
                 raise CannotLoadConfiguration(
                     "Exception communicating with Elasticsearch server: %s" %
@@ -641,22 +648,64 @@ class ExternalSearchIndexVersions(object):
             to field names.
         """
         for type, fields in fields_by_type.items():
+            description={
+                "type": type,
+                # TODO: In some cases we can get away with setting
+                # index: False here, which would presumably lead
+                # to a smaller index and faster updates. However,
+                # it might hurt performance of searches. When this
+                # code is more mature we can do a side-by-side
+                # comparison.
+                "index": True,
+                "store": False,
+            }
+            if type == 'icu_collation_keyword':
+                # An icu_collation_keyword field can't have a custom
+                # analyzer or normalizer, and we need a character filter
+                # to exclude certain punctuation characters when determining
+                # search order. A text field with the en_sortable_analyzer
+                # approximates the (much simpler) icu_collation_keyword type
+                # but also lets us have the character filter.
+                description['type'] = 'text'
+                description['fielddata'] = True
+                description['analyzer'] = 'en_sortable_analyzer'
             mapping = cls.map_fields(
                 fields=fields,
-                field_description={
-                    "type": type,
-                    # TODO: In some cases we can get away with setting
-                    # index: False here, which would presumably lead
-                    # to a smaller index and faster updates. However,
-                    # it might hurt performance of searches. When this
-                    # code is more mature we can do a side-by-side
-                    # comparison.
-                    "index": True,
-                    "store": False,
-                },
-                mapping=mapping
+                mapping=mapping,
+                field_description=description,
             )
         return mapping
+
+    # Use regular expressions to normalized values in sortable fields.
+    # These regexes are applied in order; that way "H. G. Wells"
+    # becomes "H G Wells" becomes "HG Wells".
+    V4_CHAR_FILTERS = {}
+    V4_AUTHOR_CHAR_FILTER_NAMES = []
+    for name, pattern, replacement in [
+        # The special author name "[Unknown]" should sort after everything
+        # else. REPLACEMENT CHARACTER is the final valid Unicode character.
+        ("unknown_author", "\[Unknown\]", u"\N{REPLACEMENT CHARACTER}"),
+
+        # Works by a given primary author should be secondarily sorted
+        # by title, not by the other contributors.
+        ("primary_author_only", "\s+;.*", ""),
+
+        # Remove parentheticals (e.g. the full name of someone who
+        # goes by initials).
+        ("strip_parentheticals", "\s+\([^)]+\)", ""),
+
+        # Remove periods from consideration.
+        ("strip_periods", "\.", ""),
+
+        # Collapse spaces for people whose sort names end with initials.
+        ("collapse_three_initials", " ([A-Z]) ([A-Z]) ([A-Z])$", " $1$2$3"),
+        ("collapse_two_initials", " ([A-Z]) ([A-Z])$", " $1$2"),
+    ]:
+        normalizer = dict(type="pattern_replace",
+                          pattern=pattern,
+                          replacement=replacement)
+        V4_CHAR_FILTERS[name] = normalizer
+        V4_AUTHOR_CHAR_FILTER_NAMES.append(name)
 
     @classmethod
     def v4_body(cls):
@@ -688,7 +737,15 @@ class ExternalSearchIndexVersions(object):
                         "type": "stemmer",
                         "name": "english"
                     },
+                    # Use the ICU collation algorithm on textual fields we
+                    # intend to use as a sort order.
+                    "en_sortable_filter": {
+                        "type": "icu_collation",
+                        "language": "en",
+                        "country": "US"
+                    }
                 },
+                "char_filter" : cls.V4_CHAR_FILTERS,
                 "analyzer" : {
                     "en_analyzer": {
                         "type": "custom",
@@ -702,6 +759,19 @@ class ExternalSearchIndexVersions(object):
                         "tokenizer": "standard",
                         "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
                     },
+                    # An analyzer for textual fields we intend to sort on.
+                    "en_sortable_analyzer": {
+                        "tokenizer": "keyword",
+                        "filter": [ "en_sortable_filter" ],
+                    },
+                    # A special analyzer for sort author names,
+                    # including some special character filters for
+                    # normalizing names.
+                    "en_sort_author_analyzer": {
+                        "tokenizer": "keyword",
+                        "char_filter": cls.V4_AUTHOR_CHAR_FILTER_NAMES,
+                        "filter": [ "en_sortable_filter" ],
+                    }
                 }
             }
         }
@@ -726,13 +796,18 @@ class ExternalSearchIndexVersions(object):
             }
         )
 
-        # Series must be analyzed (so it can be used in searches) but also present as a keyword
-        # (so it can be used in a filter when listing books from a specific series).
+        # Series must be analyzed (so it can be used in searches) but
+        # also present as a sortable keyword (so it can be used in a
+        # filter when listing books from a specific series).
         basic_string_plus_keyword = dict(basic_string_fields)
         basic_string_plus_keyword["keyword"] = {
-            "type": "keyword",
-            "index": False,
+            "type": "text",
+            "fielddata" : True,
+            "index": True,
             "store": False,
+            # This uses the 'keyword' tokenizer, so we end up
+            # with a keyword even though type=text.
+            "analyzer": "en_sortable_analyzer",
         }
         mapping = cls.map_fields(
             fields=["series"],
@@ -751,19 +826,35 @@ class ExternalSearchIndexVersions(object):
         # not author.
         fields_by_type = {
             'boolean': ['presentation_ready'],
-            'keyword': ['sort_author', 'sort_title'],
+            'icu_collation_keyword': ['sort_author', 'sort_title'],
             'date': ['last_update_time'],
             'integer': ['series_position', 'work_id'],
             'float': ['random'],
         }
         mapping = cls.map_fields_by_type(fields_by_type, mapping)
 
-        # Build separate mappings for the nested data types --
-        # currently just licensepools.
+        # Sort author gets a different analyzer designed especially
+        # to normalize author names.
+        sort_author_description = {
+            "type": "text",
+            "index": True,
+            "store": False,
+            "fielddata": True,
+            'analyzer': 'en_sort_author_analyzer'
+        }
+        mapping = cls.map_fields(
+            fields=['sort_author'],
+            mapping=mapping,
+            field_description=sort_author_description,
+        )
+
+        # Build separate mappings for the nested data types.
+
+        # License pools.
         licensepool_fields_by_type = {
             'integer': ['collection_id', 'data_source_id'],
             'date': ['availability_time'],
-            'boolean': ['availability', 'open_access', 'suppressed', 'licensed'],
+            'boolean': ['available', 'open_access', 'suppressed', 'licensed'],
             'keyword': ['medium'],
         }
         licensepool_definition = cls.map_fields_by_type(
