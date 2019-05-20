@@ -1043,7 +1043,6 @@ class TestSearchOrder(EndToEndExternalSearchTest):
             self.moby_dick.presentation_edition.series_position = 10
             self.moby_dick.summary_text = "Ishmael"
             self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
-            self.moby_dick.set_presentation_ready()
             self.moby_dick.random = 0.1
             self.moby_dick.last_update_time = datetime.datetime.now()
 
@@ -1052,7 +1051,6 @@ class TestSearchOrder(EndToEndExternalSearchTest):
             self.moby_duck.summary_text = "A compulsively readable narrative"
             self.moby_duck.presentation_edition.series_position = 1
             self.moby_duck.presentation_edition.publisher = "Penguin"
-            self.moby_duck.set_presentation_ready()
             self.moby_duck.random = 0.9
             self.moby_duck.last_update_time = datetime.datetime.now()
 
@@ -1074,6 +1072,12 @@ class TestSearchOrder(EndToEndExternalSearchTest):
             self.moby_duck.license_pools.append(moby_duck_2)
             moby_dick_2 = self._licensepool(edition=self.moby_dick.presentation_edition, collection=self.collection2)
             self.moby_dick.license_pools.append(moby_dick_2)
+
+            # Create a work with an unknown title and author.
+            self.untitled = _work(title="[Untitled]", authors="[Unknown]")
+            self.untitled.random = 0.99
+            self.untitled.presentation_edition.series_position = 5
+            self.untitled.last_update_time = datetime.datetime.now()
 
     def test_ordering(self):
 
@@ -1146,25 +1150,39 @@ class TestSearchOrder(EndToEndExternalSearchTest):
             eq_(None, pagination)
 
         # We can sort by title.
-        assert_order(Facets.ORDER_TITLE, [self.moby_dick, self.moby_duck])
+        assert_order(
+            Facets.ORDER_TITLE, [self.moby_dick, self.moby_duck, self.untitled]
+        )
 
-        # We can sort by author; 'Hohn' sorts before 'Melville'.
-        assert_order(Facets.ORDER_AUTHOR, [self.moby_duck, self.moby_dick])
+        # We can sort by author; 'Hohn' sorts before 'Melville' sorts
+        # before "[Unknown]"
+        assert_order(
+            Facets.ORDER_AUTHOR, [self.moby_duck, self.moby_dick, self.untitled]
+        )
 
         # We can sort by the value of work.random. 0.1 < 0.9
-        assert_order(Facets.ORDER_RANDOM, [self.moby_dick, self.moby_duck])
+        assert_order(
+            Facets.ORDER_RANDOM, [self.moby_dick, self.moby_duck, self.untitled]
+        )
 
         # We can sort by the last update time of the Work -- this would
         # be used when creating a crawlable feed.
-        assert_order(Facets.ORDER_LAST_UPDATE, [self.moby_dick, self.moby_duck])
+        assert_order(
+            Facets.ORDER_LAST_UPDATE,
+            [self.moby_dick, self.moby_duck, self.untitled]
+        )
 
         # We can sort by series position. Here, the books aren't in
         # the same series; in a real scenario we would also filter on
         # the value of 'series'.
-        assert_order(Facets.ORDER_SERIES_POSITION, [self.moby_duck, self.moby_dick])
+        assert_order(Facets.ORDER_SERIES_POSITION,
+                     [self.moby_duck, self.untitled, self.moby_dick])
 
         # We can sort by internal work ID, which isn't very useful.
-        assert_order(Facets.ORDER_WORK_ID, [self.moby_dick, self.moby_duck])
+        assert_order(
+            Facets.ORDER_WORK_ID,
+            [self.moby_dick, self.moby_duck, self.untitled]
+        )
 
         # We can sort by the time the Work's LicensePools were first
         # seen -- this would be used when showing patrons 'new' stuff.
@@ -1173,7 +1191,8 @@ class TestSearchOrder(EndToEndExternalSearchTest):
         # collections, so filtering by collection will give different
         # results.
         assert_order(
-            Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_dick, self.moby_duck],
+            Facets.ORDER_ADDED_TO_COLLECTION,
+            [self.moby_dick, self.moby_duck, self.untitled],
             collections=[self.collection1]
         )
 
@@ -1187,7 +1206,8 @@ class TestSearchOrder(EndToEndExternalSearchTest):
         # that work is used. Since collection 1 was created before
         # collection 2, that means collection 1's ordering holds here.
         assert_order(
-            Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_dick, self.moby_duck],
+            Facets.ORDER_ADDED_TO_COLLECTION,
+            [self.moby_dick, self.moby_duck, self.untitled],
             collections=[self.collection1, self.collection2]
         )
 
