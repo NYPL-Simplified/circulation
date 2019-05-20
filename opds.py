@@ -546,7 +546,9 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def groups(cls, _db, title, url, lane, annotator,
-               cache_type=None, force_refresh=False, facets=None):
+               cache_type=None, force_refresh=False, facets=None,
+               search_engine=None, search_debug=False
+    ):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
 
@@ -600,7 +602,8 @@ class AcquisitionFeed(OPDSFeed):
                 _db, title, url, lane, annotator,
                 cache_type=cache_type,
                 force_refresh=force_refresh,
-                facets=None,
+                facets=None, search_engine=search_engine,
+                search_debug=search_debug
             )
             return cached
 
@@ -660,7 +663,8 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def page(cls, _db, title, url, lane, annotator,
              cache_type=None, facets=None, pagination=None,
-             force_refresh=False
+             force_refresh=False, search_engine=None,
+             search_debug=False
     ):
         """Create a feed representing one page of works from a given lane.
 
@@ -691,13 +695,11 @@ class AcquisitionFeed(OPDSFeed):
             if usable:
                 return cached.content
 
-        works_q = lane.works(_db, facets, pagination)
-        if not works_q:
-            # The Lane believes that creating this feed is a bad idea.
-            works = []
-        else:
-            works = works_q.all()
-            pagination.page_loaded(works)
+        works = lane.works_from_search_index(
+            _db, facets, pagination, search_engine=search_engine,
+            debug=search_debug
+        )
+        pagination.page_loaded(works)
         feed = cls(_db, title, url, works, annotator)
 
         entrypoints = facets.selectable_entrypoints(lane)

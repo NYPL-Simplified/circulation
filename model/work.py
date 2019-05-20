@@ -1442,7 +1442,7 @@ class Work(Base):
                 LicensePool.open_access.label('open_access'),
                 LicensePool.suppressed,
                 (LicensePool.licenses_available > 0).label('available'),
-                (LicensePool.licenses_owned > 0).label('owned'),
+                (LicensePool.licenses_owned > 0).label('licensed'),
                 work_quality_column,
                 Edition.medium,
                 func.to_char(
