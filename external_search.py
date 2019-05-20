@@ -660,8 +660,15 @@ class ExternalSearchIndexVersions(object):
                 "store": False,
             }
             if type == 'icu_collation_keyword':
-                description['language'] = 'en'
-                description['country'] = 'US'
+                # An icu_collation_keyword field can't have a custom
+                # analyzer or normalizer, and we need a character filter
+                # to exclude certain punctuation characters when determining
+                # search order. A text field with the en_sortable_analyzer
+                # approximates the (much simpler) icu_collation_keyword type
+                # but also lets us have the character filter.
+                description['type'] = 'text'
+                description['fielddata'] = True
+                description['analyzer'] = 'en_sortable_analyzer'
             mapping = cls.map_fields(
                 fields=fields,
                 mapping=mapping,
@@ -699,13 +706,22 @@ class ExternalSearchIndexVersions(object):
                         "type": "stemmer",
                         "name": "english"
                     },
-                },
-                "normalizer": {
-                    "sortable" : {
-                        "type": "custom",
-                        "char_filter": [],
-                        "filter": ["lowercase", "asciifolding"],
+                    # Use the ICU collation algorithm on textual fields we
+                    # intend to use as a sort order.
+                    "en_sortable_filter": {
+                        "type": "icu_collation",
+                        "language": "en",
+                        "country": "US"
                     }
+                },
+                # Remove some punctuation from strings that will be
+                # used to sort lists.
+                "char_filter" : {
+                    "punctuation_strip": {
+                        "type": "pattern_replace",
+                        "pattern": "[\[\].]",
+                        "replacement": "",
+                    },
                 },
                 "analyzer" : {
                     "en_analyzer": {
@@ -719,6 +735,13 @@ class ExternalSearchIndexVersions(object):
                         "char_filter": ["html_strip"],
                         "tokenizer": "standard",
                         "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
+                    },
+                    # An analyzer for textual fields we intend to sort on.
+                    # Title and author, basically.
+                    "en_sortable_analyzer": {
+                        "tokenizer": "keyword",
+                        "char_filter": ["punctuation_strip"],
+                        "filter": [ "en_sortable_filter" ],
                     },
                 }
             }
@@ -744,13 +767,18 @@ class ExternalSearchIndexVersions(object):
             }
         )
 
-        # Series must be analyzed (so it can be used in searches) but also present as a keyword
-        # (so it can be used in a filter when listing books from a specific series).
+        # Series must be analyzed (so it can be used in searches) but
+        # also present as a sortable keyword (so it can be used in a
+        # filter when listing books from a specific series).
         basic_string_plus_keyword = dict(basic_string_fields)
         basic_string_plus_keyword["keyword"] = {
-            "type": "icu_collation_keyword",
+            "type": "text",
+            "fielddata" : True,
             "index": False,
             "store": False,
+            # This uses the 'keyword' tokenizer, so we end up
+            # with a keyword even though type=text.
+            "analyzer": "en_sortable_analyzer",
         }
         mapping = cls.map_fields(
             fields=["series"],
