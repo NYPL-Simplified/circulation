@@ -1035,7 +1035,7 @@ class TestSearchOrder(EndToEndExternalSearchTest):
         if self.search:
 
             # Create two works -- this part is straightforward.
-            self.moby_dick = _work(title="Moby Dick", authors="Herman Melville", fiction=True)
+            self.moby_dick = _work(title="moby dick", authors="Herman Melville", fiction=True)
             self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
             self.moby_dick.presentation_edition.series = "Classics"
             self.moby_dick.presentation_edition.series_position = 10
