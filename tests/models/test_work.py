@@ -844,6 +844,13 @@ class TestWork(DatabaseTest):
         work.genres = [genre1, genre2]
         work.work_genres[0].affinity = 1
 
+        # Add two custom lists. The work is featured on one list but
+        # not the other.
+        l1, ignore = self._customlist(num_entries=0)
+        l1.add_entry(work, featured=False, update_external_index=False)
+        l2, ignore = self._customlist(num_entries=0)
+        l2.add_entry(work, featured=True, update_external_index=False)
+
         # Add the other fields used in the search document.
         work.target_age = NumericRange(7, 8, '[]')
         edition.subtitle = self._str
@@ -937,6 +944,14 @@ class TestWork(DatabaseTest):
             # sources.
             eq_(edition.medium, search_doc['medium'])
             eq_(edition.medium, match['medium'])
+
+        # Each custom list entry for the work is in the 'customlists'
+        # section.
+        not_featured, featured = sorted(
+            search_doc['customlists'], key = lambda x: x['featured']
+        )
+        eq_(dict(featured=False, list_id=l1.id), not_featured)
+        eq_(dict(featured=True, list_id=l2.id), featured)
 
         contributors = search_doc['contributors']
         eq_(2, len(contributors))
