@@ -774,7 +774,7 @@ class ExternalSearchIndexVersions(object):
         basic_string_plus_keyword["keyword"] = {
             "type": "text",
             "fielddata" : True,
-            "index": False,
+            "index": True,
             "store": False,
             # This uses the 'keyword' tokenizer, so we end up
             # with a keyword even though type=text.
