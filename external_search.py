@@ -659,6 +659,9 @@ class ExternalSearchIndexVersions(object):
                 "index": True,
                 "store": False,
             }
+            if type == 'icu_collation_keyword':
+                description['language'] = 'en'
+                description['country'] = 'US'
             mapping = cls.map_fields(
                 fields=fields,
                 mapping=mapping,
