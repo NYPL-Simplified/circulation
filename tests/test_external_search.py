@@ -108,8 +108,10 @@ class ExternalSearchTest(DatabaseTest):
             self.search = ClientForTesting(self._db)
         except Exception as e:
             self.search = None
-            print "Unable to set up elasticsearch index, search tests will be skipped."
-            print e
+            logging.error(
+                "Unable to set up elasticsearch index, search tests will be skipped.",
+                exc_info=e
+            )
 
     def teardown(self):
         if self.search:

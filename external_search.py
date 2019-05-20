@@ -3,7 +3,10 @@ from nose.tools import set_trace
 import json
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk
-from elasticsearch.exceptions import ElasticsearchException
+from elasticsearch.exceptions import (
+    RequestError,
+    ElasticsearchException,
+)
 from elasticsearch_dsl import (
     Index,
     Search,
@@ -194,6 +197,10 @@ class ExternalSearchIndex(HasSelfTests):
         if works_index and integration:
             try:
                 self.set_works_index_and_alias(_db)
+            except RequestError, e:
+                # This is almost certainly a problem with our code,
+                # not a communications error.
+                raise e
             except ElasticsearchException, e:
                 raise CannotLoadConfiguration(
                     "Exception communicating with Elasticsearch server: %s" %
@@ -652,9 +659,6 @@ class ExternalSearchIndexVersions(object):
                 "index": True,
                 "store": False,
             }
-            if type == 'keyword':
-                description['normalizer'] = "sortable"
-
             mapping = cls.map_fields(
                 fields=fields,
                 mapping=mapping,
@@ -741,13 +745,9 @@ class ExternalSearchIndexVersions(object):
         # (so it can be used in a filter when listing books from a specific series).
         basic_string_plus_keyword = dict(basic_string_fields)
         basic_string_plus_keyword["keyword"] = {
-            "type": "keyword",
+            "type": "icu_collation_keyword",
             "index": False,
             "store": False,
-            # We don't sort on series, but we do filter, and this will
-            # group together books in the same series if the series
-            # name differs by capitalization or placement of accents.
-            "normalizer": "sortable"
         }
         mapping = cls.map_fields(
             fields=["series"],
@@ -766,7 +766,7 @@ class ExternalSearchIndexVersions(object):
         # not author.
         fields_by_type = {
             'boolean': ['presentation_ready'],
-            'keyword': ['sort_author', 'sort_title'],
+            'icu_collation_keyword': ['sort_author', 'sort_title'],
             'date': ['last_update_time'],
             'integer': ['series_position', 'work_id'],
             'float': ['random'],
