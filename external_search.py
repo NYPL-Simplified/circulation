@@ -676,6 +676,25 @@ class ExternalSearchIndexVersions(object):
             )
         return mapping
 
+    # Use regular expressions to normalized values in sortable fields.
+    # These regexes are applied in order; that way "H. G. Wells"
+    # becomes "H G Wells" becomes "HG Wells".
+    V4_CHAR_FILTERS = {}
+    V4_CHAR_FILTER_NAMES = []
+    for name, pattern, replacement in [
+        # Remove vexing punctuation -- square brackets, parentheses
+        # and periods.
+        ("strip_punctuation", "[\[\].]", ""),
+
+        # Collapse spaces for people whose names start with initials.
+        ("collapse_initials", "^([A-Z]) ([A-Z]) ", "$1$2 ")
+    ]:
+        normalizer = dict(type="pattern_replace",
+                          pattern=pattern,
+                          replacement=replacement)
+        V4_CHAR_FILTERS[name] = normalizer
+        V4_CHAR_FILTER_NAMES.append(name)
+
     @classmethod
     def v4_body(cls):
         """The v4 body adds a significant number of fields so that
@@ -714,15 +733,7 @@ class ExternalSearchIndexVersions(object):
                         "country": "US"
                     }
                 },
-                # Remove some punctuation from strings that will be
-                # used to sort lists.
-                "char_filter" : {
-                    "punctuation_strip": {
-                        "type": "pattern_replace",
-                        "pattern": "[\[\].]",
-                        "replacement": "",
-                    },
-                },
+                "char_filter" : cls.V4_CHAR_FILTERS,
                 "analyzer" : {
                     "en_analyzer": {
                         "type": "custom",
@@ -740,7 +751,7 @@ class ExternalSearchIndexVersions(object):
                     # Title and author, basically.
                     "en_sortable_analyzer": {
                         "tokenizer": "keyword",
-                        "char_filter": ["punctuation_strip"],
+                        "char_filter": cls.V4_CHAR_FILTER_NAMES,
                         "filter": [ "en_sortable_filter" ],
                     },
                 }
