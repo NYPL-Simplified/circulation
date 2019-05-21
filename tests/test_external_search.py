@@ -371,7 +371,7 @@ class TestExternalSearchIndexVersions(object):
         for searching.
         """
         filters = []
-        for filter_name in ExternalSearchIndexVersions.V4_CHAR_FILTER_NAMES:
+        for filter_name in ExternalSearchIndexVersions.V4_AUTHOR_CHAR_FILTER_NAMES:
             configuration = ExternalSearchIndexVersions.V4_CHAR_FILTERS[filter_name]
             find = re.compile(configuration['pattern'])
             replace = configuration['replacement']
@@ -388,20 +388,30 @@ class TestExternalSearchIndexVersions(object):
                 start = find.sub(replace, start)
             eq_(start, finish)
 
-        # Unneeded punctuation is removed.
-        filters_to("[Unknown]", "Unknown")
+        # Only the primary author is considered.
+        filters_to("Adams, John Joseph ; Yu, Charles", "Adams, John Joseph")
+
+        # The special system author '[Unknown]' is replaced with
+        # REPLACEMENT CHARACTER so it will be last in sorted lists.
+        filters_to("[Unknown]", u"\N{REPLACEMENT CHARACTER}")
+
+        # Periods are removed.
+        filters_to("Tepper, Sheri S.", "Tepper, Sheri S")
+        filters_to("Tepper, Sheri S", "Tepper, Sheri S")
 
         # The initials of authors who go by initials are normalized
         # so that their books all sort together.
-        filters_to("HG Wells", "HG Wells")
-        filters_to("H G Wells", "HG Wells")
-        filters_to("H.G. Wells", "HG Wells")
-        filters_to("H. G. Wells", "HG Wells")
+        filters_to("Wells, HG", "Wells, HG")
+        filters_to("Wells, H G", "Wells, HG")
+        filters_to("Wells, H.G.", "Wells, HG")
+        filters_to("Wells, H. G.", "Wells, HG")
 
-        # Middle initials are not otherwise affected.
-        filters_to("Herbert G. Wells", "Herbert G Wells")
-        filters_to("Herbert G Wells", "Herbert G Wells")
+        # It works with up to three initials.
+        filters_to("Tolkien, J. R. R.", "Tolkien, JRR")
 
+        # Parentheticals are removed.
+
+        filters_to("Wells, H. G. (Herbert George)", "Wells, HG")
 
 class EndToEndExternalSearchTest(ExternalSearchTest):
     """Subclasses of this class set up real works in a real
@@ -1193,7 +1203,7 @@ class TestSearchOrder(EndToEndExternalSearchTest):
 
         # We can sort by title.
         assert_order(
-            Facets.ORDER_TITLE, [self.moby_dick, self.moby_duck, self.untitled]
+            Facets.ORDER_TITLE, [self.untitled, self.moby_dick, self.moby_duck]
         )
 
         # We can sort by author; 'Hohn' sorts before 'Melville' sorts
