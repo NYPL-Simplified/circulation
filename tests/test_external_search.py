@@ -412,6 +412,7 @@ class TestExternalSearchIndexVersions(object):
         # Parentheticals are removed.
         filters_to("Wells, H. G. (Herbert George)", "Wells, HG")
 
+        
 class EndToEndExternalSearchTest(ExternalSearchTest):
     """Subclasses of this class set up real works in a real
     search index and run searches against it.
