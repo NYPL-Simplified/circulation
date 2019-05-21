@@ -832,8 +832,8 @@ class ExternalSearchIndexVersions(object):
         }
         mapping = cls.map_fields_by_type(fields_by_type, mapping)
 
-        # Sort author gets a different analyzer that normalized author
-        # names.
+        # Sort author gets a different analyzer designed especially
+        # to normalize author names.
         sort_author_description = {
             "type": "text",
             "index": True,

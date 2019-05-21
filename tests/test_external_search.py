@@ -388,7 +388,7 @@ class TestExternalSearchIndexVersions(object):
                 start = find.sub(replace, start)
             eq_(start, finish)
 
-        # Only the primary author is considered.
+        # Only the primary author is considered for sorting purposes.
         filters_to("Adams, John Joseph ; Yu, Charles", "Adams, John Joseph")
 
         # The special system author '[Unknown]' is replaced with
@@ -410,7 +410,6 @@ class TestExternalSearchIndexVersions(object):
         filters_to("Tolkien, J. R. R.", "Tolkien, JRR")
 
         # Parentheticals are removed.
-
         filters_to("Wells, H. G. (Herbert George)", "Wells, HG")
 
 class EndToEndExternalSearchTest(ExternalSearchTest):
