@@ -11,6 +11,7 @@ from elasticsearch_dsl import (
     Index,
     Search,
     Q,
+    SF,
 )
 try:
     from elasticsearch_dsl import F
@@ -372,7 +373,6 @@ class ExternalSearchIndex(HasSelfTests):
                 search = search.fields(fields)
             else:
                 search = search.source(fields)
-
         return search
 
     def query_works(self, query_string, filter=None, pagination=None,
@@ -405,6 +405,14 @@ class ExternalSearchIndex(HasSelfTests):
         stop = start + pagination.size
         
         a = time.time()
+
+        search = search.query(
+            Q('function_score',
+              functions=[
+                  SF('random_score', seed=int(time.time()))
+              ]
+            )
+        )
 
         # NOTE: This is the code that actually executes the ElasticSearch
         # request.
@@ -1164,16 +1172,6 @@ class Query(SearchBase):
         # tied to a specific server). Turn it into a Search object
         # (which is).
         search = elasticsearch.query(query)
-        import random
-        score = { "query": { "match_all": {} }, "boost": "5", "random_score": {"seed": random.randint(0,10000), "field": "work_id"}, "boost_mode":"multiply" }
-        score = {
-            "random_score": {
-                "seed": 10,
-                "field": "_seq_no"
-            }
-        }
-
-        search = search.update_from_dict(dict(function_score=score))
 
         # Now update the 'nested filters' dictionary with the
         # universal nested filters -- no suppressed license pools,
