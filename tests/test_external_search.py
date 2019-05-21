@@ -8,6 +8,7 @@ from collections import defaultdict
 import datetime
 import json
 import logging
+import re
 import time
 from psycopg2.extras import NumericRange
 
@@ -108,8 +109,10 @@ class ExternalSearchTest(DatabaseTest):
             self.search = ClientForTesting(self._db)
         except Exception as e:
             self.search = None
-            print "Unable to set up elasticsearch index, search tests will be skipped."
-            print e
+            logging.error(
+                "Unable to set up elasticsearch index, search tests will be skipped.",
+                exc_info=e
+            )
 
     def teardown(self):
         if self.search:
@@ -358,6 +361,57 @@ class TestExternalSearch(ExternalSearchTest):
         eq_(True, test_results[5].success)
         result = json.loads(test_results[5].result)
         eq_({collection.name: 1}, result)
+
+
+class TestExternalSearchIndexVersions(object):
+
+    def test_character_filters(self):
+        """Verify the functionality of the regular expressions we tell
+        Elasticsearch to use when normalizing fields that will be used
+        for searching.
+        """
+        filters = []
+        for filter_name in ExternalSearchIndexVersions.V4_AUTHOR_CHAR_FILTER_NAMES:
+            configuration = ExternalSearchIndexVersions.V4_CHAR_FILTERS[filter_name]
+            find = re.compile(configuration['pattern'])
+            replace = configuration['replacement']
+            # Hack to (imperfectly) convert Java regex format to Python format.
+            # $1 -> \1
+            replace = replace.replace("$", "\\")
+            filters.append((find, replace))
+
+        def filters_to(start, finish):
+            """When all the filters are applied to `start`,
+            the result is `finish`.
+            """
+            for find, replace in filters:
+                start = find.sub(replace, start)
+            eq_(start, finish)
+
+        # Only the primary author is considered for sorting purposes.
+        filters_to("Adams, John Joseph ; Yu, Charles", "Adams, John Joseph")
+
+        # The special system author '[Unknown]' is replaced with
+        # REPLACEMENT CHARACTER so it will be last in sorted lists.
+        filters_to("[Unknown]", u"\N{REPLACEMENT CHARACTER}")
+
+        # Periods are removed.
+        filters_to("Tepper, Sheri S.", "Tepper, Sheri S")
+        filters_to("Tepper, Sheri S", "Tepper, Sheri S")
+
+        # The initials of authors who go by initials are normalized
+        # so that their books all sort together.
+        filters_to("Wells, HG", "Wells, HG")
+        filters_to("Wells, H G", "Wells, HG")
+        filters_to("Wells, H.G.", "Wells, HG")
+        filters_to("Wells, H. G.", "Wells, HG")
+
+        # It works with up to three initials.
+        filters_to("Tolkien, J. R. R.", "Tolkien, JRR")
+
+        # Parentheticals are removed.
+        filters_to("Wells, H. G. (Herbert George)", "Wells, HG")
+
 
 class EndToEndExternalSearchTest(ExternalSearchTest):
     """Subclasses of this class set up real works in a real
@@ -1035,22 +1089,20 @@ class TestSearchOrder(EndToEndExternalSearchTest):
         if self.search:
 
             # Create two works -- this part is straightforward.
-            self.moby_dick = _work(title="Moby Dick", authors="Herman Melville", fiction=True)
+            self.moby_dick = _work(title="moby dick", authors="Herman Melville", fiction=True)
             self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
             self.moby_dick.presentation_edition.series = "Classics"
             self.moby_dick.presentation_edition.series_position = 10
             self.moby_dick.summary_text = "Ishmael"
             self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
-            self.moby_dick.set_presentation_ready()
             self.moby_dick.random = 0.1
             self.moby_dick.last_update_time = datetime.datetime.now()
 
-            self.moby_duck = _work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
+            self.moby_duck = _work(title="Moby Duck", authors="donovan hohn", fiction=False)
             self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
             self.moby_duck.summary_text = "A compulsively readable narrative"
             self.moby_duck.presentation_edition.series_position = 1
             self.moby_duck.presentation_edition.publisher = "Penguin"
-            self.moby_duck.set_presentation_ready()
             self.moby_duck.random = 0.9
             self.moby_duck.last_update_time = datetime.datetime.now()
 
@@ -1072,6 +1124,12 @@ class TestSearchOrder(EndToEndExternalSearchTest):
             self.moby_duck.license_pools.append(moby_duck_2)
             moby_dick_2 = self._licensepool(edition=self.moby_dick.presentation_edition, collection=self.collection2)
             self.moby_dick.license_pools.append(moby_dick_2)
+
+            # Create a work with an unknown title and author.
+            self.untitled = _work(title="[Untitled]", authors="[Unknown]")
+            self.untitled.random = 0.99
+            self.untitled.presentation_edition.series_position = 5
+            self.untitled.last_update_time = datetime.datetime.now()
 
     def test_ordering(self):
 
@@ -1144,25 +1202,39 @@ class TestSearchOrder(EndToEndExternalSearchTest):
             eq_(None, pagination)
 
         # We can sort by title.
-        assert_order(Facets.ORDER_TITLE, [self.moby_dick, self.moby_duck])
+        assert_order(
+            Facets.ORDER_TITLE, [self.untitled, self.moby_dick, self.moby_duck]
+        )
 
-        # We can sort by author; 'Hohn' sorts before 'Melville'.
-        assert_order(Facets.ORDER_AUTHOR, [self.moby_duck, self.moby_dick])
+        # We can sort by author; 'Hohn' sorts before 'Melville' sorts
+        # before "[Unknown]"
+        assert_order(
+            Facets.ORDER_AUTHOR, [self.moby_duck, self.moby_dick, self.untitled]
+        )
 
         # We can sort by the value of work.random. 0.1 < 0.9
-        assert_order(Facets.ORDER_RANDOM, [self.moby_dick, self.moby_duck])
+        assert_order(
+            Facets.ORDER_RANDOM, [self.moby_dick, self.moby_duck, self.untitled]
+        )
 
         # We can sort by the last update time of the Work -- this would
         # be used when creating a crawlable feed.
-        assert_order(Facets.ORDER_LAST_UPDATE, [self.moby_dick, self.moby_duck])
+        assert_order(
+            Facets.ORDER_LAST_UPDATE,
+            [self.moby_dick, self.moby_duck, self.untitled]
+        )
 
         # We can sort by series position. Here, the books aren't in
         # the same series; in a real scenario we would also filter on
         # the value of 'series'.
-        assert_order(Facets.ORDER_SERIES_POSITION, [self.moby_duck, self.moby_dick])
+        assert_order(Facets.ORDER_SERIES_POSITION,
+                     [self.moby_duck, self.untitled, self.moby_dick])
 
         # We can sort by internal work ID, which isn't very useful.
-        assert_order(Facets.ORDER_WORK_ID, [self.moby_dick, self.moby_duck])
+        assert_order(
+            Facets.ORDER_WORK_ID,
+            [self.moby_dick, self.moby_duck, self.untitled]
+        )
 
         # We can sort by the time the Work's LicensePools were first
         # seen -- this would be used when showing patrons 'new' stuff.
@@ -1171,7 +1243,8 @@ class TestSearchOrder(EndToEndExternalSearchTest):
         # collections, so filtering by collection will give different
         # results.
         assert_order(
-            Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_dick, self.moby_duck],
+            Facets.ORDER_ADDED_TO_COLLECTION,
+            [self.moby_dick, self.moby_duck, self.untitled],
             collections=[self.collection1]
         )
 
@@ -1185,7 +1258,8 @@ class TestSearchOrder(EndToEndExternalSearchTest):
         # that work is used. Since collection 1 was created before
         # collection 2, that means collection 1's ordering holds here.
         assert_order(
-            Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_dick, self.moby_duck],
+            Facets.ORDER_ADDED_TO_COLLECTION,
+            [self.moby_dick, self.moby_duck, self.untitled],
             collections=[self.collection1, self.collection2]
         )
 
