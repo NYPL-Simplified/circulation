@@ -690,7 +690,8 @@ class ExternalSearchIndexVersions(object):
         # by title, not by the other contributors.
         ("primary_author_only", "\s+;.*", ""),
 
-        # Remove periods from consideration.
+        # Remove parentheticals (e.g. the full name of someone who
+        # goes by initials).
         ("strip_parentheticals", "\s+\([^)]+\)", ""),
 
         # Remove periods from consideration.
