@@ -8,6 +8,7 @@ from collections import defaultdict
 import datetime
 import json
 import logging
+import re
 import time
 from psycopg2.extras import NumericRange
 
@@ -360,6 +361,47 @@ class TestExternalSearch(ExternalSearchTest):
         eq_(True, test_results[5].success)
         result = json.loads(test_results[5].result)
         eq_({collection.name: 1}, result)
+
+
+class TestExternalSearchIndexVersions(object):
+
+    def test_character_filters(self):
+        """Verify the functionality of the regular expressions we tell
+        Elasticsearch to use when normalizing fields that will be used
+        for searching.
+        """
+        filters = []
+        for filter_name in ExternalSearchIndexVersions.V4_CHAR_FILTER_NAMES:
+            configuration = ExternalSearchIndexVersions.V4_CHAR_FILTERS[filter_name]
+            find = re.compile(configuration['pattern'])
+            replace = configuration['replacement']
+            # Hack to (imperfectly) convert Java regex format to Python format.
+            # $1 -> \1
+            replace = replace.replace("$", "\\")
+            filters.append((find, replace))
+
+        def filters_to(start, finish):
+            """When all the filters are applied to `start`,
+            the result is `finish`.
+            """
+            for find, replace in filters:
+                start = find.sub(replace, start)
+            eq_(start, finish)
+
+        # Unneeded punctuation is removed.
+        filters_to("[Unknown]", "Unknown")
+
+        # The initials of authors who go by initials are normalized
+        # so that their books all sort together.
+        filters_to("HG Wells", "HG Wells")
+        filters_to("H G Wells", "HG Wells")
+        filters_to("H.G. Wells", "HG Wells")
+        filters_to("H. G. Wells", "HG Wells")
+
+        # Middle initials are not otherwise affected.
+        filters_to("Herbert G. Wells", "Herbert G Wells")
+        filters_to("Herbert G Wells", "Herbert G Wells")
+
 
 class EndToEndExternalSearchTest(ExternalSearchTest):
     """Subclasses of this class set up real works in a real
