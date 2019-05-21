@@ -403,8 +403,9 @@ class ExternalSearchIndex(HasSelfTests):
         search = self.create_search_doc(query_string, filter=filter, pagination=pagination, debug=debug, return_raw_results=return_raw_results)
         start = pagination.offset
         stop = start + pagination.size
-
+        
         a = time.time()
+
         # NOTE: This is the code that actually executes the ElasticSearch
         # request.
         results = search[start:stop]
@@ -1162,6 +1163,16 @@ class Query(SearchBase):
         # tied to a specific server). Turn it into a Search object
         # (which is).
         search = elasticsearch.query(query)
+        import random
+        score = { "query": { "match_all": {} }, "boost": "5", "random_score": {"seed": random.randint(0,10000), "field": "work_id"}, "boost_mode":"multiply" }
+        score = {
+            "random_score": {
+                "seed": 10,
+                "field": "_seq_no"
+            }
+        }
+
+        search = search.update_from_dict(dict(function_score=score))
 
         # Now update the 'nested filters' dictionary with the
         # universal nested filters -- no suppressed license pools,
@@ -1184,7 +1195,7 @@ class Query(SearchBase):
         # Apply any necessary sort order.
         if self.filter:
             order_fields = self.filter.sort_order
-            if order_fields:
+            if order_fields and False:
                 search = search.sort(*order_fields)
 
         # Apply any necessary query restrictions imposed by the
@@ -2156,7 +2167,8 @@ class SortKeyPagination(Pagination):
         super(SortKeyPagination, self).page_loaded(page)
         if page:
             last_item = page[-1]
-            values = list(last_item.meta.sort)
+            #values = list(last_item.meta.sort)
+            values = None
         else:
             # There's nothing on this page, so there's no next page
             # either.
