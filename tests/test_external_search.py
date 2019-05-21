@@ -8,6 +8,7 @@ from collections import defaultdict
 import datetime
 import json
 import logging
+import re
 import time
 from psycopg2.extras import NumericRange
 
@@ -360,6 +361,57 @@ class TestExternalSearch(ExternalSearchTest):
         eq_(True, test_results[5].success)
         result = json.loads(test_results[5].result)
         eq_({collection.name: 1}, result)
+
+
+class TestExternalSearchIndexVersions(object):
+
+    def test_character_filters(self):
+        """Verify the functionality of the regular expressions we tell
+        Elasticsearch to use when normalizing fields that will be used
+        for searching.
+        """
+        filters = []
+        for filter_name in ExternalSearchIndexVersions.V4_AUTHOR_CHAR_FILTER_NAMES:
+            configuration = ExternalSearchIndexVersions.V4_CHAR_FILTERS[filter_name]
+            find = re.compile(configuration['pattern'])
+            replace = configuration['replacement']
+            # Hack to (imperfectly) convert Java regex format to Python format.
+            # $1 -> \1
+            replace = replace.replace("$", "\\")
+            filters.append((find, replace))
+
+        def filters_to(start, finish):
+            """When all the filters are applied to `start`,
+            the result is `finish`.
+            """
+            for find, replace in filters:
+                start = find.sub(replace, start)
+            eq_(start, finish)
+
+        # Only the primary author is considered for sorting purposes.
+        filters_to("Adams, John Joseph ; Yu, Charles", "Adams, John Joseph")
+
+        # The special system author '[Unknown]' is replaced with
+        # REPLACEMENT CHARACTER so it will be last in sorted lists.
+        filters_to("[Unknown]", u"\N{REPLACEMENT CHARACTER}")
+
+        # Periods are removed.
+        filters_to("Tepper, Sheri S.", "Tepper, Sheri S")
+        filters_to("Tepper, Sheri S", "Tepper, Sheri S")
+
+        # The initials of authors who go by initials are normalized
+        # so that their books all sort together.
+        filters_to("Wells, HG", "Wells, HG")
+        filters_to("Wells, H G", "Wells, HG")
+        filters_to("Wells, H.G.", "Wells, HG")
+        filters_to("Wells, H. G.", "Wells, HG")
+
+        # It works with up to three initials.
+        filters_to("Tolkien, J. R. R.", "Tolkien, JRR")
+
+        # Parentheticals are removed.
+        filters_to("Wells, H. G. (Herbert George)", "Wells, HG")
+
 
 class EndToEndExternalSearchTest(ExternalSearchTest):
     """Subclasses of this class set up real works in a real
@@ -1151,7 +1203,7 @@ class TestSearchOrder(EndToEndExternalSearchTest):
 
         # We can sort by title.
         assert_order(
-            Facets.ORDER_TITLE, [self.moby_dick, self.moby_duck, self.untitled]
+            Facets.ORDER_TITLE, [self.untitled, self.moby_dick, self.moby_duck]
         )
 
         # We can sort by author; 'Hohn' sorts before 'Melville' sorts

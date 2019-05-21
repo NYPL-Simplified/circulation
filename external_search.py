@@ -676,6 +676,36 @@ class ExternalSearchIndexVersions(object):
             )
         return mapping
 
+    # Use regular expressions to normalized values in sortable fields.
+    # These regexes are applied in order; that way "H. G. Wells"
+    # becomes "H G Wells" becomes "HG Wells".
+    V4_CHAR_FILTERS = {}
+    V4_AUTHOR_CHAR_FILTER_NAMES = []
+    for name, pattern, replacement in [
+        # The special author name "[Unknown]" should sort after everything
+        # else. REPLACEMENT CHARACTER is the final valid Unicode character.
+        ("unknown_author", "\[Unknown\]", u"\N{REPLACEMENT CHARACTER}"),
+
+        # Works by a given primary author should be secondarily sorted
+        # by title, not by the other contributors.
+        ("primary_author_only", "\s+;.*", ""),
+
+        # Remove periods from consideration.
+        ("strip_parentheticals", "\s+\([^)]+\)", ""),
+
+        # Remove periods from consideration.
+        ("strip_periods", "\.", ""),
+
+        # Collapse spaces for people whose sort names end with initials.
+        ("collapse_three_initials", " ([A-Z]) ([A-Z]) ([A-Z])$", " $1$2$3"),
+        ("collapse_two_initials", " ([A-Z]) ([A-Z])$", " $1$2"),
+    ]:
+        normalizer = dict(type="pattern_replace",
+                          pattern=pattern,
+                          replacement=replacement)
+        V4_CHAR_FILTERS[name] = normalizer
+        V4_AUTHOR_CHAR_FILTER_NAMES.append(name)
+
     @classmethod
     def v4_body(cls):
         """The v4 body adds a significant number of fields so that
@@ -714,15 +744,7 @@ class ExternalSearchIndexVersions(object):
                         "country": "US"
                     }
                 },
-                # Remove some punctuation from strings that will be
-                # used to sort lists.
-                "char_filter" : {
-                    "punctuation_strip": {
-                        "type": "pattern_replace",
-                        "pattern": "[\[\].]",
-                        "replacement": "",
-                    },
-                },
+                "char_filter" : cls.V4_CHAR_FILTERS,
                 "analyzer" : {
                     "en_analyzer": {
                         "type": "custom",
@@ -737,12 +759,18 @@ class ExternalSearchIndexVersions(object):
                         "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
                     },
                     # An analyzer for textual fields we intend to sort on.
-                    # Title and author, basically.
                     "en_sortable_analyzer": {
                         "tokenizer": "keyword",
-                        "char_filter": ["punctuation_strip"],
                         "filter": [ "en_sortable_filter" ],
                     },
+                    # A special analyzer for sort author names,
+                    # including some special character filters for
+                    # normalizing names.
+                    "en_sort_author_analyzer": {
+                        "tokenizer": "keyword",
+                        "char_filter": cls.V4_AUTHOR_CHAR_FILTER_NAMES,
+                        "filter": [ "en_sortable_filter" ],
+                    }
                 }
             }
         }
@@ -804,12 +832,28 @@ class ExternalSearchIndexVersions(object):
         }
         mapping = cls.map_fields_by_type(fields_by_type, mapping)
 
-        # Build separate mappings for the nested data types --
-        # currently just licensepools.
+        # Sort author gets a different analyzer designed especially
+        # to normalize author names.
+        sort_author_description = {
+            "type": "text",
+            "index": True,
+            "store": False,
+            "fielddata": True,
+            'analyzer': 'en_sort_author_analyzer'
+        }
+        mapping = cls.map_fields(
+            fields=['sort_author'],
+            mapping=mapping,
+            field_description=sort_author_description,
+        )
+
+        # Build separate mappings for the nested data types.
+
+        # License pools.
         licensepool_fields_by_type = {
             'integer': ['collection_id', 'data_source_id'],
             'date': ['availability_time'],
-            'boolean': ['availabile', 'open_access', 'suppressed', 'licensed'],
+            'boolean': ['available', 'open_access', 'suppressed', 'licensed'],
             'keyword': ['medium'],
         }
         licensepool_definition = cls.map_fields_by_type(
