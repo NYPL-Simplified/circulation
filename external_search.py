@@ -404,7 +404,7 @@ class ExternalSearchIndex(HasSelfTests):
         start = pagination.offset
         stop = start + pagination.size
 
-        constant_scores, function_scores = filter.scoring_functions
+        function_scores = filter.scoring_functions
         if function_scores:
             function_score = Q(
                 'function_score',
@@ -413,10 +413,6 @@ class ExternalSearchIndex(HasSelfTests):
                 boost_mode="sum"
             )
             search = search.query(function_score)
-
-        if constant_scores:
-            for constant_score in constant_scores:
-                search = search.query(constant_score)
         a = time.time()
 
         # NOTE: This is the code that actually executes the ElasticSearch
@@ -2178,7 +2174,7 @@ class SortKeyPagination(Pagination):
         """
         super(SortKeyPagination, self).page_loaded(page)
         if page:
-            last_item = page[-1].meta
+            last_item = page[-1]
             values = list(last_item.meta.sort)
         else:
             # There's nothing on this page, so there's no next page

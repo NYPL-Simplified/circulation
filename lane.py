@@ -270,7 +270,7 @@ class FacetsWithEntryPoint(FacetConstants):
         Most subclasses will not use this because they order
         works using the 'order' feature.
         """
-        return [], []
+        return []
 
 
 class Facets(FacetsWithEntryPoint):
@@ -666,10 +666,9 @@ class FeaturedFacets(FacetsWithEntryPoint):
         # Currently available works are more featurable.
         available = Q('term', **{'licensepools.available' : True})
         nested = Q('nested', path='licensepools', query=available)
-        available_now = Q('constant_score', filter=nested, boost=3)
+        available_now = dict(filter=nested, weight=1)
 
-        constant_scores = [available_now]
-        function_scores = [quality_field, random]
+        function_scores = [quality_field, random, available_now]
 
         if filter.customlist_restriction_sets:
             list_ids = set()
@@ -680,14 +679,12 @@ class FeaturedFacets(FacetsWithEntryPoint):
             # lists will be boosted quite a lot versus one that's not.
             featured = Q('term', **{'customlists.featured' : True})
             on_list = Q('terms', **{'customlists.list_id' : list(list_ids)})
-            featured = Q('bool', must=[featured, on_list])
-            nested = Q('nested', path='customlists', query=featured)
-            featured_on_relevant_list = Q(
-                'constant_score', filter=nested, boost=11
-            )
-            #constant_scores.append(featured_on_relevant_list)
+            featured_on_list = Q('bool', must=[featured, on_list])
+            nested = Q('nested', path='customlists', query=featured_on_list)
+            featured_on_relevant_list = dict(filter=nested, weight=11)
+            function_scores.append(featured_on_relevant_list)
 
-        return constant_scores, function_scores
+        return function_scores
 
     def apply(self, _db, qu):
         """Order a query by quality tier, and then randomly.
