@@ -263,6 +263,15 @@ class FacetsWithEntryPoint(FacetConstants):
             self.entrypoint.modify_search_filter(filter)
         return filter
 
+    def scoring_functions(self, worklist):
+        """Create a list of ScoringFunction objects that modify how
+        works in the given WorkList should be ordered.
+
+        Most subclasses will not use this because they order
+        works using the 'order' feature.
+        """
+        return []
+
 
 class Facets(FacetsWithEntryPoint):
     """A full-fledged facet class that supports complex navigation between
@@ -628,6 +637,62 @@ class FeaturedFacets(FacetsWithEntryPoint):
         return self.__class__(
             minimum_featured_quality, uses_customlists, entrypoint
         )
+
+    def scoring_functions(self, worklist):
+        """Generate scoring functions that weight works randomly, but
+        with 'more featurable' works tending to be at the top.
+        """
+        from external_search import ScoringFunction
+        # A higher-quality work is more featurable.
+        # TODO: It shouldn't be necessary to use a cutoff -- we should
+        # be able to boost based on the .quality field directly.
+        featurable_quality = ScoringFunction(
+            filter=ScoringFunction._match_range(
+                "quality", "gte", self.minimum_featured_quality
+            ),
+            weight=5
+        )
+
+        # Low-quality open-access works are penalized.
+        not_open_access = F('term', **{'licensepools.open_access' : False})
+        decent_quality = ScoringFunction._match_range(
+            'licensepools.quality', 'gte', 0.3
+        )
+        licensed_or_high_quality_open_access = ScoringFunction(
+            filter=F('bool', should=[not_open_access, decent_quality]),
+            weight=2
+        )
+
+        # Currently available works are more featurable.
+        available_f = F('term', **{'licensepools.available' : True})
+        available_now = ScoringFunction(filter=available_f, weight=1)
+
+        # Random chance can boost a lower-quality work, but not by
+        # much.
+        random = ScoringFunction(
+            random_score={}, seed=int(time.time()), weight=0.5
+        )
+
+        # These scoring functions are always applied. There's one more
+        # below.
+        functions = [
+            featurable_quality, licensed_or_high_quality_open_access,
+            available_now, random
+        ]
+
+        if worklist._customlist_ids:
+            # This WorkList is based on custom lists. A work that's
+            # _featured_ on the list will be boosted quite a lot
+            # versus one that's not.
+            featured = F('term', **{'customlists.featured' : True})
+            on_list = F('terms', **{'customlists.list_id' : worklist._customlist_ids})
+            featured_f = Bool(must=[featured, on_list])
+            featured_on_relevant_list = ScoringFunction(
+                filter=featured_f, weight=11
+            )
+            functions.append(featured_on_relevant_list)
+
+        return functions
 
     def apply(self, _db, qu):
         """Order a query by quality tier, and then randomly.

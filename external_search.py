@@ -403,16 +403,14 @@ class ExternalSearchIndex(HasSelfTests):
         search = self.create_search_doc(query_string, filter=filter, pagination=pagination, debug=debug, return_raw_results=return_raw_results)
         start = pagination.offset
         stop = start + pagination.size
+
+        if filter.scoring_functions:            
+            search = search.query(
+                Q('function_score',
+                  functions=[x.build() for x in filter.scoring_functions])
+            )
         
         a = time.time()
-
-        search = search.query(
-            Q('function_score',
-              functions=[
-                  SF('random_score', seed=int(time.time()))
-              ]
-            )
-        )
 
         # NOTE: This is the code that actually executes the ElasticSearch
         # request.
@@ -1730,6 +1728,9 @@ class Filter(SearchBase):
         # information.
         if facets:
             facets.modify_search_filter(self)
+            self.scoring_functions = facets.scoring_functions(worklist)
+        else:
+            self.scoring_functions = []
 
     def build(self, _chain_filters=None):
         """Convert this object to an Elasticsearch Filter object.
@@ -2078,6 +2079,19 @@ class Filter(SearchBase):
             # There was no previous filter -- the 'new' one is it.
             pass
         return new
+
+
+class ScoringFunction(SearchBase):
+
+    def __init__(self, filter=None, **kwargs):
+        if not isinstance(filter, F):
+            filter = F(filter)
+        self.filter = filter
+        self.kwargs = kwargs
+
+    def build(self):
+        return SF(filter=self.filter, **kwargs)
+        
 
 
 class SortKeyPagination(Pagination):
