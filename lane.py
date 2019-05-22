@@ -660,7 +660,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
         # Currently available works are more featurable.
         available = Q('term', **{'licensepools.available' : True})
         nested = Q('nested', path='licensepools', query=available)
-        available_now = dict(filter=nested, weight=1.1)
+        available_now = dict(filter=nested, weight=3)
 
         function_scores = [quality_field, available_now]
 
@@ -670,7 +670,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
         if self.random_seed != self.DETERMINISTIC:
             random = SF(
                 'random_score',
-                seed=self.random_seed or int(time.time()), weight=1
+                seed=self.random_seed or int(time.time()), weight=1.5
             )
             function_scores.append(random)
 

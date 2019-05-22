@@ -1427,19 +1427,18 @@ class TestFeaturedFacets(EndToEndExternalSearchTest):
         self.hq_available = _work(title="HQ and available")
         self.hq_available.quality = 1
 
+        self.hq_available_2 = _work(title="Also HQ and available")
+        self.hq_available.quality = 1
+
         self.not_featured_on_list = _work(title="On a list but not featured")
-        self.not_featured_on_list.quality = 0.79998
+        self.not_featured_on_list.quality = 0.79999
 
         self.featured_on_list = _work(title="Featured on a list")
-        self.featured_on_list.quality = 0.79999
+        self.featured_on_list.quality = 0.79998
 
         self.best_seller_list, ignore = self._customlist(num_entries=0)
         self.best_seller_list.add_entry(self.featured_on_list, featured=True)
         self.best_seller_list.add_entry(self.not_featured_on_list)
-
-        self.staff_picks_list, ignore = self._customlist(num_entries=0)
-        self.staff_picks_list.add_entry(self.featured_on_list, featured=True)
-        self.staff_picks_list.add_entry(self.not_featured_on_list)
         
         # Add all those works to the search index.
         SearchIndexCoverageProvider(
@@ -1456,11 +1455,47 @@ class TestFeaturedFacets(EndToEndExternalSearchTest):
         works = worklist.works_from_search_index(
             self._db, facets, None, self.search, debug=True
         )
+
+        # Even though hq_not_available is higher-quality than
+        # featured_on_list, it shows up first because it's available
+        # right now.
+        #
+        # not_featured_on_list shows up before featured_on_list because
+        # it's higher-quality and list membership isn't relevant.
         eq_(
-            [self.hq_available, self.hq_not_available, 
-             self.featured_on_list, self.not_featured_on_list],
+            [self.hq_available, self.hq_available_2, self.not_featured_on_list,
+             self.featured_on_list, self.hq_not_available],
             works
         )
+
+        # Create a WorkList that's restricted to best-sellers.
+        best_selling_sf = WorkList()
+        best_selling_sf.initialize(
+            self._default_library, customlists=[self.best_seller_list]
+        )
+        works = best_selling_sf.works_from_search_index(
+            self._db, facets, None, self.search, debug=True
+        )
+
+        # The featured work appears above the non-featured work,
+        # even though it's lower quality.
+        eq_(
+            [self.featured_on_list, self.not_featured_on_list],
+            works
+        )
+
+        # Up to this point we've been avoiding the random element,
+        # but we can introduce that now by passing in a numeric seed.
+        random_facets = FeaturedFacets(0, random_seed=49)
+        works = worklist.works_from_search_index(
+            self._db, facets, None, self.search, debug=True
+        )
+        eq_(
+            [self.hq_available, self.not_featured_on_list,
+             self.featured_on_list, self.hq_not_available],
+            works
+        )
+
 
 
 class TestSearchBase(object):
