@@ -657,6 +657,11 @@ class FeaturedFacets(FacetsWithEntryPoint):
             missing=0,
         )
 
+        #quality_field = SF(
+        #    'script_score',
+        #    script=dict(source="doc['quality'].value * 5")
+        #)
+
         # Currently available works are more featurable.
         available = Q('term', **{'licensepools.available' : True})
         nested = Q('nested', path='licensepools', query=available)
@@ -670,7 +675,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
         if self.random_seed != self.DETERMINISTIC:
             random = SF(
                 'random_score',
-                seed=self.random_seed or int(time.time()), weight=1.5
+                seed=self.random_seed or int(time.time()), weight=1.1
             )
             function_scores.append(random)
 
@@ -687,7 +692,6 @@ class FeaturedFacets(FacetsWithEntryPoint):
             nested = Q('nested', path='customlists', query=featured_on_list)
             featured_on_relevant_list = dict(filter=nested, weight=11)
             function_scores.append(featured_on_relevant_list)
-        set_trace()
         return function_scores
 
     def apply(self, _db, qu):

@@ -1428,13 +1428,13 @@ class TestFeaturedFacets(EndToEndExternalSearchTest):
         self.hq_available.quality = 1
 
         self.hq_available_2 = _work(title="Also HQ and available")
-        self.hq_available.quality = 1
+        self.hq_available_2.quality = 1
 
         self.not_featured_on_list = _work(title="On a list but not featured")
-        self.not_featured_on_list.quality = 0.79999
+        self.not_featured_on_list.quality = 0.19
 
         self.featured_on_list = _work(title="Featured on a list")
-        self.featured_on_list.quality = 0.79998
+        self.featured_on_list.quality = 0.18
 
         self.best_seller_list, ignore = self._customlist(num_entries=0)
         self.best_seller_list.add_entry(self.featured_on_list, featured=True)
@@ -1486,13 +1486,13 @@ class TestFeaturedFacets(EndToEndExternalSearchTest):
 
         # Up to this point we've been avoiding the random element,
         # but we can introduce that now by passing in a numeric seed.
-        random_facets = FeaturedFacets(0, random_seed=49)
+        random_facets = FeaturedFacets(0, random_seed=42)
         works = worklist.works_from_search_index(
-            self._db, facets, None, self.search, debug=True
+            self._db, random_facets, None, self.search, debug=True
         )
         eq_(
-            [self.hq_available, self.not_featured_on_list,
-             self.featured_on_list, self.hq_not_available],
+            [self.hq_available, self.hq_available_2, self.featured_on_list,
+             self.not_featured_on_list, self.hq_not_available],
             works
         )
 
