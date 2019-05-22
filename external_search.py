@@ -404,12 +404,19 @@ class ExternalSearchIndex(HasSelfTests):
         start = pagination.offset
         stop = start + pagination.size
 
-        if filter.scoring_functions:            
-            search = search.query(
-                Q('function_score',
-                  functions=[x.build() for x in filter.scoring_functions])
+        constant_scores, function_scores = filter.scoring_functions
+        if function_scores:
+            function_score = Q(
+                'function_score',
+                query=dict(match_all=dict()),
+                functions=function_scores,
+                boost_mode="sum"
             )
-        
+            search = search.query(function_score)
+
+        if constant_scores:
+            for constant_score in constant_scores:
+                search = search.query(constant_score)
         a = time.time()
 
         # NOTE: This is the code that actually executes the ElasticSearch
@@ -1728,7 +1735,7 @@ class Filter(SearchBase):
         # information.
         if facets:
             facets.modify_search_filter(self)
-            self.scoring_functions = facets.scoring_functions(worklist)
+            self.scoring_functions = facets.scoring_functions(self)
         else:
             self.scoring_functions = []
 
@@ -2079,19 +2086,6 @@ class Filter(SearchBase):
             # There was no previous filter -- the 'new' one is it.
             pass
         return new
-
-
-class ScoringFunction(SearchBase):
-
-    def __init__(self, filter=None, **kwargs):
-        if not isinstance(filter, F):
-            filter = F(filter)
-        self.filter = filter
-        self.kwargs = kwargs
-
-    def build(self):
-        return SF(filter=self.filter, **kwargs)
-        
 
 
 class SortKeyPagination(Pagination):
