@@ -613,6 +613,8 @@ class FeaturedFacets(FacetsWithEntryPoint):
     AcquisitionFeed.groups().
     """
 
+    DETERMINISTIC = object()
+
     def __init__(self, minimum_featured_quality, uses_customlists=False,
                  entrypoint=None, random_seed=None, **kwargs):
         """Set up an object that finds featured books in a given
@@ -655,20 +657,22 @@ class FeaturedFacets(FacetsWithEntryPoint):
             missing=0,
         )
 
-        # Random chance can boost a lower-quality work, but not by
-        # much -- this mainly ensures we don't get the exact same
-        # books every time.
-        random = SF(
-            'random_score',
-            seed=self.random_seed or int(time.time()), weight=1
-        )
-
         # Currently available works are more featurable.
         available = Q('term', **{'licensepools.available' : True})
         nested = Q('nested', path='licensepools', query=available)
         available_now = dict(filter=nested, weight=1)
 
-        function_scores = [quality_field, random, available_now]
+        function_scores = [quality_field, available_now]
+
+        # Random chance can boost a lower-quality work, but not by
+        # much -- this mainly ensures we don't get the exact same
+        # books every time.
+        if self.random_seed != self.DETERMINISTIC:
+            random = SF(
+                'random_score',
+                seed=self.random_seed or int(time.time()), weight=1
+            )
+            function_scores.append(random)
 
         if filter.customlist_restriction_sets:
             list_ids = set()
