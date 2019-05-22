@@ -2175,7 +2175,6 @@ class SortKeyPagination(Pagination):
         if page:
             last_item = page[-1]
             values = list(last_item.meta.sort)
-            values = None
         else:
             # There's nothing on this page, so there's no next page
             # either.
