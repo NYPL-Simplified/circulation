@@ -428,11 +428,6 @@ class ExternalSearchIndex(HasSelfTests):
                     result.meta['score'] or 0, result.meta['shard']
                 )
 
-                print(
-                    '%.3f "%s" (%s) work=%s' % (
-                    result.meta['score'] or 0, result.sort_title, result.sort_author, result.meta['id'],
-                ))
-
         # Convert the Search object into a list of hits.
         results = [x for x in results]
 
@@ -2277,26 +2272,6 @@ class SearchIndexMonitor(WorkSweepMonitor):
         # We got a generic service name. Replace it with a more
         # specific one.
         self.service_name = "Search index update (%s)" % index_name
-
-    def item_query_2(self):
-        # TEST METHOD
-
-        # This method indexes the works that belong in the 'Science
-        # Fiction' lane and leaves all other works alone. I use this
-        # to improve turnaround when testing with a large real
-        # collection.
-
-        from model.classification import Genre
-        from model.work import WorkGenre
-        genre_ids = []
-        for name in ('Fantasy', 'Science Fiction'):
-            g, ignore = Genre.lookup(self._db, name)
-            genre_ids.extend([x.id for x in g.self_and_subgenres])
-        qu = self._db.query(Work).join(Work.work_genres).filter(WorkGenre.genre_id.in_(genre_ids))
-        if self.collection:
-            qu = self.scope_to_collection(qu, self.collection)
-        qu = qu.order_by(self.model_class.id)
-        return qu
 
     def process_batch(self, offset):
         """Update the search index for a set of Works."""
