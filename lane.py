@@ -650,8 +650,8 @@ class FeaturedFacets(FacetsWithEntryPoint):
         quality_field = SF(
             'field_value_factor',
             field='quality',
-            factor=1,
-            modifier='ln1p',
+            factor=5,
+            modifier='ln2p',
             missing=0,
         )
 

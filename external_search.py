@@ -428,9 +428,14 @@ class ExternalSearchIndex(HasSelfTests):
             for i, result in enumerate(results):
                 self.log.debug(
                     '%02d "%s" (%s) work=%s score=%.3f shard=%s',
-                    i, result.title, result.author, result.meta['id'],
+                    i, result.sort_title, result.sort_author, result.meta['id'],
                     result.meta['score'] or 0, result.meta['shard']
                 )
+
+                print(
+                    '%.3f "%s" (%s) work=%s' % (
+                    result.meta['score'] or 0, result.sort_title, result.sort_author, result.meta['id'],
+                ))
 
         # Convert the Search object into a list of hits.
         results = [x for x in results]
@@ -2173,7 +2178,7 @@ class SortKeyPagination(Pagination):
         """
         super(SortKeyPagination, self).page_loaded(page)
         if page:
-            last_item = page[-1]
+            last_item = page[-1].meta
             values = list(last_item.meta.sort)
         else:
             # There's nothing on this page, so there's no next page
