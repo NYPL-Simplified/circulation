@@ -36,7 +36,7 @@ class TestPatronAuth(SettingsControllerTest):
             response = self.manager.admin_patron_auth_services_controller.process_patron_auth_services()
             eq_(response.get("patron_auth_services"), [])
             protocols = response.get("protocols")
-            eq_(6, len(protocols))
+            eq_(7, len(protocols))
             eq_(SimpleAuthenticationProvider.__module__, protocols[0].get("name"))
             assert "settings" in protocols[0]
             assert "library_settings" in protocols[0]
