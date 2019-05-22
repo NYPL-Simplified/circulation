@@ -861,9 +861,19 @@ class ExternalSearchIndexVersions(object):
             licensepool_fields_by_type
         )
 
+        # Custom list memberships.
+        customlist_fields_by_type = {
+            'integer': ['list_id'],
+            'boolean': ['featured']
+        }
+        customlist_definition = cls.map_fields_by_type(
+            customlist_fields_by_type
+        )
+
         # Add the nested data type mappings to the main mapping.
         for type_name, type_definition in [
             ('licensepools', licensepool_definition),
+            ('customlists', customlist_definition),
         ]:
             type_definition['type'] = 'nested'
             mapping = cls.map_fields(
@@ -1768,7 +1778,9 @@ class Filter(SearchBase):
 
         for customlist_ids in self.customlist_restriction_sets:
             ids = filter_ids(customlist_ids)
-            f = chain(f, F('terms', **{'customlists.list_id' : ids}))
+            nested_filters['customlists'].append(
+                F('terms', **{'customlists.list_id' : ids})
+            )
 
         open_access = F('term', **{'licensepools.open_access' : True})
         if self.availability==FacetConstants.AVAILABLE_NOW:

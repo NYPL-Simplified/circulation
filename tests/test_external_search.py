@@ -2565,14 +2565,22 @@ class TestFilter(DatabaseTest):
         currently_available = Bool(should=[licenses_available, open_access])
         eq_(currently_available, no_holds_filter)
 
+        # The best-seller list and staff picks restrictions are also
+        # expressed as nested filters.
+        [best_sellers_filter, staff_picks_filter] = nested.pop('customlists')
+        eq_({'terms': {'customlists.list_id': [self.best_sellers.id]}},
+            best_sellers_filter.to_dict())
+        eq_({'terms': {'customlists.list_id': [self.staff_picks.id]}},
+            staff_picks_filter.to_dict())
+
+
         # There are no other nested filters.
         eq_({}, nested)
 
         # Every other restriction imposed on the Filter object becomes an
         # Elasticsearch filter object in this list.
         (medium, language, fiction, audience, target_age,
-         literary_fiction_filter, fantasy_or_horror_filter,
-         best_sellers_filter, staff_picks_filter) = built
+         literary_fiction_filter, fantasy_or_horror_filter) = built
 
         # Test them one at a time.
         #
@@ -2603,13 +2611,6 @@ class TestFilter(DatabaseTest):
             literary_fiction_filter.to_dict())
         eq_({'terms': {'genres.term': [self.fantasy.id, self.horror.id]}},
             fantasy_or_horror_filter.to_dict())
-
-        # Similarly, there are two different restrictions on custom
-        # list membership.
-        eq_({'terms': {'customlists.list_id': [self.best_sellers.id]}},
-            best_sellers_filter.to_dict())
-        eq_({'terms': {'customlists.list_id': [self.staff_picks.id]}},
-            staff_picks_filter.to_dict())
 
         # We tried fiction; now try nonfiction.
         filter = Filter()
