@@ -660,7 +660,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
         # Currently available works are more featurable.
         available = Q('term', **{'licensepools.available' : True})
         nested = Q('nested', path='licensepools', query=available)
-        available_now = dict(filter=nested, weight=1)
+        available_now = dict(filter=nested, weight=1.1)
 
         function_scores = [quality_field, available_now]
 
@@ -687,7 +687,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
             nested = Q('nested', path='customlists', query=featured_on_list)
             featured_on_relevant_list = dict(filter=nested, weight=11)
             function_scores.append(featured_on_relevant_list)
-
+        set_trace()
         return function_scores
 
     def apply(self, _db, qu):

@@ -30,6 +30,7 @@ from ..config import (
 )
 from ..lane import (
     Facets,
+    FeaturedFacets,
     Lane,
     Pagination,
     WorkList,
@@ -1403,6 +1404,63 @@ class TestExactMatches(EndToEndExternalSearchTest):
             ]
 
         expect(order, "peter graves biography")
+
+
+class TestFeaturedFacets(EndToEndExternalSearchTest):
+    """Test how a FeaturedFacets object affects search ordering.    
+    """
+
+    def setup(self):
+        super(TestFeaturedFacets, self).setup()
+        _work = self.default_work
+
+        if not self.search:
+            return
+
+        _work = self.default_work
+
+
+        self.hq_not_available = _work(title="HQ but not available")
+        self.hq_not_available.quality = 1
+        self.hq_not_available.license_pools[0].licenses_available = 0
+
+        self.hq_available = _work(title="HQ and available")
+        self.hq_available.quality = 1
+
+        self.not_featured_on_list = _work(title="On a list but not featured")
+        self.not_featured_on_list.quality = 0.79998
+
+        self.featured_on_list = _work(title="Featured on a list")
+        self.featured_on_list.quality = 0.79999
+
+        self.best_seller_list, ignore = self._customlist(num_entries=0)
+        self.best_seller_list.add_entry(self.featured_on_list, featured=True)
+        self.best_seller_list.add_entry(self.not_featured_on_list)
+
+        self.staff_picks_list, ignore = self._customlist(num_entries=0)
+        self.staff_picks_list.add_entry(self.featured_on_list, featured=True)
+        self.staff_picks_list.add_entry(self.not_featured_on_list)
+        
+        # Add all those works to the search index.
+        SearchIndexCoverageProvider(
+            self._db, search_index_client=self.search
+        ).run_once_and_update_timestamp()
+
+        # Sleep to give the index time to catch up.
+        time.sleep(1)
+
+    def test_run(self):
+        worklist = WorkList()
+        worklist.initialize(self._default_library)
+        facets = FeaturedFacets(0, random_seed=FeaturedFacets.DETERMINISTIC)
+        works = worklist.works_from_search_index(
+            self._db, facets, None, self.search, debug=True
+        )
+        eq_(
+            [self.hq_available, self.hq_not_available, 
+             self.featured_on_list, self.not_featured_on_list],
+            works
+        )
 
 
 class TestSearchBase(object):
