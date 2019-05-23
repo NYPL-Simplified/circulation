@@ -1576,7 +1576,9 @@ class TestWorkList(DatabaseTest):
                 self.featured_called_with = facets
                 return []
 
-            def _groups_for_lanes(self, _db, relevant_children, relevant_lanes, facets):
+            def _groups_for_lanes(
+                self, _db, relevant_children, relevant_lanes, facets, search_engine=None, debug=False
+            ):
                 self.groups_called_with = facets
                 return []
 
@@ -3592,31 +3594,31 @@ class TestWorkListGroups(DatabaseTest):
         eq_(wl.uses_customlists, facets2.uses_customlists)
 
     def test_featured_works_with_lanes(self):
-        """_featured_works_with_lanes calls works_in_window on every lane
-        pass in to it.
-        """
+        # _featured_works_with_lanes calls works_from_search_index
+        # on every lane we pass in to it.
         class Mock(object):
-            """A Mock of Lane.works_in_window."""
+            """A Mock of Lane.works_from_search_index."""
 
             def __init__(self, mock_works):
                 self.mock_works = mock_works
 
-            def works_in_window(self, _db, facets, target_size):
-                self.called_with = [_db, facets, target_size]
+            def works_from_search_index(self, _db, facets, pagination, *args, **kwargs):
+                self.called_with = [_db, facets, pagination]
                 return [self.mock_works]
 
-        mock1 = Mock(("mw1","quality1"))
-        mock2 = Mock(("mw2","quality2"))
+        mock1 = Mock(["work1", "work2"])
+        mock2 = Mock(["workA", "workB"])
 
         lane = self._lane()
         facets = FeaturedFacets(0.1)
+        pagination = object()
         results = lane._featured_works_with_lanes(
-            self._db, [mock1, mock2], facets
+            self._db, [mock1, mock2], facets, pagination, search_engine=object()
         )
 
         # The results of works_in_window were annotated with the
         # 'lane' that produced the result.
-        eq_([('mw1', 'quality1', mock1), ('mw2', 'quality2', mock2)],
+        eq_([(['work1', 'work2'], mock1), (['workA', 'workB'], mock2)],
             list(results))
 
         # Each Mock's works_in_window was called with the same
@@ -3624,11 +3626,11 @@ class TestWorkListGroups(DatabaseTest):
         eq_(mock1.called_with, mock2.called_with)
 
         # The Facets object passed in to _featured_works_with_lanes()
-        # is passed on into works_in_window().
-        _db, called_with_facets, target_size = mock1.called_with
+        # is passed on into works_from_search_index().
+        _db, called_with_facets, pagination = mock1.called_with
         eq_(self._db, _db)
         eq_(facets, called_with_facets)
-        eq_(lane.library.featured_lane_size, target_size)
+        eq_(pagination, pagination)
 
     def test_featured_window(self):
         lane = self._lane()

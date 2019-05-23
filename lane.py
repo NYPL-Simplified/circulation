@@ -1286,12 +1286,12 @@ class WorkList(object):
             key += ','.join(audiences)
         return key
 
-    def groups(self, _db, include_sublanes=True, facets=None):
+    def groups(self, _db, include_sublanes=True, facets=None,
+               search_engine=None, debug=False):
         """Extract a list of samples from each child of this WorkList.  This
         can be used to create a grouped acquisition feed for the WorkList.
 
-        :param facets: A FeaturedFacets object, presumably a FeaturedFacets,
-        that may restrict the works on view.
+        :param facets: A FeaturedFacets object that may restrict the works on view.
 
         :yield: A sequence of (Work, WorkList) 2-tuples, with each
         WorkList representing the child WorkList in which the Work is
@@ -1331,7 +1331,8 @@ class WorkList(object):
         # for any children that are Lanes, and call groups()
         # recursively for any children that are not.
         for work, worklist in self._groups_for_lanes(
-                _db, relevant_children, relevant_lanes, facets=facets
+            _db, relevant_children, relevant_lanes, facets=facets,
+            search_engine=search_engine, debug=debug
         ):
             yield work, worklist
 
@@ -1850,9 +1851,22 @@ class WorkList(object):
 
         return results
 
-    def _groups_for_lanes(self, _db, relevant_lanes, queryable_lanes, facets=None):
+    def _groups_for_lanes(
+        self, _db, relevant_lanes, queryable_lanes, facets,
+        search_engine=None, debug=False
+    ):
         library = self.get_library(_db)
         target_size = library.featured_lane_size
+        facets = facets or self.default_featured_facets(_db)
+
+        # We want to get an extra work or two for each lane, to reduce
+        # the risk that we'll end up reusing a book in two different
+        # lanes.
+        target_size = max(target_size+1, int(target_size * 1.10))
+        pagination = Pagination(size=target_size)
+
+        from external_search import ExternalSearchIndex
+        search_engine = search_engine or ExternalSearchIndex(_db)
 
         if isinstance(self, Lane):
             parent_lane = self
@@ -1861,7 +1875,11 @@ class WorkList(object):
 
         queryable_lane_set = set(queryable_lanes)
         work_quality_tier_lane = list(
-            self._featured_works_with_lanes(_db, queryable_lanes, facets=facets)
+            self._featured_works_with_lanes(
+                _db, queryable_lanes, facets=facets,
+                pagination=pagination, search_engine=search_engine,
+                debug=debug
+            )
         )
 
         def _done_with_lane(lane):
@@ -1882,7 +1900,7 @@ class WorkList(object):
         by_lane = defaultdict(list)
         working_lane = None
         might_need_to_reuse = dict()
-        for mw, quality_tier, lane in work_quality_tier_lane:
+        for work, lane in work_quality_tier_lane:
             if lane != working_lane:
                 # Either we're done with the old lane, or we're just
                 # starting and there was no old lane.
@@ -1895,15 +1913,15 @@ class WorkList(object):
                 # We've already filled this lane.
                 continue
 
-            if mw.works_id in used_works:
-                if mw.works_id not in used_works_this_lane:
+            if work.id in used_works:
+                if work.id not in used_works_this_lane:
                     # We already used this work in another lane, but we
                     # might need to use it again to fill out this lane.
-                    might_need_to_reuse[mw.works_id] = mw
+                    might_need_to_reuse[work.id] = work
             else:
-                by_lane[lane].append(mw)
-                used_works.add(mw.works_id)
-                used_works_this_lane.add(mw.works_id)
+                by_lane[lane].append(work)
+                used_works.add(work.id)
+                used_works_this_lane.add(work.id)
 
         # Close out the last lane encountered.
         _done_with_lane(working_lane)
@@ -1911,8 +1929,8 @@ class WorkList(object):
             if lane in queryable_lane_set:
                 # We found results for this lane through the main query.
                 # Yield those results.
-                for mw in by_lane.get(lane, []):
-                    yield (mw, lane)
+                for work in by_lane.get(lane, []):
+                    yield (work, lane)
             else:
                 # We didn't try to use the main query to find results
                 # for this lane because we knew the results, if there
@@ -1921,11 +1939,13 @@ class WorkList(object):
                 # Lane at all. Do a whole separate query and plug it
                 # in at this point.
                 for x in lane.groups(
-                    _db, include_sublanes=False, facets=facets
+                    _db, include_sublanes=False, facets=facets,
                 ):
                     yield x
 
-    def _featured_works_with_lanes(self, _db, lanes, facets):
+    def _featured_works_with_lanes(
+        self, _db, lanes, facets, pagination, search_engine, debug=False
+    ):
         """Find a sequence of works that can be used to
         populate this lane's grouped acquisition feed.
 
@@ -1942,17 +1962,13 @@ class WorkList(object):
             # We can't run this query at all.
             return
 
-        library = self.get_library(_db)
-        target_size = library.featured_lane_size
-
-        facets = facets or self.default_featured_facets(_db)
-
         # Pull a window of works for every lane we were given.
         for lane in lanes:
-            for mw, quality_tier in lane.works_in_window(
-                    _db, facets, target_size
+            for work in lane.works_from_search_index(
+                _db, facets, pagination, search_engine=search_engine,
+                debug=debug
             ):
-                yield mw, quality_tier, lane
+                yield work, lane
 
     def works_in_window(self, _db, facets, target_size):
         """Find all MaterializedWorkWithGenre objects within a randomly

@@ -419,6 +419,21 @@ class EndToEndExternalSearchTest(ExternalSearchTest):
     search index and run searches against it.
     """
 
+    def setup(self):
+        super(EndToEndExternalSearchTest, self).setup()
+        
+        # Create some works.
+        self.populate_works()
+
+        # Add all the works created in the setup to the search index.
+        SearchIndexCoverageProvider(
+            self._db, search_index_client=self.search
+        ).run_once_and_update_timestamp()
+
+        # Sleep to give the index time to catch up.
+        time.sleep(2)
+
+
     def _assert_works(self, description, expect, actual, should_be_ordered=True):
         # Verify that two lists of works are the same.
         if not should_be_ordered:
@@ -655,14 +670,6 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         eq_(1, len(self.moby_dick.to_search_document()['licensepools']))
         eq_("Audio",
             self.pride_audio.to_search_document()['licensepools'][0]['medium'])
-
-        # Add all the works created in the setup to the search index.
-        SearchIndexCoverageProvider(
-            self._db, search_index_client=self.search
-        ).run_once_and_update_timestamp()
-
-        # Sleep to give the index time to catch up.
-        time.sleep(2)
 
         # Set up convenient aliases for methods we'll be calling a
         # lot.
