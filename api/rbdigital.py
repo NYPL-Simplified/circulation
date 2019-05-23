@@ -716,7 +716,8 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         credential = Credential.lookup(
             _db, DataSource.RB_DIGITAL,
             Credential.IDENTIFIER_FROM_REMOTE_SERVICE,
-            patron, refresh_credential, allow_persistent_token=True
+            patron, refresh_credential,
+            collection=self.collection, allow_persistent_token=True
         )
         return credential.credential
 
