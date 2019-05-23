@@ -20,6 +20,8 @@ apt-get update && $minimal_apt_get_install python-dev \
   npm \
   libpq-dev
 
+ln /usr/bin/nodejs /usr/bin/node
+
 # Create a user.
 useradd -ms /bin/bash -U simplified
 
