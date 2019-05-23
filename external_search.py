@@ -404,7 +404,7 @@ class ExternalSearchIndex(HasSelfTests):
         start = pagination.offset
         stop = start + pagination.size
 
-        function_scores = filter.scoring_functions
+        function_scores = filter.scoring_functions if filter else None
         if function_scores:
             function_score = Q(
                 'function_score',
