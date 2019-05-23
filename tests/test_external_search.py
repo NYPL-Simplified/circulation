@@ -2481,6 +2481,9 @@ class TestFilter(DatabaseTest):
             def modify_search_filter(self, filter):
                 self.called_with = filter
 
+            def scoring_functions(self, filter):
+                return []
+
         facets = Mock()
         filter = Filter(facets=facets)
         eq_(filter, facets.called_with)
@@ -2529,6 +2532,8 @@ class TestFilter(DatabaseTest):
         class Mock(object):
             def modify_search_filter(self, filter):
                 self.called_with = filter
+            def scoring_functions(self, filter):
+                return []
         facets = Mock()
 
         filter = Filter.from_worklist(self._db, inherits, facets)
