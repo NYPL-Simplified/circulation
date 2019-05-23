@@ -11,7 +11,6 @@ from elasticsearch_dsl import (
     Index,
     Search,
     Q,
-    SF,
 )
 try:
     from elasticsearch_dsl import F
@@ -373,6 +372,7 @@ class ExternalSearchIndex(HasSelfTests):
                 search = search.fields(fields)
             else:
                 search = search.source(fields)
+
         return search
 
     def query_works(self, query_string, filter=None, pagination=None,

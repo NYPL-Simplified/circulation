@@ -2476,17 +2476,20 @@ class TestFilter(DatabaseTest):
         )
 
         # If you pass in a Facets object, its modify_search_filter()
-        # is called.
+        # and scoring_functions() methods are called.
         class Mock(object):
             def modify_search_filter(self, filter):
-                self.called_with = filter
+                self.modify_search_filter_called_with = filter
 
             def scoring_functions(self, filter):
-                return []
+                self.scoring_functions_called_with = filter
+                return ["some scoring functions"]
 
         facets = Mock()
         filter = Filter(facets=facets)
-        eq_(filter, facets.called_with)
+        eq_(filter, facets.modify_search_filter_called_with)
+        eq_(filter, facets.scoring_functions_called_with)
+        eq_(["some scoring functions"], filter.scoring_functions)
 
         # Some arguments to the constructor only exist as keyword
         # arguments, but you can't pass in whatever keywords you want.
