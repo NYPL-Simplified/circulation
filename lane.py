@@ -657,11 +657,6 @@ class FeaturedFacets(FacetsWithEntryPoint):
             missing=0,
         )
 
-        #quality_field = SF(
-        #    'script_score',
-        #    script=dict(source="doc['quality'].value * 5")
-        #)
-
         # Currently available works are more featurable.
         available = Q('term', **{'licensepools.available' : True})
         nested = Q('nested', path='licensepools', query=available)

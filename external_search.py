@@ -410,7 +410,7 @@ class ExternalSearchIndex(HasSelfTests):
                 'function_score',
                 query=dict(match_all=dict()),
                 functions=function_scores,
-                boost_mode="sum"
+                score_mode="sum"
             )
             search = search.query(function_score)
         a = time.time()

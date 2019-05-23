@@ -441,7 +441,7 @@ class EndToEndExternalSearchTest(ExternalSearchTest):
 
         eq_(
             expect, actual,
-            "%r did not find %d works (%s/%s), instead found %d (%s/%s)" % (
+            "%r did not find %d works\n (%s/%s).\nInstead found %d\n (%s/%s)" % (
                 description,
                 len(expect), ", ".join(map(str, expect_ids)),
                     ", ".join(expect_titles),
@@ -1446,8 +1446,11 @@ class TestFeaturedFacets(EndToEndExternalSearchTest):
         self.not_featured_on_list = _work(title="On a list but not featured")
         self.not_featured_on_list.quality = 0.19
 
+        # This work has nothing going for it other than the fact
+        # that it's been featured on a custom list.
         self.featured_on_list = _work(title="Featured on a list")
         self.featured_on_list.quality = 0.18
+        self.featured_on_list.license_pools[0].licenses_available = 0
 
         self.best_seller_list, ignore = self._customlist(num_entries=0)
         self.best_seller_list.add_entry(self.featured_on_list, featured=True)
@@ -1478,7 +1481,7 @@ class TestFeaturedFacets(EndToEndExternalSearchTest):
         self._assert_works(
             "Normal search",
             [self.hq_available, self.hq_available_2, self.not_featured_on_list,
-             self.featured_on_list, self.hq_not_available],
+             self.hq_not_available, self.featured_on_list],
             works
         )
 
@@ -1492,7 +1495,7 @@ class TestFeaturedFacets(EndToEndExternalSearchTest):
         )
 
         # The featured work appears above the non-featured work,
-        # even though it's lower quality.
+        # even though it's lower quality and is not available.
         self._assert_works(
             "Works from WorkList based on CustomList",
             [self.featured_on_list, self.not_featured_on_list],
@@ -1501,14 +1504,17 @@ class TestFeaturedFacets(EndToEndExternalSearchTest):
 
         # Up to this point we've been avoiding the random element,
         # but we can introduce that now by passing in a numeric seed.
-        random_facets = FeaturedFacets(0, random_seed=42)
+        #
+        # The random element is relatively small, so it mainly acts
+        # to rearrange works whose scores were similar before.
+        random_facets = FeaturedFacets(0, random_seed=41)
         works = worklist.works_from_search_index(
             self._db, random_facets, None, self.search, debug=True
         )
         self._assert_works(
             "Works permuted by a random seed",
-            [self.hq_available, self.hq_available_2, self.featured_on_list,
-             self.not_featured_on_list, self.hq_not_available],
+            [self.hq_available_2, self.hq_available, self.not_featured_on_list,
+             self.featured_on_list, self.hq_not_available],
             works
         )
 
