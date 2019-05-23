@@ -1465,12 +1465,18 @@ class TestFeaturedFacets(EndToEndExternalSearchTest):
         time.sleep(1)
 
     def test_run(self):
+
+        def assert_featured(description, worklist, facets, expect):
+            # Generate a list of featured works for the given `worklist`
+            # and compare that list against `expect`.
+            actual = worklist.works_from_search_index(
+                self._db, facets, None, self.search, debug=True
+            )
+            self._assert_works(description, expect, actual)
+
         worklist = WorkList()
         worklist.initialize(self._default_library)
-        facets = FeaturedFacets(0, random_seed=FeaturedFacets.DETERMINISTIC)
-        works = worklist.works_from_search_index(
-            self._db, facets, None, self.search, debug=True
-        )
+        facets = FeaturedFacets(1, random_seed=FeaturedFacets.DETERMINISTIC)
 
         # Even though hq_not_available is higher-quality than
         # featured_on_list, it shows up first because it's available
@@ -1478,44 +1484,56 @@ class TestFeaturedFacets(EndToEndExternalSearchTest):
         #
         # not_featured_on_list shows up before featured_on_list because
         # it's higher-quality and list membership isn't relevant.
-        self._assert_works(
-            "Normal search",
+        assert_featured(
+            "Normal search", worklist, facets,
             [self.hq_available, self.hq_available_2, self.not_featured_on_list,
              self.hq_not_available, self.featured_on_list],
-            works
         )
 
         # Create a WorkList that's restricted to best-sellers.
-        best_selling_sf = WorkList()
-        best_selling_sf.initialize(
+        best_sellers = WorkList()
+        best_sellers.initialize(
             self._default_library, customlists=[self.best_seller_list]
         )
-        works = best_selling_sf.works_from_search_index(
-            self._db, facets, None, self.search, debug=True
-        )
-
         # The featured work appears above the non-featured work,
         # even though it's lower quality and is not available.
-        self._assert_works(
-            "Works from WorkList based on CustomList",
+        assert_featured(
+            "Works from WorkList based on CustomList", best_sellers, facets,
             [self.featured_on_list, self.not_featured_on_list],
-            works
+        )
+
+        # By changing the minimum_featured_quality you can control
+        # at what point a work is considered 'featured' -- at which
+        # point its quality stops being taken into account.
+        #
+        # An extreme case of this is to set the minimum_featured_quality
+        # to 0, which makes all works 'featured' and stops quality
+        # from being considered altogether. Basically all that matters
+        # is availability.
+        all_featured_facets = FeaturedFacets(
+            0, random_seed=FeaturedFacets.DETERMINISTIC
+        )
+        assert_featured(
+            "Works without considering quality",
+            worklist, all_featured_facets,
+            [self.hq_available, self.hq_available_2,
+             self.not_featured_on_list, self.hq_not_available,
+             self.featured_on_list],
         )
 
         # Up to this point we've been avoiding the random element,
         # but we can introduce that now by passing in a numeric seed.
+        # In normal usage, the current time is the
         #
         # The random element is relatively small, so it mainly acts
         # to rearrange works whose scores were similar before.
-        random_facets = FeaturedFacets(0, random_seed=41)
-        works = worklist.works_from_search_index(
-            self._db, random_facets, None, self.search, debug=True
-        )
-        self._assert_works(
+        random_facets = FeaturedFacets(1, random_seed=41)
+        assert_featured(
             "Works permuted by a random seed",
-            [self.hq_available_2, self.hq_available, self.not_featured_on_list,
-             self.featured_on_list, self.hq_not_available],
-            works
+            worklist, random_facets,
+            [self.hq_available_2, self.hq_available,
+             self.not_featured_on_list, self.hq_not_available,
+             self.featured_on_list],
         )
 
 

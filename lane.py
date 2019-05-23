@@ -648,19 +648,26 @@ class FeaturedFacets(FacetsWithEntryPoint):
         from elasticsearch_dsl import SF, Q
         from external_search import SearchBase
 
-        # A higher-quality work is more featurable.
-        quality_field = SF(
-            'field_value_factor',
-            field='quality',
-            factor=5,
-            modifier='ln2p',
-            missing=0,
-        )
+        # A higher-quality work is more featurable. But we don't want
+        # to constantly feature the very highest-quality works, and if
+        # there are no high-quality works, we want medium-quality to
+        # outrank low-quality.
+        #
+        # So we calculate a score based on the _square_ of the work's
+        # quality. This disproportionately privileges higher-quality
+        # works.  But there's a cutoff -- the minimum featured quality
+        # -- beyond which a work is 'featurable' and higher quality no
+        # longer increases its score.
+        exponent = 2
+        cutoff = (self.minimum_featured_quality ** exponent)
+        script = ("Math.min(%.5f, Math.pow(doc['quality'].value, %.5f)) * 5"
+                  % (cutoff, exponent))
+        quality_field = SF('script_score', script=dict(source=script))
 
         # Currently available works are more featurable.
         available = Q('term', **{'licensepools.available' : True})
         nested = Q('nested', path='licensepools', query=available)
-        available_now = dict(filter=nested, weight=3)
+        available_now = dict(filter=nested, weight=5)
 
         function_scores = [quality_field, available_now]
 
@@ -670,7 +677,9 @@ class FeaturedFacets(FacetsWithEntryPoint):
         if self.random_seed != self.DETERMINISTIC:
             random = SF(
                 'random_score',
-                seed=self.random_seed or int(time.time()), weight=1.1
+                seed=self.random_seed or int(time.time()),
+                field="work_id",
+                weight=1.1
             )
             function_scores.append(random)
 
