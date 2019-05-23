@@ -653,14 +653,16 @@ class FeaturedFacets(FacetsWithEntryPoint):
         # there are no high-quality works, we want medium-quality to
         # outrank low-quality.
         #
-        # So we calculate a score based on the _square_ of the work's
-        # quality. This disproportionately privileges higher-quality
-        # works.  But there's a cutoff -- the minimum featured quality
-        # -- beyond which a work is 'featurable' and higher quality no
-        # longer increases its score.
+        # So we establish a cutoff -- the minimum featured quality --
+        # beyond which a work is considered 'featurable'. All featurable
+        # works get the same (high) score.
+        #
+        # Below that point, we prefer higher-quality works to lower-quality
+        # works, so a work's score is proportional to the square of its
+        # quality.
         exponent = 2
         cutoff = (self.minimum_featured_quality ** exponent)
-        script = ("Math.min(%.5f, Math.pow(doc['quality'].value, %.5f)) * 5"
+        script = ("Math.pow(Math.min(%.5f, doc['quality'].value), %.5f) * 5"
                   % (cutoff, exponent))
         quality_field = SF('script_score', script=dict(source=script))
 
