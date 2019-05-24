@@ -713,11 +713,12 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
 
         # Find or create the credential.
         _db = Session.object_session(patron)
+        collection = Collection.by_id(_db, id=self.collection_id)
         credential = Credential.lookup(
             _db, DataSource.RB_DIGITAL,
             Credential.IDENTIFIER_FROM_REMOTE_SERVICE,
             patron, refresh_credential,
-            collection=self.collection, allow_persistent_token=True
+            collection=collection, allow_persistent_token=True
         )
         return credential.credential
 
