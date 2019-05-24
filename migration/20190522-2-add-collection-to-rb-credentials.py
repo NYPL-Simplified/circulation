@@ -13,7 +13,7 @@ from core.model import (
     production_session
 )
 from api.rbdigital import RBDigitalAPI
-from sqlalchemy import update
+from sqlalchemy import update, and_
 
 _db = production_session()
 
@@ -33,12 +33,13 @@ rb_digital_collections = _db.query(Collection.id)\
 if len(rb_digital_collections) == 1:
     rb_collection_id = rb_digital_collections[0][0]
     source = DataSource.lookup(_db, DataSource.RB_DIGITAL)
-    update(Credential)\
-        .where(
+    update_statement = update(Credential)\
+        .where(and_(
             Credential.data_source_id == source.id,
             Credential.type == Credential.IDENTIFIER_FROM_REMOTE_SERVICE
-        )\
+        ))\
         .values(collection_id=rb_collection_id)
+    _db.execute(update_statement)
 
 # We have multiple RBDigital integration and we don't know which credential
 # belongs to each one. Have to check each credential against RBDigital API.
@@ -68,7 +69,8 @@ credential = _db.query(Credential)\
         Credential.type == Credential.IDENTIFIER_FROM_REMOTE_SERVICE,
         Credential.credential == None
     ).first()
-_db.delete(credential)
+if credential is not None:
+    _db.delete(credential)
 
 _db.commit()
 _db.close()
