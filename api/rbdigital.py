@@ -751,10 +751,23 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # authorization identifier. And there is no preexisting
         # Credential representing a dummy account, or this method
         # wouldn't have been called. We must create a new account.
-        return self.create_patron(
-            patron.library, patron.authorization_identifier,
-            self.patron_email_address(patron)
-        )
+        try:
+            return self.create_patron(
+                patron.library, patron.authorization_identifier,
+                self.patron_email_address(patron)
+            )
+        except RemotePatronCreationFailedException:
+            # Its possible to get a RemotePatronCreationFailedException if an account
+            # was already created for this patron, but never put in the DB due to an
+            # error. Here we try to recover that account using its email address.
+            remote_identifier = self.patron_remote_identifier_lookup(
+                self.patron_email_address(patron)
+            )
+            if remote_identifier:
+                return remote_identifier
+            else:
+                raise
+
 
     def create_patron(self, library, authorization_identifier, email_address):
         """Ask RBdigital to create a new patron record.
