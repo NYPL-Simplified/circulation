@@ -704,11 +704,14 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # Set up a refresher method that takes no arguments except the
         # credential -- this is what lookup() expects.
         def refresh_credential(credential):
-            remote_identifier = self._find_or_create_remote_account(
-                patron
-            )
-            credential.credential = remote_identifier
-            credential.expires = None
+            try:
+                remote_identifier = self._find_or_create_remote_account(
+                    patron
+                )
+                credential.credential = remote_identifier
+                credential.expires = None
+            except CirculationException:
+                self.log.exception("Failed to create RBDigital User.")
             return credential
 
         # Find or create the credential.
@@ -720,6 +723,10 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             patron, refresh_credential,
             collection=collection, allow_persistent_token=True
         )
+        # If we failed to create the credential, don't persist to the database
+        if credential.credential is None:
+            _db.delete(credential)
+            return None
         return credential.credential
 
     def _find_or_create_remote_account(self, patron):
