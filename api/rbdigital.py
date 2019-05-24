@@ -711,7 +711,7 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 credential.credential = remote_identifier
                 credential.expires = None
             except CirculationException:
-                self.log.exception("Failed to create RBDigital User.")
+                self.log.exception("Failed to create RBDigital User. Collection: %s", self.collection.name)
             return credential
 
         # Find or create the credential.
