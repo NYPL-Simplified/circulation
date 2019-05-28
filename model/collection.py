@@ -124,6 +124,9 @@ class Collection(Base, HasFullTableCache):
         cascade="all, delete-orphan"
     )
 
+    # A Collection can have many associated Credentials.
+    credentials = relationship("Credential", backref="collection", cascade="delete")
+
     # A Collection can be monitored by many Monitors, each of which
     # will have its own Timestamp.
     timestamps = relationship("Timestamp", backref="collection")
