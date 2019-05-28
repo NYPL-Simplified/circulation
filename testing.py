@@ -446,7 +446,7 @@ class DatabaseTest(object):
         identifier = license_pool.identifier
         content_type = Representation.EPUB_MEDIA_TYPE
         drm_scheme = DeliveryMechanism.NO_DRM
-        LicensePoolDeliveryMechanism.set(
+        return LicensePoolDeliveryMechanism.set(
             data_source, identifier, content_type, drm_scheme,
             RightsStatus.IN_COPYRIGHT
         )
