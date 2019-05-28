@@ -3413,10 +3413,11 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
                 # featured earlier. The search index knows about a
                 # title (lq_litfix) that was not previously featured,
                 # but we didn't see it because the Elasticsearch query
-                # didn't happen fetch it. The query for each lane
-                # happens separately and there were too many
-                # high-quality works in 'fiction' for the low-quality
-                # one to show up.
+                # didn't happen to fetch it.
+                #
+                # Each lane gets a separate query, and there were too
+                # many high-quality works in 'fiction' for the
+                # low-quality one to show up.
                 (self.hq_litfic, fiction),
                 (self.hq_sf, fiction),
             ]

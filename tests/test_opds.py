@@ -1200,9 +1200,8 @@ class TestOPDS(DatabaseTest):
         eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_groups).entries))
 
     def test_groups_feed_with_empty_sublanes_is_page_feed(self):
-        """Test that a page feed is returned when the requested groups
-        feed has no books in the groups.
-        """
+        # Test that a page feed is returned when the requested groups
+        # feed has no books in the groups.
         library = self._default_library
 
         test_lane = self._lane("Test Lane", genres=['Mystery'])
@@ -1482,16 +1481,15 @@ class TestAcquisitionFeed(DatabaseTest):
         assert '{http://opds-spec.org/2010/catalog}activeFacet' not in l
 
     def test_groups_propagates_facets(self):
-        """AcquisitionFeed.groups() might call several different
-        methods that each need a facet object.
-        """
+        # AcquisitionFeed.groups() might call several different
+        # methods that each need a facet object.
         class Mock(object):
             """Contains all the mock methods used by this test."""
             def fetch(self, *args, **kwargs):
                 self.fetch_called_with = kwargs['facets']
                 return None, False
 
-            def groups(self, _db, facets):
+            def groups(self, _db, facets, *args, **kwargs):
                 self.groups_called_with = facets
                 return []
 
