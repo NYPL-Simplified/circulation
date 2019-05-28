@@ -69,72 +69,10 @@ from ..external_search import (
 
 from ..classifier import Classifier
 
-
-class ClientForTesting(ExternalSearchIndex):
-    """When creating an index, limit it to a single shard and disable
-    replicas.
-
-    This makes search results more predictable.
-    """
-
-    def setup_index(self, new_index=None):
-        return super(ClientForTesting, self).setup_index(
-            new_index, number_of_shards=1, number_of_replicas=0
-        )
-
-
-class ExternalSearchTest(DatabaseTest):
-    """
-    These tests require elasticsearch to be running locally. If it's not, or there's
-    an error creating the index, the tests will pass without doing anything.
-
-    Tests for elasticsearch are useful for ensuring that we haven't accidentally broken
-    a type of search by changing analyzers or queries, but search needs to be tested manually
-    to ensure that it works well overall, with a realistic index.
-    """
-
-    def setup(self):
-        super(ExternalSearchTest, self).setup(mock_search=False)
-
-        self.integration = self._external_integration(
-            ExternalIntegration.ELASTICSEARCH,
-            goal=ExternalIntegration.SEARCH_GOAL,
-            url=u'http://localhost:9200',
-            settings={
-                ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY : u'test_index',
-                ExternalSearchIndex.TEST_SEARCH_TERM_KEY : u'test_search_term',
-            }
-        )
-
-        try:
-            self.search = ClientForTesting(self._db)
-        except Exception as e:
-            self.search = None
-            logging.error(
-                "Unable to set up elasticsearch index, search tests will be skipped.",
-                exc_info=e
-            )
-
-    def teardown(self):
-        if self.search:
-            if self.search.works_index:
-                self.search.indices.delete(self.search.works_index, ignore=[404])
-            self.search.indices.delete('the_other_index', ignore=[404])
-            self.search.indices.delete('test_index-v100', ignore=[404])
-            self.search.indices.delete('test_index-v9999', ignore=[404])
-            ExternalSearchIndex.reset()
-        super(ExternalSearchTest, self).teardown()
-
-    def default_work(self, *args, **kwargs):
-        """Convenience method to create a work with a license pool
-        in the default collection.
-        """
-        work = self._work(
-            *args, with_license_pool=True,
-            collection=self._default_collection, **kwargs
-        )
-        work.set_presentation_ready()
-        return work
+from ..testing import (
+    ExternalSearchTest,
+    EndToEndSearchTest,
+)
 
 
 class TestExternalSearch(ExternalSearchTest):
@@ -414,241 +352,157 @@ class TestExternalSearchIndexVersions(object):
         filters_to("Wells, H. G. (Herbert George)", "Wells, HG")
 
 
-class EndToEndExternalSearchTest(ExternalSearchTest):
-    """Subclasses of this class set up real works in a real
-    search index and run searches against it.
-    """
-
-    def setup(self):
-        super(EndToEndExternalSearchTest, self).setup()
-        
-        # Create some works.
-        self.populate_works()
-
-        # Add all the works created in the setup to the search index.
-        SearchIndexCoverageProvider(
-            self._db, search_index_client=self.search
-        ).run_once_and_update_timestamp()
-
-        # Sleep to give the index time to catch up.
-        time.sleep(2)
-
-
-    def _assert_works(self, description, expect, actual, should_be_ordered=True):
-        # Verify that two lists of works are the same.
-        if not should_be_ordered:
-            expect = set(expect)
-            actual = set(actual)
-
-        # Get the titles of the works that were actually returned, to
-        # make comparisons easier.
-        actual_ids = []
-        actual_titles = []
-        for work in actual:
-            actual_titles.append(work.title)
-            actual_ids.append(work.id)
-
-        expect_ids = []
-        expect_titles = []
-        for work in expect:
-            expect_titles.append(work.title)
-            expect_ids.append(work.id)
-
-        eq_(
-            expect, actual,
-            "%r did not find %d works\n (%s/%s).\nInstead found %d\n (%s/%s)" % (
-                description,
-                len(expect), ", ".join(map(str, expect_ids)),
-                    ", ".join(expect_titles),
-                len(actual), ", ".join(map(str, actual_ids)),
-                    ", ".join(actual_titles)
-            )
-        )
-
-    def _expect_results(self, expect, *query_args, **kwargs):
-        """Helper function to call query() and verify that it
-        returns certain work IDs.
-
-        :param should_be_ordered: If this is True (the default), then the
-        assertion will only succeed if the search results come in in
-        the exact order specified in `works`. If this is False, then
-        those exact results must come up, but their order is not
-        what's being tested.
-        """
-        if isinstance(expect, Work):
-            expect = [expect]
-
-        should_be_ordered = kwargs.pop('ordered', True)
-
-        results = self.search.query_works(*query_args, debug=True, **kwargs)
-        actual = self._db.query(Work).filter(Work.id.in_(results)).all()
-        if should_be_ordered:
-            # Put the Work objects in the same order as the IDs returned
-            # in `results`.
-            works_by_id = dict()
-            for w in actual:
-                works_by_id[w.id] = w
-            actual = [
-                works_by_id[result] for result in results
-                if result in works_by_id
-            ]
-
-        self._assert_works(query_args, expect, actual, should_be_ordered)
-
-
-class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
+class TestExternalSearchWithWorks(EndToEndSearchTest):
     """These tests run against a real search index with works in it.
     The setup is very slow, so all the tests are in the same method.
     Don't add new methods to this class - add more tests into test_query_works,
     or add a new test class.
     """
 
-    def setup(self):
+    def populate_works(self):
         super(TestExternalSearchWithWorks, self).setup()
         _work = self.default_work
 
-        if self.search:
+        self.moby_dick = _work(
+            title="Moby Dick", authors="Herman Melville", fiction=True,
+        )
+        self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
+        self.moby_dick.presentation_edition.series = "Classics"
+        self.moby_dick.summary_text = "Ishmael"
+        self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
 
-            self.moby_dick = _work(
-                title="Moby Dick", authors="Herman Melville", fiction=True,
-            )
-            self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
-            self.moby_dick.presentation_edition.series = "Classics"
-            self.moby_dick.summary_text = "Ishmael"
-            self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
+        self.moby_duck = _work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
+        self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
+        self.moby_duck.summary_text = "A compulsively readable narrative"
+        self.moby_duck.presentation_edition.publisher = "Penguin"
+        # This book is not currently loanable. It will still show up
+        # in search results unless the library's settings disable it.
+        self.moby_duck.license_pools[0].licenses_available = 0
 
-            self.moby_duck = _work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
-            self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
-            self.moby_duck.summary_text = "A compulsively readable narrative"
-            self.moby_duck.presentation_edition.publisher = "Penguin"
-            # This book is not currently loanable. It will still show up
-            # in search results unless the library's settings disable it.
-            self.moby_duck.license_pools[0].licenses_available = 0
+        self.title_match = _work(title="Match")
 
-            self.title_match = _work(title="Match")
+        self.subtitle_match = _work(title="SubtitleM")
+        self.subtitle_match.presentation_edition.subtitle = "Match"
 
-            self.subtitle_match = _work(title="SubtitleM")
-            self.subtitle_match.presentation_edition.subtitle = "Match"
+        self.summary_match = _work(title="SummaryM")
+        self.summary_match.summary_text = "Match"
 
-            self.summary_match = _work(title="SummaryM")
-            self.summary_match.summary_text = "Match"
+        self.publisher_match = _work(title="PublisherM")
+        self.publisher_match.presentation_edition.publisher = "Match"
 
-            self.publisher_match = _work(title="PublisherM")
-            self.publisher_match.presentation_edition.publisher = "Match"
+        self.tess = _work(title="Tess of the d'Urbervilles")
 
-            self.tess = _work(title="Tess of the d'Urbervilles")
+        self.tiffany = _work(title="Breakfast at Tiffany's")
 
-            self.tiffany = _work(title="Breakfast at Tiffany's")
+        self.les_mis = _work()
+        self.les_mis.presentation_edition.title = u"Les Mis\u00E9rables"
 
-            self.les_mis = _work()
-            self.les_mis.presentation_edition.title = u"Les Mis\u00E9rables"
+        self.modern_romance = _work()
+        self.modern_romance.presentation_edition.title = u"Modern Romance"
 
-            self.modern_romance = _work()
-            self.modern_romance.presentation_edition.title = u"Modern Romance"
+        self.lincoln = _work(genre="Biography & Memoir", title="Abraham Lincoln")
 
-            self.lincoln = _work(genre="Biography & Memoir", title="Abraham Lincoln")
+        self.washington = _work(genre="Biography", title="George Washington")
 
-            self.washington = _work(genre="Biography", title="George Washington")
+        self.lincoln_vampire = _work(title="Abraham Lincoln: Vampire Hunter", genre="Fantasy")
 
-            self.lincoln_vampire = _work(title="Abraham Lincoln: Vampire Hunter", genre="Fantasy")
+        self.children_work = _work(title="Alice in Wonderland", audience=Classifier.AUDIENCE_CHILDREN)
 
-            self.children_work = _work(title="Alice in Wonderland", audience=Classifier.AUDIENCE_CHILDREN)
+        self.ya_work = _work(title="Go Ask Alice", audience=Classifier.AUDIENCE_YOUNG_ADULT)
 
-            self.ya_work = _work(title="Go Ask Alice", audience=Classifier.AUDIENCE_YOUNG_ADULT)
+        self.adult_work = _work(title="Still Alice", audience=Classifier.AUDIENCE_ADULT)
 
-            self.adult_work = _work(title="Still Alice", audience=Classifier.AUDIENCE_ADULT)
+        self.ya_romance = _work(
+            title="Gumby In Love",
+            audience=Classifier.AUDIENCE_YOUNG_ADULT, genre="Romance"
+        )
+        self.ya_romance.presentation_edition.subtitle = (
+            "Modern Fairytale Series, Volume 7"
+        )
 
-            self.ya_romance = _work(
-                title="Gumby In Love",
-                audience=Classifier.AUDIENCE_YOUNG_ADULT, genre="Romance"
-            )
-            self.ya_romance.presentation_edition.subtitle = (
-                "Modern Fairytale Series, Volume 7"
-            )
+        self.no_age = _work()
+        self.no_age.summary_text = "President Barack Obama's election in 2008 energized the United States"
 
-            self.no_age = _work()
-            self.no_age.summary_text = "President Barack Obama's election in 2008 energized the United States"
+        self.age_4_5 = _work()
+        self.age_4_5.target_age = NumericRange(4, 5, '[]')
+        self.age_4_5.summary_text = "President Barack Obama's election in 2008 energized the United States"
 
-            self.age_4_5 = _work()
-            self.age_4_5.target_age = NumericRange(4, 5, '[]')
-            self.age_4_5.summary_text = "President Barack Obama's election in 2008 energized the United States"
+        self.age_5_6 = _work(fiction=False)
+        self.age_5_6.target_age = NumericRange(5, 6, '[]')
 
-            self.age_5_6 = _work(fiction=False)
-            self.age_5_6.target_age = NumericRange(5, 6, '[]')
+        self.obama = _work(
+            title="Barack Obama", genre="Biography & Memoir"
+        )
+        self.obama.target_age = NumericRange(8, 8, '[]')
+        self.obama.summary_text = "President Barack Obama's election in 2008 energized the United States"
 
-            self.obama = _work(
-                title="Barack Obama", genre="Biography & Memoir"
-            )
-            self.obama.target_age = NumericRange(8, 8, '[]')
-            self.obama.summary_text = "President Barack Obama's election in 2008 energized the United States"
+        self.dodger = _work()
+        self.dodger.target_age = NumericRange(8, 8, '[]')
+        self.dodger.summary_text = "Willie finds himself running for student council president"
 
-            self.dodger = _work()
-            self.dodger.target_age = NumericRange(8, 8, '[]')
-            self.dodger.summary_text = "Willie finds himself running for student council president"
+        self.age_9_10 = _work()
+        self.age_9_10.target_age = NumericRange(9, 10, '[]')
+        self.age_9_10.summary_text = "President Barack Obama's election in 2008 energized the United States"
 
-            self.age_9_10 = _work()
-            self.age_9_10.target_age = NumericRange(9, 10, '[]')
-            self.age_9_10.summary_text = "President Barack Obama's election in 2008 energized the United States"
+        self.age_2_10 = _work()
+        self.age_2_10.target_age = NumericRange(2, 10, '[]')
 
-            self.age_2_10 = _work()
-            self.age_2_10.target_age = NumericRange(2, 10, '[]')
+        self.pride = _work(title="Pride and Prejudice (E)")
+        self.pride.presentation_edition.medium = Edition.BOOK_MEDIUM
 
-            self.pride = _work(title="Pride and Prejudice (E)")
-            self.pride.presentation_edition.medium = Edition.BOOK_MEDIUM
+        self.pride_audio = _work(title="Pride and Prejudice (A)")
+        self.pride_audio.presentation_edition.medium = Edition.AUDIO_MEDIUM
 
-            self.pride_audio = _work(title="Pride and Prejudice (A)")
-            self.pride_audio.presentation_edition.medium = Edition.AUDIO_MEDIUM
+        self.sherlock = _work(
+            title="The Adventures of Sherlock Holmes",
+            with_open_access_download=True
+        )
+        self.sherlock.presentation_edition.language = "eng"
 
-            self.sherlock = _work(
-                title="The Adventures of Sherlock Holmes",
-                with_open_access_download=True
-            )
-            self.sherlock.presentation_edition.language = "eng"
+        self.sherlock_spanish = _work(title="Las Aventuras de Sherlock Holmes")
+        self.sherlock_spanish.presentation_edition.language = "spa"
 
-            self.sherlock_spanish = _work(title="Las Aventuras de Sherlock Holmes")
-            self.sherlock_spanish.presentation_edition.language = "spa"
+        # Create a custom list that contains a few books.
+        self.presidential, ignore = self._customlist(
+            name="Nonfiction about US Presidents", num_entries=0
+        )
+        for work in [self.washington, self.lincoln, self.obama]:
+            self.presidential.add_entry(work)
 
-            # Create a custom list that contains a few books.
-            self.presidential, ignore = self._customlist(
-                name="Nonfiction about US Presidents", num_entries=0
-            )
-            for work in [self.washington, self.lincoln, self.obama]:
-                self.presidential.add_entry(work)
+        # Create a second collection that only contains a few books.
+        self.tiny_collection = self._collection("A Tiny Collection")
+        self.tiny_book = self._work(
+            title="A Tiny Book", with_license_pool=True,
+            collection=self.tiny_collection
+        )
 
-            # Create a second collection that only contains a few books.
-            self.tiny_collection = self._collection("A Tiny Collection")
-            self.tiny_book = self._work(
-                title="A Tiny Book", with_license_pool=True,
-                collection=self.tiny_collection
-            )
+        # Both collections contain 'The Adventures of Sherlock
+        # Holmes", but each collection licenses the book through a
+        # different mechanism.
+        self.sherlock_pool_2 = self._licensepool(
+            edition=self.sherlock.presentation_edition,
+            collection=self.tiny_collection
+        )
 
-            # Both collections contain 'The Adventures of Sherlock
-            # Holmes", but each collection licenses the book through a
-            # different mechanism.
-            self.sherlock_pool_2 = self._licensepool(
-                edition=self.sherlock.presentation_edition,
-                collection=self.tiny_collection
-            )
+        sherlock_2, is_new = self.sherlock_pool_2.calculate_work()
+        eq_(self.sherlock, sherlock_2)
+        eq_(2, len(self.sherlock.license_pools))
 
-            sherlock_2, is_new = self.sherlock_pool_2.calculate_work()
-            eq_(self.sherlock, sherlock_2)
-            eq_(2, len(self.sherlock.license_pools))
+        # These books look good for some search results, but they
+        # will be filtered out by the universal filters, and will
+        # never show up in results.
 
-            # These books look good for some search results, but they
-            # will be filtered out by the universal filters, and will
-            # never show up in results.
+        # We own no copies of this book.
+        self.no_copies = _work(title="Moby Dick 2")
+        self.no_copies.license_pools[0].licenses_owned = 0
 
-            # We own no copies of this book.
-            self.no_copies = _work(title="Moby Dick 2")
-            self.no_copies.license_pools[0].licenses_owned = 0
+        # This book's only license pool has been suppressed.
+        self.suppressed = _work(title="Moby Dick 2")
+        self.suppressed.license_pools[0].suppressed = True
 
-            # This book's only license pool has been suppressed.
-            self.suppressed = _work(title="Moby Dick 2")
-            self.suppressed.license_pools[0].suppressed = True
-
-            # This book is not presentation_ready.
-            self.not_presentation_ready = _work(title="Moby Dick 2")
-            self.not_presentation_ready.presentation_ready = False
+        # This book is not presentation_ready.
+        self.not_presentation_ready = _work(title="Moby Dick 2")
+        self.not_presentation_ready.presentation_ready = False
 
     def test_query_works(self):
         # An end-to-end test of the search functionality.
@@ -1025,35 +879,32 @@ class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
         eq_([[self.lincoln, self.obama]], pages(biography_wl))
 
 
-class TestFacetFilters(EndToEndExternalSearchTest):
+class TestFacetFilters(EndToEndSearchTest):
 
-    def setup(self):
-        super(TestFacetFilters, self).setup()
+    def populate_works(self):
         _work = self.default_work
 
-        if self.search:
+        # A low-quality open-access work.
+        self.horse = _work(
+            title="Diseases of the Horse", with_open_access_download=True
+        )
+        self.horse.quality = 0.2
 
-            # A low-quality open-access work.
-            self.horse = _work(
-                title="Diseases of the Horse", with_open_access_download=True
-            )
-            self.horse.quality = 0.2
+        # A high-quality open-access work.
+        self.moby = _work(
+            title="Moby Dick", with_open_access_download=True
+        )
+        self.moby.quality = 0.8
 
-            # A high-quality open-access work.
-            self.moby = _work(
-                title="Moby Dick", with_open_access_download=True
-            )
-            self.moby.quality = 0.8
-
-            # A currently available commercially-licensed work.
-            self.duck = _work(title='Moby Duck')
-            self.duck.license_pools[0].licenses_available = 1
-            self.duck.quality = 0.5
+        # A currently available commercially-licensed work.
+        self.duck = _work(title='Moby Duck')
+        self.duck.license_pools[0].licenses_available = 1
+        self.duck.quality = 0.5
             
-            # A currently unavailable commercially-licensed work.
-            self.becoming = _work(title='Becoming')
-            self.becoming.license_pools[0].licenses_available = 0
-            self.becoming.quality = 0.9
+        # A currently unavailable commercially-licensed work.
+        self.becoming = _work(title='Becoming')
+        self.becoming.license_pools[0].licenses_available = 0
+        self.becoming.quality = 0.9
 
     def test_facet_filtering(self):
 
@@ -1101,56 +952,53 @@ class TestFacetFilters(EndToEndExternalSearchTest):
                [self.becoming, self.moby, self.duck])
 
 
-class TestSearchOrder(EndToEndExternalSearchTest):
+class TestSearchOrder(EndToEndSearchTest):
 
-    def setup(self):
-        super(TestSearchOrder, self).setup()
+    def populate_works(self):
         _work = self.default_work
 
-        if self.search:
+        # Create two works -- this part is straightforward.
+        self.moby_dick = _work(title="moby dick", authors="Herman Melville", fiction=True)
+        self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
+        self.moby_dick.presentation_edition.series = "Classics"
+        self.moby_dick.presentation_edition.series_position = 10
+        self.moby_dick.summary_text = "Ishmael"
+        self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
+        self.moby_dick.random = 0.1
+        self.moby_dick.last_update_time = datetime.datetime.now()
 
-            # Create two works -- this part is straightforward.
-            self.moby_dick = _work(title="moby dick", authors="Herman Melville", fiction=True)
-            self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
-            self.moby_dick.presentation_edition.series = "Classics"
-            self.moby_dick.presentation_edition.series_position = 10
-            self.moby_dick.summary_text = "Ishmael"
-            self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
-            self.moby_dick.random = 0.1
-            self.moby_dick.last_update_time = datetime.datetime.now()
+        self.moby_duck = _work(title="Moby Duck", authors="donovan hohn", fiction=False)
+        self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
+        self.moby_duck.summary_text = "A compulsively readable narrative"
+        self.moby_duck.presentation_edition.series_position = 1
+        self.moby_duck.presentation_edition.publisher = "Penguin"
+        self.moby_duck.random = 0.9
+        self.moby_duck.last_update_time = datetime.datetime.now()
 
-            self.moby_duck = _work(title="Moby Duck", authors="donovan hohn", fiction=False)
-            self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
-            self.moby_duck.summary_text = "A compulsively readable narrative"
-            self.moby_duck.presentation_edition.series_position = 1
-            self.moby_duck.presentation_edition.publisher = "Penguin"
-            self.moby_duck.random = 0.9
-            self.moby_duck.last_update_time = datetime.datetime.now()
+        # Each work has one LicensePool associated with the default
+        # collection.
+        self.collection1 = self._default_collection
+        [moby_dick_1] = self.moby_dick.license_pools
+        [moby_duck_1] = self.moby_duck.license_pools
 
-            # Each work has one LicensePool associated with the default
-            # collection.
-            self.collection1 = self._default_collection
-            [moby_dick_1] = self.moby_dick.license_pools
-            [moby_duck_1] = self.moby_duck.license_pools
+        # Since the "Moby-Dick" work was created first, the availability
+        # time for its LicensePool is earlier.
+        assert moby_dick_1.availability_time < moby_duck_1.availability_time
 
-            # Since the "Moby-Dick" work was created first, the availability
-            # time for its LicensePool is earlier.
-            assert moby_dick_1.availability_time < moby_duck_1.availability_time
+        # Now we're going to create a second collection with the
+        # same two titles, but one big difference: "Moby Duck"
+        # showed up earlier here than "Moby-Dick".
+        self.collection2 = self._collection()
+        moby_duck_2 = self._licensepool(edition=self.moby_duck.presentation_edition, collection=self.collection2)
+        self.moby_duck.license_pools.append(moby_duck_2)
+        moby_dick_2 = self._licensepool(edition=self.moby_dick.presentation_edition, collection=self.collection2)
+        self.moby_dick.license_pools.append(moby_dick_2)
 
-            # Now we're going to create a second collection with the
-            # same two titles, but one big difference: "Moby Duck"
-            # showed up earlier here than "Moby-Dick".
-            self.collection2 = self._collection()
-            moby_duck_2 = self._licensepool(edition=self.moby_duck.presentation_edition, collection=self.collection2)
-            self.moby_duck.license_pools.append(moby_duck_2)
-            moby_dick_2 = self._licensepool(edition=self.moby_dick.presentation_edition, collection=self.collection2)
-            self.moby_dick.license_pools.append(moby_dick_2)
-
-            # Create a work with an unknown title and author.
-            self.untitled = _work(title="[Untitled]", authors="[Unknown]")
-            self.untitled.random = 0.99
-            self.untitled.presentation_edition.series_position = 5
-            self.untitled.last_update_time = datetime.datetime.now()
+        # Create a work with an unknown title and author.
+        self.untitled = _work(title="[Untitled]", authors="[Unknown]")
+        self.untitled.random = 0.99
+        self.untitled.presentation_edition.series_position = 5
+        self.untitled.last_update_time = datetime.datetime.now()
 
     def test_ordering(self):
 
@@ -1159,14 +1007,6 @@ class TestSearchOrder(EndToEndExternalSearchTest):
                 "Search is not configured, skipping test_ordering."
             )
             return
-
-        # Add all the works created in the setup to the search index.
-        SearchIndexCoverageProvider(
-            self._db, search_index_client=self.search
-        ).run_once_and_update_timestamp()
-
-        # Sleep to give the index time to catch up.
-        time.sleep(1)
 
         def assert_order(sort_field, order, **filter_kwargs):
             """Verify that when the books created during test setup are ordered by
@@ -1285,15 +1125,12 @@ class TestSearchOrder(EndToEndExternalSearchTest):
         )
 
 
-class TestExactMatches(EndToEndExternalSearchTest):
+class TestExactMatches(EndToEndSearchTest):
     """Verify that exact or near-exact title and author matches are
     privileged over matches that span fields.
     """
 
-    def setup(self):
-        super(TestExactMatches, self).setup()
-        if not self.search:
-            return
+    def populate_works(self):
         _work = self.default_work
 
         # Here the title is 'Modern Romance'
@@ -1340,15 +1177,6 @@ class TestExactMatches(EndToEndExternalSearchTest):
             authors="Peter Ansari",
             genre="Mystery"
         )
-
-        # Add all the works created in the setup to the search index.
-        SearchIndexCoverageProvider(
-            self._db, search_index_client=self.search
-        ).run_once_and_update_timestamp()
-
-        # Sleep to give the index time to catch up.
-        time.sleep(2)
-
 
     def test_exact_matches(self):
         if not self.search:
@@ -1426,19 +1254,12 @@ class TestExactMatches(EndToEndExternalSearchTest):
         expect(order, "peter graves biography")
 
 
-class TestFeaturedFacets(EndToEndExternalSearchTest):
+class TestFeaturedFacets(EndToEndSearchTest):
     """Test how a FeaturedFacets object affects search ordering.    
     """
 
-    def setup(self):
-        super(TestFeaturedFacets, self).setup()
+    def populate_works(self):
         _work = self.default_work
-
-        if not self.search:
-            return
-
-        _work = self.default_work
-
 
         self.hq_not_available = _work(title="HQ but not available")
         self.hq_not_available.quality = 1
@@ -1463,14 +1284,6 @@ class TestFeaturedFacets(EndToEndExternalSearchTest):
         self.best_seller_list.add_entry(self.featured_on_list, featured=True)
         self.best_seller_list.add_entry(self.not_featured_on_list)
         
-        # Add all those works to the search index.
-        SearchIndexCoverageProvider(
-            self._db, search_index_client=self.search
-        ).run_once_and_update_timestamp()
-
-        # Sleep to give the index time to catch up.
-        time.sleep(1)
-
     def test_run(self):
 
         def assert_featured(description, worklist, facets, expect):
