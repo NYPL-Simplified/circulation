@@ -1292,7 +1292,10 @@ class WorkList(object):
         can be used to create a grouped acquisition feed for the WorkList.
 
         :param facets: A FeaturedFacets object that may restrict the works on view.
-
+        :param search_engine: An ExternalSearchIndex to use when
+           asking for the featured works in a given WorkList.
+        :param debug: A debug argument passed into `search_engine` when
+           running the search.
         :yield: A sequence of (Work, WorkList) 2-tuples, with each
         WorkList representing the child WorkList in which the Work is
         found.
@@ -1855,6 +1858,19 @@ class WorkList(object):
         self, _db, relevant_lanes, queryable_lanes, facets,
         search_engine=None, debug=False
     ):
+        """Ask the search engine for groups of featurable works in the
+        given lanes. Fill in gaps as necessary.
+
+        :param facets: A FeaturedFacets object.
+
+        :param search_engine: An ExternalSearchIndex to use when
+           asking for the featured works in a given WorkList.
+        :param debug: A debug argument passed into `search_engine` when
+           running the search.
+        :yield: A sequence of (Work, WorkList) 2-tuples, with each
+            WorkList representing the child WorkList in which the Work is
+            found.
+        """
         library = self.get_library(_db)
         target_size = library.featured_lane_size
         facets = facets or self.default_featured_facets(_db)
@@ -1874,7 +1890,7 @@ class WorkList(object):
             parent_lane = None
 
         queryable_lane_set = set(queryable_lanes)
-        work_quality_tier_lane = list(
+        works_and_lanes = list(
             self._featured_works_with_lanes(
                 _db, queryable_lanes, facets=facets,
                 pagination=pagination, search_engine=search_engine,
@@ -1900,7 +1916,7 @@ class WorkList(object):
         by_lane = defaultdict(list)
         working_lane = None
         might_need_to_reuse = dict()
-        for work, lane in work_quality_tier_lane:
+        for work, lane in works_and_lanes:
             if lane != working_lane:
                 # Either we're done with the old lane, or we're just
                 # starting and there was no old lane.
@@ -1949,11 +1965,18 @@ class WorkList(object):
         """Find a sequence of works that can be used to
         populate this lane's grouped acquisition feed.
 
-        :param lanes: Classify MaterializedWorkWithGenre objects
-        as belonging to one of these lanes (presumably sublanes
-        of `self`).
-
+        :param lanes: Classify Work objects
+            as belonging to one of these WorkLists (presumably sublanes
+            of `self`).
         :param facets: A faceting object, presumably a FeaturedFacets
+        :param pagination: A Pagination object explaining how many
+            items to ask for. In most cases this should be slightly more than
+            the number of items you actually want, so that you have some
+            slack to remove duplicates across multiple lanes.
+        :param search_engine: An ExternalSearchIndex to use when
+           asking for the featured works in a given WorkList.
+        :param debug: A debug argument passed into `search_engine` when
+           running the search.
 
         :yield: A sequence of (MaterializedWorkWithGenre,
         quality_tier, Lane) 3-tuples.
@@ -1962,7 +1985,7 @@ class WorkList(object):
             # We can't run this query at all.
             return
 
-        # Pull a window of works for every lane we were given.
+        # Ask the search engine for works from every lane we're given.
         for lane in lanes:
             for work in lane.works_from_search_index(
                 _db, facets, pagination, search_engine=search_engine,
@@ -1973,6 +1996,8 @@ class WorkList(object):
     def works_in_window(self, _db, facets, target_size):
         """Find all MaterializedWorkWithGenre objects within a randomly
         selected window of values for the `random` field.
+
+        DEPRECATED This should not be necessary anymore.
 
         :param facets: A `FeaturedFacets` object.
 
@@ -2002,6 +2027,8 @@ class WorkList(object):
     def _restrict_query_to_window(self, query, target_size, facets):
         """Restrict the given SQLAlchemy query so that it matches
         approximately `target_size` items.
+
+        DEPRECATED This should not be necessary anymore.
         """
         if query is None:
             return query
@@ -2019,6 +2046,7 @@ class WorkList(object):
         `unused_by_tier`, falling back to `used_by_tier` if necessary.
 
         NOTE: This method is currently unused.
+        DEPRECATED This should not be necessary anymore.
 
         :param unused_by_tier: A dictionary mapping quality tiers to
         lists of unused MaterializedWorkWithGenre items. Because the

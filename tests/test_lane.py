@@ -3269,7 +3269,6 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
         self.lq_litfic = _w(title="LQ LitFic", fiction=True, genre='Literary Fiction')
         self.lq_litfic.quality = 0
         self.hq_sf = _w(title="HQ SF", genre="Science Fiction", fiction=True)
-        self.hq_sf.random = 0.25
 
         # Add a lot of irrelevant genres to one of the works. This
         # will clutter up the materialized view, but it won't affect
@@ -3285,7 +3284,6 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
         self.lq_sf.quality = 0.1
         self.hq_ro = _w(title="HQ Romance", genre="Romance", fiction=True)
         self.hq_ro.quality = 0.8
-        self.hq_ro.random = 0.75
         self.mq_ro = _w(title="MQ Romance", genre="Romance", fiction=True)
         self.mq_ro.quality = 0.6
         # This work is in a different language -- necessary to run the
