@@ -1523,7 +1523,7 @@ class TestFeaturedFacets(EndToEndExternalSearchTest):
 
         # Up to this point we've been avoiding the random element,
         # but we can introduce that now by passing in a numeric seed.
-        # In normal usage, the current time is the
+        # In normal usage, the current time is used as the seed.
         #
         # The random element is relatively small, so it mainly acts
         # to rearrange works whose scores were similar before.
