@@ -3013,7 +3013,7 @@ class TestSortKeyPagination(DatabaseTest):
 
 class TestBulkUpdate(DatabaseTest):
 
-    def test_works_not_presentation_ready_removed_from_index(self):
+    def test_works_not_presentation_ready_kept_in_index(self):
         w1 = self._work()
         w1.set_presentation_ready()
         w2 = self._work()
@@ -3027,16 +3027,16 @@ class TestBulkUpdate(DatabaseTest):
         eq_(set([w1, w2, w3]), set(successes))
         eq_([], failures)
 
-        # But only the presentation-ready works are actually inserted
-        # into the index.
+        # All three works were inserted into the index, even the one
+        # that's not presentation-ready.
         ids = set(x[-1] for x in index.docs.keys())
-        eq_(set([w1.id, w2.id]), ids)
+        eq_(set([w1.id, w2.id, w3.id]), ids)
 
-        # If a work stops being presentation-ready, it is removed from
-        # the index, and its removal is treated as a success.
+        # If a work stops being presentation-ready, it is kept in the
+        # index.
         w2.presentation_ready = False
         successes, failures = index.bulk_update([w1, w2, w3])
-        eq_([w1.id], [x[-1] for x in index.docs.keys()])
+        eq_(set([w1.id, w2.id, w3.id]), set([x[-1] for x in index.docs.keys()]))
         eq_(set([w1, w2, w3]), set(successes))
         eq_([], failures)
 
