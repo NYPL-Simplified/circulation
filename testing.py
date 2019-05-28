@@ -6,9 +6,13 @@ import json
 import logging
 import os
 import shutil
+import time
 import tempfile
 import uuid
-from nose.tools import set_trace
+from nose.tools import (
+    set_trace,
+    eq_,
+)
 from sqlalchemy.orm.session import Session
 from sqlalchemy.exc import ProgrammingError
 from config import Configuration
@@ -65,7 +69,11 @@ from coverage import (
     WorkCoverageProvider,
 )
 
-from external_search import MockExternalSearchIndex
+from external_search import (
+    MockExternalSearchIndex,
+    ExternalSearchIndex,
+    SearchIndexCoverageProvider,
+)
 from log import LogConfiguration
 import external_search
 import mock
@@ -966,6 +974,161 @@ class DatabaseTest(object):
         sample_cover_path = self.sample_cover_path(name)
         return self._representation(
             media_type="image/png", content=open(sample_cover_path).read())[0]
+
+
+class SearchClientForTesting(ExternalSearchIndex):
+    """When creating an index, limit it to a single shard and disable
+    replicas.
+
+    This makes search results more predictable.
+    """
+
+    def setup_index(self, new_index=None):
+        return super(SearchClientForTesting, self).setup_index(
+            new_index, number_of_shards=1, number_of_replicas=0
+        )
+
+
+class ExternalSearchTest(DatabaseTest):
+    """
+    These tests require elasticsearch to be running locally. If it's not, or there's
+    an error creating the index, the tests will pass without doing anything.
+
+    Tests for elasticsearch are useful for ensuring that we haven't accidentally broken
+    a type of search by changing analyzers or queries, but search needs to be tested manually
+    to ensure that it works well overall, with a realistic index.
+    """
+
+    def setup(self):
+        super(ExternalSearchTest, self).setup(mock_search=False)
+
+        self.integration = self._external_integration(
+            ExternalIntegration.ELASTICSEARCH,
+            goal=ExternalIntegration.SEARCH_GOAL,
+            url=u'http://localhost:9200',
+            settings={
+                ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY : u'test_index',
+                ExternalSearchIndex.TEST_SEARCH_TERM_KEY : u'test_search_term',
+            }
+        )
+
+        try:
+            self.search = SearchClientForTesting(self._db)
+        except Exception as e:
+            self.search = None
+            logging.error(
+                "Unable to set up elasticsearch index, search tests will be skipped.",
+                exc_info=e
+            )
+
+    def teardown(self):
+        if self.search:
+            if self.search.works_index:
+                self.search.indices.delete(self.search.works_index, ignore=[404])
+            self.search.indices.delete('the_other_index', ignore=[404])
+            self.search.indices.delete('test_index-v100', ignore=[404])
+            self.search.indices.delete('test_index-v9999', ignore=[404])
+            ExternalSearchIndex.reset()
+        super(ExternalSearchTest, self).teardown()
+
+    def default_work(self, *args, **kwargs):
+        """Convenience method to create a work with a license pool
+        in the default collection.
+        """
+        work = self._work(
+            *args, with_license_pool=True,
+            collection=self._default_collection, **kwargs
+        )
+        work.set_presentation_ready()
+        return work
+
+
+class EndToEndSearchTest(ExternalSearchTest):
+    """Subclasses of this class set up real works in a real
+    search index and run searches against it.
+    """
+
+    def setup(self):
+        super(EndToEndSearchTest, self).setup()
+        
+        # Create some works.
+        if not self.search:
+            # No search index is configured -- nothing to do.
+            return
+
+        self.populate_works()
+
+        # Add all the works created in the setup to the search index.
+        SearchIndexCoverageProvider(
+            self._db, search_index_client=self.search
+        ).run_once_and_update_timestamp()
+
+        # Sleep to give the index time to catch up.
+        time.sleep(2)
+
+    def populate_works(self):
+        raise NotImplementedError()
+
+    def _assert_works(self, description, expect, actual, should_be_ordered=True):
+        # Verify that two lists of works are the same.
+        if not should_be_ordered:
+            expect = set(expect)
+            actual = set(actual)
+
+        # Get the titles of the works that were actually returned, to
+        # make comparisons easier.
+        actual_ids = []
+        actual_titles = []
+        for work in actual:
+            actual_titles.append(work.title)
+            actual_ids.append(work.id)
+
+        expect_ids = []
+        expect_titles = []
+        for work in expect:
+            expect_titles.append(work.title)
+            expect_ids.append(work.id)
+
+        eq_(
+            expect, actual,
+            "%r did not find %d works\n (%s/%s).\nInstead found %d\n (%s/%s)" % (
+                description,
+                len(expect), ", ".join(map(str, expect_ids)),
+                    ", ".join(expect_titles),
+                len(actual), ", ".join(map(str, actual_ids)),
+                    ", ".join(actual_titles)
+            )
+        )
+
+    def _expect_results(self, expect, *query_args, **kwargs):
+        """Helper function to call query() and verify that it
+        returns certain work IDs.
+
+        :param should_be_ordered: If this is True (the default), then the
+        assertion will only succeed if the search results come in in
+        the exact order specified in `works`. If this is False, then
+        those exact results must come up, but their order is not
+        what's being tested.
+        """
+        if isinstance(expect, Work):
+            expect = [expect]
+
+        should_be_ordered = kwargs.pop('ordered', True)
+
+        results = self.search.query_works(*query_args, debug=True, **kwargs)
+        actual = self._db.query(Work).filter(Work.id.in_(results)).all()
+        if should_be_ordered:
+            # Put the Work objects in the same order as the IDs returned
+            # in `results`.
+            works_by_id = dict()
+            for w in actual:
+                works_by_id[w.id] = w
+            actual = [
+                works_by_id[result] for result in results
+                if result in works_by_id
+            ]
+
+        self._assert_works(query_args, expect, actual, should_be_ordered)
 
 
 class MockCoverageProvider(object):
