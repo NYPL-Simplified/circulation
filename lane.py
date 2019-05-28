@@ -263,6 +263,15 @@ class FacetsWithEntryPoint(FacetConstants):
             self.entrypoint.modify_search_filter(filter)
         return filter
 
+    def scoring_functions(self, filter):
+        """Create a list of ScoringFunction objects that modify how
+        works in the given WorkList should be ordered.
+
+        Most subclasses will not use this because they order
+        works using the 'order' feature.
+        """
+        return []
+
 
 class Facets(FacetsWithEntryPoint):
     """A full-fledged facet class that supports complex navigation between
@@ -604,8 +613,10 @@ class FeaturedFacets(FacetsWithEntryPoint):
     AcquisitionFeed.groups().
     """
 
+    DETERMINISTIC = object()
+
     def __init__(self, minimum_featured_quality, uses_customlists=False,
-                 entrypoint=None, **kwargs):
+                 entrypoint=None, random_seed=None, **kwargs):
         """Set up an object that finds featured books in a given
         WorkList.
 
@@ -615,6 +626,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
         super(FeaturedFacets, self).__init__(entrypoint=entrypoint, **kwargs)
         self.minimum_featured_quality = minimum_featured_quality
         self.uses_customlists = uses_customlists
+        self.random_seed=random_seed
 
     def navigate(self, minimum_featured_quality=None, uses_customlists=None,
                  entrypoint=None):
@@ -628,6 +640,65 @@ class FeaturedFacets(FacetsWithEntryPoint):
         return self.__class__(
             minimum_featured_quality, uses_customlists, entrypoint
         )
+
+    def scoring_functions(self, filter):
+        """Generate scoring functions that weight works randomly, but
+        with 'more featurable' works tending to be at the top.
+        """
+        from elasticsearch_dsl import SF, Q
+        from external_search import SearchBase
+
+        # A higher-quality work is more featurable. But we don't want
+        # to constantly feature the very highest-quality works, and if
+        # there are no high-quality works, we want medium-quality to
+        # outrank low-quality.
+        #
+        # So we establish a cutoff -- the minimum featured quality --
+        # beyond which a work is considered 'featurable'. All featurable
+        # works get the same (high) score.
+        #
+        # Below that point, we prefer higher-quality works to lower-quality
+        # works, so a work's score is proportional to the square of its
+        # quality.
+        exponent = 2
+        cutoff = (self.minimum_featured_quality ** exponent)
+        script = ("Math.pow(Math.min(%.5f, doc['quality'].value), %.5f) * 5"
+                  % (cutoff, exponent))
+        quality_field = SF('script_score', script=dict(source=script))
+
+        # Currently available works are more featurable.
+        available = Q('term', **{'licensepools.available' : True})
+        nested = Q('nested', path='licensepools', query=available)
+        available_now = dict(filter=nested, weight=5)
+
+        function_scores = [quality_field, available_now]
+
+        # Random chance can boost a lower-quality work, but not by
+        # much -- this mainly ensures we don't get the exact same
+        # books every time.
+        if self.random_seed != self.DETERMINISTIC:
+            random = SF(
+                'random_score',
+                seed=self.random_seed or int(time.time()),
+                field="work_id",
+                weight=1.1
+            )
+            function_scores.append(random)
+
+        if filter.customlist_restriction_sets:
+            list_ids = set()
+            for restriction in filter.customlist_restriction_sets:
+                list_ids.update(restriction)
+            # The provided Filter is looking for works on certain
+            # custom lists. A work that's _featured_ on one of these
+            # lists will be boosted quite a lot versus one that's not.
+            featured = Q('term', **{'customlists.featured' : True})
+            on_list = Q('terms', **{'customlists.list_id' : list(list_ids)})
+            featured_on_list = Q('bool', must=[featured, on_list])
+            nested = Q('nested', path='customlists', query=featured_on_list)
+            featured_on_relevant_list = dict(filter=nested, weight=11)
+            function_scores.append(featured_on_relevant_list)
+        return function_scores
 
     def apply(self, _db, qu):
         """Order a query by quality tier, and then randomly.

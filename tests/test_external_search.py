@@ -30,6 +30,7 @@ from ..config import (
 )
 from ..lane import (
     Facets,
+    FeaturedFacets,
     Lane,
     Pagination,
     WorkList,
@@ -418,53 +419,66 @@ class EndToEndExternalSearchTest(ExternalSearchTest):
     search index and run searches against it.
     """
 
-    def _expect_results(self, works, *query_args, **kwargs):
+    def _assert_works(self, description, expect, actual, should_be_ordered=True):
+        # Verify that two lists of works are the same.
+        if not should_be_ordered:
+            expect = set(expect)
+            actual = set(actual)
+
+        # Get the titles of the works that were actually returned, to
+        # make comparisons easier.
+        actual_ids = []
+        actual_titles = []
+        for work in actual:
+            actual_titles.append(work.title)
+            actual_ids.append(work.id)
+
+        expect_ids = []
+        expect_titles = []
+        for work in expect:
+            expect_titles.append(work.title)
+            expect_ids.append(work.id)
+
+        eq_(
+            expect, actual,
+            "%r did not find %d works\n (%s/%s).\nInstead found %d\n (%s/%s)" % (
+                description,
+                len(expect), ", ".join(map(str, expect_ids)),
+                    ", ".join(expect_titles),
+                len(actual), ", ".join(map(str, actual_ids)),
+                    ", ".join(actual_titles)
+            )
+        )
+
+    def _expect_results(self, expect, *query_args, **kwargs):
         """Helper function to call query() and verify that it
         returns certain work IDs.
 
-
-        :param ordered: If this is True (the default), then the
+        :param should_be_ordered: If this is True (the default), then the
         assertion will only succeed if the search results come in in
         the exact order specified in `works`. If this is False, then
         those exact results must come up, but their order is not
         what's being tested.
         """
-        if isinstance(works, Work):
-            works = [works]
+        if isinstance(expect, Work):
+            expect = [expect]
 
         should_be_ordered = kwargs.pop('ordered', True)
 
         results = self.search.query_works(*query_args, debug=True, **kwargs)
-        expect = [x.id for x in works]
-        expect_ids = ", ".join(map(str, expect))
-        expect_titles = ", ".join([x.title for x in works])
-        result_works = self._db.query(Work).filter(Work.id.in_(results))
-        result_works_dict = {}
+        actual = self._db.query(Work).filter(Work.id.in_(results)).all()
+        if should_be_ordered:
+            # Put the Work objects in the same order as the IDs returned
+            # in `results`.
+            works_by_id = dict()
+            for w in actual:
+                works_by_id[w.id] = w
+            actual = [
+                works_by_id[result] for result in results
+                if result in works_by_id
+            ]
 
-        if not should_be_ordered:
-            expect = set(expect)
-            results = set(results)
-
-        # Get the titles of the works that were actually returned, to
-        # make comparisons easier.
-        for work in result_works:
-            result_works_dict[work.id] = work
-        result_titles = []
-        for id in results:
-            work = result_works_dict.get(id)
-            if work:
-                result_titles.append(work.title)
-            else:
-                result_titles.append("[unknown]")
-
-        eq_(
-            expect, results,
-            "Query args %r did not find %d works (%s/%s), instead found %d (%s/%s)" % (
-                query_args, len(expect), expect_ids, expect_titles,
-                len(results), ", ".join(map(str,results)),
-                ", ".join(result_titles)
-            )
-        )
+        self._assert_works(query_args, expect, actual, should_be_ordered)
 
 
 class TestExternalSearchWithWorks(EndToEndExternalSearchTest):
@@ -1403,6 +1417,124 @@ class TestExactMatches(EndToEndExternalSearchTest):
             ]
 
         expect(order, "peter graves biography")
+
+
+class TestFeaturedFacets(EndToEndExternalSearchTest):
+    """Test how a FeaturedFacets object affects search ordering.    
+    """
+
+    def setup(self):
+        super(TestFeaturedFacets, self).setup()
+        _work = self.default_work
+
+        if not self.search:
+            return
+
+        _work = self.default_work
+
+
+        self.hq_not_available = _work(title="HQ but not available")
+        self.hq_not_available.quality = 1
+        self.hq_not_available.license_pools[0].licenses_available = 0
+
+        self.hq_available = _work(title="HQ and available")
+        self.hq_available.quality = 1
+
+        self.hq_available_2 = _work(title="Also HQ and available")
+        self.hq_available_2.quality = 1
+
+        self.not_featured_on_list = _work(title="On a list but not featured")
+        self.not_featured_on_list.quality = 0.19
+
+        # This work has nothing going for it other than the fact
+        # that it's been featured on a custom list.
+        self.featured_on_list = _work(title="Featured on a list")
+        self.featured_on_list.quality = 0.18
+        self.featured_on_list.license_pools[0].licenses_available = 0
+
+        self.best_seller_list, ignore = self._customlist(num_entries=0)
+        self.best_seller_list.add_entry(self.featured_on_list, featured=True)
+        self.best_seller_list.add_entry(self.not_featured_on_list)
+        
+        # Add all those works to the search index.
+        SearchIndexCoverageProvider(
+            self._db, search_index_client=self.search
+        ).run_once_and_update_timestamp()
+
+        # Sleep to give the index time to catch up.
+        time.sleep(1)
+
+    def test_run(self):
+
+        def assert_featured(description, worklist, facets, expect):
+            # Generate a list of featured works for the given `worklist`
+            # and compare that list against `expect`.
+            actual = worklist.works_from_search_index(
+                self._db, facets, None, self.search, debug=True
+            )
+            self._assert_works(description, expect, actual)
+
+        worklist = WorkList()
+        worklist.initialize(self._default_library)
+        facets = FeaturedFacets(1, random_seed=FeaturedFacets.DETERMINISTIC)
+
+        # Even though hq_not_available is higher-quality than
+        # featured_on_list, it shows up first because it's available
+        # right now.
+        #
+        # not_featured_on_list shows up before featured_on_list because
+        # it's higher-quality and list membership isn't relevant.
+        assert_featured(
+            "Normal search", worklist, facets,
+            [self.hq_available, self.hq_available_2, self.not_featured_on_list,
+             self.hq_not_available, self.featured_on_list],
+        )
+
+        # Create a WorkList that's restricted to best-sellers.
+        best_sellers = WorkList()
+        best_sellers.initialize(
+            self._default_library, customlists=[self.best_seller_list]
+        )
+        # The featured work appears above the non-featured work,
+        # even though it's lower quality and is not available.
+        assert_featured(
+            "Works from WorkList based on CustomList", best_sellers, facets,
+            [self.featured_on_list, self.not_featured_on_list],
+        )
+
+        # By changing the minimum_featured_quality you can control
+        # at what point a work is considered 'featured' -- at which
+        # point its quality stops being taken into account.
+        #
+        # An extreme case of this is to set the minimum_featured_quality
+        # to 0, which makes all works 'featured' and stops quality
+        # from being considered altogether. Basically all that matters
+        # is availability.
+        all_featured_facets = FeaturedFacets(
+            0, random_seed=FeaturedFacets.DETERMINISTIC
+        )
+        assert_featured(
+            "Works without considering quality",
+            worklist, all_featured_facets,
+            [self.hq_available, self.hq_available_2,
+             self.not_featured_on_list, self.hq_not_available,
+             self.featured_on_list],
+        )
+
+        # Up to this point we've been avoiding the random element,
+        # but we can introduce that now by passing in a numeric seed.
+        # In normal usage, the current time is used as the seed.
+        #
+        # The random element is relatively small, so it mainly acts
+        # to rearrange works whose scores were similar before.
+        random_facets = FeaturedFacets(1, random_seed=41)
+        assert_featured(
+            "Works permuted by a random seed",
+            worklist, random_facets,
+            [self.hq_available_2, self.hq_available,
+             self.not_featured_on_list, self.hq_not_available,
+             self.featured_on_list],
+        )
 
 
 class TestSearchBase(object):
@@ -2344,14 +2476,20 @@ class TestFilter(DatabaseTest):
         )
 
         # If you pass in a Facets object, its modify_search_filter()
-        # is called.
+        # and scoring_functions() methods are called.
         class Mock(object):
             def modify_search_filter(self, filter):
-                self.called_with = filter
+                self.modify_search_filter_called_with = filter
+
+            def scoring_functions(self, filter):
+                self.scoring_functions_called_with = filter
+                return ["some scoring functions"]
 
         facets = Mock()
         filter = Filter(facets=facets)
-        eq_(filter, facets.called_with)
+        eq_(filter, facets.modify_search_filter_called_with)
+        eq_(filter, facets.scoring_functions_called_with)
+        eq_(["some scoring functions"], filter.scoring_functions)
 
         # Some arguments to the constructor only exist as keyword
         # arguments, but you can't pass in whatever keywords you want.
@@ -2397,6 +2535,8 @@ class TestFilter(DatabaseTest):
         class Mock(object):
             def modify_search_filter(self, filter):
                 self.called_with = filter
+            def scoring_functions(self, filter):
+                return []
         facets = Mock()
 
         filter = Filter.from_worklist(self._db, inherits, facets)

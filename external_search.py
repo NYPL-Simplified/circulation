@@ -404,7 +404,17 @@ class ExternalSearchIndex(HasSelfTests):
         start = pagination.offset
         stop = start + pagination.size
 
+        function_scores = filter.scoring_functions if filter else None
+        if function_scores:
+            function_score = Q(
+                'function_score',
+                query=dict(match_all=dict()),
+                functions=function_scores,
+                score_mode="sum"
+            )
+            search = search.query(function_score)
         a = time.time()
+
         # NOTE: This is the code that actually executes the ElasticSearch
         # request.
         results = search[start:stop]
@@ -414,7 +424,7 @@ class ExternalSearchIndex(HasSelfTests):
             for i, result in enumerate(results):
                 self.log.debug(
                     '%02d "%s" (%s) work=%s score=%.3f shard=%s',
-                    i, result.title, result.author, result.meta['id'],
+                    i, result.sort_title, result.sort_author, result.meta['id'],
                     result.meta['score'] or 0, result.meta['shard']
                 )
 
@@ -1721,6 +1731,9 @@ class Filter(SearchBase):
         # information.
         if facets:
             facets.modify_search_filter(self)
+            self.scoring_functions = facets.scoring_functions(self)
+        else:
+            self.scoring_functions = []
 
     def build(self, _chain_filters=None):
         """Convert this object to an Elasticsearch Filter object.
