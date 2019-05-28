@@ -1151,6 +1151,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             LibraryAnnotator.LICENSE: "http://license/",
             LibraryAnnotator.REGISTER: "custom-registration-hook://library/",
             Configuration.LOGO: "image data",
+            Configuration.WEB_CSS_FILE: "http://style.css",
         }
 
         for rel, value in link_config.iteritems():
@@ -1224,7 +1225,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # from the configuration.
             (about, alternate, copyright, help_uri, help_web, help_email,
              copyright_agent, profile, loans, license, logo, privacy_policy, register, start,
-             terms_of_service) = sorted(
+             stylesheet, terms_of_service) = sorted(
                  doc['links'], key=lambda x: (x['rel'], x['href'])
              )
             eq_("http://terms", terms_of_service['href'])
@@ -1233,6 +1234,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("http://about", about['href'])
             eq_("http://license/", license['href'])
             eq_("image data", logo['href'])
+            eq_("http://style.css", stylesheet['href'])
 
             assert ("/loans" in loans['href'])
             eq_("http://opds-spec.org/shelf", loans['rel'])
