@@ -360,7 +360,6 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
     """
 
     def populate_works(self):
-        super(TestExternalSearchWithWorks, self).setup()
         _work = self.default_work
 
         self.moby_dick = _work(

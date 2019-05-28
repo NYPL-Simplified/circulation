@@ -1050,7 +1050,7 @@ class EndToEndSearchTest(ExternalSearchTest):
 
     def setup(self):
         super(EndToEndSearchTest, self).setup()
-        
+
         # Create some works.
         if not self.search:
             # No search index is configured -- nothing to do.
