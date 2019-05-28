@@ -3233,10 +3233,9 @@ class TestLane(DatabaseTest):
         )
 
     def test_groups_propagates_facets(self):
-        """Lane.groups propagates a received Facets object into
-        _groups_for_lanes.
-        """
-        def mock(self, _db, relevant_lanes, queryable_lanes, facets):
+        # Lane.groups propagates a received Facets object into
+        # _groups_for_lanes.
+        def mock(self, _db, relevant_lanes, queryable_lanes, facets, *args, **kwargs):
             self.called_with = facets
             return []
         old_value = Lane._groups_for_lanes
