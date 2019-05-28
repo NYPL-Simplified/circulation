@@ -1859,11 +1859,11 @@ class WorkList(object):
         target_size = library.featured_lane_size
         facets = facets or self.default_featured_facets(_db)
 
-        # We want to get an extra work or two for each lane, to reduce
-        # the risk that we'll end up reusing a book in two different
+        # We ask for a few extra works for each lane, to reduce the
+        # risk that we'll end up reusing a book in two different
         # lanes.
-        target_size = max(target_size+1, int(target_size * 1.10))
-        pagination = Pagination(size=target_size)
+        ask_for_size = max(target_size+1, int(target_size * 1.10))
+        pagination = Pagination(size=ask_for_size)
 
         from external_search import ExternalSearchIndex
         search_engine = search_engine or ExternalSearchIndex(_db)
@@ -2633,7 +2633,8 @@ class Lane(Base, WorkList):
             size = self.size_by_entrypoint[entrypoint_name]
         return size
 
-    def groups(self, _db, include_sublanes=True, facets=None):
+    def groups(self, _db, include_sublanes=True, facets=None,
+               search_engine=None, debug=False):
         """Return a list of (MaterializedWorkWithGenre, Lane) 2-tuples
         describing a sequence of featured items for this lane and
         (optionally) its children.
@@ -2660,7 +2661,8 @@ class Lane(Base, WorkList):
         queryable_lanes = [x for x in relevant_lanes
                            if x == self or x.inherit_parent_restrictions]
         return self._groups_for_lanes(
-            _db, relevant_lanes, queryable_lanes, facets=facets
+            _db, relevant_lanes, queryable_lanes, facets=facets,
+            search_engine=search_engine, debug=debug
         )
 
     def search(self, _db, query_string, search_client, pagination=None,

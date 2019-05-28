@@ -3250,8 +3250,9 @@ class TestLane(DatabaseTest):
 
 class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
     # A comprehensive end-to-end test of WorkList.groups()
-    #  using a real Elasticsearch index.
-    # Helper methods are tested in a different class.
+    # using a real Elasticsearch index.
+    #
+    # Helper methods are tested in a different class, TestWorkListGroups
 
     def populate_works(self):
         def _w(**kwargs):
@@ -3288,7 +3289,9 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
         self.hq_ro.random = 0.75
         self.mq_ro = _w(title="MQ Romance", genre="Romance", fiction=True)
         self.mq_ro.quality = 0.6
-        self.lq_ro = _w(title="LQ Romance", genre="Romance", fiction=True)
+        # This work is in a different language -- necessary to run the
+        # LQRomanceEntryPoint test below.
+        self.lq_ro = _w(title="LQ Romance", genre="Romance", fiction=True, language='lan')
         self.lq_ro.quality = 0.1
         self.nonfiction = _w(title="Nonfiction", fiction=False)
 
@@ -3364,9 +3367,22 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
                (expect, actual)
             )
 
-        fiction.groups(self._db)
+        def make_groups(lane, facets=None, **kwargs):
+            # Run the `WorkList.groups` method in a way that's
+            # instrumented for this unit test.
+
+            # Most of the time, we want a simple deterministic query.
+            facets = facets or FeaturedFacets(
+                1, random_seed=FeaturedFacets.DETERMINISTIC
+            )
+
+            return lane.groups(
+                self._db, facets=facets, search_engine=self.search, debug=True,
+                **kwargs
+            )
+
         assert_contents(
-            fiction.groups(self._db),
+            make_groups(fiction),
             [
                 # The lanes based on lists feature every title on the
                 # list.  This isn't enough to pad out the lane to
@@ -3382,13 +3398,10 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
 
                 # The genre-based lanes contain FEATURED_LANE_SIZE
                 # (two) titles each. The 'Science Fiction' lane
-                # features a middle-quality work that was already
-                # featured above in a list, even though there's a
-                # low-quality work that could have been used
-                # instead. Each lane query has its own LIMIT applied,
-                # so we didn't even see the low-quality work.
+                # features a low-quality work because the
+                # medium-quality work was already used above.
                 (self.hq_sf, sf_lane),
-                (self.mq_sf, sf_lane),
+                (self.lq_sf, sf_lane),
                 (self.hq_ro, romance_lane),
                 (self.mq_ro, romance_lane),
 
@@ -3400,37 +3413,37 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
                 # The 'Fiction' lane contains a title that fits in the
                 # fiction lane but was not classified under any other
                 # lane. It also contains a title that was previously
-                # featured earlier. There's a low-quality litfic title
-                # in the database, but we didn't see it because the
-                # 'Fiction' query had a LIMIT applied to it.
+                # featured earlier. The search index knows about a
+                # title (lq_litfix) that was not previously featured,
+                # but we didn't see it because the Elasticsearch query
+                # didn't happen fetch it. The query for each lane
+                # happens separately and there were too many
+                # high-quality works in 'fiction' for the low-quality
+                # one to show up.
                 (self.hq_litfic, fiction),
-                (self.hq_ro, fiction),
+                (self.hq_sf, fiction),
             ]
         )
 
         # If we ask only about 'Fiction', not including its sublanes,
-        # we get the same books associated with that lane.
-        #
-        # self.hq_ro shows up before hq_litfic because its .random is a
-        # larger number. In the previous example, self.hq_ro showed up
-        # after hq_litfic because we knew we'd already shown self.hq_ro in
-        # a previous lane.
+        # we get only the subset of the books previously returned for
+        # 'fiction'.
         assert_contents(
-            fiction.groups(self._db, include_sublanes=False),
-            [(self.hq_ro, fiction), (self.hq_litfic, fiction)]
+            make_groups(fiction, include_sublanes=False),
+            [(self.hq_litfic, fiction), (self.hq_sf, fiction)]
         )
 
         # If we exclude 'Fiction' from its own grouped feed, we get
-        # all the other books/lane combinations except for the books
+        # all the other books/lane combinations *except for* the books
         # associated directly with 'Fiction'.
         fiction.include_self_in_grouped_feed = False
         assert_contents(
-            fiction.groups(self._db),
+            make_groups(fiction),
             [
                 (self.mq_sf, best_sellers),
                 (self.mq_sf, staff_picks),
                 (self.hq_sf, sf_lane),
-                (self.mq_sf, sf_lane),
+                (self.lq_sf, sf_lane),
                 (self.hq_ro, romance_lane),
                 (self.mq_ro, romance_lane),
                 (self.nonfiction, discredited_nonfiction),
@@ -3450,9 +3463,10 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
 
         # If we make the lanes thirstier for content, we see slightly
         # different behavior.
+        library = self._default_library
         library.setting(library.FEATURED_LANE_SIZE).value = "3"
         assert_contents(
-            fiction.groups(self._db),
+            make_groups(fiction),
             [
                 # The list-based lanes are the same as before.
                 (self.mq_sf, best_sellers),
@@ -3500,16 +3514,19 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
         _db = self._db
         eq_([], list(fiction.groups(self._db, facets=facets)))
 
-        # Here's an entry point that ignores everything except one
-        # specific book.
+        # Here's an entry point that applies a language filter
+        # that only finds one book.
         class LQRomanceEntryPoint(object):
             URI = ""
             @classmethod
-            def apply(cls, qu):
-                return qu.filter(work_model.sort_title=='LQ Romance')
-        facets = FeaturedFacets(0, entrypoint=LQRomanceEntryPoint)
+            def modify_search_filter(cls, filter):
+                filter.languages = ['lan']
+        facets = FeaturedFacets(
+            1, entrypoint=LQRomanceEntryPoint,
+            random_seed=FeaturedFacets.DETERMINISTIC
+        )
         assert_contents(
-            fiction.groups(self._db, facets=facets),
+            make_groups(fiction, facets=facets),
             [
                 # The single recognized book shows up in both lanes
                 # that can show it.
@@ -3528,8 +3545,8 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
             visible = True
             priority = 2
 
-            def groups(self, _db, include_sublanes, facets=None):
-                yield self.lq_litfic, self
+            def groups(slf, _db, include_sublanes, facets=None):
+                yield self.lq_litfic, slf
 
         mock = MockWorkList()
 
