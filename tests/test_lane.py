@@ -8,7 +8,10 @@ from nose.tools import (
     assert_raises_regexp,
 )
 
-from . import DatabaseTest
+from . import (
+    DatabaseTest,
+)
+
 from sqlalchemy.sql.elements import Case
 from sqlalchemy import (
     and_,
@@ -58,6 +61,7 @@ from ..model import (
     WorkGenre,
 )
 from ..problem_details import INVALID_INPUT
+from ..testing import EndToEndSearchTest
 
 class TestFacetsWithEntryPoint(DatabaseTest):
 
@@ -3244,18 +3248,12 @@ class TestLane(DatabaseTest):
         Lane._groups_for_lanes = old_value
 
 
-class TestWorkListGroups(DatabaseTest):
-    """Tests of WorkList.groups() and the helper methods."""
+class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
+    # A comprehensive end-to-end test of WorkList.groups()
+    #  using a real Elasticsearch index.
+    # Helper methods are tested in a different class.
 
-    def setup(self):
-        super(TestWorkListGroups, self).setup()
-
-        # Make sure random selections and range generations go the
-        # same way every time.
-        random.seed(42)
-
-    def test_groups(self):
-        # A comprehensive test of WorkList.groups()
+    def populate_works(self):
         def _w(**kwargs):
             """Helper method to create a work with license pool."""
             return self._work(with_license_pool=True, **kwargs)
@@ -3266,41 +3264,43 @@ class TestWorkListGroups(DatabaseTest):
         library.setting(library.FEATURED_LANE_SIZE).value = "2"
 
         # Create eight works.
-        hq_litfic = _w(title="HQ LitFic", fiction=True, genre='Literary Fiction')
-        hq_litfic.quality = 0.8
-        lq_litfic = _w(title="LQ LitFic", fiction=True, genre='Literary Fiction')
-        lq_litfic.quality = 0
-        hq_sf = _w(title="HQ SF", genre="Science Fiction", fiction=True)
-        hq_sf.random = 0.25
+        self.hq_litfic = _w(title="HQ LitFic", fiction=True, genre='Literary Fiction')
+        self.hq_litfic.quality = 0.8
+        self.lq_litfic = _w(title="LQ LitFic", fiction=True, genre='Literary Fiction')
+        self.lq_litfic.quality = 0
+        self.hq_sf = _w(title="HQ SF", genre="Science Fiction", fiction=True)
+        self.hq_sf.random = 0.25
 
         # Add a lot of irrelevant genres to one of the works. This
         # will clutter up the materialized view, but it won't affect
         # the results.
         for genre in ['Westerns', 'Horror', 'Erotica']:
             genre_obj, is_new = Genre.lookup(self._db, genre)
-            get_one_or_create(self._db, WorkGenre, work=hq_sf, genre=genre_obj)
+            get_one_or_create(self._db, WorkGenre, work=self.hq_sf, genre=genre_obj)
 
-        hq_sf.quality = 0.8
-        mq_sf = _w(title="MQ SF", genre="Science Fiction", fiction=True)
-        mq_sf.quality = 0.6
-        lq_sf = _w(title="LQ SF", genre="Science Fiction", fiction=True)
-        lq_sf.quality = 0.1
-        hq_ro = _w(title="HQ Romance", genre="Romance", fiction=True)
-        hq_ro.quality = 0.8
-        hq_ro.random = 0.75
-        mq_ro = _w(title="MQ Romance", genre="Romance", fiction=True)
-        mq_ro.quality = 0.6
-        lq_ro = _w(title="LQ Romance", genre="Romance", fiction=True)
-        lq_ro.quality = 0.1
-        nonfiction = _w(title="Nonfiction", fiction=False)
+        self.hq_sf.quality = 0.8
+        self.mq_sf = _w(title="MQ SF", genre="Science Fiction", fiction=True)
+        self.mq_sf.quality = 0.6
+        self.lq_sf = _w(title="LQ SF", genre="Science Fiction", fiction=True)
+        self.lq_sf.quality = 0.1
+        self.hq_ro = _w(title="HQ Romance", genre="Romance", fiction=True)
+        self.hq_ro.quality = 0.8
+        self.hq_ro.random = 0.75
+        self.mq_ro = _w(title="MQ Romance", genre="Romance", fiction=True)
+        self.mq_ro.quality = 0.6
+        self.lq_ro = _w(title="LQ Romance", genre="Romance", fiction=True)
+        self.lq_ro.quality = 0.1
+        self.nonfiction = _w(title="Nonfiction", fiction=False)
 
         # One of these works (mq_sf) is a best-seller and also a staff
         # pick.
-        best_seller_list, ignore = self._customlist(num_entries=0)
-        best_seller_list.add_entry(mq_sf)
+        self.best_seller_list, ignore = self._customlist(num_entries=0)
+        self.best_seller_list.add_entry(self.mq_sf)
 
-        staff_picks_list, ignore = self._customlist(num_entries=0)
-        staff_picks_list.add_entry(mq_sf)
+        self.staff_picks_list, ignore = self._customlist(num_entries=0)
+        self.staff_picks_list.add_entry(self.mq_sf)
+
+    def test_groups(self):
 
         # Create a 'Fiction' lane with five sublanes.
         fiction = self._lane("Fiction")
@@ -3310,13 +3310,13 @@ class TestWorkListGroups(DatabaseTest):
         best_sellers = self._lane(
             "Best Sellers", parent=fiction
         )
-        best_sellers.customlists.append(best_seller_list)
+        best_sellers.customlists.append(self.best_seller_list)
 
         # "Staff Picks", which will contain the same book.
         staff_picks = self._lane(
             "Staff Picks", parent=fiction
         )
-        staff_picks.customlists.append(staff_picks_list)
+        staff_picks.customlists.append(self.staff_picks_list)
 
         # "Science Fiction", which will contain two books (but
         # will not contain the best-seller).
@@ -3336,11 +3336,6 @@ class TestWorkListGroups(DatabaseTest):
             parent=fiction
         )
         discredited_nonfiction.inherit_parent_restrictions = False
-
-        self.add_to_materialized_view(
-            [hq_sf, mq_sf, lq_sf, hq_ro, mq_ro, lq_ro, hq_litfic, lq_litfic,
-             nonfiction]
-        )
 
         def assert_contents(g, expect):
             """Assert that a generator yields the expected
@@ -3377,13 +3372,13 @@ class TestWorkListGroups(DatabaseTest):
                 # list.  This isn't enough to pad out the lane to
                 # FEATURED_LANE_SIZE, but nothing else belongs in the
                 # lane.
-                (mq_sf, best_sellers),
+                (self.mq_sf, best_sellers),
 
                 # In fact, both lanes feature the same title -- this
                 # generally won't happen but it can happen when
                 # multiple lanes are based on lists that feature the
                 # same title.
-                (mq_sf, staff_picks),
+                (self.mq_sf, staff_picks),
 
                 # The genre-based lanes contain FEATURED_LANE_SIZE
                 # (two) titles each. The 'Science Fiction' lane
@@ -3392,15 +3387,15 @@ class TestWorkListGroups(DatabaseTest):
                 # low-quality work that could have been used
                 # instead. Each lane query has its own LIMIT applied,
                 # so we didn't even see the low-quality work.
-                (hq_sf, sf_lane),
-                (mq_sf, sf_lane),
-                (hq_ro, romance_lane),
-                (mq_ro, romance_lane),
+                (self.hq_sf, sf_lane),
+                (self.mq_sf, sf_lane),
+                (self.hq_ro, romance_lane),
+                (self.mq_ro, romance_lane),
 
                 # The 'Discredited Nonfiction' lane contains a single
                 # book. There just weren't enough matching books to fill
                 # out the lane to FEATURED_LANE_SIZE.
-                (nonfiction, discredited_nonfiction),
+                (self.nonfiction, discredited_nonfiction),
 
                 # The 'Fiction' lane contains a title that fits in the
                 # fiction lane but was not classified under any other
@@ -3408,21 +3403,21 @@ class TestWorkListGroups(DatabaseTest):
                 # featured earlier. There's a low-quality litfic title
                 # in the database, but we didn't see it because the
                 # 'Fiction' query had a LIMIT applied to it.
-                (hq_litfic, fiction),
-                (hq_ro, fiction),
+                (self.hq_litfic, fiction),
+                (self.hq_ro, fiction),
             ]
         )
 
         # If we ask only about 'Fiction', not including its sublanes,
         # we get the same books associated with that lane.
         #
-        # hq_ro shows up before hq_litfic because its .random is a
-        # larger number. In the previous example, hq_ro showed up
-        # after hq_litfic because we knew we'd already shown hq_ro in
+        # self.hq_ro shows up before hq_litfic because its .random is a
+        # larger number. In the previous example, self.hq_ro showed up
+        # after hq_litfic because we knew we'd already shown self.hq_ro in
         # a previous lane.
         assert_contents(
             fiction.groups(self._db, include_sublanes=False),
-            [(hq_ro, fiction), (hq_litfic, fiction)]
+            [(self.hq_ro, fiction), (self.hq_litfic, fiction)]
         )
 
         # If we exclude 'Fiction' from its own grouped feed, we get
@@ -3432,13 +3427,13 @@ class TestWorkListGroups(DatabaseTest):
         assert_contents(
             fiction.groups(self._db),
             [
-                (mq_sf, best_sellers),
-                (mq_sf, staff_picks),
-                (hq_sf, sf_lane),
-                (mq_sf, sf_lane),
-                (hq_ro, romance_lane),
-                (mq_ro, romance_lane),
-                (nonfiction, discredited_nonfiction),
+                (self.mq_sf, best_sellers),
+                (self.mq_sf, staff_picks),
+                (self.hq_sf, sf_lane),
+                (self.mq_sf, sf_lane),
+                (self.hq_ro, romance_lane),
+                (self.mq_ro, romance_lane),
+                (self.nonfiction, discredited_nonfiction),
             ]
         )
         fiction.include_self_in_grouped_feed = True
@@ -3450,7 +3445,7 @@ class TestWorkListGroups(DatabaseTest):
                 discredited_nonfiction.groups(
                     self._db, include_sublanes=include_sublanes
                 ),
-                [(nonfiction, discredited_nonfiction)]
+                [(self.nonfiction, discredited_nonfiction)]
             )
 
         # If we make the lanes thirstier for content, we see slightly
@@ -3460,28 +3455,28 @@ class TestWorkListGroups(DatabaseTest):
             fiction.groups(self._db),
             [
                 # The list-based lanes are the same as before.
-                (mq_sf, best_sellers),
-                (mq_sf, staff_picks),
+                (self.mq_sf, best_sellers),
+                (self.mq_sf, staff_picks),
 
                 # After using every single science fiction work that
-                # wasn't previously used, we reuse mq_sf to pad the
+                # wasn't previously used, we reuse self.mq_sf to pad the
                 # "Science Fiction" lane up to three items. It's
-                # better to have lq_sf show up before mq_sf, even
-                # though it's lower quality, because lq_sf hasn't been
+                # better to have self.lq_sf show up before self.mq_sf, even
+                # though it's lower quality, because self.lq_sf hasn't been
                 # used before.
-                (hq_sf, sf_lane),
-                (lq_sf, sf_lane),
-                (mq_sf, sf_lane),
+                (self.hq_sf, sf_lane),
+                (self.lq_sf, sf_lane),
+                (self.mq_sf, sf_lane),
 
                 # The 'Romance' lane now contains all three Romance
                 # titles, with the higher-quality titles first.
-                (hq_ro, romance_lane),
-                (mq_ro, romance_lane),
-                (lq_ro, romance_lane),
+                (self.hq_ro, romance_lane),
+                (self.mq_ro, romance_lane),
+                (self.lq_ro, romance_lane),
 
                 # The 'Discredited Nonfiction' lane is the same as
                 # before.
-                (nonfiction, discredited_nonfiction),
+                (self.nonfiction, discredited_nonfiction),
 
                 # After using every single fiction work that wasn't
                 # previously used, we reuse high-quality works to pad
@@ -3490,9 +3485,9 @@ class TestWorkListGroups(DatabaseTest):
                 # anymore, because the 'Romance' lane claimed it. If
                 # we have to reuse titles, we'll reuse the
                 # high-quality ones.
-                (hq_litfic, fiction),
-                (hq_sf, fiction),
-                (hq_ro, fiction),
+                (self.hq_litfic, fiction),
+                (self.hq_sf, fiction),
+                (self.hq_ro, fiction),
             ]
         )
 
@@ -3518,8 +3513,8 @@ class TestWorkListGroups(DatabaseTest):
             [
                 # The single recognized book shows up in both lanes
                 # that can show it.
-                (lq_ro, romance_lane),
-                (lq_ro, fiction),
+                (self.lq_ro, romance_lane),
+                (self.lq_ro, fiction),
             ]
         )
 
@@ -3534,7 +3529,7 @@ class TestWorkListGroups(DatabaseTest):
             priority = 2
 
             def groups(self, _db, include_sublanes, facets=None):
-                yield lq_litfic, self
+                yield self.lq_litfic, self
 
         mock = MockWorkList()
 
@@ -3549,11 +3544,21 @@ class TestWorkListGroups(DatabaseTest):
         assert_contents(
             wl.groups(self._db),
             [
-                (mq_sf, best_sellers),
-                (mq_sf, staff_picks),
-                (lq_litfic, mock),
+                (self.mq_sf, best_sellers),
+                (self.mq_sf, staff_picks),
+                (self.lq_litfic, mock),
             ]
         )
+
+
+class TestWorkListGroups(DatabaseTest):
+
+    def setup(self):
+        super(TestWorkListGroups, self).setup()
+
+        # Make sure random selections and range generations go the
+        # same way every time.
+        random.seed(42)
 
     def test_groups_for_lanes_propagates_facets(self):
         class Mock(WorkList):
