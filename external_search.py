@@ -446,16 +446,9 @@ class ExternalSearchIndex(HasSelfTests):
         needs_add = []
         successes = []
         for work in works:
-            if work.presentation_ready:
-                needs_add.append(work)
-            else:
-                # Works are removed one at a time, which shouldn't
-                # pose a performance problem because works almost never
-                # stop being presentation ready.
-                self.remove_work(work)
-                successes.append(work)
+            needs_add.append(work)
 
-        # Add any works that need adding.
+        # Add/update any works that need adding/updating.
         docs = Work.to_search_documents(needs_add)
 
         for doc in docs:
@@ -471,8 +464,6 @@ class ExternalSearchIndex(HasSelfTests):
 
         # If the entire update failed, try it one more time before
         # giving up on the batch.
-        #
-        # Removed works were already removed, so no need to try them again.
         if len(errors) == len(docs):
             if retry_on_batch_failure:
                 self.log.info("Elasticsearch bulk update timed out, trying again.")

@@ -508,7 +508,7 @@ class TestOPDS(DatabaseTest):
         expect = '<bibframe:distribution bibframe:ProviderName="%s"/>' % (
             gutenberg.name
         )
-        assert (1, unicode(feed).count(expect))
+        assert 1 == unicode(feed).count(expect)
 
         # If the LicensePool is a stand-in produced for internal
         # processing purposes, it does not represent an actual license for
@@ -1113,34 +1113,41 @@ class TestOPDS(DatabaseTest):
     def test_groups_feed(self):
         # Test the ability to create a grouped feed of recommended works for
         # a given lane.
+
+        # Every time it's invoked, the mock search index is going to
+        # return everything in its index. That's fine -- we're only
+        # concerned with _how_ it's invoked -- how many times and in
+        # what context.
+        #
+        # So it's sufficient to create a single work, and the details
+        # of the work don't matter. It just needs to have a LicensePool
+        # so it'll show up in the OPDS feed.
+        work = self._work(title="An epic tome", with_open_access_download=True)
+        search_engine = MockExternalSearchIndex()
+        search_engine.bulk_update([work])
+
+        # The lane setup does matter a lot -- that's what controls
+        # how many times the search functionality is invoked.
         epic_fantasy = self._lane(
             "Epic Fantasy", parent=self.fantasy, genres=["Epic Fantasy"]
         )
         urban_fantasy = self._lane(
             "Urban Fantasy", parent=self.fantasy, genres=["Urban Fantasy"]
         )
-        work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
-        work1.quality = 0.75
-        work2 = self._work(genre=Urban_Fantasy, with_open_access_download=True)
-        work2.quality = 0.75
-        self.add_to_materialized_view([work1, work2])
-
-        library = self._default_library
-        library.setting(library.FEATURED_LANE_SIZE).value = 2
 
         annotator = TestAnnotatorWithGroup()
-
         cached_groups = AcquisitionFeed.groups(
             self._db, "test", self._url, self.fantasy, annotator,
-            force_refresh=True
+            force_refresh=True, search_engine=search_engine,
+            search_debug=True
         )
         parsed = feedparser.parse(cached_groups)
 
-        # There are four entries in three lanes.
-        e1, e2, e3, e4 = parsed['entries']
+        # There are three entries in three lanes.
+        e1, e2, e3 = parsed['entries']
 
         # Each entry has one and only one link.
-        [l1], [l2], [l3], [l4] = [x['links'] for x in parsed['entries']]
+        [l1], [l2], [l3] = [x['links'] for x in parsed['entries']]
 
         # Those links are 'collection' links that classify the
         # works under their subgenres.
@@ -1152,8 +1159,6 @@ class TestOPDS(DatabaseTest):
         eq_(l2['title'], 'Group Title for Urban Fantasy!')
         eq_(l3['href'], 'http://group/Fantasy')
         eq_(l3['title'], 'Group Title for Fantasy!')
-        eq_(l4['href'], 'http://group/Fantasy')
-        eq_(l4['title'], 'Group Title for Fantasy!')
 
         # The feed itself has an 'up' link which points to the
         # groups for Fiction, and a 'start' link which points to
@@ -1183,7 +1188,7 @@ class TestOPDS(DatabaseTest):
         old_cache_count = self._db.query(CachedFeed).count()
         raw_groups = AcquisitionFeed.groups(
             self._db, "test", self._url, self.fantasy, annotator,
-            cache_type=AcquisitionFeed.NO_CACHE
+            cache_type=AcquisitionFeed.NO_CACHE, search_engine=search_engine,
         )
 
         # Unicode is returned instead of a CachedFeed object.
