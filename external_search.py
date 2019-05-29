@@ -2230,7 +2230,7 @@ class MockExternalSearchIndex(ExternalSearchIndex):
                             start_at = i + 1
                             break
             else:
-                start_at = pagination.start
+                start_at = pagination.offset
             stop = start_at + pagination.size
             docs = docs[start_at:stop]
 
