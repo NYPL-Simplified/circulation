@@ -1352,6 +1352,9 @@ class WorkList(object):
 
         Used when building a grouped OPDS feed for this WorkList's parent.
 
+        DEPRECATED - Pass a FeaturedFacets object into
+        works_from_search_index instead.
+
         :param facets: A FeaturedFacets object.
 
         :return: A list of MaterializedWorkWithGenre objects.  Under
@@ -1366,7 +1369,7 @@ class WorkList(object):
         target_size = library.featured_lane_size
 
         facets = facets or self.default_featured_facets(_db)
-        query = self.works(_db, facets=facets)
+        query = self.works_from_database(_db, facets=facets)
         if not query:
             # works() may return None, indicating that the whole
             # thing is a bad idea and the query should not even be
@@ -2041,7 +2044,7 @@ class WorkList(object):
         items. There may be more or less; this controls the size of
         the window and the LIMIT on the query.
         """
-        lane_query = self.works(_db, facets=facets)
+        lane_query = self.works_from_database(_db, facets=facets)
 
         # Make sure this query finds a number of works proportinal
         # to the expected size of the lane.
@@ -2475,7 +2478,7 @@ class Lane(Base, WorkList):
 
     def update_size(self, _db):
         """Update the stored estimate of the number of Works in this Lane."""
-        query = self.works(_db).limit(None)
+        query = self.works_from_database(_db).limit(None)
         query = query.distinct(mw.works_id)
 
         # Do the estimate for every known entry point.
