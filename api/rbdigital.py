@@ -711,7 +711,13 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
                 credential.credential = remote_identifier
                 credential.expires = None
             except CirculationException:
-                self.log.exception("Failed to create RBDigital User. Collection: %s", self.collection.name)
+                # If an exception was thrown by _find_or_create_remote_account
+                # delete the credential so we don't create a credential with
+                # None stored in credential.credential, then continue to raise
+                # the exception.
+                _db = Session.object_session(credential)
+                _db.delete(credential)
+                raise
             return credential
 
         # Find or create the credential.
@@ -728,10 +734,6 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             patron, refresh_credential,
             collection=collection, allow_persistent_token=True
         )
-        # If we failed to create the credential, don't persist to the database
-        if credential.credential is None:
-            _db.delete(credential)
-            return None
         return credential.credential
 
     def _find_or_create_remote_account(self, patron):
