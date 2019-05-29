@@ -3301,6 +3301,8 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
         self.staff_picks_list.add_entry(self.mq_sf)
 
     def test_groups(self):
+        if not self.search:
+            return
 
         # Create a 'Fiction' lane with five sublanes.
         fiction = self._lane("Fiction")

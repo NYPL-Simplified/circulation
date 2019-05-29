@@ -1002,6 +1002,10 @@ class ExternalSearchTest(DatabaseTest):
     def setup(self):
         super(ExternalSearchTest, self).setup(mock_search=False)
 
+        # Track the indexes created so they can be torn down at the
+        # end of the test.
+        self.indexes = []
+
         self.integration = self._external_integration(
             ExternalIntegration.ELASTICSEARCH,
             goal=ExternalIntegration.SEARCH_GOAL,
@@ -1021,13 +1025,21 @@ class ExternalSearchTest(DatabaseTest):
                 exc_info=e
             )
 
+    def setup_index(self, new_index):
+        "Create an index and register it to be destroyed during teardown."
+        self.search.setup_index(new_index=new_index)
+        self.indexes.append(new_index)
+
     def teardown(self):
         if self.search:
+            # Delete the works_index, which is almost always created.
             if self.search.works_index:
-                self.search.indices.delete(self.search.works_index, ignore=[404])
-            self.search.indices.delete('the_other_index', ignore=[404])
-            self.search.indices.delete('test_index-v100', ignore=[404])
-            self.search.indices.delete('test_index-v9999', ignore=[404])
+                self.search.indices.delete(
+                    self.search.works_index, ignore=[404]
+                )
+            # Delete any other indexes created over the course of the test.
+            for index in self.indexes:
+                self.search.indices.delete(index, ignore=[404])
             ExternalSearchIndex.reset()
         super(ExternalSearchTest, self).teardown()
 

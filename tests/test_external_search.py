@@ -124,7 +124,9 @@ class TestExternalSearch(ExternalSearchTest):
             return
 
         current_index = self.search.works_index
-        self.search.setup_index(new_index='the_other_index')
+        # This calls self.search.setup_index (which is what we're testing)
+        # and also registers the index to be torn down at the end of the test.
+        self.setup_index('the_other_index')
 
         # Both indices exist.
         eq_(True, self.search.indices.exists(current_index))
@@ -202,7 +204,7 @@ class TestExternalSearch(ExternalSearchTest):
         self.search.indices.delete_alias(
             index=original_index, name='test_index-current', ignore=[404]
         )
-        self.search.setup_index(new_index='test_index-v9999')
+        self.setup_index(new_index='test_index-v9999')
         self.search.transfer_current_alias(self._db, 'test_index-v9999')
         eq_('test_index-v9999', self.search.works_index)
         eq_('test_index-current', self.search.works_alias)
@@ -215,7 +217,7 @@ class TestExternalSearch(ExternalSearchTest):
 
         # If the -current alias is being used on a different version of the
         # index, it's deleted from that index and placed on the new one.
-        self.search.setup_index(original_index)
+        self.setup_index(original_index)
         self.search.transfer_current_alias(self._db, original_index)
         eq_(original_index, self.search.works_index)
         eq_('test_index-current', self.search.works_alias)
