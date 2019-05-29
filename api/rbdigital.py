@@ -715,6 +715,11 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
             return credential
 
         # Find or create the credential.
+        # We use the DB session from the passed in patron object here
+        # because in the case we are in a thread the self._db session may be
+        # different from the session used for patron. By using the session
+        # from patron we make sure all the DB objects interacting with each
+        # other are from the same session.
         _db = Session.object_session(patron)
         collection = Collection.by_id(_db, id=self.collection_id)
         credential = Credential.lookup(
