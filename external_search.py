@@ -1652,12 +1652,16 @@ class Filter(SearchBase):
         These minor arguments were made into unnamed keyword arguments to
         avoid cluttering the method signature:
 
-        `param excluded_audiobook_data_sources`: A list of DataSources that
+        :param excluded_audiobook_data_sources: A list of DataSources that
         provide audiobooks known to be unsupported on this system.
         Such audiobooks will always be excluded from results.
 
-        `param allow_holds`: If this is False, books with no available
+        :param allow_holds: If this is False, books with no available
         copies will be excluded from results.
+
+        :param last_update_time: If this is set to a datetime, only books
+        whose Work records (~bibliographic metadata) have been updated since
+        that time will be included in results.
         """
 
         if isinstance(collections, Library):
@@ -1704,6 +1708,8 @@ class Filter(SearchBase):
             excluded_audiobook_data_sources
         )
         self.allow_holds = kwargs.pop('allow_holds', True)
+
+        self.last_update_time = kwargs.pop('last_update_time', None)
 
         # At this point there should be no keyword arguments -- you can't pass
         # whatever you want into this method.
@@ -1833,6 +1839,14 @@ class Filter(SearchBase):
             licenses_available = F('term', **{'licensepools.available' : True})
             currently_available = Bool(should=[licenses_available, open_access])
             nested_filters['licensepools'].append(currently_available)
+
+        # Perhaps only books whose bibliographic metadata was updated
+        # recently should be included.
+        if self.last_update_time:
+            last_update_time_query = self._match_range(
+                'last_update_time', 'gte', self.last_update_time
+            )
+            f = chain(f, F('bool', must=last_update_time_query))
 
         return f, nested_filters
 
@@ -2203,32 +2217,58 @@ class MockExternalSearchIndex(ExternalSearchIndex):
 
     def query_works(self, query_string, filter, pagination, debug=False, return_raw_results=False, search=None):
         self.queries.append((query_string, filter, pagination, debug, return_raw_results))
+        docs = self.docs.values()
+        if pagination:
+            start_at = 0
+            if isinstance(pagination, SortKeyPagination):
+                # Figure out where the previous page ended by looking
+                # for the corresponding work ID.
+                if pagination.last_item_on_previous_page:
+                    look_for = pagination.last_item_on_previous_page[-1]
+                    for i, x in enumerate(docs):
+                        if x['_id'] == look_for:
+                            start_at = i + 1
+                            break
+            else:
+                start_at = pagination.start
+            stop = start_at + pagination.size
+            docs = docs[start_at:stop]
+
         if return_raw_results:
-            doc_ids = self.docs.values()
+            results = docs
         else:
-            doc_ids = sorted([dict(_id=key[2]) for key in self.docs.keys()])
+            results = [x['_id'] for x in docs]
 
         if pagination:
-            start = pagination.offset
-            stop = start + pagination.size
-            doc_ids = doc_ids[start:stop]
+            result_objs = [
+                MockSearchResult("title", "author", {}, x['_id'])
+                for x in docs
+            ]
+            pagination.page_loaded(result_objs)
+        return results
 
-        if return_raw_results:
-            return doc_ids
-        else:
-            return [x['_id'] for x in doc_ids]
 
     def bulk(self, docs, **kwargs):
         for doc in docs:
             self.index(doc['_index'], doc['_type'], doc['_id'], doc)
         return len(docs), []
 
+class MockMeta(dict):
+    """Mock the .meta object associated with an Elasticsearch search
+    result.  This is necessary to get SortKeyPagination to work with
+    MockExternalSearchIndex.
+    """
+    @property
+    def sort(self):
+        return self['_sort']
+
 class MockSearchResult(object):
     def __init__(self, title, author, meta, id):
         self.title = title
         self.author = author
         meta["id"] = id
-        self.meta = meta
+        meta["_sort"] = [title, author, id]
+        self.meta = MockMeta(meta)
 
     def to_dict(self):
         return {

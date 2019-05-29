@@ -102,7 +102,20 @@ from sqlalchemy.dialects.postgresql import (
     INT4RANGE,
 )
 
-class FacetsWithEntryPoint(FacetConstants):
+class BaseFacets(FacetConstants):
+    """Basic Facets class that doesn't modify a search filter at all.
+
+    This is intended solely for use as a base class.
+    """
+
+    def modify_search_filter(self, filter):
+        return filter
+
+    def scoring_functions(self, filter):
+        return []
+
+
+class FacetsWithEntryPoint(BaseFacets):
     """Basic Facets class that knows how to filter a query based on a
     selected EntryPoint.
     """
@@ -262,15 +275,6 @@ class FacetsWithEntryPoint(FacetConstants):
         if self.entrypoint:
             self.entrypoint.modify_search_filter(filter)
         return filter
-
-    def scoring_functions(self, filter):
-        """Create a list of ScoringFunction objects that modify how
-        works in the given WorkList should be ordered.
-
-        Most subclasses will not use this because they order
-        works using the 'order' feature.
-        """
-        return []
 
 
 class Facets(FacetsWithEntryPoint):
