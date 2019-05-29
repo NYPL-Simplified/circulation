@@ -580,7 +580,10 @@ class AcquisitionFeed(OPDSFeed):
                 )
                 if usable:
                     return cached.content
-            works_and_lanes = lane.groups(_db, facets=facets)
+            works_and_lanes = lane.groups(
+                _db, facets=facets, search_engine=search_engine,
+                debug=search_debug
+            )
 
         if not works_and_lanes:
             # We cannot generate a groups feed, either because we

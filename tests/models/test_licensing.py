@@ -1174,8 +1174,8 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         # media types.
         edition, pool = self._edition(with_license_pool=True,
                                       with_open_access_download=True)
-        self._add_generic_delivery_mechanism(pool)
-        [mech1, mech2] = pool.delivery_mechanisms
+        [mech1] = pool.delivery_mechanisms
+        mech2 = self._add_generic_delivery_mechanism(pool)
         mech2.delivery_mechanism, ignore = DeliveryMechanism.lookup(
             self._db, Representation.PDF_MEDIA_TYPE, DeliveryMechanism.NO_DRM
         )
