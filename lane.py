@@ -1384,13 +1384,45 @@ class WorkList(object):
                 work_ids.add(work.works_id)
         return works
 
-    def works(self, _db, facets=None, pagination=None, include_quality_tier=False):
+    def works(self, _db, facets=None, pagination=None, **kwargs):
+        """Obtain -- somehow -- Work or Work-like objects that belong
+        in this WorkList.
+
+        :param _db: A database connection.
+        :param facets: A Facets object which may put additional
+           constraints on WorkList membership.
+        :param pagination: A Pagination object indicating which part of
+           the WorkList the caller is looking at, and/or a limit on the
+           number of works to fetch.
+        :param kwargs: Different implementations may fetch the
+           list of works from different sources and may need different
+           keyword arguments.
+        :return: A list of Work or Work-like objects, or a database query
+            that generates such a list when executed.
+        """
+        # By default, we get a list of Work objects through the search
+        # index. Some subclasses may need to get works from the database,
+        # which is slower.
+        return self.works_from_search_index(
+            _db=_db, facets=facets, pagination=pagination, **kwargs
+        )
+
+    def works_from_database(
+        self, _db, facets=None, pagination=None, include_quality_tier=False
+    ):
         """Create a query against a materialized view that finds Work-like
         objects corresponding to all the Works that belong in this
         WorkList.
 
         The apply_filters() implementation defines which Works qualify
         for membership in a WorkList of this type.
+
+        This tends to be slower than works_from_search_index, but not all
+        lanes can be generated through search engine queries.
+
+        TODO - This method, and all methods it calls, must be modified
+        to use normal database queries instead of the materialized
+        view.
 
         :param _db: A database connection.
         :param facets: A Facets object which may put additional
@@ -1399,6 +1431,7 @@ class WorkList(object):
            the WorkList the caller is looking at.
         :return: A Query, or None if the WorkList is deemed to be a
            bad idea in the first place.
+
         """
         # apply_filters() will apply the genre
         # restrictions.
@@ -1436,8 +1469,11 @@ class WorkList(object):
     def works_from_search_index(
         self, _db, facets, pagination, search_engine=None, debug=False
     ):
-        """Retrieve a list of Work objects, the way works() does,
-        but use the search index instead of the materialized view.
+        """Retrieve a list of Work objects, the way works_from_database() does,
+        but use the search index instead of the database.
+
+        If it's possible to build a lane this way, it can be a lot faster
+        than going through the database.
         """
         from external_search import (
             Filter,
@@ -1503,7 +1539,7 @@ class WorkList(object):
 
         b = time.time()
         logging.info(
-            u"Obtained %s×%d in %.2fsec", work_model.__name__, len(results), b-a
+            u"Obtained %sx%d in %.2fsec", work_model.__name__, len(results), b-a
         )
         return results
 
