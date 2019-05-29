@@ -1304,22 +1304,22 @@ class MockWork(object):
         self.works_id = id
 
 class MockWorks(WorkList):
-    """A WorkList that mocks works() but not featured_works()."""
+    """A WorkList that mocks works_from_database() but not featured_works()."""
 
     def __init__(self):
         self.reset()
 
     def reset(self):
         self._works = []
-        self.works_calls = []
+        self.works_from_database_calls = []
         self.random_sample_calls = []
 
     def queue_works(self, works):
-        """Set the next return value for works()."""
+        """Set the next return value for works_from_database()."""
         self._works.append(works)
 
-    def works(self, _db, facets=None, pagination=None, featured=False):
-        self.works_calls.append((facets, pagination, featured))
+    def works_from_database(self, _db, facets=None, pagination=None, featured=False):
+        self.works_from_database_calls.append((facets, pagination, featured))
         try:
             return self._works.pop(0)
         except IndexError:
@@ -1615,8 +1615,9 @@ class TestWorkList(DatabaseTest):
         featured = wl.featured_works(self._db)
         eq_([w1], featured)
 
-        # We created a FeaturedFacets object and passed it in to works().
-        [(facets, pagination, featured)] = wl.works_calls
+        # We created a FeaturedFacets object and passed it in to
+        # works_from_database().
+        [(facets, pagination, featured)] = wl.works_from_database_calls
         eq_(self._default_library.minimum_featured_quality,
             facets.minimum_featured_quality)
         eq_(False, facets.uses_customlists)
@@ -1626,14 +1627,14 @@ class TestWorkList(DatabaseTest):
         eq_([w1, w1], query)
         eq_(self._default_library.featured_lane_size, target_size)
 
-    def test_methods_that_call_works_propagate_entrypoint(self):
+    def test_methods_that_call_works_from_database_propagate_entrypoint(self):
         """Verify that the EntryPoint mentioned in the Facets object passed
         into featured_works() and works_in_window() is propagated when
         those methods call works().
         """
         class Mock(WorkList):
-            def works(self, _db, *args, **kwargs):
-                self.works_called_with = kwargs['facets']
+            def works_from_database(self, _db, *args, **kwargs):
+                self.works_from_database_called_with = kwargs['facets']
                 # This query won't work, but we need to return some
                 # kind of query so works_in_window can complete.
                 return _db.query(Work)
@@ -1652,14 +1653,14 @@ class TestWorkList(DatabaseTest):
         # didn't bother to provide -- but the EntryPoint we did provide
         # is propagated.
         wl.featured_works(self._db, facets=facets)
-        eq_(audio, wl.works_called_with.entrypoint)
+        eq_(audio, wl.works_from_database_called_with.entrypoint)
 
         wl.works_called_with = None
         wl.works_in_window(self._db, facets, 10)
-        eq_(audio, wl.works_called_with.entrypoint)
+        eq_(audio, wl.works_from_database_called_with.entrypoint)
 
-    def test_works(self):
-        """Verify that WorkList.works() correctly locates works
+    def test_works_from_database(self):
+        """Verify that WorkList.works_from_database() correctly locates works
         that match the criteria specified by apply_filters().
         """
 
@@ -1681,12 +1682,12 @@ class TestWorkList(DatabaseTest):
         # implementation and find both books.
         wl = WorkList()
         wl.initialize(self._default_library)
-        eq_(2, wl.works(self._db).count())
+        eq_(2, wl.works_from_database(self._db).count())
 
         # But the mock WorkList will only find Oliver Twist.
         wl = OnlyOliverTwist()
         wl.initialize(self._default_library)
-        eq_([oliver_twist.id], [x.works_id for x in wl.works(self._db)])
+        eq_([oliver_twist.id], [x.works_id for x in wl.works_from_database(self._db)])
 
         # A WorkList will only find books licensed through one of its
         # collections.
@@ -1695,22 +1696,22 @@ class TestWorkList(DatabaseTest):
         library2.collections = [collection]
         library_2_worklist = WorkList()
         library_2_worklist.initialize(library2)
-        eq_(0, library_2_worklist.works(self._db).count())
+        eq_(0, library_2_worklist.works_from_database(self._db).count())
 
         # If a WorkList has no collections, it has no books.
         self._default_library.collections = []
         wl.initialize(self._default_library)
-        eq_(0, wl.works(self._db).count())
+        eq_(0, wl.works_from_database(self._db).count())
 
         # A WorkList can also have a collection with no library.
         wl = WorkList()
         wl.initialize(None)
         wl.collection_ids = [self._default_collection.id]
-        eq_(2, wl.works(self._db).count())
+        eq_(2, wl.works_from_database(self._db).count())
 
-    def test_works_propagates_facets(self):
-        """Verify that the Facets object passed into works() is
-        propagated to the methods called by works().
+    def test_works_from_database_propagates_facets(self):
+        """Verify that the Facets object passed into works_from_database() is
+        propagated to the methods called by works_from_database().
         """
         class Mock(WorkList):
             def apply_filters(self, _db, qu, facets, pagination):
@@ -1719,7 +1720,7 @@ class TestWorkList(DatabaseTest):
         wl = Mock()
         wl.initialize(self._default_library)
         facets = FacetsWithEntryPoint()
-        wl.works(self._db, facets=facets)
+        wl.works_from_database(self._db, facets=facets)
         eq_(facets, wl.apply_filters_called_with)
 
     def test_works_from_search_index(self):
@@ -3590,11 +3591,10 @@ class TestWorkListGroups(DatabaseTest):
         eq_(facets, wl.featured_called_with)
 
     def test_featured_works_propagates_facets(self):
-        """featured_works uses facets when it calls works().
-        """
+        # featured_works uses facets when it calls works_from_database().
         class Mock(WorkList):
-            def works(self, _db, facets):
-                self.works_called_with = facets
+            def works_from_database(self, _db, facets):
+                self.works_from_database_called_with = facets
                 return []
 
         wl = Mock()
@@ -3605,12 +3605,12 @@ class TestWorkListGroups(DatabaseTest):
             entrypoint=AudiobooksEntryPoint
         )
         groups = list(wl.featured_works(self._db, facets))
-        eq_(facets, wl.works_called_with)
+        eq_(facets, wl.works_from_database_called_with)
 
         # If no FeaturedFacets object is specified, one is created
         # based on default library configuration.
         groups = list(wl.featured_works(self._db, None))
-        facets2 = wl.works_called_with
+        facets2 = wl.works_from_database_called_with
         eq_(self._default_library.minimum_featured_quality,
             facets2.minimum_featured_quality)
         eq_(wl.uses_customlists, facets2.uses_customlists)

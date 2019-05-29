@@ -625,7 +625,9 @@ class MARCExporter(object):
         # again on the next run.
         end_time = datetime.datetime.utcnow()
 
-        works_q = lane.works(self._db)
+        # TODO - Before we can get rid of the materialized view we'll
+        # need to change this to get works from the search index.
+        works_q = lane.works_from_database(self._db)
         if start_time:
             works_q = works_q.filter(MaterializedWorkWithGenre.last_update_time>=start_time)
 
