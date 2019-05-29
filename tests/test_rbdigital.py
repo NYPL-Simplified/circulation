@@ -60,6 +60,7 @@ from core.model import (
     ConfigurationSetting,
     Contributor,
     Credential,
+    Collection,
     DataSource,
     DeliveryMechanism,
     Edition,
@@ -480,10 +481,10 @@ class TestRBDigitalAPI(RBDigitalAPITest):
 
         # If a remote lookup fails, and create patron fails with a
         # RemotePatronCreationFailedException we will try to do a patron
-        # lookup with the email address instead
+        # lookup with the email address instead.
         class RemoteLookupFailAndRecovery(MockRBDigitalAPI):
-            self.patron_remote_identifier_lookup_called_with = []
-            self.patron_email_address_called_with = []
+            patron_remote_identifier_lookup_called_with = []
+            patron_email_address_called_with = []
 
             def patron_remote_identifier_lookup(self, identifier):
                 self.patron_remote_identifier_lookup_called_with.append(identifier)
@@ -503,6 +504,33 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             self._db, self.collection, base_path=self.base_path
         )
         eq_("an internal ID", api._find_or_create_remote_account(patron))
+        eq_(["a barcode", "mock email address"], api.patron_remote_identifier_lookup_called_with)
+        eq_([patron, patron], api.patron_email_address_called_with)
+
+
+        # If a remote lookup fails, and create patron fails with a
+        # RemotePatronCreationFailedException we will try to do a patron
+        # lookup with the email address instead, but if that fails as well
+        # we just pass on the exception.
+        class RemoteLookupFailAndRecoveryAndFail(MockRBDigitalAPI):
+            patron_remote_identifier_lookup_called_with = []
+            patron_email_address_called_with = []
+
+            def patron_remote_identifier_lookup(self, identifier):
+                self.patron_remote_identifier_lookup_called_with.append(identifier)
+                return None
+
+            def create_patron(self, *args):
+                raise RemotePatronCreationFailedException
+
+            def patron_email_address(self, patron):
+                self.patron_email_address_called_with.append(patron)
+                return "mock email address"
+
+        api = RemoteLookupFailAndRecoveryAndFail(
+            self._db, self.collection, base_path=self.base_path
+        )
+        assert_raises(RemotePatronCreationFailedException, api._find_or_create_remote_account, patron)
         eq_(["a barcode", "mock email address"], api.patron_remote_identifier_lookup_called_with)
         eq_([patron, patron], api.patron_email_address_called_with)
 
@@ -541,6 +569,30 @@ class TestRBDigitalAPI(RBDigitalAPITest):
             RemotePatronCreationFailedException, 'create_patron: http=409, response={"message":"A patron account with the specified username, email address, or card number already exists for this library."}',
             api.create_patron, *args
         )
+
+    def test_patron_remote_identifier_exception(self):
+        # Make sure if there is an exception while creating the patron we don't
+        # create empty credentials in the database.
+
+        class ApiThrowsException(MockRBDigitalAPI):
+            def _find_or_create_remote_account(self, patron):
+                raise CirculationException
+
+        patron = self._patron("a barcode")
+        api = ApiThrowsException(self._db, self.collection, base_path=self.base_path)
+        assert_raises(CirculationException, api.patron_remote_identifier, patron)
+        data_source = DataSource.lookup(self._db, DataSource.RB_DIGITAL)
+        credential, new = get_one_or_create(
+            self._db,
+            Credential,
+            data_source=data_source,
+            type=Credential.IDENTIFIER_FROM_REMOTE_SERVICE,
+            patron=patron,
+            collection=api.collection
+        )
+        eq_(True, new)
+
+
 
     def test__create_patron_body(self):
         # Test the method that builds the data (possibly fake, possibly not)
