@@ -32,6 +32,7 @@ from core.model import (
 )
 from util.patron import PatronUtility
 from config import Configuration
+import sys
 
 class CirculationInfo(object):
 
@@ -939,6 +940,7 @@ class CirculationAPI(object):
                 self.pin = pin
                 self.activity = None
                 self.exception = None
+                self.trace = None
                 super(PatronActivityThread, self).__init__()
 
             def run(self):
@@ -948,6 +950,7 @@ class CirculationAPI(object):
                         self.patron, self.pin)
                 except Exception, e:
                     self.exception = e
+                    self.trace = sys.exc_info()
                 after = time.time()
                 log.debug(
                     "Synced %s in %.2f sec", self.api.__class__.__name__,
@@ -974,7 +977,7 @@ class CirculationAPI(object):
                 self.log.error(
                     "%s errored out: %s", thread.api.__class__.__name__,
                     thread.exception,
-                    exc_info=thread.exception
+                    exc_info=thread.trace
                 )
             if thread.activity:
                 for i in thread.activity:
