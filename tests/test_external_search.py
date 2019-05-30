@@ -283,12 +283,13 @@ class TestExternalSearch(ExternalSearchTest):
         eq_("Search document for 'a search term':", test_results[1].name)
         eq_(True, test_results[1].success)
         result = json.loads(test_results[1].result)
-        eq_({"author": "author", "meta": {"id": "id"}, "id": "id", "title": "Sample Book Title"}, result)
+        sample_book = {"author": "author", "meta": {"id": "id", "_sort": [u'Sample Book Title', u'author', u'id']}, "id": "id", "title": "Sample Book Title"}
+        eq_(sample_book, result)
 
         eq_("Raw search results for 'a search term':", test_results[2].name)
         eq_(True, test_results[2].success)
         result = json.loads(test_results[2].result[0])
-        eq_({"author": "author", "meta": {"id": "id"}, "id": "id", "title": "Sample Book Title"}, result)
+        eq_(sample_book, result)
 
         eq_("Total number of search results for 'a search term':", test_results[3].name)
         eq_(True, test_results[3].success)
