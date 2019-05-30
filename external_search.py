@@ -1659,6 +1659,9 @@ class Filter(SearchBase):
         :param allow_holds: If this is False, books with no available
         copies will be excluded from results.
 
+        :param series: If this is set to a string, only books in a matching
+        series will be included.
+
         :param updated_after: If this is set to a datetime, only books
         whose Work records (~bibliographic metadata) have been updated since
         that time will be included in results.
@@ -1710,6 +1713,8 @@ class Filter(SearchBase):
         self.allow_holds = kwargs.pop('allow_holds', True)
 
         self.updated_after = kwargs.pop('updated_after', None)
+
+        self.series = kwargs.pop('series', None)
 
         # At this point there should be no keyword arguments -- you can't pass
         # whatever you want into this method.
@@ -1775,6 +1780,9 @@ class Filter(SearchBase):
             else:
                 value = 'nonfiction'
             f = chain(f, F('term', fiction=value))
+
+        if self.series:
+            f = chain(f, F('term', series=value))
 
         if self.audiences:
             f = chain(f, F('terms', audience=scrub_list(self.audiences)))
