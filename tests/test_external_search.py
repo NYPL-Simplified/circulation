@@ -2481,6 +2481,8 @@ class TestFilter(DatabaseTest):
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         filter.excluded_audiobook_data_sources = [overdrive.id]
         filter.allow_holds = False
+        last_update_time = datetime.datetime(2019, 1, 1)
+        filter.updated_after = last_update_time
 
         # We want books that are literary fiction, *and* either
         # fantasy or horror.
@@ -2542,7 +2544,8 @@ class TestFilter(DatabaseTest):
         # Every other restriction imposed on the Filter object becomes an
         # Elasticsearch filter object in this list.
         (medium, language, fiction, audience, target_age,
-         literary_fiction_filter, fantasy_or_horror_filter) = built
+         literary_fiction_filter, fantasy_or_horror_filter,
+         updated_after) = built
 
         # Test them one at a time.
         #
@@ -2573,6 +2576,15 @@ class TestFilter(DatabaseTest):
             literary_fiction_filter.to_dict())
         eq_({'terms': {'genres.term': [self.fantasy.id, self.horror.id]}},
             fantasy_or_horror_filter.to_dict())
+
+        # There's a restriction on the last updated time for bibliographic
+        # metadata.
+        eq_(
+            {'bool': {'must': [
+                {'range': {'last_update_time': {'gte': last_update_time}}}
+            ]}},
+            updated_after.to_dict()
+        )
 
         # We tried fiction; now try nonfiction.
         filter = Filter()

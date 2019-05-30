@@ -464,8 +464,10 @@ class MARCExporterFacets(BaseFacets):
         self.start_time = start_time
 
     def modify_search_filter(self, filter):
-        filter.order = 'last_update_time'
-        filter.last_update_time = self.start_time
+        filter.order = self.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME[
+            self.ORDER_LAST_UPDATE
+        ]
+        filter.updated_after = self.start_time
 
 
 class MARCExporter(object):

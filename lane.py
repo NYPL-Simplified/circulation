@@ -574,16 +574,6 @@ class Facets(FacetsWithEntryPoint):
             order_by_sorted = [order_by[0].desc()] + [x.asc() for x in order_by[1:]]
         return order_by_sorted, order_by
 
-    SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME = {
-        FacetConstants.ORDER_TITLE : "sort_title",
-        FacetConstants.ORDER_AUTHOR : "sort_author",
-        FacetConstants.ORDER_LAST_UPDATE : 'last_update_time',
-        FacetConstants.ORDER_ADDED_TO_COLLECTION : 'licensepools.availability_time',
-        FacetConstants.ORDER_SERIES_POSITION : 'series_position',
-        FacetConstants.ORDER_WORK_ID : '_id',
-        FacetConstants.ORDER_RANDOM : 'random',
-    }
-
     def modify_search_filter(self, filter):
         """Modify the given external_search.Filter object
         so that it reflects the settings of this Facets object.

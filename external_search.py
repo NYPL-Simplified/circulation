@@ -1659,7 +1659,7 @@ class Filter(SearchBase):
         :param allow_holds: If this is False, books with no available
         copies will be excluded from results.
 
-        :param last_update_time: If this is set to a datetime, only books
+        :param updated_after: If this is set to a datetime, only books
         whose Work records (~bibliographic metadata) have been updated since
         that time will be included in results.
         """
@@ -1709,7 +1709,7 @@ class Filter(SearchBase):
         )
         self.allow_holds = kwargs.pop('allow_holds', True)
 
-        self.last_update_time = kwargs.pop('last_update_time', None)
+        self.updated_after = kwargs.pop('updated_after', None)
 
         # At this point there should be no keyword arguments -- you can't pass
         # whatever you want into this method.
@@ -1842,9 +1842,9 @@ class Filter(SearchBase):
 
         # Perhaps only books whose bibliographic metadata was updated
         # recently should be included.
-        if self.last_update_time:
+        if self.updated_after:
             last_update_time_query = self._match_range(
-                'last_update_time', 'gte', self.last_update_time
+                'last_update_time', 'gte', self.updated_after
             )
             f = chain(f, F('bool', must=last_update_time_query))
 

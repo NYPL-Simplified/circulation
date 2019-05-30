@@ -111,6 +111,16 @@ class FacetConstants(object):
         COLLECTION_FACET_GROUP_NAME : COLLECTION_MAIN,
     }
 
+    SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME = {
+        ORDER_TITLE : "sort_title",
+        ORDER_AUTHOR : "sort_author",
+        ORDER_LAST_UPDATE : 'last_update_time',
+        ORDER_ADDED_TO_COLLECTION : 'licensepools.availability_time',
+        ORDER_SERIES_POSITION : 'series_position',
+        ORDER_WORK_ID : '_id',
+        ORDER_RANDOM : 'random',
+    }
+
 
 class FacetConfig(object):
     """A class that implements the facet-related methods of
