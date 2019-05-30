@@ -2641,12 +2641,25 @@ class TestFilter(DatabaseTest):
         f.order='field'
         eq_(False, f.order_ascending)
         first_field = validate_sort_order(f, 'field')
-
         eq_(dict(field='desc'), first_field)
 
         f.order_ascending = True
         first_field = validate_sort_order(f, 'field')
         eq_(dict(field='asc'), first_field)
+
+        # When multiple fields are given, they are put at the
+        # beginning and any remaining tiebreaker fields are added.
+        f.order=['series_position', 'sort_title', 'some_other_field']
+        eq_(
+            [
+                dict(series_position='asc'),
+                dict(sort_title='asc'),
+                dict(some_other_field='asc'),
+                dict(sort_author='asc'),
+                dict(work_id='asc'),
+            ],
+            f.sort_order
+        )
 
         # You can't sort by some random subdocument field, because there's
         # not enough information to know how to aggregate multiple values.
