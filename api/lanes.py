@@ -939,18 +939,20 @@ class RecommendationLane(WorkBasedLane):
 
 class SeriesFacets(BaseFacets):
     """A custom faceting object for filtering a lane based on series and
-    ordering it based on series position.
+    ordering it based on series position (and secondarily by title).
     """
 
     def __init__(self, series):
         self.series = series
 
     def modify_search_filter(self, filter):
-        filter.order = self.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME[
-            self.ORDER_SERIES_POSITION
+        filter.order = [
+            self.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME[x]
+            for x in [self.ORDER_SERIES_POSITION, self.ORDER_TITLE]
         ]
         filter.order_ascending = True
         filter.series = self.series
+
 
 class SeriesLane(DynamicLane):
     """A lane of Works in a particular series."""

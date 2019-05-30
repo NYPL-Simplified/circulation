@@ -127,7 +127,6 @@ from config import (
 from lanes import (
     load_lanes,
     ContributorLane,
-    FeaturedSeriesFacets,
     RecommendationLane,
     RelatedBooksLane,
     SeriesLane,
@@ -1689,7 +1688,7 @@ class WorkController(CirculationManagerController):
         )
         feed = AcquisitionFeed.page(
             self._db, lane.display_name, url, lane,
-            facets=facets, pagination=pagination,
+            facets=lane.facets, pagination=pagination,
             annotator=annotator, cache_type=CachedFeed.SERIES_TYPE
         )
         return feed_response(unicode(feed))
