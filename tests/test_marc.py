@@ -25,10 +25,14 @@ from ..model import (
     RightsStatus,
 )
 from ..config import CannotLoadConfiguration
-from ..external_search import MockExternalSearchIndex
+from ..external_search import (
+    MockExternalSearchIndex,
+    Filter,
+)
 from ..marc import (
   Annotator,
   MARCExporter,
+  MARCExporterFacets,
 )
 
 from ..s3 import (
@@ -622,3 +626,21 @@ class TestMARCExporter(DatabaseTest):
 
         self._db.delete(cache)
 
+
+class TestMARCExporterFacets(object):
+    def test_modify_search_filter(self):
+
+        # A facet object.
+        facets = MARCExporterFacets("some start time")
+
+        # A filter about to be modified by the facet object.
+        filter = Filter()
+        filter.order_ascending = False
+
+        facets.modify_search_filter(filter)
+
+        # updated_after has been set and results are to be returned in
+        # order of increasing last_update_time.
+        eq_("last_update_time", filter.order)
+        eq_(True, filter.order_ascending)
+        eq_("some start time", filter.updated_after)

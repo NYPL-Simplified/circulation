@@ -467,6 +467,7 @@ class MARCExporterFacets(BaseFacets):
         filter.order = self.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME[
             self.ORDER_LAST_UPDATE
         ]
+        filter.order_ascending = True
         filter.updated_after = self.start_time
 
 
