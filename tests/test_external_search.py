@@ -283,12 +283,13 @@ class TestExternalSearch(ExternalSearchTest):
         eq_("Search document for 'a search term':", test_results[1].name)
         eq_(True, test_results[1].success)
         result = json.loads(test_results[1].result)
-        eq_({"author": "author", "meta": {"id": "id"}, "id": "id", "title": "Sample Book Title"}, result)
+        sample_book = {"author": "author", "meta": {"id": "id", "_sort": [u'Sample Book Title', u'author', u'id']}, "id": "id", "title": "Sample Book Title"}
+        eq_(sample_book, result)
 
         eq_("Raw search results for 'a search term':", test_results[2].name)
         eq_(True, test_results[2].success)
         result = json.loads(test_results[2].result[0])
-        eq_({"author": "author", "meta": {"id": "id"}, "id": "id", "title": "Sample Book Title"}, result)
+        eq_(sample_book, result)
 
         eq_("Total number of search results for 'a search term':", test_results[3].name)
         eq_(True, test_results[3].success)
@@ -371,11 +372,13 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         self.moby_dick.presentation_edition.series = "Classics"
         self.moby_dick.summary_text = "Ishmael"
         self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
+        self.moby_dick.last_update_time = datetime.datetime(2019, 1, 1)
 
         self.moby_duck = _work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
         self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
         self.moby_duck.summary_text = "A compulsively readable narrative"
         self.moby_duck.presentation_edition.publisher = "Penguin"
+        self.moby_duck.last_update_time = datetime.datetime(2019, 1, 2)
         # This book is not currently loanable. It will still show up
         # in search results unless the library's settings disable it.
         self.moby_duck.license_pools[0].licenses_available = 0
@@ -764,6 +767,15 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
             [self.no_age, self.obama, self.dodger, self.age_9_10],
             "president", age_8_10, ordered=False
         )
+
+        # Filters on last modified time.
+
+        # Obviously this query string matches "Moby-Dick", but it's
+        # filtered out because its last update time is before the
+        # `updated_after`. "Moby Duck" shows up because its last update
+        # time is right on the edge.
+        after_moby_duck = Filter(updated_after=self.moby_duck.last_update_time)
+        expect([self.moby_duck], "moby dick", after_moby_duck)
 
         # Filters on genre
 
@@ -2480,6 +2492,8 @@ class TestFilter(DatabaseTest):
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         filter.excluded_audiobook_data_sources = [overdrive.id]
         filter.allow_holds = False
+        last_update_time = datetime.datetime(2019, 1, 1)
+        filter.updated_after = last_update_time
 
         # We want books that are literary fiction, *and* either
         # fantasy or horror.
@@ -2541,7 +2555,8 @@ class TestFilter(DatabaseTest):
         # Every other restriction imposed on the Filter object becomes an
         # Elasticsearch filter object in this list.
         (medium, language, fiction, audience, target_age,
-         literary_fiction_filter, fantasy_or_horror_filter) = built
+         literary_fiction_filter, fantasy_or_horror_filter,
+         updated_after) = built
 
         # Test them one at a time.
         #
@@ -2572,6 +2587,15 @@ class TestFilter(DatabaseTest):
             literary_fiction_filter.to_dict())
         eq_({'terms': {'genres.term': [self.fantasy.id, self.horror.id]}},
             fantasy_or_horror_filter.to_dict())
+
+        # There's a restriction on the last updated time for bibliographic
+        # metadata.
+        eq_(
+            {'bool': {'must': [
+                {'range': {'last_update_time': {'gte': last_update_time}}}
+            ]}},
+            updated_after.to_dict()
+        )
 
         # We tried fiction; now try nonfiction.
         filter = Filter()

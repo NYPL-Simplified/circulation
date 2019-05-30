@@ -102,7 +102,29 @@ from sqlalchemy.dialects.postgresql import (
     INT4RANGE,
 )
 
-class FacetsWithEntryPoint(FacetConstants):
+class BaseFacets(FacetConstants):
+    """Basic faceting class that doesn't modify a search filter at all.
+
+    This is intended solely for use as a base class.
+    """
+
+    def modify_search_filter(self, filter):
+        """Modify an external_search.Filter object to filter out works
+        excluded by the business logic of this faceting class.
+        """
+        return filter
+
+    def scoring_functions(self, filter):
+        """Create a list of ScoringFunction objects that modify how
+        works in the given WorkList should be ordered.
+
+        Most subclasses will not use this because they order
+        works using the 'order' feature.
+        """
+        return []
+
+
+class FacetsWithEntryPoint(BaseFacets):
     """Basic Facets class that knows how to filter a query based on a
     selected EntryPoint.
     """
@@ -262,15 +284,6 @@ class FacetsWithEntryPoint(FacetConstants):
         if self.entrypoint:
             self.entrypoint.modify_search_filter(filter)
         return filter
-
-    def scoring_functions(self, filter):
-        """Create a list of ScoringFunction objects that modify how
-        works in the given WorkList should be ordered.
-
-        Most subclasses will not use this because they order
-        works using the 'order' feature.
-        """
-        return []
 
 
 class Facets(FacetsWithEntryPoint):
@@ -569,16 +582,6 @@ class Facets(FacetsWithEntryPoint):
         else:
             order_by_sorted = [order_by[0].desc()] + [x.asc() for x in order_by[1:]]
         return order_by_sorted, order_by
-
-    SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME = {
-        FacetConstants.ORDER_TITLE : "sort_title",
-        FacetConstants.ORDER_AUTHOR : "sort_author",
-        FacetConstants.ORDER_LAST_UPDATE : 'last_update_time',
-        FacetConstants.ORDER_ADDED_TO_COLLECTION : 'licensepools.availability_time',
-        FacetConstants.ORDER_SERIES_POSITION : 'series_position',
-        FacetConstants.ORDER_WORK_ID : '_id',
-        FacetConstants.ORDER_RANDOM : 'random',
-    }
 
     def modify_search_filter(self, filter):
         """Modify the given external_search.Filter object
