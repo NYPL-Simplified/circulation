@@ -1267,8 +1267,10 @@ class TestPagination(DatabaseTest):
         # size of the current page.
         pagination = Pagination()
         eq_(None, pagination.this_page_size)
+        eq_(False, pagination.page_has_loaded)
         pagination.page_loaded([1,2,3])
         eq_(3, pagination.this_page_size)
+        eq_(True, pagination.page_has_loaded)
 
     def test_modify_search_query(self):
         # The default implementation of modify_search_query is a no-op.
