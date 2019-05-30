@@ -372,11 +372,13 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         self.moby_dick.presentation_edition.series = "Classics"
         self.moby_dick.summary_text = "Ishmael"
         self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
+        self.moby_dick.last_update_time = datetime.datetime(2019, 1, 1)
 
         self.moby_duck = _work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
         self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
         self.moby_duck.summary_text = "A compulsively readable narrative"
         self.moby_duck.presentation_edition.publisher = "Penguin"
+        self.moby_duck.last_update_time = datetime.datetime(2019, 1, 2)
         # This book is not currently loanable. It will still show up
         # in search results unless the library's settings disable it.
         self.moby_duck.license_pools[0].licenses_available = 0
@@ -765,6 +767,15 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
             [self.no_age, self.obama, self.dodger, self.age_9_10],
             "president", age_8_10, ordered=False
         )
+
+        # Filters on last modified time.
+
+        # Obviously this query string matches "Moby-Dick", but it's
+        # filtered out because its last update time is before the
+        # `updated_after`. "Moby Duck" shows up because its last update
+        # time is right on the edge.
+        after_moby_duck = Filter(updated_after=self.moby_duck.last_update_time)
+        expect([self.moby_duck], "moby dick", after_moby_duck)
 
         # Filters on genre
 
