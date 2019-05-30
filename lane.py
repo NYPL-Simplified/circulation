@@ -933,6 +933,7 @@ class Pagination(object):
         self.size = size
         self.total_size = None
         self.this_page_size = None
+        self.page_has_loaded = False
 
     def items(self):
         yield("after", self.offset)
@@ -998,6 +999,7 @@ class Pagination(object):
         later pages.
         """
         self.this_page_size = len(page)
+        self.page_has_loaded = True
 
 
 class WorkList(object):

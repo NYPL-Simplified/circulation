@@ -702,7 +702,12 @@ class AcquisitionFeed(OPDSFeed):
             _db, facets=facets, pagination=pagination,
             search_engine=search_engine, debug=search_debug
         )
-        pagination.page_loaded(works)
+
+        if not pagination.page_has_loaded:
+            # Depending on how the works were obtained,
+            # Pagination.page_loaded may or may not have been called
+            # yet.
+            pagination.page_loaded(works)
         feed = cls(_db, title, url, works, annotator)
 
         entrypoints = facets.selectable_entrypoints(lane)
