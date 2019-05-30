@@ -698,9 +698,9 @@ class AcquisitionFeed(OPDSFeed):
             if usable:
                 return cached.content
 
-        works = lane.works_from_search_index(
-            _db, facets, pagination, search_engine=search_engine,
-            debug=search_debug
+        works = lane.works(
+            _db, facets=facets, pagination=pagination,
+            search_engine=search_engine, debug=search_debug
         )
         pagination.page_loaded(works)
         feed = cls(_db, title, url, works, annotator)
@@ -732,7 +732,8 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
-        feed.add_breadcrumb_links(lane, facets.entrypoint)
+        if isinstance(facets, FacetsWithEntryPoint):
+            feed.add_breadcrumb_links(lane, facets.entrypoint)
 
         annotator.annotate_feed(feed, lane)
 

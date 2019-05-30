@@ -108,6 +108,39 @@ class BaseFacets(FacetConstants):
     This is intended solely for use as a base class.
     """
 
+    def items(self):
+        """Yields a 2-tuple for every active facet setting.
+
+        These tuples are used to generate URLs that can identify
+        specific facet settings, and to distinguish between CachedFeed
+        objects that represent the same feed with different facet
+        settings.
+        """
+        return []
+
+    @property
+    def query_string(self):
+        """A query string fragment that propagates all active facet
+        settings.
+        """
+        return "&".join("=".join(x) for x in sorted(self.items()))
+
+    @property
+    def facet_groups(self):
+        """Yield a list of 4-tuples
+        (facet group, facet value, new Facets object, selected)
+        for use in building OPDS facets.
+
+        This does not include the 'entry point' facet group,
+        which must be handled separately.
+        """
+        return []
+
+    @classmethod
+    def selectable_entrypoints(cls, worklist):
+        """Ignore all entry points, even if the WorkList supports them."""
+        return []
+
     def modify_search_filter(self, filter):
         """Modify an external_search.Filter object to filter out works
         excluded by the business logic of this faceting class.
@@ -141,6 +174,21 @@ class FacetsWithEntryPoint(BaseFacets):
         self.entrypoint = entrypoint
         self.entrypoint_is_default = entrypoint_is_default
         self.constructor_kwargs = kwargs
+
+    @classmethod
+    def selectable_entrypoints(cls, worklist):
+        """Which EntryPoints can be selected for these facets on this
+        WorkList?
+
+        In most cases, there are no selectable EntryPoints; this generally
+        happens only at the top level.
+
+        By default, this is completely determined by the WorkList.
+        See SearchFacets for an example that changes this.
+        """
+        if not worklist:
+            return []
+        return worklist.entrypoints
 
     def navigate(self, entrypoint):
         """Create a very similar FacetsWithEntryPoint that points to
@@ -213,21 +261,6 @@ class FacetsWithEntryPoint(BaseFacets):
                    **extra_kwargs)
 
     @classmethod
-    def selectable_entrypoints(cls, worklist):
-        """Which EntryPoints can be selected for these facets on this
-        WorkList?
-
-        In most cases, there are no selectable EntryPoints; this generally
-        happens only at the top level.
-
-        By default, this is completely determined by the WorkList.
-        See SearchFacets for an example that changes this.
-        """
-        if not worklist:
-            return []
-        return worklist.entrypoints
-
-    @classmethod
     def load_entrypoint(cls, name, valid_entrypoints, default=None):
         """Look up an EntryPoint by name, assuming it's valid in the
         given WorkList.
@@ -261,13 +294,6 @@ class FacetsWithEntryPoint(BaseFacets):
         if self.entrypoint:
             yield (self.ENTRY_POINT_FACET_GROUP_NAME,
                    self.entrypoint.INTERNAL_NAME)
-
-    @property
-    def query_string(self):
-        """A query string fragment that propagates all active facet
-        settings.
-        """
-        return "&".join("=".join(x) for x in sorted(self.items()))
 
     def apply(self, _db, qu):
         """Modify the given query based on the EntryPoint associated
@@ -1414,7 +1440,8 @@ class WorkList(object):
         )
 
     def works_from_database(
-        self, _db, facets=None, pagination=None, include_quality_tier=False
+        self, _db, facets=None, pagination=None, include_quality_tier=False,
+        **kwargs
     ):
         """Create a query against a materialized view that finds Work-like
         objects corresponding to all the Works that belong in this
@@ -1435,6 +1462,10 @@ class WorkList(object):
            constraints on WorkList membership.
         :param pagination: A Pagination object indicating which part of
            the WorkList the caller is looking at.
+        :param kwargs: Ignored -- only included for compatibility
+           with works_from_search_engine, so that callers can invoke
+           works() without worrying about whether a given WorkList
+           gets works from the search engine or the database.
         :return: A Query, or None if the WorkList is deemed to be a
            bad idea in the first place.
 

@@ -531,7 +531,7 @@ class ExternalSearchIndex(HasSelfTests):
         def _search():
             return self.create_search_doc(
                 self.test_search_term, filter=None,
-                debug=True, return_raw_results=True
+                pagination=None, debug=True, return_raw_results=True
             )
 
         def _works():
@@ -747,6 +747,18 @@ class ExternalSearchIndexVersions(object):
                     }
                 },
                 "char_filter" : cls.V4_CHAR_FILTERS,
+
+                # This normalizer is used on freeform strings that
+                # will be used as tokens in filters. This way we can,
+                # e.g. ignore capitalization when considering whether
+                # two books belong to the same series.
+                "normalizer": {
+                    "filterable_string": {
+                        "type": "custom",
+                        "filter": ["lowercase", "asciifolding"]
+                    }
+                },
+
                 "analyzer" : {
                     "en_analyzer": {
                         "type": "custom",
@@ -789,7 +801,7 @@ class ExternalSearchIndexVersions(object):
             }
         }
         mapping = cls.map_fields(
-            fields=["title", "series", "subtitle", "summary", "classifications.term"],
+            fields=["title", "subtitle", "summary", "classifications.term"],
             field_description={
                 "type": string_type,
                 "analyzer": "en_analyzer",
@@ -798,17 +810,16 @@ class ExternalSearchIndexVersions(object):
         )
 
         # Series must be analyzed (so it can be used in searches) but
-        # also present as a sortable keyword (so it can be used in a
+        # also present as a keyword (so it can be used in a
         # filter when listing books from a specific series).
+        # We don't need to sort on this value, so a regular keyword is fine.
+        # But we do want to do basic normalizing of values.
         basic_string_plus_keyword = dict(basic_string_fields)
         basic_string_plus_keyword["keyword"] = {
-            "type": "text",
-            "fielddata" : True,
+            "type": "keyword",
             "index": True,
             "store": False,
-            # This uses the 'keyword' tokenizer, so we end up
-            # with a keyword even though type=text.
-            "analyzer": "en_sortable_analyzer",
+            "normalizer": "filterable_string",
         }
         mapping = cls.map_fields(
             fields=["series"],
@@ -1782,7 +1793,7 @@ class Filter(SearchBase):
             f = chain(f, F('term', fiction=value))
 
         if self.series:
-            f = chain(f, F('term', series=value))
+            f = chain(f, F('term', **{"series.keyword": self.series}))
 
         if self.audiences:
             f = chain(f, F('terms', audience=scrub_list(self.audiences)))

@@ -629,6 +629,10 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # Here, Moby Duck is privileged over Moby-Dick.
         expect([self.moby_duck, self.moby_dick], "nonfiction moby")
 
+        # Find results based on series.
+        classics = Filter(series="Classics")
+        expect(self.moby_dick, "moby", classics)
+
         # Find results based on genre.
 
         if MAJOR_VERSION == 1:
@@ -721,6 +725,10 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         expect(self.moby_dick, "moby dick", fiction)
         expect(self.moby_duck, "moby dick", nonfiction)
         expect([self.moby_dick, self.moby_duck], "moby dick", both)
+
+        # Filters on series
+        classics = Filter(series="classics")
+        expect(self.moby_dick, "moby", classics)
 
         # Filters on audience
         adult = Filter(audiences=Classifier.AUDIENCE_ADULT)
