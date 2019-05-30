@@ -24,7 +24,9 @@ from core.classifier import (
 from core import classifier
 
 from core.lane import (
+    BaseFacets,
     Facets,
+    FacetsWithEntryPoint,
     Pagination,
     Lane,
     WorkList,
@@ -936,7 +938,9 @@ class RecommendationLane(WorkBasedLane):
 
 
 class SeriesFacets(BaseFacets):
-    """A custom faceting object for ordering a lane based on series position."""
+    """A custom faceting object for filtering a lane based on series and
+    ordering it based on series position.
+    """
 
     def __init__(self, series):
         self.series = series
@@ -946,8 +950,7 @@ class SeriesFacets(BaseFacets):
             self.ORDER_SERIES_POSITION
         ]
         filter.order_ascending = True
-        filter.series = series
-
+        filter.series = self.series
 
 class SeriesLane(DynamicLane):
     """A lane of Works in a particular series."""
@@ -957,20 +960,15 @@ class SeriesLane(DynamicLane):
 
     def __init__(self, library, series_name, parent=None, languages=None,
                  audiences=None):
-        if not series_name:
-            raise ValueError("SeriesLane can't be created without series")
-        self.series = series_name
-        display_name = self.series
-
-        self.facets = SeriesFacets(self.series)
-
         if parent and parent.source_audience and isinstance(parent, WorkBasedLane):
             # In an attempt to secure the accurate series, limit the
             # listing to the source's audience sourced from parent data.
             audiences = [parent.source_audience]
 
+        self.facets = SeriesFacets(series_name)
+
         super(SeriesLane, self).initialize(
-            library, display_name=display_name,
+            library, display_name=series_name,
             audiences=audiences, languages=languages,
         )
         if parent:

@@ -1668,30 +1668,28 @@ class WorkController(CirculationManagerController):
         return controller.register(pools[0], data)
 
     def series(self, series_name, languages, audiences):
-        """Serve a feed of books in the same series as a given book."""
+        """Serve a feed of books in a given series."""
         library = flask.request.library
         if not series_name:
             return NO_SUCH_LANE.detailed(_("No series provided"))
 
-        languages, audiences = self._lane_details(languages, audiences)
-        lane = SeriesLane(library, series_name=series_name,
-                          languages=languages, audiences=audiences
-        )
-        annotator = self.manager.annotator(lane)
-        facets = SeriesFacets(series_name)
-
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
-        url = annotator.feed_url(
-            lane,
-            facets=facets,
-            pagination=pagination,
-        )
 
+        languages, audiences = self._lane_details(languages, audiences)
+        lane = SeriesLane(
+            library, series_name=series_name, languages=languages,
+            audiences=audiences
+        )
+        annotator = self.manager.annotator(lane)
+
+        url = annotator.feed_url(
+            lane, facets=lane.facets, pagination=pagination
+        )
         feed = AcquisitionFeed.page(
             self._db, lane.display_name, url, lane,
-            facets=lane.facets, pagination=pagination,
+            facets=facets, pagination=pagination,
             annotator=annotator, cache_type=CachedFeed.SERIES_TYPE
         )
         return feed_response(unicode(feed))
