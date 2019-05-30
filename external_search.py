@@ -1932,16 +1932,8 @@ class Filter(SearchBase):
         field. Usually the explanation is a simple string, either
         'asc' or 'desc'.
         """
-        order_fields = []
-        order_field_keys = []
-
         if not self.order:
-            return order_fields
-
-        if self.order_ascending is False:
-            ascending = "desc"
-        else:
-            ascending = "asc"
+            return []
 
         # These sort order fields are inserted as necessary between
         # the primary sort order field and the tiebreaker field (work
@@ -1952,11 +1944,30 @@ class Filter(SearchBase):
         # work ID.
         default_sort_order = ['sort_author', 'sort_title', 'work_id']
 
-        order_field = self.order
-        if '.' in order_field:
+        order_field_keys = self.order
+        if not isinstance(order_field_keys, list):
+            order_field_keys = [order_field_keys]
+        order_fields = [
+            self._make_order_field(key) for key in order_field_keys
+        ]
+
+        # Apply any parts of the default sort order not yet covered,
+        # concluding (in most cases) with work_id, the tiebreaker field.
+        for x in default_sort_order:
+            if x not in order_field_keys:
+                order_fields.append({x: "asc"})
+        return order_fields
+
+    def _make_order_field(self, key):
+        if self.order_ascending is False:
+            ascending = "desc"
+        else:
+            ascending = "asc"
+
+        if '.' in key:
             # We're sorting by a nested field.
             nested=None
-            if order_field == 'licensepools.availability_time':
+            if key == 'licensepools.availability_time':
                 # We're sorting works by the time they became
                 # available to a library. This means we only want to
                 # consider the availability times of license pools
@@ -1977,24 +1988,15 @@ class Filter(SearchBase):
                 mode = 'min'
             else:
                 raise ValueError(
-                    "I don't know how to sort by %s." % order_field
+                    "I don't know how to sort by %s." % key
                 )
             sort_description = dict(order=ascending, mode=mode)
             if nested:
                 sort_description['nested'] = nested
-            order = { order_field : sort_description }
+            order = { key : sort_description }
         else:
-            order = {order_field : ascending }
-        order_fields.append(order)
-        order_field_keys.append(order_field)
-
-        # Apply any parts of the default sort order not yet covered,
-        # concluding (in most cases) with work_id, the tiebreaker field.
-        for x in default_sort_order:
-            if x not in order_field_keys:
-                order_fields.append({x: "asc"})
-
-        return order_fields
+            order = { key : ascending }
+        return order
 
     @property
     def target_age_filter(self):
