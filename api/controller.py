@@ -1678,23 +1678,8 @@ class WorkController(CirculationManagerController):
                           languages=languages, audiences=audiences
         )
         annotator = self.manager.annotator(lane)
+        facets = SeriesFacets(series_name)
 
-        # In addition to the orderings enabled for this library, a
-        # series collection may be ordered by series position, and is
-        # ordered that way by default.
-        facet_config = FacetConfig.from_library(library)
-        facet_config.set_default_facet(
-            Facets.ORDER_FACET_GROUP_NAME, Facets.ORDER_SERIES_POSITION
-        )
-
-        # TODO: It would be nice to be able to adapt
-        # FeaturedSeriesFacets so that it can also be used as the
-        # Facets object for the full series lane.
-        facets = load_facets_from_request(
-            worklist=lane, facet_config=facet_config
-        )
-        if isinstance(facets, ProblemDetail):
-            return facets
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
@@ -1706,10 +1691,11 @@ class WorkController(CirculationManagerController):
 
         feed = AcquisitionFeed.page(
             self._db, lane.display_name, url, lane,
-            facets=facets, pagination=pagination,
+            facets=lane.facets, pagination=pagination,
             annotator=annotator, cache_type=CachedFeed.SERIES_TYPE
         )
         return feed_response(unicode(feed))
+
 
 class ProfileController(CirculationManagerController):
     """Implement the User Profile Management Protocol."""

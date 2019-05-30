@@ -935,14 +935,18 @@ class RecommendationLane(WorkBasedLane):
         )
 
 
-class FeaturedSeriesFacets(Facets):
-    """A custom Facets object for ordering a lane based on series."""
+class SeriesFacets(BaseFacets):
+    """A custom faceting object for ordering a lane based on series position."""
 
-    def order_by(self):
-        """Order the query results by series position."""
-        from core.model import MaterializedWorkWithGenre as mw
-        fields = (mw.series_position, mw.sort_title)
-        return [x.asc() for x in fields], fields
+    def __init__(self, series):
+        self.series = series
+
+    def modify_search_filter(self, filter):
+        filter.order = self.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME[
+            self.ORDER_SERIES_POSITION
+        ]
+        filter.order_ascending = True
+        filter.series = series
 
 
 class SeriesLane(DynamicLane):
@@ -958,6 +962,8 @@ class SeriesLane(DynamicLane):
         self.series = series_name
         display_name = self.series
 
+        self.facets = SeriesFacets(self.series)
+
         if parent and parent.source_audience and isinstance(parent, WorkBasedLane):
             # In an attempt to secure the accurate series, limit the
             # listing to the source's audience sourced from parent data.
@@ -970,6 +976,12 @@ class SeriesLane(DynamicLane):
         if parent:
             parent.children.append(self)
 
+    def works(self, _db, **kwargs):
+        facets = kwargs.pop('facets', self.facets)
+        return self.works_from_search_index(
+            _db=_db, facets=facets, **kwargs
+        )
+
     @property
     def url_arguments(self):
         kwargs = dict(
@@ -979,33 +991,6 @@ class SeriesLane(DynamicLane):
         )
         return self.ROUTE, kwargs
 
-    def featured_works(self, _db, facets=None):
-        library = self.get_library(_db)
-        new_facets = FeaturedSeriesFacets(
-            library,
-            # If a work is in the right series we don't care about its
-            # quality.
-            collection=FeaturedSeriesFacets.COLLECTION_FULL,
-            availability=FeaturedSeriesFacets.AVAILABLE_ALL,
-            order=None
-        )
-        if facets:
-            new_facets.entrypoint = facets.entrypoint
-        pagination = Pagination(size=library.featured_lane_size)
-        qu = self.works(_db, facets=new_facets, pagination=pagination)
-        return qu.all()
-
-    def apply_filters(self, _db, qu, facets, pagination, featured=False):
-        if not self.series:
-            return None
-        # We could filter on MaterializedWorkWithGenre.series, but
-        # there's no index on that field, so it would cause a table
-        # scan. Instead we add a join to Edition and filter on the
-        # field there, where it is indexed.
-        qu = qu.join(LicensePool.presentation_edition)
-        qu = qu.filter(Edition.series==self.series)
-        return super(SeriesLane, self).apply_filters(
-            _db, qu, facets, pagination, featured)
 
 class ContributorLane(DynamicLane):
     """A lane of Works written by a particular contributor"""
