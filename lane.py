@@ -103,15 +103,24 @@ from sqlalchemy.dialects.postgresql import (
 )
 
 class BaseFacets(FacetConstants):
-    """Basic Facets class that doesn't modify a search filter at all.
+    """Basic faceting class that doesn't modify a search filter at all.
 
     This is intended solely for use as a base class.
     """
 
     def modify_search_filter(self, filter):
+        """Modify an external_search.Filter object to filter out works
+        excluded by the business logic of this faceting class.
+        """
         return filter
 
     def scoring_functions(self, filter):
+        """Create a list of ScoringFunction objects that modify how
+        works in the given WorkList should be ordered.
+
+        Most subclasses will not use this because they order
+        works using the 'order' feature.
+        """
         return []
 
 

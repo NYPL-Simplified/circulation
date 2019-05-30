@@ -644,3 +644,8 @@ class TestMARCExporterFacets(object):
         eq_("last_update_time", filter.order)
         eq_(True, filter.order_ascending)
         eq_("some start time", filter.updated_after)
+
+    def test_scoring_functions(self):
+        # A no-op.
+        facets = MARCExporterFacets("some start time")
+        eq_([], facets.scoring_functions(object()))

@@ -459,6 +459,9 @@ class Annotator(object):
 
 
 class MARCExporterFacets(BaseFacets):
+    """A faceting object used to configure the search engine so that
+    it only works updated since a certain time.
+    """
 
     def __init__(self, start_time):
         self.start_time = start_time
