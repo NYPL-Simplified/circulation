@@ -629,6 +629,10 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # Here, Moby Duck is privileged over Moby-Dick.
         expect([self.moby_duck, self.moby_dick], "nonfiction moby")
 
+        # Find results based on series.
+        classics = Filter(series="Classics")
+        expect(self.moby_dick, "moby", classics)
+
         # Find results based on genre.
 
         if MAJOR_VERSION == 1:
@@ -721,6 +725,10 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         expect(self.moby_dick, "moby dick", fiction)
         expect(self.moby_duck, "moby dick", nonfiction)
         expect([self.moby_dick, self.moby_duck], "moby dick", both)
+
+        # Filters on series
+        classics = Filter(series="classics")
+        expect(self.moby_dick, "moby", classics)
 
         # Filters on audience
         adult = Filter(audiences=Classifier.AUDIENCE_ADULT)
@@ -2633,12 +2641,25 @@ class TestFilter(DatabaseTest):
         f.order='field'
         eq_(False, f.order_ascending)
         first_field = validate_sort_order(f, 'field')
-
         eq_(dict(field='desc'), first_field)
 
         f.order_ascending = True
         first_field = validate_sort_order(f, 'field')
         eq_(dict(field='asc'), first_field)
+
+        # When multiple fields are given, they are put at the
+        # beginning and any remaining tiebreaker fields are added.
+        f.order=['series_position', 'sort_title', 'some_other_field']
+        eq_(
+            [
+                dict(series_position='asc'),
+                dict(sort_title='asc'),
+                dict(some_other_field='asc'),
+                dict(sort_author='asc'),
+                dict(work_id='asc'),
+            ],
+            f.sort_order
+        )
 
         # You can't sort by some random subdocument field, because there's
         # not enough information to know how to aggregate multiple values.

@@ -531,7 +531,7 @@ class ExternalSearchIndex(HasSelfTests):
         def _search():
             return self.create_search_doc(
                 self.test_search_term, filter=None,
-                debug=True, return_raw_results=True
+                pagination=None, debug=True, return_raw_results=True
             )
 
         def _works():
@@ -747,6 +747,18 @@ class ExternalSearchIndexVersions(object):
                     }
                 },
                 "char_filter" : cls.V4_CHAR_FILTERS,
+
+                # This normalizer is used on freeform strings that
+                # will be used as tokens in filters. This way we can,
+                # e.g. ignore capitalization when considering whether
+                # two books belong to the same series.
+                "normalizer": {
+                    "filterable_string": {
+                        "type": "custom",
+                        "filter": ["lowercase", "asciifolding"]
+                    }
+                },
+
                 "analyzer" : {
                     "en_analyzer": {
                         "type": "custom",
@@ -789,7 +801,7 @@ class ExternalSearchIndexVersions(object):
             }
         }
         mapping = cls.map_fields(
-            fields=["title", "series", "subtitle", "summary", "classifications.term"],
+            fields=["title", "subtitle", "summary", "classifications.term"],
             field_description={
                 "type": string_type,
                 "analyzer": "en_analyzer",
@@ -798,17 +810,16 @@ class ExternalSearchIndexVersions(object):
         )
 
         # Series must be analyzed (so it can be used in searches) but
-        # also present as a sortable keyword (so it can be used in a
+        # also present as a keyword (so it can be used in a
         # filter when listing books from a specific series).
+        # We don't need to sort on this value, so a regular keyword is fine.
+        # But we do want to do basic normalizing of values.
         basic_string_plus_keyword = dict(basic_string_fields)
         basic_string_plus_keyword["keyword"] = {
-            "type": "text",
-            "fielddata" : True,
+            "type": "keyword",
             "index": True,
             "store": False,
-            # This uses the 'keyword' tokenizer, so we end up
-            # with a keyword even though type=text.
-            "analyzer": "en_sortable_analyzer",
+            "normalizer": "filterable_string",
         }
         mapping = cls.map_fields(
             fields=["series"],
@@ -1659,6 +1670,9 @@ class Filter(SearchBase):
         :param allow_holds: If this is False, books with no available
         copies will be excluded from results.
 
+        :param series: If this is set to a string, only books in a matching
+        series will be included.
+
         :param updated_after: If this is set to a datetime, only books
         whose Work records (~bibliographic metadata) have been updated since
         that time will be included in results.
@@ -1710,6 +1724,8 @@ class Filter(SearchBase):
         self.allow_holds = kwargs.pop('allow_holds', True)
 
         self.updated_after = kwargs.pop('updated_after', None)
+
+        self.series = kwargs.pop('series', None)
 
         # At this point there should be no keyword arguments -- you can't pass
         # whatever you want into this method.
@@ -1775,6 +1791,9 @@ class Filter(SearchBase):
             else:
                 value = 'nonfiction'
             f = chain(f, F('term', fiction=value))
+
+        if self.series:
+            f = chain(f, F('term', **{"series.keyword": self.series}))
 
         if self.audiences:
             f = chain(f, F('terms', audience=scrub_list(self.audiences)))
@@ -1913,16 +1932,8 @@ class Filter(SearchBase):
         field. Usually the explanation is a simple string, either
         'asc' or 'desc'.
         """
-        order_fields = []
-        order_field_keys = []
-
         if not self.order:
-            return order_fields
-
-        if self.order_ascending is False:
-            ascending = "desc"
-        else:
-            ascending = "asc"
+            return []
 
         # These sort order fields are inserted as necessary between
         # the primary sort order field and the tiebreaker field (work
@@ -1933,11 +1944,30 @@ class Filter(SearchBase):
         # work ID.
         default_sort_order = ['sort_author', 'sort_title', 'work_id']
 
-        order_field = self.order
-        if '.' in order_field:
+        order_field_keys = self.order
+        if not isinstance(order_field_keys, list):
+            order_field_keys = [order_field_keys]
+        order_fields = [
+            self._make_order_field(key) for key in order_field_keys
+        ]
+
+        # Apply any parts of the default sort order not yet covered,
+        # concluding (in most cases) with work_id, the tiebreaker field.
+        for x in default_sort_order:
+            if x not in order_field_keys:
+                order_fields.append({x: "asc"})
+        return order_fields
+
+    def _make_order_field(self, key):
+        if self.order_ascending is False:
+            ascending = "desc"
+        else:
+            ascending = "asc"
+
+        if '.' in key:
             # We're sorting by a nested field.
             nested=None
-            if order_field == 'licensepools.availability_time':
+            if key == 'licensepools.availability_time':
                 # We're sorting works by the time they became
                 # available to a library. This means we only want to
                 # consider the availability times of license pools
@@ -1958,24 +1988,15 @@ class Filter(SearchBase):
                 mode = 'min'
             else:
                 raise ValueError(
-                    "I don't know how to sort by %s." % order_field
+                    "I don't know how to sort by %s." % key
                 )
             sort_description = dict(order=ascending, mode=mode)
             if nested:
                 sort_description['nested'] = nested
-            order = { order_field : sort_description }
+            order = { key : sort_description }
         else:
-            order = {order_field : ascending }
-        order_fields.append(order)
-        order_field_keys.append(order_field)
-
-        # Apply any parts of the default sort order not yet covered,
-        # concluding (in most cases) with work_id, the tiebreaker field.
-        for x in default_sort_order:
-            if x not in order_field_keys:
-                order_fields.append({x: "asc"})
-
-        return order_fields
+            order = { key : ascending }
+        return order
 
     @property
     def target_age_filter(self):
