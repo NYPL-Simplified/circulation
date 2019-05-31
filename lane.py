@@ -1538,7 +1538,7 @@ class WorkList(object):
             Filter,
             ExternalSearchIndex,
         )
-        search_engine = search_engine or ExternalSearchIndex(_db)
+        search_engine = search_engine or ExternalSearchIndex.load(_db)
         filter = Filter.from_worklist(_db, self, facets)
         work_ids = search_engine.query_works(
             query_string=None, filter=filter, pagination=pagination,
@@ -1977,7 +1977,7 @@ class WorkList(object):
         pagination = Pagination(size=ask_for_size)
 
         from external_search import ExternalSearchIndex
-        search_engine = search_engine or ExternalSearchIndex(_db)
+        search_engine = search_engine or ExternalSearchIndex.load(_db)
 
         if isinstance(self, Lane):
             parent_lane = self

@@ -1,4 +1,5 @@
 from collections import defaultdict
+import contextlib
 from nose.tools import set_trace
 import json
 from elasticsearch import Elasticsearch
@@ -60,9 +61,26 @@ import logging
 import re
 import time
 
+@contextlib.contextmanager
+def mock_search_index(mock=None):
+    """Temporarily mock the ExternalSearchIndex implementation
+    returned by the load() class method.
+    """
+    try:
+        ExternalSearchIndex.MOCK_IMPLEMENTATION = mock
+        yield mock
+    finally:
+        ExternalSearchIndex.MOCK_IMPLEMENTATION = None
+
+
 class ExternalSearchIndex(HasSelfTests):
 
     NAME = ExternalIntegration.ELASTICSEARCH
+
+    # A test may temporarily set this to a mock of this class.
+    # While that's true, load() will return the mock instead of
+    # instantiating new ExternalSearchIndex objects.
+    MOCK_IMPLEMENTATION = None
 
     WORKS_INDEX_PREFIX_KEY = u'works_index_prefix'
     DEFAULT_WORKS_INDEX_PREFIX = u'circulation-works'
@@ -140,6 +158,13 @@ class ExternalSearchIndex(HasSelfTests):
         """Look up the name of the search index alias."""
         return cls.works_prefixed(_db, cls.CURRENT_ALIAS_SUFFIX)
 
+    @classmethod
+    def load(cls, _db, *args, **kwargs):
+        """Load a generic implementation."""
+        if cls.MOCK_IMPLEMENTATION:
+            return cls.MOCK_IMPLEMENTATION
+        return cls(_db, *args, **kwargs)
+
     def __init__(self, _db, url=None, works_index=None, test_search_term=None,
                  in_testing=False):
         """Constructor
@@ -194,7 +219,7 @@ class ExternalSearchIndex(HasSelfTests):
         # Sets self.works_index and self.works_alias values.
         # Document upload runs against the works_index.
         # Search queries run against works_alias.
-        if works_index and integration:
+        if works_index and integration and not in_testing:
             try:
                 self.set_works_index_and_alias(_db)
             except RequestError, e:

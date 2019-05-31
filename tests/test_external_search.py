@@ -57,6 +57,7 @@ from ..external_search import (
     SearchIndexCoverageProvider,
     SearchIndexMonitor,
     SortKeyPagination,
+    mock_search_index,
 )
 # NOTE: external_search took care of handling the differences between
 # Elasticsearch versions and making sure 'Q' and 'F' are set
@@ -77,17 +78,29 @@ from ..testing import (
 
 class TestExternalSearch(ExternalSearchTest):
 
+    def test_load(self):
+        # Normally, load() returns a brand new ExternalSearchIndex
+        # object.
+        loaded = ExternalSearchIndex.load(self._db, in_testing=True)
+        assert isinstance(ExternalSearchIndex, loaded)
+
+        # However, inside the mock_search_index context manager,
+        # load() returns whatever object was mocked.
+        mock = object()
+        with mock_search_index(mock):
+            eq_(mock, ExternalSearchIndex.load(self._db, in_testing=True))
+
     def test_constructor(self):
         # The configuration of the search ExternalIntegration becomes the
         # configuration of the ExternalSearchIndex.
         #
         # This basically just verifies that the test search term is taken
         # from the ExternalIntegration.
-        class Mock(ExternalSearchIndex):
+        class MockIndex(ExternalSearchIndex):
             def set_works_index_and_alias(self, _db):
                 self.set_works_index_and_alias_called_with = _db
 
-        index = Mock(self._db, in_testing=True)
+        index = MockIndex(self._db, in_testing=True)
         eq_(self._db, index.set_works_index_and_alias_called_with)
         eq_("test_search_term", index.test_search_term)
 
