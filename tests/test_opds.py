@@ -2153,7 +2153,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         self.wl.initialize(library=self._default_library, display_name="wl",
         entrypoints=self.entrypoints, children=[self.lane])
 
-        def works(_db, facets=None, pagination=None):
+        def works(_db, **kwargs):
             """Mock WorkList.works so we don't need any actual works
             to run the test.
             """
@@ -2206,10 +2206,9 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         eq_("http://groups/?entrypoint=Book", make_link(EbooksEntryPoint))
 
     def test_page(self):
-        """When AcquisitionFeed.page() generates the first page of a paginated
-        list, it will link to different entry points into the list,
-        assuming the WorkList has different entry points.
-        """
+        # When AcquisitionFeed.page() generates the first page of a paginated
+        # list, it will link to different entry points into the list,
+        # assuming the WorkList has different entry points.
         def run(wl=None, facets=None, pagination=None):
             """Call page() and see what add_entrypoint_links
             was called with.
