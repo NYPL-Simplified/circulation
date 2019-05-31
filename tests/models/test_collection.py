@@ -167,6 +167,42 @@ class TestCollection(DatabaseTest):
             protocol="blah"
         )
 
+    def test_unique_account_id(self):
+
+        # Most collections work like this:
+        overdrive = self._collection(
+            external_account_id="od1", data_source_name=DataSource.OVERDRIVE
+        )
+        od_child = self._collection(
+            external_account_id="odchild", data_source_name=DataSource.OVERDRIVE
+        )
+        od_child.parent = overdrive
+
+        # The unique account ID of a primary collection is the
+        # external account ID.
+        eq_("od1", overdrive.unique_account_id)
+
+        # For children of those collections, the unique account ID is scoped
+        # to the parent collection.
+        eq_("od1+odchild", od_child.unique_account_id)
+
+        # Enki works a little differently. Enki collections don't have
+        # an external account ID, because all Enki collections are
+        # identical.
+        enki = self._collection(data_source_name=DataSource.ENKI)
+
+        # So the unique account ID is the name of the data source.
+        eq_(DataSource.ENKI, enki.unique_account_id)
+
+        # A (currently hypothetical) library-specific subcollection of
+        # the global Enki collection must have an external_account_id,
+        # and its name is scoped to the parent collection as usual.
+        enki_child = self._collection(
+            external_account_id="enkichild", data_source_name=DataSource.ENKI
+        )
+        enki_child.parent = enki
+        eq_(DataSource.ENKI + "+enkichild", enki_child.unique_account_id)
+
     def test_change_protocol(self):
         overdrive = ExternalIntegration.OVERDRIVE
         bibliotheca = ExternalIntegration.BIBLIOTHECA
