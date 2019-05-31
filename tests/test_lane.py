@@ -114,7 +114,7 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         eq_(kwargs, new_facets.constructor_kwargs)
 
     def test_from_request(self):
-        """from_request just calls _from_request."""
+        # from_request just calls the _from_request class method
         expect = object()
         class Mock(FacetsWithEntryPoint):
             @classmethod
@@ -138,8 +138,9 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         eq_(expect, result)
 
     def test__from_request(self):
-        # _from_request calls load_entrypoint and instantiates the
-        # class with the result.
+        # _from_request calls load_entrypoint(), instantiates the
+        # class with the result, and calls finalize_from_request to
+        # complete setup.
 
         # Mock load_entrypoint() to return whatever value we have set up
         # ahead of time.
@@ -155,6 +156,11 @@ class TestFacetsWithEntryPoint(DatabaseTest):
             def load_entrypoint(cls, entrypoint_name, entrypoints, default=None):
                 cls.load_entrypoint_called_with = (entrypoint_name, entrypoints, default)
                 return cls.expect
+
+            def finalize_from_request(self, facet_config, worklist):
+                self.finalize_from_request_called_with = (
+                    facet_config, worklist
+                )
 
         # Mock the functions that pull information out of an HTTP
         # request.
@@ -209,6 +215,10 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         )
         eq_(dict(extra="extra kwarg"), facets.constructor_kwargs)
         eq_(MockFacetsWithEntryPoint.selectable_entrypoints_called_with, config)
+
+        # finalize_from_request was given the current facet configuration
+        # and the active worklist.
+        eq_((config, mock_worklist), facets.finalize_from_request_called_with)
 
     def test_load_entrypoint(self):
         audio = AudiobooksEntryPoint

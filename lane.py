@@ -236,6 +236,7 @@ class FacetsWithEntryPoint(BaseFacets):
             default_entrypoint, **extra_kwargs
         )
 
+
     @classmethod
     def _from_request(
             cls, facet_config, get_argument, get_header, worklist,
@@ -257,8 +258,19 @@ class FacetsWithEntryPoint(BaseFacets):
         if isinstance(entrypoint, ProblemDetail):
             return entrypoint
         entrypoint, is_default = entrypoint
-        return cls(entrypoint=entrypoint, entrypoint_is_default=is_default,
-                   **extra_kwargs)
+        obj = cls(entrypoint=entrypoint, entrypoint_is_default=is_default,
+                  **extra_kwargs)
+        obj.finalize_from_request(facet_config, worklist)
+        return obj
+
+    def finalize_from_request(self, facet_config, worklist):
+        """A hook method invoked on a FacetsWithEntryPoint object immediately
+        after it was instantiated from request data.
+
+        This allows subclasses to do pull additional configuration from
+        request data without having to override class methods.
+        """
+        pass
 
     @classmethod
     def load_entrypoint(cls, name, valid_entrypoints, default=None):
