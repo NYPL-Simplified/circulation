@@ -984,11 +984,11 @@ class SeriesLane(DynamicLane):
 
     @property
     def url_arguments(self):
-        kwargs = dict(
-            series_name=self.series,
-            languages=self.language_key,
-            audiences=self.audience_key
-        )
+        kwargs = dict(series_name=self.facets.series)
+        if self.language_key:
+            kwargs['languages'] = self.language_key
+        if self.audience_key:
+            kwargs['audiences'] = self.audience_key
         return self.ROUTE, kwargs
 
 
