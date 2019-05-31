@@ -324,12 +324,22 @@ class Facets(FacetsWithEntryPoint):
         return cls(library, collection=None, availability=None, order=None)
 
     @classmethod
+    def available_facets(cls, config, facet_group_name):
+        """Which facets are enabled for the given facet group?"""
+        return config.enabled_facets(facet_group_name)
+
+    @classmethod
+    def default_facet(cls, config, facet_group_name):
+        """The default value for the given facet group."""
+        return config.default_facet(facet_group_name)
+
+    @classmethod
     def from_request(cls, library, config, get_argument, get_header, worklist,
                      default_entrypoint=None, **extra):
         """Load a faceting object from an HTTP request."""
         g = Facets.ORDER_FACET_GROUP_NAME
-        order = get_argument(g, config.default_facet(g))
-        order_facets = config.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
+        order = get_argument(g, cls.default_facet(config, g))
+        order_facets = cls.available_facets(config, g)
         if order and not order in order_facets:
             return INVALID_INPUT.detailed(
                 _("I don't know how to order a feed by '%(order)s'", order=order),
@@ -338,10 +348,8 @@ class Facets(FacetsWithEntryPoint):
         extra['order'] = order
 
         g = Facets.AVAILABILITY_FACET_GROUP_NAME
-        availability = get_argument(g, config.default_facet(g))
-        availability_facets = config.enabled_facets(
-            Facets.AVAILABILITY_FACET_GROUP_NAME
-        )
+        availability = get_argument(g, cls.default_facet(config, g))
+        availability_facets = cls.available_facets(config, g)
         if availability and not availability in availability_facets:
             return INVALID_INPUT.detailed(
                 _("I don't understand the availability term '%(availability)s'", availability=availability),
@@ -350,10 +358,8 @@ class Facets(FacetsWithEntryPoint):
         extra['availability'] = availability
 
         g = Facets.COLLECTION_FACET_GROUP_NAME
-        collection = get_argument(g, config.default_facet(g))
-        collection_facets = config.enabled_facets(
-            Facets.COLLECTION_FACET_GROUP_NAME
-        )
+        collection = get_argument(g, cls.default_facet(config, g))
+        collection_facets = cls.available_facets(config, g)
         if collection and not collection in collection_facets:
             return INVALID_INPUT.detailed(
                 _("I don't understand what '%(collection)s' refers to.", collection=collection),
@@ -390,16 +396,16 @@ class Facets(FacetsWithEntryPoint):
             else:
                 order_ascending = self.ORDER_ASCENDING
 
-        collection = collection or library.default_facet(
-            self.COLLECTION_FACET_GROUP_NAME
+        collection = collection or self.default_facet(
+            library, self.COLLECTION_FACET_GROUP_NAME
         )
-        availability = availability or library.default_facet(
-            self.AVAILABILITY_FACET_GROUP_NAME
+        availability = availability or self.default_facet(
+            library, self.AVAILABILITY_FACET_GROUP_NAME
         )
-        order = order or library.default_facet(self.ORDER_FACET_GROUP_NAME)
+        order = order or self.default_facet(library, self.ORDER_FACET_GROUP_NAME)
 
         if (availability == self.AVAILABLE_ALL and (library and not library.allow_holds)
-            and (self.AVAILABLE_NOW in library.enabled_facets(self.AVAILABILITY_FACET_GROUP_NAME))):
+            and (self.AVAILABLE_NOW in self.available_facets(library, self.AVAILABILITY_FACET_GROUP_NAME))):
             # Under normal circumstances we would show all works, but
             # library configuration says to hide books that aren't
             # available.
@@ -441,7 +447,7 @@ class Facets(FacetsWithEntryPoint):
     @property
     def enabled_facets(self):
         """Yield a 3-tuple of lists (order, availability, collection)
-        representing facet values enabled via initialization or Configuration
+        representing facet values enabled via initialization or configuration
 
         The 'entry point' facet group is handled separately, since it
         is not always used.
@@ -457,20 +463,13 @@ class Facets(FacetsWithEntryPoint):
             for facet_type in facet_types:
                 yield self.facets_enabled_at_init.get(facet_type, [])
         else:
-            order_facets = self.library.enabled_facets(
-                Facets.ORDER_FACET_GROUP_NAME
-            )
-            yield order_facets
-
-            availability_facets = self.library.enabled_facets(
-                Facets.AVAILABILITY_FACET_GROUP_NAME
-            )
-            yield availability_facets
-
-            collection_facets = self.library.enabled_facets(
+            library = self.library
+            for group_name in (
+                Facets.ORDER_FACET_GROUP_NAME,
+                Facets.AVAILABILITY_FACET_GROUP_NAME,
                 Facets.COLLECTION_FACET_GROUP_NAME
-            )
-            yield collection_facets
+            ):
+                yield self.available_facets(self.library, group_name)
 
     @property
     def facet_groups(self):
@@ -521,6 +520,9 @@ class Facets(FacetsWithEntryPoint):
     def order_facet_to_database_field(cls, order_facet):
         """Turn the name of an order facet into a materialized-view field
         for use in an ORDER BY clause.
+
+        DEPRECATED - Should be removed or at least changed to use
+        Work fields.
         """
         order_facet_to_database_field = {
             cls.ORDER_ADDED_TO_COLLECTION: mw.availability_time,
@@ -537,6 +539,9 @@ class Facets(FacetsWithEntryPoint):
         """Restrict a query against MaterializedWorkWithGenre so that it only
         matches works that fit the given facets, and the query is
         ordered appropriately.
+
+        DEPRECATED - Should be removed or at least changed to use
+        Work fields.
         """
         qu = super(Facets, self).apply(_db, qu)
         if self.availability == self.AVAILABLE_NOW:
@@ -582,6 +587,9 @@ class Facets(FacetsWithEntryPoint):
     def order_by(self):
         """Given these Facets, create a complete ORDER BY clause for queries
         against WorkModelWithGenre.
+
+        DEPRECATED - Should be removed or at least changed to use
+        Work fields.
         """
         work_id = mw.works_id
         default_sort_order = [
