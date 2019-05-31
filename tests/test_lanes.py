@@ -44,9 +44,9 @@ from api.lanes import (
     CrawlableCollectionBasedLane,
     CrawlableFacets,
     CrawlableCustomListBasedLane,
-    FeaturedSeriesFacets,
     RecommendationLane,
     RelatedBooksLane,
+    SeriesFacets,
     SeriesLane,
     WorkBasedLane,
 )
@@ -641,7 +641,7 @@ class TestSeriesLane(LaneTest):
 
     def test_facets_entry_point_propagated(self):
         """The facets passed in to SeriesLane.featured_works are converted
-        to a FeaturedSeriesFacets object with the same entry point.
+        to a SeriesFacets object with the same entry point.
         """
         lane = SeriesLane(self._default_library, "A series")
         def mock_works(_db, facets, pagination):
@@ -655,12 +655,12 @@ class TestSeriesLane(LaneTest):
         lane.featured_works(self._db, facets=facets)
 
         new_facets = self.called_with
-        assert isinstance(new_facets, FeaturedSeriesFacets)
+        assert isinstance(new_facets, SeriesFacets)
         eq_(entrypoint, new_facets.entrypoint)
 
         # Availability facets have been hard-coded rather than propagated.
-        eq_(FeaturedSeriesFacets.COLLECTION_FULL, new_facets.collection)
-        eq_(FeaturedSeriesFacets.AVAILABLE_ALL, new_facets.availability)
+        eq_(SeriesFacets.COLLECTION_FULL, new_facets.collection)
+        eq_(SeriesFacets.AVAILABLE_ALL, new_facets.availability)
 
 
 class TestContributorLane(LaneTest):

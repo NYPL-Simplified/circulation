@@ -937,20 +937,31 @@ class RecommendationLane(WorkBasedLane):
         )
 
 
-class SeriesFacets(BaseFacets):
+class SeriesFacets(Facets):
     """A custom faceting object for filtering a lane based on series and
     ordering it based on series position (and secondarily by title).
     """
 
-    def __init__(self, series):
-        self.series = series
+    @classmethod
+    def available_facets(cls, config, facet_group_name):
+        "Unlike most feeds, this one can be ordered by series position."
+        default = config.enabled_facets(facet_group_name)
+        if facet_group_name != cls.ORDER_FACET_GROUP_NAME:
+            return default
+        return [cls.ORDER_SERIES_POSITION] + default
+
+    @classmethod
+    def default_facet(cls, config, facet_group_name):
+        "Unlike most feeds, this one is, by default, ordered by series position."
+        if facet_group_name == cls.ORDER_FACET_GROUP_NAME:
+            return cls.ORDER_SERIES_POSITION
+        Facets.default_facet(config, facet_group_name)
+
+    def instantiated_from_request(self, facet_config, worklist):
+        self.series = worklist.series_name
 
     def modify_search_filter(self, filter):
-        filter.order = [
-            self.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME[x]
-            for x in [self.ORDER_SERIES_POSITION, self.ORDER_TITLE]
-        ]
-        filter.order_ascending = True
+        super(SeriesFacets, self).modify_search_filter(filter)
         filter.series = self.series
 
 
@@ -967,24 +978,17 @@ class SeriesLane(DynamicLane):
             # listing to the source's audience sourced from parent data.
             audiences = [parent.source_audience]
 
-        self.facets = SeriesFacets(series_name)
-
         super(SeriesLane, self).initialize(
             library, display_name=series_name,
             audiences=audiences, languages=languages,
         )
+        self.series_name = series_name
         if parent:
             parent.children.append(self)
 
-    def works(self, _db, **kwargs):
-        facets = kwargs.pop('facets', self.facets)
-        return self.works_from_search_index(
-            _db=_db, facets=facets, **kwargs
-        )
-
     @property
     def url_arguments(self):
-        kwargs = dict(series_name=self.facets.series)
+        kwargs = dict(series_name=self.series_name)
         if self.language_key:
             kwargs['languages'] = self.language_key
         if self.audience_key:

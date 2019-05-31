@@ -129,6 +129,7 @@ from lanes import (
     ContributorLane,
     RecommendationLane,
     RelatedBooksLane,
+    SeriesFacets,
     SeriesLane,
     CrawlableCollectionBasedLane,
     CrawlableCustomListBasedLane,
@@ -1586,7 +1587,7 @@ class WorkController(CirculationManagerController):
 
         annotator = self.manager.annotator(lane)
         facets = load_facets_from_request(
-            worklist=lane, base_class=FeaturedSeriesFacets
+            worklist=lane, base_class=SeriesFacets
         )
         if isinstance(facets, ProblemDetail):
             return facets
@@ -1672,23 +1673,28 @@ class WorkController(CirculationManagerController):
         if not series_name:
             return NO_SUCH_LANE.detailed(_("No series provided"))
 
-        pagination = load_pagination_from_request()
-        if isinstance(pagination, ProblemDetail):
-            return pagination
-
         languages, audiences = self._lane_details(languages, audiences)
         lane = SeriesLane(
             library, series_name=series_name, languages=languages,
             audiences=audiences
         )
+
+        facets = load_facets_from_request(
+            worklist=lane, base_class=SeriesFacets
+        )
+        if isinstance(facets, ProblemDetail):
+            return facets
+
+        pagination = load_pagination_from_request()
+        if isinstance(pagination, ProblemDetail):
+            return pagination
+
         annotator = self.manager.annotator(lane)
 
-        url = annotator.feed_url(
-            lane, facets=lane.facets, pagination=pagination
-        )
+        url = annotator.feed_url(lane, facets=facets, pagination=pagination)
         feed = AcquisitionFeed.page(
             self._db, lane.display_name, url, lane,
-            facets=lane.facets, pagination=pagination,
+            facets=facets, pagination=pagination,
             annotator=annotator, cache_type=CachedFeed.SERIES_TYPE
         )
         return feed_response(unicode(feed))
