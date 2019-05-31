@@ -1667,7 +1667,7 @@ class WorkController(CirculationManagerController):
         controller = ComplaintController()
         return controller.register(pools[0], data)
 
-    def series(self, series_name, languages, audiences):
+    def series(self, series_name, languages, audiences, feed_class=AcquisitionFeed):
         """Serve a feed of books in a given series."""
         library = flask.request.library
         if not series_name:
@@ -1692,7 +1692,7 @@ class WorkController(CirculationManagerController):
         annotator = self.manager.annotator(lane)
 
         url = annotator.feed_url(lane, facets=facets, pagination=pagination)
-        feed = AcquisitionFeed.page(
+        feed = feed_class.page(
             self._db, lane.display_name, url, lane,
             facets=facets, pagination=pagination,
             annotator=annotator, cache_type=CachedFeed.SERIES_TYPE

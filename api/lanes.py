@@ -957,7 +957,7 @@ class SeriesFacets(Facets):
             return cls.ORDER_SERIES_POSITION
         Facets.default_facet(config, facet_group_name)
 
-    def instantiated_from_request(self, facet_config, worklist):
+    def finalize_from_request(self, facet_config, worklist):
         self.series = worklist.series_name
 
     def modify_search_filter(self, filter):

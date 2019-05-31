@@ -49,7 +49,10 @@ from core.app_server import (
 )
 from core.classifier import Classifier
 from core.config import CannotLoadConfiguration
-from core.external_search import MockExternalSearchIndex
+from core.external_search import (
+    MockExternalSearchIndex,
+    mock_search_index,
+)
 from core.metadata_layer import Metadata
 from core import model
 from core.entrypoint import (
@@ -2478,6 +2481,8 @@ class TestWorkController(CirculationControllerTest):
 
         series_name = "Like As If Whatever Mysteries"
         work = self._work(with_open_access_download=True, series=series_name)
+        search_engine = MockExternalSearchIndex()
+        search_engine.bulk_update([work])
 
         # Similarly if the pagination data is bad.
         with self.request_context_with_library('/?size=abc'):
@@ -2492,7 +2497,8 @@ class TestWorkController(CirculationControllerTest):
         # If the work is in a series, a feed is returned.
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library('/'):
-            response = self.manager.work_controller.series(series_name, None, None)
+            with mock_search_index(search_engine):
+                response = self.manager.work_controller.series(series_name, None, None)
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
         eq_(series_name, feed['feed']['title'])
@@ -2513,20 +2519,28 @@ class TestWorkController(CirculationControllerTest):
         [cached_feed] = self._db.query(CachedFeed).all()
         self._db.delete(cached_feed)
 
+        # At this point we don't want to generate real feeds anymore.
+        # It's not practical to test differences by inspecting the
+        # resulting feeds, because our mock search index always
+        # returns every book in its index -- the feeds will be pretty
+        # similar.
+        #
+        # TODO: Breaking off here for the weekend.
+
         # Facets work.
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library("/?order=title"):
-            response = self.manager.work_controller.series(series_name, None, None)
+            with mock_search_index(search_engine):
+                response = self.manager.work_controller.series(series_name, None, None)
 
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_(2, len(feed['entries']))
-        [entry1, entry2] = feed['entries']
         eq_(another_work.title, entry1['title'])
         eq_(work.title, entry2['title'])
 
         with self.request_context_with_library("/?order=author"):
-            response = self.manager.work_controller.series(series_name, None, None)
+            with mock_search_index(search_engine):
+                response = self.manager.work_controller.series(series_name, None, None)
 
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
@@ -2540,7 +2554,8 @@ class TestWorkController(CirculationControllerTest):
 
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library("/?order=series"):
-            response = self.manager.work_controller.series(series_name, None, None)
+            with mock_search_index(search_engine):
+                response = self.manager.work_controller.series(series_name, None, None)
 
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
@@ -2551,7 +2566,8 @@ class TestWorkController(CirculationControllerTest):
 
         # Series is the default facet.
         with self.request_context_with_library("/"):
-            response = self.manager.work_controller.series(series_name, None, None)
+            with mock_search_index(search_engine):
+                response = self.manager.work_controller.series(series_name, None, None)
 
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
@@ -2562,7 +2578,8 @@ class TestWorkController(CirculationControllerTest):
 
         # Pagination works.
         with self.request_context_with_library("/?size=1&order=title"):
-            response = self.manager.work_controller.series(series_name, None, None)
+            with mock_search_index(search_engine):
+                response = self.manager.work_controller.series(series_name, None, None)
 
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
@@ -2571,7 +2588,8 @@ class TestWorkController(CirculationControllerTest):
         eq_(another_work.title, entry['title'])
 
         with self.request_context_with_library("/?after=1&order=title"):
-            response = self.manager.work_controller.series(series_name, None, None)
+            with mock_search_index(search_engine):
+                response = self.manager.work_controller.series(series_name, None, None)
 
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
