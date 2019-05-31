@@ -159,6 +159,27 @@ class TestCredentials(DatabaseTest):
             allow_persistent_token=True, allow_empty_token=False
         )
 
+    def test_collection_token(self):
+        # Make sure we can have two tokens from the same data_source with
+        # different collections.
+        data_source = DataSource.lookup(self._db, DataSource.RB_DIGITAL)
+        collection1 = self._collection("test collection 1")
+        collection2 = self._collection("test collection 2")
+        patron = self._patron()
+        type = "super secret"
+
+        # Create our credentials
+        credential1 = Credential.lookup(self._db, data_source, type, patron, None, collection=collection1)
+        credential2 = Credential.lookup(self._db, data_source, type, patron, None, collection=collection2)
+        credential1.credential = 'test1'
+        credential2.credential = 'test2'
+
+        # Make sure the text matches what we expect
+        eq_('test1', Credential.lookup(self._db, data_source, type, patron, None, collection=collection1).credential)
+        eq_('test2', Credential.lookup(self._db, data_source, type, patron, None, collection=collection2).credential)
+
+        # Make sure we don't get anything if we don't pass a collection
+        eq_(None, Credential.lookup(self._db, data_source, type, patron, None).credential)
 
 class TestDelegatedPatronIdentifier(DatabaseTest):
 

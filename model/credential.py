@@ -31,6 +31,7 @@ class Credential(Base):
     id = Column(Integer, primary_key=True)
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
+    collection_id = Column(Integer, ForeignKey('collections.id'), index=True)
     type = Column(String(255), index=True)
     credential = Column(String)
     expires = Column(DateTime, index=True)
@@ -41,7 +42,7 @@ class Credential(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint('data_source_id', 'patron_id', 'type'),
+        UniqueConstraint('data_source_id', 'patron_id', 'collection_id', 'type'),
     )
 
 
@@ -54,12 +55,12 @@ class Credential(Base):
 
     @classmethod
     def lookup(self, _db, data_source, type, patron, refresher_method,
-               allow_persistent_token=False, allow_empty_token=False):
+               allow_persistent_token=False, allow_empty_token=False, collection=None):
         from datasource import DataSource
         if isinstance(data_source, basestring):
             data_source = DataSource.lookup(_db, data_source)
         credential, is_new = get_one_or_create(
-            _db, Credential, data_source=data_source, type=type, patron=patron)
+            _db, Credential, data_source=data_source, type=type, patron=patron, collection=collection)
         if (is_new
             or (not credential.expires and not allow_persistent_token)
             or (not credential.credential and not allow_empty_token)

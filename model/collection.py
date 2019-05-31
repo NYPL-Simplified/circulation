@@ -124,6 +124,9 @@ class Collection(Base, HasFullTableCache):
         cascade="all, delete-orphan"
     )
 
+    # A Collection can have many associated Credentials.
+    credentials = relationship("Credential", backref="collection", cascade="delete")
+
     # A Collection can be monitored by many Monitors, each of which
     # will have its own Timestamp.
     timestamps = relationship("Timestamp", backref="collection")
@@ -152,6 +155,11 @@ class Collection(Base, HasFullTableCache):
 
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
+
+    # Most data sources offer different catalogs to different
+    # libraries.  Data sources in this list offer the same catalog to
+    # every library.
+    GLOBAL_COLLECTION_DATA_SOURCES = [DataSource.ENKI]
 
     def __repr__(self):
         return (u'<Collection "%s"/"%s" ID=%d>' %
@@ -376,7 +384,15 @@ class Collection(Base, HasFullTableCache):
     @property
     def unique_account_id(self):
         """Identifier that uniquely represents this Collection of works"""
-        unique_account_id = self.external_account_id
+        if (self.data_source
+            and self.data_source.name in self.GLOBAL_COLLECTION_DATA_SOURCES
+            and not self.parent):
+            # Every top-level collection from this data source has the
+            # same catalog. Treat them all as one collection named
+            # after the data source.
+            unique_account_id = self.data_source.name
+        else:
+            unique_account_id = self.external_account_id
 
         if not unique_account_id:
             raise ValueError("Unique account identifier not set")
