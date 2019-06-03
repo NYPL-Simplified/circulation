@@ -578,6 +578,24 @@ class TestSeriesFacets(DatabaseTest):
         eq_(SeriesFacets.ORDER_SERIES_POSITION,
             SeriesFacets.default_facet(config, group_name))
 
+    def test_from_request(self):
+        # When a SeriesFacets is instantiated for a SeriesLane,
+        # the series associated with the SeriesLane is copied to the
+        # SeriesFacets.
+        library = self._default_library
+        worklist = SeriesLane(library, "Snake Eyes")
+        args = {}
+        facets = SeriesFacets.from_request(
+            library, library, args.get, args.get, worklist
+        )
+        eq_("Snake Eyes", facets.series)
+
+        # Navigating to another entry point gets us another SeriesFacets
+        # for the same series.
+        new_facets = facets.navigate(entrypoint=EntryPoint.AUDIOBOOKS_ENTRY_POINT)
+        assert isinstance(new_facets, SeriesFacets)
+        eq_("Snake Eyes", new_facets.series)
+
 
 class TestSeriesLane(LaneTest):
 
