@@ -10,6 +10,7 @@ from . import (
 
 from core.classifier import Classifier
 from core.lane import (
+    Facets,
     Lane,
     WorkList,
 )
@@ -551,6 +552,31 @@ class TestRecommendationLane(LaneTest):
         lane = RecommendationLane(self._default_library, self.work, '', novelist_api=mock_api)
         lane.recommendations = recommendations
         self.assert_works_queries(lane, [fre])
+
+class TestSeriesFacets(DatabaseTest):
+
+    def test_class_methods(self):
+        config = self._default_library
+        # In general, SeriesFacets has the same options and defaults
+        # as a normal Facets object.
+        for group_name in (Facets.COLLECTION_FACET_GROUP_NAME,
+                           Facets.AVAILABILITY_FACET_GROUP_NAME):
+            eq_(Facets.available_facets(config, group_name),
+                SeriesFacets.available_facets(config, group_name))
+            eq_(Facets.default_facet(config, group_name),
+                SeriesFacets.default_facet(config, group_name))
+            
+
+        # However, SeriesFacets has an extra sort option -- you can
+        # sort by series position.
+        group_name = Facets.ORDER_FACET_GROUP_NAME
+        default = Facets.available_facets(config, group_name)
+        series = SeriesFacets.available_facets(config, group_name)
+        eq_([SeriesFacets.ORDER_SERIES_POSITION] + default, series)
+
+        # This is the default sort option for SeriesFacets.
+        eq_(SeriesFacets.ORDER_SERIES_POSITION,
+            SeriesFacets.default_facet(config, group_name))
 
 
 class TestSeriesLane(LaneTest):

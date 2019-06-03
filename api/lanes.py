@@ -955,7 +955,7 @@ class SeriesFacets(Facets):
         "Unlike most feeds, this one is, by default, ordered by series position."
         if facet_group_name == cls.ORDER_FACET_GROUP_NAME:
             return cls.ORDER_SERIES_POSITION
-        Facets.default_facet(config, facet_group_name)
+        return Facets.default_facet(config, facet_group_name)
 
     def finalize_from_request(self, facet_config, worklist):
         self.series = worklist.series_name
