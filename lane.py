@@ -194,10 +194,12 @@ class FacetsWithEntryPoint(BaseFacets):
         """Create a very similar FacetsWithEntryPoint that points to
         a different EntryPoint.
         """
-        return self.__class__(
+        destination = self.__class__(
             entrypoint=entrypoint, entrypoint_is_default=False,
             **self.constructor_kwargs
         )
+        destination.finalize_navigate(self)
+        return destination
 
     @classmethod
     def from_request(
@@ -269,6 +271,15 @@ class FacetsWithEntryPoint(BaseFacets):
 
         This allows subclasses to do pull additional configuration from
         request data without having to override class methods.
+        """
+        pass
+
+    def finalize_navigate(self, old_facets):
+        """A hook method invoked on a FacetsWithEntryPoint object immediately
+        after navigating to it from some other FacetsWithEntryPoint.
+
+        This allows subclasses to do copy additional configuration
+        data without having to override class methods.
         """
         pass
 
