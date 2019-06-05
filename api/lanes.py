@@ -945,9 +945,11 @@ class RecommendationLane(WorkBasedLane):
         return []
 
     def apply_filters(self, _db, qu, facets, pagination, featured=False):
-        if not self.recommendations:
-            return None
         from core.model import MaterializedWorkWithGenre as mw
+        if not self.recommendations:
+            # Return a self-contradictory query that will return
+            # no results.
+            return _db.query(mw).filter(True==False)
         qu = qu.join(LicensePool.identifier)
         qu = Work.from_identifiers(
             _db, self.recommendations, base_query=qu,
@@ -1004,6 +1006,16 @@ class SeriesLane(DynamicLane):
         self.series_name = series_name
         if parent:
             parent.append_child(self)
+            if isinstance(parent, WorkBasedLane):
+                # WorkBasedLane forces self.audiences to values
+                # compatible with the work in the WorkBasedLane, but
+                # that's not enough for us. We want to force
+                # self.audiences to *the specific audience* of the
+                # work in the WorkBasedLane. If we're looking at a YA
+                # series, we don't want to see books in a children's
+                # series with the same name, even if it would be
+                # appropriate to show those books.
+                self.audiences = [parent.source_audience]
 
     @property
     def url_arguments(self):

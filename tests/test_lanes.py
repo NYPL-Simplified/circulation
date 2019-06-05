@@ -468,7 +468,7 @@ class TestRelatedBooksLane(DatabaseTest):
 
         self.edition.series = "All By Myself"
         lane = RelatedBooksLane(self._default_library, self.work, "")
-        eq_([], lane.works(self._db).all())
+        eq_([], lane.works_from_database(self._db).all())
 
 
 class LaneTest(DatabaseTest):
@@ -522,7 +522,7 @@ class TestRecommendationLane(LaneTest):
 
         # With an empty recommendation result, the lane is empty.
         lane = RecommendationLane(self._default_library, self.work, '', novelist_api=mock_api)
-        eq_(None, lane.works(self._db))
+        eq_([], lane.works_from_database(self._db).all())
 
         # Resulting recommendations are returned when available, though.
         # TODO: Setting a data source name is necessary because Gutenberg
@@ -666,7 +666,7 @@ class TestSeriesLane(LaneTest):
 
         # As a side effect of that, this lane's audiences and
         # languages were changed to values consistent with its parent.
-        eq_(work_based_lane.audiences, child.audiences)
+        eq_([work_based_lane.source_audience], child.audiences)
         eq_(work_based_lane.languages, child.languages)
 
 
