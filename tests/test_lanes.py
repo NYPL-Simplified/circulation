@@ -9,6 +9,7 @@ from . import (
 )
 
 from core.classifier import Classifier
+from core.entrypoint import AudiobooksEntryPoint
 from core.lane import (
     Facets,
     Lane,
@@ -578,7 +579,10 @@ class TestSeriesFacets(DatabaseTest):
         eq_(SeriesFacets.ORDER_SERIES_POSITION,
             SeriesFacets.default_facet(config, group_name))
 
-    def test_from_request(self):
+    def test_finalize_methods(self):
+        # Verify that finalize methods are called when SeriesFacets
+        # objects are created.
+
         # When a SeriesFacets is instantiated for a SeriesLane,
         # the series associated with the SeriesLane is copied to the
         # SeriesFacets.
@@ -592,9 +596,10 @@ class TestSeriesFacets(DatabaseTest):
 
         # Navigating to another entry point gets us another SeriesFacets
         # for the same series.
-        new_facets = facets.navigate(entrypoint=EntryPoint.AUDIOBOOKS_ENTRY_POINT)
+        new_facets = facets.navigate(entrypoint=AudiobooksEntryPoint)
         assert isinstance(new_facets, SeriesFacets)
         eq_("Snake Eyes", new_facets.series)
+        eq_(AudiobooksEntryPoint, new_facets.entrypoint)
 
 
 class TestSeriesLane(LaneTest):

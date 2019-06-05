@@ -960,6 +960,9 @@ class SeriesFacets(Facets):
     def finalize_from_request(self, facet_config, worklist):
         self.series = worklist.series_name
 
+    def finalize_navigate(self, old_facets):
+        self.series = old_facets.series
+
     def modify_search_filter(self, filter):
         super(SeriesFacets, self).modify_search_filter(filter)
         filter.series = self.series
