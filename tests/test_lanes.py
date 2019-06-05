@@ -480,7 +480,7 @@ class LaneTest(DatabaseTest):
         if expected:
             materialized_expected = [work.id for work in expected]
 
-        query = lane.works(self._db)
+        query = lane.works_from_database(self._db)
         materialized_results = [work.works_id for work in query.all()]
 
         eq_(sorted(materialized_expected), sorted(materialized_results))
@@ -649,26 +649,25 @@ class TestSeriesLane(LaneTest):
             ValueError, SeriesLane, self._default_library, None
         )
 
-        # The series provided in the constructor is stored as .series.
-        lane = SeriesLane(self._default_library, 'Alrighty Then',
-                          audiences=['an audience'])
-        eq_('Alrighty Then', lane.series_name)
-        eq_(['an audience'], lane.audiences)
-
-        child = SeriesLane(self._default_library, "Like As If Whatever",
-                           parent=lane, languages=['lg2'], 
+        work = self._work(
+            language='spa', audience=[Classifier.AUDIENCE_CHILDREN]
+        )
+        work_based_lane = WorkBasedLane(self._default_library, work)
+        child = SeriesLane(self._default_library, "Alrighty Then",
+                           parent=work_based_lane, languages=['eng'],
                            audiences=['another audience'])
-        eq_("Like As If Whatever", child.series_name)
 
-        # The SeriesLane was added as a child of its parent -- something
-        # that doesn't happen by default.
-        eq_([child], lane.children)
+        # The series provided in the constructor is stored as .series_name.
+        eq_("Alrighty Then", child.series_name)
 
-        # The `audiences` setting was ignored, because this lane is the
-        # child of another lane that puts its own restrictions on the
-        # audience setting.
-        eq_(['an audience'], child.audiences)
+        # The SeriesLane is added as a child of its parent
+        # WorkBasedLane -- something that doesn't happen by default.
+        eq_([child], work_based_lane.children)
 
+        # As a side effect of that, this lane's audiences and
+        # languages were changed to values consistent with its parent.
+        eq_(work_based_lane.audiences, child.audiences)
+        eq_(work_based_lane.languages, child.languages)
 
 
 class TestContributorLane(LaneTest):
