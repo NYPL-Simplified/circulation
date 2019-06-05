@@ -448,14 +448,18 @@ class Facets(FacetsWithEntryPoint):
     def navigate(self, collection=None, availability=None, order=None,
                  entrypoint=None):
         """Create a slightly different Facets object from this one."""
-        return self.__class__(self.library,
-                              collection or self.collection,
-                              availability or self.availability,
-                              order or self.order,
-                              enabled_facets=self.facets_enabled_at_init,
-                              entrypoint=(entrypoint or self.entrypoint),
-                              entrypoint_is_default=False,
+        destination = self.__class__(
+            self.library,
+            collection or self.collection,
+            availability or self.availability,
+            order or self.order,
+            enabled_facets=self.facets_enabled_at_init,
+            entrypoint=(entrypoint or self.entrypoint),
+            entrypoint_is_default=False,
         )
+        destination.finalize_navigate(self)
+        return destination
+
 
     def items(self):
         for k,v in super(Facets, self).items():
@@ -1188,13 +1192,25 @@ class WorkList(object):
         self.fiction = None
         self.target_age = None
 
-        self.children = children or []
+        self.children = []
+        if children:
+            for child in children:
+                self.append_child(child)
         self.priority = priority or 0
 
         if entrypoints:
             self.entrypoints = list(entrypoints)
         else:
             self.entrypoints = []
+
+    def append_child(self, child):
+        """Add one child to the list of children in this WorkList.
+
+        This hook method can be overridden to modify the child's
+        configuration so as to make it fit with what the parent is
+        offering.
+        """
+        self.children.append(child)
 
     @property
     def customlist_ids(self):
