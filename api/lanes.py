@@ -768,8 +768,9 @@ class DynamicLane(WorkList):
     """A WorkList that's used to from an OPDS lane, but isn't a Lane
     in the database."""
 
+
 class WorkBasedLane(DynamicLane):
-    """A query-based lane connected on a particular Work"""
+    """A lane that shows works related to one particular Work."""
 
     DISPLAY_NAME = None
     ROUTE = None
@@ -779,10 +780,19 @@ class WorkBasedLane(DynamicLane):
         self.work = work
         self.edition = work.presentation_edition
 
-        languages = [self.edition.language]
+        # To avoid showing the same book in other languages, the value
+        # of this lane's .languages is always derived from the
+        # language of the work.  All children of this lane will be put
+        # under a similar restriction.
+        self.source_language = self.edition.language
+        kwargs['languages'] = [self.source_language]
 
+        # To avoid showing inappropriate material, the value of this
+        # lane's .audiences setting is always derived from the
+        # audience of the work. All children of this lane will be
+        # under a similar restriction.
         self.source_audience = self.work.audience
-        audiences = self.audiences_list_from_source()
+        kwargs['audiences'] = self.audiences_list_from_source()
 
         display_name = display_name or self.DISPLAY_NAME
 
@@ -790,7 +800,7 @@ class WorkBasedLane(DynamicLane):
 
         super(WorkBasedLane, self).initialize(
             library, display_name=display_name, children=children,
-            languages=languages, audiences=audiences, **kwargs
+            **kwargs
         )
 
     @property
@@ -813,13 +823,24 @@ class WorkBasedLane(DynamicLane):
         else:
             return [Classifier.AUDIENCE_CHILDREN]
 
+    def append_child(self, worklist):
+        """Add another Worklist as a child of this one and change its
+        configuration to make sure its results fit in with this lane.
+        """
+        super(WorkBasedLane, self).append_child(worklist)
+        worklist.languages = self.languages
+        worklist.audiences = self.audiences
+
 
 class RelatedBooksLane(WorkBasedLane):
     """A lane of Works all related to a given Work by various criteria.
 
-    Current criteria--represented by sublanes--include a shared
-    contributor (ContributorLane), same series (SeriesLane), or
-    third-party recommendation relationship (Recommendationlane).
+    Each criterion is represented by another WorkBaseLane class:
+
+    * ContributorLane: Works by one of the contributors to this work.
+    * SeriesLane: Works in the same series.
+    * RecommendationLane: Works provided by a third-party recommendation
+      service.
     """
     DISPLAY_NAME = "Related Books"
     ROUTE = 'related_books'
@@ -912,7 +933,7 @@ class RecommendationLane(WorkBasedLane):
         self.api = novelist_api or NoveListAPI.from_config(library)
         self.recommendations = self.fetch_recommendations(_db)
         if parent:
-            parent.children.append(self)
+            parent.append_child(self)
 
     def fetch_recommendations(self, _db):
         """Get identifiers of recommendations for this LicensePool"""
@@ -974,20 +995,15 @@ class SeriesLane(DynamicLane):
     ROUTE = 'series'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
 
-    def __init__(self, library, series_name, parent=None, languages=None,
-                 audiences=None):
-        if parent and parent.source_audience and isinstance(parent, WorkBasedLane):
-            # In an attempt to secure the accurate series, limit the
-            # listing to the source's audience sourced from parent data.
-            audiences = [parent.source_audience]
-
+    def __init__(self, library, series_name, parent=None, **kwargs):
+        if not series_name:
+            raise ValueError("Missing series_name")
         super(SeriesLane, self).initialize(
-            library, display_name=series_name,
-            audiences=audiences, languages=languages,
+            library, display_name=series_name, **kwargs
         )
         self.series_name = series_name
         if parent:
-            parent.children.append(self)
+            parent.append_child(self)
 
     @property
     def url_arguments(self):
@@ -1017,7 +1033,7 @@ class ContributorLane(DynamicLane):
             audiences=audiences, languages=languages,
         )
         if parent:
-            parent.children.append(self)
+            parent.append_child(self)
         _db = Session.object_session(library)
         self.contributors = _db.query(Contributor)\
                 .filter(or_(*self.contributor_name_clauses)).all()

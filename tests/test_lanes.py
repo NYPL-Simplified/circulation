@@ -307,6 +307,41 @@ class TestWorkBasedLane(DatabaseTest):
         adults_only_lane = WorkBasedLane(self._default_library, work, '')
         eq_(sorted(Classifier.AUDIENCES), sorted(adults_only_lane.audiences))
 
+    def test_append_child(self):
+        """When a WorkBasedLane gets a child, its language and audience
+        restrictions are propagated to the child.
+        """
+        work = self._work(
+            with_license_pool=True, audience=Classifier.AUDIENCE_CHILDREN,
+            language='spa'
+        )
+
+        def make_child():
+            # Set up a WorkList with settings that contradict the
+            # settings of the work we'll be using as the basis for our
+            # WorkBasedLane.
+            child = WorkList()
+            child.initialize(
+                self._default_library, 'sublane', languages=['eng'],
+                audiences=[Classifier.AUDIENCE_ADULT]
+            )
+            return child
+        child1, child2 = [make_child() for i in range(2)]
+
+        # The WorkBasedLane's restrictions are propagated to children
+        # passed in to the constructor.
+        lane = WorkBasedLane(self._default_library, work, 'parent lane',
+                             children=[child1])
+
+        eq_(['spa'], child1.languages)
+        eq_([Classifier.AUDIENCE_CHILDREN], child1.audiences)
+
+        # It also happens when .append_child is called after the 
+        # constructor.
+        lane.append_child(child2)
+        eq_(['spa'], child2.languages)
+        eq_([Classifier.AUDIENCE_CHILDREN], child2.audiences)
+
     def test_default_children_list_not_reused(self):
         work = self._work()
 
@@ -605,6 +640,7 @@ class TestSeriesFacets(DatabaseTest):
 class TestSeriesLane(LaneTest):
 
     def test_initialization(self):
+
         # An error is raised if SeriesLane is created with an empty string.
         assert_raises(
             ValueError, SeriesLane, self._default_library, ''
@@ -613,103 +649,26 @@ class TestSeriesLane(LaneTest):
             ValueError, SeriesLane, self._default_library, None
         )
 
-        lane = SeriesLane(self._default_library, 'Alrighty Then')
-        eq_('Alrighty Then', lane.series)
+        # The series provided in the constructor is stored as .series.
+        lane = SeriesLane(self._default_library, 'Alrighty Then',
+                          audiences=['an audience'])
+        eq_('Alrighty Then', lane.series_name)
+        eq_(['an audience'], lane.audiences)
 
-    def test_works_query(self):
-        # If there are no works with the series name, no works are returned.
-        series_name = "Like As If Whatever Mysteries"
-        lane = SeriesLane(self._default_library, series_name)
-        self.assert_works_queries(lane, [])
+        child = SeriesLane(self._default_library, "Like As If Whatever",
+                           parent=lane, languages=['lg2'], 
+                           audiences=['another audience'])
+        eq_("Like As If Whatever", child.series_name)
 
-        # Works in the series are returned as expected.
-        w1 = self._work(with_license_pool=True)
-        w1.presentation_edition.series = series_name
-        self._db.commit()
-        SessionManager.refresh_materialized_views(self._db)
-        self.assert_works_queries(lane, [w1])
+        # The SeriesLane was added as a child of its parent -- something
+        # that doesn't happen by default.
+        eq_([child], lane.children)
 
-        # When there are two works without series_position, they're
-        # returned in alphabetical order by title.
-        w1.presentation_edition.title = "Zoology"
-        w2 = self._work(with_license_pool=True)
-        w2.presentation_edition.title = "Anthropology"
-        w2.presentation_edition.series = series_name
-        self._db.commit()
-        SessionManager.refresh_materialized_views(self._db)
-        self.assert_works_queries(lane, [w2, w1])
+        # The `audiences` setting was ignored, because this lane is the
+        # child of another lane that puts its own restrictions on the
+        # audience setting.
+        eq_(['an audience'], child.audiences)
 
-        # If a series_position is added, they're ordered in numerical order.
-        w1.presentation_edition.series_position = 6
-        w2.presentation_edition.series_position = 13
-        self._db.commit()
-        SessionManager.refresh_materialized_views(self._db)
-        self.assert_works_queries(lane, [w1, w2])
-
-        # If the lane is created with languages, works in other languages
-        # aren't included.
-        fre = self._work(with_license_pool=True, language='fre')
-        spa = self._work(with_license_pool=True, language='spa')
-        for work in [fre, spa]:
-            work.presentation_edition.series = series_name
-        self._db.commit()
-        SessionManager.refresh_materialized_views(self._db)
-
-        lane.languages = ['fre', 'spa']
-        self.assert_works_queries(lane, [fre, spa])
-
-
-    def test_childrens_series_with_same_name_as_adult_series(self):
-        [children, ya, adult, adults_only] = self.sample_works_for_each_audience()
-
-        # Give them all the same series name.
-        series_name = "Monkey Business"
-        for work in [children, adult, adults_only]:
-            work.presentation_edition.series = series_name
-        self._db.commit()
-        SessionManager.refresh_materialized_views(self._db)
-
-        # SeriesLane only returns works that match a given audience.
-        children_lane = SeriesLane(
-            self._default_library, series_name, audiences=[Classifier.AUDIENCE_CHILDREN]
-        )
-        self.assert_works_queries(children_lane, [children])
-
-        # It's strict about this, in an attempt to increase series accuracy.
-        # A request for adult material, only returns Adult material, not
-        # Adults Only material.
-        adult_lane = SeriesLane(
-            self._default_library, series_name, audiences=[Classifier.AUDIENCE_ADULT]
-        )
-        self.assert_works_queries(adult_lane, [adult])
-
-        adult_lane = SeriesLane(
-            self._default_library, series_name, audiences=[Classifier.AUDIENCE_ADULTS_ONLY]
-        )
-        self.assert_works_queries(adult_lane, [adults_only])
-
-    def test_facets_entry_point_propagated(self):
-        """The facets passed in to SeriesLane.featured_works are converted
-        to a SeriesFacets object with the same entry point.
-        """
-        lane = SeriesLane(self._default_library, "A series")
-        def mock_works(_db, facets, pagination):
-            self.called_with = facets
-            # It doesn't matter what the query we return matches; just
-            # return some kind of query.
-            return _db.query(MaterializedWorkWithGenre)
-        lane.works = mock_works
-        entrypoint = object()
-        facets = FacetsWithEntryPoint(entrypoint=entrypoint)
-        lane.featured_works(self._db, facets=facets)
-
-        new_facets = self.called_with
-        assert isinstance(new_facets, SeriesFacets)
-        eq_(entrypoint, new_facets.entrypoint)
-
-        # Availability facets have been hard-coded rather than propagated.
-        eq_(SeriesFacets.COLLECTION_FULL, new_facets.collection)
-        eq_(SeriesFacets.AVAILABLE_ALL, new_facets.availability)
 
 
 class TestContributorLane(LaneTest):
