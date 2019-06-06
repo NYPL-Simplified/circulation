@@ -422,28 +422,6 @@ class TestFacets(DatabaseTest):
         expect = [['order', 'author', False], ['order', 'title', True]]
         eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
 
-    def test_facets_can_be_enabled_at_initialization(self):
-        enabled_facets = {
-            Facets.ORDER_FACET_GROUP_NAME : [
-                Facets.ORDER_TITLE, Facets.ORDER_AUTHOR,
-            ],
-            Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_MAIN],
-            Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_OPEN_ACCESS]
-        }
-        library = self._default_library
-        self._configure_facets(library, enabled_facets, {})
-
-        # Create a new Facets object with these facets enabled,
-        # no matter the Configuration.
-        facets = Facets(
-            self._default_library,
-            Facets.COLLECTION_MAIN, Facets.AVAILABLE_OPEN_ACCESS,
-            Facets.ORDER_TITLE, enabled_facets=enabled_facets
-        )
-        all_groups = list(facets.facet_groups)
-        expect = [['order', 'author', False], ['order', 'title', True]]
-        eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
-
     def test_facets_dont_need_a_library(self):
         enabled_facets = {
             Facets.ORDER_FACET_GROUP_NAME : [
@@ -654,6 +632,60 @@ class TestFacets(DatabaseTest):
         eq_(INVALID_INPUT.uri, invalid_collection.uri)
         eq_("I don't understand what 'no such collection' refers to.",
             invalid_collection.detail)
+
+    def test_from_request_gets_available_facets_through_hook_methods(self):
+        # Available and default facets are determined by calling the
+        # available_facets() and default_facets() methods. This gives
+        # subclasses a chance to add extra facets or change defaults,
+        # so long as those extras are allowed by the library
+        # configuration.
+        class Mock(Facets):
+            available_facets_calls = []
+            default_facet_calls = []
+
+            # For whatever reason, this faceting object allows only a
+            # single setting for each facet group.
+            mock_enabled = dict(order=[Facets.ORDER_TITLE],
+                                available=[Facets.AVAILABLE_OPEN_ACCESS],
+                                collection=[Facets.COLLECTION_MAIN])
+
+            @classmethod
+            def available_facets(cls, config, facet_group_name):
+                cls.available_facets_calls.append((config, facet_group_name))
+                return cls.mock_enabled[facet_group_name]
+
+            @classmethod
+            def default_facet(cls, config, facet_group_name):
+                cls.default_facet_calls.append((config, facet_group_name))
+                return cls.mock_enabled[facet_group_name][0]
+
+        library = self._default_library
+        result = Mock.from_request(library, library, {}.get, {}.get, None)
+
+        order, available, collection = Mock.available_facets_calls
+        # available_facets was called three times, to ask the Mock class what it thinks
+        # the options for order, availability, and collection should be.
+        eq_((library, "order"), order)
+        eq_((library, "available"), available)
+        eq_((library, "collection"), collection)
+
+        # default_facet was called three times, to ask the Mock class what it thinks
+        # the default order, availability, and collection should be.
+        order_d, available_d, collection_d = Mock.default_facet_calls
+        eq_((library, "order"), order_d)
+        eq_((library, "available"), available_d)
+        eq_((library, "collection"), collection_d)
+
+        # Finally, verify that the return values from the mocked methods were actually used.
+
+        # The facets enabled during initialization are the limited
+        # subset established by available_facets().
+        eq_(Mock.mock_enabled, result.facets_enabled_at_init)
+
+        # The current values came from the defaults provided by default_facet().
+        eq_(Facets.ORDER_TITLE, result.order)
+        eq_(Facets.AVAILABLE_OPEN_ACCESS, result.availability)
+        eq_(Facets.COLLECTION_MAIN, result.collection)
 
     def test_modify_search_filter(self):
         
