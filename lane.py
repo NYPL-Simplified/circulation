@@ -1024,8 +1024,7 @@ class Pagination(object):
         that would be useful to know when reasoning about earlier or
         later pages.
         """
-        size = len(page)
-        self.this_page_size = size
+        self.this_page_size = len(page)
         self.page_has_loaded = True
 
 
