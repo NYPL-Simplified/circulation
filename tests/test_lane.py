@@ -1481,8 +1481,11 @@ class TestWorkList(DatabaseTest):
         child = WorkList()
         parent = Mock()
         parent.initialize(self._default_library, children=[child])
-        eq_([child], parent.children)
         eq_([child], parent.append_child_calls)
+
+        # They do end up in WorkList.children, since that's what the
+        # default append_child() implementation does.
+        eq_([child], parent.children)
 
     def test_top_level_for_library(self):
         """Test the ability to generate a top-level WorkList."""
