@@ -91,16 +91,23 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         eq_(qu, ep.called_with)
 
     def test_navigate(self):
+        # navigate creates a new FacetsWithEntryPoint and calls
+        # finalize_navigate() to complete any setup.
+
+        class MockFacetsWithEntryPoint(FacetsWithEntryPoint):
+            def finalize_navigate(self, old_facets):
+                self.finalize_navigate_called_with = old_facets
+
         old_entrypoint = object()
         kwargs = dict(extra_key="extra_value")
-        facets = FacetsWithEntryPoint(
+        facets = MockFacetsWithEntryPoint(
             old_entrypoint, entrypoint_is_default=True, **kwargs
         )
         new_entrypoint = object()
         new_facets = facets.navigate(new_entrypoint)
 
-        # A new FacetsWithEntryPoint was created.
-        assert isinstance(new_facets, FacetsWithEntryPoint)
+        # A new MockFacetsWithEntryPoint was created.
+        assert isinstance(new_facets, MockFacetsWithEntryPoint)
 
         # It has the new entry point.
         eq_(new_entrypoint, new_facets.entrypoint)
@@ -112,6 +119,10 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         # The keyword arguments used to create the original faceting
         # object were propagated to its constructor.
         eq_(kwargs, new_facets.constructor_kwargs)
+
+        # The original faceting object was passed into finalize_navigate()
+        # to perform any class-specific setup.
+        eq_(facets, new_facets.finalize_navigate_called_with)
 
     def test_from_request(self):
         # from_request just calls the _from_request class method
