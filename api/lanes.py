@@ -976,9 +976,11 @@ class SeriesFacets(Facets):
     @classmethod
     def available_facets(cls, config, facet_group_name):
         "Unlike most feeds, this one can be ordered by series position."
-        default = config.enabled_facets(facet_group_name)
         if facet_group_name != cls.ORDER_FACET_GROUP_NAME:
-            return default
+            return super(SeriesFacets, cls).available_facets(
+                config, facet_group_name
+            )
+        default = config.enabled_facets(facet_group_name)
         return [cls.ORDER_SERIES_POSITION] + default
 
     @classmethod
@@ -986,13 +988,26 @@ class SeriesFacets(Facets):
         "Unlike most feeds, this one is, by default, ordered by series position."
         if facet_group_name == cls.ORDER_FACET_GROUP_NAME:
             return cls.ORDER_SERIES_POSITION
-        return Facets.default_facet(config, facet_group_name)
+        return super(SeriesFacets, cls).default_facet(config, facet_group_name)
 
-    def finalize_from_request(self, facet_config, worklist):
-        self.series = worklist.series
+    @classmethod
+    def from_request(cls, library, config, get_argument, get_header, worklist,
+                     *args, **kwargs):
+        """Instantiate a SeriesFacets from request information plus
+        the series associated with the given WorkList.
+        """
+        facets = super(SeriesFacets, cls).from_request(
+            library, config, get_argument, get_header, worklist, *args,
+            **kwargs
+        )
+        facets.series = worklist.series
+        return facets
 
-    def finalize_navigate(self, old_facets):
-        self.series = old_facets.series
+    def navigate(self, *args, **kwargs):
+        """Propagate the selected series to a new Facets object."""
+        facets = super(SeriesFacets, self).navigate(*args, **kwargs)
+        facets.series = self.series
+        return facets
 
     def modify_search_filter(self, filter):
         super(SeriesFacets, self).modify_search_filter(filter)
