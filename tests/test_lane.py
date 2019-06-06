@@ -1468,6 +1468,22 @@ class TestWorkList(DatabaseTest):
         eq_(set(wl.genre_ids),
             set([x.id for x in [sf, romance]]))
 
+    def test_initialize_uses_append_child_hook_method(self):
+        # When a WorkList is initialized with children, the children
+        # are passed individually through the append_child() hook
+        # method, not simply set to WorkList.children.
+        class Mock(WorkList):
+            append_child_calls = []
+            def append_child(self, child):
+                self.append_child_calls.append(child)
+                return super(Mock, self).append_child(child)
+
+        child = WorkList()
+        parent = Mock()
+        parent.initialize(self._default_library, children=[child])
+        eq_([child], parent.children)
+        eq_([child], parent.append_child_calls)
+
     def test_top_level_for_library(self):
         """Test the ability to generate a top-level WorkList."""
         # These two top-level lanes should be children of the WorkList.
