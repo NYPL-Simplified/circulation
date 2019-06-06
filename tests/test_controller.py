@@ -35,7 +35,11 @@ from api.controller import (
     CirculationManager,
     CirculationManagerController,
 )
-from api.lanes import create_default_lanes
+from api.lanes import (
+    create_default_lanes,
+    SeriesFacets,
+    SeriesLane,
+)
 from api.authenticator import (
     BasicAuthenticationProvider,
     CirculationPatronProfileStorage,
@@ -2473,16 +2477,16 @@ class TestWorkController(CirculationControllerTest):
         eq_("bar", complaint.detail)
 
     def test_series(self):
+        # Test the ability of the series() method to generate an OPDS
+        # feed representing all the books in a given series, subject
+        # to an optional language and audience restriction.
+        series_name = "Like As If Whatever Mysteries"
+
         # If no series is given, a ProblemDetail is returned.
         with self.request_context_with_library('/'):
             response = self.manager.work_controller.series("", None, None)
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
-
-        series_name = "Like As If Whatever Mysteries"
-        work = self._work(with_open_access_download=True, series=series_name)
-        search_engine = MockExternalSearchIndex()
-        search_engine.bulk_update([work])
 
         # Similarly if the pagination data is bad.
         with self.request_context_with_library('/?size=abc'):
@@ -2494,118 +2498,147 @@ class TestWorkController(CirculationControllerTest):
             response = self.manager.work_controller.series(series_name, None, None)
             eq_(400, response.status_code)
 
-        # If the work is in a series, a feed is returned.
-        SessionManager.refresh_materialized_views(self._db)
+        # Set up a mock search engine that will return a single work
+        # no matter what query it's given. The fact that this book
+        # isn't actually in the series doesn't matter, since
+        # determining that is the job of a non-mocked search engine.
+        work = self._work(with_open_access_download=True)
+        search_engine = MockExternalSearchIndex()
+        search_engine.bulk_update([work])
+
+        # If a series is provided, a feed for that series is returned.
         with self.request_context_with_library('/'):
             with mock_search_index(search_engine):
-                response = self.manager.work_controller.series(series_name, None, None)
+                response = self.manager.work_controller.series(
+                    series_name, "eng,spa", "Children,Young Adult",
+                )
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
+
+        # The book we added to the mock search engine is in the feed.
+        # This demonstrates that series() asks the search engine for
+        # books to put in the feed.
         eq_(series_name, feed['feed']['title'])
         [entry] = feed['entries']
         eq_(work.title, entry['title'])
 
         # The feed has facet links.
         links = feed['feed']['links']
-        facet_links = [link for link in links if link['rel'] == 'http://opds-spec.org/facet']
+        facet_links = [link for link in links
+                       if link['rel'] == 'http://opds-spec.org/facet']
         eq_(10, len(facet_links))
 
-        another_work = self._work(
-            title="000", authors="After Default Work",
-            with_open_access_download=True, series=series_name
+        # The facet link we care most about is the default sort order,
+        # put into place by SeriesFacets.
+        [series_position] = [
+            x for x in facet_links if x['title'] == 'Series Position'
+        ]
+        eq_('Sort by', series_position['opds:facetgroup'])
+        eq_('true', series_position['opds:activefacet'])
+
+        # The feed was cached.
+        cached = self._db.query(CachedFeed).one()
+        eq_(CachedFeed.SERIES_TYPE, cached.type)
+        eq_(
+            'Like As If Whatever Mysteries-eng,spa-Children,Young+Adult',
+            cached.unique_key
         )
 
-        # Delete the cache
-        [cached_feed] = self._db.query(CachedFeed).all()
-        self._db.delete(cached_feed)
-
         # At this point we don't want to generate real feeds anymore.
-        # It's not practical to test differences by inspecting the
-        # resulting feeds, because our mock search index always
-        # returns every book in its index -- the feeds will be pretty
-        # similar.
+        # We can't do a real end-to-end test without setting up a real
+        # search index, which is obnoxiously slow.
         #
-        # TODO: Breaking off here for the weekend.
+        # Instead, we will mock OPDSFeed.page, and examine the objects
+        # passed into it under different mock requests. 
+        #
+        # Those objects, such as SeriesLane and SeriesFacets, are
+        # tested elsewhere, in terms of their effects on search
+        # objects such as Filter. Those search objects are the things
+        # that are tested against a real search index (in core).
+        #
+        # We know from the previous test that any results returned
+        # from the search engine are converted into an OPDS feed. Now
+        # we verify that an incoming request results in the objects
+        # we'd expect to use to generate the feed for that request.
+        class Mock(object):
+            @classmethod
+            def page(cls, **kwargs):
+                cls.called_with = kwargs
+                return "An OPDS feed"
 
-        # Facets work.
-        SessionManager.refresh_materialized_views(self._db)
-        with self.request_context_with_library("/?order=title"):
-            with mock_search_index(search_engine):
-                response = self.manager.work_controller.series(series_name, None, None)
+        # Test a basic request with custom faceting, pagination, and a
+        # language and audience restriction. This will exercise nearly
+        # all the functionality we need to check.
+        with self.request_context_with_library(
+            "/?order=title&size=100&after=20"
+        ):
+            response = self.manager.work_controller.series(
+                series_name, "some languages", "some audiences",
+                feed_class=Mock
+            )
 
+        # We got a 200 response, where the data returned by the mock
+        # method is served as an OPDS feed.
         eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(another_work.title, entry1['title'])
-        eq_(work.title, entry2['title'])
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
+        eq_("An OPDS feed", response.data)
 
-        with self.request_context_with_library("/?order=author"):
-            with mock_search_index(search_engine):
-                response = self.manager.work_controller.series(series_name, None, None)
+        kwargs = Mock.called_with
+        eq_(self._db, kwargs.pop('_db'))
+        eq_(CachedFeed.SERIES_TYPE, kwargs.pop('cache_type'))
 
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(2, len(feed['entries']))
-        [entry1, entry2] = feed['entries']
-        eq_(work.title, entry1['title'])
-        eq_(another_work.title, entry2['title'])
+        # The feed is titled after the series.
+        eq_(series_name, kwargs.pop('title'))
 
-        work.presentation_edition.series_position = 0
-        another_work.presentation_edition.series_position = 1
+        # A SeriesLane was created to ask the search index for
+        # matching works.
+        lane = kwargs.pop('lane')
+        assert isinstance(lane, SeriesLane)
+        eq_(self._default_library.id, lane.library_id)
+        eq_(series_name, lane.series_name)
+        eq_(["some languages"], lane.languages)
+        eq_(["some audiences"], lane.audiences)
 
-        SessionManager.refresh_materialized_views(self._db)
-        with self.request_context_with_library("/?order=series"):
-            with mock_search_index(search_engine):
-                response = self.manager.work_controller.series(series_name, None, None)
+        # A SeriesFacets was created to add an extra sort order and
+        # to provide additional search index constraints that can only
+        # be provided through the faceting object.
+        facets = kwargs.pop('facets')
+        assert isinstance(facets, SeriesFacets)
+        eq_(series_name, facets.series)
 
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(2, len(feed['entries']))
-        [entry1, entry2] = feed['entries']
-        eq_(work.title, entry1['title'])
-        eq_(another_work.title, entry2['title'])
+        # The 'order' in the query string went into the SeriesFacets
+        # object.
+        eq_("title", facets.order)
 
-        # Series is the default facet.
+        # The 'offset' and 'size' went into a normal Pagination object.
+        pagination = kwargs.pop('pagination')
+        eq_(20, pagination.offset)
+        eq_(100, pagination.size)
+
+        # The lane, facets, and pagination were all taken into effect
+        # when constructing the feed URL.
+        annotator = kwargs.pop('annotator')
+        eq_(lane, annotator.lane)
         with self.request_context_with_library("/"):
-            with mock_search_index(search_engine):
-                response = self.manager.work_controller.series(series_name, None, None)
+            eq_(
+                annotator.feed_url(lane, facets=facets, pagination=pagination),
+                kwargs.pop('url')
+            )
 
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(2, len(feed['entries']))
-        [entry1, entry2] = feed['entries']
-        eq_(work.title, entry1['title'])
-        eq_(another_work.title, entry2['title'])
+        # No other arguments were passed into Mock.page.
+        eq_({}, kwargs)
 
-        # Pagination works.
-        with self.request_context_with_library("/?size=1&order=title"):
-            with mock_search_index(search_engine):
-                response = self.manager.work_controller.series(series_name, None, None)
-
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(1, len(feed['entries']))
-        [entry] = feed['entries']
-        eq_(another_work.title, entry['title'])
-
-        with self.request_context_with_library("/?after=1&order=title"):
-            with mock_search_index(search_engine):
-                response = self.manager.work_controller.series(series_name, None, None)
-
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(1, len(feed['entries']))
-        [entry] = feed['entries']
-        eq_(work.title, entry['title'])
-
-        # Language restrictions can remove books that would otherwise be
-        # in the feed.
+        # In the previous request we provided a custom sort order (by
+        # title) Let's end with one more test to verify that series
+        # position is the *default* sort order.
         with self.request_context_with_library("/"):
             response = self.manager.work_controller.series(
-                series_name, 'fre', None
+                series_name, None, None, feed_class=Mock
             )
-            feed = feedparser.parse(response.data)
-            eq_(0, len(feed['entries']))
-
+        facets = Mock.called_with.pop('facets')
+        assert isinstance(facets, SeriesFacets)
+        eq_("series", facets.order)
+                
 
 class TestFeedController(CirculationControllerTest):
 

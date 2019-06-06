@@ -1693,7 +1693,7 @@ class WorkController(CirculationManagerController):
 
         url = annotator.feed_url(lane, facets=facets, pagination=pagination)
         feed = feed_class.page(
-            self._db, lane.display_name, url, lane,
+            _db=self._db, title=lane.display_name, url=url, lane=lane,
             facets=facets, pagination=pagination,
             annotator=annotator, cache_type=CachedFeed.SERIES_TYPE
         )
