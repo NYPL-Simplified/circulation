@@ -91,23 +91,18 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         eq_(qu, ep.called_with)
 
     def test_navigate(self):
-        # navigate creates a new FacetsWithEntryPoint and calls
-        # finalize_navigate() to complete any setup.
-
-        class MockFacetsWithEntryPoint(FacetsWithEntryPoint):
-            def finalize_navigate(self, old_facets):
-                self.finalize_navigate_called_with = old_facets
+        # navigate creates a new FacetsWithEntryPoint.
 
         old_entrypoint = object()
         kwargs = dict(extra_key="extra_value")
-        facets = MockFacetsWithEntryPoint(
+        facets = FacetsWithEntryPoint(
             old_entrypoint, entrypoint_is_default=True, **kwargs
         )
         new_entrypoint = object()
         new_facets = facets.navigate(new_entrypoint)
 
-        # A new MockFacetsWithEntryPoint was created.
-        assert isinstance(new_facets, MockFacetsWithEntryPoint)
+        # A new FacetsWithEntryPoint was created.
+        assert isinstance(new_facets, FacetsWithEntryPoint)
 
         # It has the new entry point.
         eq_(new_entrypoint, new_facets.entrypoint)
@@ -119,10 +114,6 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         # The keyword arguments used to create the original faceting
         # object were propagated to its constructor.
         eq_(kwargs, new_facets.constructor_kwargs)
-
-        # The original faceting object was passed into finalize_navigate()
-        # to perform any class-specific setup.
-        eq_(facets, new_facets.finalize_navigate_called_with)
 
     def test_from_request(self):
         # from_request just calls the _from_request class method
@@ -226,10 +217,6 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         )
         eq_(dict(extra="extra kwarg"), facets.constructor_kwargs)
         eq_(MockFacetsWithEntryPoint.selectable_entrypoints_called_with, config)
-
-        # finalize_from_request was given the current facet configuration
-        # and the active worklist.
-        eq_((config, mock_worklist), facets.finalize_from_request_called_with)
 
     def test_load_entrypoint(self):
         audio = AudiobooksEntryPoint
@@ -1648,7 +1635,7 @@ class TestWorkList(DatabaseTest):
         """
         class MockWorkList(WorkList):
 
-            def featured_works(self, _db, facets):
+            def works(self, _db, facets):
                 self.featured_called_with = facets
                 return []
 
@@ -3696,7 +3683,7 @@ class TestWorkListGroups(DatabaseTest):
             def __init__(self, mock_works):
                 self.mock_works = mock_works
 
-            def works_from_search_index(self, _db, facets, pagination, *args, **kwargs):
+            def works(self, _db, facets, pagination, *args, **kwargs):
                 self.called_with = [_db, facets, pagination]
                 return [self.mock_works]
 

@@ -194,12 +194,10 @@ class FacetsWithEntryPoint(BaseFacets):
         """Create a very similar FacetsWithEntryPoint that points to
         a different EntryPoint.
         """
-        destination = self.__class__(
+        return self.__class__(
             entrypoint=entrypoint, entrypoint_is_default=False,
             **self.constructor_kwargs
         )
-        destination.finalize_navigate(self)
-        return destination
 
     @classmethod
     def from_request(
@@ -259,28 +257,10 @@ class FacetsWithEntryPoint(BaseFacets):
         if isinstance(entrypoint, ProblemDetail):
             return entrypoint
         entrypoint, is_default = entrypoint
-        obj = cls(entrypoint=entrypoint, entrypoint_is_default=is_default,
-                  **extra_kwargs)
-        obj.finalize_from_request(facet_config, worklist)
-        return obj
-
-    def finalize_from_request(self, facet_config, worklist):
-        """A hook method invoked on a FacetsWithEntryPoint object immediately
-        after it was instantiated from request data.
-
-        This allows subclasses to do pull additional configuration from
-        request data without having to override class methods.
-        """
-        pass
-
-    def finalize_navigate(self, old_facets):
-        """A hook method invoked on a FacetsWithEntryPoint object immediately
-        after navigating to it from some other FacetsWithEntryPoint.
-
-        This allows subclasses to do copy additional configuration
-        data without having to override class methods.
-        """
-        pass
+        return cls(
+            entrypoint=entrypoint, entrypoint_is_default=is_default,
+            **extra_kwargs
+        )
 
     @classmethod
     def load_entrypoint(cls, name, valid_entrypoints, default=None):
@@ -461,7 +441,7 @@ class Facets(FacetsWithEntryPoint):
     def navigate(self, collection=None, availability=None, order=None,
                  entrypoint=None):
         """Create a slightly different Facets object from this one."""
-        destination = self.__class__(
+        return self.__class__(
             self.library,
             collection or self.collection,
             availability or self.availability,
@@ -470,8 +450,6 @@ class Facets(FacetsWithEntryPoint):
             entrypoint=(entrypoint or self.entrypoint),
             entrypoint_is_default=False,
         )
-        destination.finalize_navigate(self)
-        return destination
 
 
     def items(self):
@@ -1046,7 +1024,8 @@ class Pagination(object):
         that would be useful to know when reasoning about earlier or
         later pages.
         """
-        self.this_page_size = len(page)
+        size = len(page)
+        self.this_page_size = size
         self.page_has_loaded = True
 
 
@@ -1394,7 +1373,7 @@ class WorkList(object):
         if not include_sublanes:
             # We only need to find featured works for this lane,
             # not this lane plus its sublanes.
-            for work in self.featured_works(_db, facets=facets):
+            for work in self.works(_db, facets=facets):
                 yield work, self
             return
 
@@ -2014,6 +1993,9 @@ class WorkList(object):
         # risk that we'll end up reusing a book in two different
         # lanes.
         ask_for_size = max(target_size+1, int(target_size * 1.10))
+        # TODO: we're reusing this pagination object, which means
+        # page_loaded will be called multiple times. Could this be a
+        # problem?
         pagination = Pagination(size=ask_for_size)
 
         from external_search import ExternalSearchIndex
@@ -2122,7 +2104,7 @@ class WorkList(object):
 
         # Ask the search engine for works from every lane we're given.
         for lane in lanes:
-            for work in lane.works_from_search_index(
+            for work in lane.works(
                 _db, facets, pagination, search_engine=search_engine,
                 debug=debug
             ):
