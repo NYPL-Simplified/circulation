@@ -1586,9 +1586,7 @@ class WorkController(CirculationManagerController):
             return NO_SUCH_LANE.detailed(e.message)
 
         annotator = self.manager.annotator(lane)
-        facets = load_facets_from_request(
-            worklist=lane, base_class=SeriesFacets
-        )
+        facets = load_facets_from_request(worklist=lane)
         if isinstance(facets, ProblemDetail):
             return facets
         pagination = load_pagination_from_request()

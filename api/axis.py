@@ -295,7 +295,6 @@ class Axis360API(Authenticator, BaseCirculationAPI, HasCollectionSelfTests):
             args['patronId'] = patron_id
         if title_ids:
             args['titleIds'] = ','.join(title_ids)
-        set_trace()
         response = self.request(url, params=args, timeout=None)
         return response
 

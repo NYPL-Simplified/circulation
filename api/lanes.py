@@ -769,6 +769,14 @@ class DynamicLane(WorkList):
     in the database."""
 
 
+class WorksFromDatabase(DynamicLane):
+    """A DynamicLane that still gets its works from the database rather
+    than the search engine.
+    """
+    pass
+WorksFromDatabase.works = WorksFromDatabase.works_from_database
+
+
 class WorkBasedLane(DynamicLane):
     """A lane that shows works related to one particular Work."""
 
@@ -917,7 +925,7 @@ class RelatedBooksLane(WorkBasedLane):
             pass
 
 
-class RecommendationLane(WorkBasedLane):
+class RecommendationLane(WorkBasedLane, WorksFromDatabase):
     """A lane of recommended Works based on a particular Work"""
 
     DISPLAY_NAME = "Recommended Books"
@@ -981,7 +989,7 @@ class SeriesFacets(Facets):
         return Facets.default_facet(config, facet_group_name)
 
     def finalize_from_request(self, facet_config, worklist):
-        self.series = worklist.series_name
+        self.series = worklist.series
 
     def finalize_navigate(self, old_facets):
         self.series = old_facets.series
@@ -999,11 +1007,11 @@ class SeriesLane(DynamicLane):
 
     def __init__(self, library, series_name, parent=None, **kwargs):
         if not series_name:
-            raise ValueError("Missing series_name")
+            raise ValueError("SeriesLane can't be created without series")
         super(SeriesLane, self).initialize(
             library, display_name=series_name, **kwargs
         )
-        self.series_name = series_name
+        self.series = series_name
         if parent:
             parent.append_child(self)
             if isinstance(parent, WorkBasedLane):
@@ -1019,7 +1027,7 @@ class SeriesLane(DynamicLane):
 
     @property
     def url_arguments(self):
-        kwargs = dict(series_name=self.series_name)
+        kwargs = dict(series_name=self.series)
         if self.language_key:
             kwargs['languages'] = self.language_key
         if self.audience_key:
@@ -1027,7 +1035,7 @@ class SeriesLane(DynamicLane):
         return self.ROUTE, kwargs
 
 
-class ContributorLane(DynamicLane):
+class ContributorLane(WorksFromDatabase):
     """A lane of Works written by a particular contributor"""
 
     ROUTE = 'contributor'
@@ -1091,6 +1099,7 @@ class ContributorLane(DynamicLane):
         return super(ContributorLane, self).apply_filters(
             _db, qu, facets, pagination, featured=featured)
 
+
 class CrawlableFacets(Facets):
     """A special Facets class for crawlable feeds."""
     @classmethod
@@ -1121,7 +1130,7 @@ class CrawlableFacets(Facets):
                 [updated, collection_id, work_id])
 
 
-class CrawlableCollectionBasedLane(DynamicLane):
+class CrawlableCollectionBasedLane(WorksFromDatabase):
 
     LIBRARY_ROUTE = "crawlable_library_feed"
     COLLECTION_ROUTE = "crawlable_collection_feed"
@@ -1178,7 +1187,7 @@ class CrawlableCollectionBasedLane(DynamicLane):
             return self.COLLECTION_ROUTE, kwargs
 
 
-class CrawlableCustomListBasedLane(DynamicLane):
+class CrawlableCustomListBasedLane(WorksFromDatabase):
     """A lane that consists of all works in a single CustomList."""
 
     ROUTE = "crawlable_list_feed"

@@ -336,7 +336,7 @@ class TestWorkBasedLane(DatabaseTest):
         eq_(['spa'], child1.languages)
         eq_([Classifier.AUDIENCE_CHILDREN], child1.audiences)
 
-        # It also happens when .append_child is called after the 
+        # It also happens when .append_child is called after the
         # constructor.
         lane.append_child(child2)
         eq_(['spa'], child2.languages)
@@ -601,7 +601,6 @@ class TestSeriesFacets(DatabaseTest):
                 SeriesFacets.available_facets(config, group_name))
             eq_(Facets.default_facet(config, group_name),
                 SeriesFacets.default_facet(config, group_name))
-            
 
         # However, SeriesFacets has an extra sort option -- you can
         # sort by series position.
@@ -640,7 +639,6 @@ class TestSeriesFacets(DatabaseTest):
 class TestSeriesLane(LaneTest):
 
     def test_initialization(self):
-
         # An error is raised if SeriesLane is created with an empty string.
         assert_raises(
             ValueError, SeriesLane, self._default_library, ''
@@ -657,8 +655,8 @@ class TestSeriesLane(LaneTest):
                            parent=work_based_lane, languages=['eng'],
                            audiences=['another audience'])
 
-        # The series provided in the constructor is stored as .series_name.
-        eq_("Alrighty Then", child.series_name)
+        # The series provided in the constructor is stored as .series.
+        eq_("Alrighty Then", child.series)
 
         # The SeriesLane is added as a child of its parent
         # WorkBasedLane -- something that doesn't happen by default.

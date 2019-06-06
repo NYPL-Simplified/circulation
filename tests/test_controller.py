@@ -2549,7 +2549,7 @@ class TestWorkController(CirculationControllerTest):
         # search index, which is obnoxiously slow.
         #
         # Instead, we will mock OPDSFeed.page, and examine the objects
-        # passed into it under different mock requests. 
+        # passed into it under different mock requests.
         #
         # Those objects, such as SeriesLane and SeriesFacets, are
         # tested elsewhere, in terms of their effects on search
@@ -2595,7 +2595,7 @@ class TestWorkController(CirculationControllerTest):
         lane = kwargs.pop('lane')
         assert isinstance(lane, SeriesLane)
         eq_(self._default_library.id, lane.library_id)
-        eq_(series_name, lane.series_name)
+        eq_(series_name, lane.series)
         eq_(["some languages"], lane.languages)
         eq_(["some audiences"], lane.audiences)
 
@@ -2638,7 +2638,7 @@ class TestWorkController(CirculationControllerTest):
         facets = Mock.called_with.pop('facets')
         assert isinstance(facets, SeriesFacets)
         eq_("series", facets.order)
-                
+
 
 class TestFeedController(CirculationControllerTest):
 
@@ -3121,7 +3121,7 @@ class TestMARCRecordController(CirculationControllerTest):
             libraries=[self._default_library])
 
         rep1, ignore = create(
-            self._db, Representation, 
+            self._db, Representation,
             url="http://mirror1", mirror_url="http://mirror1",
             media_type=Representation.MARC_MEDIA_TYPE,
             mirrored_at=now)
@@ -3131,7 +3131,7 @@ class TestMARCRecordController(CirculationControllerTest):
             representation=rep1, end_time=now)
 
         rep2, ignore = create(
-            self._db, Representation, 
+            self._db, Representation,
             url="http://mirror2", mirror_url="http://mirror2",
             media_type=Representation.MARC_MEDIA_TYPE,
             mirrored_at=yesterday)
@@ -3141,7 +3141,7 @@ class TestMARCRecordController(CirculationControllerTest):
             representation=rep2, end_time=yesterday)
 
         rep3, ignore = create(
-            self._db, Representation, 
+            self._db, Representation,
             url="http://mirror3", mirror_url="http://mirror3",
             media_type=Representation.MARC_MEDIA_TYPE,
             mirrored_at=now)
@@ -3197,7 +3197,7 @@ class TestMARCRecordController(CirculationControllerTest):
         # they will still be available to download.
         now = datetime.datetime.now()
         rep, ignore = create(
-            self._db, Representation, 
+            self._db, Representation,
             url="http://mirror1", mirror_url="http://mirror1",
             media_type=Representation.MARC_MEDIA_TYPE,
             mirrored_at=now)
@@ -4189,4 +4189,3 @@ class TestStaticFileController(CirculationControllerTest):
 
         eq_(200, response.status_code)
         eq_(expected_content, response.response.file.read())
-        
