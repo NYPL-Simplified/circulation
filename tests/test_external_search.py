@@ -82,7 +82,7 @@ class TestExternalSearch(ExternalSearchTest):
         # Normally, load() returns a brand new ExternalSearchIndex
         # object.
         loaded = ExternalSearchIndex.load(self._db, in_testing=True)
-        assert isinstance(ExternalSearchIndex, loaded)
+        assert isinstance(loaded, ExternalSearchIndex)
 
         # However, inside the mock_search_index context manager,
         # load() returns whatever object was mocked.
@@ -100,7 +100,7 @@ class TestExternalSearch(ExternalSearchTest):
             def set_works_index_and_alias(self, _db):
                 self.set_works_index_and_alias_called_with = _db
 
-        index = MockIndex(self._db, in_testing=True)
+        index = MockIndex(self._db)
         eq_(self._db, index.set_works_index_and_alias_called_with)
         eq_("test_search_term", index.test_search_term)
 

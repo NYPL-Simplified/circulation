@@ -238,7 +238,6 @@ class FacetsWithEntryPoint(BaseFacets):
             default_entrypoint, **extra_kwargs
         )
 
-
     @classmethod
     def _from_request(
             cls, facet_config, get_argument, get_header, worklist,
@@ -348,12 +347,26 @@ class Facets(FacetsWithEntryPoint):
 
     @classmethod
     def available_facets(cls, config, facet_group_name):
-        """Which facets are enabled for the given facet group?"""
+        """Which facets are enabled for the given facet group?
+
+        You can override this to forcible enable or disable facets
+        that might not be enabled in library configuration, but you
+        can't make up totally new facets.
+
+        TODO: This sytem would make more sense if you _could_ make up
+        totally new facets, maybe because each facet was represented
+        as a policy object rather than a key to code implemented
+        elsewhere in this class. Right now this method implies more
+        flexibility than actually exists.
+        """
         return config.enabled_facets(facet_group_name)
 
     @classmethod
     def default_facet(cls, config, facet_group_name):
-        """The default value for the given facet group."""
+        """The default value for the given facet group.
+
+        The default value must be one of the values returned by available_facets() above.
+        """
         return config.default_facet(facet_group_name)
 
     @classmethod

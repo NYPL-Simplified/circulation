@@ -636,9 +636,7 @@ class TestFacets(DatabaseTest):
     def test_from_request_gets_available_facets_through_hook_methods(self):
         # Available and default facets are determined by calling the
         # available_facets() and default_facets() methods. This gives
-        # subclasses a chance to add extra facets or change defaults,
-        # so long as those extras are allowed by the library
-        # configuration.
+        # subclasses a chance to add extra facets or change defaults.
         class Mock(Facets):
             available_facets_calls = []
             default_facet_calls = []
