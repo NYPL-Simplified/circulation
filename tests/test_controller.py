@@ -2391,12 +2391,17 @@ class TestWorkController(CirculationControllerTest):
         metadata.recommendations = [same_author.license_pools[0].identifier]
         mock_api.setup(metadata)
 
+        search_engine = MockExternalSearchIndex()
+        search_engine.bulk_update([self.work, same_series_work])
+
         # A grouped feed is returned with all of the related books
-        with self.request_context_with_library('/'):
-            response = self.manager.work_controller.related(
-                self.identifier.type, self.identifier.identifier,
-                novelist_api=mock_api
-            )
+
+        with mock_search_index(search_engine):
+            with self.request_context_with_library('/'):
+                response = self.manager.work_controller.related(
+                    self.identifier.type, self.identifier.identifier,
+                    novelist_api=mock_api
+                )
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
         eq_(5, len(feed['entries']))
