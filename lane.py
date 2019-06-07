@@ -2414,13 +2414,20 @@ class Lane(Base, WorkList):
         """
         if not self.parent:
             return
-        yield self.parent
-        seen = set([self, self.parent])
-        for parent in self.parent.parentage:
-            if parent in seen:
+        parent = self.parent
+        if Session.object_session(parent) is None:
+            # This lane's parent was disconnected from its database session,
+            # probably when an app server started up.
+            # Reattach it to the database session used by this lane.
+            parent = Session.object_session(self).merge(parent)
+
+        yield parent
+        seen = set([self, parent])
+        for grandparent in parent.parentage:
+            if grandparent in seen:
                 raise ValueError("Lane parentage loop detected")
-            seen.add(parent)
-            yield parent
+            seen.add(grandparent)
+            yield grandparent
 
     @property
     def depth(self):
