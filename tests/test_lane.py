@@ -140,9 +140,8 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         eq_(expect, result)
 
     def test__from_request(self):
-        # _from_request calls load_entrypoint(), instantiates the
-        # class with the result, and calls finalize_from_request to
-        # complete setup.
+        # _from_request calls load_entrypoint() and instantiates the
+        # class with the result.
 
         # Mock load_entrypoint() to return whatever value we have set up
         # ahead of time.
@@ -158,11 +157,6 @@ class TestFacetsWithEntryPoint(DatabaseTest):
             def load_entrypoint(cls, entrypoint_name, entrypoints, default=None):
                 cls.load_entrypoint_called_with = (entrypoint_name, entrypoints, default)
                 return cls.expect
-
-            def finalize_from_request(self, facet_config, worklist):
-                self.finalize_from_request_called_with = (
-                    facet_config, worklist
-                )
 
         # Mock the functions that pull information out of an HTTP
         # request.
