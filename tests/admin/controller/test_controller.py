@@ -2395,8 +2395,11 @@ class TestCustomListsController(AdminControllerTest):
 
         # This lane depends heavily on lists from this data source.
         lane = self._lane()
+        lane.display_name = "to be automatically removed"
         lane.list_datasource = list.data_source
+        lane.customlists.append(list)
         lane.size = 100
+        eq_(1, self._db.query(Lane).filter(Lane.display_name=="to be automatically removed").count())
 
         with self.request_context_with_library_and_admin("/", method="DELETE"):
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
@@ -2404,6 +2407,7 @@ class TestCustomListsController(AdminControllerTest):
 
             eq_(0, self._db.query(CustomList).count())
             eq_(0, self._db.query(CustomListEntry).count())
+            eq_(0, self._db.query(Lane).filter(Lane.display_name=="to be automatically removed").count())
 
         # The lane's estimate has been updated to reflect the removal
         # of a list from its data source.
