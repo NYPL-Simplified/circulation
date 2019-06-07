@@ -321,11 +321,15 @@ class CirculationControllerTest(ControllerTest):
 
     def setup(self):
         super(CirculationControllerTest, self).setup()
+        self.search_engine = MockExternalSearchIndex()
+        self.works = []
         for (variable_name, title, author, language, fiction) in self.BOOKS:
             work = self._work(title, author, language=language, fiction=fiction,
                               with_open_access_download=True)
             setattr(self, variable_name, work)
             work.license_pools[0].collection = self.collection
+            self.works.append(work)
+        self.search_engine.bulk_update(self.works)
 
 
 class TestCirculationManager(CirculationControllerTest):
@@ -2653,7 +2657,39 @@ class TestFeedController(CirculationControllerTest):
     ]
 
     def test_feed(self):
-        SessionManager.refresh_materialized_views(self._db)
+        # Test the feed() method.
+
+        # First, test some common error conditions.
+
+        # Bad lane -> Problem detail
+        with self.request_context_with_library("/"):
+            response = self.manager.opds_feeds.feed(-1)
+            eq_(404, response.status_code)
+            eq_(
+                "http://librarysimplified.org/terms/problem/unknown-lane",
+                response.uri
+            )
+
+        # Bad faceting information -> Problem detail
+        lane_id = self.english_adult_fiction.id
+        with self.request_context_with_library("/?order=nosuchorder"):
+            response = self.manager.opds_feeds.feed(lane_id)
+            eq_(400, response.status_code)
+            eq_(
+                "http://librarysimplified.org/terms/problem/invalid-input",
+                response.uri
+            )
+
+        # Bad pagination -> Problem detail
+        with self.request_context_with_library("/?size=abc"):
+            response = self.manager.opds_feeds.feed(lane_id)
+            eq_(400, response.status_code)
+            eq_(
+                "http://librarysimplified.org/terms/problem/invalid-input",
+                response.uri
+            )
+
+        # Now let's make a real feed.
 
         # Set up configuration settings for links.
         for rel, value in [(LibraryAnnotator.TERMS_OF_SERVICE, "a"),
@@ -2663,76 +2699,117 @@ class TestFeedController(CirculationControllerTest):
                            ]:
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
-        with self.request_context_with_library("/?entrypoint=Book"):
-            response = self.manager.opds_feeds.feed(
-                self.english_adult_fiction.id
-            )
-            assert self.english_1.title in response.data
-            assert self.english_2.title not in response.data
-            assert self.french_1.title not in response.data
+        # Make a real OPDS feed and poke at it. 
+        with self.request_context_with_library(
+            "/?entrypoint=Book&size=10&after=0"
+        ):
+            with mock_search_index(self.search_engine):
+                response = self.manager.opds_feeds.feed(
+                    self.english_adult_fiction.id
+                )
 
+            # The mock search index returned every book it has, without
+            # respect to which books _ought_ to show up on this page.
+            #
+            # So we'll need to do a more detailed test to make sure
+            # the right arguments are being passed _into_ the search
+            # index.
             feed = feedparser.parse(response.data)
+            eq_(set([x.title for x in self.works]),
+                set([x['title'] for x in feed['entries']]))
+
+            # But the rest of the feed looks good.
             links = feed['feed']['links']
             by_rel = dict()
+
+            # Put the links into a data structure based on their rel values.
             for i in links:
-                by_rel[i['rel']] = i['href']
+                rel = i['rel']
+                href = i['href']
+                if isinstance(by_rel.get(rel), basestring):
+                    by_rel[rel] = [by_rel[rel]]
+                if isinstance(by_rel.get(rel), list):
+                    by_rel[rel].append(href)
+                else:
+                    by_rel[i['rel']] = i['href']
 
             eq_("a", by_rel[LibraryAnnotator.TERMS_OF_SERVICE])
             eq_("b", by_rel[LibraryAnnotator.PRIVACY_POLICY])
             eq_("c", by_rel[LibraryAnnotator.COPYRIGHT])
             eq_("d", by_rel[LibraryAnnotator.ABOUT])
 
+            next_link = by_rel['next']
+            lane_str = str(lane_id)
+            assert lane_str in next_link
+            assert 'entrypoint=Book' in next_link
+            assert 'size=10' in next_link
+            assert 'after=10' in next_link
+
             search_link = by_rel['search']
+            assert lane_str in search_link
             assert 'entrypoint=Book' in search_link
 
-    def test_multipage_feed(self):
-        self._work("fiction work", language="eng", fiction=True, with_open_access_download=True)
-        SessionManager.refresh_materialized_views(self._db)
-        with self.request_context_with_library("/?size=1"):
-            lane_id = self.english_adult_fiction.id
-            response = self.manager.opds_feeds.feed(lane_id)
-
-            feed = feedparser.parse(response.data)
-            entries = feed['entries']
-
-            eq_(1, len(entries))
-
-            links = feed['feed']['links']
-            next_link = [x for x in links if x['rel'] == 'next'][0]['href']
-            assert 'after=1' in next_link
-            assert 'size=1' in next_link
-
-            facet_links = [x for x in links if x['rel'] == 'http://opds-spec.org/facet']
-            assert any('order=title' in x['href'] for x in facet_links)
-            assert any('order=author' in x['href'] for x in facet_links)
-
-            search_link = [x for x in links if x['rel'] == 'search'][0]['href']
-            assert '/search/%s' % lane_id in search_link
-
-            shelf_link = [x for x in links if x['rel'] == 'http://opds-spec.org/shelf'][0]['href']
+            shelf_link = by_rel['http://opds-spec.org/shelf']
             assert shelf_link.endswith('/loans/')
 
-    def test_bad_order_gives_problem_detail(self):
-        with self.request_context_with_library("/?order=nosuchorder"):
+            facet_links = by_rel['http://opds-spec.org/facet']
+            assert all(lane_str in x for x in facet_links)
+            assert all('entrypoint=Book' in x for x in facet_links)
+            assert any('order=title' in x for x in facet_links)
+            assert any('order=author' in x for x in facet_links)       
+
+        # Now let's take a closer look at what this controller method
+        # passes into AcquisitionFeed.page(), by mocking page().
+        class Mock(object):
+            @classmethod
+            def page(cls, **kwargs):
+                cls.called_with = kwargs
+                return "An OPDS feed"
+
+        with self.request_context_with_library(
+            "/?entrypoint=Audio&size=36&after=29&order=added"
+        ):
             response = self.manager.opds_feeds.feed(
-                self.english_adult_fiction.id
-            )
-            eq_(400, response.status_code)
-            eq_(
-                "http://librarysimplified.org/terms/problem/invalid-input",
-                response.uri
+                self.english_adult_fiction.id, feed_class=Mock
             )
 
-    def test_bad_pagination_gives_problem_detail(self):
-        with self.request_context_with_library("/?size=abc"):
-            response = self.manager.opds_feeds.feed(
-                self.english_adult_fiction.id
+            # While we're in request context, generate the URL we
+            # expect to be used for this feed.
+            expect_url = self.controller.cdn_url_for(
+                "feed", lane_identifier=lane_id,
+                library_short_name=self._default_library.short_name,
             )
-            eq_(400, response.status_code)
-            eq_(
-                "http://librarysimplified.org/terms/problem/invalid-input",
-                response.uri
-            )
+
+        # We got a 200 response, where the data returned by the mock
+        # method is served as an OPDS feed.
+        eq_(200, response.status_code)
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
+        eq_("An OPDS feed", response.data)
+
+        # Now check all the keyword arguments that were passed into
+        # page().
+        kwargs = Mock.called_with
+        eq_(kwargs.pop('url'), expect_url)
+        eq_(self._db, kwargs.pop('_db'))
+        eq_(self.english_adult_fiction.display_name, kwargs.pop('title'))
+        eq_(self.english_adult_fiction, kwargs.pop('lane'))
+
+        # Query string arguments were taken into account when
+        # creating the Facets and Pagination objects.
+        facets = kwargs.pop('facets')
+        eq_('added', facets.order)
+        pagination = kwargs.pop('pagination')
+        eq_(36, pagination.size)
+        eq_(29, pagination.offset)
+
+        # The Annotator object was instantiated with the proper lane
+        # and the newly created Facets object.
+        annotator = kwargs.pop('annotator')
+        eq_(self.english_adult_fiction, annotator.lane)
+        eq_(facets, annotator.facets)
+
+        # No other arguments were passed into page().
+        eq_({}, kwargs)
 
     def test_groups(self):
         ConfigurationSetting.sitewide(

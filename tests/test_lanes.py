@@ -613,10 +613,7 @@ class TestSeriesFacets(DatabaseTest):
         eq_(SeriesFacets.ORDER_SERIES_POSITION,
             SeriesFacets.default_facet(config, group_name))
 
-    def test_finalize_methods(self):
-        # Verify that finalize methods are called when SeriesFacets
-        # objects are created.
-
+    def test_instantiation_and_navigation(self):
         # When a SeriesFacets is instantiated for a SeriesLane,
         # the series associated with the SeriesLane is copied to the
         # SeriesFacets.

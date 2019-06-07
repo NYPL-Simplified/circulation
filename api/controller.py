@@ -694,31 +694,29 @@ class OPDSFeedController(CirculationManagerController):
         )
         return feed_response(feed)
 
-    def feed(self, lane_identifier):
+    def feed(self, lane_identifier, feed_class=AcquisitionFeed):
         """Build or retrieve a paginated acquisition feed."""
-
         lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
+        facets = load_facets_from_request(worklist=lane)
+        if isinstance(facets, ProblemDetail):
+            return facets
+        pagination = load_pagination_from_request()
+        if isinstance(pagination, ProblemDetail):
+            return pagination
+
         library_short_name = flask.request.library.short_name
         url = self.cdn_url_for(
             "feed", lane_identifier=lane_identifier,
             library_short_name=library_short_name,
         )
 
-        title = lane.display_name
-
-        facets = load_facets_from_request(worklist=lane)
-        if isinstance(facets, ProblemDetail):
-            return facets
         annotator = self.manager.annotator(lane, facets=facets)
-        pagination = load_pagination_from_request()
-        if isinstance(pagination, ProblemDetail):
-            return pagination
-        feed = AcquisitionFeed.page(
-            self._db, title, url, lane, annotator=annotator,
-            facets=facets,
-            pagination=pagination,
+        feed = feed_class.page(
+            _db=self._db, title=lane.display_name,
+            url=url, lane=lane, annotator=annotator,
+            facets=facets, pagination=pagination,
         )
         return feed_response(feed)
 
