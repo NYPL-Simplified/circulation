@@ -441,6 +441,8 @@ class CacheRepresentationPerLane(TimestampScript, LaneSweeperScript):
         Pagination objects returned by facets() and pagination().
         """
         cached_feeds = []
+        for i in lane.hierarchy:
+            i = self._db.merge(i)
         for facets in self.facets(lane):
             for pagination in self.pagination(lane):
                 extra_description = ""

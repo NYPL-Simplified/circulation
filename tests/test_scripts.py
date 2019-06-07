@@ -31,6 +31,11 @@ from core.entrypoint import (
     EntryPoint,
 )
 
+from core.external_search import (
+    MockExternalSearchIndex,
+    mock_search_index,
+)
+
 from core.lane import (
     Lane,
     Facets,
@@ -522,9 +527,11 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
             parent=lane, display_name="Science Fiction", fiction=True,
             genres=["Science Fiction"]
         )
-        self.add_to_materialized_view([work], true_opds=True)
-        script = CacheOPDSGroupFeedPerLane(self._db, cmd_args=[])
-        script.do_run(cmd_args=[])
+        search_engine = MockExternalSearchIndex()
+        search_engine.bulk_update([work])
+        with mock_search_index(search_engine):
+            script = CacheOPDSGroupFeedPerLane(self._db, cmd_args=[])
+            script.do_run(cmd_args=[])
 
         # The Lane object was disconnected from its database session
         # when the app server was initialized. Reconnect it.
