@@ -57,6 +57,7 @@ from ..external_search import (
     SearchIndexCoverageProvider,
     SearchIndexMonitor,
     SortKeyPagination,
+    mock_search_index,
 )
 # NOTE: external_search took care of handling the differences between
 # Elasticsearch versions and making sure 'Q' and 'F' are set
@@ -77,17 +78,29 @@ from ..testing import (
 
 class TestExternalSearch(ExternalSearchTest):
 
+    def test_load(self):
+        # Normally, load() returns a brand new ExternalSearchIndex
+        # object.
+        loaded = ExternalSearchIndex.load(self._db, in_testing=True)
+        assert isinstance(loaded, ExternalSearchIndex)
+
+        # However, inside the mock_search_index context manager,
+        # load() returns whatever object was mocked.
+        mock = object()
+        with mock_search_index(mock):
+            eq_(mock, ExternalSearchIndex.load(self._db, in_testing=True))
+
     def test_constructor(self):
         # The configuration of the search ExternalIntegration becomes the
         # configuration of the ExternalSearchIndex.
         #
         # This basically just verifies that the test search term is taken
         # from the ExternalIntegration.
-        class Mock(ExternalSearchIndex):
+        class MockIndex(ExternalSearchIndex):
             def set_works_index_and_alias(self, _db):
                 self.set_works_index_and_alias_called_with = _db
 
-        index = Mock(self._db, in_testing=True)
+        index = MockIndex(self._db)
         eq_(self._db, index.set_works_index_and_alias_called_with)
         eq_("test_search_term", index.test_search_term)
 
@@ -2649,14 +2662,14 @@ class TestFilter(DatabaseTest):
 
         # When multiple fields are given, they are put at the
         # beginning and any remaining tiebreaker fields are added.
-        f.order=['series_position', 'sort_title', 'some_other_field']
+        f.order=['series_position', 'work_id', 'some_other_field']
         eq_(
             [
                 dict(series_position='asc'),
-                dict(sort_title='asc'),
+                dict(work_id='asc'),
                 dict(some_other_field='asc'),
                 dict(sort_author='asc'),
-                dict(work_id='asc'),
+                dict(sort_title='asc'),
             ],
             f.sort_order
         )
@@ -2676,15 +2689,29 @@ class TestFilter(DatabaseTest):
         # Facets.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME.
         used_orders = Facets.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME
         added_to_collection = used_orders[Facets.ORDER_ADDED_TO_COLLECTION]
+        series_position = used_orders[Facets.ORDER_SERIES_POSITION]
         for sort_field in used_orders.values():
-            if sort_field == added_to_collection:
-                # This is the complicated case, tested below.
+            if sort_field in (added_to_collection, series_position):
+                # These are complicated cases, tested below.
                 continue
             f.order = sort_field
             first_field = validate_sort_order(f, sort_field)
             eq_({sort_field: 'asc'}, first_field)
 
-        # The only complicated case is when a feed is ordered by date
+        # A slightly more complicated case is when a feed is ordered by
+        # series position -- there the second field is title rather than
+        # author.
+        f.order = series_position
+        eq_(
+            [
+                {x:'asc'} for x in [
+                    'series_position', 'sort_title', 'sort_author', 'work_id'
+                ]
+            ],
+            f.sort_order
+        )
+
+        # A more complicated case is when a feed is ordered by date
         # added to the collection. This requires an aggregate function
         # and potentially a nested filter.
         f.order = added_to_collection

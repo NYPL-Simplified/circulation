@@ -703,6 +703,12 @@ class AcquisitionFeed(OPDSFeed):
             search_engine=search_engine, debug=search_debug
         )
 
+        if not isinstance(works, list):
+            # It's possible that works() returned a database query or
+            # other generator-like object, but at this point we want
+            # an actual list of Work objects.
+            works = [x for x in works]
+
         if not pagination.page_has_loaded:
             # Depending on how the works were obtained,
             # Pagination.page_loaded may or may not have been called

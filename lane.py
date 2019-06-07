@@ -257,8 +257,10 @@ class FacetsWithEntryPoint(BaseFacets):
         if isinstance(entrypoint, ProblemDetail):
             return entrypoint
         entrypoint, is_default = entrypoint
-        return cls(entrypoint=entrypoint, entrypoint_is_default=is_default,
-                   **extra_kwargs)
+        return cls(
+            entrypoint=entrypoint, entrypoint_is_default=is_default,
+            **extra_kwargs
+        )
 
     @classmethod
     def load_entrypoint(cls, name, valid_entrypoints, default=None):
@@ -324,12 +326,36 @@ class Facets(FacetsWithEntryPoint):
         return cls(library, collection=None, availability=None, order=None)
 
     @classmethod
+    def available_facets(cls, config, facet_group_name):
+        """Which facets are enabled for the given facet group?
+
+        You can override this to forcible enable or disable facets
+        that might not be enabled in library configuration, but you
+        can't make up totally new facets.
+
+        TODO: This sytem would make more sense if you _could_ make up
+        totally new facets, maybe because each facet was represented
+        as a policy object rather than a key to code implemented
+        elsewhere in this class. Right now this method implies more
+        flexibility than actually exists.
+        """
+        return config.enabled_facets(facet_group_name)
+
+    @classmethod
+    def default_facet(cls, config, facet_group_name):
+        """The default value for the given facet group.
+
+        The default value must be one of the values returned by available_facets() above.
+        """
+        return config.default_facet(facet_group_name)
+
+    @classmethod
     def from_request(cls, library, config, get_argument, get_header, worklist,
                      default_entrypoint=None, **extra):
         """Load a faceting object from an HTTP request."""
         g = Facets.ORDER_FACET_GROUP_NAME
-        order = get_argument(g, config.default_facet(g))
-        order_facets = config.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
+        order = get_argument(g, cls.default_facet(config, g))
+        order_facets = cls.available_facets(config, g)
         if order and not order in order_facets:
             return INVALID_INPUT.detailed(
                 _("I don't know how to order a feed by '%(order)s'", order=order),
@@ -338,10 +364,8 @@ class Facets(FacetsWithEntryPoint):
         extra['order'] = order
 
         g = Facets.AVAILABILITY_FACET_GROUP_NAME
-        availability = get_argument(g, config.default_facet(g))
-        availability_facets = config.enabled_facets(
-            Facets.AVAILABILITY_FACET_GROUP_NAME
-        )
+        availability = get_argument(g, cls.default_facet(config, g))
+        availability_facets = cls.available_facets(config, g)
         if availability and not availability in availability_facets:
             return INVALID_INPUT.detailed(
                 _("I don't understand the availability term '%(availability)s'", availability=availability),
@@ -350,10 +374,8 @@ class Facets(FacetsWithEntryPoint):
         extra['availability'] = availability
 
         g = Facets.COLLECTION_FACET_GROUP_NAME
-        collection = get_argument(g, config.default_facet(g))
-        collection_facets = config.enabled_facets(
-            Facets.COLLECTION_FACET_GROUP_NAME
-        )
+        collection = get_argument(g, cls.default_facet(config, g))
+        collection_facets = cls.available_facets(config, g)
         if collection and not collection in collection_facets:
             return INVALID_INPUT.detailed(
                 _("I don't understand what '%(collection)s' refers to.", collection=collection),
@@ -390,16 +412,16 @@ class Facets(FacetsWithEntryPoint):
             else:
                 order_ascending = self.ORDER_ASCENDING
 
-        collection = collection or library.default_facet(
-            self.COLLECTION_FACET_GROUP_NAME
+        collection = collection or self.default_facet(
+            library, self.COLLECTION_FACET_GROUP_NAME
         )
-        availability = availability or library.default_facet(
-            self.AVAILABILITY_FACET_GROUP_NAME
+        availability = availability or self.default_facet(
+            library, self.AVAILABILITY_FACET_GROUP_NAME
         )
-        order = order or library.default_facet(self.ORDER_FACET_GROUP_NAME)
+        order = order or self.default_facet(library, self.ORDER_FACET_GROUP_NAME)
 
         if (availability == self.AVAILABLE_ALL and (library and not library.allow_holds)
-            and (self.AVAILABLE_NOW in library.enabled_facets(self.AVAILABILITY_FACET_GROUP_NAME))):
+            and (self.AVAILABLE_NOW in self.available_facets(library, self.AVAILABILITY_FACET_GROUP_NAME))):
             # Under normal circumstances we would show all works, but
             # library configuration says to hide books that aren't
             # available.
@@ -419,14 +441,16 @@ class Facets(FacetsWithEntryPoint):
     def navigate(self, collection=None, availability=None, order=None,
                  entrypoint=None):
         """Create a slightly different Facets object from this one."""
-        return self.__class__(self.library,
-                              collection or self.collection,
-                              availability or self.availability,
-                              order or self.order,
-                              enabled_facets=self.facets_enabled_at_init,
-                              entrypoint=(entrypoint or self.entrypoint),
-                              entrypoint_is_default=False,
+        return self.__class__(
+            self.library,
+            collection or self.collection,
+            availability or self.availability,
+            order or self.order,
+            enabled_facets=self.facets_enabled_at_init,
+            entrypoint=(entrypoint or self.entrypoint),
+            entrypoint_is_default=False,
         )
+
 
     def items(self):
         for k,v in super(Facets, self).items():
@@ -441,7 +465,7 @@ class Facets(FacetsWithEntryPoint):
     @property
     def enabled_facets(self):
         """Yield a 3-tuple of lists (order, availability, collection)
-        representing facet values enabled via initialization or Configuration
+        representing facet values enabled via initialization or configuration
 
         The 'entry point' facet group is handled separately, since it
         is not always used.
@@ -457,20 +481,13 @@ class Facets(FacetsWithEntryPoint):
             for facet_type in facet_types:
                 yield self.facets_enabled_at_init.get(facet_type, [])
         else:
-            order_facets = self.library.enabled_facets(
-                Facets.ORDER_FACET_GROUP_NAME
-            )
-            yield order_facets
-
-            availability_facets = self.library.enabled_facets(
-                Facets.AVAILABILITY_FACET_GROUP_NAME
-            )
-            yield availability_facets
-
-            collection_facets = self.library.enabled_facets(
+            library = self.library
+            for group_name in (
+                Facets.ORDER_FACET_GROUP_NAME,
+                Facets.AVAILABILITY_FACET_GROUP_NAME,
                 Facets.COLLECTION_FACET_GROUP_NAME
-            )
-            yield collection_facets
+            ):
+                yield self.available_facets(self.library, group_name)
 
     @property
     def facet_groups(self):
@@ -521,6 +538,9 @@ class Facets(FacetsWithEntryPoint):
     def order_facet_to_database_field(cls, order_facet):
         """Turn the name of an order facet into a materialized-view field
         for use in an ORDER BY clause.
+
+        DEPRECATED - Should be removed or at least changed to use
+        Work fields.
         """
         order_facet_to_database_field = {
             cls.ORDER_ADDED_TO_COLLECTION: mw.availability_time,
@@ -537,6 +557,9 @@ class Facets(FacetsWithEntryPoint):
         """Restrict a query against MaterializedWorkWithGenre so that it only
         matches works that fit the given facets, and the query is
         ordered appropriately.
+
+        DEPRECATED - Should be removed or at least changed to use
+        Work fields.
         """
         qu = super(Facets, self).apply(_db, qu)
         if self.availability == self.AVAILABLE_NOW:
@@ -582,6 +605,9 @@ class Facets(FacetsWithEntryPoint):
     def order_by(self):
         """Given these Facets, create a complete ORDER BY clause for queries
         against WorkModelWithGenre.
+
+        DEPRECATED - Should be removed or at least changed to use
+        Work fields.
         """
         work_id = mw.works_id
         default_sort_order = [
@@ -1157,13 +1183,25 @@ class WorkList(object):
         self.fiction = None
         self.target_age = None
 
-        self.children = children or []
+        self.children = []
+        if children:
+            for child in children:
+                self.append_child(child)
         self.priority = priority or 0
 
         if entrypoints:
             self.entrypoints = list(entrypoints)
         else:
             self.entrypoints = []
+
+    def append_child(self, child):
+        """Add one child to the list of children in this WorkList.
+
+        This hook method can be overridden to modify the child's
+        configuration so as to make it fit with what the parent is
+        offering.
+        """
+        self.children.append(child)
 
     @property
     def customlist_ids(self):
@@ -1334,7 +1372,7 @@ class WorkList(object):
         if not include_sublanes:
             # We only need to find featured works for this lane,
             # not this lane plus its sublanes.
-            for work in self.featured_works(_db, facets=facets):
+            for work in self.works(_db, facets=facets):
                 yield work, self
             return
 
@@ -1518,7 +1556,7 @@ class WorkList(object):
             Filter,
             ExternalSearchIndex,
         )
-        search_engine = search_engine or ExternalSearchIndex(_db)
+        search_engine = search_engine or ExternalSearchIndex.load(_db)
         filter = Filter.from_worklist(_db, self, facets)
         work_ids = search_engine.query_works(
             query_string=None, filter=filter, pagination=pagination,
@@ -1954,10 +1992,13 @@ class WorkList(object):
         # risk that we'll end up reusing a book in two different
         # lanes.
         ask_for_size = max(target_size+1, int(target_size * 1.10))
+        # TODO: we're reusing this pagination object, which means
+        # page_loaded will be called multiple times. Could this be a
+        # problem?
         pagination = Pagination(size=ask_for_size)
 
         from external_search import ExternalSearchIndex
-        search_engine = search_engine or ExternalSearchIndex(_db)
+        search_engine = search_engine or ExternalSearchIndex.load(_db)
 
         if isinstance(self, Lane):
             parent_lane = self
@@ -2062,7 +2103,7 @@ class WorkList(object):
 
         # Ask the search engine for works from every lane we're given.
         for lane in lanes:
-            for work in lane.works_from_search_index(
+            for work in lane.works(
                 _db, facets, pagination, search_engine=search_engine,
                 debug=debug
             ):

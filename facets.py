@@ -116,7 +116,7 @@ class FacetConstants(object):
         ORDER_AUTHOR : "sort_author",
         ORDER_LAST_UPDATE : 'last_update_time',
         ORDER_ADDED_TO_COLLECTION : 'licensepools.availability_time',
-        ORDER_SERIES_POSITION : 'series_position',
+        ORDER_SERIES_POSITION : ['series_position', 'sort_title'],
         ORDER_WORK_ID : '_id',
         ORDER_RANDOM : 'random',
     }
