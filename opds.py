@@ -581,7 +581,7 @@ class AcquisitionFeed(OPDSFeed):
                 if usable:
                     return cached.content
             works_and_lanes = lane.groups(
-                _db, facets=facets, search_engine=search_engine,
+                _db=_db, facets=facets, search_engine=search_engine,
                 debug=search_debug
             )
 
