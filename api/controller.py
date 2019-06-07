@@ -830,14 +830,40 @@ class OPDSFeedController(CirculationManagerController):
             default_entrypoint=default_entrypoint,
         )
 
-    def search(self, lane_identifier):
-
+    def search(self, lane_identifier, feed_class=AcquisitionFeed):
+        """Search for books."""
         lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
+
+        pagination = load_pagination_from_request(
+            default_size=Pagination.DEFAULT_SEARCH_SIZE
+        )
+        if isinstance(pagination, ProblemDetail):
+            return pagination
+
+        facets = self._load_search_facets(lane)
+        if isinstance(facets, ProblemDetail):
+            return lane
+
+        # TODO: Is this still necessary? Most other feeds now come
+        # from the search index, and those methods let lower-down code
+        # find or create the ExternalSearchIndex object.
+        #
+        # The argument against is that it's inefficient to look up
+        # the ExternalSearchIndex object every time. I think this is only
+        # valid if creating the object requires a back-and-forth with the
+        # search server.
+        search_engine = self.manager.external_search
+        if not search_engine:
+            return REMOTE_INTEGRATION_FAILED.detailed(
+                _("The search index for this site is not properly configured.")
+            )
+
+        # Check whether there is a query string -- if not, we want to
+        # send an OpenSearch document explaining how to search.
         query = flask.request.args.get('q')
         library_short_name = flask.request.library.short_name
-        facets = self._load_search_facets(lane)
 
         # Create a function that, when called, generates a URL to the
         # search controller.
@@ -857,27 +883,16 @@ class OPDSFeedController(CirculationManagerController):
             headers = { "Content-Type" : "application/opensearchdescription+xml" }
             return Response(open_search_doc, 200, headers)
 
-        pagination = load_pagination_from_request(default_size=Pagination.DEFAULT_SEARCH_SIZE)
-        if isinstance(pagination, ProblemDetail):
-            return pagination
-
         # We have a query -- add it to the keyword arguments used when
         # generating a URL.
         make_url_kwargs['q'] = query.encode("utf8")
 
         # Run a search.
-        this_url = make_url()
-
         annotator = self.manager.annotator(lane, facets)
         info = OpenSearchDocument.search_info(lane)
-        search_engine = self.manager.external_search
-        if not search_engine:
-            return REMOTE_INTEGRATION_FAILED.detailed(
-                _("The search index for this site is not properly configured.")
-            )
-        opds_feed = AcquisitionFeed.search(
+        opds_feed = feed_class.search(
             _db=self._db, title=info['name'],
-            url=this_url, lane=lane, search_engine=search_engine,
+            url=make_url(), lane=lane, search_engine=search_engine,
             query=query, annotator=annotator, pagination=pagination,
             facets=facets,
         )

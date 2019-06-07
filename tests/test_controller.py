@@ -3099,104 +3099,127 @@ class TestFeedController(CirculationControllerTest):
         self.called_with = (args, kwargs)
 
     def test_search_document(self):
+        # When you invoke the search controller but don't specify a search
+        # term, you get an OpenSearch document.
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.search(None)
             eq_(response.headers['Content-Type'], u'application/opensearchdescription+xml')
             assert "OpenSearchDescription" in response.data
 
     def test_search(self):
-        # Update the index for two works.
-        # english_1 is "Quite British" by John Bull
-        # english_2 is "Totally American" by Uncle Sam
-        self.manager.external_search.bulk_update(
-            [self.english_1, self.english_2]
-        )
+        # Test the search() controller method.
 
-        # Update the materialized view to make sure the works show up.
-        SessionManager.refresh_materialized_views(self._db)
+        # Bad lane -> problem detail
+        with self.request_context_with_library("/"):
+            response = self.manager.opds_feeds.search(-1)
+            eq_(404, response.status_code)
+            eq_(
+                "http://librarysimplified.org/terms/problem/unknown-lane",
+                response.uri
+            )
 
-        # Execute a search query designed to find the second work.
-        with self.request_context_with_library("/?q=t&size=1&after=1"):
-            # First, try the top-level lane.
+        # Bad pagination -> problem detail
+        with self.request_context_with_library("/?size=abc"):
             response = self.manager.opds_feeds.search(None)
+            eq_(400, response.status_code)
+            eq_(
+                "http://librarysimplified.org/terms/problem/invalid-input",
+                response.uri
+            )
 
-            feed = feedparser.parse(response.data)
+        # Loading the SearchFacets object from a request can't return
+        # a problem detail, so we can't test that case.
 
-            # When the feed links to itself or to another page of
-            # results, the arguments necessary to propagate the query
-            # string and facet information are propagated through the
-            # link.
-            def assert_propagates_facets(lane, link):
-                # Assert that the given `link` propagates
-                # the query string arguments found in the facets
-                # associated with this request.
-                facets = self.manager.opds_feeds._load_search_facets(lane)
-                for k, v in facets.items():
-                    check = '%s=%s' % tuple(map(urllib.quote, (k,v)))
-                    assert check in link['href']
+        # The AcquisitionFeed.search method is tested in core, so we're
+        # just going to test that appropriate values are passed into that
+        # method:
 
-            feed_links = feed['feed']['links']
-            for rel in ('next', 'previous', 'self'):
-                [link] = [link for link in feed_links if link.rel == rel]
+        class Mock(object):
+            @classmethod
+            def search(cls, **kwargs):
+                self.called_with = kwargs
+                return "An OPDS feed"
 
-                assert_propagates_facets(None, link)
-                assert 'q=t' in link['href']
-
-            entries = feed['entries']
-            eq_(1, len(entries))
-            entry = entries[0]
-            author = self.english_2.presentation_edition.author_contributors[0]
-            expected_author_name = author.display_name or author.sort_name
-            eq_(expected_author_name, entry.author)
-
-            assert 'links' in entry
-            assert len(entry.links) > 0
-
-            borrow_links = [link for link in entry.links if link.rel == 'http://opds-spec.org/acquisition/borrow']
-            eq_(1, len(borrow_links))
-
-            # The query also works in a different searchable lane.
-            english = self._lane("English", languages=["eng"])
-            response = self.manager.opds_feeds.search(english.id)
-            feed = feedparser.parse(response.data)
-            entries = feed['entries']
-            eq_(1, len(entries))
-
-        old_search = AcquisitionFeed.search
-        AcquisitionFeed.search = self.mock_search
-
-        # Verify that AcquisitionFeed.search() is passed a faceting
-        # object with the appropriately selected EntryPoint.
-
-        # By default, the library only has one entry point enabled --
-        # EbooksEntryPoint. In that case, the enabled entry point is
-        # always used.
-        with self.request_context_with_library("/?q=t"):
-            self.manager.opds_feeds.search(None)
-            (s, args) = self.called_with
-            facets = args['facets']
-            assert isinstance(facets, SearchFacets)
-            eq_(EbooksEntryPoint, facets.entrypoint)
-
-        library = self._default_library
-
-        # When a specific entry point is selected, that entry point is
-        # used.
-        #
-        # When no entry point is selected, and there are multiple
-        # possible entry points, the default behavior is to search everything.
-        for q, expect_entrypoint in (
-                ('&entrypoint=Audio', AudiobooksEntryPoint),
-                ('', EverythingEntryPoint)
+        with self.request_context_with_library(
+            "/?q=t&size=99&after=22&media=Music"
         ):
-            with self.request_context_with_library("/?q=t%s" % q):
-                self.manager.opds_feeds.search(None)
-                (s, args) = self.called_with
-                facets = args['facets']
-                assert isinstance(facets, SearchFacets)
-                eq_(expect_entrypoint, facets.entrypoint)
+            # Try the top-level lane, "World Languages"
+            expect_lane = self.manager.opds_feeds.load_lane(None)
+            response = self.manager.opds_feeds.search(None, feed_class=Mock)
 
-        AcquisitionFeed.search = old_search
+        kwargs = self.called_with
+        eq_(self._db, kwargs.pop('_db'))
+        lane = kwargs.pop('lane')
+        eq_(expect_lane, lane)
+        query = kwargs.pop("query")
+        eq_("t", query)
+        eq_("Search", kwargs.pop("title"))
+        eq_(self.manager.external_search, kwargs.pop('search_engine'))
+
+        # A SearchFacets object was loaded from library, lane and
+        # request configuration.
+        facets = kwargs.pop('facets')
+        assert isinstance(facets, SearchFacets)
+
+        # There are multiple possible entry points, and the request
+        # didn't specify, so the SearchFacets object is configured to
+        # search all of them.
+        eq_(EverythingEntryPoint, facets.entrypoint)
+
+        # The "media" query string parameter -- used only by
+        # SearchFacets -- was picked up.
+        eq_([Edition.MUSIC_MEDIUM], facets.media)
+
+        # Information from the query string was used to make a
+        # Pagination object.
+        pagination = kwargs.pop('pagination')
+        eq_(22, pagination.offset)
+        eq_(99, pagination.size)
+
+        # A LibraryAnnotator object was created from the Lane and
+        # Facets objects.
+        annotator = kwargs.pop('annotator')
+        eq_(lane, annotator.lane)
+        eq_(facets, annotator.facets)
+
+        # Checking the URL is difficult because it requires a request
+        # context, _plus_ the SearchFacets object created during the
+        # original request.
+        library = self._default_library
+        with self.request_context_with_library(""):
+            expect_url = self.manager.opds_feeds.url_for(
+                'lane_search', lane_identifier=None,
+                library_short_name=library.short_name,
+                q=query, **dict(facets.items())
+            )
+        eq_(expect_url, kwargs.pop('url'))
+
+        # No other arguments were passed into search().
+        eq_({}, kwargs)
+
+        # When a specific entry point is selected, the SearchFacets
+        # object is configured with that entry point alone.
+        with self.request_context_with_library("/?entrypoint=Audio&q=t"):
+            # Search a specific lane rather than the top-level.
+            response = self.manager.opds_feeds.search(
+                self.english_adult_fiction.id, feed_class=Mock
+            )
+            kwargs = self.called_with
+
+            # We're searching that lane.
+            eq_(self.english_adult_fiction, kwargs['lane'])
+
+            # And we get the entry point we asked for.
+            eq_(AudiobooksEntryPoint, kwargs['facets'].entrypoint)
+
+        # When only a single entry point is enabled, it's used as the
+        # default.
+        library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
+            [AudiobooksEntryPoint.INTERNAL_NAME]
+        )
+        with self.request_context_with_library("/?q=t"):
+            response = self.manager.opds_feeds.search(None, feed_class=Mock)
+            eq_(AudiobooksEntryPoint, self.called_with['facets'].entrypoint)
 
     def test_misconfigured_search(self):
 
