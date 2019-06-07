@@ -331,6 +331,14 @@ class CirculationControllerTest(ControllerTest):
             self.works.append(work)
         self.search_engine.bulk_update(self.works)
 
+        # Enable the audiobook entry point for the default library -- a lot of
+        # tests verify that non-default entry points can be selected.
+        self._default_library.setting(
+            EntryPoint.ENABLED_SETTING
+        ).value = json.dumps(
+            [EbooksEntryPoint.INTERNAL_NAME, AudiobooksEntryPoint.INTERNAL_NAME]
+        )
+
 
 class TestCirculationManager(CirculationControllerTest):
     """Test the CirculationManager object itself."""
@@ -2572,7 +2580,7 @@ class TestWorkController(CirculationControllerTest):
         class Mock(object):
             @classmethod
             def page(cls, **kwargs):
-                cls.called_with = kwargs
+                self.called_with = kwargs
                 return "An OPDS feed"
 
         # Test a basic request with custom faceting, pagination, and a
@@ -2592,7 +2600,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
         eq_("An OPDS feed", response.data)
 
-        kwargs = Mock.called_with
+        kwargs = self.called_with
         eq_(self._db, kwargs.pop('_db'))
         eq_(CachedFeed.SERIES_TYPE, kwargs.pop('cache_type'))
 
@@ -2644,7 +2652,7 @@ class TestWorkController(CirculationControllerTest):
             response = self.manager.work_controller.series(
                 series_name, None, None, feed_class=Mock
             )
-        facets = Mock.called_with.pop('facets')
+        facets = self.called_with.pop('facets')
         assert isinstance(facets, SeriesFacets)
         eq_("series", facets.order)
 
@@ -2691,13 +2699,14 @@ class TestFeedController(CirculationControllerTest):
 
         # Now let's make a real feed.
 
-        # Set up configuration settings for links.
+        # Set up configuration settings for links and entry points
+        library = self._default_library
         for rel, value in [(LibraryAnnotator.TERMS_OF_SERVICE, "a"),
                            (LibraryAnnotator.PRIVACY_POLICY, "b"),
                            (LibraryAnnotator.COPYRIGHT, "c"),
                            (LibraryAnnotator.ABOUT, "d"),
                            ]:
-            ConfigurationSetting.for_library(rel, self._default_library).value = value
+            ConfigurationSetting.for_library(rel, library).value = value
 
         # Make a real OPDS feed and poke at it. 
         with self.request_context_with_library(
@@ -2763,7 +2772,7 @@ class TestFeedController(CirculationControllerTest):
         class Mock(object):
             @classmethod
             def page(cls, **kwargs):
-                cls.called_with = kwargs
+                self.called_with = kwargs
                 return "An OPDS feed"
 
         with self.request_context_with_library(
@@ -2788,7 +2797,7 @@ class TestFeedController(CirculationControllerTest):
 
         # Now check all the keyword arguments that were passed into
         # page().
-        kwargs = Mock.called_with
+        kwargs = self.called_with
         eq_(kwargs.pop('url'), expect_url)
         eq_(self._db, kwargs.pop('_db'))
         eq_(self.english_adult_fiction.display_name, kwargs.pop('title'))
@@ -2797,6 +2806,7 @@ class TestFeedController(CirculationControllerTest):
         # Query string arguments were taken into account when
         # creating the Facets and Pagination objects.
         facets = kwargs.pop('facets')
+        eq_(AudiobooksEntryPoint, facets.entrypoint)
         eq_('added', facets.order)
         pagination = kwargs.pop('pagination')
         eq_(36, pagination.size)
@@ -2812,69 +2822,90 @@ class TestFeedController(CirculationControllerTest):
         eq_({}, kwargs)
 
     def test_groups(self):
+        # AcquisitionFeed.groups is tested in core/test_opds.py, and a
+        # full end-to-end test would require setting up a real search
+        # index, so we're just going to test that groups() is called
+        # properly.
         ConfigurationSetting.sitewide(
             self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY).value = 10
         library = self._default_library
-        library.setting(library.MINIMUM_FEATURED_QUALITY).value = 0
+        library.setting(library.MINIMUM_FEATURED_QUALITY).value = 0.15
         library.setting(library.FEATURED_LANE_SIZE).value = 2
 
-        SessionManager.refresh_materialized_views(self._db)
-
-        # Mock AcquisitionFeed.groups so we can see the arguments going
-        # into it.
-        old_groups = AcquisitionFeed.groups
-        @classmethod
-        def mock_groups(cls, *args, **kwargs):
-            self.called_with = (args, kwargs)
-            return old_groups(*args, **kwargs)
-        AcquisitionFeed.groups = mock_groups
-
-        # Initial setup gave us two English works and a French work.
-        # Load up with a couple more English works to show that
-        # the groups lane cuts off at FEATURED_LANE_SIZE.
-        for i in range(2):
-            self._work("english work %i" % i, language="eng", fiction=True, with_open_access_download=True)
-
+        # Bad lane -> Problem detail
         with self.request_context_with_library("/"):
-            response = self.manager.opds_feeds.groups(None)
+            response = self.manager.opds_feeds.groups(-1)
+            eq_(404, response.status_code)
+            eq_(
+                "http://librarysimplified.org/terms/problem/unknown-lane",
+                response.uri
+            )
 
-            feed = feedparser.parse(response.data)
-            entries = feed['entries']
+        # A grouped feed has no pagination, and the FeaturedFacets
+        # constructor never raises an exception. So we don't need to
+        # test for those error conditions.
 
-            counter = Counter()
-            for entry in entries:
-                links = [x for x in entry.links if x['rel'] == 'collection']
-                for link in links:
-                    counter[link['title']] += 1
+        # Now let's see what goes into groups()
+        class Mock(object):
+            @classmethod
+            def groups(cls, **kwargs):
+                self.called_with = kwargs
+                return "An OPDS feed"
 
+        with self.request_context_with_library("/?entrypoint=Audio"):
             # In default_config, there are no LARGE_COLLECTION_LANGUAGES,
             # so the sole top-level lane is "World Languages", which covers the
             # SMALL and TINY_COLLECTION_LANGUAGES.
             #
-            # Since there is only one top-level lane, its sublanes --
-            # English, French, and "all" are used in the top-level
-            # groups feed.
-            #
-            # There are several English works, but we're cut off at
-            # two due to FEATURED_LANE_SIZE. There is one French
-            # work -- the one work created when this test
-            # was initialized.
-            eq_(2, counter['English'])
-            eq_(1, counter[u'fran\xe7ais'])
-            eq_(2, counter['All World Languages'])
+            # Thus, when we pass lane=None into groups(), we're asking for a
+            # feed for the sole top-level lane, "World Languages".
+            expect_lane = self.manager.opds_feeds.load_lane(None)
+            eq_("World Languages", expect_lane.display_name)
 
-        # A FeaturedFacets object was created from a combination of
-        # library configuration and lane configuration, and passed in
-        # to AcquisitionFeed.groups().
-        library = self._default_library
-        lane = self.manager.top_level_lanes[library.id]
-        lane = self._db.merge(lane)
-        args, kwargs = self.called_with
-        facets = kwargs['facets']
+            # Ask for that feed.
+            response = self.manager.opds_feeds.groups(None, feed_class=Mock)
+
+            # The response is served as an OPDS feed.
+            eq_(200, response.status_code)
+            eq_(OPDSFeed.ACQUISITION_FEED_TYPE,
+                response.headers['content-type'])
+            eq_("An OPDS feed", response.data)
+
+            # While we're in request context, generate the URL we
+            # expect to be used for this feed.
+            expect_url = self.manager.opds_feeds.cdn_url_for(
+                "acquisition_groups", lane_identifier=None,
+                library_short_name=library.short_name,
+            )
+
+        kwargs = self.called_with
+        eq_(self._db, kwargs.pop('_db'))
+        lane = kwargs.pop('lane')
+        eq_(expect_lane, lane)
+        eq_(lane.display_name, kwargs.pop('title'))
+        eq_(expect_url, kwargs.pop('url'))
+
+        # A FeaturedFacets object was loaded from library, lane and
+        # request configuration.
+        facets = kwargs.pop('facets')
         assert isinstance(facets, FeaturedFacets)
-        eq_(library.minimum_featured_quality, facets.minimum_featured_quality)
+        eq_(AudiobooksEntryPoint, facets.entrypoint)
+        eq_(0.15, facets.minimum_featured_quality)
         eq_(lane.uses_customlists, facets.uses_customlists)
-        AcquisitionFeed.groups = old_groups
+
+        # A LibraryAnnotator object was created from the Lane and
+        # Facets objects.
+        annotator = kwargs.pop('annotator')
+        eq_(lane, annotator.lane)
+        eq_(facets, annotator.facets)
+
+        # Finally, let's try again with a specific lane rather than
+        # None.
+        with self.request_context_with_library("/?entrypoint=Audio"):
+            response = self.manager.opds_feeds.groups(
+                self.english_adult_fiction.id, feed_class=Mock
+            )
+        eq_(self.english_adult_fiction, self.called_with.pop('lane'))
 
     def test_navigation(self):
         library = self._default_library
@@ -3147,11 +3178,7 @@ class TestFeedController(CirculationControllerTest):
             assert isinstance(facets, SearchFacets)
             eq_(EbooksEntryPoint, facets.entrypoint)
 
-        # Enable another entry point so there's a real choice.
         library = self._default_library
-        library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
-            [AudiobooksEntryPoint.INTERNAL_NAME, EbooksEntryPoint.INTERNAL_NAME]
-        )
 
         # When a specific entry point is selected, that entry point is
         # used.

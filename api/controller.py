@@ -667,19 +667,14 @@ class IndexController(CirculationManagerController):
 
 class OPDSFeedController(CirculationManagerController):
 
-    def groups(self, lane_identifier):
+    def groups(self, lane_identifier, feed_class=AcquisitionFeed):
         """Build or retrieve a grouped acquisition feed."""
+
+        library = flask.request.library
 
         lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
-        library = flask.request.library
-        library_short_name = library.short_name
-        url = self.cdn_url_for(
-            "acquisition_groups", lane_identifier=lane_identifier, library_short_name=library_short_name,
-        )
-
-        title = lane.display_name
         facet_class_kwargs = dict(
             minimum_featured_quality=library.minimum_featured_quality,
             uses_customlists=lane.uses_customlists
@@ -688,9 +683,18 @@ class OPDSFeedController(CirculationManagerController):
             worklist=lane, base_class=FeaturedFacets,
             base_class_constructor_kwargs=facet_class_kwargs
         )
+        if isinstance(facets, ProblemDetail):
+            return facets
+
+        url = self.cdn_url_for(
+            "acquisition_groups", lane_identifier=lane_identifier,
+            library_short_name=library.short_name,
+        )
+
         annotator = self.manager.annotator(lane, facets)
-        feed = AcquisitionFeed.groups(
-            self._db, title, url, lane, annotator, facets=facets
+        feed = feed_class.groups(
+            _db=self._db, title=lane.display_name, url=url, lane=lane,
+            annotator=annotator, facets=facets
         )
         return feed_response(feed)
 
