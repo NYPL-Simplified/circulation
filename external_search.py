@@ -901,7 +901,8 @@ class ExternalSearchIndexVersions(object):
         # Custom list memberships.
         customlist_fields_by_type = {
             'integer': ['list_id'],
-            'boolean': ['featured']
+            'boolean': ['featured'],
+            'date': ['first_appearance'],
         }
         customlist_definition = cls.map_fields_by_type(
             customlist_fields_by_type
@@ -2010,6 +2011,28 @@ class Filter(SearchBase):
 
                 # If a book shows up in multiple collections, we're only
                 # interested in the collection that had it the earliest.
+                mode = 'min'
+            elif key == 'customlists.first_appearance':
+                # We're sorting works by the time they first appeared
+                # on a custom list. This means we only want to consider
+                # the first appearances on lists that match the
+                # filter requirements.
+                must = []
+                for restriction in self.customlist_restriction_sets:
+                    list_ids = self._filter_ids(restriction)
+                    must.append(
+                        dict(terms={"customlists.list_id": list_ids})
+                    )
+                nested = dict(
+                    path="customlists",
+                    filter=dict(bool=dict(must=must))
+                )
+                #nested = dict(
+                #    path="customlists",
+                #    filter=must
+                #)
+                # If a book shows up on multiple lists, we're only
+                # interested in its first appearance across all lists.
                 mode = 'min'
             else:
                 raise ValueError(

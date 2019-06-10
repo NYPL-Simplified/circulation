@@ -1034,6 +1034,34 @@ class TestSearchOrder(EndToEndSearchTest):
         self.untitled.presentation_edition.series_position = 5
         self.untitled.last_update_time = datetime.datetime.now()
 
+        # Create two custom lists which contain some of the same books,
+        # but with different first appearances.
+
+        self.by_publication_date, ignore = self._customlist(
+            name="First appearance on list is publication date",
+            num_entries=0
+        )
+        self.by_publication_date.add_entry(
+            self.moby_dick, first_appearance=datetime.datetime(1951, 10, 18)
+        )
+        self.by_publication_date.add_entry(
+            self.moby_duck, first_appearance=datetime.datetime(2011, 3, 1)
+        )
+        self.by_publication_date.add_entry(
+            self.untitled, first_appearance=datetime.datetime(2018, 1, 1)
+        )
+
+        self.staff_picks, ignore = self._customlist(
+            name="First appearance is date book was made a staff pick",
+            num_entries=0
+        )
+        self.staff_picks.add_entry(
+            self.moby_dick, first_appearance=datetime.datetime(2015, 5, 2)
+        )
+        self.staff_picks.add_entry(
+            self.moby_duck, first_appearance=datetime.datetime(2012, 8, 30)
+        )
+
     def test_ordering(self):
 
         if not self.search:
@@ -1156,6 +1184,36 @@ class TestSearchOrder(EndToEndSearchTest):
             Facets.ORDER_ADDED_TO_COLLECTION,
             [self.moby_dick, self.moby_duck, self.untitled],
             collections=[self.collection1, self.collection2]
+        )
+
+        # We can sort by the time a Work showed up on a custom list.
+        assert_order(
+            Facets.ORDER_FIRST_APPEARANCE_ON_LIST,
+            [self.moby_duck, self.moby_dick],
+            customlist_restriction_sets=[[self.staff_picks]]
+        )
+
+        # If multiple lists are in play, the earliest date on _any_
+        # list takes priority. "Moby-Dick" showed up on the staff picks list
+        # after "Moby Duck", but it was published earlier.
+        assert_order(
+            Facets.ORDER_FIRST_APPEARANCE_ON_LIST,
+            [self.moby_dick, self.moby_duck, self.untitled],
+            customlist_restriction_sets=[
+                [self.by_publication_date, self.staff_picks]
+            ]
+        )
+
+        # If there are multiple sets of list restrictions, we still
+        # use the earliest date each book showed up on any matching list.
+
+        # TODO: This doesn't work.
+        assert_order(
+            Facets.ORDER_FIRST_APPEARANCE_ON_LIST,
+            [self.moby_dick, self.moby_duck],
+            customlist_restriction_sets=[
+                [self.by_publication_date], [self.staff_picks]
+            ]
         )
 
 

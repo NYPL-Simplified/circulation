@@ -1465,13 +1465,18 @@ class Work(Base):
         # This subquery gets CustomList IDs for all lists
         # that contain the work.
         #
-        # We also keep track of whether the work is featured on any
-        # given list. This is used when determining which works
-        # should be featured for a lane based on CustomLists.
+        # We also keep track of whether the work is featured on each
+        # list. This is used when determining which works should be
+        # featured for a lane based on CustomLists.
+        #
+        # And we keep track of the first time the work appears on the list.
+        # This is used when generating a crawlable feed for the customlist,
+        # which is ordered by a work's first appearance on the list.
         customlists = select(
             [
                 CustomListEntry.list_id.label('list_id'),
-                CustomListEntry.featured.label('featured')
+                CustomListEntry.featured.label('featured'),
+                CustomListEntry.first_appearance.label('first_appearance'),
             ]
         ).where(
             CustomListEntry.work_id==work_id_column
