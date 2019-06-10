@@ -2017,16 +2017,23 @@ class Filter(SearchBase):
                 # on a custom list. This means we only want to consider
                 # the first appearances on lists that match the
                 # filter requirements.
-                must = []
+                #
+                # The different restriction sets don't matter
+                # here. The filter part of the query ensures that we
+                # only match works present on one list in every
+                # restriction set. Here, we need to find the earliest
+                # first appearance of the work on all the lists that
+                # _might_ match.
+                all_list_ids = set()
                 for restriction in self.customlist_restriction_sets:
-                    list_ids = self._filter_ids(restriction)
-                    must.append(
-                        dict(terms={"customlists.list_id": list_ids})
-                    )
+                    all_list_ids.update(self._filter_ids(restriction))
                 nested = dict(
                     path="customlists",
-                    filter=dict(bool=dict(must=must))
+                    filter=dict(
+                        terms={"customlists.list_id": sorted(all_list_ids)}
+                    )
                 )
+
                 # If a book shows up on multiple lists, we're only
                 # interested in its first appearance across all lists.
                 mode = 'min'
