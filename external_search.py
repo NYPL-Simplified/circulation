@@ -2027,10 +2027,6 @@ class Filter(SearchBase):
                     path="customlists",
                     filter=dict(bool=dict(must=must))
                 )
-                #nested = dict(
-                #    path="customlists",
-                #    filter=must
-                #)
                 # If a book shows up on multiple lists, we're only
                 # interested in its first appearance across all lists.
                 mode = 'min'

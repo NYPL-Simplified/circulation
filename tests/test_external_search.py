@@ -1042,7 +1042,7 @@ class TestSearchOrder(EndToEndSearchTest):
             num_entries=0
         )
         self.by_publication_date.add_entry(
-            self.moby_dick, first_appearance=datetime.datetime(1951, 10, 18)
+            self.moby_dick, first_appearance=datetime.datetime(1851, 10, 18)
         )
         self.by_publication_date.add_entry(
             self.moby_duck, first_appearance=datetime.datetime(2011, 3, 1)
