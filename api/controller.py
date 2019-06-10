@@ -271,23 +271,24 @@ class CirculationManager(object):
         """Retrieve or create a connection to the search interface.
 
         This is created lazily so that a failure to connect only
-        affects searches, not the rest of the circulation manager.
+        affects feeds that depend on the search engine, not the whole
+        circulation manager.
         """
-        if not self.__external_search:
+        if not self._external_search:
             self.setup_external_search()
-        return self.__external_search
+        return self._external_search
 
     def setup_external_search(self):
         try:
-            self.__external_search = self.setup_search()
+            self._external_search = self.setup_search()
             self.external_search_initialization_exception = None
         except CannotLoadConfiguration, e:
             self.log.error(
                 "Exception loading search configuration: %s", e
             )
-            self.__external_search = None
+            self._external_search = None
             self.external_search_initialization_exception = e
-        return self.__external_search
+        return self._external_search
 
     def cdn_url_for(self, view, *args, **kwargs):
         return cdn_url_for(view, *args, **kwargs)
@@ -480,6 +481,18 @@ class CirculationManagerController(BaseCirculationManagerController):
     def shared_collection(self):
         """Return the appropriate SharedCollectionAPI for the request library."""
         return self.manager.shared_collection_api
+
+    @property
+    def search_engine(self):
+        """Return the configured external search engine, or a
+        ProblemDetail if none is configured.
+        """
+        search_engine = self.manager.external_search
+        if not search_engine:
+            return REMOTE_INTEGRATION_FAILED.detailed(
+                _("The search index for this site is not properly configured.")
+            )
+        return search_engine
 
     def load_lane(self, lane_identifier):
         """Turn user input into a Lane object."""
@@ -686,6 +699,10 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(facets, ProblemDetail):
             return facets
 
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
         url = self.cdn_url_for(
             "acquisition_groups", lane_identifier=lane_identifier,
             library_short_name=library.short_name,
@@ -694,7 +711,7 @@ class OPDSFeedController(CirculationManagerController):
         annotator = self.manager.annotator(lane, facets)
         feed = feed_class.groups(
             _db=self._db, title=lane.display_name, url=url, lane=lane,
-            annotator=annotator, facets=facets
+            annotator=annotator, facets=facets, search_engine=search_engine
         )
         return feed_response(feed)
 
@@ -709,6 +726,9 @@ class OPDSFeedController(CirculationManagerController):
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
 
         library_short_name = flask.request.library.short_name
         url = self.cdn_url_for(
@@ -721,6 +741,7 @@ class OPDSFeedController(CirculationManagerController):
             _db=self._db, title=lane.display_name,
             url=url, lane=lane, annotator=annotator,
             facets=facets, pagination=pagination,
+            search_engine=search_engine
         )
         return feed_response(feed)
 
@@ -846,19 +867,9 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(facets, ProblemDetail):
             return lane
 
-        # TODO: Is this still necessary? Most other feeds now come
-        # from the search index, and those methods let lower-down code
-        # find or create the ExternalSearchIndex object.
-        #
-        # The argument against is that it's inefficient to look up
-        # the ExternalSearchIndex object every time. I think this is only
-        # valid if creating the object requires a back-and-forth with the
-        # search server.
-        search_engine = self.manager.external_search
-        if not search_engine:
-            return REMOTE_INTEGRATION_FAILED.detailed(
-                _("The search index for this site is not properly configured.")
-            )
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
 
         # Check whether there is a query string -- if not, we want to
         # send an OpenSearch document explaining how to search.
@@ -1591,6 +1602,10 @@ class WorkController(CirculationManagerController):
         if isinstance(work, ProblemDetail):
             return work
 
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
         try:
             lane_name = "Books Related to %s by %s" % (
                 work.title, work.author
@@ -1617,7 +1632,7 @@ class WorkController(CirculationManagerController):
 
         feed = AcquisitionFeed.groups(
             self._db, lane.DISPLAY_NAME, url, lane, annotator=annotator,
-            facets=facets
+            facets=facets, search_engine=search_engine
         )
         return feed_response(unicode(feed))
 
@@ -1688,6 +1703,10 @@ class WorkController(CirculationManagerController):
         if not series_name:
             return NO_SUCH_LANE.detailed(_("No series provided"))
 
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
         languages, audiences = self._lane_details(languages, audiences)
         lane = SeriesLane(
             library, series_name=series_name, languages=languages,
@@ -1710,7 +1729,8 @@ class WorkController(CirculationManagerController):
         feed = feed_class.page(
             _db=self._db, title=lane.display_name, url=url, lane=lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=CachedFeed.SERIES_TYPE
+            annotator=annotator, cache_type=CachedFeed.SERIES_TYPE,
+            search_engine=search_engine
         )
         return feed_response(unicode(feed))
 

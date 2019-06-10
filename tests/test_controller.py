@@ -321,7 +321,6 @@ class CirculationControllerTest(ControllerTest):
 
     def setup(self):
         super(CirculationControllerTest, self).setup()
-        self.search_engine = MockExternalSearchIndex()
         self.works = []
         for (variable_name, title, author, language, fiction) in self.BOOKS:
             work = self._work(title, author, language=language, fiction=fiction,
@@ -329,7 +328,7 @@ class CirculationControllerTest(ControllerTest):
             setattr(self, variable_name, work)
             work.license_pools[0].collection = self.collection
             self.works.append(work)
-        self.search_engine.bulk_update(self.works)
+        self.manager.external_search.bulk_update(self.works)
 
         # Enable the audiobook entry point for the default library -- a lot of
         # tests verify that non-default entry points can be selected.
@@ -338,6 +337,28 @@ class CirculationControllerTest(ControllerTest):
         ).value = json.dumps(
             [EbooksEntryPoint.INTERNAL_NAME, AudiobooksEntryPoint.INTERNAL_NAME]
         )
+
+    def assert_bad_search_index_gives_problem_detail(self, test_function):
+        """Helper method to test that a controller method serves a problem
+        detail document when the search index isn't set up.
+
+        Mocking a broken search index is a lot of work; thus the helper method.
+        """
+        old_setup = self.manager.setup_external_search
+        old_value = self.manager._external_search
+        self.manager._external_search = None
+        self.manager.setup_external_search = lambda: None
+        with self.request_context_with_library("/"):
+            response = test_function()
+            eq_(502, response.status_code)
+            eq_(
+                "http://librarysimplified.org/terms/problem/remote-integration-failed",
+                response.uri
+            )
+            eq_('The search index for this site is not properly configured.',
+                response.detail)
+        self.manager.setup_external_search = old_setup
+        self.manager._external_search = old_value
 
 
 class TestCirculationManager(CirculationControllerTest):
@@ -358,7 +379,7 @@ class TestCirculationManager(CirculationControllerTest):
 
         # Certain fields of the CirculationManager have certain values
         # which are about to be reloaded.
-        manager.__external_search = object()
+        manager._external_search = object()
         manager.adobe_device_management = object()
         manager.oauth_controller = object()
         manager.auth = object()
@@ -2515,20 +2536,25 @@ class TestWorkController(CirculationControllerTest):
             response = self.manager.work_controller.series(series_name, None, None)
             eq_(400, response.status_code)
 
-        # Set up a mock search engine that will return a single work
-        # no matter what query it's given. The fact that this book
-        # isn't actually in the series doesn't matter, since
-        # determining that is the job of a non-mocked search engine.
+        # Or if the search index isn't set up.
+        self.assert_bad_search_index_gives_problem_detail(
+            lambda: self.manager.work_controller.series(series_name, None, None)
+        )
+
+        # Set up the mock search engine to return our work no matter
+        # what query it's given. The fact that this book isn't
+        # actually in the series doesn't matter, since determining
+        # that is the job of a non-mocked search engine.
         work = self._work(with_open_access_download=True)
-        search_engine = MockExternalSearchIndex()
+        search_engine = self.manager.external_search
+        search_engine.docs = {}
         search_engine.bulk_update([work])
 
         # If a series is provided, a feed for that series is returned.
         with self.request_context_with_library('/'):
-            with mock_search_index(search_engine):
-                response = self.manager.work_controller.series(
-                    series_name, "eng,spa", "Children,Young Adult",
-                )
+            response = self.manager.work_controller.series(
+                series_name, "eng,spa", "Children,Young Adult",
+            )
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
 
@@ -2642,6 +2668,10 @@ class TestWorkController(CirculationControllerTest):
                 kwargs.pop('url')
             )
 
+        # The (mocked) search engine associated with the CirculationManager was
+        # passed in.
+        eq_(self.manager.external_search, kwargs.pop('search_engine'))
+
         # No other arguments were passed into Mock.page.
         eq_({}, kwargs)
 
@@ -2697,6 +2727,11 @@ class TestFeedController(CirculationControllerTest):
                 response.uri
             )
 
+        # Bad search index setup -> Problem detail
+        self.assert_bad_search_index_gives_problem_detail(
+            lambda: self.manager.opds_feeds.feed(lane_id)
+        )
+
         # Now let's make a real feed.
 
         # Set up configuration settings for links and entry points
@@ -2712,10 +2747,9 @@ class TestFeedController(CirculationControllerTest):
         with self.request_context_with_library(
             "/?entrypoint=Book&size=10&after=0"
         ):
-            with mock_search_index(self.search_engine):
-                response = self.manager.opds_feeds.feed(
-                    self.english_adult_fiction.id
-                )
+            response = self.manager.opds_feeds.feed(
+                self.english_adult_fiction.id
+            )
 
             # The mock search index returned every book it has, without
             # respect to which books _ought_ to show up on this page.
@@ -2818,6 +2852,11 @@ class TestFeedController(CirculationControllerTest):
         eq_(self.english_adult_fiction, annotator.lane)
         eq_(facets, annotator.facets)
 
+        # The ExternalSearchIndex associated with the
+        # CirculationManager was passed in; that way we don't have to
+        # connect to the search engine again.
+        eq_(self.manager.external_search, kwargs.pop('search_engine'))
+
         # No other arguments were passed into page().
         eq_({}, kwargs)
 
@@ -2840,6 +2879,11 @@ class TestFeedController(CirculationControllerTest):
                 "http://librarysimplified.org/terms/problem/unknown-lane",
                 response.uri
             )
+
+        # Bad search index setup -> Problem detail
+        self.assert_bad_search_index_gives_problem_detail(
+            lambda: self.manager.opds_feeds.groups(None)
+        )
 
         # A grouped feed has no pagination, and the FeaturedFacets
         # constructor never raises an exception. So we don't need to
@@ -3126,6 +3170,11 @@ class TestFeedController(CirculationControllerTest):
                 "http://librarysimplified.org/terms/problem/invalid-input",
                 response.uri
             )
+
+        # Bad search index setup -> Problem detail
+        self.assert_bad_search_index_gives_problem_detail(
+            lambda: self.manager.opds_feeds.search(None)
+        )
 
         # Loading the SearchFacets object from a request can't return
         # a problem detail, so we can't test that case.

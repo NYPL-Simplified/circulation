@@ -65,11 +65,15 @@ def load_lanes(_db, library):
 
     # It's likely this WorkList will be used across sessions, so
     # expunge any data model objects from the database session.
+    #
+    # TODO: This is the cause of a lot of problems in the cached OPDS
+    # feed generator. There, these Lanes are used in a normal database
+    # session and we end up needing hacks to merge them back into the
+    # session.
     if isinstance(top_level, Lane):
         to_expunge = [top_level]
     else:
         to_expunge = [x for x in top_level.children if isinstance(x, Lane)]
-
     map(_db.expunge, to_expunge)
     return top_level
 
