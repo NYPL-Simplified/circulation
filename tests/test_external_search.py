@@ -1204,18 +1204,28 @@ class TestSearchOrder(EndToEndSearchTest):
             ]
         )
 
-        # If there are multiple sets of list restrictions, we still
-        # use the earliest date each book showed up on any matching list.
+        # If there are multiple sets of list restrictions, we use the
+        # earliest date each book showed up on any of the matching
+        # lists. The details of which lists are in which restriction
+        # sets don't matter for search order, only for filtering.
+        for restrictions in [
+            ([self.by_publication_date], [self.staff_picks]),
+            ([self.staff_picks], [self.by_publication_date]),
+        ]:
+            assert_order(
+                Facets.ORDER_FIRST_APPEARANCE_ON_LIST,
+                [self.moby_dick, self.moby_duck],
+                customlist_restriction_sets=restrictions
+            )
 
-        # TODO: This doesn't work.
         assert_order(
             Facets.ORDER_FIRST_APPEARANCE_ON_LIST,
-            [self.moby_dick, self.moby_duck],
-            customlist_restriction_sets=[
-                [self.by_publication_date], [self.staff_picks]
+            [self.moby_dick, self.moby_duck, self.untitled],
+            customlist_restriction_sets= [
+                [self.staff_picks, self.by_publication_date],
+                [self.by_publication_date, self.staff_picks]
             ]
         )
-
 
 class TestExactMatches(EndToEndSearchTest):
     """Verify that exact or near-exact title and author matches are
