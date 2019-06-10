@@ -2745,8 +2745,9 @@ class TestFilter(DatabaseTest):
         # You can't sort by some random subdocument field, because there's
         # not enough information to know how to aggregate multiple values.
         #
-        # You _can_ sort by license pool availability time -- that's
-        # tested below -- but it's complicated.
+        # You _can_ sort by license pool availability time and first
+        # appearance on custom list -- those are tested below -- but it's
+        # complicated.
         f.order = 'subdocument.field'
         assert_raises_regexp(
             ValueError, "I don't know how to sort by subdocument.field",
@@ -2757,9 +2758,11 @@ class TestFilter(DatabaseTest):
         # Facets.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME.
         used_orders = Facets.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME
         added_to_collection = used_orders[Facets.ORDER_ADDED_TO_COLLECTION]
+        appeared_on_list = used_orders[Facets.ORDER_FIRST_APPEARANCE_ON_LIST]
         series_position = used_orders[Facets.ORDER_SERIES_POSITION]
         for sort_field in used_orders.values():
-            if sort_field in (added_to_collection, series_position):
+            if sort_field in (added_to_collection, series_position,
+                              appeared_on_list):
                 # These are complicated cases, tested below.
                 continue
             f.order = sort_field
@@ -2822,6 +2825,32 @@ class TestFilter(DatabaseTest):
         # Apart from the nested filter, this is the same ordering
         # configuration as before.
         eq_(simple_nested_configuration, first_field)
+
+        # Another complicated case is when a feed is ordered by first
+        # appearance on a given set of custom lists.
+        f.order = appeared_on_list
+        f.customlist_restriction_sets = [[1], [2,3]]
+        first_field = validate_sort_order(f, sort_field)
+        first_appearance_sort = first_field.pop('customlists.first_appearance')
+        eq_({}, first_field)
+
+        # Test the easy stuff first. If a work shows up on multiple
+        # lists with different 'first appearances', we only count the
+        # earliest 'first appearance'.
+        eq_('min', first_appearance_sort.pop('mode'))
+
+        # But if a work shows up on lists that are irrelevant to
+        # customlist_restriction_sets, we _don't_ want to count those
+        # 'first appearances'. So when determining a work's sort key
+        # we only consider the 'first appearances' on relevant lists.
+        nested = first_appearance_sort.pop('nested')
+        eq_(
+            dict(
+                path='customlists',
+                filter=dict(terms={'customlists.list_id': [1, 2, 3]})
+            ),
+            nested
+        )
 
     def test_target_age_filter(self):
         # Test an especially complex subfilter.

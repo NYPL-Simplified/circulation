@@ -1476,7 +1476,10 @@ class Work(Base):
             [
                 CustomListEntry.list_id.label('list_id'),
                 CustomListEntry.featured.label('featured'),
-                CustomListEntry.first_appearance.label('first_appearance'),
+                func.to_char(
+                    CustomListEntry.first_appearance,
+                    cls.ELASTICSEARCH_TIME_FORMAT
+                ).label('first_appearance')
             ]
         ).where(
             CustomListEntry.work_id==work_id_column
