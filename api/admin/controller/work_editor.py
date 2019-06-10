@@ -3,14 +3,26 @@ import flask
 from flask import Response
 from flask_babel import lazy_gettext as _
 from . import AdminCirculationManagerController
+from collections import Counter
 from core.opds import AcquisitionFeed
 from api.admin.opds import AdminAnnotator, AdminFeed
+from api.admin.problem_details import *
+from api.config import (
+    Configuration,
+    CannotLoadConfiguration
+)
+from api.coverage import MetadataWranglerCollectionRegistrar
 from core.app_server import (
     entry_response,
     feed_response,
     load_pagination_from_request,
 )
-from collections import Counter
+from core.classifier import (
+    genres,
+    SimplifiedGenreClassifier,
+    NO_NUMBER,
+    NO_VALUE
+)
 from core.mirror import MirrorUploader
 from core.util.problem_detail import ProblemDetail
 from core.util import LanguageCodes
@@ -19,6 +31,7 @@ from core.metadata_layer import (
     LinkData,
     ReplacementPolicy,
 )
+from core.lane import (Lane, WorkList)
 from core.model import (
     create,
     get_one,
@@ -27,10 +40,12 @@ from core.model import (
     Collection,
     Complaint,
     Contributor,
+    CustomList,
     DataSource,
     Edition,
     Genre,
     Hyperlink,
+    Measurement,
     PresentationCalculationPolicy,
     Representation,
     RightsStatus,
@@ -38,6 +53,8 @@ from core.model import (
     Work
 )
 import base64
+from datetime import date, datetime, timedelta
+import json
 import os
 from PIL import Image, ImageDraw, ImageFont
 from StringIO import StringIO
@@ -730,7 +747,7 @@ class WorkController(AdminCirculationManagerController):
         if isinstance(work, ProblemDetail):
             return work
 
-        image, original_href = self.generate_cover_image(work, identifier_type, identifier, True)
+        image = self.generate_cover_image(work, identifier_type, identifier, True)
         if isinstance(image, ProblemDetail):
             return image
 
@@ -757,27 +774,32 @@ class WorkController(AdminCirculationManagerController):
         if isinstance(result, ProblemDetail):
             return result
 
-        original_href = image_url
-        image = self._title_position(work, image, preview)
-        return image, original_href
+        if preview:
+            image = self._title_position(work, image)
 
-    def _title_position(self, work, image, preview=False):
+        return image
+
+    def _title_position(self, work, image):
         title_position = flask.request.form.get("title_position")
         if title_position and title_position in self.TITLE_POSITIONS:
             return self._process_cover_image(work, image, title_position)
         return image
 
-    def _original_cover_info(self, work, original_href, data_source, rights_uri, rights_explanation):
-        original = None
-        derivation_settings = None
-        cover_href = None
-        cover_rights_explanation = None
-        if flask.request.form.get("title_position") in self.TITLE_POSITIONS:
+    def _original_cover_info(self, image, work, data_source, rights_uri, rights_explanation):
+        original, derivation_settings, cover_href = None, None, None
+        cover_rights_explanation = rights_explanation
+        title_position = flask.request.form.get("title_position")
+        cover_url = flask.request.form.get("cover_url")
+        if title_position in self.TITLE_POSITIONS:
+            original_href = cover_url
             original_buffer = StringIO()
             image.save(original_buffer, format="PNG")
             original_content = original_buffer.getvalue()
             if not original_href:
                 original_href = Hyperlink.generic_uri(data_source, work.presentation_edition.primary_identifier, Hyperlink.IMAGE, content=original_content)
+
+            image = self._process_cover_image(work, image, title_position)
+
             original_rights_explanation = None
             if rights_uri != RightsStatus.IN_COPYRIGHT:
                 original_rights_explanation = rights_explanation
@@ -789,44 +811,49 @@ class WorkController(AdminCirculationManagerController):
             if rights_uri in RightsStatus.ALLOWS_DERIVATIVES:
                 cover_rights_explanation = "The original image license allows derivatives."
         else:
-            cover_href = flask.request.form.get("cover_url")
+            cover_href = cover_url
 
-        return original, derivation_settings, cover_rights_explanation, cover_href
+        return original, derivation_settings, cover_href, cover_rights_explanation
+
+    def _get_collection_from_pools(self, identifier_type, identifier):
+        pools = self.load_licensepools(flask.request.library, identifier_type, identifier)
+        if isinstance(pools, ProblemDetail):
+            return pools
+        if not pools:
+            return NO_LICENSES
+        collection = pools[0].collection
+        return collection
 
     def change_book_cover(self, identifier_type, identifier, mirror=None):
         """Save a new book cover based on the submitted form."""
         self.require_librarian(flask.request.library)
+
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
 
-        image, original_href = self.generate_cover_image(work, identifier_type, identifier, True)
-        if isinstance(image, ProblemDetail):
-            return image
-
         rights_uri = flask.request.form.get("rights_status")
+        rights_explanation = flask.request.form.get("rights_explanation")
+
         if not rights_uri:
             return INVALID_IMAGE.detailed(_("You must specify the image's license."))
 
-        rights_explanation = flask.request.form.get("rights_explanation")
-
-
-        pools = self.load_licensepools(flask.request.library, identifier_type, identifier)
-        if isinstance(pools, ProblemDetail):
-            return pools
-
-        if not pools:
-            return NO_LICENSES
-
-        collection = pools[0].collection
+        collection = self._get_collection_from_pools(identifier_type, identifier)
+        if isinstance(collection, ProblemDetail):
+            return collection
 
         # Look for an appropriate mirror to store this cover image.
         mirror = mirror or MirrorUploader.for_collection(collection, use_sitewide=True)
         if not mirror:
             return INVALID_CONFIGURATION_OPTION.detailed(_("Could not find a storage integration for uploading the cover."))
 
-        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
-        original, derivation_settings, cover_href, cover_rights_explanation = self._original_cover_info(work, original_href, data_source, rights_uri, rights_explanation)
+        image = self.generate_cover_image(work, identifier_type, identifier)
+        if isinstance(image, ProblemDetail):
+            return image
+
+        original, derivation_settings, cover_href, cover_rights_explanation = self._original_cover_info(image, work, data_source, rights_uri, rights_explanation)
 
         buffer = StringIO()
         image.save(buffer, format="PNG")
