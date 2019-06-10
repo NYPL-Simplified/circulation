@@ -864,8 +864,8 @@ class ExternalSearchIndexVersions(object):
         fields_by_type = {
             'boolean': ['presentation_ready'],
             'icu_collation_keyword': ['sort_author', 'sort_title'],
-            'date': ['last_update_time'],
             'integer': ['series_position', 'work_id'],
+            'long': ['last_update_time'],
             'float': ['random'],
         }
         mapping = cls.map_fields_by_type(fields_by_type, mapping)
@@ -890,7 +890,7 @@ class ExternalSearchIndexVersions(object):
         # License pools.
         licensepool_fields_by_type = {
             'integer': ['collection_id', 'data_source_id'],
-            'date': ['availability_time'],
+            'long': ['availability_time'],
             'boolean': ['available', 'open_access', 'suppressed', 'licensed'],
             'keyword': ['medium'],
         }
@@ -901,8 +901,8 @@ class ExternalSearchIndexVersions(object):
         # Custom list memberships.
         customlist_fields_by_type = {
             'integer': ['list_id'],
+            'long':  ['first_appearance'],
             'boolean': ['featured'],
-            'date': ['first_appearance'],
         }
         customlist_definition = cls.map_fields_by_type(
             customlist_fields_by_type
@@ -1993,6 +1993,7 @@ class Filter(SearchBase):
         if '.' in key:
             # We're sorting by a nested field.
             nested=None
+            collection_ids = self._filter_ids(self.collection_ids)
             if key == 'licensepools.availability_time':
                 # We're sorting works by the time they became
                 # available to a library. This means we only want to
@@ -2037,6 +2038,43 @@ class Filter(SearchBase):
                 # If a book shows up on multiple lists, we're only
                 # interested in its first appearance across all lists.
                 mode = 'min'
+                script = """
+double champion = -1;
+for (candidate in doc['last_update_time']) {
+    if (champion == -1 || candidate > champion) { champion = candidate; }
+}
+if (params.collection_ids != null) {
+    for (licensepool in params._source.licensepools) {
+        if (!params.collection_ids.contains(licensepool['collection_id'])) { continue; }
+        double candidate = licensepool['availability_time'];
+        if (champion == -1 || candidate > champion) { champion = candidate; }
+    }
+}
+if (params.list_ids != null) {
+    for (customlist in params._source.customlists) {
+        if (!params.list_ids.contains(customlist['list_id'])) { continue; }
+        double candidate = customlist['first_appearance'];
+        if (champion == -1 || candidate > champion) { champion = candidate; }
+    }
+}
+
+return champion;
+"""
+                order = { 
+                    "_script": {
+                        "type": "number",
+                        "script": {
+                            "lang": "painless",
+                            "params": {
+                                "collection_ids" : collection_ids,
+                                "list_ids" : list(all_list_ids),
+                            },
+                            "source": script,
+                        },
+                        "order": ascending,
+                    },
+                }
+                return order
             else:
                 raise ValueError(
                     "I don't know how to sort by %s." % key

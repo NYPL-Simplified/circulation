@@ -1124,6 +1124,13 @@ class TestSearchOrder(EndToEndSearchTest):
             # of results and there is no next page.
             eq_(None, pagination)
 
+        # We can sort by the time a Work showed up on a custom list.
+        assert_order(
+            Facets.ORDER_FIRST_APPEARANCE_ON_LIST,
+            [self.moby_duck, self.moby_dick],
+            customlist_restriction_sets=[[self.staff_picks]]
+        )
+
         # We can sort by title.
         assert_order(
             Facets.ORDER_TITLE, [self.untitled, self.moby_dick, self.moby_duck]

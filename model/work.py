@@ -62,6 +62,7 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import (
     and_,
+    extract,
     or_,
     select,
     join,
@@ -1365,9 +1366,9 @@ class Work(Base):
              Work.popularity,
              Work.presentation_ready,
              Work.presentation_edition_id,
-             func.to_char(
+             func.extract(
+                 "EPOCH",
                  Work.last_update_time,
-                 cls.ELASTICSEARCH_TIME_FORMAT
              ).label('last_update_time')
             ],
             Work.id.in_((w.id for w in works))
@@ -1445,9 +1446,9 @@ class Work(Base):
                 (LicensePool.licenses_owned > 0).label('licensed'),
                 work_quality_column,
                 Edition.medium,
-                func.to_char(
+                func.extract(
+                    "EPOCH",
                     LicensePool.availability_time,
-                    cls.ELASTICSEARCH_TIME_FORMAT
                 ).label('availability_time')
             ]
         ).where(
@@ -1476,9 +1477,9 @@ class Work(Base):
             [
                 CustomListEntry.list_id.label('list_id'),
                 CustomListEntry.featured.label('featured'),
-                func.to_char(
+                func.extract(
+                    "EPOCH",
                     CustomListEntry.first_appearance,
-                    cls.ELASTICSEARCH_TIME_FORMAT
                 ).label('first_appearance')
             ]
         ).where(
