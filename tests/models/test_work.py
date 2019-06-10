@@ -846,10 +846,14 @@ class TestWork(DatabaseTest):
 
         # Add two custom lists. The work is featured on one list but
         # not the other.
+        appeared_1 = datetime.datetime(2010, 1, 1)
+        appeared_2 = datetime.datetime(2011, 1, 1)
         l1, ignore = self._customlist(num_entries=0)
-        l1.add_entry(work, featured=False, update_external_index=False)
+        l1.add_entry(work, featured=False, update_external_index=False,
+                     first_appearance=appeared_1)
         l2, ignore = self._customlist(num_entries=0)
-        l2.add_entry(work, featured=True, update_external_index=False)
+        l2.add_entry(work, featured=True, update_external_index=False,
+                     first_appearance=appeared_2)
 
         # Add the other fields used in the search document.
         work.target_age = NumericRange(7, 8, '[]')
@@ -950,7 +954,9 @@ class TestWork(DatabaseTest):
         not_featured, featured = sorted(
             search_doc['customlists'], key = lambda x: x['featured']
         )
+        assert_time_match(appeared_1, not_featured.pop('first_appearance'))
         eq_(dict(featured=False, list_id=l1.id), not_featured)
+        assert_time_match(appeared_2, featured.pop('first_appearance'))
         eq_(dict(featured=True, list_id=l2.id), featured)
 
         contributors = search_doc['contributors']
