@@ -1074,16 +1074,19 @@ class TestSearchOrder(EndToEndSearchTest):
             with_open_access_download=True
 
         )
+        self.a.license_pools.append(self.a2)
         self.b2 = self._licensepool(
             edition=self.b.presentation_edition, collection=self.collection2,
             with_open_access_download=True
 
         )
+        self.b.license_pools.append(self.b2)
         self.c2 = self._licensepool(
             edition=self.c.presentation_edition, collection=self.collection2,
             with_open_access_download=True
 
         )
+        self.c.license_pools.append(self.c2)
         self.b2.availability_time = datetime.datetime(2020, 1, 1)
         self.a2.availability_time = datetime.datetime(2021, 1, 1)
         self.c2.availability_time = datetime.datetime(2022, 1, 1)
@@ -1213,11 +1216,6 @@ class TestSearchOrder(EndToEndSearchTest):
             # of results and there is no next page.
             eq_(None, pagination)
 
-        assert_order(
-            Facets.ORDER_ADDED_TO_COLLECTION,
-            [self.b, self.a, self.c], collections=[self.collection2]
-        )
-
         # We can sort by title.
         assert_order(
             Facets.ORDER_TITLE, [self.untitled, self.moby_dick, self.moby_duck]
@@ -1271,11 +1269,12 @@ class TestSearchOrder(EndToEndSearchTest):
 
         # If a work shows up with multiple availability times through
         # multiple collections, the earliest availability time for
-        # that work is used. Since collection 1 was created before
-        # collection 2, that means collection 1's ordering holds here.
+        # that work is used. All the dates in collection 1 predate the
+        # dates in collection 2, so collection 1's ordering holds
+        # here.
         assert_order(
             Facets.ORDER_ADDED_TO_COLLECTION,
-            [self.b, self.a, self.c],
+            [self.a, self.c, self.b],
             collections=[self.collection1, self.collection2]
         )
 
