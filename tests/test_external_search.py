@@ -2666,7 +2666,9 @@ class TestFilter(DatabaseTest):
         filter.excluded_audiobook_data_sources = [overdrive.id]
         filter.allow_holds = False
         last_update_time = datetime.datetime(2019, 1, 1)
-        filter.updated_after = last_update_time
+        filter.updated_after = (
+            last_update_time - datetime.datetime.utcfromtimestamp(0)
+        ).total_seconds
 
         # We want books that are literary fiction, *and* either
         # fantasy or horror.

@@ -1,5 +1,6 @@
 from collections import defaultdict
 import contextlib
+import datetime
 from nose.tools import set_trace
 import json
 from elasticsearch import Elasticsearch
@@ -1888,8 +1889,13 @@ class Filter(SearchBase):
         # Perhaps only books whose bibliographic metadata was updated
         # recently should be included.
         if self.updated_after:
+            # 'last update' is indexed as a number of seconds. Convert
+            # it here.
+            updated_after = (
+                datetime.datetime.utcfromtimestamp(0) - self.updated_after
+            ).total_seconds()
             last_update_time_query = self._match_range(
-                'last_update_time', 'gte', self.updated_after
+                'last_update_time', 'gte', updated_after
             )
             f = chain(f, F('bool', must=last_update_time_query))
 
