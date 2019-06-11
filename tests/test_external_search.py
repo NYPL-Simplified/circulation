@@ -934,7 +934,7 @@ class TestFacetFilters(EndToEndSearchTest):
         self.duck = _work(title='Moby Duck')
         self.duck.license_pools[0].licenses_available = 1
         self.duck.quality = 0.5
-            
+
         # A currently unavailable commercially-licensed work.
         self.becoming = _work(title='Becoming')
         self.becoming.license_pools[0].licenses_available = 0
@@ -966,7 +966,7 @@ class TestFacetFilters(EndToEndSearchTest):
             )
 
         # Get all the books in alphabetical order by title.
-        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, 
+        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL,
                [self.becoming, self.horse, self.moby, self.duck])
 
         # Show only works that can be borrowed right now.
@@ -974,15 +974,15 @@ class TestFacetFilters(EndToEndSearchTest):
                [self.horse, self.moby, self.duck])
 
         # Show only open-access works.
-        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_OPEN_ACCESS, 
+        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_OPEN_ACCESS,
                [self.horse, self.moby])
 
         # Show only featured-quality works.
-        expect(Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, 
+        expect(Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL,
                [self.becoming, self.moby])
 
         # Eliminate low-quality open-access works.
-        expect(Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, 
+        expect(Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL,
                [self.becoming, self.moby, self.duck])
 
 
@@ -1022,10 +1022,10 @@ class TestSearchOrder(EndToEndSearchTest):
         # a, c, b - when collection 1 is associated with the Filter.
         # b, a, c - when collections 1 and 2 are associated with the Filter.
         # b, c, a - when custom list 1 is associated with the Filter.
-        # c, a - when two sets of custom list restrictions [1], [3]
-        #        are associated with the filter.
         # c, a, b - when collection 1 and custom list 2 are associated with
         #           the Filter.
+        # c, a - when two sets of custom list restrictions [1], [3]
+        #        are associated with the filter.
         self.moby_dick = _work(title="moby dick", authors="Herman Melville", fiction=True)
         self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
         self.moby_dick.presentation_edition.series = "Classics"
@@ -1107,26 +1107,26 @@ class TestSearchOrder(EndToEndSearchTest):
         )
 
         self.list2, ignore = self._customlist(
-            name="Custom list 2 - CBA", num_entries=0
+            name="Custom list 2 - CAB", num_entries=0
         )
         self.list2.add_entry(
             self.c, first_appearance=datetime.datetime(2001, 1, 1)
         )
         self.list2.add_entry(
-            self.b, first_appearance=datetime.datetime(2014, 1, 1)
+            self.a, first_appearance=datetime.datetime(2014, 1, 1)
         )
         self.list2.add_entry(
-            self.a, first_appearance=datetime.datetime(2015, 1, 1)
-        )        
+            self.b, first_appearance=datetime.datetime(2015, 1, 1)
+        )
 
         self.list3, ignore = self._customlist(
-            name="Custom list 3 -- AC", num_entries=0
+            name="Custom list 3 -- CA", num_entries=0
         )
         self.list3.add_entry(
-            self.a, first_appearance=datetime.datetime(1999, 1, 1)
+            self.a, first_appearance=datetime.datetime(2032, 1, 1)
         )
         self.list3.add_entry(
-            self.c, first_appearance=datetime.datetime(2033, 1, 1)
+            self.c, first_appearance=datetime.datetime(1999, 1, 1)
         )
 
         # Create two custom lists which contain some of the same books,
@@ -1217,19 +1217,6 @@ class TestSearchOrder(EndToEndSearchTest):
             eq_(None, pagination)
 
 
-        # Now the exciting tests of ORDER_LAST_UPDATE
-        assert_order(Facets.ORDER_LAST_UPDATE, [self.a, self.b, self.c])
-
-        assert_order(
-            Facets.ORDER_LAST_UPDATE, [self.a, self.c, self.b],
-            collections=[self.collection1]
-        )
-
-        assert_order(
-            Facets.ORDER_LAST_UPDATE, [self.b, self.a, self.c],
-            collections=[self.collection1, self.collection2]
-        )
-
         # We can sort by title.
         assert_order(
             Facets.ORDER_TITLE, [self.untitled, self.moby_dick, self.moby_duck]
@@ -1290,6 +1277,37 @@ class TestSearchOrder(EndToEndSearchTest):
             Facets.ORDER_ADDED_TO_COLLECTION,
             [self.a, self.c, self.b],
             collections=[self.collection1, self.collection2]
+        )
+
+
+        # Finally, here are the tests of ORDER_LAST_UPDATE, as described
+        # above in setup().
+        assert_order(Facets.ORDER_LAST_UPDATE, [self.a, self.b, self.c])
+
+        assert_order(
+            Facets.ORDER_LAST_UPDATE, [self.a, self.c, self.b],
+            collections=[self.collection1]
+        )
+
+        assert_order(
+            Facets.ORDER_LAST_UPDATE, [self.b, self.a, self.c],
+            collections=[self.collection1, self.collection2]
+        )
+
+        assert_order(
+            Facets.ORDER_LAST_UPDATE, [self.b, self.c, self.a],
+            customlist_restriction_sets=[[self.list1]]
+        )
+
+        assert_order(
+            Facets.ORDER_LAST_UPDATE, [self.c, self.a, self.b],
+            collections=[self.collection1],
+            customlist_restriction_sets=[[self.list2]]
+        )
+
+        assert_order(
+            Facets.ORDER_LAST_UPDATE, [self.c, self.a],
+            customlist_restriction_sets=[[self.list1], [self.list3]]
         )
 
 
@@ -1423,7 +1441,7 @@ class TestExactMatches(EndToEndSearchTest):
 
 
 class TestFeaturedFacets(EndToEndSearchTest):
-    """Test how a FeaturedFacets object affects search ordering.    
+    """Test how a FeaturedFacets object affects search ordering.
     """
 
     def populate_works(self):
@@ -1451,7 +1469,7 @@ class TestFeaturedFacets(EndToEndSearchTest):
         self.best_seller_list, ignore = self._customlist(num_entries=0)
         self.best_seller_list.add_entry(self.featured_on_list, featured=True)
         self.best_seller_list.add_entry(self.not_featured_on_list)
-        
+
     def test_run(self):
 
         def assert_featured(description, worklist, facets, expect):
@@ -3095,7 +3113,7 @@ class TestFilter(DatabaseTest):
         # We only count license pools that are open-access _or_ that have
         # currently owned licenses.
         eq_(Bool(should=[owned, open_access]), currently_owned)
-        
+
     def _mock_chain(self, filters, new_filter):
         """A mock of _chain_filters so we don't have to check
         test results against super-complicated Elasticsearch

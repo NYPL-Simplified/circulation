@@ -2018,7 +2018,7 @@ class Filter(SearchBase):
                         }
                     ),
                 )
-                
+
             # If a book shows up in multiple collections, we're only
             # interested in the collection that had it the earliest.
             mode = 'min'
@@ -2080,7 +2080,7 @@ if (params.list_ids != null) {
 return champion;
 """
         collection_ids = self._filter_ids(self.collection_ids)
-        order = { 
+        order = {
             "_script": {
                 "type": "number",
                 "script": {
@@ -2268,7 +2268,7 @@ class SortKeyPagination(Pagination):
 
     @property
     def next_page(self):
-        """If possible, create a new SortKeyPagination representing the 
+        """If possible, create a new SortKeyPagination representing the
         next page of results.
         """
         if self.this_page_size == 0:
