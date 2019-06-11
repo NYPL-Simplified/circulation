@@ -1216,6 +1216,20 @@ class TestSearchOrder(EndToEndSearchTest):
             # of results and there is no next page.
             eq_(None, pagination)
 
+
+        # Now the exciting tests of ORDER_LAST_UPDATE
+        assert_order(Facets.ORDER_LAST_UPDATE, [self.a, self.b, self.c])
+
+        assert_order(
+            Facets.ORDER_LAST_UPDATE, [self.a, self.c, self.b],
+            collections=[self.collection1]
+        )
+
+        assert_order(
+            Facets.ORDER_LAST_UPDATE, [self.b, self.a, self.c],
+            collections=[self.collection1, self.collection2]
+        )
+
         # We can sort by title.
         assert_order(
             Facets.ORDER_TITLE, [self.untitled, self.moby_dick, self.moby_duck]
@@ -1277,16 +1291,6 @@ class TestSearchOrder(EndToEndSearchTest):
             [self.a, self.c, self.b],
             collections=[self.collection1, self.collection2]
         )
-
-        # Now the exciting tests of ORDER_LAST_UPDATE
-        assert_order(Facets.ORDER_LAST_UPDATE, [self.a, self.b, self.c])
-
-        assert_order(
-            Facets.ORDER_LAST_UPDATE, [self.a, self.c, self.b],
-            collections=[self.collection1]
-        )
-
-        # ...
 
 
 class TestExactMatches(EndToEndSearchTest):
