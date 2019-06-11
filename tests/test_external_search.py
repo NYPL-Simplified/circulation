@@ -991,7 +991,41 @@ class TestSearchOrder(EndToEndSearchTest):
     def populate_works(self):
         _work = self.default_work
 
-        # Create two works -- this part is straightforward.
+        # We're going to create three works:
+        # a: "Moby Dick"
+        # b: "Moby Duck"
+        # c: "[untitled]"
+        #
+        # The metadata of these books will be set up to generate
+        # intuitive orders under most of the ordering scenarios.
+        #
+        # The most complex ordering scenario is ORDER_LAST_UPDATE,
+        # which orders books differently depending on the modification
+        # date of the Work, the date a LicensePool for the work was
+        # first seen in a collection associated with the filter, and
+        # the date the work was first seen on a custom list associated
+        # with the filter.
+        #
+        # The modification dates of the works will be set in the order
+        # of their creation.
+        #
+        # We're going to put all three works in two different
+        # collections with different dates. All three works will be
+        # added to two different custom lists, and works a and c will
+        # be added to a third custom list.
+        #
+        # The dates associated with the "collection add" and "list add"
+        # events will be set up to create the following orderings:
+        #
+        # a, b, c - when no collections or custom lists are associated with
+        #           the Filter.
+        # a, c, b - when collection 1 is associated with the Filter.
+        # b, a, c - when collections 1 and 2 are associated with the Filter.
+        # b, c, a - when custom list 1 is associated with the Filter.
+        # c, a - when two sets of custom list restrictions [1], [3]
+        #        are associated with the filter.
+        # c, a, b - when collection 1 and custom list 2 are associated with
+        #           the Filter.
         self.moby_dick = _work(title="moby dick", authors="Herman Melville", fiction=True)
         self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
         self.moby_dick.presentation_edition.series = "Classics"
@@ -999,7 +1033,6 @@ class TestSearchOrder(EndToEndSearchTest):
         self.moby_dick.summary_text = "Ishmael"
         self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
         self.moby_dick.random = 0.1
-        self.moby_dick.last_update_time = datetime.datetime.now()
 
         self.moby_duck = _work(title="Moby Duck", authors="donovan hohn", fiction=False)
         self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
@@ -1007,32 +1040,91 @@ class TestSearchOrder(EndToEndSearchTest):
         self.moby_duck.presentation_edition.series_position = 1
         self.moby_duck.presentation_edition.publisher = "Penguin"
         self.moby_duck.random = 0.9
-        self.moby_duck.last_update_time = datetime.datetime.now()
+
+        self.untitled = _work(title="[Untitled]", authors="[Unknown]")
+        self.untitled.random = 0.99
+        self.untitled.presentation_edition.series_position = 5
+
+        # It's easier to refer to the books as a, b, and c when not
+        # testing sorts that rely on the metadata.
+        self.a = self.moby_dick
+        self.b = self.moby_duck
+        self.c = self.untitled
+
+        self.a.last_update_time = datetime.datetime(2000, 1, 1)
+        self.b.last_update_time = datetime.datetime(2001, 1, 1)
+        self.c.last_update_time = datetime.datetime(2002, 1, 1)
 
         # Each work has one LicensePool associated with the default
         # collection.
         self.collection1 = self._default_collection
-        [moby_dick_1] = self.moby_dick.license_pools
-        [moby_duck_1] = self.moby_duck.license_pools
+        self.collection1.name = "Collection 1 - ACB"
+        [self.a1] = self.a.license_pools
+        [self.b1] = self.b.license_pools
+        [self.c1] = self.c.license_pools
+        self.a1.availability_time = datetime.datetime(2010, 1, 1)
+        self.c1.availability_time = datetime.datetime(2011, 1, 1)
+        self.b1.availability_time = datetime.datetime(2012, 1, 1)
 
-        # Since the "Moby-Dick" work was created first, the availability
-        # time for its LicensePool is earlier.
-        assert moby_dick_1.availability_time < moby_duck_1.availability_time
+        # Here's a second collection with the same books in a different
+        # order.
+        self.collection2 = self._collection(name="Collection 2 - BAC")
+        self.a2 = self._licensepool(
+            edition=self.a.presentation_edition, collection=self.collection2,
+            with_open_access_download=True
 
-        # Now we're going to create a second collection with the
-        # same two titles, but one big difference: "Moby Duck"
-        # showed up earlier here than "Moby-Dick".
-        self.collection2 = self._collection()
-        moby_duck_2 = self._licensepool(edition=self.moby_duck.presentation_edition, collection=self.collection2)
-        self.moby_duck.license_pools.append(moby_duck_2)
-        moby_dick_2 = self._licensepool(edition=self.moby_dick.presentation_edition, collection=self.collection2)
-        self.moby_dick.license_pools.append(moby_dick_2)
+        )
+        self.b2 = self._licensepool(
+            edition=self.b.presentation_edition, collection=self.collection2,
+            with_open_access_download=True
 
-        # Create a work with an unknown title and author.
-        self.untitled = _work(title="[Untitled]", authors="[Unknown]")
-        self.untitled.random = 0.99
-        self.untitled.presentation_edition.series_position = 5
-        self.untitled.last_update_time = datetime.datetime.now()
+        )
+        self.c2 = self._licensepool(
+            edition=self.c.presentation_edition, collection=self.collection2,
+            with_open_access_download=True
+
+        )
+        self.b2.availability_time = datetime.datetime(2020, 1, 1)
+        self.a2.availability_time = datetime.datetime(2021, 1, 1)
+        self.c2.availability_time = datetime.datetime(2022, 1, 1)
+
+        # Here are three custom lists which contain the same books but
+        # with different first appearances.
+        self.list1, ignore = self._customlist(
+            name="Custom list 1 - BCA", num_entries=0
+        )
+        self.list1.add_entry(
+            self.b, first_appearance=datetime.datetime(2030, 1, 1)
+        )
+        self.list1.add_entry(
+            self.c, first_appearance=datetime.datetime(2031, 1, 1)
+        )
+        self.list1.add_entry(
+            self.a, first_appearance=datetime.datetime(2032, 1, 1)
+        )
+
+        self.list2, ignore = self._customlist(
+            name="Custom list 2 - CBA", num_entries=0
+        )
+        self.list2.add_entry(
+            self.c, first_appearance=datetime.datetime(2001, 1, 1)
+        )
+        self.list2.add_entry(
+            self.b, first_appearance=datetime.datetime(2014, 1, 1)
+        )
+        self.list2.add_entry(
+            self.a, first_appearance=datetime.datetime(2015, 1, 1)
+        )        
+
+        self.list3, ignore = self._customlist(
+            name="Custom list 3 -- AC", num_entries=0
+        )
+        self.list3.add_entry(
+            self.a, first_appearance=datetime.datetime(1999, 1, 1)
+        )
+        self.list3.add_entry(
+            self.c, first_appearance=datetime.datetime(2033, 1, 1)
+        )
 
         # Create two custom lists which contain some of the same books,
         # but with different first appearances.
@@ -1040,9 +1132,6 @@ class TestSearchOrder(EndToEndSearchTest):
         self.by_publication_date, ignore = self._customlist(
             name="First appearance on list is publication date",
             num_entries=0
-        )
-        self.by_publication_date.add_entry(
-            self.moby_dick, first_appearance=datetime.datetime(1851, 10, 18)
         )
         self.by_publication_date.add_entry(
             self.moby_duck, first_appearance=datetime.datetime(2011, 3, 1)
@@ -1124,11 +1213,9 @@ class TestSearchOrder(EndToEndSearchTest):
             # of results and there is no next page.
             eq_(None, pagination)
 
-        # We can sort by the time a Work showed up on a custom list.
         assert_order(
-            Facets.ORDER_FIRST_APPEARANCE_ON_LIST,
-            [self.moby_duck, self.moby_dick],
-            customlist_restriction_sets=[[self.staff_picks]]
+            Facets.ORDER_ADDED_TO_COLLECTION,
+            [self.b, self.a, self.c], collections=[self.collection2]
         )
 
         # We can sort by title.
@@ -1174,13 +1261,12 @@ class TestSearchOrder(EndToEndSearchTest):
         # results.
         assert_order(
             Facets.ORDER_ADDED_TO_COLLECTION,
-            [self.moby_dick, self.moby_duck, self.untitled],
-            collections=[self.collection1]
+            [self.a, self.c, self.b], collections=[self.collection1]
         )
 
         assert_order(
-            Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_duck, self.moby_dick],
-            collections=[self.collection2]
+            Facets.ORDER_ADDED_TO_COLLECTION,
+            [self.b, self.a, self.c], collections=[self.collection2]
         )
 
         # If a work shows up with multiple availability times through
@@ -1189,50 +1275,20 @@ class TestSearchOrder(EndToEndSearchTest):
         # collection 2, that means collection 1's ordering holds here.
         assert_order(
             Facets.ORDER_ADDED_TO_COLLECTION,
-            [self.moby_dick, self.moby_duck, self.untitled],
+            [self.b, self.a, self.c],
             collections=[self.collection1, self.collection2]
         )
 
-        # We can sort by the time a Work showed up on a custom list.
-        assert_order(
-            Facets.ORDER_FIRST_APPEARANCE_ON_LIST,
-            [self.moby_duck, self.moby_dick],
-            customlist_restriction_sets=[[self.staff_picks]]
-        )
-
-        # If multiple lists are in play, the earliest date on _any_
-        # list takes priority. "Moby-Dick" showed up on the staff picks list
-        # after "Moby Duck", but it was published earlier.
-        assert_order(
-            Facets.ORDER_FIRST_APPEARANCE_ON_LIST,
-            [self.moby_dick, self.moby_duck, self.untitled],
-            customlist_restriction_sets=[
-                [self.by_publication_date, self.staff_picks]
-            ]
-        )
-
-        # If there are multiple sets of list restrictions, we use the
-        # earliest date each book showed up on any of the matching
-        # lists. The details of which lists are in which restriction
-        # sets don't matter for search order, only for filtering.
-        for restrictions in [
-            ([self.by_publication_date], [self.staff_picks]),
-            ([self.staff_picks], [self.by_publication_date]),
-        ]:
-            assert_order(
-                Facets.ORDER_FIRST_APPEARANCE_ON_LIST,
-                [self.moby_dick, self.moby_duck],
-                customlist_restriction_sets=restrictions
-            )
+        # Now the exciting tests of ORDER_LAST_UPDATE
+        assert_order(Facets.ORDER_LAST_UPDATE, [self.a, self.b, self.c])
 
         assert_order(
-            Facets.ORDER_FIRST_APPEARANCE_ON_LIST,
-            [self.moby_dick, self.moby_duck, self.untitled],
-            customlist_restriction_sets= [
-                [self.staff_picks, self.by_publication_date],
-                [self.by_publication_date, self.staff_picks]
-            ]
+            Facets.ORDER_LAST_UPDATE, [self.a, self.c, self.b],
+            collections=[self.collection1]
         )
+
+        # ...
+
 
 class TestExactMatches(EndToEndSearchTest):
     """Verify that exact or near-exact title and author matches are

@@ -35,7 +35,6 @@ class FacetConstants(object):
     ORDER_TITLE = 'title'
     ORDER_AUTHOR = 'author'
     ORDER_LAST_UPDATE = 'last_update'
-    ORDER_FIRST_APPEARANCE_ON_LIST = 'first_appearance'
     ORDER_ADDED_TO_COLLECTION = 'added'
     ORDER_SERIES_POSITION = 'series'
     ORDER_WORK_ID = 'work_id'
@@ -77,7 +76,6 @@ class FacetConstants(object):
         ORDER_AUTHOR : _('Author'),
         ORDER_LAST_UPDATE : _('Last Update'),
         ORDER_ADDED_TO_COLLECTION : _('Recently Added'),
-        ORDER_FIRST_APPEARANCE_ON_LIST : _('First Appearance'),
         ORDER_SERIES_POSITION: _('Series Position'),
         ORDER_WORK_ID : _('Work ID'),
         ORDER_RANDOM : _('Random'),
@@ -117,7 +115,6 @@ class FacetConstants(object):
         ORDER_TITLE : "sort_title",
         ORDER_AUTHOR : "sort_author",
         ORDER_LAST_UPDATE : 'last_update_time',
-        ORDER_FIRST_APPEARANCE_ON_LIST : 'customlists.first_appearance',
         ORDER_ADDED_TO_COLLECTION : 'licensepools.availability_time',
         ORDER_SERIES_POSITION : ['series_position', 'sort_title'],
         ORDER_WORK_ID : '_id',

@@ -1984,61 +1984,80 @@ class Filter(SearchBase):
                 order_fields.append({x: "asc"})
         return order_fields
 
-    def _make_order_field(self, key):
+    @property
+    def asc(self):
+        "Convert order_ascending to Elasticsearch-speak."
         if self.order_ascending is False:
-            ascending = "desc"
+            return "desc"
         else:
-            ascending = "asc"
+            return "asc"
 
-        if '.' in key:
-            # We're sorting by a nested field.
-            nested=None
+    def _make_order_field(self, key):
+        if key == 'last_update_time':
+            # A very complex case that gets its own helper method.
+            return self._last_update_time_order_by
+
+        if '.' not in key:
+            # A simple case.
+            return { key : self.asc }
+
+        # At this point we're sorting by a nested field.
+        nested = None
+        if key == 'licensepools.availability_time':
+            # We're sorting works by the time they became
+            # available to a library. This means we only want to
+            # consider the availability times of license pools
+            # found in one of the library's collections.
             collection_ids = self._filter_ids(self.collection_ids)
-            if key == 'licensepools.availability_time':
-                # We're sorting works by the time they became
-                # available to a library. This means we only want to
-                # consider the availability times of license pools
-                # found in one of the library's collections.
-                collection_ids = self._filter_ids(self.collection_ids)
-                if collection_ids:
-                    nested = dict(
-                        path="licensepools",
-                        filter=dict(
-                            terms={
-                                "licensepools.collection_id": collection_ids
-                            }
-                        ),
-                    )
-
-                # If a book shows up in multiple collections, we're only
-                # interested in the collection that had it the earliest.
-                mode = 'min'
-            elif key == 'customlists.first_appearance':
-                # We're sorting works by the time they first appeared
-                # on a custom list. This means we only want to consider
-                # the first appearances on lists that match the
-                # filter requirements.
-                #
-                # The different restriction sets don't matter
-                # here. The filter part of the query ensures that we
-                # only match works present on one list in every
-                # restriction set. Here, we need to find the earliest
-                # first appearance of the work on all the lists that
-                # _might_ match.
-                all_list_ids = set()
-                for restriction in self.customlist_restriction_sets:
-                    all_list_ids.update(self._filter_ids(restriction))
+            if collection_ids:
                 nested = dict(
-                    path="customlists",
+                    path="licensepools",
                     filter=dict(
-                        terms={"customlists.list_id": sorted(all_list_ids)}
-                    )
+                        terms={
+                            "licensepools.collection_id": collection_ids
+                        }
+                    ),
                 )
+                
+            # If a book shows up in multiple collections, we're only
+            # interested in the collection that had it the earliest.
+            mode = 'min'
+        else:
+            raise ValueError(
+                "I don't know how to sort by %s." % key
+            )
+        sort_description = dict(order=self.asc, mode=mode)
+        if nested:
+            sort_description['nested']=nested
+        return { key : sort_description }
 
-                # If a book shows up on multiple lists, we're only
-                # interested in its first appearance across all lists.
-                mode = 'min'
-                script = """
+    @property
+    def _last_update_time_order_by(self):
+        # We're sorting works by the time they first appeared
+        # on a custom list. This means we only want to consider
+        # the first appearances on lists that match the
+        # filter requirements.
+        #
+        # The different restriction sets don't matter
+        # here. The filter part of the query ensures that we
+        # only match works present on one list in every
+        # restriction set. Here, we need to find the earliest
+        # first appearance of the work on all the lists that
+        # _might_ match.
+        all_list_ids = set()
+        for restriction in self.customlist_restriction_sets:
+            all_list_ids.update(self._filter_ids(restriction))
+        nested = dict(
+            path="customlists",
+            filter=dict(
+                terms={"customlists.list_id": sorted(all_list_ids)}
+            )
+        )
+
+        # If a book shows up on multiple lists, we're only
+        # interested in its first appearance across all lists.
+        mode = 'min'
+        script = """
 double champion = -1;
 for (candidate in doc['last_update_time']) {
     if (champion == -1 || candidate > champion) { champion = candidate; }
@@ -2060,32 +2079,23 @@ if (params.list_ids != null) {
 
 return champion;
 """
-                order = { 
-                    "_script": {
-                        "type": "number",
-                        "script": {
-                            "lang": "painless",
-                            "params": {
-                                "collection_ids" : collection_ids,
-                                "list_ids" : list(all_list_ids),
-                            },
-                            "source": script,
-                        },
-                        "order": ascending,
+        collection_ids = self._filter_ids(self.collection_ids)
+        order = { 
+            "_script": {
+                "type": "number",
+                "script": {
+                    "lang": "painless",
+                    "params": {
+                        "collection_ids" : collection_ids,
+                        "list_ids" : list(all_list_ids),
                     },
-                }
-                return order
-            else:
-                raise ValueError(
-                    "I don't know how to sort by %s." % key
-                )
-            sort_description = dict(order=ascending, mode=mode)
-            if nested:
-                sort_description['nested'] = nested
-            order = { key : sort_description }
-        else:
-            order = { key : ascending }
+                    "source": script,
+                },
+                "order": self.asc,
+            },
+        }
         return order
+
 
     @property
     def target_age_filter(self):
