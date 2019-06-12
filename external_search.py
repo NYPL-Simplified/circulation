@@ -2041,17 +2041,24 @@ class Filter(SearchBase):
 
     @property
     def _last_update_time_order_by(self):
-        # We're sorting works by the time they first appeared
-        # on a custom list. This means we only want to consider
-        # the first appearances on lists that match the
-        # filter requirements.
-        #
-        # The different restriction sets don't matter
-        # here. The filter part of the query ensures that we
-        # only match works present on one list in every
-        # restriction set. Here, we need to find the earliest
-        # first appearance of the work on all the lists that
-        # _might_ match.
+        """We're sorting works by the time of their 'last update'.  An
+        'update' happens when the work's metadata is changed, when
+        it's added to a collection used in this Filter, or when it's
+        added to one of the lists used in this Filter.
+
+        This is complex enough that we need to write a script that runs
+        on the Elasticsearch side to calculate the last update for
+        any given work.
+        """
+        # First, set up the parameters we're going to pass into the
+        # script -- a list of custom list IDs relevant to this filter,
+        # and a list of collection IDs relevant to this filter.
+        collection_ids = self._filter_ids(self.collection_ids)
+
+        # The different restriction sets don't matter here. The filter
+        # part of the query ensures that we only match works present
+        # on one list in every restriction set. Here, we need to find
+        # the latest time a work was added to _any_ relevant list.
         all_list_ids = set()
         for restriction in self.customlist_restriction_sets:
             all_list_ids.update(self._filter_ids(restriction))
@@ -2061,16 +2068,22 @@ class Filter(SearchBase):
                 terms={"customlists.list_id": sorted(all_list_ids)}
             )
         )
+        params = dict(
+            collection_ids=collection_ids,
+            list_ids=list(all_list_ids)
+        )
 
-        # If a book shows up on multiple lists, we're only
-        # interested in its first appearance across all lists.
-        mode = 'min'
+        # Here's the text of the script.
         script = """
 double champion = -1;
+// Start off by looking at the work's last update time.
 for (candidate in doc['last_update_time']) {
     if (champion == -1 || candidate > champion) { champion = candidate; }
 }
 if (params.collection_ids != null) {
+    // Iterate over all licensepools looking for a pool in a collection
+    // relevant to this filter. When one is found, check its
+    // availability time to see if it's later than the last update time.
     for (licensepool in params._source.licensepools) {
         if (!params.collection_ids.contains(licensepool['collection_id'])) { continue; }
         double candidate = licensepool['availability_time'];
@@ -2078,6 +2091,10 @@ if (params.collection_ids != null) {
     }
 }
 if (params.list_ids != null) {
+    // Iterate over all customlists looking for a list relevant to
+    // this filter. given collection. When one is found, check the
+    // previous work's first appearance on that list to see if it's later
+    // than the last update time.
     for (customlist in params._source.customlists) {
         if (!params.list_ids.contains(customlist['list_id'])) { continue; }
         double candidate = customlist['first_appearance'];
@@ -2087,16 +2104,14 @@ if (params.list_ids != null) {
 
 return champion;
 """
-        collection_ids = self._filter_ids(self.collection_ids)
+        # Configure the script and its parameters for use by
+        # Elasticsearch.
         order = {
             "_script": {
                 "type": "number",
                 "script": {
                     "lang": "painless",
-                    "params": {
-                        "collection_ids" : collection_ids,
-                        "list_ids" : list(all_list_ids),
-                    },
+                    "params": params,
                     "source": script,
                 },
                 "order": self.asc,
