@@ -1154,6 +1154,28 @@ class TestSearchOrder(EndToEndSearchTest):
             self.moby_duck, first_appearance=datetime.datetime(2012, 8, 30)
         )
 
+        # Create two extra works, d and e, which are only used to
+        # demonstrate one case.
+        #
+        # The custom list and the collection both put d earlier than e, but the
+        # last_update_time wins out, and it puts e before d.
+        self.collection3 = self._collection()
+        self.d = self._work(collection=self.collection3, with_license_pool=True)
+        self.e = self._work(collection=self.collection3, with_license_pool=True)
+        self.d.license_pools[0].availability_time = datetime.datetime(2010, 1, 1)
+        self.e.license_pools[0].availability_time = datetime.datetime(2011, 1, 1)
+
+        self.extra_list, ignore = self._customlist(num_entries=0)
+        self.extra_list.add_entry(
+            self.d, first_appearance=datetime.datetime(2020, 1, 1)
+        )
+        self.extra_list.add_entry(
+            self.e, first_appearance=datetime.datetime(2021, 1, 1)
+        )
+
+        self.e.last_update_time = datetime.datetime(2090, 1, 1)
+        self.d.last_update_time = datetime.datetime(2091, 1, 1)
+
     def test_ordering(self):
 
         if not self.search:
@@ -1218,37 +1240,37 @@ class TestSearchOrder(EndToEndSearchTest):
 
         # We can sort by title.
         assert_order(
-            Facets.ORDER_TITLE, [self.untitled, self.moby_dick, self.moby_duck]
+            Facets.ORDER_TITLE, [self.untitled, self.moby_dick, self.moby_duck],
+            collections=[self._default_collection]
         )
 
         # We can sort by author; 'Hohn' sorts before 'Melville' sorts
         # before "[Unknown]"
         assert_order(
-            Facets.ORDER_AUTHOR, [self.moby_duck, self.moby_dick, self.untitled]
+            Facets.ORDER_AUTHOR, [self.moby_duck, self.moby_dick, self.untitled],
+            collections=[self._default_collection]
         )
 
         # We can sort by the value of work.random. 0.1 < 0.9
         assert_order(
-            Facets.ORDER_RANDOM, [self.moby_dick, self.moby_duck, self.untitled]
-        )
-
-        # We can sort by the last update time of the Work -- this would
-        # be used when creating a crawlable feed.
-        assert_order(
-            Facets.ORDER_LAST_UPDATE,
-            [self.moby_dick, self.moby_duck, self.untitled]
+            Facets.ORDER_RANDOM, [self.moby_dick, self.moby_duck, self.untitled],
+            collections=[self._default_collection]
         )
 
         # We can sort by series position. Here, the books aren't in
         # the same series; in a real scenario we would also filter on
         # the value of 'series'.
-        assert_order(Facets.ORDER_SERIES_POSITION,
-                     [self.moby_duck, self.untitled, self.moby_dick])
+        assert_order(
+            Facets.ORDER_SERIES_POSITION,
+            [self.moby_duck, self.untitled, self.moby_dick],
+            collections=[self._default_collection]
+        )
 
         # We can sort by internal work ID, which isn't very useful.
         assert_order(
             Facets.ORDER_WORK_ID,
-            [self.moby_dick, self.moby_duck, self.untitled]
+            [self.moby_dick, self.moby_duck, self.untitled],
+            collections=[self._default_collection]
         )
 
         # We can sort by the time the Work's LicensePools were first
@@ -1281,7 +1303,7 @@ class TestSearchOrder(EndToEndSearchTest):
 
         # Finally, here are the tests of ORDER_LAST_UPDATE, as described
         # above in setup().
-        assert_order(Facets.ORDER_LAST_UPDATE, [self.a, self.b, self.c])
+        assert_order(Facets.ORDER_LAST_UPDATE, [self.a, self.b, self.c, self.e, self.d])
 
         assert_order(
             Facets.ORDER_LAST_UPDATE, [self.a, self.c, self.b],
@@ -1307,6 +1329,12 @@ class TestSearchOrder(EndToEndSearchTest):
         assert_order(
             Facets.ORDER_LAST_UPDATE, [self.c, self.a],
             customlist_restriction_sets=[[self.list1], [self.list3]]
+        )
+
+        assert_order(
+            Facets.ORDER_LAST_UPDATE, [self.e, self.d],
+            collections=[self.collection3],
+            customlist_restriction_sets=[[self.extra_list]]
         )
 
 
