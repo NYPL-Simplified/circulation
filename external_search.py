@@ -1889,11 +1889,13 @@ class Filter(SearchBase):
         # Perhaps only books whose bibliographic metadata was updated
         # recently should be included.
         if self.updated_after:
-            # 'last update' is indexed as a number of seconds. Convert
-            # it here.
-            updated_after = (
-                datetime.datetime.utcfromtimestamp(0) - self.updated_after
-            ).total_seconds()
+            # 'last update' is indexed as a number of seconds, but
+            # .last_update is probably a datetime. Convert it here.
+            updated_after = self.updated_after
+            if isinstance(updated_after, datetime.datetime):
+                updated_after = (
+                    updated_after - datetime.datetime.utcfromtimestamp(0)
+                ).total_seconds()
             last_update_time_query = self._match_range(
                 'last_update_time', 'gte', updated_after
             )

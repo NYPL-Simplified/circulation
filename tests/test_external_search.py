@@ -2666,9 +2666,7 @@ class TestFilter(DatabaseTest):
         filter.excluded_audiobook_data_sources = [overdrive.id]
         filter.allow_holds = False
         last_update_time = datetime.datetime(2019, 1, 1)
-        filter.updated_after = (
-            last_update_time - datetime.datetime.utcfromtimestamp(0)
-        ).total_seconds
+        filter.updated_after = last_update_time
 
         # We want books that are literary fiction, *and* either
         # fantasy or horror.
@@ -2764,10 +2762,14 @@ class TestFilter(DatabaseTest):
             fantasy_or_horror_filter.to_dict())
 
         # There's a restriction on the last updated time for bibliographic
-        # metadata.
+        # metadata. The datetime is converted to a number of seconds since
+        # the epoch, since that's how we index times.
+        expect = (
+            last_update_time - datetime.datetime.utcfromtimestamp(0)
+        ).total_seconds()
         eq_(
             {'bool': {'must': [
-                {'range': {'last_update_time': {'gte': last_update_time}}}
+                {'range': {'last_update_time': {'gte': expect}}}
             ]}},
             updated_after.to_dict()
         )
