@@ -1889,7 +1889,7 @@ class Filter(SearchBase):
         # Perhaps only books whose bibliographic metadata was updated
         # recently should be included.
         if self.updated_after:
-            # 'last update' is indexed as a number of seconds, but
+            # 'last update_time' is indexed as a number of seconds, but
             # .last_update is probably a datetime. Convert it here.
             updated_after = self.updated_after
             if isinstance(updated_after, datetime.datetime):
@@ -2099,10 +2099,11 @@ if (params.collection_ids != null && params.collection_ids.length > 0) {
     }
 }
 if (params.list_ids != null && params.list_ids.length > 0) {
+
     // Iterate over all customlists looking for a list relevant to
-    // this filter. given collection. When one is found, check the
-    // previous work's first appearance on that list to see if it's later
-    // than the last update time.
+    // this filter. When one is found, check the previous work's first
+    // appearance on that list to see if it's later than the last
+    // update time.
     for (customlist in params._source.customlists) {
         if (!params.list_ids.contains(customlist['list_id'])) { continue; }
         double candidate = customlist['first_appearance'];
