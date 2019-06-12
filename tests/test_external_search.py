@@ -1216,7 +1216,6 @@ class TestSearchOrder(EndToEndSearchTest):
             # of results and there is no next page.
             eq_(None, pagination)
 
-
         # We can sort by title.
         assert_order(
             Facets.ORDER_TITLE, [self.untitled, self.moby_dick, self.moby_duck]

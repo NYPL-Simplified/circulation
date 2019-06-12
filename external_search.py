@@ -2104,7 +2104,6 @@ return champion;
         }
         return order
 
-
     @property
     def target_age_filter(self):
         """Helper method to generate the target age subfilter.
