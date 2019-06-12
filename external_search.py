@@ -2002,8 +2002,15 @@ class Filter(SearchBase):
 
     def _make_order_field(self, key):
         if key == 'last_update_time':
-            # A very complex case that gets its own helper method.
-            return self._last_update_time_order_by
+            # Sorting by last_update_time may be very simple or very
+            # complex, depending on whether or not the filter
+            # involves collection or list membership.
+            if self.collection_ids or self.customlist_restriction_sets:
+                # The complex case -- use a helper method.
+                return self._last_update_time_order_by
+            else:
+                # The simple case, handled below.
+                pass
 
         if '.' not in key:
             # A simple case.
@@ -2050,6 +2057,7 @@ class Filter(SearchBase):
         on the Elasticsearch side to calculate the last update for
         any given work.
         """
+
         # First, set up the parameters we're going to pass into the
         # script -- a list of custom list IDs relevant to this filter,
         # and a list of collection IDs relevant to this filter.
