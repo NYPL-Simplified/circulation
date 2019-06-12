@@ -783,7 +783,8 @@ class OPDSFeedController(CirculationManagerController):
             library_short_name=library_short_name,
         )
         title = library.name
-        lane = CrawlableCollectionBasedLane(library)
+        lane = CrawlableCollectionBasedLane()
+        lane.initialize(library)
         return self._crawlable_feed(library, title, url, lane)
 
     def crawlable_collection_feed(self, collection_name):
@@ -798,7 +799,8 @@ class OPDSFeedController(CirculationManagerController):
             "crawlable_collection_feed",
             collection_name=collection.name
         )
-        lane = CrawlableCollectionBasedLane(None, [collection])
+        lane = CrawlableCollectionBasedLane()
+        lane.initialize([collection])
         if collection.protocol in [ODLAPI.NAME]:
             annotator = SharedCollectionAnnotator(collection, lane)
         else:
@@ -826,6 +828,7 @@ class OPDSFeedController(CirculationManagerController):
     def _crawlable_feed(self, library, title, url, lane, annotator=None):
         annotator = annotator or self.manager.annotator(lane)
         facets = CrawlableFacets.default(library)
+        facets.order_ascending = CrawlableFacets.ORDER_DESCENDING
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
@@ -833,6 +836,7 @@ class OPDSFeedController(CirculationManagerController):
             self._db, title, url, lane, annotator=annotator,
             facets=facets,
             pagination=pagination,
+            cache_type="crawlable"
         )
         return feed_response(feed)
 

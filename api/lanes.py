@@ -1121,79 +1121,52 @@ class ContributorLane(WorksFromDatabase):
 
 class CrawlableFacets(Facets):
     """A special Facets class for crawlable feeds."""
-    @classmethod
-    def default(cls, library):
-        enabled_facets = {
-            Facets.ORDER_FACET_GROUP_NAME : [Facets.ORDER_LAST_UPDATE],
-            Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_ALL],
-            Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_FULL],
-        }
-        return cls(
-            library,
-            collection=cls.COLLECTION_FULL,
-            availability=cls.AVAILABLE_ALL,
-            order=cls.ORDER_LAST_UPDATE,
-            enabled_facets=enabled_facets,
-            order_ascending=cls.ORDER_DESCENDING,
-        )
+
+    # These facet settings are definitive of a crawlable feed.
+    # Library configuration settings don't matter.
+    SETTINGS = {
+        Facets.ORDER_FACET_GROUP_NAME : Facets.ORDER_LAST_UPDATE,
+        Facets.AVAILABILITY_FACET_GROUP_NAME: Facets.AVAILABLE_ALL,
+        Facets.COLLECTION_FACET_GROUP_NAME: Facets.COLLECTION_FULL,
+    }
 
     @classmethod
-    def order_by(cls):
-        """Order the search results by last update time."""
-        from core.model import MaterializedWorkWithGenre as work_model
-        # TODO: first_appearance is only necessary here if this is for a custom list.
-        updated = func.greatest(work_model.availability_time, work_model.first_appearance, work_model.last_update_time)
-        collection_id = work_model.collection_id
-        work_id = work_model.works_id
-        return ([updated.desc(), collection_id, work_id],
-                [updated, collection_id, work_id])
+    def available_facets(cls, config, facet_group_name):
+        return [cls.SETTINGS[facet_group_name]]
+
+    @classmethod
+    def default_facet(cls, config, facet_group_name):
+        return cls.SETTINGS[facet_group_name]
 
 
-class CrawlableCollectionBasedLane(WorksFromDatabase):
+class CrawlableCollectionBasedLane(DynamicLane):
 
     LIBRARY_ROUTE = "crawlable_library_feed"
     COLLECTION_ROUTE = "crawlable_collection_feed"
 
-    def __init__(self, library, collections=None):
-        """Create a lane that finds all books in the given collections.
+    def initialize(self, library_or_collections):
 
-        :param library: The Library to use for purposes of annotating
-            this Lane's OPDS feed.
-        :param collections: A list of Collections. If none are specified,
-            all Collections associated with `library` will be used.
-        """
-        self.library_id = None
-        if library:
-            self.library_id = library.id
         self.collection_feed = False
-        if collections:
+
+        if isinstance(library_or_collections, Library):
+            library = library_or_collections
+            collections = library.collections
+            identifier = library.name
+        else:
+            collections = library_or_collections
             identifier = " / ".join(sorted([x.name for x in collections]))
             if len(collections) == 1:
                 self.collection_feed = True
                 self.collection_name = collections[0].name
-        else:
-            identifier = library.name
-            collections = library.collections
-        self.initialize(library, "Crawlable feed: %s" % identifier)
-        if collections:
+
+        super(CrawlableCollectionBasedLane, self).initialize(
+            None, "Crawlable feed: %s" % identifier,
+        )
+        if collections is not None:
             # initialize() set the collection IDs to all collections
             # associated with the library. We may want to restrict that
             # further.
             self.collection_ids = [x.id for x in collections]
-
-    def bibliographic_filter_clause(self, _db, qu, featured=False):
-        """Filter out any books that aren't in the right collections."""
-        # The normal behavior of works() is to put a restriction on
-        # collection_ids, so we only need to do something if
-        # there are no collections specified.
-        if not self.collection_ids:
-            # When no collection IDs are specified, there is no lane
-            # whatsoever
-            return None, None
-        return super(
-            CrawlableCollectionBasedLane, self).bibliographic_filter_clause(
-                _db, qu, featured
-            )
 
     @property
     def url_arguments(self):
@@ -1206,32 +1179,18 @@ class CrawlableCollectionBasedLane(WorksFromDatabase):
             return self.COLLECTION_ROUTE, kwargs
 
 
-class CrawlableCustomListBasedLane(WorksFromDatabase):
+class CrawlableCustomListBasedLane(DynamicLane):
     """A lane that consists of all works in a single CustomList."""
 
     ROUTE = "crawlable_list_feed"
 
     uses_customlists = True
 
-    def initialize(self, library, list):
+    def initialize(self, library, customlist):
         super(CrawlableCustomListBasedLane, self).initialize(
-            library, "Crawlable feed: %s" % list.name
+            library, "Crawlable feed: %s" % customlist.name,
+            customlists=[customlist]
         )
-        self.customlists = [list]
-
-    def bibliographic_filter_clause(self, _db, qu, featured=False):
-        """Filter out any books that aren't in the list, in addition to
-        the normal filters."""
-        qu, clauses = super(CrawlableCustomListBasedLane, self).bibliographic_filter_clause(_db, qu, featured)
-
-        from core.model import MaterializedWorkWithGenre as work_model
-        customlist_clause = work_model.list_id==self.customlists[0].id
-
-        if clauses:
-            clause = and_(clauses, customlist_clause)
-        else:
-            clause = customlist_clause
-        return qu, clause
 
     @property
     def url_arguments(self):
