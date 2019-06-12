@@ -1,5 +1,6 @@
 from collections import defaultdict
 import contextlib
+import datetime
 from nose.tools import set_trace
 import json
 from elasticsearch import Elasticsearch
@@ -864,8 +865,8 @@ class ExternalSearchIndexVersions(object):
         fields_by_type = {
             'boolean': ['presentation_ready'],
             'icu_collation_keyword': ['sort_author', 'sort_title'],
-            'date': ['last_update_time'],
             'integer': ['series_position', 'work_id'],
+            'long': ['last_update_time'],
             'float': ['random'],
         }
         mapping = cls.map_fields_by_type(fields_by_type, mapping)
@@ -890,7 +891,7 @@ class ExternalSearchIndexVersions(object):
         # License pools.
         licensepool_fields_by_type = {
             'integer': ['collection_id', 'data_source_id'],
-            'date': ['availability_time'],
+            'long': ['availability_time'],
             'boolean': ['available', 'open_access', 'suppressed', 'licensed'],
             'keyword': ['medium'],
         }
@@ -901,7 +902,8 @@ class ExternalSearchIndexVersions(object):
         # Custom list memberships.
         customlist_fields_by_type = {
             'integer': ['list_id'],
-            'boolean': ['featured']
+            'long':  ['first_appearance'],
+            'boolean': ['featured'],
         }
         customlist_definition = cls.map_fields_by_type(
             customlist_fields_by_type
@@ -1887,8 +1889,15 @@ class Filter(SearchBase):
         # Perhaps only books whose bibliographic metadata was updated
         # recently should be included.
         if self.updated_after:
+            # 'last update_time' is indexed as a number of seconds, but
+            # .last_update is probably a datetime. Convert it here.
+            updated_after = self.updated_after
+            if isinstance(updated_after, datetime.datetime):
+                updated_after = (
+                    updated_after - datetime.datetime.utcfromtimestamp(0)
+                ).total_seconds()
             last_update_time_query = self._match_range(
-                'last_update_time', 'gte', self.updated_after
+                'last_update_time', 'gte', updated_after
             )
             f = chain(f, F('bool', must=last_update_time_query))
 
@@ -1983,44 +1992,140 @@ class Filter(SearchBase):
                 order_fields.append({x: "asc"})
         return order_fields
 
-    def _make_order_field(self, key):
+    @property
+    def asc(self):
+        "Convert order_ascending to Elasticsearch-speak."
         if self.order_ascending is False:
-            ascending = "desc"
+            return "desc"
         else:
-            ascending = "asc"
+            return "asc"
 
-        if '.' in key:
-            # We're sorting by a nested field.
-            nested=None
-            if key == 'licensepools.availability_time':
-                # We're sorting works by the time they became
-                # available to a library. This means we only want to
-                # consider the availability times of license pools
-                # found in one of the library's collections.
-                collection_ids = self._filter_ids(self.collection_ids)
-                if collection_ids:
-                    nested = dict(
-                        path="licensepools",
-                        filter=dict(
-                            terms={
-                                "licensepools.collection_id": collection_ids
-                            }
-                        ),
-                    )
-
-                # If a book shows up in multiple collections, we're only
-                # interested in the collection that had it the earliest.
-                mode = 'min'
+    def _make_order_field(self, key):
+        if key == 'last_update_time':
+            # Sorting by last_update_time may be very simple or very
+            # complex, depending on whether or not the filter
+            # involves collection or list membership.
+            if self.collection_ids or self.customlist_restriction_sets:
+                # The complex case -- use a helper method.
+                return self._last_update_time_order_by
             else:
-                raise ValueError(
-                    "I don't know how to sort by %s." % key
+                # The simple case, handled below.
+                pass
+
+        if '.' not in key:
+            # A simple case.
+            return { key : self.asc }
+
+        # At this point we're sorting by a nested field.
+        nested = None
+        if key == 'licensepools.availability_time':
+            # We're sorting works by the time they became
+            # available to a library. This means we only want to
+            # consider the availability times of license pools
+            # found in one of the library's collections.
+            collection_ids = self._filter_ids(self.collection_ids)
+            if collection_ids:
+                nested = dict(
+                    path="licensepools",
+                    filter=dict(
+                        terms={
+                            "licensepools.collection_id": collection_ids
+                        }
+                    ),
                 )
-            sort_description = dict(order=ascending, mode=mode)
-            if nested:
-                sort_description['nested'] = nested
-            order = { key : sort_description }
+
+            # If a book shows up in multiple collections, we're only
+            # interested in the collection that had it the earliest.
+            mode = 'min'
         else:
-            order = { key : ascending }
+            raise ValueError(
+                "I don't know how to sort by %s." % key
+            )
+        sort_description = dict(order=self.asc, mode=mode)
+        if nested:
+            sort_description['nested']=nested
+        return { key : sort_description }
+
+    @property
+    def _last_update_time_order_by(self):
+        """We're sorting works by the time of their 'last update'.  An
+        'update' happens when the work's metadata is changed, when
+        it's added to a collection used in this Filter, or when it's
+        added to one of the lists used in this Filter.
+
+        This is complex enough that we need to write a script that runs
+        on the Elasticsearch side to calculate the last update for
+        any given work.
+        """
+
+        # First, set up the parameters we're going to pass into the
+        # script -- a list of custom list IDs relevant to this filter,
+        # and a list of collection IDs relevant to this filter.
+        collection_ids = self._filter_ids(self.collection_ids)
+
+        # The different restriction sets don't matter here. The filter
+        # part of the query ensures that we only match works present
+        # on one list in every restriction set. Here, we need to find
+        # the latest time a work was added to _any_ relevant list.
+        all_list_ids = set()
+        for restriction in self.customlist_restriction_sets:
+            all_list_ids.update(self._filter_ids(restriction))
+        nested = dict(
+            path="customlists",
+            filter=dict(
+                terms={"customlists.list_id": list(all_list_ids)}
+            )
+        )
+        params = dict(
+            collection_ids=collection_ids,
+            list_ids=list(all_list_ids)
+        )
+
+        # Here's the text of the script.
+        script = """
+double champion = -1;
+// Start off by looking at the work's last update time.
+for (candidate in doc['last_update_time']) {
+    if (champion == -1 || candidate > champion) { champion = candidate; }
+}
+if (params.collection_ids != null && params.collection_ids.length > 0) {
+    // Iterate over all licensepools looking for a pool in a collection
+    // relevant to this filter. When one is found, check its
+    // availability time to see if it's later than the last update time.
+    for (licensepool in params._source.licensepools) {
+        if (!params.collection_ids.contains(licensepool['collection_id'])) { continue; }
+        double candidate = licensepool['availability_time'];
+        if (champion == -1 || candidate > champion) { champion = candidate; }
+    }
+}
+if (params.list_ids != null && params.list_ids.length > 0) {
+
+    // Iterate over all customlists looking for a list relevant to
+    // this filter. When one is found, check the previous work's first
+    // appearance on that list to see if it's later than the last
+    // update time.
+    for (customlist in params._source.customlists) {
+        if (!params.list_ids.contains(customlist['list_id'])) { continue; }
+        double candidate = customlist['first_appearance'];
+        if (champion == -1 || candidate > champion) { champion = candidate; }
+    }
+}
+
+return champion;
+"""
+        # Configure the script and its parameters for use by
+        # Elasticsearch.
+        order = {
+            "_script": {
+                "type": "number",
+                "script": {
+                    "lang": "painless",
+                    "params": params,
+                    "source": script,
+                },
+                "order": self.asc,
+            },
+        }
         return order
 
     @property
@@ -2194,7 +2299,7 @@ class SortKeyPagination(Pagination):
 
     @property
     def next_page(self):
-        """If possible, create a new SortKeyPagination representing the 
+        """If possible, create a new SortKeyPagination representing the
         next page of results.
         """
         if self.this_page_size == 0:

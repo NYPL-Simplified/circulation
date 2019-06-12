@@ -62,6 +62,7 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import (
     and_,
+    extract,
     or_,
     select,
     join,
@@ -1365,9 +1366,9 @@ class Work(Base):
              Work.popularity,
              Work.presentation_ready,
              Work.presentation_edition_id,
-             func.to_char(
+             func.extract(
+                 "EPOCH",
                  Work.last_update_time,
-                 cls.ELASTICSEARCH_TIME_FORMAT
              ).label('last_update_time')
             ],
             Work.id.in_((w.id for w in works))
@@ -1445,9 +1446,9 @@ class Work(Base):
                 (LicensePool.licenses_owned > 0).label('licensed'),
                 work_quality_column,
                 Edition.medium,
-                func.to_char(
+                func.extract(
+                    "EPOCH",
                     LicensePool.availability_time,
-                    cls.ELASTICSEARCH_TIME_FORMAT
                 ).label('availability_time')
             ]
         ).where(
@@ -1465,13 +1466,21 @@ class Work(Base):
         # This subquery gets CustomList IDs for all lists
         # that contain the work.
         #
-        # We also keep track of whether the work is featured on any
-        # given list. This is used when determining which works
-        # should be featured for a lane based on CustomLists.
+        # We also keep track of whether the work is featured on each
+        # list. This is used when determining which works should be
+        # featured for a lane based on CustomLists.
+        #
+        # And we keep track of the first time the work appears on the list.
+        # This is used when generating a crawlable feed for the customlist,
+        # which is ordered by a work's first appearance on the list.
         customlists = select(
             [
                 CustomListEntry.list_id.label('list_id'),
-                CustomListEntry.featured.label('featured')
+                CustomListEntry.featured.label('featured'),
+                func.extract(
+                    "EPOCH",
+                    CustomListEntry.first_appearance,
+                ).label('first_appearance')
             ]
         ).where(
             CustomListEntry.work_id==work_id_column

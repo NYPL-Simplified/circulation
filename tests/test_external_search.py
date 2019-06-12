@@ -934,7 +934,7 @@ class TestFacetFilters(EndToEndSearchTest):
         self.duck = _work(title='Moby Duck')
         self.duck.license_pools[0].licenses_available = 1
         self.duck.quality = 0.5
-            
+
         # A currently unavailable commercially-licensed work.
         self.becoming = _work(title='Becoming')
         self.becoming.license_pools[0].licenses_available = 0
@@ -966,7 +966,7 @@ class TestFacetFilters(EndToEndSearchTest):
             )
 
         # Get all the books in alphabetical order by title.
-        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, 
+        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL,
                [self.becoming, self.horse, self.moby, self.duck])
 
         # Show only works that can be borrowed right now.
@@ -974,15 +974,15 @@ class TestFacetFilters(EndToEndSearchTest):
                [self.horse, self.moby, self.duck])
 
         # Show only open-access works.
-        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_OPEN_ACCESS, 
+        expect(Facets.COLLECTION_FULL, Facets.AVAILABLE_OPEN_ACCESS,
                [self.horse, self.moby])
 
         # Show only featured-quality works.
-        expect(Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, 
+        expect(Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL,
                [self.becoming, self.moby])
 
         # Eliminate low-quality open-access works.
-        expect(Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, 
+        expect(Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL,
                [self.becoming, self.moby, self.duck])
 
 
@@ -991,7 +991,41 @@ class TestSearchOrder(EndToEndSearchTest):
     def populate_works(self):
         _work = self.default_work
 
-        # Create two works -- this part is straightforward.
+        # We're going to create three works:
+        # a: "Moby Dick"
+        # b: "Moby Duck"
+        # c: "[untitled]"
+        #
+        # The metadata of these books will be set up to generate
+        # intuitive orders under most of the ordering scenarios.
+        #
+        # The most complex ordering scenario is ORDER_LAST_UPDATE,
+        # which orders books differently depending on the modification
+        # date of the Work, the date a LicensePool for the work was
+        # first seen in a collection associated with the filter, and
+        # the date the work was first seen on a custom list associated
+        # with the filter.
+        #
+        # The modification dates of the works will be set in the order
+        # of their creation.
+        #
+        # We're going to put all three works in two different
+        # collections with different dates. All three works will be
+        # added to two different custom lists, and works a and c will
+        # be added to a third custom list.
+        #
+        # The dates associated with the "collection add" and "list add"
+        # events will be set up to create the following orderings:
+        #
+        # a, b, c - when no collections or custom lists are associated with
+        #           the Filter.
+        # a, c, b - when collection 1 is associated with the Filter.
+        # b, a, c - when collections 1 and 2 are associated with the Filter.
+        # b, c, a - when custom list 1 is associated with the Filter.
+        # c, a, b - when collection 1 and custom list 2 are associated with
+        #           the Filter.
+        # c, a - when two sets of custom list restrictions [1], [3]
+        #        are associated with the filter.
         self.moby_dick = _work(title="moby dick", authors="Herman Melville", fiction=True)
         self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
         self.moby_dick.presentation_edition.series = "Classics"
@@ -999,7 +1033,6 @@ class TestSearchOrder(EndToEndSearchTest):
         self.moby_dick.summary_text = "Ishmael"
         self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
         self.moby_dick.random = 0.1
-        self.moby_dick.last_update_time = datetime.datetime.now()
 
         self.moby_duck = _work(title="Moby Duck", authors="donovan hohn", fiction=False)
         self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
@@ -1007,32 +1040,141 @@ class TestSearchOrder(EndToEndSearchTest):
         self.moby_duck.presentation_edition.series_position = 1
         self.moby_duck.presentation_edition.publisher = "Penguin"
         self.moby_duck.random = 0.9
-        self.moby_duck.last_update_time = datetime.datetime.now()
+
+        self.untitled = _work(title="[Untitled]", authors="[Unknown]")
+        self.untitled.random = 0.99
+        self.untitled.presentation_edition.series_position = 5
+
+        # It's easier to refer to the books as a, b, and c when not
+        # testing sorts that rely on the metadata.
+        self.a = self.moby_dick
+        self.b = self.moby_duck
+        self.c = self.untitled
+
+        self.a.last_update_time = datetime.datetime(2000, 1, 1)
+        self.b.last_update_time = datetime.datetime(2001, 1, 1)
+        self.c.last_update_time = datetime.datetime(2002, 1, 1)
 
         # Each work has one LicensePool associated with the default
         # collection.
         self.collection1 = self._default_collection
-        [moby_dick_1] = self.moby_dick.license_pools
-        [moby_duck_1] = self.moby_duck.license_pools
+        self.collection1.name = "Collection 1 - ACB"
+        [self.a1] = self.a.license_pools
+        [self.b1] = self.b.license_pools
+        [self.c1] = self.c.license_pools
+        self.a1.availability_time = datetime.datetime(2010, 1, 1)
+        self.c1.availability_time = datetime.datetime(2011, 1, 1)
+        self.b1.availability_time = datetime.datetime(2012, 1, 1)
 
-        # Since the "Moby-Dick" work was created first, the availability
-        # time for its LicensePool is earlier.
-        assert moby_dick_1.availability_time < moby_duck_1.availability_time
+        # Here's a second collection with the same books in a different
+        # order.
+        self.collection2 = self._collection(name="Collection 2 - BAC")
+        self.a2 = self._licensepool(
+            edition=self.a.presentation_edition, collection=self.collection2,
+            with_open_access_download=True
 
-        # Now we're going to create a second collection with the
-        # same two titles, but one big difference: "Moby Duck"
-        # showed up earlier here than "Moby-Dick".
-        self.collection2 = self._collection()
-        moby_duck_2 = self._licensepool(edition=self.moby_duck.presentation_edition, collection=self.collection2)
-        self.moby_duck.license_pools.append(moby_duck_2)
-        moby_dick_2 = self._licensepool(edition=self.moby_dick.presentation_edition, collection=self.collection2)
-        self.moby_dick.license_pools.append(moby_dick_2)
+        )
+        self.a.license_pools.append(self.a2)
+        self.b2 = self._licensepool(
+            edition=self.b.presentation_edition, collection=self.collection2,
+            with_open_access_download=True
 
-        # Create a work with an unknown title and author.
-        self.untitled = _work(title="[Untitled]", authors="[Unknown]")
-        self.untitled.random = 0.99
-        self.untitled.presentation_edition.series_position = 5
-        self.untitled.last_update_time = datetime.datetime.now()
+        )
+        self.b.license_pools.append(self.b2)
+        self.c2 = self._licensepool(
+            edition=self.c.presentation_edition, collection=self.collection2,
+            with_open_access_download=True
+
+        )
+        self.c.license_pools.append(self.c2)
+        self.b2.availability_time = datetime.datetime(2020, 1, 1)
+        self.a2.availability_time = datetime.datetime(2021, 1, 1)
+        self.c2.availability_time = datetime.datetime(2022, 1, 1)
+
+        # Here are three custom lists which contain the same books but
+        # with different first appearances.
+        self.list1, ignore = self._customlist(
+            name="Custom list 1 - BCA", num_entries=0
+        )
+        self.list1.add_entry(
+            self.b, first_appearance=datetime.datetime(2030, 1, 1)
+        )
+        self.list1.add_entry(
+            self.c, first_appearance=datetime.datetime(2031, 1, 1)
+        )
+        self.list1.add_entry(
+            self.a, first_appearance=datetime.datetime(2032, 1, 1)
+        )
+
+        self.list2, ignore = self._customlist(
+            name="Custom list 2 - CAB", num_entries=0
+        )
+        self.list2.add_entry(
+            self.c, first_appearance=datetime.datetime(2001, 1, 1)
+        )
+        self.list2.add_entry(
+            self.a, first_appearance=datetime.datetime(2014, 1, 1)
+        )
+        self.list2.add_entry(
+            self.b, first_appearance=datetime.datetime(2015, 1, 1)
+        )
+
+        self.list3, ignore = self._customlist(
+            name="Custom list 3 -- CA", num_entries=0
+        )
+        self.list3.add_entry(
+            self.a, first_appearance=datetime.datetime(2032, 1, 1)
+        )
+        self.list3.add_entry(
+            self.c, first_appearance=datetime.datetime(1999, 1, 1)
+        )
+
+        # Create two custom lists which contain some of the same books,
+        # but with different first appearances.
+
+        self.by_publication_date, ignore = self._customlist(
+            name="First appearance on list is publication date",
+            num_entries=0
+        )
+        self.by_publication_date.add_entry(
+            self.moby_duck, first_appearance=datetime.datetime(2011, 3, 1)
+        )
+        self.by_publication_date.add_entry(
+            self.untitled, first_appearance=datetime.datetime(2018, 1, 1)
+        )
+
+        self.staff_picks, ignore = self._customlist(
+            name="First appearance is date book was made a staff pick",
+            num_entries=0
+        )
+        self.staff_picks.add_entry(
+            self.moby_dick, first_appearance=datetime.datetime(2015, 5, 2)
+        )
+        self.staff_picks.add_entry(
+            self.moby_duck, first_appearance=datetime.datetime(2012, 8, 30)
+        )
+
+        # Create two extra works, d and e, which are only used to
+        # demonstrate one case.
+        #
+        # The custom list and the collection both put d earlier than e, but the
+        # last_update_time wins out, and it puts e before d.
+        self.collection3 = self._collection()
+        self.d = self._work(collection=self.collection3, with_license_pool=True)
+        self.e = self._work(collection=self.collection3, with_license_pool=True)
+        self.d.license_pools[0].availability_time = datetime.datetime(2010, 1, 1)
+        self.e.license_pools[0].availability_time = datetime.datetime(2011, 1, 1)
+
+        self.extra_list, ignore = self._customlist(num_entries=0)
+        self.extra_list.add_entry(
+            self.d, first_appearance=datetime.datetime(2020, 1, 1)
+        )
+        self.extra_list.add_entry(
+            self.e, first_appearance=datetime.datetime(2021, 1, 1)
+        )
+
+        self.e.last_update_time = datetime.datetime(2090, 1, 1)
+        self.d.last_update_time = datetime.datetime(2091, 1, 1)
 
     def test_ordering(self):
 
@@ -1098,37 +1240,37 @@ class TestSearchOrder(EndToEndSearchTest):
 
         # We can sort by title.
         assert_order(
-            Facets.ORDER_TITLE, [self.untitled, self.moby_dick, self.moby_duck]
+            Facets.ORDER_TITLE, [self.untitled, self.moby_dick, self.moby_duck],
+            collections=[self._default_collection]
         )
 
         # We can sort by author; 'Hohn' sorts before 'Melville' sorts
         # before "[Unknown]"
         assert_order(
-            Facets.ORDER_AUTHOR, [self.moby_duck, self.moby_dick, self.untitled]
+            Facets.ORDER_AUTHOR, [self.moby_duck, self.moby_dick, self.untitled],
+            collections=[self._default_collection]
         )
 
         # We can sort by the value of work.random. 0.1 < 0.9
         assert_order(
-            Facets.ORDER_RANDOM, [self.moby_dick, self.moby_duck, self.untitled]
-        )
-
-        # We can sort by the last update time of the Work -- this would
-        # be used when creating a crawlable feed.
-        assert_order(
-            Facets.ORDER_LAST_UPDATE,
-            [self.moby_dick, self.moby_duck, self.untitled]
+            Facets.ORDER_RANDOM, [self.moby_dick, self.moby_duck, self.untitled],
+            collections=[self._default_collection]
         )
 
         # We can sort by series position. Here, the books aren't in
         # the same series; in a real scenario we would also filter on
         # the value of 'series'.
-        assert_order(Facets.ORDER_SERIES_POSITION,
-                     [self.moby_duck, self.untitled, self.moby_dick])
+        assert_order(
+            Facets.ORDER_SERIES_POSITION,
+            [self.moby_duck, self.untitled, self.moby_dick],
+            collections=[self._default_collection]
+        )
 
         # We can sort by internal work ID, which isn't very useful.
         assert_order(
             Facets.ORDER_WORK_ID,
-            [self.moby_dick, self.moby_duck, self.untitled]
+            [self.moby_dick, self.moby_duck, self.untitled],
+            collections=[self._default_collection]
         )
 
         # We can sort by the time the Work's LicensePools were first
@@ -1139,23 +1281,60 @@ class TestSearchOrder(EndToEndSearchTest):
         # results.
         assert_order(
             Facets.ORDER_ADDED_TO_COLLECTION,
-            [self.moby_dick, self.moby_duck, self.untitled],
-            collections=[self.collection1]
+            [self.a, self.c, self.b], collections=[self.collection1]
         )
 
         assert_order(
-            Facets.ORDER_ADDED_TO_COLLECTION, [self.moby_duck, self.moby_dick],
-            collections=[self.collection2]
+            Facets.ORDER_ADDED_TO_COLLECTION,
+            [self.b, self.a, self.c], collections=[self.collection2]
         )
 
         # If a work shows up with multiple availability times through
         # multiple collections, the earliest availability time for
-        # that work is used. Since collection 1 was created before
-        # collection 2, that means collection 1's ordering holds here.
+        # that work is used. All the dates in collection 1 predate the
+        # dates in collection 2, so collection 1's ordering holds
+        # here.
         assert_order(
             Facets.ORDER_ADDED_TO_COLLECTION,
-            [self.moby_dick, self.moby_duck, self.untitled],
+            [self.a, self.c, self.b],
             collections=[self.collection1, self.collection2]
+        )
+
+
+        # Finally, here are the tests of ORDER_LAST_UPDATE, as described
+        # above in setup().
+        assert_order(Facets.ORDER_LAST_UPDATE, [self.a, self.b, self.c, self.e, self.d])
+
+        assert_order(
+            Facets.ORDER_LAST_UPDATE, [self.a, self.c, self.b],
+            collections=[self.collection1]
+        )
+
+        assert_order(
+            Facets.ORDER_LAST_UPDATE, [self.b, self.a, self.c],
+            collections=[self.collection1, self.collection2]
+        )
+
+        assert_order(
+            Facets.ORDER_LAST_UPDATE, [self.b, self.c, self.a],
+            customlist_restriction_sets=[[self.list1]]
+        )
+
+        assert_order(
+            Facets.ORDER_LAST_UPDATE, [self.c, self.a, self.b],
+            collections=[self.collection1],
+            customlist_restriction_sets=[[self.list2]]
+        )
+
+        assert_order(
+            Facets.ORDER_LAST_UPDATE, [self.c, self.a],
+            customlist_restriction_sets=[[self.list1], [self.list3]]
+        )
+
+        assert_order(
+            Facets.ORDER_LAST_UPDATE, [self.e, self.d],
+            collections=[self.collection3],
+            customlist_restriction_sets=[[self.extra_list]]
         )
 
 
@@ -1289,7 +1468,7 @@ class TestExactMatches(EndToEndSearchTest):
 
 
 class TestFeaturedFacets(EndToEndSearchTest):
-    """Test how a FeaturedFacets object affects search ordering.    
+    """Test how a FeaturedFacets object affects search ordering.
     """
 
     def populate_works(self):
@@ -1317,7 +1496,7 @@ class TestFeaturedFacets(EndToEndSearchTest):
         self.best_seller_list, ignore = self._customlist(num_entries=0)
         self.best_seller_list.add_entry(self.featured_on_list, featured=True)
         self.best_seller_list.add_entry(self.not_featured_on_list)
-        
+
     def test_run(self):
 
         def assert_featured(description, worklist, facets, expect):
@@ -2610,10 +2789,14 @@ class TestFilter(DatabaseTest):
             fantasy_or_horror_filter.to_dict())
 
         # There's a restriction on the last updated time for bibliographic
-        # metadata.
+        # metadata. The datetime is converted to a number of seconds since
+        # the epoch, since that's how we index times.
+        expect = (
+            last_update_time - datetime.datetime.utcfromtimestamp(0)
+        ).total_seconds()
         eq_(
             {'bool': {'must': [
-                {'range': {'last_update_time': {'gte': last_update_time}}}
+                {'range': {'last_update_time': {'gte': expect}}}
             ]}},
             updated_after.to_dict()
         )
@@ -2677,8 +2860,9 @@ class TestFilter(DatabaseTest):
         # You can't sort by some random subdocument field, because there's
         # not enough information to know how to aggregate multiple values.
         #
-        # You _can_ sort by license pool availability time -- that's
-        # tested below -- but it's complicated.
+        # You _can_ sort by license pool availability time and first
+        # appearance on custom list -- those are tested below -- but it's
+        # complicated.
         f.order = 'subdocument.field'
         assert_raises_regexp(
             ValueError, "I don't know how to sort by subdocument.field",
@@ -2690,8 +2874,10 @@ class TestFilter(DatabaseTest):
         used_orders = Facets.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME
         added_to_collection = used_orders[Facets.ORDER_ADDED_TO_COLLECTION]
         series_position = used_orders[Facets.ORDER_SERIES_POSITION]
+        last_update = used_orders[Facets.ORDER_LAST_UPDATE]
         for sort_field in used_orders.values():
-            if sort_field in (added_to_collection, series_position):
+            if sort_field in (added_to_collection, series_position,
+                              last_update):
                 # These are complicated cases, tested below.
                 continue
             f.order = sort_field
@@ -2754,6 +2940,53 @@ class TestFilter(DatabaseTest):
         # Apart from the nested filter, this is the same ordering
         # configuration as before.
         eq_(simple_nested_configuration, first_field)
+
+        # An ordering by "last update" may be simple, if there are no
+        # collections or lists associated with the filter.
+        f.order = last_update
+        f.collection_ids = []
+        first_field = validate_sort_order(f, sort_field)
+        eq_(dict(last_update_time='asc'), first_field)
+
+        # Or it can be *incredibly complicated*, if there _are_
+        # collections or lists associated with the filter. Which,
+        # unfortunately, is almost all the time.
+        f.collection_ids = [self._default_collection.id]
+        f.customlist_restriction_sets = [[1], [1,2]]
+        first_field = validate_sort_order(f, sort_field)
+
+        # Here, the ordering is done by a script that runs on the
+        # ElasticSearch server.
+        sort = first_field.pop('_script')
+        eq_({}, first_field)
+
+        # The script returns a numeric value and we want to sort those
+        # values in ascending order.
+        eq_('asc', sort.pop('order'))
+        eq_('number', sort.pop('type'))
+
+        script = sort.pop('script')
+        eq_({}, sort)
+
+        # The script is written in the Painless language.
+        eq_('painless', script.pop('lang'))
+
+        # Two parameters are passed into the script -- the IDs of the
+        # collections and the lists relevant to the query. This is so
+        # the query knows which updates should actually be considered
+        # for purposes of this query.
+        params = script.pop('params')
+        eq_([self._default_collection.id], params.pop('collection_ids'))
+        eq_([1,2], params.pop('list_ids'))
+        eq_({}, params)
+
+        # The script is written in another programming language, so we
+        # can only verify its functionality during an end-to-end test,
+        # which happens in TestSearchOrder.
+        source = script.pop('source')
+        assert 'return champion;' in source
+
+        eq_({}, script)
 
     def test_target_age_filter(self):
         # Test an especially complex subfilter.
@@ -2932,7 +3165,7 @@ class TestFilter(DatabaseTest):
         # We only count license pools that are open-access _or_ that have
         # currently owned licenses.
         eq_(Bool(should=[owned, open_access]), currently_owned)
-        
+
     def _mock_chain(self, filters, new_filter):
         """A mock of _chain_filters so we don't have to check
         test results against super-complicated Elasticsearch
