@@ -2073,7 +2073,7 @@ class Filter(SearchBase):
         nested = dict(
             path="customlists",
             filter=dict(
-                terms={"customlists.list_id": sorted(all_list_ids)}
+                terms={"customlists.list_id": list(all_list_ids)}
             )
         )
         params = dict(
