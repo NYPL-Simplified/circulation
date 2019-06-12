@@ -2080,7 +2080,7 @@ double champion = -1;
 for (candidate in doc['last_update_time']) {
     if (champion == -1 || candidate > champion) { champion = candidate; }
 }
-if (params.collection_ids != null) {
+if (params.collection_ids != null && params.collection_ids.length > 0) {
     // Iterate over all licensepools looking for a pool in a collection
     // relevant to this filter. When one is found, check its
     // availability time to see if it's later than the last update time.
@@ -2090,7 +2090,7 @@ if (params.collection_ids != null) {
         if (champion == -1 || candidate > champion) { champion = candidate; }
     }
 }
-if (params.list_ids != null) {
+if (params.list_ids != null && params.list_ids.length > 0) {
     // Iterate over all customlists looking for a list relevant to
     // this filter. given collection. When one is found, check the
     // previous work's first appearance on that list to see if it's later
