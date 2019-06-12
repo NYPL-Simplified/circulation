@@ -2913,9 +2913,17 @@ class TestFilter(DatabaseTest):
         # configuration as before.
         eq_(simple_nested_configuration, first_field)
 
-        # An even more complicated case is when a feed is ordered by
-        # "last update".
+        # An ordering by "last update" may be simple, if there are no
+        # collections or lists associated with the filter.
         f.order = last_update
+        f.collection_ids = []
+        first_field = validate_sort_order(f, sort_field)
+        eq_(dict(last_update_time='asc'), first_field)
+
+        # Or it can be *incredibly complicated*, if there _are_
+        # collections or lists associated with the filter. Which,
+        # unfortunately, is almost all the time.
+        f.collection_ids = [self._default_collection.id]
         f.customlist_restriction_sets = [[1], [1,2]]
         first_field = validate_sort_order(f, sort_field)
 
