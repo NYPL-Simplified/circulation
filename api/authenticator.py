@@ -37,7 +37,6 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import or_
 from problem_details import *
 from util.patron import PatronUtility
-from api.opds import LibraryAnnotator
 from api.custom_patron_catalog import CustomPatronCatalog
 from api.adobe_vendor_id import AuthdataUtility
 
@@ -426,7 +425,7 @@ class PatronData(object):
         self.authorization_identifier = authorization_identifier
         self.authorization_identifiers = authorization_identifiers
 
-class CirculationPatronProfileStorage(PatronProfileStorage, LibraryAnnotator):
+class CirculationPatronProfileStorage(PatronProfileStorage):
     """A patron profile storage that can also provide short client tokens"""
     @property
     def profile_document(self):

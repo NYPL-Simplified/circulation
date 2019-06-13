@@ -422,13 +422,11 @@ class TestPatronData(AuthenticatorTest):
 class TestCirculationPatronProfileStorage(ControllerTest):
 
     def test_profile_document(self):
-        self.app = Flask(__name__)
-        self.annotator = LibraryAnnotator(
-            None, None, self._default_library, test_mode=True, top_level_title="Test Top Level Title"
-        )
+        def mock_url_for(endpoint, library_short_name, _external=True):
+            return "http://host/" + endpoint + "?" + "library_short_name=" + library_short_name
 
         patron = self._patron()
-        storage = CirculationPatronProfileStorage(patron, True)
+        storage = CirculationPatronProfileStorage(patron, mock_url_for)
         doc = storage.profile_document
         assert 'settings' in doc
         #Since there's no authdata configured, the DRM fields are not present
@@ -441,21 +439,17 @@ class TestCirculationPatronProfileStorage(ControllerTest):
         #the vendor ID and a short client token
         self.initialize_adobe(patron.library)
 
-        with self.app.test_request_context("/"):
-            doc = storage.profile_document
-            [adobe] = doc['drm']
-            eq_(adobe["drm:vendor"], "vendor id")
-            assert adobe["drm:clientToken"].startswith(
-                patron.library.short_name.upper() + "TOKEN"
-            )
-            eq_(adobe["drm:scheme"], "http://librarysimplified.org/terms/drm/scheme/ACS")
+        doc = storage.profile_document
+        [adobe] = doc['drm']
+        eq_(adobe["drm:vendor"], "vendor id")
+        assert adobe["drm:clientToken"].startswith(
+            patron.library.short_name.upper() + "TOKEN"
+        )
+        eq_(adobe["drm:scheme"], "http://librarysimplified.org/terms/drm/scheme/ACS")
 
-            [links] = doc['links']
-            eq_(links['rel'], "http://librarysimplified.org/terms/drm/rel/devices")
-            expect_url = self.annotator.url_for(
-                'adobe_drm_devices', library_short_name=self._default_library.short_name, _external=True
-            )
-            eq_(links['href'], expect_url)
+        [links] = doc['links']
+        eq_(links['rel'], "http://librarysimplified.org/terms/drm/rel/devices")
+        eq_(links['href'], "http://host/adobe_drm_devices?library_short_name=default")
 
 class MockAuthenticator(Authenticator):
     """Allows testing Authenticator methods outside of a request context."""
