@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+from api.opds import LibraryAnnotator
 from config import (
     Configuration,
     CannotLoadConfiguration,
@@ -425,12 +426,14 @@ class PatronData(object):
         self.authorization_identifier = authorization_identifier
         self.authorization_identifiers = authorization_identifiers
 
-class CirculationPatronProfileStorage(PatronProfileStorage):
+class CirculationPatronProfileStorage(PatronProfileStorage, LibraryAnnotator):
     """A patron profile storage that can also provide short client tokens"""
     @property
     def profile_document(self):
         doc = super(CirculationPatronProfileStorage, self).profile_document
         drm = []
+        links = []
+        device_link = {}
         authdata = AuthdataUtility.from_config(self.patron.library)
         if authdata:
             vendor_id, token = authdata.short_client_token_for_patron(self.patron)
@@ -439,8 +442,16 @@ class CirculationPatronProfileStorage(PatronProfileStorage):
             adobe_drm['drm:clientToken'] = token
             adobe_drm['drm:scheme'] = "http://librarysimplified.org/terms/drm/scheme/ACS"
             drm.append(adobe_drm)
+
+            device_link['rel'] = 'http://librarysimplified.org/terms/drm/rel/devices'
+            device_link['href'] = self.url_for(
+                "adobe_drm_devices", library_short_name=self.patron.library.short_name, _external=True
+            )
+            links.append(device_link)
+            doc['links'] = links
         if drm:
             doc['drm'] = drm
+
         return doc
 
 class Authenticator(object):
