@@ -1149,10 +1149,14 @@ class CrawlableCollectionBasedLane(DynamicLane):
         self.collection_feed = False
 
         if isinstance(library_or_collections, Library):
+            # We're looking at all the collections in a given library.
             library = library_or_collections
             collections = library.collections
             identifier = library.name
         else:
+            # We're looking at collections directly, without respect
+            # to the libraries that might use them.
+            library = None
             collections = library_or_collections
             identifier = " / ".join(sorted([x.name for x in collections]))
             if len(collections) == 1:
@@ -1160,7 +1164,7 @@ class CrawlableCollectionBasedLane(DynamicLane):
                 self.collection_name = collections[0].name
 
         super(CrawlableCollectionBasedLane, self).initialize(
-            None, "Crawlable feed: %s" % identifier,
+            library, "Crawlable feed: %s" % identifier,
         )
         if collections is not None:
             # initialize() set the collection IDs to all collections
