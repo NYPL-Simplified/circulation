@@ -186,7 +186,7 @@ class ExternalSearchIndex(HasSelfTests):
         if not url or not works_index:
             integration = self.search_integration(_db)
             if not integration:
-                raise CannotLoadConfiguration(
+               raise CannotLoadConfiguration(
                     "No Elasticsearch integration configured."
                 )
             url = url or integration.url
@@ -385,7 +385,7 @@ class ExternalSearchIndex(HasSelfTests):
             # Don't restrict the fields at all -- get everything.
             # This makes it easy to investigate everything about the
             # results we do get.
-            fields = None
+            fields = ['*']
         else:
             # All we absolutely need is the document ID, which is a
             # key into the database.
@@ -1221,12 +1221,16 @@ class Query(SearchBase):
                     name_or_query='nested', path=path, query=subquery
                 )
 
-        # Apply any necessary sort order.
         if self.filter:
+            # Apply any necessary sort order.
             order_fields = self.filter.sort_order
             if order_fields:
                 search = search.sort(*order_fields)
 
+            # Add any necessary script fields.
+            script_fields = self.filter.script_fields
+            if script_fields and False:
+                search = search.script_fields(**script_fields)
         # Apply any necessary query restrictions imposed by the
         # Pagination object. This may happen through modification or
         # by returning an entirely new Search object.
@@ -1635,6 +1639,9 @@ class Filter(SearchBase):
     This also covers every way you might want to order the search
     results: either by relevance to the search query (the default), or
     by a specific field (e.g. author) as described by a Facets object.
+
+    It also covers additional calculated values you might need when
+    presenting the search results.
     """
 
     @classmethod
@@ -1688,7 +1695,7 @@ class Filter(SearchBase):
     def __init__(self, collections=None, media=None, languages=None,
                  fiction=None, audiences=None, target_age=None,
                  genre_restriction_sets=None, customlist_restriction_sets=None,
-                 facets=None, **kwargs
+                 facets=None, script_fields=None, **kwargs
     ):
         """
         These minor arguments were made into unnamed keyword arguments to
@@ -1770,6 +1777,8 @@ class Filter(SearchBase):
         self.subcollection = None
         self.order = None
         self.order_ascending = False
+
+        self.script_fields = script_fields or dict()
 
         # Give the Facets object a chance to modify any or all of this
         # information.
@@ -2051,17 +2060,13 @@ class Filter(SearchBase):
         return { key : sort_description }
 
     @property
-    def _last_update_time_order_by(self):
-        """We're sorting works by the time of their 'last update'.  An
-        'update' happens when the work's metadata is changed, when
-        it's added to a collection used in this Filter, or when it's
-        added to one of the lists used in this Filter.
-
-        This is complex enough that we need to write a script that runs
-        on the Elasticsearch side to calculate the last update for
-        any given work.
+    def last_update_time_script_field(self):
+        """Return the configuration for a script field that calculates the
+        'last update' time of a work. An 'update' happens when the
+        work's metadata is changed, when it's added to a collection
+        used by this Filter, or when it's added to one of the lists
+        used by this Filter.
         """
-
         # First, set up the parameters we're going to pass into the
         # script -- a list of custom list IDs relevant to this filter,
         # and a list of collection IDs relevant to this filter.
@@ -2086,7 +2091,7 @@ class Filter(SearchBase):
         )
 
         # Here's the text of the script.
-        script = """
+        source = """
 double champion = -1;
 // Start off by looking at the work's last update time.
 for (candidate in doc['last_update_time']) {
@@ -2117,20 +2122,39 @@ if (params.list_ids != null && params.list_ids.length > 0) {
 
 return champion;
 """
+        # Now create the actual field configuration.
+        return dict(
+            script=dict(
+                lang="painless",
+                source=source,
+                params=params
+            )
+        )
+
+    @property
+    def _last_update_time_order_by(self):
+
+        """We're sorting works by the time of their 'last update'.
+
+        Add the 'last update' field to the dictionary of script fields
+        (so we can use the result afterwards), and define it a second
+        time as the script to use for a sort value.
+        """
+        field = self.last_update_time_script_field
+        if not 'last_update' in self.script_fields:
+            self.script_fields['last_update'] = field
+        return dict(
+            _script=dict(
+                type="number",
+                script=field['script'],
+                order=self.asc,
+            ),
+        )
+
+
         # Configure the script and its parameters for use by
         # Elasticsearch.
-        order = {
-            "_script": {
-                "type": "number",
-                "script": {
-                    "lang": "painless",
-                    "params": params,
-                    "source": script,
-                },
-                "order": self.asc,
-            },
-        }
-        return order
+        return { "last_update": {"order": self.asc, } }
 
     @property
     def target_age_filter(self):
