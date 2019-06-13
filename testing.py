@@ -1127,7 +1127,8 @@ class EndToEndSearchTest(ExternalSearchTest):
 
         should_be_ordered = kwargs.pop('ordered', True)
 
-        results = self.search.query_works(*query_args, debug=True, **kwargs)
+        hits = self.search.query_works(*query_args, debug=True, **kwargs)
+        results = [x.work_id for x in hits]
         actual = self._db.query(Work).filter(Work.id.in_(results)).all()
         if should_be_ordered:
             # Put the Work objects in the same order as the IDs returned

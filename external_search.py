@@ -425,7 +425,7 @@ return champion;
         return base_works_index
 
     def create_search_doc(self, query_string, filter, pagination,
-                          debug, return_raw_results):
+                          debug):
 
         query = Query(query_string, filter)
         query_without_filter = Query(query_string)
@@ -434,15 +434,18 @@ return champion;
             search = search.extra(explain=True)
 
         fields = None
-        if debug or return_raw_results:
+        if debug:
             # Don't restrict the fields at all -- get everything.
             # This makes it easy to investigate everything about the
             # results we do get.
             fields = ['*']
         else:
             # All we absolutely need is the document ID, which is a
-            # key into the database.
+            # key into the database, plus the values of any script fields,
+            # which represent data not available through the database.
             fields = ["_id"]
+            if filter:
+                fields += filter.script_fields.keys()
 
         # Change the Search object so it only retrieves the fields
         # we're asking for.
@@ -455,7 +458,7 @@ return champion;
         return search
 
     def query_works(self, query_string, filter=None, pagination=None,
-                    debug=False, return_raw_results=False):
+                    debug=False):
         """Run a search query.
 
         :param query_string: The string to search for.
@@ -463,15 +466,14 @@ return champion;
             would otherwise match the query string.
         :param pagination: A Pagination object, used to get a subset
             of the search results.
-        :param debug: If this is True, some debugging information will
-            be gathered (at a slight performance cost) and logged.
-        :param return_raw_results: If this is False (the default)
-            the return value will be a list of work IDs. If this is
-            true, the full result documents will be returned.
-        :return: A list of Work IDs that match the query string, or
-            (if return_raw_results is True) a list of dictionaries
-            representing search results.
-
+        :param debug: If this is True, debugging information will
+            be gathered and logged. The search query will ask
+            ElasticSearch for all available fields, not just the
+            fields known to be used by the feed generation code.  This
+            all comes at a slight performance cost.
+        :return: A list of Hit objects containing information about
+            the search results, including the values of any script fields
+            calculated by ElasticSearch during the search process.
         """
         if not self.works_alias:
             return []
@@ -479,7 +481,7 @@ return champion;
         if not pagination:
             pagination = Pagination.default()
 
-        search = self.create_search_doc(query_string, filter=filter, pagination=pagination, debug=debug, return_raw_results=return_raw_results)
+        search = self.create_search_doc(query_string, filter=filter, pagination=pagination, debug=debug)
         start = pagination.offset
         stop = start + pagination.size
 
@@ -514,9 +516,7 @@ return champion;
         # it set up to generate a link to the next page.
         pagination.page_loaded(results)
 
-        if return_raw_results:
-            return results
-        return [int(result.meta['id']) for result in results]
+        return results
 
     def bulk_update(self, works, retry_on_batch_failure=True):
         """Upload a batch of works to the search index at once."""
@@ -610,13 +610,13 @@ return champion;
         def _search():
             return self.create_search_doc(
                 self.test_search_term, filter=None,
-                pagination=None, debug=True, return_raw_results=True
+                pagination=None, debug=True
             )
 
         def _works():
             return self.query_works(
                 self.test_search_term, filter=None, pagination=None,
-                debug=False, return_raw_results=True
+                debug=False
             )
 
         # The self-tests:
@@ -683,7 +683,7 @@ return champion;
                 filter = Filter(collections=[collection])
                 search = self.query_works(
                     "", filter=filter, pagination=None,
-                    debug=True, return_raw_results=True
+                    debug=True
                 )
                 if in_testing:
                     result[collection.name] = len(search)
@@ -2380,6 +2380,22 @@ class SortKeyPagination(Pagination):
         self.last_item_on_this_page = values
 
 
+class WorkSearchResult(object):
+    """Wraps a Work object to give extra information obtained from 
+    ElasticSearch.
+
+    This object acts just like a Work (though isinstance(x, Work) will
+    fail), with one exception: you can access the raw ElasticSearch Hit
+    result as .hit.
+    """
+    def __init__(self, work, hit):
+        self.work = work
+        self.hit = hit
+
+    def __getattr__(self, k):
+        return getattr(self.work, k)
+
+
 class MockExternalSearchIndex(ExternalSearchIndex):
 
     work_document_type = 'work-type'
@@ -2409,11 +2425,11 @@ class MockExternalSearchIndex(ExternalSearchIndex):
     def exists(self, index, doc_type, id):
         return self._key(index, doc_type, id) in self.docs
 
-    def create_search_doc(self, query_string, filter=None, pagination=None, debug=False, return_raw_results=False):
+    def create_search_doc(self, query_string, filter=None, pagination=None, debug=False):
         return self.docs.values()
 
-    def query_works(self, query_string, filter, pagination, debug=False, return_raw_results=False, search=None):
-        self.queries.append((query_string, filter, pagination, debug, return_raw_results))
+    def query_works(self, query_string, filter, pagination, debug=False, search=None):
+        self.queries.append((query_string, filter, pagination, debug))
         docs = self.docs.values()
         if pagination:
             start_at = 0
@@ -2431,10 +2447,7 @@ class MockExternalSearchIndex(ExternalSearchIndex):
             stop = start_at + pagination.size
             docs = docs[start_at:stop]
 
-        if return_raw_results:
-            results = docs
-        else:
-            results = [x['_id'] for x in docs]
+        results = docs
 
         if pagination:
             result_objs = [

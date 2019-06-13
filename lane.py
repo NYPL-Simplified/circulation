@@ -1563,17 +1563,20 @@ class WorkList(object):
             query_string=None, filter=filter, pagination=pagination,
             debug=debug
         )
+        set_trace()
         return self.works_for_specific_ids(_db, work_ids, Work)
 
-    def works_for_specific_ids(self, _db, work_ids, work_model=mw):
+    def works_for_specific_ids(self, _db, hits, work_model=mw):
         """Create the appearance of having called works(), but return the
         specific MaterializedWorks or Works identified by `work_ids`.
 
         :param _db: A database connection
-        :param work_ids: A list of Work IDs
-        :param work_model: By default, this method will return
+        :param hits: A list of Hit objects from ElasticSearch.
+        :param work_model: By default, this method will look up
             MaterializedWorkWithGenre objects. Pass in Work here
-            to return Work objects.
+            to look up Work objects.
+        :return A list of WorkSearchResult objects, each wrapping 
+            a MaterializedWorkWithGenre or Work.
         """
 
         # Get a list of Work or MaterializedWorkWithView objects, using
@@ -1592,6 +1595,7 @@ class WorkList(object):
                 work_model.presentation_edition
             )
             edition_model = Edition
+        work_ids = [x.work_id for x in hits]
         qu = qu.filter(
             work_id_field.in_(work_ids),
             LicensePool.work_id.in_(work_ids), # Query optimization
@@ -1613,7 +1617,13 @@ class WorkList(object):
             else:
                 work_id = w.id
             work_by_id[work_id] = w
-        results = [work_by_id[x] for x in work_ids if x in work_by_id]
+
+        from external_search import WorkSearchResult
+        results = [
+            WorkSearchResult(
+                work_by_id[hit.work_id], hit
+            ) for hit in hits if hit.work_id in work_by_id
+        ]
 
         b = time.time()
         logging.info(
