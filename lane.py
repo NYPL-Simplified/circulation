@@ -944,6 +944,7 @@ class Pagination(object):
     DEFAULT_SIZE = 50
     DEFAULT_SEARCH_SIZE = 10
     DEFAULT_FEATURED_SIZE = 10
+    DEFAULT_CRAWLABLE_SIZE = 100
 
     @classmethod
     def default(cls):
@@ -1409,7 +1410,7 @@ class WorkList(object):
             yield work, worklist
 
     def default_featured_facets(self, _db):
-        """Helper method to create a FeaturedFacets object."""
+        """DEPRECATED - Used only in a deprecated method."""
         library = self.get_library(_db)
         return FeaturedFacets(
             minimum_featured_quality=library.minimum_featured_quality,

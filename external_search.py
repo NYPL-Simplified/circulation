@@ -1655,6 +1655,7 @@ class Filter(SearchBase):
         fiction = inherit_one('fiction')
         audiences = inherit_one('audiences')
         target_age = inherit_one('target_age')
+        collections = inherit_one('collection_ids') or library
 
         # For genre IDs and CustomList IDs, we might get a separate
         # set of restrictions from every item in the WorkList hierarchy.
@@ -1671,13 +1672,16 @@ class Filter(SearchBase):
         excluded_audiobook_data_sources = [
             DataSource.lookup(_db, x) for x in excluded
         ]
-
+        if library is None:
+            allow_holds = True
+        else:
+            allow_holds = library.allow_holds
         return cls(
-            library, media, languages, fiction, audiences,
+            collections, media, languages, fiction, audiences,
             target_age, genre_id_restrictions, customlist_id_restrictions,
             facets,
             excluded_audiobook_data_sources=excluded_audiobook_data_sources,
-            allow_holds=library.allow_holds,
+            allow_holds=allow_holds,
         )
 
 
