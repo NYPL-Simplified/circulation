@@ -2968,25 +2968,19 @@ class TestFilter(DatabaseTest):
         script = sort.pop('script')
         eq_({}, sort)
 
-        # The script is written in the Painless language.
-        eq_('painless', script.pop('lang'))
+        # The script is the 'simplified.work_last_update' stored script.
+        eq_('simplified.work_last_update', script.pop('stored'))
 
         # Two parameters are passed into the script -- the IDs of the
         # collections and the lists relevant to the query. This is so
         # the query knows which updates should actually be considered
         # for purposes of this query.
         params = script.pop('params')
+        eq_({}, script)
+
         eq_([self._default_collection.id], params.pop('collection_ids'))
         eq_([1,2], params.pop('list_ids'))
         eq_({}, params)
-
-        # The script is written in another programming language, so we
-        # can only verify its functionality during an end-to-end test,
-        # which happens in TestSearchOrder.
-        source = script.pop('source')
-        assert 'return champion;' in source
-
-        eq_({}, script)
 
     def test_target_age_filter(self):
         # Test an especially complex subfilter.
