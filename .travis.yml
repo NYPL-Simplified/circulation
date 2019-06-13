@@ -31,9 +31,9 @@ install:
   - python -m textblob.download_corpora
 
 before_script:
-  - sudo service postgresql start 9.3
   - sudo systemctl status postgresql.service
   - sudo journalctl -xe
+  - sudo service postgresql start 9.3 || sudo systemctl status postgresql.service && sudo journalctl -xe
   - psql -c 'create user simplified_test;' -U postgres
   - psql -c 'create database simplified_circulation_test;' -U postgres
   - psql -c 'grant all privileges on database simplified_circulation_test to simplified_test;' -U postgres
