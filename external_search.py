@@ -216,6 +216,7 @@ class ExternalSearchIndex(HasSelfTests):
             self.index = self.__client.index
             self.delete = self.__client.delete
             self.exists = self.__client.exists
+            self.put_script = self.__client.put_script
 
         # Sets self.works_index and self.works_alias values.
         # Document upload runs against the works_index.
@@ -223,6 +224,7 @@ class ExternalSearchIndex(HasSelfTests):
         if works_index and integration and not in_testing:
             try:
                 self.set_works_index_and_alias(_db)
+                self.set_stored_scripts()
             except RequestError, e:
                 # This is almost certainly a problem with our code,
                 # not a communications error.
@@ -296,6 +298,57 @@ class ExternalSearchIndex(HasSelfTests):
             _use_as_works_alias(self.works_index)
             return
         _use_as_works_alias(alias_name)
+
+    def set_stored_scripts(self):
+        """Ensure that the ES server knows about all the scripts necessary for
+        this version of the software.
+        """
+        self.put_script(
+            "simplified.work_last_update",
+            self.work_last_update_script_definition
+        )
+
+    @property
+    def work_last_update_script_definition(self):
+        # Here's the text of the script.
+        source = """
+double champion = -1;
+// Start off by looking at the work's last update time.
+for (candidate in doc['last_update_time']) {
+    if (champion == -1 || candidate > champion) { champion = candidate; }
+}
+if (params.collection_ids != null && params.collection_ids.length > 0) {
+    // Iterate over all licensepools looking for a pool in a collection
+    // relevant to this filter. When one is found, check its
+    // availability time to see if it's later than the last update time.
+    for (licensepool in params._source.licensepools) {
+        if (!params.collection_ids.contains(licensepool['collection_id'])) { continue; }
+        double candidate = licensepool['availability_time'];
+        if (champion == -1 || candidate > champion) { champion = candidate; }
+    }
+}
+if (params.list_ids != null && params.list_ids.length > 0) {
+
+    // Iterate over all customlists looking for a list relevant to
+    // this filter. When one is found, check the previous work's first
+    // appearance on that list to see if it's later than the last
+    // update time.
+    for (customlist in params._source.customlists) {
+        if (!params.list_ids.contains(customlist['list_id'])) { continue; }
+        double candidate = customlist['first_appearance'];
+        if (champion == -1 || candidate > champion) { champion = candidate; }
+    }
+}
+
+return champion;
+"""
+        # Now create the actual field configuration.
+        return dict(
+            script=dict(
+                lang="painless",
+                source=source,
+            )
+        )
 
     def setup_index(self, new_index=None, **index_settings):
         """Create the search index with appropriate mapping.
@@ -2089,44 +2142,9 @@ class Filter(SearchBase):
             collection_ids=collection_ids,
             list_ids=list(all_list_ids)
         )
-
-        # Here's the text of the script.
-        source = """
-double champion = -1;
-// Start off by looking at the work's last update time.
-for (candidate in doc['last_update_time']) {
-    if (champion == -1 || candidate > champion) { champion = candidate; }
-}
-if (params.collection_ids != null && params.collection_ids.length > 0) {
-    // Iterate over all licensepools looking for a pool in a collection
-    // relevant to this filter. When one is found, check its
-    // availability time to see if it's later than the last update time.
-    for (licensepool in params._source.licensepools) {
-        if (!params.collection_ids.contains(licensepool['collection_id'])) { continue; }
-        double candidate = licensepool['availability_time'];
-        if (champion == -1 || candidate > champion) { champion = candidate; }
-    }
-}
-if (params.list_ids != null && params.list_ids.length > 0) {
-
-    // Iterate over all customlists looking for a list relevant to
-    // this filter. When one is found, check the previous work's first
-    // appearance on that list to see if it's later than the last
-    // update time.
-    for (customlist in params._source.customlists) {
-        if (!params.list_ids.contains(customlist['list_id'])) { continue; }
-        double candidate = customlist['first_appearance'];
-        if (champion == -1 || candidate > champion) { champion = candidate; }
-    }
-}
-
-return champion;
-"""
-        # Now create the actual field configuration.
         return dict(
             script=dict(
-                lang="painless",
-                source=source,
+                stored="simplified.work_last_update",
                 params=params
             )
         )
