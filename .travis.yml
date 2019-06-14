@@ -1,11 +1,5 @@
 sudo: required
 
-addons:
-  postgresql: "9.3"
-  apt:
-    packages:
-      - postgresql-contrib-9.3
-
 services:
   - postgresql
 
