@@ -1563,7 +1563,6 @@ class WorkList(object):
             query_string=None, filter=filter, pagination=pagination,
             debug=debug
         )
-        set_trace()
         return self.works_for_specific_ids(_db, work_ids, Work)
 
     def works_for_specific_ids(self, _db, hits, work_model=mw):

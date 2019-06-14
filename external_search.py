@@ -440,10 +440,10 @@ return champion;
             # results we do get.
             fields = ['*']
         else:
-            # All we absolutely need is the document ID, which is a
+            # All we absolutely need is the work ID, which is a
             # key into the database, plus the values of any script fields,
             # which represent data not available through the database.
-            fields = ["_id"]
+            fields = ["work_id"]
             if filter:
                 fields += filter.script_fields.keys()
 
@@ -1282,7 +1282,7 @@ class Query(SearchBase):
 
             # Add any necessary script fields.
             script_fields = self.filter.script_fields
-            if script_fields and False:
+            if script_fields:
                 search = search.script_fields(**script_fields)
         # Apply any necessary query restrictions imposed by the
         # Pagination object. This may happen through modification or
@@ -2386,14 +2386,14 @@ class WorkSearchResult(object):
 
     This object acts just like a Work (though isinstance(x, Work) will
     fail), with one exception: you can access the raw ElasticSearch Hit
-    result as .hit.
+    result as ._hit.
     """
     def __init__(self, work, hit):
-        self.work = work
-        self.hit = hit
+        self._work = work
+        self._hit = hit
 
     def __getattr__(self, k):
-        return getattr(self.work, k)
+        return getattr(self._work, k)
 
 
 class MockExternalSearchIndex(ExternalSearchIndex):
