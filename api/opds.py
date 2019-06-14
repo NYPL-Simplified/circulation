@@ -1,3 +1,4 @@
+import datetime
 import urllib
 import copy
 import logging
@@ -14,6 +15,7 @@ from core.classifier import Classifier
 from core.entrypoint import (
     EverythingEntryPoint,
 )
+from core.external_search import WorkSearchResult
 from core.opds import (
     Annotator,
     AcquisitionFeed,
@@ -592,9 +594,17 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         return url
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
-        updated = None
-        if isinstance(self.lane, CrawlableCustomListBasedLane) and isinstance(work, BaseMaterializedWork):
-            updated = max(work.last_update_time, work.first_appearance, work.availability_time)
+        updated = work.last_update_time
+        if isinstance(work, WorkSearchResult):
+            # Elasticsearch puts this field in a list, but we've set it up
+            # so there will be at most one value.
+            last_updates = getattr(work._hit, 'last_update', [])
+            if last_updates:
+                # last_update is seconds-since epoch; convert to UTC datetime.
+                updated = max(
+                    updated,
+                    datetime.datetime.utcfromtimestamp(last_updates[0])
+                )
 
         # Add a link for reporting problems.
         feed.add_link_to_entry(
