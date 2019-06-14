@@ -406,12 +406,6 @@ class Facets(FacetsWithEntryPoint):
         a per-library basis.
         """
         super(Facets, self).__init__(entrypoint, entrypoint_is_default)
-        if order_ascending is None:
-            if order == self.ORDER_ADDED_TO_COLLECTION:
-                order_ascending = self.ORDER_DESCENDING
-            else:
-                order_ascending = self.ORDER_ASCENDING
-
         collection = collection or self.default_facet(
             library, self.COLLECTION_FACET_GROUP_NAME
         )
@@ -419,6 +413,11 @@ class Facets(FacetsWithEntryPoint):
             library, self.AVAILABILITY_FACET_GROUP_NAME
         )
         order = order or self.default_facet(library, self.ORDER_FACET_GROUP_NAME)
+        if order_ascending is None:
+            if order in Facets.ORDER_DESCENDING_BY_DEFAULT:
+                order_ascending = self.ORDER_DESCENDING
+            else:
+                order_ascending = self.ORDER_ASCENDING
 
         if (availability == self.AVAILABLE_ALL and (library and not library.allow_holds)
             and (self.AVAILABLE_NOW in self.available_facets(library, self.AVAILABILITY_FACET_GROUP_NAME))):
