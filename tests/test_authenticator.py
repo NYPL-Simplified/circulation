@@ -18,8 +18,7 @@ import re
 import urllib
 import urlparse
 import flask
-from flask import url_for
-
+from flask import url_for, Flask
 from core.opds import OPDSFeed
 from core.user_profile import ProfileController
 from core.model import (
@@ -420,20 +419,26 @@ class TestPatronData(AuthenticatorTest):
         params = self.data.to_response_parameters
         eq_(dict(name="4"), params)
 
-class TestCirculationPatronProfileStorage(VendorIDTest):
+class TestCirculationPatronProfileStorage(ControllerTest):
 
     def test_profile_document(self):
+        def mock_url_for(endpoint, library_short_name, _external=True):
+            return "http://host/" + endpoint + "?" + "library_short_name=" + library_short_name
+
         patron = self._patron()
-        storage = CirculationPatronProfileStorage(patron)
+        storage = CirculationPatronProfileStorage(patron, mock_url_for)
         doc = storage.profile_document
         assert 'settings' in doc
         #Since there's no authdata configured, the DRM fields are not present
         assert 'drm:vendor' not in doc
         assert 'drm:clientToken' not in doc
         assert 'drm:scheme' not in doc
+        assert 'links' not in doc
+
         #Now there's authdata configured, and the DRM fields are populated with
         #the vendor ID and a short client token
         self.initialize_adobe(patron.library)
+
         doc = storage.profile_document
         [adobe] = doc['drm']
         eq_(adobe["drm:vendor"], "vendor id")
@@ -441,6 +446,10 @@ class TestCirculationPatronProfileStorage(VendorIDTest):
             patron.library.short_name.upper() + "TOKEN"
         )
         eq_(adobe["drm:scheme"], "http://librarysimplified.org/terms/drm/scheme/ACS")
+
+        [links] = doc['links']
+        eq_(links['rel'], "http://librarysimplified.org/terms/drm/rel/devices")
+        eq_(links['href'], "http://host/adobe_drm_devices?library_short_name=default")
 
 class MockAuthenticator(Authenticator):
     """Allows testing Authenticator methods outside of a request context."""
