@@ -422,7 +422,7 @@ class PatronProfileStorage(ProfileStorage):
     Protocol.
     """
 
-    def __init__(self, patron, url_for):
+    def __init__(self, patron, url_for=None):
         """Set up a storage interface for a specific Patron.
         :param patron: We are accessing the profile for this patron.
         """
