@@ -828,7 +828,6 @@ class OPDSFeedController(CirculationManagerController):
     def _crawlable_feed(self, library, title, url, lane, annotator=None):
         annotator = annotator or self.manager.annotator(lane)
         facets = CrawlableFacets.default(library)
-        facets.order_ascending = CrawlableFacets.ORDER_DESCENDING
         pagination = load_pagination_from_request(
             default_size=Pagination.DEFAULT_CRAWLABLE_SIZE
         )

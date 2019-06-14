@@ -275,7 +275,7 @@ class CirculationManagerAnnotator(Annotator):
             # Generate the licensing tags that tell you whether the book
             # is available.
             for link in borrow_links:
-                if link:
+                if link is not None:
                     for t in feed.license_tags(
                         active_license_pool, active_loan, active_hold
                     ):
@@ -601,10 +601,17 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             last_updates = getattr(work._hit, 'last_update', [])
             if last_updates:
                 # last_update is seconds-since epoch; convert to UTC datetime.
-                updated = max(
-                    updated,
-                    datetime.datetime.utcfromtimestamp(last_updates[0])
+                search_update = datetime.datetime.utcfromtimestamp(
+                    last_updates[0]
                 )
+                updated = search_update
+                # There's a chance that work.last_updated has been
+                # modified but the change hasn't made it to the search
+                # engine yet.
+                #
+                # TODO: Is it better to use this value, which is more
+                # accurate, or to ensure that the feed is sorted?
+                updated = max(updated, search_update)
 
         # Add a link for reporting problems.
         feed.add_link_to_entry(
