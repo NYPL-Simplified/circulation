@@ -1,11 +1,5 @@
 sudo: required
 
-addons:
-  postgresql: "11.2"
-  apt:
-    packages:
-      - postgresql-contrib-11
-
 services:
   - postgresql
 
@@ -20,8 +14,6 @@ git:
   submodules: false
 
 before_install:
-  - sudo -u postgres /usr/lib/postgresql/11/bin/pg_ctl -D /var/lib/postgresql/11/main start
-  - sudo service postgresql restart
   - psql -c 'create user simplified_test;' -U postgres
   - psql -c 'create database simplified_circulation_test;' -U postgres
   - psql -c 'grant all privileges on database simplified_circulation_test to simplified_test;' -U postgres
