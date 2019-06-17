@@ -511,6 +511,36 @@ class TestFacets(DatabaseTest):
         actual = order(Facets.ORDER_ADDED_TO_COLLECTION, None)
         compare(expect, actual)
 
+        expect = [m.availability_time.desc(), m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
+        actual = order(Facets.ORDER_LAST_UPDATE, None)
+        set_trace()
+        compare(expect, actual)
+
+    def test_default_order_ascending(self):
+
+        # Most fields are ordered ascending by default (A-Z).
+        for order in (Facets.ORDER_TITLE, Facets.ORDER_RANDOM):
+            f = Facets(
+                self._default_library,
+                collection=Facets.COLLECTION_FULL,
+                availability=Facets.AVAILABLE_ALL,
+                order=order
+            )
+            eq_(True, f.order_ascending)
+
+        # But the time-based facets are ordered descending by default
+        # (newest->oldest)
+        eq_(set([Facets.ORDER_ADDED_TO_COLLECTION, Facets.ORDER_LAST_UPDATE]),
+            set(Facets.ORDER_DESCENDING_BY_DEFAULT))
+        for order in Facets.ORDER_DESCENDING_BY_DEFAULT:
+            f = Facets(
+                self._default_library,
+                collection=Facets.COLLECTION_FULL,
+                availability=Facets.AVAILABLE_ALL,
+                order=order
+            )
+            eq_(False, f.order_ascending)
+
     def test_navigate(self):
         """Test the ability of navigate() to move between slight
         variations of a FeaturedFacets object.
