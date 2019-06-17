@@ -991,9 +991,8 @@ class TestOPDS(DatabaseTest):
         eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_page).entries))
 
     def test_page_feed_for_worklist(self):
-        """Test the ability to create a paginated feed of works for a
-        WorkList instead of a Lane.
-        """
+        # Test the ability to create a paginated feed of works for a
+        # WorkList instead of a Lane.
         lane = self.conf
         work1 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
         work2 = self._work(genre=Contemporary_Romance, with_open_access_download=True)

@@ -2451,14 +2451,13 @@ class MockExternalSearchIndex(ExternalSearchIndex):
             stop = start_at + pagination.size
             docs = docs[start_at:stop]
 
-        results = docs
+        results = [
+            MockSearchResult("title", "author", {}, x['_id'])
+            for x in docs
+        ]
 
         if pagination:
-            result_objs = [
-                MockSearchResult("title", "author", {}, x['_id'])
-                for x in docs
-            ]
-            pagination.page_loaded(result_objs)
+            pagination.page_loaded(results)
         return results
 
 
@@ -2483,6 +2482,7 @@ class MockSearchResult(object):
         meta["id"] = id
         meta["_sort"] = [title, author, id]
         self.meta = MockMeta(meta)
+        self.work_id = id
 
     def to_dict(self):
         return {

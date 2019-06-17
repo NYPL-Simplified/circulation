@@ -1963,7 +1963,7 @@ class WorkList(object):
         from external_search import Filter
         filter = Filter.from_worklist(_db, self, facets)
         try:
-            work_ids = search_client.query_works(
+            hits = search_client.query_works(
                 query, filter, pagination, debug
             )
         except elasticsearch.exceptions.ElasticsearchException, e:
@@ -1971,8 +1971,8 @@ class WorkList(object):
                 "Problem communicating with ElasticSearch. Returning empty list of search results.",
                 exc_info=e
             )
-        if work_ids:
-            results = self.works_for_specific_ids(_db, work_ids, Work)
+        if hits:
+            results = self.works_for_hits(_db, hits, Work)
 
         return results
 
