@@ -94,8 +94,8 @@ class TestExternalSearch(ExternalSearchTest):
         # The configuration of the search ExternalIntegration becomes the
         # configuration of the ExternalSearchIndex.
         #
-        # This basically just verifies that the test search term is
-        # taken from the ExternalIntegration.
+        # This basically just verifies that the test search term is taken
+        # from the ExternalIntegration.
         class MockIndex(ExternalSearchIndex):
             def set_works_index_and_alias(self, _db):
                 self.set_works_index_and_alias_called_with = _db
@@ -1598,7 +1598,7 @@ class TestQuery(DatabaseTest):
         # Verify that the build() method combines the 'query' part of
         # a Query and the 'filter' part to create a single
         # Elasticsearch Search object, complete with (if necessary)
-        # subqueries and sort ordering.
+        # subqueries, sort ordering, and script fields.
 
         class MockSearch(object):
             """A mock of the Elasticsearch-DSL `Search` object.
@@ -1611,12 +1611,13 @@ class TestQuery(DatabaseTest):
             """
             def __init__(
                     self, parent=None, query=None, nested_filter_calls=None,
-                    order=None
+                    order=None, script_fields=None
             ):
                 self.parent = parent
                 self._query = query
                 self.nested_filter_calls = nested_filter_calls or []
                 self.order = order
+                self._script_fields = script_fields
 
             def filter(self, **kwargs):
                 """Simulate the application of a nested filter.
@@ -1624,7 +1625,10 @@ class TestQuery(DatabaseTest):
                 :return: A new MockSearch object.
                 """
                 new_filters = self.nested_filter_calls + [kwargs]
-                return MockSearch(self, self._query, new_filters, self.order)
+                return MockSearch(
+                    self, self._query, new_filters, self.order,
+                    self._script_fields
+                )
 
             def query(self, query):
                 """Simulate the creation of an Elasticsearch-DSL `Search`
@@ -1633,13 +1637,22 @@ class TestQuery(DatabaseTest):
                 :return: A New MockSearch object.
                 """
                 return MockSearch(
-                    self, query, self.nested_filter_calls, self.order
+                    self, query, self.nested_filter_calls, self.order,
+                    self._script_fields
                 )
 
             def sort(self, *order_fields):
                 """Simulate the application of a sort order."""
                 return MockSearch(
-                    self, self._query, self.nested_filter_calls, order_fields
+                    self, self._query, self.nested_filter_calls, order_fields,
+                    self._script_fields
+                )
+
+            def script_fields(self, **kwargs):
+                """Simulate the addition of script fields."""
+                return MockSearch(
+                    self, self._query, self.nested_filter_calls, self.order,
+                    kwargs
                 )
 
         class MockQuery(Query):
@@ -1885,6 +1898,15 @@ class TestQuery(DatabaseTest):
             nested_filter.to_dict(),
             {'bool': {'filter': [{'bool': {'should': [open_access, available]}}]}}
         )
+
+        # If the Filter specifies script fields, those fields are
+        # added to the Query through a call to script_fields()
+        script_fields = dict(field1="Definition1",
+                             field2="Definition2")
+        filter = Filter(script_fields=script_fields)
+        qu = MockQuery("query string", filter=filter)
+        built = qu.build(search)
+        eq_(script_fields, built._script_fields)
 
         # If the Filter specifies a sort order, Filter.sort_order is
         # used to convert it to appropriate Elasticsearch syntax, and
