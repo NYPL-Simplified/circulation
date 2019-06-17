@@ -56,7 +56,7 @@ class FacetConstants(object):
     # Most facets should be ordered in ascending order by default (A>-Z), but
     # these dates should be ordered descending by default (new->old).
     ORDER_DESCENDING_BY_DEFAULT = [
-        self.ORDER_ADDED_TO_COLLECTION, self.ORDER_LAST_UPDATE
+        ORDER_ADDED_TO_COLLECTION, ORDER_LAST_UPDATE
     ]
 
     FACETS_BY_GROUP = {
