@@ -70,6 +70,7 @@ class TestCustomList(DatabaseTest):
         eq_(None, workless_entry.work)
         # And the CustomList will be seen as updated.
         eq_(True, custom_list.updated > now)
+        eq_(1, custom_list.size)
 
         # An edition with a work can create an entry.
         work = self._work()
@@ -79,6 +80,7 @@ class TestCustomList(DatabaseTest):
         eq_(work, worked_entry.work)
         eq_(work.presentation_edition, worked_entry.edition)
         eq_(True, worked_entry.first_appearance > now)
+        eq_(2, custom_list.size)
 
         # When this happens, the work is scheduled for reindexing.
         self.assert_reindexing_scheduled(work)
@@ -91,6 +93,7 @@ class TestCustomList(DatabaseTest):
         eq_(work.presentation_edition, work_entry.edition)
         eq_(work, work_entry.work)
         eq_(True, work_entry.first_appearance > now)
+        eq_(3, custom_list.size)
 
         # When this happens, the work is scheduled for reindexing.
         self.assert_reindexing_scheduled(work)
@@ -101,12 +104,14 @@ class TestCustomList(DatabaseTest):
             annotated_edition, annotation="Sure, this is a good book."
         )[0]
         eq_(u"Sure, this is a good book.", annotated_entry.annotation)
+        eq_(4, custom_list.size)
 
         # A first_appearance time can be passed to an entry.
         timed_edition = self._edition()
         timed_entry = custom_list.add_entry(timed_edition, first_appearance=now)[0]
         eq_(now, timed_entry.first_appearance)
         eq_(now, timed_entry.most_recent_appearance)
+        eq_(5, custom_list.size)
 
         # If the entry already exists, the most_recent_appearance is updated.
         previous_list_update_time = custom_list.updated
@@ -114,8 +119,9 @@ class TestCustomList(DatabaseTest):
         eq_(False, is_new)
         eq_(timed_entry, new_timed_entry)
         eq_(True, timed_entry.most_recent_appearance > now)
-        # But the CustomList update time is not.
+        # But the CustomList update time and size are not.
         eq_(previous_list_update_time, custom_list.updated)
+        eq_(5, custom_list.size)
 
         # If the entry already exists, the most_recent_appearance can be
         # updated by passing in a later first_appearance.
@@ -124,6 +130,7 @@ class TestCustomList(DatabaseTest):
         eq_(timed_entry, new_timed_entry)
         eq_(now, new_timed_entry.first_appearance)
         eq_(later, new_timed_entry.most_recent_appearance)
+        eq_(5, custom_list.size)
 
         # For existing entries, earlier first_appearance datetimes are ignored.
         entry = custom_list.add_entry(annotated_edition, first_appearance=now)[0]
@@ -131,6 +138,7 @@ class TestCustomList(DatabaseTest):
         eq_(True, entry.first_appearance >= now)
         eq_(True, entry.most_recent_appearance != now)
         eq_(True, entry.most_recent_appearance >= now)
+        eq_(5, custom_list.size)
 
         # Adding an equivalent edition will not create multiple entries.
         equivalent, lp = self._edition(with_open_access_download=True)
@@ -142,6 +150,7 @@ class TestCustomList(DatabaseTest):
         eq_(workless_entry, equivalent_entry)
         # Or update the CustomList updated time
         eq_(previous_list_update_time, custom_list.updated)
+        eq_(5, custom_list.size)
         # But it will change the edition to the one that's requested.
         eq_(equivalent, workless_entry.edition)
         # And/or add a .work if one is newly available.
@@ -152,6 +161,7 @@ class TestCustomList(DatabaseTest):
         not_equivalent.work = work
         not_equivalent_entry, is_new = custom_list.add_entry(not_equivalent)
         eq_(False, is_new)
+        eq_(5, custom_list.size)
 
     def test_remove_entry(self):
         custom_list, editions = self._customlist(num_entries=3)
@@ -163,8 +173,9 @@ class TestCustomList(DatabaseTest):
         custom_list.remove_entry(first)
         eq_(2, len(custom_list.entries))
         eq_(set([second, third]), set([entry.edition for entry in custom_list.entries]))
-        # And CustomList.updated is changed.
+        # And CustomList.updated and size are changed.
         eq_(True, custom_list.updated > now)
+        eq_(2, custom_list.size)
 
         # The editon's work has been scheduled for reindexing.
         self.assert_reindexing_scheduled(first.work)
@@ -181,12 +192,14 @@ class TestCustomList(DatabaseTest):
         eq_(1, len(custom_list.entries))
         eq_(third, custom_list.entries[0].edition)
         eq_(True, custom_list.updated > previous_list_update_time)
+        eq_(1, custom_list.size)
 
         # An entry is also removed if its work is passed in.
         previous_list_update_time = custom_list.updated
         custom_list.remove_entry(third.work)
         eq_([], custom_list.entries)
         eq_(True, custom_list.updated > previous_list_update_time)
+        eq_(0, custom_list.size)
 
         # An edition that's not on the list doesn't cause any problems.
         custom_list.add_entry(second)
@@ -194,6 +207,7 @@ class TestCustomList(DatabaseTest):
         custom_list.remove_entry(first)
         eq_(1, len(custom_list.entries))
         eq_(previous_list_update_time, custom_list.updated)
+        eq_(1, custom_list.size)
 
         # The 'removed' edition's work does not need to be reindexed
         # because it wasn't on the list to begin with.
@@ -230,6 +244,13 @@ class TestCustomList(DatabaseTest):
             sorted([entry, other_entry]),
             sorted(list(custom_list.entries_for_work(not_yet_equivalent)))
         )
+
+    def test_update_size(self):
+        list, ignore = self._customlist(num_entries=4)
+        # This list has an incorrect cached size.
+        list.size = 44
+        list.update_size()
+        eq_(4, list.size)
 
 
 class TestCustomListEntry(DatabaseTest):
