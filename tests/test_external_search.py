@@ -57,6 +57,7 @@ from ..external_search import (
     SearchIndexCoverageProvider,
     SearchIndexMonitor,
     SortKeyPagination,
+    WorkSearchResult,
     mock_search_index,
 )
 # NOTE: external_search took care of handling the differences between
@@ -2697,6 +2698,13 @@ class TestFilter(DatabaseTest):
         filter = Filter.from_worklist(self._db, for_other_library, None)
         eq_([collection2.id], filter.collection_ids)
 
+        # If no library is associated with a WorkList, we assume that
+        # holds are allowed. (Usually this is controleld by a library
+        # setting.)
+        for_other_library.library_id = None
+        filter = Filter.from_worklist(self._db, for_other_library, None)
+        eq_(True, filter.allow_holds)
+
     def test_build(self):
         # Test the ability to turn a Filter into an ElasticSearch
         # filter object.
@@ -3453,6 +3461,26 @@ class TestSearchErrors(ExternalSearchTest):
         eq_(1, len(failures))
         eq_(failing_work, failures[0][0])
         eq_("There was an error!", failures[0][1])
+
+
+class TestWorkSearchResult(DatabaseTest):
+    # Test the WorkSearchResult class, which wraps together a data
+    # model Work and an ElasticSearch Hit into something that looks
+    # like a Work.
+
+    def test_constructor(self):
+        work = self._work()
+        hit = object()
+        result = WorkSearchResult(work, hit)
+
+        # The original Work object is available as ._work
+        eq_(work, result._work)
+
+        # The Elasticsearch Hit object is available as ._hit
+        eq_(hit, result._hit)
+
+        # Any other attributes are delegated to the Work.
+        eq_(work.sort_title, result.sort_title)
 
 
 class TestSearchIndexCoverageProvider(DatabaseTest):
