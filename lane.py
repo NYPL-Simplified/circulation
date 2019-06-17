@@ -1558,15 +1558,15 @@ class WorkList(object):
         )
         search_engine = search_engine or ExternalSearchIndex.load(_db)
         filter = Filter.from_worklist(_db, self, facets)
-        work_ids = search_engine.query_works(
+        hits = search_engine.query_works(
             query_string=None, filter=filter, pagination=pagination,
             debug=debug
         )
-        return self.works_for_specific_ids(_db, work_ids, Work)
+        return self.works_for_hits(_db, hits, Work)
 
-    def works_for_specific_ids(self, _db, hits, work_model=mw):
+    def works_for_hits(self, _db, hits, work_model=mw):
         """Create the appearance of having called works(), but return the
-        specific MaterializedWorks or Works identified by `work_ids`.
+        specific MaterializedWorks or Works identified by `hits`.
 
         :param _db: A database connection
         :param hits: A list of Hit objects from ElasticSearch.
