@@ -2667,6 +2667,36 @@ class TestFilter(DatabaseTest):
         filter = Filter.from_worklist(self._db, parent, facets)
         eq_([overdrive.id], filter.excluded_audiobook_data_sources)
 
+        # A bit of setup to test how WorkList.collection_ids affects
+        # the resulting Filter.
+
+        # Here's a collection associated with the default library.
+        for_default_library = WorkList()
+        for_default_library.initialize(self._default_library)
+
+        # Its filter uses all the collections associated with that library.
+        filter = Filter.from_worklist(self._db, for_default_library, None)
+        eq_([self._default_collection.id], filter.collection_ids)
+
+        # Here's a child of that WorkList associated with a different
+        # library.
+        library2 = self._library()
+        collection2 = self._collection()
+        library2.collections.append(collection2)
+        for_other_library = WorkList()
+        for_other_library.initialize(library2)
+        for_default_library.append_child(for_other_library)
+
+        # Its filter uses the collection from the second library.
+        filter = Filter.from_worklist(self._db, for_other_library, None)
+        eq_([collection2.id], filter.collection_ids)
+
+        # If for whatever reason, collection_ids on the child is not set,
+        # all collections associated with the WorkList's library will be used.
+        for_other_library.collection_ids = None
+        filter = Filter.from_worklist(self._db, for_other_library, None)
+        eq_([collection2.id], filter.collection_ids)
+
     def test_build(self):
         # Test the ability to turn a Filter into an ElasticSearch
         # filter object.
