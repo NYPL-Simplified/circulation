@@ -1697,6 +1697,11 @@ class Filter(SearchBase):
     presenting the search results.
     """
 
+    # When search results include known script fields, we need to
+    # wrap the works we would be returning in WorkSearchResults so
+    # the useful information from the search engine isn't lost.
+    KNOWN_SCRIPT_FIELDS = ['last_update']
+
     @classmethod
     def from_worklist(cls, _db, worklist, facets):
         """Create a Filter that finds only works that belong in the given
@@ -2451,10 +2456,14 @@ class MockExternalSearchIndex(ExternalSearchIndex):
             stop = start_at + pagination.size
             docs = docs[start_at:stop]
 
-        results = [
-            MockSearchResult("title", "author", {}, x['_id'])
-            for x in docs
-        ]
+        results = []
+        for x in docs:
+            if isinstance(x, MockSearchResult):
+                results.append(x)
+            else:
+                results.append(
+                    MockSearchResult("title", "author", {}, x['_id'])
+                )
 
         if pagination:
             pagination.page_loaded(results)
@@ -2476,6 +2485,7 @@ class MockMeta(dict):
         return self['_sort']
 
 class MockSearchResult(object):
+
     def __init__(self, title, author, meta, id):
         self.title = title
         self.author = author
@@ -2483,6 +2493,9 @@ class MockSearchResult(object):
         meta["_sort"] = [title, author, id]
         self.meta = MockMeta(meta)
         self.work_id = id
+
+    def __contains__(self, k):
+        return False
 
     def to_dict(self):
         return {

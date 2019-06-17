@@ -710,7 +710,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # There are a number of results, but the top one is a presidential
         # biography for 8-year-olds.
         eq_(5, len(results))
-        eq_(self.obama.id, results[0])
+        eq_(self.obama.id, results[0].work_id)
 
         # Now we'll test filters.
 

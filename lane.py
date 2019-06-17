@@ -1573,8 +1573,9 @@ class WorkList(object):
         :param work_model: By default, this method will look up
             MaterializedWorkWithGenre objects. Pass in Work here
             to look up Work objects.
-        :return A list of WorkSearchResult objects, each wrapping 
-            a MaterializedWorkWithGenre or Work.
+        :return A list of Work, MaterializedWorkWithGenre, or (if the
+            search results include script fields), WorkSearchResult
+            objects.
         """
 
         # Get a list of Work or MaterializedWorkWithView objects, using
@@ -1616,12 +1617,31 @@ class WorkList(object):
                 work_id = w.id
             work_by_id[work_id] = w
 
-        from external_search import WorkSearchResult
-        results = [
-            WorkSearchResult(
-                work_by_id[hit.work_id], hit
-            ) for hit in hits if hit.work_id in work_by_id
-        ]
+        from external_search import (
+            Filter,
+            WorkSearchResult,
+        )
+
+        # Check the first search result see if any script fields were
+        # included.
+        test_case = None
+        if hits:
+            test_case = hits[0]
+        has_script_fields = (
+            test_case is not None and any(
+                x in test_case for x in Filter.KNOWN_SCRIPT_FIELDS
+            )
+        )
+
+        results = []
+        for hit in hits:
+            if hit.work_id in work_by_id:
+                work = work_by_id[hit.work_id]
+                if has_script_fields:
+                    # Wrap the Work objects in WorkSearchResult so the
+                    # data from script fields isn't lost.
+                    work = WorkSearchResult(work, hit)
+                results.append(work)
 
         b = time.time()
         logging.info(
@@ -1950,7 +1970,7 @@ class WorkList(object):
             from the search index.
         """
         results = []
-        work_ids = None
+        hits = None
         if not search_client:
             # We have no way of actually doing a search. Return nothing.
             return results
