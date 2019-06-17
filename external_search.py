@@ -186,7 +186,7 @@ class ExternalSearchIndex(HasSelfTests):
         if not url or not works_index:
             integration = self.search_integration(_db)
             if not integration:
-               raise CannotLoadConfiguration(
+                raise CannotLoadConfiguration(
                     "No Elasticsearch integration configured."
                 )
             url = url or integration.url

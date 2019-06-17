@@ -512,10 +512,6 @@ class TestFacets(DatabaseTest):
         actual = order(Facets.ORDER_ADDED_TO_COLLECTION, None)
         compare(expect, actual)
 
-        expect = [m.availability_time.desc(), m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
-        actual = order(Facets.ORDER_LAST_UPDATE, None)
-        compare(expect, actual)
-
     def test_default_order_ascending(self):
 
         # Most fields are ordered ascending by default (A-Z).
