@@ -94,8 +94,8 @@ class TestExternalSearch(ExternalSearchTest):
         # The configuration of the search ExternalIntegration becomes the
         # configuration of the ExternalSearchIndex.
         #
-        # This basically just verifies that the test search term is taken
-        # from the ExternalIntegration.
+        # This basically just verifies that the test search term is
+        # taken from the ExternalIntegration.
         class MockIndex(ExternalSearchIndex):
             def set_works_index_and_alias(self, _db):
                 self.set_works_index_and_alias_called_with = _db
@@ -103,6 +103,9 @@ class TestExternalSearch(ExternalSearchTest):
         index = MockIndex(self._db)
         eq_(self._db, index.set_works_index_and_alias_called_with)
         eq_("test_search_term", index.test_search_term)
+
+    # TODO: would be good to check the put_script calls, but the
+    # current constructor makes put_script difficult to mock.
 
     def test_elasticsearch_error_in_constructor_becomes_cannotloadconfiguration(self):
         """If we're unable to establish a connection to the Elasticsearch
