@@ -48,7 +48,7 @@ function check_service_status()
 }
 
 # Wait for the container to start services before running tests
-sleep 20;
+sleep 30;
 
 # If this is an exec container, there are no tests to run.
 if [[ ${IMAGE_NAME} == *"exec"* ]]; then
