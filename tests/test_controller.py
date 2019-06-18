@@ -3371,7 +3371,7 @@ class TestCrawlableFeed(CirculationControllerTest):
         # Verify the arguments passed in to page().
         out_kwargs = self.page_called_with
         eq_(self._db, out_kwargs.pop('_db'))
-        eq_(self.manager.opds_feeds.search_
+        eq_(self.manager.opds_feeds.search_engine,
             out_kwargs.pop('search_engine'))
         eq_(in_kwargs['lane'], out_kwargs.pop('lane'))
         eq_(in_kwargs['title'], out_kwargs.pop('title'))
