@@ -44,6 +44,10 @@ class CustomList(Base):
     responsible_party = Column(Unicode)
     library_id = Column(Integer, ForeignKey('libraries.id'), index=True, nullable=True)
 
+    # How many titles are in this list? This is calculated and
+    # cached when the list contents change.
+    size = Column(Integer, nullable=False, default=0)
+
     entries = relationship(
         "CustomListEntry", backref="customlist")
 
@@ -154,6 +158,7 @@ class CustomList(Base):
 
         if was_new:
             self.updated = datetime.datetime.utcnow()
+            self.size += 1
 
         # Make sure the Work's search document is updated to reflect its new
         # list membership.
@@ -179,6 +184,7 @@ class CustomList(Base):
 
         if existing_entries:
             self.updated = datetime.datetime.utcnow()
+            self.size -= len(existing_entries)
         _db.commit()
 
     def entries_for_work(self, work_or_edition):
@@ -214,6 +220,9 @@ class CustomList(Base):
                 clause
             )
         return qu
+
+    def update_size(self):
+        self.size = len(self.entries)
 
 
 class CustomListEntry(Base):
