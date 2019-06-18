@@ -821,6 +821,9 @@ class OPDSFeedController(CirculationManagerController):
         """Build or retrieve a crawlable, paginated acquisition feed for the
         named CustomList, sorted by update date.
         """
+        # TODO: A library is not strictly required here, since some
+        # CustomLists aren't associated with a library, but this isn't
+        # a use case we need to support now.
         library = flask.request.library
         list = CustomList.find(self._db, list_name, library=library)
         if not list:

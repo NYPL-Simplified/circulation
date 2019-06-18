@@ -3278,8 +3278,49 @@ class TestCrawlableFeed(CirculationControllerTest):
         eq_(kwargs['lane'], annotator.lane)
 
     def test_crawlable_list_feed(self):
-        pass
+        # Test the creation of a crawlable feed for everything in
+        # a custom list.
+        controller = self.manager.opds_feeds
+        library = self._default_library
 
+        customlist, ignore = self._customlist(num_entries=0)
+        customlist.library = library
+
+        other_list, ignore = self._customlist(num_entries=0)
+
+        # List does not exist, or not associated with library ->
+        # ProblemDetail
+        for bad_name in ("Nonexistent list", other_list.name):
+            with self.request_context_with_library("/"):
+                with self.mock_crawlable_feed():
+                    response = controller.crawlable_list_feed(bad_name)
+                    eq_(NO_SUCH_LIST, response)
+
+        with self.request_context_with_library("/"):
+            with self.mock_crawlable_feed():
+                response = controller.crawlable_list_feed(customlist.name)
+                expect_url = controller.cdn_url_for(
+                    "crawlable_list_feed",
+                    list_name=customlist.name,
+                    library_short_name=library.short_name,
+                )
+
+        # The response of the mock _crawlable_feed was returned as-is;
+        # creating a proper Response object is the job of the real
+        # _crawlable_feed.
+        eq_("An OPDS feed.", response)
+
+        # Verify that _crawlable_feed was called with the right arguments.
+        kwargs = self._crawlable_feed_called_with
+        eq_(expect_url, kwargs.pop('url'))
+        eq_(customlist.name, kwargs.pop('title'))
+
+        # A CrawlableCustomListBasedLane was created to fetch only
+        # the works in the custom list.
+        lane = kwargs.pop('lane')
+        assert isinstance(lane, CrawlableCustomListBasedLane)
+        eq_([customlist.id], lane.customlist_ids)
+        eq_({}, kwargs)
             
     def test__crawlable_feed(self):
         # Test the helper method called by all other feed methods.
