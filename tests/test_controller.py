@@ -142,7 +142,11 @@ from core.opds import (
 from core.util.opds_writer import (
     OPDSFeed,
 )
-from api.opds import LibraryAnnotator
+from api.opds import (
+    LibraryAnnotator,
+    CirculationManagerAnnotator,
+    SharedCollectionAnnotator,
+)
 from api.annotations import AnnotationWriter
 from api.testing import (
     VendorIDTest,
@@ -3189,6 +3193,11 @@ class TestCrawlableFeed(CirculationControllerTest):
                     library_short_name=library.short_name,
                 )
 
+        # The response of the mock _crawlable_feed was returned as-is;
+        # creating a proper Response object is the job of the real
+        # _crawlable_feed.
+        eq_("An OPDS feed.", response)
+
         # Verify that _crawlable_feed was called with the right arguments.
         kwargs = self._crawlable_feed_called_with
         eq_(expect_url, kwargs.pop('url'))
@@ -3204,7 +3213,69 @@ class TestCrawlableFeed(CirculationControllerTest):
         eq_({}, kwargs)
 
     def test_crawlable_collection_feed(self):
-        pass
+        # Test the creation of a crawlable feed for everything in
+        # a collection.
+        controller = self.manager.opds_feeds
+        library = self._default_library
+
+        collection = self._collection()
+
+        # Bad collection name -> Problem detail.
+        with self.app.test_request_context("/"):
+            response = controller.crawlable_collection_feed(
+                collection_name="No such collection"
+            )
+            eq_(NO_SUCH_COLLECTION, response)            
+            
+        # Unlike most of these controller methods, this one does not
+        # require a library context.
+        with self.app.test_request_context("/"):
+            with self.mock_crawlable_feed():
+                response = controller.crawlable_collection_feed(
+                    collection_name=collection.name
+                )
+                expect_url = controller.cdn_url_for(
+                    "crawlable_collection_feed",
+                    collection_name=collection.name,
+                )
+
+        # The response of the mock _crawlable_feed was returned as-is;
+        # creating a proper Response object is the job of the real
+        # _crawlable_feed.
+        eq_("An OPDS feed.", response)
+
+        # Verify that _crawlable_feed was called with the right arguments.
+        kwargs = self._crawlable_feed_called_with
+        eq_(expect_url, kwargs.pop('url'))
+        eq_(collection.name, kwargs.pop('title'))
+
+        # A CrawlableCollectionBasedLane has been set up to show
+        # everything in the requested collection.
+        lane = kwargs.pop('lane')
+        assert isinstance(lane, CrawlableCollectionBasedLane)
+        eq_(None, lane.library_id)
+        eq_([collection.id], lane.collection_ids)
+
+        # A custom CirculationManagerAnnotator has been created to build
+        # the OPDS feed.
+        annotator = kwargs.pop('annotator')
+        assert isinstance(annotator, CirculationManagerAnnotator)
+        eq_(lane, annotator.lane)
+
+        # A different annotator is created for an ODL collection:
+        # A SharedCollectionAnnotator that knows about the Collection
+        # _and_ the WorkList.
+        collection.protocol = MockODLAPI.NAME
+        with self.app.test_request_context("/"):
+            with self.mock_crawlable_feed():
+                response = controller.crawlable_collection_feed(
+                    collection_name=collection.name
+                )
+        kwargs = self._crawlable_feed_called_with
+        annotator = kwargs['annotator']
+        assert isinstance(annotator, SharedCollectionAnnotator)
+        eq_(collection, annotator.collection)
+        eq_(kwargs['lane'], annotator.lane)
 
     def test_crawlable_list_feed(self):
         pass
