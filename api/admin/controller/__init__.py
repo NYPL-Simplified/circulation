@@ -693,7 +693,7 @@ class CustomListsController(AdminCirculationManagerController):
                 collections = []
                 for collection in list.collections:
                     collections.append(dict(id=collection.id, name=collection.name, protocol=collection.protocol))
-                custom_lists.append(dict(id=list.id, name=list.name, collections=collections, entry_count=len(list.entries)))
+                custom_lists.append(dict(id=list.id, name=list.name, collections=collections, entry_count=list.size))
             return dict(custom_lists=custom_lists)
 
         if flask.request.method == "POST":
