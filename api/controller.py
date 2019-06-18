@@ -430,10 +430,8 @@ class CirculationManager(object):
             library = flask.request.library
 
         # If all else fails, use an OPDS annotator for the system
-        # default library. TODO: This is less than ideal, but there
-        # are only a couple cases where it matters -- getting a
-        # crawlable feed of a collection or custom list not associated
-        # with any specific library.
+        # default library. TODO: This is less than ideal, but it only
+        # actually happens within a unit test.
         library = library or Library.default(self._db)
 
         # Some features are only available if a patron authentication
