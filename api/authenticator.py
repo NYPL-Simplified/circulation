@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+from api.opds import LibraryAnnotator
 from config import (
     Configuration,
     CannotLoadConfiguration,
@@ -36,7 +37,6 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import or_
 from problem_details import *
 from util.patron import PatronUtility
-from api.opds import LibraryAnnotator
 from api.custom_patron_catalog import CustomPatronCatalog
 from api.adobe_vendor_id import AuthdataUtility
 
@@ -431,6 +431,8 @@ class CirculationPatronProfileStorage(PatronProfileStorage):
     def profile_document(self):
         doc = super(CirculationPatronProfileStorage, self).profile_document
         drm = []
+        links = []
+        device_link = {}
         authdata = AuthdataUtility.from_config(self.patron.library)
         if authdata:
             vendor_id, token = authdata.short_client_token_for_patron(self.patron)
@@ -439,8 +441,16 @@ class CirculationPatronProfileStorage(PatronProfileStorage):
             adobe_drm['drm:clientToken'] = token
             adobe_drm['drm:scheme'] = "http://librarysimplified.org/terms/drm/scheme/ACS"
             drm.append(adobe_drm)
+
+            device_link['rel'] = 'http://librarysimplified.org/terms/drm/rel/devices'
+            device_link['href'] = self.url_for(
+                "adobe_drm_devices", library_short_name=self.patron.library.short_name, _external=True
+            )
+            links.append(device_link)
+            doc['links'] = links
         if drm:
             doc['drm'] = drm
+
         return doc
 
 class Authenticator(object):
