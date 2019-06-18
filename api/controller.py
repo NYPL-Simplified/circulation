@@ -784,15 +784,16 @@ class OPDSFeedController(CirculationManagerController):
         request library.
         """
         library = flask.request.library
-        library_short_name = flask.request.library.short_name
         url = self.cdn_url_for(
             "crawlable_library_feed",
-            library_short_name=library_short_name,
+            library_short_name=library.short_name,
         )
         title = library.name
         lane = CrawlableCollectionBasedLane()
         lane.initialize(library)
-        return self._crawlable_feed(library, title, url, lane)
+        return self._crawlable_feed(
+            library=library, title=title, url=url, lane=lane
+        )
 
     def crawlable_collection_feed(self, collection_name):
         """Build or retrieve a crawlable acquisition feed for the
@@ -812,7 +813,9 @@ class OPDSFeedController(CirculationManagerController):
             annotator = SharedCollectionAnnotator(collection, lane)
         else:
             annotator = CirculationManagerAnnotator(lane)
-        return self._crawlable_feed(title, url, lane, annotator=annotator)
+        return self._crawlable_feed(
+            title=title, url=url, lane=lane, annotator=annotator
+        )
 
     def crawlable_list_feed(self, list_name):
         """Build or retrieve a crawlable, paginated acquisition feed for the
@@ -830,7 +833,7 @@ class OPDSFeedController(CirculationManagerController):
         )
         lane = CrawlableCustomListBasedLane()
         lane.initialize(library, list)
-        return self._crawlable_feed(title, url, lane)
+        return self._crawlable_feed(title=title, url=url, lane=lane)
 
     def _crawlable_feed(self, title, url, lane, annotator=None,
                         feed_class=AcquisitionFeed):

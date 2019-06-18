@@ -3164,6 +3164,52 @@ class TestFeedController(CirculationControllerTest):
 
 class TestCrawlableFeed(CirculationControllerTest):
 
+    @contextmanager
+    def mock_crawlable_feed(self):
+        "Temporarily mock _crawlable_feed."
+        controller = self.manager.opds_feeds
+        original = controller._crawlable_feed
+        def mock(**kwargs):
+            self._crawlable_feed_called_with = kwargs
+            return "An OPDS feed."
+        controller._crawlable_feed = mock
+        yield
+        controller._crawlable_feed = original
+
+    def test_crawlable_library_feed(self):
+        # Test the creation of a crawlable feed for everything in
+        # a library.
+        controller = self.manager.opds_feeds
+        library = self._default_library
+        with self.request_context_with_library("/"):
+            with self.mock_crawlable_feed():
+                response = controller.crawlable_library_feed()
+                expect_url = controller.cdn_url_for(
+                    "crawlable_library_feed",
+                    library_short_name=library.short_name,
+                )
+
+        # Verify that _crawlable_feed was called with the right arguments.
+        kwargs = self._crawlable_feed_called_with
+        eq_(expect_url, kwargs.pop('url'))
+        eq_(library, kwargs.pop('library'))
+        eq_(library.name, kwargs.pop('title'))
+
+        # A CrawlableCollectionBasedLane has been set up to show
+        # everything in any of the requested library's collections.
+        lane = kwargs.pop('lane')
+        assert isinstance(lane, CrawlableCollectionBasedLane)
+        eq_(library.id, lane.library_id)
+        eq_([x.id for x in library.collections], lane.collection_ids)
+        eq_({}, kwargs)
+
+    def test_crawlable_collection_feed(self):
+        pass
+
+    def test_crawlable_list_feed(self):
+        pass
+
+            
     def test__crawlable_feed(self):
         # Test the helper method called by all other feed methods.
         self.page_called_with = None
@@ -3194,7 +3240,7 @@ class TestCrawlableFeed(CirculationControllerTest):
             eq_(INVALID_INPUT.uri, response.uri)
             eq_(None, self.page_called_with)
 
-        # Bad search engine -> problem detail
+        # TODO: Bad search engine -> problem detail
 
         # Good pagination data -> feed_class.page() is called.
         with self.app.test_request_context("/?size=23&after=11"):
@@ -3251,140 +3297,6 @@ class TestCrawlableFeed(CirculationControllerTest):
         feed = feedparser.parse(response.data)
         [entry] = feed['entries']
         eq_(entry['title'], work.title)
-
-    def test_crawlable_library_feed(self):
-        self._set_update_times()
-        with self.request_context_with_library("/?size=2"):
-            response = self.manager.opds_feeds.crawlable_library_feed()
-            feed = feedparser.parse(response.data)
-            # We see the first two books sorted by update time.
-            eq_([self.english_2.title, self.french_1.title],
-                [x['title'] for x in feed['entries']])
-
-    def test_crawlable_collection_feed(self):
-        self._set_update_times()
-        with self.app.test_request_context("/?size=2"):
-            response = self.manager.opds_feeds.crawlable_collection_feed(
-                self._default_collection.name
-            )
-            feed = feedparser.parse(response.data)
-            # We see the first two books sorted by update time.
-            eq_([self.english_2.title, self.french_1.title],
-                [x['title'] for x in feed['entries']])
-
-            # This is not a shared collection, so the entries only
-            # have open-access links.
-            for entry in feed["entries"]:
-                links = entry.get("links")
-                eq_(1, len(links))
-                eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, links[0].get("rel"))
-
-            # Shared collection with two books.
-            collection = MockODLAPI.mock_collection(self._db)
-            self.english_2.license_pools[0].collection = collection
-            work = self._work(title="A", with_license_pool=True, collection=collection)
-            self._db.flush()
-            SessionManager.refresh_materialized_views(self._db)
-            response = self.manager.opds_feeds.crawlable_collection_feed(
-                collection.name
-            )
-            feed = feedparser.parse(response.data)
-            [entry1, entry2] = sorted(feed['entries'], key=lambda x: x['title'])
-            eq_(work.title, entry1["title"])
-            # The first title isn't open access, so it has a borrow link but no open access link.
-            links = entry1.get("links")
-            eq_(0, len([link for link in links if link.get("rel") == Hyperlink.OPEN_ACCESS_DOWNLOAD]))
-            [borrow_link] = [link for link in links if link.get("rel") == Hyperlink.BORROW]
-            pool = work.license_pools[0]
-            expected = "/collections/%s/%s/%s/borrow" % (urllib.quote(collection.name), urllib.quote(pool.identifier.type), urllib.quote(pool.identifier.identifier))
-            assert expected in borrow_link.get("href")
-
-            eq_(self.english_2.title, entry2["title"])
-            links = entry2.get("links")
-            # The second title is open access, so it has an open access link but no borrow link.
-            eq_(0, len([link for link in links if link.get("rel") == Hyperlink.BORROW]))
-            [open_access_link] = [link for link in links if link.get("rel") == Hyperlink.OPEN_ACCESS_DOWNLOAD]
-            pool = self.english_2.license_pools[0]
-            eq_(pool.identifier.links[0].resource.representation.public_url, open_access_link.get("href"))
-
-        # The collection must exist.
-        with self.app.test_request_context("/?size=1"):
-            response = self.manager.opds_feeds.crawlable_collection_feed(
-                "no such collection"
-            )
-            eq_(response.uri, NO_SUCH_COLLECTION.uri)
-
-
-    def test_crawlable_list_feed(self):
-        # Initial setup gave us two English works. Add both to a list.
-        list, ignore = self._customlist(num_entries=0)
-        list.library = self._default_library
-        e1, ignore = list.add_entry(self.english_1)
-        e2, ignore = list.add_entry(self.english_2)
-
-        # Set their last_update_times and first_appearances to control order.
-        now = datetime.datetime.utcnow()
-        yesterday = now - datetime.timedelta(days=1)
-        self.english_1.last_update_time = yesterday
-        e1.first_appearance = now
-        self.english_2.last_update_time = yesterday
-        e2.first_appearance = yesterday
-        self._db.flush()
-        SessionManager.refresh_materialized_views(self._db)
-        with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.crawlable_list_feed(list.name)
-
-            feed = feedparser.parse(response.data)
-            entries = feed['entries']
-
-            eq_(1, len(entries))
-            [entry] = entries
-            eq_(self.english_1.title, entry.title)
-
-            links = feed['feed']['links']
-            next_link = [x for x in links if x['rel'] == 'next'][0]['href']
-            assert 'after=1' in next_link
-            assert 'size=1' in next_link
-
-            # This feed isn't filterable or sortable so it has no facet links.
-            eq_(0, len([x for x in links if x["rel"] == "http://opds-spec.org/facet"]))
-
-        for feed in self._db.query(CachedFeed):
-            self._db.delete(feed)
-        # Bump english_2 to the top.
-        self.english_1.last_update_time = yesterday
-        e1.first_appearance = yesterday
-        self.english_2.last_update_time = now
-        e2.first_appearance = yesterday
-        self._db.flush()
-        SessionManager.refresh_materialized_views(self._db)
-        with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.crawlable_list_feed(list.name)
-
-            feed = feedparser.parse(response.data)
-            entries = feed['entries']
-
-            eq_(1, len(entries))
-            [entry] = entries
-            eq_(self.english_2.title, entry.title)
-
-        for feed in self._db.query(CachedFeed):
-            self._db.delete(feed)
-        self.english_1.last_update_time = yesterday
-        e1.first_appearance = yesterday
-        self.english_2.last_update_time = yesterday
-        e2.first_appearance = now
-        self._db.flush()
-        SessionManager.refresh_materialized_views(self._db)
-        with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.crawlable_list_feed(list.name)
-
-            feed = feedparser.parse(response.data)
-            entries = feed['entries']
-
-            eq_(1, len(entries))
-            [entry] = entries
-            eq_(self.english_2.title, entry.title)
 
 
 class TestMARCRecordController(CirculationControllerTest):
