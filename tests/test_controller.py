@@ -3386,12 +3386,13 @@ class TestCrawlableFeed(CirculationControllerTest):
         eq_(self._default_library, annotator.library)
         eq_(mock_lane, annotator.lane)
 
-        # There's only way to configure CrawlableFacets, so it's
-        # sufficient to check that our facets are in fact
+        # There's only one way to configure CrawlableFacets, so it's
+        # sufficient to check that our faceting object is in fact a
         # CrawlableFacets.
         facets = out_kwargs.pop('facets')
         assert isinstance(facets, CrawlableFacets)
 
+        # Verify that pagination was picked up from the request.
         pagination = out_kwargs.pop('pagination')
         eq_(11, pagination.offset)
         eq_(23, pagination.size)
@@ -3399,7 +3400,7 @@ class TestCrawlableFeed(CirculationControllerTest):
         # We're done looking at the arguments.
         eq_({}, out_kwargs)
 
-        # A custom Annotator passed in to _crawlable_feed is 
+        # If a custom Annotator is passed in to _crawlable_feed, it's
         # propagated to the page() call.
         mock_annotator = object()
         with self.app.test_request_context("/"):
@@ -3414,6 +3415,8 @@ class TestCrawlableFeed(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds._crawlable_feed(**in_kwargs)
         feed = feedparser.parse(response.data)
+
+        # There is one entry with the expected title.
         [entry] = feed['entries']
         eq_(entry['title'], work.title)
 
