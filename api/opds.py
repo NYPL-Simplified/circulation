@@ -524,7 +524,9 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         return self.groups_url(None, facets=facets)
 
     def feed_url(self, lane, facets=None, pagination=None, default_route='feed'):
-        extra_kwargs = dict(library_short_name=self.library.short_name)
+        extra_kwargs = dict()
+        if self.library:
+            extra_kwargs['library_short_name']=self.library.short_name
         return super(LibraryAnnotator, self).feed_url(lane, facets, pagination, default_route, extra_kwargs)
 
     def search_url(self, lane, query, pagination, facets=None):

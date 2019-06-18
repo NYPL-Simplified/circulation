@@ -429,6 +429,13 @@ class CirculationManager(object):
         else:
             library = flask.request.library
 
+        # If all else fails, use an OPDS annotator for the system
+        # default library. TODO: This is less than ideal, but there
+        # are only a couple cases where it matters -- getting a
+        # crawlable feed of a collection or custom list not associated
+        # with any specific library.
+        library = library or Library.default(self._db)
+
         # Some features are only available if a patron authentication
         # mechanism is set up for this library.
         authenticator = self.auth.library_authenticators.get(library.short_name)
@@ -805,7 +812,7 @@ class OPDSFeedController(CirculationManagerController):
             annotator = SharedCollectionAnnotator(collection, lane)
         else:
             annotator = CirculationManagerAnnotator(lane)
-        return self._crawlable_feed(None, title, url, lane, annotator=annotator)
+        return self._crawlable_feed(title, url, lane, annotator=annotator)
 
     def crawlable_list_feed(self, list_name):
         """Build or retrieve a crawlable, paginated acquisition feed for the
@@ -823,21 +830,34 @@ class OPDSFeedController(CirculationManagerController):
         )
         lane = CrawlableCustomListBasedLane()
         lane.initialize(library, list)
-        return self._crawlable_feed(library, title, url, lane)
+        return self._crawlable_feed(title, url, lane)
 
-    def _crawlable_feed(self, library, title, url, lane, annotator=None):
+    def _crawlable_feed(self, title, url, lane, annotator=None,
+                        feed_class=AcquisitionFeed):
+        """Helper method to create a crawlable feed.
+
+        :param title: The title to use for the feed.
+        :param url: The URL from which the feed will be served.
+        :param lane: A crawlable Lane which controls which works show up
+            in the feed.
+        :param annotator: A custom Annotator to use when generating the feed.
+        :param feed_class: A drop-in replacement for AcquisitionFeed
+            for use in tests.
+        """
         annotator = annotator or self.manager.annotator(lane)
-        facets = CrawlableFacets.default(library)
+
+        # A crawlable feed has only one possible set of Facets,
+        # so library settings are irrelevant.
+        facets = CrawlableFacets.default(None)
+
         pagination = load_pagination_from_request(
             default_size=Pagination.DEFAULT_CRAWLABLE_SIZE
         )
         if isinstance(pagination, ProblemDetail):
             return pagination
-        feed = AcquisitionFeed.page(
-            self._db, title, url, lane, annotator=annotator,
-            facets=facets,
-            pagination=pagination,
-            cache_type="crawlable"
+        feed = feed_class.page(
+            _db=self._db, title=title, url=url, lane=lane, annotator=annotator,
+            facets=facets, pagination=pagination, cache_type="crawlable"
         )
         return feed_response(feed)
 
