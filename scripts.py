@@ -810,6 +810,18 @@ class LaneSweeperScript(LibraryInputScript):
     def process_lane(self, lane):
         pass
 
+class CustomListSweeperScript(LibraryInputScript):
+    """Do something to each custom list in a library."""
+
+    def process_library(self, library):
+        lists = self._db.query(CustomList).filter(CustomList.library_id==library.id)
+        for l in lists:
+            self.process_custom_list(self, l)
+        self._db.commit()
+
+    def process_custom_list(self, custom_list):
+        pass
+
 
 class SubjectInputScript(Script):
     """A script whose command line filters the set of Subjects.
@@ -3224,6 +3236,9 @@ class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
 
         self.output.write('\n%d collections found.\n' % count)
 
+class UpdateCustomListSizeScript(CustomListSweeperScript):
+    def process_custom_list(self, custom_list):
+        custom_list.update_size()
 
 class MockStdin(object):
     """Mock a list of identifiers passed in on standard input."""
