@@ -1191,14 +1191,13 @@ class CrawlableCustomListBasedLane(DynamicLane):
     uses_customlists = True
 
     def initialize(self, library, customlist):
+        self.customlist_name = customlist.name
         super(CrawlableCustomListBasedLane, self).initialize(
-            library, "Crawlable feed: %s" % customlist.name,
+            library, "Crawlable feed: %s" % self.customlist_name,
             customlists=[customlist]
         )
 
     @property
     def url_arguments(self):
-        kwargs = dict(
-            list_name=self.customlists[0].name,
-        )
+        kwargs = dict(list_name=self.customlist_name)
         return self.ROUTE, kwargs

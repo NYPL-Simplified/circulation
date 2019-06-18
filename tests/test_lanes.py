@@ -820,45 +820,24 @@ class TestCrawlableCollectionBasedLane(DatabaseTest):
 class TestCrawlableCustomListBasedLane(DatabaseTest):
 
     def test_initialize(self):
-        list, ignore = self._customlist()
+        customlist, ignore = self._customlist()
         lane = CrawlableCustomListBasedLane()
-        lane.initialize(self._default_library, list)
+        lane.initialize(self._default_library, customlist)
         eq_(self._default_library.id, lane.library_id)
-        eq_([list], lane.customlists)
-        eq_("Crawlable feed: %s" % list.name, lane.display_name)
+        eq_([customlist.id], lane.customlist_ids)
+        eq_(customlist.name, lane.customlist_name)
+        eq_("Crawlable feed: %s" % customlist.name, lane.display_name)
         eq_(None, lane.audiences)
         eq_(None, lane.languages)
         eq_(None, lane.media)
         eq_([], lane.children)
 
-    def test_bibliographic_filter_clause(self):
-        w1 = self._work(with_license_pool=True)
-        w2 = self._work(with_license_pool=True)
-
-        # Only w2 is in the list.
-        list, ignore = self._customlist(num_entries=0)
-        e2, ignore = list.add_entry(w2)
-        self.add_to_materialized_view([w1, w2])
-        self._db.flush()
-        SessionManager.refresh_materialized_views(self._db)
-
-        lane = CrawlableCustomListBasedLane()
-        lane.initialize(self._default_library, list)
-
-        from core.model import MaterializedWorkWithGenre as work_model
-        qu = self._db.query(work_model)
-        qu, clause = lane.bibliographic_filter_clause(self._db, qu)
-
-        qu = qu.filter(clause)
-
-        eq_([w2.id], [mw.works_id for mw in qu])
-
     def test_url_arguments(self):
-        list, ignore = self._customlist()
+        customlist, ignore = self._customlist()
         lane = CrawlableCustomListBasedLane()
-        lane.initialize(self._default_library, list)
+        lane.initialize(self._default_library, customlist)
         route, kwargs = lane.url_arguments
         eq_(CrawlableCustomListBasedLane.ROUTE, route)
-        eq_(list.name, kwargs.get("list_name"))
+        eq_(customlist.name, kwargs.get("list_name"))
 
 
