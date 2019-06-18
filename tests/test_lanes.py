@@ -755,9 +755,9 @@ class TestCrawlableFacets(DatabaseTest):
         eq_(CrawlableFacets.AVAILABLE_ALL, facets.availability)
         eq_(CrawlableFacets.ORDER_LAST_UPDATE, facets.order)
         eq_(False, facets.order_ascending)
-        enabled_facets = facets.facets_enabled_at_init
-        # There's only one enabled facets for each facet group.
-        for group in enabled_facets.itervalues():
+
+        # There's only one enabled value for each facet group.
+        for group in facets.enabled_facets:
             eq_(1, len(group))
 
 
