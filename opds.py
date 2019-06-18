@@ -162,8 +162,11 @@ class Annotator(object):
                 title=unicode(group_title)
             )
 
-        # TODO: maybe we can do better than this in calculating updated()
         if not updated and work.last_update_time:
+            # NOTE: This is a default that works in most cases. When
+            # ordering ElasticSearch results by last update time,
+            # `work` is a WorkSearchResult object containing a more
+            # reliable value that you can use if you want.
             updated = work.last_update_time
         if updated:
             entry.extend([AtomFeed.updated(AtomFeed._strftime(updated))])
@@ -819,7 +822,7 @@ class AcquisitionFeed(OPDSFeed):
                 url_generator, entrypoint, selected_entrypoint, is_default,
                 group_name
             )
-            if link:
+            if link is not None:
                 cls.add_link_to_feed(feed.feed, **link)
                 is_default = False
 

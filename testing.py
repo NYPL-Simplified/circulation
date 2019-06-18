@@ -1082,10 +1082,7 @@ class EndToEndSearchTest(ExternalSearchTest):
         raise NotImplementedError()
 
     def _assert_works(self, description, expect, actual, should_be_ordered=True):
-        # Verify that two lists of works are the same.
-        if not should_be_ordered:
-            expect = set(expect)
-            actual = set(actual)
+        "Verify that two lists of works are the same."
 
         # Get the titles of the works that were actually returned, to
         # make comparisons easier.
@@ -1101,8 +1098,16 @@ class EndToEndSearchTest(ExternalSearchTest):
             expect_titles.append(work.title)
             expect_ids.append(work.id)
 
+        # We compare IDs rather than objects because the Works may
+        # actually be WorkSearchResults.
+        expect_compare = expect_ids
+        actual_compare = actual_ids
+        if not should_be_ordered:
+            expect_compare = set(expect_compare)
+            actual_compare = set(actual_compare)
+
         eq_(
-            expect, actual,
+            expect_compare, actual_compare,
             "%r did not find %d works\n (%s/%s).\nInstead found %d\n (%s/%s)" % (
                 description,
                 len(expect), ", ".join(map(str, expect_ids)),
@@ -1127,7 +1132,8 @@ class EndToEndSearchTest(ExternalSearchTest):
 
         should_be_ordered = kwargs.pop('ordered', True)
 
-        results = self.search.query_works(*query_args, debug=True, **kwargs)
+        hits = self.search.query_works(*query_args, debug=True, **kwargs)
+        results = [x.work_id for x in hits]
         actual = self._db.query(Work).filter(Work.id.in_(results)).all()
         if should_be_ordered:
             # Put the Work objects in the same order as the IDs returned

@@ -57,6 +57,7 @@ from ..external_search import (
     SearchIndexCoverageProvider,
     SearchIndexMonitor,
     SortKeyPagination,
+    WorkSearchResult,
     mock_search_index,
 )
 # NOTE: external_search took care of handling the differences between
@@ -103,6 +104,9 @@ class TestExternalSearch(ExternalSearchTest):
         index = MockIndex(self._db)
         eq_(self._db, index.set_works_index_and_alias_called_with)
         eq_("test_search_term", index.test_search_term)
+
+    # TODO: would be good to check the put_script calls, but the
+    # current constructor makes put_script difficult to mock.
 
     def test_elasticsearch_error_in_constructor_becomes_cannotloadconfiguration(self):
         """If we're unable to establish a connection to the Elasticsearch
@@ -706,7 +710,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # There are a number of results, but the top one is a presidential
         # biography for 8-year-olds.
         eq_(5, len(results))
-        eq_(self.obama.id, results[0])
+        eq_(self.obama.id, results[0].work_id)
 
         # Now we'll test filters.
 
@@ -1595,7 +1599,7 @@ class TestQuery(DatabaseTest):
         # Verify that the build() method combines the 'query' part of
         # a Query and the 'filter' part to create a single
         # Elasticsearch Search object, complete with (if necessary)
-        # subqueries and sort ordering.
+        # subqueries, sort ordering, and script fields.
 
         class MockSearch(object):
             """A mock of the Elasticsearch-DSL `Search` object.
@@ -1608,12 +1612,13 @@ class TestQuery(DatabaseTest):
             """
             def __init__(
                     self, parent=None, query=None, nested_filter_calls=None,
-                    order=None
+                    order=None, script_fields=None
             ):
                 self.parent = parent
                 self._query = query
                 self.nested_filter_calls = nested_filter_calls or []
                 self.order = order
+                self._script_fields = script_fields
 
             def filter(self, **kwargs):
                 """Simulate the application of a nested filter.
@@ -1621,7 +1626,10 @@ class TestQuery(DatabaseTest):
                 :return: A new MockSearch object.
                 """
                 new_filters = self.nested_filter_calls + [kwargs]
-                return MockSearch(self, self._query, new_filters, self.order)
+                return MockSearch(
+                    self, self._query, new_filters, self.order,
+                    self._script_fields
+                )
 
             def query(self, query):
                 """Simulate the creation of an Elasticsearch-DSL `Search`
@@ -1630,13 +1638,22 @@ class TestQuery(DatabaseTest):
                 :return: A New MockSearch object.
                 """
                 return MockSearch(
-                    self, query, self.nested_filter_calls, self.order
+                    self, query, self.nested_filter_calls, self.order,
+                    self._script_fields
                 )
 
             def sort(self, *order_fields):
                 """Simulate the application of a sort order."""
                 return MockSearch(
-                    self, self._query, self.nested_filter_calls, order_fields
+                    self, self._query, self.nested_filter_calls, order_fields,
+                    self._script_fields
+                )
+
+            def script_fields(self, **kwargs):
+                """Simulate the addition of script fields."""
+                return MockSearch(
+                    self, self._query, self.nested_filter_calls, self.order,
+                    kwargs
                 )
 
         class MockQuery(Query):
@@ -1882,6 +1899,15 @@ class TestQuery(DatabaseTest):
             nested_filter.to_dict(),
             {'bool': {'filter': [{'bool': {'should': [open_access, available]}}]}}
         )
+
+        # If the Filter specifies script fields, those fields are
+        # added to the Query through a call to script_fields()
+        script_fields = dict(field1="Definition1",
+                             field2="Definition2")
+        filter = Filter(script_fields=script_fields)
+        qu = MockQuery("query string", filter=filter)
+        built = qu.build(search)
+        eq_(script_fields, built._script_fields)
 
         # If the Filter specifies a sort order, Filter.sort_order is
         # used to convert it to appropriate Elasticsearch syntax, and
@@ -2642,6 +2668,43 @@ class TestFilter(DatabaseTest):
         filter = Filter.from_worklist(self._db, parent, facets)
         eq_([overdrive.id], filter.excluded_audiobook_data_sources)
 
+        # A bit of setup to test how WorkList.collection_ids affects
+        # the resulting Filter.
+
+        # Here's a collection associated with the default library.
+        for_default_library = WorkList()
+        for_default_library.initialize(self._default_library)
+
+        # Its filter uses all the collections associated with that library.
+        filter = Filter.from_worklist(self._db, for_default_library, None)
+        eq_([self._default_collection.id], filter.collection_ids)
+
+        # Here's a child of that WorkList associated with a different
+        # library.
+        library2 = self._library()
+        collection2 = self._collection()
+        library2.collections.append(collection2)
+        for_other_library = WorkList()
+        for_other_library.initialize(library2)
+        for_default_library.append_child(for_other_library)
+
+        # Its filter uses the collection from the second library.
+        filter = Filter.from_worklist(self._db, for_other_library, None)
+        eq_([collection2.id], filter.collection_ids)
+
+        # If for whatever reason, collection_ids on the child is not set,
+        # all collections associated with the WorkList's library will be used.
+        for_other_library.collection_ids = None
+        filter = Filter.from_worklist(self._db, for_other_library, None)
+        eq_([collection2.id], filter.collection_ids)
+
+        # If no library is associated with a WorkList, we assume that
+        # holds are allowed. (Usually this is controleld by a library
+        # setting.)
+        for_other_library.library_id = None
+        filter = Filter.from_worklist(self._db, for_other_library, None)
+        eq_(True, filter.allow_holds)
+
     def test_build(self):
         # Test the ability to turn a Filter into an ElasticSearch
         # filter object.
@@ -2968,25 +3031,19 @@ class TestFilter(DatabaseTest):
         script = sort.pop('script')
         eq_({}, sort)
 
-        # The script is written in the Painless language.
-        eq_('painless', script.pop('lang'))
+        # The script is the 'simplified.work_last_update' stored script.
+        eq_('simplified.work_last_update', script.pop('stored'))
 
         # Two parameters are passed into the script -- the IDs of the
         # collections and the lists relevant to the query. This is so
         # the query knows which updates should actually be considered
         # for purposes of this query.
         params = script.pop('params')
+        eq_({}, script)
+
         eq_([self._default_collection.id], params.pop('collection_ids'))
         eq_([1,2], params.pop('list_ids'))
         eq_({}, params)
-
-        # The script is written in another programming language, so we
-        # can only verify its functionality during an end-to-end test,
-        # which happens in TestSearchOrder.
-        source = script.pop('source')
-        assert 'return champion;' in source
-
-        eq_({}, script)
 
     def test_target_age_filter(self):
         # Test an especially complex subfilter.
@@ -3404,6 +3461,26 @@ class TestSearchErrors(ExternalSearchTest):
         eq_(1, len(failures))
         eq_(failing_work, failures[0][0])
         eq_("There was an error!", failures[0][1])
+
+
+class TestWorkSearchResult(DatabaseTest):
+    # Test the WorkSearchResult class, which wraps together a data
+    # model Work and an ElasticSearch Hit into something that looks
+    # like a Work.
+
+    def test_constructor(self):
+        work = self._work()
+        hit = object()
+        result = WorkSearchResult(work, hit)
+
+        # The original Work object is available as ._work
+        eq_(work, result._work)
+
+        # The Elasticsearch Hit object is available as ._hit
+        eq_(hit, result._hit)
+
+        # Any other attributes are delegated to the Work.
+        eq_(work.sort_title, result.sort_title)
 
 
 class TestSearchIndexCoverageProvider(DatabaseTest):

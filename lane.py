@@ -406,12 +406,6 @@ class Facets(FacetsWithEntryPoint):
         a per-library basis.
         """
         super(Facets, self).__init__(entrypoint, entrypoint_is_default)
-        if order_ascending is None:
-            if order == self.ORDER_ADDED_TO_COLLECTION:
-                order_ascending = self.ORDER_DESCENDING
-            else:
-                order_ascending = self.ORDER_ASCENDING
-
         collection = collection or self.default_facet(
             library, self.COLLECTION_FACET_GROUP_NAME
         )
@@ -419,6 +413,11 @@ class Facets(FacetsWithEntryPoint):
             library, self.AVAILABILITY_FACET_GROUP_NAME
         )
         order = order or self.default_facet(library, self.ORDER_FACET_GROUP_NAME)
+        if order_ascending is None:
+            if order in Facets.ORDER_DESCENDING_BY_DEFAULT:
+                order_ascending = self.ORDER_DESCENDING
+            else:
+                order_ascending = self.ORDER_ASCENDING
 
         if (availability == self.AVAILABLE_ALL and (library and not library.allow_holds)
             and (self.AVAILABLE_NOW in self.available_facets(library, self.AVAILABILITY_FACET_GROUP_NAME))):
@@ -944,6 +943,7 @@ class Pagination(object):
     DEFAULT_SIZE = 50
     DEFAULT_SEARCH_SIZE = 10
     DEFAULT_FEATURED_SIZE = 10
+    DEFAULT_CRAWLABLE_SIZE = 100
 
     @classmethod
     def default(cls):
@@ -1409,7 +1409,7 @@ class WorkList(object):
             yield work, worklist
 
     def default_featured_facets(self, _db):
-        """Helper method to create a FeaturedFacets object."""
+        """DEPRECATED - Used only in a deprecated method."""
         library = self.get_library(_db)
         return FeaturedFacets(
             minimum_featured_quality=library.minimum_featured_quality,
@@ -1558,21 +1558,24 @@ class WorkList(object):
         )
         search_engine = search_engine or ExternalSearchIndex.load(_db)
         filter = Filter.from_worklist(_db, self, facets)
-        work_ids = search_engine.query_works(
+        hits = search_engine.query_works(
             query_string=None, filter=filter, pagination=pagination,
             debug=debug
         )
-        return self.works_for_specific_ids(_db, work_ids, Work)
+        return self.works_for_hits(_db, hits, Work)
 
-    def works_for_specific_ids(self, _db, work_ids, work_model=mw):
+    def works_for_hits(self, _db, hits, work_model=mw):
         """Create the appearance of having called works(), but return the
-        specific MaterializedWorks or Works identified by `work_ids`.
+        specific MaterializedWorks or Works identified by `hits`.
 
         :param _db: A database connection
-        :param work_ids: A list of Work IDs
-        :param work_model: By default, this method will return
+        :param hits: A list of Hit objects from ElasticSearch.
+        :param work_model: By default, this method will look up
             MaterializedWorkWithGenre objects. Pass in Work here
-            to return Work objects.
+            to look up Work objects.
+        :return A list of Work, MaterializedWorkWithGenre, or (if the
+            search results include script fields), WorkSearchResult
+            objects.
         """
 
         # Get a list of Work or MaterializedWorkWithView objects, using
@@ -1591,6 +1594,7 @@ class WorkList(object):
                 work_model.presentation_edition
             )
             edition_model = Edition
+        work_ids = [x.work_id for x in hits]
         qu = qu.filter(
             work_id_field.in_(work_ids),
             LicensePool.work_id.in_(work_ids), # Query optimization
@@ -1612,7 +1616,32 @@ class WorkList(object):
             else:
                 work_id = w.id
             work_by_id[work_id] = w
-        results = [work_by_id[x] for x in work_ids if x in work_by_id]
+
+        from external_search import (
+            Filter,
+            WorkSearchResult,
+        )
+
+        # Check the first search result see if any script fields were
+        # included.
+        test_case = None
+        if hits:
+            test_case = hits[0]
+        has_script_fields = (
+            test_case is not None and any(
+                x in test_case for x in Filter.KNOWN_SCRIPT_FIELDS
+            )
+        )
+
+        results = []
+        for hit in hits:
+            if hit.work_id in work_by_id:
+                work = work_by_id[hit.work_id]
+                if has_script_fields:
+                    # Wrap the Work objects in WorkSearchResult so the
+                    # data from script fields isn't lost.
+                    work = WorkSearchResult(work, hit)
+                results.append(work)
 
         b = time.time()
         logging.info(
@@ -1941,7 +1970,7 @@ class WorkList(object):
             from the search index.
         """
         results = []
-        work_ids = None
+        hits = None
         if not search_client:
             # We have no way of actually doing a search. Return nothing.
             return results
@@ -1954,7 +1983,7 @@ class WorkList(object):
         from external_search import Filter
         filter = Filter.from_worklist(_db, self, facets)
         try:
-            work_ids = search_client.query_works(
+            hits = search_client.query_works(
                 query, filter, pagination, debug
             )
         except elasticsearch.exceptions.ElasticsearchException, e:
@@ -1962,8 +1991,8 @@ class WorkList(object):
                 "Problem communicating with ElasticSearch. Returning empty list of search results.",
                 exc_info=e
             )
-        if work_ids:
-            results = self.works_for_specific_ids(_db, work_ids, Work)
+        if hits:
+            results = self.works_for_hits(_db, hits, Work)
 
         return results
 

@@ -216,6 +216,7 @@ class ExternalSearchIndex(HasSelfTests):
             self.index = self.__client.index
             self.delete = self.__client.delete
             self.exists = self.__client.exists
+            self.put_script = self.__client.put_script
 
         # Sets self.works_index and self.works_alias values.
         # Document upload runs against the works_index.
@@ -223,6 +224,7 @@ class ExternalSearchIndex(HasSelfTests):
         if works_index and integration and not in_testing:
             try:
                 self.set_works_index_and_alias(_db)
+                self.set_stored_scripts()
             except RequestError, e:
                 # This is almost certainly a problem with our code,
                 # not a communications error.
@@ -296,6 +298,57 @@ class ExternalSearchIndex(HasSelfTests):
             _use_as_works_alias(self.works_index)
             return
         _use_as_works_alias(alias_name)
+
+    def set_stored_scripts(self):
+        """Ensure that the ES server knows about all the scripts necessary for
+        this version of the software.
+        """
+        self.put_script(
+            "simplified.work_last_update",
+            self.work_last_update_script_definition
+        )
+
+    @property
+    def work_last_update_script_definition(self):
+        # Here's the text of the script.
+        source = """
+double champion = -1;
+// Start off by looking at the work's last update time.
+for (candidate in doc['last_update_time']) {
+    if (champion == -1 || candidate > champion) { champion = candidate; }
+}
+if (params.collection_ids != null && params.collection_ids.length > 0) {
+    // Iterate over all licensepools looking for a pool in a collection
+    // relevant to this filter. When one is found, check its
+    // availability time to see if it's later than the last update time.
+    for (licensepool in params._source.licensepools) {
+        if (!params.collection_ids.contains(licensepool['collection_id'])) { continue; }
+        double candidate = licensepool['availability_time'];
+        if (champion == -1 || candidate > champion) { champion = candidate; }
+    }
+}
+if (params.list_ids != null && params.list_ids.length > 0) {
+
+    // Iterate over all customlists looking for a list relevant to
+    // this filter. When one is found, check the previous work's first
+    // appearance on that list to see if it's later than the last
+    // update time.
+    for (customlist in params._source.customlists) {
+        if (!params.list_ids.contains(customlist['list_id'])) { continue; }
+        double candidate = customlist['first_appearance'];
+        if (champion == -1 || candidate > champion) { champion = candidate; }
+    }
+}
+
+return champion;
+"""
+        # Now create the actual field configuration.
+        return dict(
+            script=dict(
+                lang="painless",
+                source=source,
+            )
+        )
 
     def setup_index(self, new_index=None, **index_settings):
         """Create the search index with appropriate mapping.
@@ -372,7 +425,7 @@ class ExternalSearchIndex(HasSelfTests):
         return base_works_index
 
     def create_search_doc(self, query_string, filter, pagination,
-                          debug, return_raw_results):
+                          debug):
 
         query = Query(query_string, filter)
         query_without_filter = Query(query_string)
@@ -381,15 +434,18 @@ class ExternalSearchIndex(HasSelfTests):
             search = search.extra(explain=True)
 
         fields = None
-        if debug or return_raw_results:
+        if debug:
             # Don't restrict the fields at all -- get everything.
             # This makes it easy to investigate everything about the
             # results we do get.
-            fields = None
+            fields = ['*']
         else:
-            # All we absolutely need is the document ID, which is a
-            # key into the database.
-            fields = ["_id"]
+            # All we absolutely need is the work ID, which is a
+            # key into the database, plus the values of any script fields,
+            # which represent data not available through the database.
+            fields = ["work_id"]
+            if filter:
+                fields += filter.script_fields.keys()
 
         # Change the Search object so it only retrieves the fields
         # we're asking for.
@@ -402,7 +458,7 @@ class ExternalSearchIndex(HasSelfTests):
         return search
 
     def query_works(self, query_string, filter=None, pagination=None,
-                    debug=False, return_raw_results=False):
+                    debug=False):
         """Run a search query.
 
         :param query_string: The string to search for.
@@ -410,15 +466,14 @@ class ExternalSearchIndex(HasSelfTests):
             would otherwise match the query string.
         :param pagination: A Pagination object, used to get a subset
             of the search results.
-        :param debug: If this is True, some debugging information will
-            be gathered (at a slight performance cost) and logged.
-        :param return_raw_results: If this is False (the default)
-            the return value will be a list of work IDs. If this is
-            true, the full result documents will be returned.
-        :return: A list of Work IDs that match the query string, or
-            (if return_raw_results is True) a list of dictionaries
-            representing search results.
-
+        :param debug: If this is True, debugging information will
+            be gathered and logged. The search query will ask
+            ElasticSearch for all available fields, not just the
+            fields known to be used by the feed generation code.  This
+            all comes at a slight performance cost.
+        :return: A list of Hit objects containing information about
+            the search results, including the values of any script fields
+            calculated by ElasticSearch during the search process.
         """
         if not self.works_alias:
             return []
@@ -426,7 +481,7 @@ class ExternalSearchIndex(HasSelfTests):
         if not pagination:
             pagination = Pagination.default()
 
-        search = self.create_search_doc(query_string, filter=filter, pagination=pagination, debug=debug, return_raw_results=return_raw_results)
+        search = self.create_search_doc(query_string, filter=filter, pagination=pagination, debug=debug)
         start = pagination.offset
         stop = start + pagination.size
 
@@ -461,9 +516,7 @@ class ExternalSearchIndex(HasSelfTests):
         # it set up to generate a link to the next page.
         pagination.page_loaded(results)
 
-        if return_raw_results:
-            return results
-        return [int(result.meta['id']) for result in results]
+        return results
 
     def bulk_update(self, works, retry_on_batch_failure=True):
         """Upload a batch of works to the search index at once."""
@@ -557,13 +610,13 @@ class ExternalSearchIndex(HasSelfTests):
         def _search():
             return self.create_search_doc(
                 self.test_search_term, filter=None,
-                pagination=None, debug=True, return_raw_results=True
+                pagination=None, debug=True
             )
 
         def _works():
             return self.query_works(
                 self.test_search_term, filter=None, pagination=None,
-                debug=False, return_raw_results=True
+                debug=False
             )
 
         # The self-tests:
@@ -630,7 +683,7 @@ class ExternalSearchIndex(HasSelfTests):
                 filter = Filter(collections=[collection])
                 search = self.query_works(
                     "", filter=filter, pagination=None,
-                    debug=True, return_raw_results=True
+                    debug=True
                 )
                 if in_testing:
                     result[collection.name] = len(search)
@@ -1221,12 +1274,16 @@ class Query(SearchBase):
                     name_or_query='nested', path=path, query=subquery
                 )
 
-        # Apply any necessary sort order.
         if self.filter:
+            # Apply any necessary sort order.
             order_fields = self.filter.sort_order
             if order_fields:
                 search = search.sort(*order_fields)
 
+            # Add any necessary script fields.
+            script_fields = self.filter.script_fields
+            if script_fields:
+                search = search.script_fields(**script_fields)
         # Apply any necessary query restrictions imposed by the
         # Pagination object. This may happen through modification or
         # by returning an entirely new Search object.
@@ -1635,7 +1692,15 @@ class Filter(SearchBase):
     This also covers every way you might want to order the search
     results: either by relevance to the search query (the default), or
     by a specific field (e.g. author) as described by a Facets object.
+
+    It also covers additional calculated values you might need when
+    presenting the search results.
     """
+
+    # When search results include known script fields, we need to
+    # wrap the works we would be returning in WorkSearchResults so
+    # the useful information from the search engine isn't lost.
+    KNOWN_SCRIPT_FIELDS = ['last_update']
 
     @classmethod
     def from_worklist(cls, _db, worklist, facets):
@@ -1655,6 +1720,7 @@ class Filter(SearchBase):
         fiction = inherit_one('fiction')
         audiences = inherit_one('audiences')
         target_age = inherit_one('target_age')
+        collections = inherit_one('collection_ids') or library
 
         # For genre IDs and CustomList IDs, we might get a separate
         # set of restrictions from every item in the WorkList hierarchy.
@@ -1671,20 +1737,23 @@ class Filter(SearchBase):
         excluded_audiobook_data_sources = [
             DataSource.lookup(_db, x) for x in excluded
         ]
-
+        if library is None:
+            allow_holds = True
+        else:
+            allow_holds = library.allow_holds
         return cls(
-            library, media, languages, fiction, audiences,
+            collections, media, languages, fiction, audiences,
             target_age, genre_id_restrictions, customlist_id_restrictions,
             facets,
             excluded_audiobook_data_sources=excluded_audiobook_data_sources,
-            allow_holds=library.allow_holds,
+            allow_holds=allow_holds,
         )
 
 
     def __init__(self, collections=None, media=None, languages=None,
                  fiction=None, audiences=None, target_age=None,
                  genre_restriction_sets=None, customlist_restriction_sets=None,
-                 facets=None, **kwargs
+                 facets=None, script_fields=None, **kwargs
     ):
         """
         These minor arguments were made into unnamed keyword arguments to
@@ -1766,6 +1835,8 @@ class Filter(SearchBase):
         self.subcollection = None
         self.order = None
         self.order_ascending = False
+
+        self.script_fields = script_fields or dict()
 
         # Give the Facets object a chance to modify any or all of this
         # information.
@@ -2047,17 +2118,13 @@ class Filter(SearchBase):
         return { key : sort_description }
 
     @property
-    def _last_update_time_order_by(self):
-        """We're sorting works by the time of their 'last update'.  An
-        'update' happens when the work's metadata is changed, when
-        it's added to a collection used in this Filter, or when it's
-        added to one of the lists used in this Filter.
-
-        This is complex enough that we need to write a script that runs
-        on the Elasticsearch side to calculate the last update for
-        any given work.
+    def last_update_time_script_field(self):
+        """Return the configuration for a script field that calculates the
+        'last update' time of a work. An 'update' happens when the
+        work's metadata is changed, when it's added to a collection
+        used by this Filter, or when it's added to one of the lists
+        used by this Filter.
         """
-
         # First, set up the parameters we're going to pass into the
         # script -- a list of custom list IDs relevant to this filter,
         # and a list of collection IDs relevant to this filter.
@@ -2080,53 +2147,32 @@ class Filter(SearchBase):
             collection_ids=collection_ids,
             list_ids=list(all_list_ids)
         )
+        return dict(
+            script=dict(
+                stored="simplified.work_last_update",
+                params=params
+            )
+        )
 
-        # Here's the text of the script.
-        script = """
-double champion = -1;
-// Start off by looking at the work's last update time.
-for (candidate in doc['last_update_time']) {
-    if (champion == -1 || candidate > champion) { champion = candidate; }
-}
-if (params.collection_ids != null && params.collection_ids.length > 0) {
-    // Iterate over all licensepools looking for a pool in a collection
-    // relevant to this filter. When one is found, check its
-    // availability time to see if it's later than the last update time.
-    for (licensepool in params._source.licensepools) {
-        if (!params.collection_ids.contains(licensepool['collection_id'])) { continue; }
-        double candidate = licensepool['availability_time'];
-        if (champion == -1 || candidate > champion) { champion = candidate; }
-    }
-}
-if (params.list_ids != null && params.list_ids.length > 0) {
+    @property
+    def _last_update_time_order_by(self):
 
-    // Iterate over all customlists looking for a list relevant to
-    // this filter. When one is found, check the previous work's first
-    // appearance on that list to see if it's later than the last
-    // update time.
-    for (customlist in params._source.customlists) {
-        if (!params.list_ids.contains(customlist['list_id'])) { continue; }
-        double candidate = customlist['first_appearance'];
-        if (champion == -1 || candidate > champion) { champion = candidate; }
-    }
-}
+        """We're sorting works by the time of their 'last update'.
 
-return champion;
-"""
-        # Configure the script and its parameters for use by
-        # Elasticsearch.
-        order = {
-            "_script": {
-                "type": "number",
-                "script": {
-                    "lang": "painless",
-                    "params": params,
-                    "source": script,
-                },
-                "order": self.asc,
-            },
-        }
-        return order
+        Add the 'last update' field to the dictionary of script fields
+        (so we can use the result afterwards), and define it a second
+        time as the script to use for a sort value.
+        """
+        field = self.last_update_time_script_field
+        if not 'last_update' in self.script_fields:
+            self.script_fields['last_update'] = field
+        return dict(
+            _script=dict(
+                type="number",
+                script=field['script'],
+                order=self.asc,
+            ),
+        )
 
     @property
     def target_age_filter(self):
@@ -2334,6 +2380,26 @@ class SortKeyPagination(Pagination):
         self.last_item_on_this_page = values
 
 
+class WorkSearchResult(object):
+    """Wraps a Work object to give extra information obtained from 
+    ElasticSearch.
+
+    This object acts just like a Work (though isinstance(x, Work) will
+    fail), with one exception: you can access the raw ElasticSearch Hit
+    result as ._hit.
+
+    This is useful when a Work needs to be 'tagged' with information
+    obtained through Elasticsearch, such as its 'last modified' date
+    the context of a specific lane.
+    """
+    def __init__(self, work, hit):
+        self._work = work
+        self._hit = hit
+
+    def __getattr__(self, k):
+        return getattr(self._work, k)
+
+
 class MockExternalSearchIndex(ExternalSearchIndex):
 
     work_document_type = 'work-type'
@@ -2363,11 +2429,11 @@ class MockExternalSearchIndex(ExternalSearchIndex):
     def exists(self, index, doc_type, id):
         return self._key(index, doc_type, id) in self.docs
 
-    def create_search_doc(self, query_string, filter=None, pagination=None, debug=False, return_raw_results=False):
+    def create_search_doc(self, query_string, filter=None, pagination=None, debug=False):
         return self.docs.values()
 
-    def query_works(self, query_string, filter, pagination, debug=False, return_raw_results=False, search=None):
-        self.queries.append((query_string, filter, pagination, debug, return_raw_results))
+    def query_works(self, query_string, filter, pagination, debug=False, search=None):
+        self.queries.append((query_string, filter, pagination, debug))
         docs = self.docs.values()
         if pagination:
             start_at = 0
@@ -2385,17 +2451,17 @@ class MockExternalSearchIndex(ExternalSearchIndex):
             stop = start_at + pagination.size
             docs = docs[start_at:stop]
 
-        if return_raw_results:
-            results = docs
-        else:
-            results = [x['_id'] for x in docs]
+        results = []
+        for x in docs:
+            if isinstance(x, MockSearchResult):
+                results.append(x)
+            else:
+                results.append(
+                    MockSearchResult("title", "author", {}, x['_id'])
+                )
 
         if pagination:
-            result_objs = [
-                MockSearchResult("title", "author", {}, x['_id'])
-                for x in docs
-            ]
-            pagination.page_loaded(result_objs)
+            pagination.page_loaded(results)
         return results
 
 
@@ -2414,12 +2480,17 @@ class MockMeta(dict):
         return self['_sort']
 
 class MockSearchResult(object):
+
     def __init__(self, title, author, meta, id):
         self.title = title
         self.author = author
         meta["id"] = id
         meta["_sort"] = [title, author, id]
         self.meta = MockMeta(meta)
+        self.work_id = id
+
+    def __contains__(self, k):
+        return False
 
     def to_dict(self):
         return {
