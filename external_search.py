@@ -941,6 +941,17 @@ class ExternalSearchIndexVersions(object):
 
         # Build separate mappings for the nested data types.
 
+        # Contributors
+        contributor_fields_by_type = {
+            # We won't be sorting by these fields, but giving them the
+            # same treatment as sort_author and sort_title is an easy
+            # way to normalize the names.
+            'icu_collation_keyword': [
+                'sort_name', 'display_name', 'family_name'
+            ],
+            'keyword': ['role', 'lc', 'viaf']
+        }
+
         # License pools.
         licensepool_fields_by_type = {
             'integer': ['collection_id', 'data_source_id'],
@@ -966,6 +977,7 @@ class ExternalSearchIndexVersions(object):
         for type_name, type_definition in [
             ('licensepools', licensepool_definition),
             ('customlists', customlist_definition),
+            ('contributors', customlist_definition),
         ]:
             type_definition['type'] = 'nested'
             mapping = cls.map_fields(
@@ -1755,8 +1767,7 @@ class Filter(SearchBase):
                  genre_restriction_sets=None, customlist_restriction_sets=None,
                  facets=None, script_fields=None, **kwargs
     ):
-        """
-        These minor arguments were made into unnamed keyword arguments to
+        """These minor arguments were made into unnamed keyword arguments to
         avoid cluttering the method signature:
 
         :param excluded_audiobook_data_sources: A list of DataSources that
@@ -1768,6 +1779,10 @@ class Filter(SearchBase):
 
         :param series: If this is set to a string, only books in a matching
         series will be included.
+
+        :param author: If this is set to a Contributor or
+        ContributorData, then only books where this person had an
+        authorship role will be included.
 
         :param updated_after: If this is set to a datetime, only books
         whose Work records (~bibliographic metadata) have been updated since
@@ -1823,6 +1838,8 @@ class Filter(SearchBase):
 
         self.series = kwargs.pop('series', None)
 
+        self.author = kwargs.pop('author', None)
+
         # At this point there should be no keyword arguments -- you can't pass
         # whatever you want into this method.
         if kwargs:
@@ -1876,6 +1893,9 @@ class Filter(SearchBase):
                 'terms', **{'licensepools.collection_id' : collection_ids}
             )
             nested_filters['licensepools'].append(collection_match)
+
+        if self.author:
+            nested_filters['contributors'].append(self.author_match)
 
         if self.media:
             f = chain(f, F('terms', medium=scrub_list(self.media)))
@@ -2225,6 +2245,30 @@ class Filter(SearchBase):
 
         # Both upper and lower age must match.
         return F('bool', must=clauses)
+
+    @property
+    def author_match(self):
+        """Build a query that matches a 'contributors' subdocument only
+        if it represents an author-level contribution by self.author.
+        """
+        authorship_role = F(
+            'terms', **{'contributors.role' : Contributor.AUTHOR_ROLES}
+        )
+
+        clauses = []
+        for field, value in [
+                ('sort_name', self.author.sort_name),
+                ('display_name', self.author.display_name),
+                ('viaf', self.author.viaf),
+                ('lc', self.author.lc)
+        ]:
+            if not value:
+                continue
+            clause = F('term', **{'contributors.%s' % field : value})
+
+        same_person = F('bool', should=clauses, minimum_should_match=1)
+        return F('bool', must=[authorship_role, same_person])
+
 
     @classmethod
     def _scrub(cls, s):
