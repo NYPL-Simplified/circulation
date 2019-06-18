@@ -606,13 +606,12 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                 search_update = datetime.datetime.utcfromtimestamp(
                     last_updates[0]
                 )
-                updated = search_update
                 # There's a chance that work.last_updated has been
                 # modified but the change hasn't made it to the search
                 # engine yet.
                 #
-                # TODO: Is it better to use this value, which is more
-                # accurate, or to ensure that the feed is sorted?
+                # TODO: Is it better to use the later value, which is more
+                # accurate, or to ensure that the feed stays sorted?
                 updated = max(updated, search_update)
 
         # Add a link for reporting problems.

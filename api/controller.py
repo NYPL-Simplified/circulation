@@ -431,7 +431,7 @@ class CirculationManager(object):
 
         # If all else fails, use an OPDS annotator for the system
         # default library. TODO: This is less than ideal, but it only
-        # actually happens within a unit test.
+        # actually happens within a unit test of a helper method.
         library = library or Library.default(self._db)
 
         # Some features are only available if a patron authentication
