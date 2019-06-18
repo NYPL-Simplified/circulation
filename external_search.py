@@ -2174,11 +2174,6 @@ class Filter(SearchBase):
             ),
         )
 
-
-        # Configure the script and its parameters for use by
-        # Elasticsearch.
-        return { "last_update": {"order": self.asc, } }
-
     @property
     def target_age_filter(self):
         """Helper method to generate the target age subfilter.

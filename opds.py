@@ -162,10 +162,11 @@ class Annotator(object):
                 title=unicode(group_title)
             )
 
-        # NOTE: This is a default that works in most cases. When
-        # ordering ElasticSearch results by last update time, you get
-        # a more reliable value that you can use instead.
         if not updated and work.last_update_time:
+            # NOTE: This is a default that works in most cases. When
+            # ordering ElasticSearch results by last update time,
+            # `work` is a WorkSearchResult object containing a more
+            # reliable value that you can use if you want.
             updated = work.last_update_time
         if updated:
             entry.extend([AtomFeed.updated(AtomFeed._strftime(updated))])
