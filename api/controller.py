@@ -1748,7 +1748,7 @@ class ProfileController(CirculationManagerController):
         """Instantiate a CoreProfileController that actually does the work.
         """
         patron = self.authenticated_patron_from_request()
-        storage = CirculationPatronProfileStorage(patron)
+        storage = CirculationPatronProfileStorage(patron, flask.url_for)
         return CoreProfileController(storage)
 
     def protocol(self):
