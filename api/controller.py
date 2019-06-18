@@ -848,20 +848,26 @@ class OPDSFeedController(CirculationManagerController):
         :param feed_class: A drop-in replacement for AcquisitionFeed
             for use in tests.
         """
+        pagination = load_pagination_from_request(
+            default_size=Pagination.DEFAULT_CRAWLABLE_SIZE
+        )
+        if isinstance(pagination, ProblemDetail):
+            return pagination
+
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
         annotator = annotator or self.manager.annotator(lane)
 
         # A crawlable feed has only one possible set of Facets,
         # so library settings are irrelevant.
         facets = CrawlableFacets.default(None)
 
-        pagination = load_pagination_from_request(
-            default_size=Pagination.DEFAULT_CRAWLABLE_SIZE
-        )
-        if isinstance(pagination, ProblemDetail):
-            return pagination
         feed = feed_class.page(
             _db=self._db, title=title, url=url, lane=lane, annotator=annotator,
-            facets=facets, pagination=pagination, cache_type="crawlable"
+            facets=facets, pagination=pagination, cache_type="crawlable",
+            search_engine=search_engine
         )
         return feed_response(feed)
 

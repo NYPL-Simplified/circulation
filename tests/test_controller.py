@@ -3170,7 +3170,9 @@ class TestCrawlableFeed(CirculationControllerTest):
 
     @contextmanager
     def mock_crawlable_feed(self):
-        "Temporarily mock _crawlable_feed."
+        """Temporarily mock _crawlable_feed with something
+        that records the arguments used to call it.
+        """
         controller = self.manager.opds_feeds
         original = controller._crawlable_feed
         def mock(**kwargs):
@@ -3352,7 +3354,10 @@ class TestCrawlableFeed(CirculationControllerTest):
             eq_(INVALID_INPUT.uri, response.uri)
             eq_(None, self.page_called_with)
 
-        # TODO: Bad search engine -> problem detail
+        # Bad search engine -> problem detail
+        self.assert_bad_search_index_gives_problem_detail(
+            lambda: self.manager.opds_feeds._crawlable_feed(**in_kwargs)
+        )
 
         # Good pagination data -> feed_class.page() is called.
         with self.app.test_request_context("/?size=23&after=11"):
@@ -3366,6 +3371,8 @@ class TestCrawlableFeed(CirculationControllerTest):
         # Verify the arguments passed in to page().
         out_kwargs = self.page_called_with
         eq_(self._db, out_kwargs.pop('_db'))
+        eq_(self.manager.opds_feeds.search_
+            out_kwargs.pop('search_engine'))
         eq_(in_kwargs['lane'], out_kwargs.pop('lane'))
         eq_(in_kwargs['title'], out_kwargs.pop('title'))
         eq_(in_kwargs['url'], out_kwargs.pop('url'))
