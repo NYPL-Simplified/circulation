@@ -1427,12 +1427,6 @@ class TestContributorFilter(EndToEndSearchTest):
             )
             return
 
-        # Verify that all works were indexed.
-        self._expect_results(
-            self.works + [self.ubik, self.literary_wonderlands],
-            None, None, ordered=False
-        )
-
         # By providing a Contributor object with all the identifiers,
         # we get every work with an author-type contribution from
         # someone who can be identified with that Contributor.
