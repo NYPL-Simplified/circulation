@@ -1722,8 +1722,8 @@ class Filter(SearchBase):
     # In general, someone looking for things "by this person" is
     # probably looking for one of these roles.
     AUTHOR_MATCH_ROLES = list(Contributor.AUTHOR_ROLES) + [
-        Contributor.EDITOR_ROLE, Contributor.DIRECTOR_ROLE,
-        Contributor.ACTOR_ROLE
+        Contributor.NARRATOR_ROLE, Contributor.EDITOR_ROLE,
+        Contributor.DIRECTOR_ROLE, Contributor.ACTOR_ROLE
     ]
 
     @classmethod
