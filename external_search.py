@@ -1779,7 +1779,8 @@ class Filter(SearchBase):
                  genre_restriction_sets=None, customlist_restriction_sets=None,
                  facets=None, script_fields=None, **kwargs
     ):
-        """These minor arguments were made into unnamed keyword arguments to
+        """
+        These minor arguments were made into unnamed keyword arguments to
         avoid cluttering the method signature:
 
         :param excluded_audiobook_data_sources: A list of DataSources that
@@ -1907,7 +1908,7 @@ class Filter(SearchBase):
             nested_filters['licensepools'].append(collection_match)
 
         if self.author is not None:
-            nested_filters['contributors'].append(self.author_match)
+            nested_filters['contributors'].append(self.author_filter)
 
         if self.media:
             f = chain(f, F('terms', medium=scrub_list(self.media)))
@@ -2259,19 +2260,21 @@ class Filter(SearchBase):
         return F('bool', must=clauses)
 
     @property
-    def author_match(self):
-        """Build a query that matches a 'contributors' subdocument only
+    def author_filter(self):
+        """Build a filter that matches a 'contributors' subdocument only
         if it represents an author-level contribution by self.author.
         """
+        if not self.author:
+            return None
         authorship_role = F(
             'terms', **{'contributors.role' : self.AUTHOR_MATCH_ROLES}
         )
         clauses = []
         for field, value in [
-                ('sort_name', self.author.sort_name),
-                ('display_name', self.author.display_name),
-                ('viaf', self.author.viaf),
-                ('lc', self.author.lc)
+            ('sort_name', self.author.sort_name),
+            ('display_name', self.author.display_name),
+            ('viaf', self.author.viaf),
+            ('lc', self.author.lc)
         ]:
             if not value or value == Edition.UNKNOWN_AUTHOR:
                 continue
