@@ -1347,7 +1347,7 @@ class TestSearchOrder(EndToEndSearchTest):
         )
 
 
-class TestContributorFilter(EndToEndSearchTest):
+class TestAuthorFilter(EndToEndSearchTest):
     # Test the various techniques used to find books where a certain
     # person had an authorship role.
 
@@ -1389,8 +1389,7 @@ class TestContributorFilter(EndToEndSearchTest):
             contribution, was_new = get_one_or_create(
                 self._db, Contribution, edition=edition,
                 contributor=contributor,
-                role=roles[0]
-                #role=roles[i % len(roles)]
+                role=roles[i % len(roles)]
             )
             work = self.default_work(
                 presentation_edition=edition,
