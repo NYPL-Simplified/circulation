@@ -1143,11 +1143,16 @@ class CrawlableFacets(Facets):
 
 class CrawlableLane(DynamicLane):
 
-    # Crawlable feeds are cached for 12 hours.
+    # By default, crawlable feeds are cached for 12 hours.
     MAX_CACHE_AGE = 12 * 60 * 60
 
 
 class CrawlableCollectionBasedLane(CrawlableLane):
+
+    # Since these collections may be shared collections, for which
+    # recent information is very important, these feeds are only
+    # cached for 2 hours.
+    MAX_CACHE_AGE = 2 * 60 * 60
 
     LIBRARY_ROUTE = "crawlable_library_feed"
     COLLECTION_ROUTE = "crawlable_collection_feed"
