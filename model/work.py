@@ -1490,7 +1490,10 @@ class Work(Base):
         # This subquery gets Contributors, filtered on edition_id.
         contributors = select(
             [Contributor.sort_name,
+             Contributor.display_name,
              Contributor.family_name,
+             Contributor.lc,
+             Contributor.viaf,
              Contribution.role,
             ]
         ).where(

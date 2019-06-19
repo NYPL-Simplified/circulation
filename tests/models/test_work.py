@@ -804,7 +804,10 @@ class TestWork(DatabaseTest):
 
         # These are the edition's authors.
         [contributor1] = [c.contributor for c in edition.contributions if c.role == Contributor.PRIMARY_AUTHOR_ROLE]
+        contributor1.display_name = self._str
         contributor1.family_name = self._str
+        contributor1.viaf = self._str
+        contributor1.lc = self._str
         [contributor2] = [c.contributor for c in edition.contributions if c.role == Contributor.AUTHOR_ROLE]
 
         data_source = DataSource.lookup(self._db, DataSource.THREEM)
@@ -964,10 +967,22 @@ class TestWork(DatabaseTest):
 
         contributors = search_doc['contributors']
         eq_(2, len(contributors))
+
         [contributor1_doc] = [c for c in contributors if c['sort_name'] == contributor1.sort_name]
         [contributor2_doc] = [c for c in contributors if c['sort_name'] == contributor2.sort_name]
+
+        eq_(contributor1.display_name, contributor1_doc['display_name'])
+        eq_(None, contributor2_doc['display_name'])
+
         eq_(contributor1.family_name, contributor1_doc['family_name'])
         eq_(None, contributor2_doc['family_name'])
+
+        eq_(contributor1.viaf, contributor1_doc['viaf'])
+        eq_(None, contributor2_doc['viaf'])
+
+        eq_(contributor1.lc, contributor1_doc['lc'])
+        eq_(None, contributor2_doc['lc'])
+
         eq_(Contributor.PRIMARY_AUTHOR_ROLE, contributor1_doc['role'])
         eq_(Contributor.AUTHOR_ROLE, contributor2_doc['role'])
 

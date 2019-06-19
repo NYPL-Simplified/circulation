@@ -39,6 +39,7 @@ from facets import FacetConstants
 from model import (
     numericrange_to_tuple,
     Collection,
+    Contributor,
     ConfigurationSetting,
     DataSource,
     Edition,
@@ -749,6 +750,12 @@ class ExternalSearchIndexVersions(object):
                 description['type'] = 'text'
                 description['fielddata'] = True
                 description['analyzer'] = 'en_sortable_analyzer'
+            elif type == 'normalized_keyword':
+                # A normalized_keyword acts as a regular keyword but
+                # also has a simple normalizer attached to it to
+                # improve filtering.
+                description['type'] = 'keyword'
+                description['normalizer'] = 'filterable_string'
             mapping = cls.map_fields(
                 fields=fields,
                 mapping=mapping,
@@ -830,7 +837,8 @@ class ExternalSearchIndexVersions(object):
                 # This normalizer is used on freeform strings that
                 # will be used as tokens in filters. This way we can,
                 # e.g. ignore capitalization when considering whether
-                # two books belong to the same series.
+                # two books belong to the same series or whether two
+                # author names are the same.
                 "normalizer": {
                     "filterable_string": {
                         "type": "custom",
@@ -941,6 +949,15 @@ class ExternalSearchIndexVersions(object):
 
         # Build separate mappings for the nested data types.
 
+        # Contributors
+        contributor_fields_by_type = {
+            'normalized_keyword' : ['sort_name', 'display_name', 'family_name'],
+            'keyword': ['role', 'lc', 'viaf'],
+        }
+        contributor_definition = cls.map_fields_by_type(
+            contributor_fields_by_type
+        )
+
         # License pools.
         licensepool_fields_by_type = {
             'integer': ['collection_id', 'data_source_id'],
@@ -966,6 +983,7 @@ class ExternalSearchIndexVersions(object):
         for type_name, type_definition in [
             ('licensepools', licensepool_definition),
             ('customlists', customlist_definition),
+            ('contributors', contributor_definition),
         ]:
             type_definition['type'] = 'nested'
             mapping = cls.map_fields(
@@ -973,7 +991,6 @@ class ExternalSearchIndexVersions(object):
                 field_description=type_definition,
                 mapping=mapping,
             )
-
         # Finally, name the mapping to connect it to the 'works'
         # document type.
         mappings = { ExternalSearchIndex.work_document_type : mapping }
@@ -1702,6 +1719,13 @@ class Filter(SearchBase):
     # the useful information from the search engine isn't lost.
     KNOWN_SCRIPT_FIELDS = ['last_update']
 
+    # In general, someone looking for things "by this person" is
+    # probably looking for one of these roles.
+    AUTHOR_MATCH_ROLES = list(Contributor.AUTHOR_ROLES) + [
+        Contributor.NARRATOR_ROLE, Contributor.EDITOR_ROLE,
+        Contributor.DIRECTOR_ROLE, Contributor.ACTOR_ROLE
+    ]
+
     @classmethod
     def from_worklist(cls, _db, worklist, facets):
         """Create a Filter that finds only works that belong in the given
@@ -1769,6 +1793,10 @@ class Filter(SearchBase):
         :param series: If this is set to a string, only books in a matching
         series will be included.
 
+        :param author: If this is set to a Contributor or
+        ContributorData, then only books where this person had an
+        authorship role will be included.
+
         :param updated_after: If this is set to a datetime, only books
         whose Work records (~bibliographic metadata) have been updated since
         that time will be included in results.
@@ -1823,6 +1851,8 @@ class Filter(SearchBase):
 
         self.series = kwargs.pop('series', None)
 
+        self.author = kwargs.pop('author', None)
+
         # At this point there should be no keyword arguments -- you can't pass
         # whatever you want into this method.
         if kwargs:
@@ -1876,6 +1906,9 @@ class Filter(SearchBase):
                 'terms', **{'licensepools.collection_id' : collection_ids}
             )
             nested_filters['licensepools'].append(collection_match)
+
+        if self.author is not None:
+            nested_filters['contributors'].append(self.author_filter)
 
         if self.media:
             f = chain(f, F('terms', medium=scrub_list(self.media)))
@@ -2225,6 +2258,33 @@ class Filter(SearchBase):
 
         # Both upper and lower age must match.
         return F('bool', must=clauses)
+
+    @property
+    def author_filter(self):
+        """Build a filter that matches a 'contributors' subdocument only
+        if it represents an author-level contribution by self.author.
+        """
+        if not self.author:
+            return None
+        authorship_role = F(
+            'terms', **{'contributors.role' : self.AUTHOR_MATCH_ROLES}
+        )
+        clauses = []
+        for field, value in [
+            ('sort_name', self.author.sort_name),
+            ('display_name', self.author.display_name),
+            ('viaf', self.author.viaf),
+            ('lc', self.author.lc)
+        ]:
+            if not value or value == Edition.UNKNOWN_AUTHOR:
+                continue
+            clauses.append(
+                F('term', **{'contributors.%s' % field : value})
+            )
+
+        same_person = F('bool', should=clauses, minimum_should_match=1)
+        return F('bool', must=[authorship_role, same_person])
+
 
     @classmethod
     def _scrub(cls, s):
