@@ -421,28 +421,40 @@ class CirculationManager(object):
         return authdata
 
     def annotator(self, lane, facets=None, *args, **kwargs):
-        """Create an appropriate OPDS annotator for the given lane."""
+        """Create an appropriate OPDS annotator for the given lane.
+
+        :param lane: A Lane or WorkList.
+        :param facets: A faceting object.
+        :param annotator_class: Instantiate this annotator class if possible.
+           Intended for use in unit tests.
+        """
         if lane and isinstance(lane, Lane):
             library = lane.library
         elif lane and isinstance(lane, WorkList):
             library = lane.get_library(self._db)
-        else:
+        if not library and hasattr(flask.request, 'library'):
             library = flask.request.library
 
-        # If all else fails, use an OPDS annotator for the system
-        # default library. TODO: This is less than ideal, but it only
-        # actually happens within a unit test of a helper method.
-        library = library or Library.default(self._db)
+        # If no library is provided, the best we can do is a generic
+        # annotator for this application.
+        if not library:
+            return CirculationManagerAnnotator(lane)
+
+        # At this point we know the request is in a library context, so we
+        # can create a LibraryAnnotator customized for that library.
 
         # Some features are only available if a patron authentication
         # mechanism is set up for this library.
         authenticator = self.auth.library_authenticators.get(library.short_name)
-        return LibraryAnnotator(
-            self.circulation_apis[library.id], lane, library,
-            top_level_title='All Books',
-            library_identifies_patrons=authenticator.identifies_individuals,
-            facets=facets,
-            *args, **kwargs
+        library_identifies_patrons = (
+            authenticator is not None and authenticator.identifies_individuals
+        )
+        annotator_class = kwargs.pop('annotator_class', LibraryAnnotator)
+        return annotator_class(
+            self.circulation_apis[library.id], lane,
+            library, top_level_title='All Books',
+            library_identifies_patrons=library_identifies_patrons,
+            facets=facets, *args, **kwargs
         )
 
     @property
@@ -810,7 +822,8 @@ class OPDSFeedController(CirculationManagerController):
         if collection.protocol in [ODLAPI.NAME]:
             annotator = SharedCollectionAnnotator(collection, lane)
         else:
-            annotator = CirculationManagerAnnotator(lane)
+            # We'll get a generic CirculationManagerAnnotator.
+            annotator = None
         return self._crawlable_feed(
             title=title, url=url, lane=lane, annotator=annotator
         )

@@ -561,8 +561,83 @@ class TestCirculationManager(CirculationControllerTest):
         eq_((new_public, new_private), self.manager.sitewide_key_pair)
 
     def test_annotator(self):
-        # TODO.
-        pass
+        # Test our ability to find an appropriate OPDSAnnotator for
+        # any request context.
+
+        # The simplest case -- a Lane is provided and we build a
+        # LibraryAnnotator for its library
+        lane = self._lane()
+        facets = Facets.default(self._default_library)
+        annotator = self.manager.annotator(lane, facets)
+        assert isinstance(annotator, LibraryAnnotator)
+        eq_(self.manager.circulation_apis[self._default_library.id],
+            annotator.circulation)
+        eq_("All Books", annotator.top_level_title())
+        eq_(True, annotator.identifies_patrons)
+
+        # Try again using a library that has no patron authentication.
+        library2 = self._library()
+        lane2 = self._lane(library=library2)
+        mock_circulation = object()
+        self.manager.circulation_apis[library2.id] = mock_circulation
+
+        annotator = self.manager.annotator(lane2, facets)
+        assert isinstance(annotator, LibraryAnnotator)
+        eq_(library2, annotator.library)
+        eq_(lane2, annotator.lane)
+        eq_(facets, annotator.facets)
+        eq_(mock_circulation, annotator.circulation)
+
+        # This LibraryAnnotator knows not to generate any OPDS that
+        # implies it has any way of authenticating or differentiating
+        # between patrons.
+        eq_(False, annotator.identifies_patrons)
+
+        # Any extra positional or keyword arguments passed into annotator()
+        # are propagated to the Annotator constructor.
+        class MockAnnotator(object):
+            def __init__(self, *args, **kwargs):
+                self.positional = args
+                self.keyword = kwargs
+        annotator = self.manager.annotator(
+            lane, facets, "extra positional",
+            kw="extra keyword", annotator_class=MockAnnotator
+        )
+        assert isinstance(annotator, MockAnnotator)
+        eq_('extra positional', annotator.positional[-1])
+        eq_('extra keyword', annotator.keyword.pop('kw'))
+
+        # Now let's try more and more obscure ways of figuring out which
+        # library should be used to build the LibraryAnnotator.
+
+        # If a WorkList initialized with a library is provided, a
+        # LibraryAnnotator for that library is created.
+        worklist = WorkList()
+        worklist.initialize(library2)
+        annotator = self.manager.annotator(worklist, facets)
+        assert isinstance(annotator, LibraryAnnotator)
+        eq_(library2, annotator.library)
+        eq_(worklist, annotator.lane)
+        eq_(facets, annotator.facets)
+
+        # If no library can be found through the WorkList,
+        # LibraryAnnotator uses the library associated with the
+        # current request.
+        worklist = WorkList()
+        worklist.initialize(None)
+        with self.request_context_with_library("/"):
+            annotator = self.manager.annotator(worklist, facets)
+            assert isinstance(annotator, LibraryAnnotator)
+            eq_(self._default_library, annotator.library)
+            eq_(worklist, annotator.lane)
+
+        # If there is absolutely no library associated with this
+        # request, we get a generic CirculationManagerAnnotator for
+        # the provided WorkList.
+        with self.app.test_request_context("/"):
+            annotator = self.manager.annotator(worklist, facets)
+            assert isinstance(annotator, CirculationManagerAnnotator)
+            eq_(worklist, annotator.lane)
 
 
 class TestBaseController(CirculationControllerTest):
@@ -3258,13 +3333,12 @@ class TestCrawlableFeed(CirculationControllerTest):
         eq_(None, lane.library_id)
         eq_([collection.id], lane.collection_ids)
 
-        # A custom CirculationManagerAnnotator has been created to build
-        # the OPDS feed.
-        annotator = kwargs.pop('annotator')
-        assert isinstance(annotator, CirculationManagerAnnotator)
-        eq_(lane, annotator.lane)
+        # No specific Annotator as created to build the OPDS
+        # feed. We'll be using the default for a request with no
+        # library context--a CirculationManagerAnnotator.
+        eq_(None, kwargs.pop('annotator'))
 
-        # A different annotator is created for an ODL collection:
+        # A specific annotator _is_ created for an ODL collection:
         # A SharedCollectionAnnotator that knows about the Collection
         # _and_ the WorkList.
         collection.protocol = MockODLAPI.NAME
@@ -3379,11 +3453,10 @@ class TestCrawlableFeed(CirculationControllerTest):
         eq_('crawlable', out_kwargs.pop('cache_type'))
 
         # Since no annotator was provided and the request did not
-        # happen in a library context, a LibraryAnnotator associated
-        # with the default library was created.
+        # happen in a library context, a generic
+        # CirculationManagerAnnotator was created.
         annotator = out_kwargs.pop('annotator')
-        assert isinstance(annotator, LibraryAnnotator)
-        eq_(self._default_library, annotator.library)
+        assert isinstance(annotator, CirculationManagerAnnotator)
         eq_(mock_lane, annotator.lane)
 
         # There's only one way to configure CrawlableFacets, so it's
