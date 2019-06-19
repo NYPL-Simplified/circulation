@@ -765,6 +765,9 @@ class TestCrawlableCollectionBasedLane(DatabaseTest):
 
     def test_init(self):
 
+        # Crawlable feeds are cached for 12 hours.
+        eq_(12 * 60 * 60, CrawlableCollectionBasedLane.MAX_CACHE_AGE)
+
         # This library has two collections.
         library = self._default_library
         default_collection = self._default_collection
@@ -820,6 +823,9 @@ class TestCrawlableCollectionBasedLane(DatabaseTest):
 class TestCrawlableCustomListBasedLane(DatabaseTest):
 
     def test_initialize(self):
+        # Crawlable feeds are cached for 12 hours.
+        eq_(12 * 60 * 60, CrawlableCustomListBasedLane.MAX_CACHE_AGE)
+
         customlist, ignore = self._customlist()
         lane = CrawlableCustomListBasedLane()
         lane.initialize(self._default_library, customlist)

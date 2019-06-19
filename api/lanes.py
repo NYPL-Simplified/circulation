@@ -1122,6 +1122,8 @@ class ContributorLane(WorksFromDatabase):
 class CrawlableFacets(Facets):
     """A special Facets class for crawlable feeds."""
 
+    CACHED_FEED_TYPE = "crawlable"
+
     # These facet settings are definitive of a crawlable feed.
     # Library configuration settings don't matter.
     SETTINGS = {
@@ -1139,7 +1141,13 @@ class CrawlableFacets(Facets):
         return cls.SETTINGS[facet_group_name]
 
 
-class CrawlableCollectionBasedLane(DynamicLane):
+class CrawlableLane(DynamicLane):
+
+    # Crawlable feeds are cached for 12 hours.
+    MAX_CACHE_AGE = 12 * 60 * 60
+
+
+class CrawlableCollectionBasedLane(CrawlableLane):
 
     LIBRARY_ROUTE = "crawlable_library_feed"
     COLLECTION_ROUTE = "crawlable_collection_feed"
@@ -1183,7 +1191,7 @@ class CrawlableCollectionBasedLane(DynamicLane):
             return self.COLLECTION_ROUTE, kwargs
 
 
-class CrawlableCustomListBasedLane(DynamicLane):
+class CrawlableCustomListBasedLane(CrawlableLane):
     """A lane that consists of all works in a single CustomList."""
 
     ROUTE = "crawlable_list_feed"

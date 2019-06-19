@@ -879,7 +879,8 @@ class OPDSFeedController(CirculationManagerController):
 
         feed = feed_class.page(
             _db=self._db, title=title, url=url, lane=lane, annotator=annotator,
-            facets=facets, pagination=pagination, cache_type="crawlable",
+            facets=facets, pagination=pagination,
+            cache_type=CrawlableFacets.CACHED_FEED_TYPE,
             search_engine=search_engine
         )
         return feed_response(feed)
