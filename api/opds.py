@@ -1,3 +1,4 @@
+import datetime
 import urllib
 import copy
 import logging
@@ -14,6 +15,7 @@ from core.classifier import Classifier
 from core.entrypoint import (
     EverythingEntryPoint,
 )
+from core.external_search import WorkSearchResult
 from core.opds import (
     Annotator,
     AcquisitionFeed,
@@ -273,7 +275,7 @@ class CirculationManagerAnnotator(Annotator):
             # Generate the licensing tags that tell you whether the book
             # is available.
             for link in borrow_links:
-                if link:
+                if link is not None:
                     for t in feed.license_tags(
                         active_license_pool, active_loan, active_hold
                     ):
@@ -522,7 +524,9 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         return self.groups_url(None, facets=facets)
 
     def feed_url(self, lane, facets=None, pagination=None, default_route='feed'):
-        extra_kwargs = dict(library_short_name=self.library.short_name)
+        extra_kwargs = dict()
+        if self.library:
+            extra_kwargs['library_short_name']=self.library.short_name
         return super(LibraryAnnotator, self).feed_url(lane, facets, pagination, default_route, extra_kwargs)
 
     def search_url(self, lane, query, pagination, facets=None):
@@ -592,9 +596,21 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         return url
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
-        updated = None
-        if isinstance(self.lane, CrawlableCustomListBasedLane) and isinstance(work, BaseMaterializedWork):
-            updated = max(work.last_update_time, work.first_appearance, work.availability_time)
+        updated = work.last_update_time
+        if isinstance(work, WorkSearchResult):
+            # Elasticsearch puts this field in a list, but we've set it up
+            # so there will be at most one value.
+            last_updates = getattr(work._hit, 'last_update', [])
+            if last_updates:
+                # last_update is seconds-since epoch; convert to UTC datetime.
+                updated = datetime.datetime.utcfromtimestamp(last_updates[0])
+
+                # There's a chance that work.last_updated has been
+                # modified but the change hasn't made it to the search
+                # engine yet. Even then, we stick with the search
+                # engine value, because a sorted list is more
+                # important to the import process than an up-to-date
+                # 'last update' value.
 
         # Add a link for reporting problems.
         feed.add_link_to_entry(

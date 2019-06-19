@@ -421,23 +421,41 @@ class CirculationManager(object):
         return authdata
 
     def annotator(self, lane, facets=None, *args, **kwargs):
-        """Create an appropriate OPDS annotator for the given lane."""
+        """Create an appropriate OPDS annotator for the given lane.
+
+        :param lane: A Lane or WorkList.
+        :param facets: A faceting object.
+        :param annotator_class: Instantiate this annotator class if possible.
+           Intended for use in unit tests.
+        """
+        library = None
         if lane and isinstance(lane, Lane):
             library = lane.library
         elif lane and isinstance(lane, WorkList):
             library = lane.get_library(self._db)
-        else:
+        if not library and hasattr(flask.request, 'library'):
             library = flask.request.library
+
+        # If no library is provided, the best we can do is a generic
+        # annotator for this application.
+        if not library:
+            return CirculationManagerAnnotator(lane)
+
+        # At this point we know the request is in a library context, so we
+        # can create a LibraryAnnotator customized for that library.
 
         # Some features are only available if a patron authentication
         # mechanism is set up for this library.
         authenticator = self.auth.library_authenticators.get(library.short_name)
-        return LibraryAnnotator(
-            self.circulation_apis[library.id], lane, library,
-            top_level_title='All Books',
-            library_identifies_patrons=authenticator.identifies_individuals,
-            facets=facets,
-            *args, **kwargs
+        library_identifies_patrons = (
+            authenticator is not None and authenticator.identifies_individuals
+        )
+        annotator_class = kwargs.pop('annotator_class', LibraryAnnotator)
+        return annotator_class(
+            self.circulation_apis[library.id], lane,
+            library, top_level_title='All Books',
+            library_identifies_patrons=library_identifies_patrons,
+            facets=facets, *args, **kwargs
         )
 
     @property
@@ -777,14 +795,16 @@ class OPDSFeedController(CirculationManagerController):
         request library.
         """
         library = flask.request.library
-        library_short_name = flask.request.library.short_name
         url = self.cdn_url_for(
             "crawlable_library_feed",
-            library_short_name=library_short_name,
+            library_short_name=library.short_name,
         )
         title = library.name
-        lane = CrawlableCollectionBasedLane(library)
-        return self._crawlable_feed(library, title, url, lane)
+        lane = CrawlableCollectionBasedLane()
+        lane.initialize(library)
+        return self._crawlable_feed(
+            library=library, title=title, url=url, lane=lane
+        )
 
     def crawlable_collection_feed(self, collection_name):
         """Build or retrieve a crawlable acquisition feed for the
@@ -798,17 +818,24 @@ class OPDSFeedController(CirculationManagerController):
             "crawlable_collection_feed",
             collection_name=collection.name
         )
-        lane = CrawlableCollectionBasedLane(None, [collection])
+        lane = CrawlableCollectionBasedLane()
+        lane.initialize([collection])
         if collection.protocol in [ODLAPI.NAME]:
             annotator = SharedCollectionAnnotator(collection, lane)
         else:
-            annotator = CirculationManagerAnnotator(lane)
-        return self._crawlable_feed(None, title, url, lane, annotator=annotator)
+            # We'll get a generic CirculationManagerAnnotator.
+            annotator = None
+        return self._crawlable_feed(
+            title=title, url=url, lane=lane, annotator=annotator
+        )
 
     def crawlable_list_feed(self, list_name):
         """Build or retrieve a crawlable, paginated acquisition feed for the
         named CustomList, sorted by update date.
         """
+        # TODO: A library is not strictly required here, since some
+        # CustomLists aren't associated with a library, but this isn't
+        # a use case we need to support now.
         library = flask.request.library
         list = CustomList.find(self._db, list_name, library=library)
         if not list:
@@ -821,18 +848,41 @@ class OPDSFeedController(CirculationManagerController):
         )
         lane = CrawlableCustomListBasedLane()
         lane.initialize(library, list)
-        return self._crawlable_feed(library, title, url, lane)
+        return self._crawlable_feed(title=title, url=url, lane=lane)
 
-    def _crawlable_feed(self, library, title, url, lane, annotator=None):
-        annotator = annotator or self.manager.annotator(lane)
-        facets = CrawlableFacets.default(library)
-        pagination = load_pagination_from_request()
+    def _crawlable_feed(self, title, url, lane, annotator=None,
+                        feed_class=AcquisitionFeed):
+        """Helper method to create a crawlable feed.
+
+        :param title: The title to use for the feed.
+        :param url: The URL from which the feed will be served.
+        :param lane: A crawlable Lane which controls which works show up
+            in the feed.
+        :param annotator: A custom Annotator to use when generating the feed.
+        :param feed_class: A drop-in replacement for AcquisitionFeed
+            for use in tests.
+        """
+        pagination = load_pagination_from_request(
+            default_size=Pagination.DEFAULT_CRAWLABLE_SIZE
+        )
         if isinstance(pagination, ProblemDetail):
             return pagination
-        feed = AcquisitionFeed.page(
-            self._db, title, url, lane, annotator=annotator,
-            facets=facets,
-            pagination=pagination,
+
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
+        annotator = annotator or self.manager.annotator(lane)
+
+        # A crawlable feed has only one possible set of Facets,
+        # so library settings are irrelevant.
+        facets = CrawlableFacets.default(None)
+
+        feed = feed_class.page(
+            _db=self._db, title=title, url=url, lane=lane, annotator=annotator,
+            facets=facets, pagination=pagination,
+            cache_type=CrawlableFacets.CACHED_FEED_TYPE,
+            search_engine=search_engine
         )
         return feed_response(feed)
 
