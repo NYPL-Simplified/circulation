@@ -2969,7 +2969,7 @@ class TestFilter(DatabaseTest):
 
         # It's value is the value of .author_filter, which is tested
         # separately in test_author_filter.
-        assert isinstance(filter.author_filter, F)
+        assert isinstance(filter.author_filter, Bool)
         eq_(filter.author_filter, contributor_filter)
 
         # There are no other nested filters.
@@ -3235,23 +3235,27 @@ class TestFilter(DatabaseTest):
             )
             eq_(expect, actual)
 
-        # You can apply the filter on any one of these four fields.
+        # You can apply the filter on any one of these four fields,
+        # using a Contributor or a ContributorData
         for field in ('sort_name', 'display_name', 'viaf', 'lc'):
-            contributor = ContributorData(**{field:"value"})
-            check_filter(contributor, {"contributors.%s" % field: "value"})
+            for cls in Contributor, ContributorData:
+                contributor = cls(**{field:"value"})
+                check_filter(contributor, {"contributors.%s" % field: "value"})
 
-        # Or a combination of these fields.
-        contributor = Contributor(
-            display_name='Ann Leckie', sort_name='Leckie, Ann', viaf="73520345",
-            lc="n2013008575"
-        )
-        check_filter(
-            contributor,
-            {"contributors.sort_name": contributor.sort_name},
-            {"contributors.display_name": contributor.display_name},
-            {"contributors.viaf": contributor.viaf},
-            {"contributors.lc": contributor.lc},
-        )
+        # You can also apply the filter using a combination of these
+        # fields.  At least one of the provided fields must match.
+        for cls in Contributor, ContributorData:
+            contributor = cls(
+                display_name='Ann Leckie', sort_name='Leckie, Ann',
+                viaf="73520345", lc="n2013008575"
+            )
+            check_filter(
+                contributor,
+                {"contributors.sort_name": contributor.sort_name},
+                {"contributors.display_name": contributor.display_name},
+                {"contributors.viaf": contributor.viaf},
+                {"contributors.lc": contributor.lc},
+            )
 
         # If an author's name is Edition.UNKNOWN_AUTHOR, matches
         # against that field are not counted; otherwise all works with
