@@ -428,6 +428,7 @@ class CirculationManager(object):
         :param annotator_class: Instantiate this annotator class if possible.
            Intended for use in unit tests.
         """
+        library = None
         if lane and isinstance(lane, Lane):
             library = lane.library
         elif lane and isinstance(lane, WorkList):
