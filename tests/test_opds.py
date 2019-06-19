@@ -915,8 +915,8 @@ class TestLibraryAnnotator(VendorIDTest):
         [entry] = feed.entries
         assert '2018-02-05' in entry.get("updated")
 
-        # If the 'update time' found by ElasticSearch is earlier
-        # than Work.last_update_time, then it's not used.
+        # Any 'update time' provided by ElasticSearch is used even if
+        # it's clearly earlier than Work.last_update_time.
         hit = MockHit(datetime.datetime(2017, 1, 1))
         result._hit = hit
         feed = AcquisitionFeed(
@@ -925,7 +925,7 @@ class TestLibraryAnnotator(VendorIDTest):
         )
         feed = feedparser.parse(unicode(feed))
         [entry] = feed.entries
-        assert '2018-02-04' in entry.get("updated")
+        assert '2017-01-01' in entry.get("updated")
 
     def test_active_loan_feed(self):
         self.initialize_adobe(self._default_library)
