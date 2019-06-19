@@ -39,6 +39,7 @@ from facets import FacetConstants
 from model import (
     numericrange_to_tuple,
     Collection,
+    Contributor,
     ConfigurationSetting,
     DataSource,
     Edition,
@@ -749,6 +750,12 @@ class ExternalSearchIndexVersions(object):
                 description['type'] = 'text'
                 description['fielddata'] = True
                 description['analyzer'] = 'en_sortable_analyzer'
+            elif type == 'normalized_keyword':
+                # A normalized_keyword acts as a regular keyword but
+                # also has a simple normalizer attached to it to
+                # improve filtering.
+                description['type'] = 'keyword'
+                description['normalizer'] = 'filterable_string'
             mapping = cls.map_fields(
                 fields=fields,
                 mapping=mapping,
@@ -830,7 +837,8 @@ class ExternalSearchIndexVersions(object):
                 # This normalizer is used on freeform strings that
                 # will be used as tokens in filters. This way we can,
                 # e.g. ignore capitalization when considering whether
-                # two books belong to the same series.
+                # two books belong to the same series or whether two
+                # author names are the same.
                 "normalizer": {
                     "filterable_string": {
                         "type": "custom",
@@ -943,14 +951,12 @@ class ExternalSearchIndexVersions(object):
 
         # Contributors
         contributor_fields_by_type = {
-            # We won't be sorting by these fields, but giving them the
-            # same treatment as sort_author and sort_title is an easy
-            # way to normalize the names.
-            'icu_collation_keyword': [
-                'sort_name', 'display_name', 'family_name'
-            ],
-            'keyword': ['role', 'lc', 'viaf']
+            'normalized_keyword' : ['sort_name', 'display_name', 'family_name'],
+            'keyword': ['role', 'lc', 'viaf'],
         }
+        contributor_definition = cls.map_fields_by_type(
+            contributor_fields_by_type
+        )
 
         # License pools.
         licensepool_fields_by_type = {
@@ -977,7 +983,7 @@ class ExternalSearchIndexVersions(object):
         for type_name, type_definition in [
             ('licensepools', licensepool_definition),
             ('customlists', customlist_definition),
-            ('contributors', customlist_definition),
+            ('contributors', contributor_definition),
         ]:
             type_definition['type'] = 'nested'
             mapping = cls.map_fields(
@@ -985,7 +991,6 @@ class ExternalSearchIndexVersions(object):
                 field_description=type_definition,
                 mapping=mapping,
             )
-
         # Finally, name the mapping to connect it to the 'works'
         # document type.
         mappings = { ExternalSearchIndex.work_document_type : mapping }
@@ -1714,6 +1719,13 @@ class Filter(SearchBase):
     # the useful information from the search engine isn't lost.
     KNOWN_SCRIPT_FIELDS = ['last_update']
 
+    # In general, someone looking for things "by this person" is
+    # probably looking for one of these roles.
+    AUTHOR_MATCH_ROLES = list(Contributor.AUTHOR_ROLES) + [
+        Contributor.EDITOR_ROLE, Contributor.DIRECTOR_ROLE,
+        Contributor.ACTOR_ROLE
+    ]
+
     @classmethod
     def from_worklist(cls, _db, worklist, facets):
         """Create a Filter that finds only works that belong in the given
@@ -1894,7 +1906,7 @@ class Filter(SearchBase):
             )
             nested_filters['licensepools'].append(collection_match)
 
-        if self.author:
+        if self.author is not None:
             nested_filters['contributors'].append(self.author_match)
 
         if self.media:
@@ -2252,9 +2264,8 @@ class Filter(SearchBase):
         if it represents an author-level contribution by self.author.
         """
         authorship_role = F(
-            'terms', **{'contributors.role' : Contributor.AUTHOR_ROLES}
+            'terms', **{'contributors.role' : self.AUTHOR_MATCH_ROLES}
         )
-
         clauses = []
         for field, value in [
                 ('sort_name', self.author.sort_name),
@@ -2262,9 +2273,11 @@ class Filter(SearchBase):
                 ('viaf', self.author.viaf),
                 ('lc', self.author.lc)
         ]:
-            if not value:
+            if not value or value == Edition.UNKNOWN_AUTHOR:
                 continue
-            clause = F('term', **{'contributors.%s' % field : value})
+            clauses.append(
+                F('term', **{'contributors.%s' % field : value})
+            )
 
         same_person = F('bool', should=clauses, minimum_should_match=1)
         return F('bool', must=[authorship_role, same_person])

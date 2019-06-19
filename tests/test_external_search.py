@@ -1,3 +1,4 @@
+# encoding: utf-8
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
@@ -35,14 +36,18 @@ from ..lane import (
     Pagination,
     WorkList,
 )
+from ..metadata_layer import ContributorData
 from ..model import (
     ConfigurationSetting,
+    Contribution,
+    Contributor,
     DataSource,
     Edition,
     ExternalIntegration,
     Genre,
     Work,
     WorkCoverageRecord,
+    get_one_or_create,
 )
 from ..external_search import (
     ExternalSearchIndex,
@@ -1339,6 +1344,155 @@ class TestSearchOrder(EndToEndSearchTest):
             Facets.ORDER_LAST_UPDATE, [self.e, self.d],
             collections=[self.collection3],
             customlist_restriction_sets=[[self.extra_list]]
+        )
+
+
+class TestContributorFilter(EndToEndSearchTest):
+    # Test the various techniques used to find books where a certain
+    # person had an authorship role.
+
+    def populate_works(self):
+        _work = self.default_work
+
+        # Create a number of fragmentary Contributor objects
+        # representing the same person.
+        self.full = Contributor(
+            display_name='Ann Leckie', sort_name='Leckie, Ann', viaf="73520345",
+            lc="n2013008575"
+        )
+        self.display_name = Contributor(
+            display_name='Ann Leckie', sort_name="Unknown"
+        )
+        self.sort_name = Contributor(sort_name='Leckie, Ann')
+        self.viaf = Contributor(
+            sort_name=Edition.UNKNOWN_AUTHOR, viaf="73520345"
+        )
+        self.lc = Contributor(
+            sort_name=Edition.UNKNOWN_AUTHOR, lc="n2013008575"
+        )
+
+        # Create a different Work for every Contributor object.
+        # Alternate among the various 'author match' roles.
+        self.works = []
+        roles = list(Filter.AUTHOR_MATCH_ROLES)
+        for i, (contributor, title, attribute) in enumerate(
+            [(self.full, "Ancillary Justice", 'justice'),
+             (self.display_name, "Ancillary Sword", 'sword'),
+             (self.sort_name, "Ancillary Mercy", 'mercy'),
+             (self.viaf, "Provenance", 'provenance'),
+             (self.lc, "Raven Tower", 'raven'),
+            ]):
+            self._db.add(contributor)
+            edition, ignore = self._edition(
+                title=title, authors=[], with_license_pool=True
+            )
+            contribution, was_new = get_one_or_create(
+                self._db, Contribution, edition=edition,
+                contributor=contributor,
+                role=roles[0]
+                #role=roles[i % len(roles)]
+            )
+            work = self.default_work(
+                presentation_edition=edition,
+            )
+            self.works.append(work)
+            setattr(self, attribute, work)
+
+        # This work is a decoy. The author we're looking for
+        # contributed to the work in an ineligible role, so it will
+        # always be filtered out.
+        edition, ignore = self._edition(
+            title="Literary Wonderlands", authors=[],
+            with_license_pool=True
+        )
+        contribution, is_new = get_one_or_create(
+            self._db, Contribution, edition=edition, contributor=self.full,
+            role=Contributor.CONTRIBUTOR_ROLE
+        )
+        self.literary_wonderlands = self.default_work(
+            presentation_edition=edition
+        )
+
+        # Another decoy. This work is by a different person and will
+        # always be filtered out.
+        self.ubik = self.default_work(
+            title="Ubik", authors=["Phillip K. Dick"]
+        )
+
+    def test_author_match(self):
+
+        if not self.search:
+            logging.error(
+                "Search is not configured, skipping test_author_match."
+            )
+            return
+
+        # Verify that all works were indexed.
+        self._expect_results(
+            self.works + [self.ubik, self.literary_wonderlands],
+            None, None, ordered=False
+        )
+
+        # By providing a Contributor object with all the identifiers,
+        # we get every work with an author-type contribution from
+        # someone who can be identified with that Contributor.
+        self._expect_results(
+            self.works, None, Filter(author=self.full), ordered=False
+        )
+
+        # If we provide a Contributor object with partial information,
+        # we can only get works that are identifiable with that
+        # Contributor through the information provided.
+        #
+        # In all cases below we will find 'Ancillary Justice', since
+        # the Contributor associated with that work has all the
+        # identifiers.  In each case we will also find one additional
+        # work -- the one associated with the Contributor whose
+        # data overlaps what we're passing in.
+        for filter, extra in [
+            (Filter(author=self.display_name), self.sword),
+            (Filter(author=self.sort_name), self.mercy),
+            (Filter(author=self.viaf), self.provenance),
+            (Filter(author=self.lc), self.raven),
+        ]:
+            self._expect_results(
+                [self.justice, extra], None, filter, ordered=False
+            )
+
+        # ContributorData also works here.
+
+        # By specifying two types of author identification we'll find
+        # three books -- the one that knows its author's sort_name,
+        # the one that knows its author's VIAF number, and the one
+        # that knows both.
+        author = ContributorData(sort_name="Leckie, Ann", viaf="73520345")
+        self._expect_results(
+            [self.justice, self.mercy, self.provenance], None,
+            Filter(author=author), ordered=False
+        )
+
+        # The filter can also accommodate very minor variants in names
+        # such as those caused by capitalization differences and
+        # accented characters.
+        for variant in ("ann leckie", u"Àñn Léckiê"):
+            author = ContributorData(display_name=variant)
+            self._expect_results(
+                [self.justice, self.sword], None,
+                Filter(author=author), ordered=False
+            )
+
+        # It cannot accommodate misspellings, no matter how minor.
+        author = ContributorData(display_name="Anne Leckie")
+        self._expect_results([], None, Filter(author=author))
+
+        # If the information in the ContributorData is inconsistent,
+        # the results may also be inconsistent.
+        author = ContributorData(
+            sort_name="Dick, Phillip K.", lc="n2013008575"
+        )
+        self._expect_results(
+            [self.justice, self.raven, self.ubik],
+            None, Filter(author=author), ordered=False
         )
 
 
