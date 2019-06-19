@@ -1401,8 +1401,8 @@ class TestAuthorFilter(EndToEndSearchTest):
         # contributed to the work in an ineligible role, so it will
         # always be filtered out.
         edition, ignore = self._edition(
-            title="Literary Wonderlands", authors=[],
-            with_license_pool=True
+            title="Science Fiction: The Best of the Year (2007 Edition)",
+            authors=[], with_license_pool=True
         )
         contribution, is_new = get_one_or_create(
             self._db, Contribution, edition=edition, contributor=self.full,
