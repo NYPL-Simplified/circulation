@@ -3237,10 +3237,20 @@ class TestFilter(DatabaseTest):
 
         # You can apply the filter on any one of these four fields,
         # using a Contributor or a ContributorData
-        for field in ('sort_name', 'display_name', 'viaf', 'lc'):
+        for contributor_field in ('sort_name', 'display_name', 'viaf', 'lc'):
             for cls in Contributor, ContributorData:
-                contributor = cls(**{field:"value"})
-                check_filter(contributor, {"contributors.%s" % field: "value"})
+                contributor = cls(**{contributor_field:"value"})
+                index_field = contributor_field
+                if contributor_field in ('sort_name', 'display_name'):
+                    # Sort name and display name are indexed both as
+                    # searchable text fields and filterable keywords.
+                    # We're filtering, so we want to use the keyword
+                    # version.
+                    index_field += '.keyword'
+                check_filter(
+                    contributor,
+                    {"contributors.%s" % index_field: "value"}
+                )
 
         # You can also apply the filter using a combination of these
         # fields.  At least one of the provided fields must match.
@@ -3251,8 +3261,8 @@ class TestFilter(DatabaseTest):
             )
             check_filter(
                 contributor,
-                {"contributors.sort_name": contributor.sort_name},
-                {"contributors.display_name": contributor.display_name},
+                {"contributors.sort_name.keyword": contributor.sort_name},
+                {"contributors.display_name.keyword": contributor.display_name},
                 {"contributors.viaf": contributor.viaf},
                 {"contributors.lc": contributor.lc},
             )

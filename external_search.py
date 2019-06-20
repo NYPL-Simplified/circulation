@@ -748,14 +748,12 @@ class ExternalSearchIndexVersions(object):
                 # approximates the (much simpler) icu_collation_keyword type
                 # but also lets us have the character filter.
                 description['type'] = 'text'
-                description['fielddata'] = True
                 description['analyzer'] = 'en_sortable_analyzer'
-            elif type == 'normalized_keyword':
-                # A normalized_keyword acts as a regular keyword but
-                # also has a simple normalizer attached to it to
-                # improve filtering.
-                description['type'] = 'keyword'
-                description['normalizer'] = 'filterable_string'
+                description['fielddata'] = True
+            elif type == 'filterable_text':
+                description['type'] = 'text'
+                description['analyzer'] = "en_analyzer"
+                description['fields'] =  cls.V4_FILTERABLE_TEXT_FIELDS
             mapping = cls.map_fields(
                 fields=fields,
                 mapping=mapping,
@@ -793,6 +791,31 @@ class ExternalSearchIndexVersions(object):
                           replacement=replacement)
         V4_CHAR_FILTERS[name] = normalizer
         V4_AUTHOR_CHAR_FILTER_NAMES.append(name)
+
+    # We want to index most text fields twice: once using the standard
+    # analyzer and once using a minimal analyzer for near-exact
+    # matches.
+    V4_BASIC_STRING_FIELDS = {
+        "minimal": {
+            "type": "text",
+            "analyzer": "en_minimal_analyzer"},
+        "standard": {
+            "type": "text",
+            "analyzer": "standard"
+        }
+    }
+
+    # Some fields, such as series and contributor name, we want to
+    # index as text fields (for use in searching) _and_ as keyword
+    # fields (for use in filtering). For the keyword field, only
+    # the most basic normalization is applied.
+    V4_FILTERABLE_TEXT_FIELDS = dict(V4_BASIC_STRING_FIELDS)
+    V4_FILTERABLE_TEXT_FIELDS["keyword"] = {
+        "type": "keyword",
+        "index": True,
+        "store": False,
+        "normalizer": "filterable_string",
+    }
 
     @classmethod
     def v4_body(cls):
@@ -876,54 +899,23 @@ class ExternalSearchIndexVersions(object):
             }
         }
 
-        # For most string fields, we want to apply the standard analyzer (for most searches)
-        # and the minimal analyzer (to privilege near-exact matches).
-        basic_string_fields = {
-            "minimal": {
-                "type": string_type,
-                "analyzer": "en_minimal_analyzer"},
-            "standard": {
-                "type": string_type,
-                "analyzer": "standard"
-            }
-        }
+        # For most string fields, we want to apply the standard
+        # analyzer (for most searches) and the minimal analyzer (to
+        # privilege near-exact matches).
         mapping = cls.map_fields(
             fields=["title", "subtitle", "summary", "classifications.term"],
             field_description={
                 "type": string_type,
                 "analyzer": "en_analyzer",
-                "fields": basic_string_fields
+                "fields": cls.V4_BASIC_STRING_FIELDS
             }
         )
 
-        # Series must be analyzed (so it can be used in searches) but
-        # also present as a keyword (so it can be used in a
-        # filter when listing books from a specific series).
-        # We don't need to sort on this value, so a regular keyword is fine.
-        # But we do want to do basic normalizing of values.
-        basic_string_plus_keyword = dict(basic_string_fields)
-        basic_string_plus_keyword["keyword"] = {
-            "type": "keyword",
-            "index": True,
-            "store": False,
-            "normalizer": "filterable_string",
-        }
-        mapping = cls.map_fields(
-            fields=["series"],
-            field_description={
-                "type": string_type,
-                "analyzer": "en_analyzer",
-                "fields": basic_string_plus_keyword,
-            },
-            mapping=mapping
-        )
-
         # These fields are used for sorting and filtering search
-        # results, but not for handling search queries.
-        #
-        # When we list books by a specific author, we're applying a filter on sort_author,
-        # not author.
+        # results, but (apart from 'series') not for handling search
+        # queries.
         fields_by_type = {
+            'filterable_text': ['series'],
             'boolean': ['presentation_ready'],
             'icu_collation_keyword': ['sort_author', 'sort_title'],
             'integer': ['series_position', 'work_id'],
@@ -951,7 +943,7 @@ class ExternalSearchIndexVersions(object):
 
         # Contributors
         contributor_fields_by_type = {
-            'normalized_keyword' : ['sort_name', 'display_name', 'family_name'],
+            'filterable_text' : ['sort_name', 'display_name', 'family_name'],
             'keyword': ['role', 'lc', 'viaf'],
         }
         contributor_definition = cls.map_fields_by_type(
@@ -2271,8 +2263,8 @@ class Filter(SearchBase):
         )
         clauses = []
         for field, value in [
-            ('sort_name', self.author.sort_name),
-            ('display_name', self.author.display_name),
+            ('sort_name.keyword', self.author.sort_name),
+            ('display_name.keyword', self.author.display_name),
             ('viaf', self.author.viaf),
             ('lc', self.author.lc)
         ]:
