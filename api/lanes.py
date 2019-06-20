@@ -1053,70 +1053,63 @@ class SeriesLane(DynamicLane):
             kwargs['audiences'] = self.audience_key
         return self.ROUTE, kwargs
 
+class ContributorFacets(Facets):
 
-class ContributorLane(WorksFromDatabase):
+    def from_request(cls, library, config, get_argument, get_header, worklist,
+                     *args, **kwargs):
+        """Instantiate a Contributor from request information plus
+        the contributor associated with the given WorkList.
+        """
+        facets = super(ContributorFacets, cls).from_request(
+            library, config, get_argument, get_header, worklist, *args,
+            **kwargs
+        )
+        facets.contributor = worklist.contributor
+        return facets
+
+    def navigate(self, *args, **kwargs):
+        """Propagate the selected contributor to a new Facets object."""
+        facets = super(ContributorFacets, self).navigate(*args, **kwargs)
+        facets.contributor = self.contributor
+        return facets
+
+    def modify_search_filter(self, filter):
+        super(ContributorFacets, self).modify_search_filter(filter)
+        filter.author = self.contributor
+
+
+class ContributorLane(DynamicLane):
     """A lane of Works written by a particular contributor"""
 
     ROUTE = 'contributor'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
 
-    def __init__(self, library, contributor_name,
+    def __init__(self, library, contributor,
                  parent=None, languages=None, audiences=None):
-        if not contributor_name:
-            raise ValueError("ContributorLane can't be created without contributor")
+        if not contributor:
+            raise ValueError(
+                "ContributorLane can't be created without contributor"
+            )
 
-        self.contributor_name = contributor_name
-        display_name = contributor_name
+        self.contributor = contributor
+        display_name = (
+            self.contributor.display_name or self.contributor.sort_name
+        )
         super(ContributorLane, self).initialize(
             library, display_name=display_name,
             audiences=audiences, languages=languages,
         )
         if parent:
             parent.append_child(self)
-        _db = Session.object_session(library)
-        self.contributors = _db.query(Contributor)\
-                .filter(or_(*self.contributor_name_clauses)).all()
 
     @property
     def url_arguments(self):
         kwargs = dict(
-            contributor_name=self.contributor_name,
+            contributor_id=self.contributor_id,
             languages=self.language_key,
             audiences=self.audience_key
         )
         return self.ROUTE, kwargs
-
-    @property
-    def contributor_name_clauses(self):
-        return [
-            Contributor.display_name==self.contributor_name,
-            Contributor.sort_name==self.contributor_name
-        ]
-
-    def apply_filters(self, _db, qu, facets, pagination, featured=False):
-        if not self.contributor_name:
-            return None
-
-        work_edition = aliased(Edition)
-        qu = qu.join(work_edition).join(work_edition.contributions)
-        qu = qu.join(Contribution.contributor)
-
-        # Run a number of queries against the Edition table based on the
-        # available contributor information: name, display name, id, viaf.
-        clauses = self.contributor_name_clauses
-
-        if self.contributors:
-            viafs = list(set([c.viaf for c in self.contributors if c.viaf]))
-            if len(viafs) == 1:
-                # If there's only one VIAF here, look for other
-                # Contributors that share it. This helps catch authors
-                # with pseudonyms.
-                clauses.append(Contributor.viaf==viafs[0])
-        or_clause = or_(*clauses)
-        qu = qu.filter(or_clause)
-
-        return super(ContributorLane, self).apply_filters(
-            _db, qu, facets, pagination, featured=featured)
 
 
 class CrawlableFacets(Facets):

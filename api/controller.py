@@ -1541,25 +1541,36 @@ class WorkController(CirculationManagerController):
 
         return languages, audiences
 
-    def contributor(self, contributor_name, languages, audiences):
+    def contributor(self, contributor_id, languages, audiences):
         """Serve a feed of books written by a particular author"""
         library = flask.request.library
-        if not contributor_name:
+        if not contributor_id:
             return NO_SUCH_LANE.detailed(_("No contributor provided"))
+
+        set_trace()
+        contributor = get_one(self._db, Contributor, id=contributor_id)
+        if not contributor:
+            return NO_SUCH_LANE.detailed(
+                _("No contributor with id: %s", contributor_id)
+            )
 
         languages, audiences = self._lane_details(languages, audiences)
 
         lane = ContributorLane(
             library, contributor_name, languages=languages, audiences=audiences
         )
-
-        annotator = self.manager.annotator(lane)
-        facets = load_facets_from_request(worklist=lane)
+        facets = load_facets_from_request(
+            worklist=lane, base_class=ContributorFacets
+        )
         if isinstance(facets, ProblemDetail):
             return facets
+
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
+
+        annotator = self.manager.annotator(lane)
+
         url = annotator.feed_url(
             lane,
             facets=facets,
