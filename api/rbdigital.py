@@ -704,19 +704,35 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # Set up a refresher method that takes no arguments except the
         # credential -- this is what lookup() expects.
         def refresh_credential(credential):
-            remote_identifier = self._find_or_create_remote_account(
-                patron
-            )
-            credential.credential = remote_identifier
-            credential.expires = None
+            try:
+                remote_identifier = self._find_or_create_remote_account(
+                    patron
+                )
+                credential.credential = remote_identifier
+                credential.expires = None
+            except CirculationException:
+                # If an exception was thrown by _find_or_create_remote_account
+                # delete the credential so we don't create a credential with
+                # None stored in credential.credential, then continue to raise
+                # the exception.
+                _db = Session.object_session(credential)
+                _db.delete(credential)
+                raise
             return credential
 
         # Find or create the credential.
+        # We use the DB session from the passed in patron object here
+        # because in the case we are in a thread the self._db session may be
+        # different from the session used for patron. By using the session
+        # from patron we make sure all the DB objects interacting with each
+        # other are from the same session.
         _db = Session.object_session(patron)
+        collection = Collection.by_id(_db, id=self.collection_id)
         credential = Credential.lookup(
             _db, DataSource.RB_DIGITAL,
             Credential.IDENTIFIER_FROM_REMOTE_SERVICE,
-            patron, refresh_credential, allow_persistent_token=True
+            patron, refresh_credential,
+            collection=collection, allow_persistent_token=True
         )
         return credential.credential
 
@@ -742,10 +758,23 @@ class RBDigitalAPI(BaseCirculationAPI, HasSelfTests):
         # authorization identifier. And there is no preexisting
         # Credential representing a dummy account, or this method
         # wouldn't have been called. We must create a new account.
-        return self.create_patron(
-            patron.library, patron.authorization_identifier,
-            self.patron_email_address(patron)
-        )
+        try:
+            return self.create_patron(
+                patron.library, patron.authorization_identifier,
+                self.patron_email_address(patron)
+            )
+        except RemotePatronCreationFailedException:
+            # Its possible to get a RemotePatronCreationFailedException if an account
+            # was already created for this patron, but never put in the DB due to an
+            # error. Here we try to recover that account using its email address.
+            remote_identifier = self.patron_remote_identifier_lookup(
+                self.patron_email_address(patron)
+            )
+            if remote_identifier:
+                return remote_identifier
+            else:
+                raise
+
 
     def create_patron(self, library, authorization_identifier, email_address):
         """Ask RBdigital to create a new patron record.

@@ -44,6 +44,30 @@ class TestOPDS(DatabaseTest):
         eq_(3, float(rating['schema:ratingvalue']))
         eq_(Measurement.RATING, rating['additionaltype'])
 
+    def test_feed_includes_refresh_link(self):
+        work = self._work(with_open_access_download=True)
+        lp = work.license_pools[0]
+        lp.suppressed = False
+        self._db.commit()
+
+        # If the metadata wrangler isn't configured, the link is left out.
+        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
+        [entry] = feedparser.parse(unicode(feed))['entries']
+        eq_([],
+            [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/refresh"])
+
+        # If we configure a metadata wrangler integration, the link appears.
+        integration = self._external_integration(
+            ExternalIntegration.METADATA_WRANGLER,
+            goal=ExternalIntegration.METADATA_GOAL,
+            settings={ ExternalIntegration.URL: "http://metadata" },
+            password="pw")
+        integration.collections += [self._default_collection]
+        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
+        [entry] = feedparser.parse(unicode(feed))['entries']
+        [refresh_link] = [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/refresh"]
+        assert lp.identifier.identifier in refresh_link["href"]
+
     def test_feed_includes_suppress_link(self):
         work = self._work(with_open_access_download=True)
         lp = work.license_pools[0]
