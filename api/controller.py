@@ -1552,8 +1552,8 @@ class WorkController(CirculationManagerController):
         if not contributor_name:
             return NO_SUCH_LANE.detailed(_("No contributor provided"))
 
-        # contributor_name is probably a sort_name, but it could be a
-        # display_name. Pass it in for both fields and
+        # contributor_name is probably a display_name, but it could be a
+        # sort_name. Pass it in for both fields and
         # ContributorData.lookup() will do its best to figure it out.
         contributor = ContributorData.lookup(
             self._db, sort_name=contributor_name, display_name=contributor_name
