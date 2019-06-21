@@ -10,12 +10,16 @@ from . import (
 
 from core.classifier import Classifier
 from core.entrypoint import AudiobooksEntryPoint
+from core.external_search import Filter
 from core.lane import (
     Facets,
     Lane,
     WorkList,
 )
-from core.metadata_layer import Metadata
+from core.metadata_layer import (
+    ContributorData,
+    Metadata,
+)
 from core.lane import FacetsWithEntryPoint
 from core.model import (
     create,
@@ -42,6 +46,7 @@ from api.lanes import (
     create_world_languages_lane,
     _lane_configuration_from_collection_sizes,
     load_lanes,
+    ContributorFacets,
     ContributorLane,
     CrawlableCollectionBasedLane,
     CrawlableFacets,
@@ -591,6 +596,17 @@ class TestRecommendationLane(LaneTest):
 
 class TestSeriesFacets(DatabaseTest):
 
+    def setup(self):
+        # Set up a generic SeriesFacets object.
+        super(TestSeriesFacets, self).setup()
+        library = self._default_library
+        self.worklist = SeriesLane(library, "Snake Eyes")
+        args = {}
+        self.facets = SeriesFacets.from_request(
+            library, library, args.get, args.get, self.worklist
+        )
+        assert isinstance(self.facets, SeriesFacets)
+
     def test_class_methods(self):
         config = self._default_library
         # In general, SeriesFacets has the same options and defaults
@@ -617,20 +633,19 @@ class TestSeriesFacets(DatabaseTest):
         # When a SeriesFacets is instantiated for a SeriesLane,
         # the series associated with the SeriesLane is copied to the
         # SeriesFacets.
-        library = self._default_library
-        worklist = SeriesLane(library, "Snake Eyes")
-        args = {}
-        facets = SeriesFacets.from_request(
-            library, library, args.get, args.get, worklist
-        )
-        eq_("Snake Eyes", facets.series)
+        eq_("Snake Eyes", self.facets.series)
 
         # Navigating to another entry point gets us another SeriesFacets
         # for the same series.
-        new_facets = facets.navigate(entrypoint=AudiobooksEntryPoint)
+        new_facets = self.facets.navigate(entrypoint=AudiobooksEntryPoint)
         assert isinstance(new_facets, SeriesFacets)
         eq_("Snake Eyes", new_facets.series)
         eq_(AudiobooksEntryPoint, new_facets.entrypoint)
+
+    def test_modify_search_filter(self):
+        filter = Filter()
+        self.facets.modify_search_filter(filter)
+        eq_("Snake Eyes", filter.series)
 
 
 class TestSeriesLane(LaneTest):
@@ -663,6 +678,39 @@ class TestSeriesLane(LaneTest):
         # languages were changed to values consistent with its parent.
         eq_([work_based_lane.source_audience], child.audiences)
         eq_(work_based_lane.languages, child.languages)
+
+
+class TestContributorFacets(DatabaseTest):
+
+    def setup(self):
+        # Set up a generic ContributorFacets object.
+        super(TestContributorFacets, self).setup()
+        library = self._default_library
+        self.contributor_data = ContributorData(display_name="An Author")
+        self.worklist = ContributorLane(library, self.contributor_data)
+        args = {}
+        self.facets = ContributorFacets.from_request(
+            library, library, args.get, args.get, self.worklist
+        )
+        assert isinstance(self.facets, ContributorFacets)
+
+    def test_instantiation_and_navigation(self):
+        # When a ContributorFacets is instantiated for a ContributorLane,
+        # the series associated with the ContributorLane is copied to the
+        # ContributorFacets.
+        eq_(self.contributor_data, self.facets.contributor)
+
+        # Navigating to another entry point gets us another ContributorFacets
+        # for the same series.
+        new_facets = self.facets.navigate(entrypoint=AudiobooksEntryPoint)
+        assert isinstance(new_facets, ContributorFacets)
+        eq_(self.contributor_data, new_facets.contributor)
+        eq_(AudiobooksEntryPoint, new_facets.entrypoint)
+
+    def test_modify_search_filter(self):
+        filter = Filter()
+        self.facets.modify_search_filter(filter)
+        eq_(self.contributor_data, filter.author)
 
 
 class TestContributorLane(LaneTest):

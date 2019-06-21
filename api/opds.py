@@ -613,7 +613,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             work, active_license_pool, edition, identifier, feed, entry, updated
         )
 
-        # Add a link for each author.
+        # Add a link to each author tag.
         self.add_author_links(work, feed, entry)
 
         # And a series, if there is one.
@@ -682,6 +682,33 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                 )
             )
 
+    def contributor_tag(cls, work, edition, contribution, state):
+        """Create an <author> or <contributor> tag, then
+        add a link to a feed of books by that person.
+        """
+        tag = super(LibraryAnnotator, super).contributor_tag(
+            contribution, state
+        )
+        if tag is None:
+            return tag
+
+        contributor = contribution.contributor
+        languages, audiences = self.language_and_audience_key_from_work(work)
+        feed.add_link_to_entry(
+            tag,
+            rel='contributor',
+            type=OPDSFeed.ACQUISITION_FEED_TYPE,
+            title=contributor_name,
+            href=self.url_for(
+                'contributor',
+                contributor_id=contributor.id,
+                languages=languages,
+                audiences=audiences,
+                library_short_name=self.library.short_name,
+                _external=True
+            )
+        )
+
     @classmethod
     def related_books_available(cls, work, library):
         """:return: bool asserting whether related books might exist for
@@ -714,12 +741,29 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         return language_key, audience_key
 
     def add_author_links(self, work, feed, entry):
+        """Find all the <author> tags and add a link
+        to each one that points to the author's other works.
+        """
         author_tag = '{%s}author' % OPDSFeed.ATOM_NS
         author_entries = entry.findall(author_tag)
 
         languages, audiences = self.language_and_audience_key_from_work(work)
         for author_entry in author_entries:
             name_tag = '{%s}name' % OPDSFeed.ATOM_NS
+
+            # A database ID would be better than a name, but the
+            # <author> tag was created as part of the work's cached
+            # OPDS entry, and as a rule we don't put database IDs into
+            # the cached OPDS entry.
+            #
+            # So we take the content of the <author> tag, use it in
+            # the link, and -- only if the user decides to fetch this feed
+            # -- we do a little extra work to turn this name back into
+            # one or more contributors.
+            #
+            # TODO: If we reliably had VIAF IDs for our contributors,
+            # we could stick them in the <author> tags and get the
+            # best of both worlds.
             contributor_name = author_entry.find(name_tag).text
             if not contributor_name:
                 continue
@@ -738,6 +782,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                     _external=True
                 )
             )
+
 
     def add_series_link(self, work, feed, entry):
         series_tag = OPDSFeed.schema_('Series')

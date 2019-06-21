@@ -228,7 +228,11 @@ class TestLibraryAnnotator(VendorIDTest):
         self._default_library.library_registry_shared_secret = "s3cr3t5"
 
         # A ContributorLane to test code that handles it differently.
-        self.contributor_lane = ContributorLane(self._default_library, "Someone", languages=["eng"], audiences=None)
+        self.contributor, ignore = self._contributor("Someone")
+        self.contributor_lane = ContributorLane(
+            self._default_library, self.contributor, languages=["eng"],
+            audiences=None
+        )
 
     def test__hidden_content_types(self):
 

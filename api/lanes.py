@@ -897,17 +897,10 @@ class RelatedBooksLane(WorkBasedLane):
                                    for c in self.edition.contributions
                                    if c.role in author_roles]
 
+        library = self.get_library(_db)
         for contributor in viable_contributors:
-            contributor_name = None
-            if contributor.display_name:
-                # Prefer display names over sort names for easier URIs
-                # at the /works/contributor/<NAME> route.
-                contributor_name = contributor.display_name
-            else:
-                contributor_name = contributor.sort_name
-
             contributor_lane = ContributorLane(
-                self.get_library(_db), contributor_name, parent=self,
+                library, contributor, parent=self,
                 languages=self.languages, audiences=self.audiences,
             )
             yield contributor_lane
@@ -1055,10 +1048,11 @@ class SeriesLane(DynamicLane):
 
 class ContributorFacets(Facets):
 
+    @classmethod
     def from_request(cls, library, config, get_argument, get_header, worklist,
                      *args, **kwargs):
-        """Instantiate a Contributor from request information plus
-        the contributor associated with the given WorkList.
+        """Instantiate a ContributorFacets from request information plus the
+        ContributorData associated with the given WorkList.
         """
         facets = super(ContributorFacets, cls).from_request(
             library, config, get_argument, get_header, worklist, *args,
@@ -1086,17 +1080,25 @@ class ContributorLane(DynamicLane):
 
     def __init__(self, library, contributor,
                  parent=None, languages=None, audiences=None):
+        """Constructor.
+
+        :param library: A Library.
+        :param contributor: A Contributor or ContributorData object.
+        :param parent: A WorkList.
+        :param languages: An extra restriction on the languages of Works.
+        :param audiences: An extra restriction on the audience for Works.
+        """
         if not contributor:
             raise ValueError(
                 "ContributorLane can't be created without contributor"
             )
 
         self.contributor = contributor
-        display_name = (
+        self.contributor_key = (
             self.contributor.display_name or self.contributor.sort_name
         )
         super(ContributorLane, self).initialize(
-            library, display_name=display_name,
+            library, display_name=self.contributor_key,
             audiences=audiences, languages=languages,
         )
         if parent:
@@ -1105,7 +1107,7 @@ class ContributorLane(DynamicLane):
     @property
     def url_arguments(self):
         kwargs = dict(
-            contributor_id=self.contributor_id,
+            contributor_name=self.contributor_key,
             languages=self.language_key,
             audiences=self.audience_key
         )

@@ -50,6 +50,7 @@ from core.lane import (
     SearchFacets,
     WorkList,
 )
+from core.metadata_layer import ContributorData
 from core.model import (
     get_one,
     get_one_or_create,
@@ -126,6 +127,7 @@ from config import (
 
 from lanes import (
     load_lanes,
+    ContributorFacets,
     ContributorLane,
     RecommendationLane,
     RelatedBooksLane,
@@ -1541,23 +1543,30 @@ class WorkController(CirculationManagerController):
 
         return languages, audiences
 
-    def contributor(self, contributor_id, languages, audiences):
+    def contributor(
+        self, contributor_name, languages, audiences,
+        feed_class=AcquisitionFeed
+    ):
         """Serve a feed of books written by a particular author"""
         library = flask.request.library
-        if not contributor_id:
+        if not contributor_name:
             return NO_SUCH_LANE.detailed(_("No contributor provided"))
 
-        set_trace()
-        contributor = get_one(self._db, Contributor, id=contributor_id)
+        # contributor_name is probably a sort_name, but it could be a
+        # display_name. Pass it in for both fields and
+        # ContributorData.lookup() will do its best to figure it out.
+        contributor = ContributorData.lookup(
+            self._db, sort_name=contributor_name, display_name=contributor_name
+        )
         if not contributor:
             return NO_SUCH_LANE.detailed(
-                _("No contributor with id: %s", contributor_id)
+                _("No matching contributor: %s", contributor_name)
             )
 
         languages, audiences = self._lane_details(languages, audiences)
 
         lane = ContributorLane(
-            library, contributor_name, languages=languages, audiences=audiences
+            library, contributor, languages=languages, audiences=audiences
         )
         facets = load_facets_from_request(
             worklist=lane, base_class=ContributorFacets

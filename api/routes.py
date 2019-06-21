@@ -374,14 +374,14 @@ def loan_or_hold_detail(identifier_type, identifier):
 def work():
     return app.manager.urn_lookup.work_lookup('work')
 
-@library_dir_route('/works/contributor/<contributor_id>', defaults=dict(languages=None, audiences=None))
-@library_dir_route('/works/contributor/<contributor_id>/<languages>', defaults=dict(audiences=None))
-@library_route('/works/contributor/<contributor_id>/<languages>/<audiences>')
+@library_dir_route('/works/contributor/<contributor_name>', defaults=dict(languages=None, audiences=None))
+@library_dir_route('/works/contributor/<contributor_name>/<languages>', defaults=dict(audiences=None))
+@library_route('/works/contributor/<contributor_name>/<languages>/<audiences>')
 @has_library
 @allows_patron_web
 @returns_problem_detail
-def contributor(contributor_id, languages, audiences):
-    return app.manager.work_controller.contributor(contributor_id, languages, audiences)
+def contributor(contributor_name, languages, audiences):
+    return app.manager.work_controller.contributor(contributor_name, languages, audiences)
 
 @library_dir_route('/works/series/<series_name>', defaults=dict(languages=None, audiences=None))
 @library_dir_route('/works/series/<series_name>/<languages>', defaults=dict(audiences=None))
