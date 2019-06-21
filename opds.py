@@ -316,7 +316,7 @@ class Annotator(object):
         return [AtomFeed.author(AtomFeed.name(""))]
 
     @classmethod
-    def contributor_tag(self, contribution, state=None):
+    def contributor_tag(self, contribution):
         """Build an <author> or <contributor> tag for a Contribution.
 
         :param contribution: A Contribution.
