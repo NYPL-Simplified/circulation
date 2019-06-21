@@ -176,6 +176,7 @@ class SubjectData(object):
 
 
 class ContributorData(object):
+
     def __init__(self, sort_name=None, display_name=None,
                  family_name=None, wikipedia_name=None, roles=None,
                  lc=None, viaf=None, biography=None, aliases=None, extra=None):
@@ -183,7 +184,8 @@ class ContributorData(object):
         self.display_name = display_name
         self.family_name = family_name
         self.wikipedia_name = wikipedia_name
-        roles = roles or Contributor.AUTHOR_ROLE
+        if roles is None:
+            roles = Contributor.AUTHOR_ROLE
         if not isinstance(roles, list):
             roles = [roles]
         self.roles = roles

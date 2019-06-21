@@ -320,6 +320,10 @@ class Annotator(object):
 
         if authors:
             return authors
+
+        # We have no author information, so we add empty <author> tag
+        # to avoid the implication (per RFC 4287 4.2.1) that this book
+        # was written by whoever wrote the OPDS feed.
         return [AtomFeed.author(AtomFeed.name(""))]
 
     @classmethod
