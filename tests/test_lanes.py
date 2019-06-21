@@ -379,9 +379,8 @@ class TestRelatedBooksLane(DatabaseTest):
         self.edition = self.work.presentation_edition
 
     def test_initialization(self):
-        """Asserts that a RelatedBooksLane won't be initialized for a work
-        without related books
-        """
+        # Asserts that a RelatedBooksLane won't be initialized for a work
+        # without related books
 
         # A book without a series or a contributor on a circ manager without
         # NoveList recommendations raises an error.
@@ -400,7 +399,7 @@ class TestRelatedBooksLane(DatabaseTest):
         eq_(self.work, result.work)
         [sublane] = result.children
         eq_(True, isinstance(sublane, ContributorLane))
-        eq_(sublane.contributors, [luthor])
+        eq_(sublane.contributor, luthor)
 
         # As does a book in a series.
         self.edition.series = "All By Myself"
@@ -449,7 +448,7 @@ class TestRelatedBooksLane(DatabaseTest):
         result = RelatedBooksLane(self._default_library, self.work, '')
         eq_(1, len(result.children))
         [sublane] = result.children
-        eq_([original], sublane.contributors)
+        eq_(original, sublane.contributor)
 
         # A book with multiple contributors results in multiple
         # ContributorLane sublanes.
@@ -458,7 +457,7 @@ class TestRelatedBooksLane(DatabaseTest):
         result = RelatedBooksLane(self._default_library, self.work, '')
         eq_(2, len(result.children))
         sublane_contributors = list()
-        [sublane_contributors.extend(c.contributors) for c in result.children]
+        [sublane_contributors.append(c.contributor) for c in result.children]
         eq_(set([lane, original]), set(sublane_contributors))
 
         # When there are no AUTHOR_ROLES present, contributors in
@@ -471,7 +470,7 @@ class TestRelatedBooksLane(DatabaseTest):
         result = RelatedBooksLane(self._default_library, self.work, '')
         eq_(1, len(result.children))
         [sublane] = result.children
-        eq_([luthor], sublane.contributors)
+        eq_(luthor, sublane.contributor)
 
     def test_works_query(self):
         """RelatedBooksLane is an invisible, groups lane without works."""
