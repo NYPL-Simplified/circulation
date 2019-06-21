@@ -39,6 +39,10 @@ from api.lanes import (
     create_default_lanes,
     ContributorFacets,
     ContributorLane,
+    CrawlableCollectionBasedLane,
+    CrawlableCustomListBasedLane,
+    CrawlableFacets,
+    DynamicLane,
     SeriesFacets,
     SeriesLane,
 )
@@ -143,7 +147,11 @@ from core.opds import (
 from core.util.opds_writer import (
     OPDSFeed,
 )
-from api.opds import LibraryAnnotator
+from api.opds import (
+    LibraryAnnotator,
+    CirculationManagerAnnotator,
+    SharedCollectionAnnotator,
+)
 from api.annotations import AnnotationWriter
 from api.testing import (
     VendorIDTest,
@@ -556,6 +564,85 @@ class TestCirculationManager(CirculationControllerTest):
 
         # Calling it again will do nothing.
         eq_((new_public, new_private), self.manager.sitewide_key_pair)
+
+    def test_annotator(self):
+        # Test our ability to find an appropriate OPDSAnnotator for
+        # any request context.
+
+        # The simplest case -- a Lane is provided and we build a
+        # LibraryAnnotator for its library
+        lane = self._lane()
+        facets = Facets.default(self._default_library)
+        annotator = self.manager.annotator(lane, facets)
+        assert isinstance(annotator, LibraryAnnotator)
+        eq_(self.manager.circulation_apis[self._default_library.id],
+            annotator.circulation)
+        eq_("All Books", annotator.top_level_title())
+        eq_(True, annotator.identifies_patrons)
+
+        # Try again using a library that has no patron authentication.
+        library2 = self._library()
+        lane2 = self._lane(library=library2)
+        mock_circulation = object()
+        self.manager.circulation_apis[library2.id] = mock_circulation
+
+        annotator = self.manager.annotator(lane2, facets)
+        assert isinstance(annotator, LibraryAnnotator)
+        eq_(library2, annotator.library)
+        eq_(lane2, annotator.lane)
+        eq_(facets, annotator.facets)
+        eq_(mock_circulation, annotator.circulation)
+
+        # This LibraryAnnotator knows not to generate any OPDS that
+        # implies it has any way of authenticating or differentiating
+        # between patrons.
+        eq_(False, annotator.identifies_patrons)
+
+        # Any extra positional or keyword arguments passed into annotator()
+        # are propagated to the Annotator constructor.
+        class MockAnnotator(object):
+            def __init__(self, *args, **kwargs):
+                self.positional = args
+                self.keyword = kwargs
+        annotator = self.manager.annotator(
+            lane, facets, "extra positional",
+            kw="extra keyword", annotator_class=MockAnnotator
+        )
+        assert isinstance(annotator, MockAnnotator)
+        eq_('extra positional', annotator.positional[-1])
+        eq_('extra keyword', annotator.keyword.pop('kw'))
+
+        # Now let's try more and more obscure ways of figuring out which
+        # library should be used to build the LibraryAnnotator.
+
+        # If a WorkList initialized with a library is provided, a
+        # LibraryAnnotator for that library is created.
+        worklist = WorkList()
+        worklist.initialize(library2)
+        annotator = self.manager.annotator(worklist, facets)
+        assert isinstance(annotator, LibraryAnnotator)
+        eq_(library2, annotator.library)
+        eq_(worklist, annotator.lane)
+        eq_(facets, annotator.facets)
+
+        # If no library can be found through the WorkList,
+        # LibraryAnnotator uses the library associated with the
+        # current request.
+        worklist = WorkList()
+        worklist.initialize(None)
+        with self.request_context_with_library("/"):
+            annotator = self.manager.annotator(worklist, facets)
+            assert isinstance(annotator, LibraryAnnotator)
+            eq_(self._default_library, annotator.library)
+            eq_(worklist, annotator.lane)
+
+        # If there is absolutely no library associated with this
+        # request, we get a generic CirculationManagerAnnotator for
+        # the provided WorkList.
+        with self.app.test_request_context("/"):
+            annotator = self.manager.annotator(worklist, facets)
+            assert isinstance(annotator, CirculationManagerAnnotator)
+            eq_(worklist, annotator.lane)
 
 
 class TestBaseController(CirculationControllerTest):
@@ -3100,141 +3187,6 @@ class TestFeedController(CirculationControllerTest):
         self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
 
-    def test_crawlable_library_feed(self):
-        self._set_update_times()
-        with self.request_context_with_library("/?size=2"):
-            response = self.manager.opds_feeds.crawlable_library_feed()
-            feed = feedparser.parse(response.data)
-            # We see the first two books sorted by update time.
-            eq_([self.english_2.title, self.french_1.title],
-                [x['title'] for x in feed['entries']])
-
-    def test_crawlable_collection_feed(self):
-        self._set_update_times()
-        with self.app.test_request_context("/?size=2"):
-            response = self.manager.opds_feeds.crawlable_collection_feed(
-                self._default_collection.name
-            )
-            feed = feedparser.parse(response.data)
-            # We see the first two books sorted by update time.
-            eq_([self.english_2.title, self.french_1.title],
-                [x['title'] for x in feed['entries']])
-
-            # This is not a shared collection, so the entries only
-            # have open-access links.
-            for entry in feed["entries"]:
-                links = entry.get("links")
-                eq_(1, len(links))
-                eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, links[0].get("rel"))
-
-            # Shared collection with two books.
-            collection = MockODLAPI.mock_collection(self._db)
-            self.english_2.license_pools[0].collection = collection
-            work = self._work(title="A", with_license_pool=True, collection=collection)
-            self._db.flush()
-            SessionManager.refresh_materialized_views(self._db)
-            response = self.manager.opds_feeds.crawlable_collection_feed(
-                collection.name
-            )
-            feed = feedparser.parse(response.data)
-            [entry1, entry2] = sorted(feed['entries'], key=lambda x: x['title'])
-            eq_(work.title, entry1["title"])
-            # The first title isn't open access, so it has a borrow link but no open access link.
-            links = entry1.get("links")
-            eq_(0, len([link for link in links if link.get("rel") == Hyperlink.OPEN_ACCESS_DOWNLOAD]))
-            [borrow_link] = [link for link in links if link.get("rel") == Hyperlink.BORROW]
-            pool = work.license_pools[0]
-            expected = "/collections/%s/%s/%s/borrow" % (urllib.quote(collection.name), urllib.quote(pool.identifier.type), urllib.quote(pool.identifier.identifier))
-            assert expected in borrow_link.get("href")
-
-            eq_(self.english_2.title, entry2["title"])
-            links = entry2.get("links")
-            # The second title is open access, so it has an open access link but no borrow link.
-            eq_(0, len([link for link in links if link.get("rel") == Hyperlink.BORROW]))
-            [open_access_link] = [link for link in links if link.get("rel") == Hyperlink.OPEN_ACCESS_DOWNLOAD]
-            pool = self.english_2.license_pools[0]
-            eq_(pool.identifier.links[0].resource.representation.public_url, open_access_link.get("href"))
-
-        # The collection must exist.
-        with self.app.test_request_context("/?size=1"):
-            response = self.manager.opds_feeds.crawlable_collection_feed(
-                "no such collection"
-            )
-            eq_(response.uri, NO_SUCH_COLLECTION.uri)
-
-
-    def test_crawlable_list_feed(self):
-        # Initial setup gave us two English works. Add both to a list.
-        list, ignore = self._customlist(num_entries=0)
-        list.library = self._default_library
-        e1, ignore = list.add_entry(self.english_1)
-        e2, ignore = list.add_entry(self.english_2)
-
-        # Set their last_update_times and first_appearances to control order.
-        now = datetime.datetime.utcnow()
-        yesterday = now - datetime.timedelta(days=1)
-        self.english_1.last_update_time = yesterday
-        e1.first_appearance = now
-        self.english_2.last_update_time = yesterday
-        e2.first_appearance = yesterday
-        self._db.flush()
-        SessionManager.refresh_materialized_views(self._db)
-        with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.crawlable_list_feed(list.name)
-
-            feed = feedparser.parse(response.data)
-            entries = feed['entries']
-
-            eq_(1, len(entries))
-            [entry] = entries
-            eq_(self.english_1.title, entry.title)
-
-            links = feed['feed']['links']
-            next_link = [x for x in links if x['rel'] == 'next'][0]['href']
-            assert 'after=1' in next_link
-            assert 'size=1' in next_link
-
-            # This feed isn't filterable or sortable so it has no facet links.
-            eq_(0, len([x for x in links if x["rel"] == "http://opds-spec.org/facet"]))
-
-        for feed in self._db.query(CachedFeed):
-            self._db.delete(feed)
-        # Bump english_2 to the top.
-        self.english_1.last_update_time = yesterday
-        e1.first_appearance = yesterday
-        self.english_2.last_update_time = now
-        e2.first_appearance = yesterday
-        self._db.flush()
-        SessionManager.refresh_materialized_views(self._db)
-        with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.crawlable_list_feed(list.name)
-
-            feed = feedparser.parse(response.data)
-            entries = feed['entries']
-
-            eq_(1, len(entries))
-            [entry] = entries
-            eq_(self.english_2.title, entry.title)
-
-        for feed in self._db.query(CachedFeed):
-            self._db.delete(feed)
-        self.english_1.last_update_time = yesterday
-        e1.first_appearance = yesterday
-        self.english_2.last_update_time = yesterday
-        e2.first_appearance = now
-        self._db.flush()
-        SessionManager.refresh_materialized_views(self._db)
-        with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.crawlable_list_feed(list.name)
-
-            feed = feedparser.parse(response.data)
-            entries = feed['entries']
-
-            eq_(1, len(entries))
-            [entry] = entries
-            eq_(self.english_2.title, entry.title)
-
-
     def mock_search(self, *args, **kwargs):
         self.called_with = (args, kwargs)
 
@@ -3383,6 +3335,259 @@ class TestFeedController(CirculationControllerTest):
             eq_(REMOTE_INTEGRATION_FAILED.uri, problem.uri)
             eq_(u'The search index for this site is not properly configured.',
                 problem.detail)
+
+
+class TestCrawlableFeed(CirculationControllerTest):
+
+    @contextmanager
+    def mock_crawlable_feed(self):
+        """Temporarily mock _crawlable_feed with something
+        that records the arguments used to call it.
+        """
+        controller = self.manager.opds_feeds
+        original = controller._crawlable_feed
+        def mock(**kwargs):
+            self._crawlable_feed_called_with = kwargs
+            return "An OPDS feed."
+        controller._crawlable_feed = mock
+        yield
+        controller._crawlable_feed = original
+
+    def test_crawlable_library_feed(self):
+        # Test the creation of a crawlable feed for everything in
+        # a library.
+        controller = self.manager.opds_feeds
+        library = self._default_library
+        with self.request_context_with_library("/"):
+            with self.mock_crawlable_feed():
+                response = controller.crawlable_library_feed()
+                expect_url = controller.cdn_url_for(
+                    "crawlable_library_feed",
+                    library_short_name=library.short_name,
+                )
+
+        # The response of the mock _crawlable_feed was returned as-is;
+        # creating a proper Response object is the job of the real
+        # _crawlable_feed.
+        eq_("An OPDS feed.", response)
+
+        # Verify that _crawlable_feed was called with the right arguments.
+        kwargs = self._crawlable_feed_called_with
+        eq_(expect_url, kwargs.pop('url'))
+        eq_(library, kwargs.pop('library'))
+        eq_(library.name, kwargs.pop('title'))
+
+        # A CrawlableCollectionBasedLane has been set up to show
+        # everything in any of the requested library's collections.
+        lane = kwargs.pop('lane')
+        assert isinstance(lane, CrawlableCollectionBasedLane)
+        eq_(library.id, lane.library_id)
+        eq_([x.id for x in library.collections], lane.collection_ids)
+        eq_({}, kwargs)
+
+    def test_crawlable_collection_feed(self):
+        # Test the creation of a crawlable feed for everything in
+        # a collection.
+        controller = self.manager.opds_feeds
+        library = self._default_library
+
+        collection = self._collection()
+
+        # Bad collection name -> Problem detail.
+        with self.app.test_request_context("/"):
+            response = controller.crawlable_collection_feed(
+                collection_name="No such collection"
+            )
+            eq_(NO_SUCH_COLLECTION, response)            
+            
+        # Unlike most of these controller methods, this one does not
+        # require a library context.
+        with self.app.test_request_context("/"):
+            with self.mock_crawlable_feed():
+                response = controller.crawlable_collection_feed(
+                    collection_name=collection.name
+                )
+                expect_url = controller.cdn_url_for(
+                    "crawlable_collection_feed",
+                    collection_name=collection.name,
+                )
+
+        # The response of the mock _crawlable_feed was returned as-is;
+        # creating a proper Response object is the job of the real
+        # _crawlable_feed.
+        eq_("An OPDS feed.", response)
+
+        # Verify that _crawlable_feed was called with the right arguments.
+        kwargs = self._crawlable_feed_called_with
+        eq_(expect_url, kwargs.pop('url'))
+        eq_(collection.name, kwargs.pop('title'))
+
+        # A CrawlableCollectionBasedLane has been set up to show
+        # everything in the requested collection.
+        lane = kwargs.pop('lane')
+        assert isinstance(lane, CrawlableCollectionBasedLane)
+        eq_(None, lane.library_id)
+        eq_([collection.id], lane.collection_ids)
+
+        # No specific Annotator as created to build the OPDS
+        # feed. We'll be using the default for a request with no
+        # library context--a CirculationManagerAnnotator.
+        eq_(None, kwargs.pop('annotator'))
+
+        # A specific annotator _is_ created for an ODL collection:
+        # A SharedCollectionAnnotator that knows about the Collection
+        # _and_ the WorkList.
+        collection.protocol = MockODLAPI.NAME
+        with self.app.test_request_context("/"):
+            with self.mock_crawlable_feed():
+                response = controller.crawlable_collection_feed(
+                    collection_name=collection.name
+                )
+        kwargs = self._crawlable_feed_called_with
+        annotator = kwargs['annotator']
+        assert isinstance(annotator, SharedCollectionAnnotator)
+        eq_(collection, annotator.collection)
+        eq_(kwargs['lane'], annotator.lane)
+
+    def test_crawlable_list_feed(self):
+        # Test the creation of a crawlable feed for everything in
+        # a custom list.
+        controller = self.manager.opds_feeds
+        library = self._default_library
+
+        customlist, ignore = self._customlist(num_entries=0)
+        customlist.library = library
+
+        other_list, ignore = self._customlist(num_entries=0)
+
+        # List does not exist, or not associated with library ->
+        # ProblemDetail
+        for bad_name in ("Nonexistent list", other_list.name):
+            with self.request_context_with_library("/"):
+                with self.mock_crawlable_feed():
+                    response = controller.crawlable_list_feed(bad_name)
+                    eq_(NO_SUCH_LIST, response)
+
+        with self.request_context_with_library("/"):
+            with self.mock_crawlable_feed():
+                response = controller.crawlable_list_feed(customlist.name)
+                expect_url = controller.cdn_url_for(
+                    "crawlable_list_feed",
+                    list_name=customlist.name,
+                    library_short_name=library.short_name,
+                )
+
+        # The response of the mock _crawlable_feed was returned as-is;
+        # creating a proper Response object is the job of the real
+        # _crawlable_feed.
+        eq_("An OPDS feed.", response)
+
+        # Verify that _crawlable_feed was called with the right arguments.
+        kwargs = self._crawlable_feed_called_with
+        eq_(expect_url, kwargs.pop('url'))
+        eq_(customlist.name, kwargs.pop('title'))
+
+        # A CrawlableCustomListBasedLane was created to fetch only
+        # the works in the custom list.
+        lane = kwargs.pop('lane')
+        assert isinstance(lane, CrawlableCustomListBasedLane)
+        eq_([customlist.id], lane.customlist_ids)
+        eq_({}, kwargs)
+            
+    def test__crawlable_feed(self):
+        # Test the helper method called by all other feed methods.
+        self.page_called_with = None
+        class MockFeed(object):
+            @classmethod
+            def page(cls, **kwargs):
+                self.page_called_with = kwargs
+                return "An OPDS feed"
+
+        work = self._work(with_open_access_download=True)
+        class MockLane(DynamicLane):
+            def works(self, *args, **kwargs):
+                return [work]
+
+        mock_lane = MockLane()
+        mock_lane.initialize(None)
+        in_kwargs = dict(
+            title="Lane title",
+            url="Lane URL",
+            lane=mock_lane,
+            feed_class=MockFeed
+        )
+
+        # Bad pagination data -> problem detail
+        with self.app.test_request_context("/?size=a"):
+            response = self.manager.opds_feeds._crawlable_feed(**in_kwargs)
+            assert isinstance(response, ProblemDetail)
+            eq_(INVALID_INPUT.uri, response.uri)
+            eq_(None, self.page_called_with)
+
+        # Bad search engine -> problem detail
+        self.assert_bad_search_index_gives_problem_detail(
+            lambda: self.manager.opds_feeds._crawlable_feed(**in_kwargs)
+        )
+
+        # Good pagination data -> feed_class.page() is called.
+        with self.app.test_request_context("/?size=23&after=11"):
+            response = self.manager.opds_feeds._crawlable_feed(**in_kwargs)
+
+        # The result of page() was served as an OPDS feed.
+        eq_(200, response.status_code)
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
+        eq_("An OPDS feed", response.data)
+
+        # Verify the arguments passed in to page().
+        out_kwargs = self.page_called_with
+        eq_(self._db, out_kwargs.pop('_db'))
+        eq_(self.manager.opds_feeds.search_engine,
+            out_kwargs.pop('search_engine'))
+        eq_(in_kwargs['lane'], out_kwargs.pop('lane'))
+        eq_(in_kwargs['title'], out_kwargs.pop('title'))
+        eq_(in_kwargs['url'], out_kwargs.pop('url'))
+        eq_('crawlable', out_kwargs.pop('cache_type'))
+
+        # Since no annotator was provided and the request did not
+        # happen in a library context, a generic
+        # CirculationManagerAnnotator was created.
+        annotator = out_kwargs.pop('annotator')
+        assert isinstance(annotator, CirculationManagerAnnotator)
+        eq_(mock_lane, annotator.lane)
+
+        # There's only one way to configure CrawlableFacets, so it's
+        # sufficient to check that our faceting object is in fact a
+        # CrawlableFacets.
+        facets = out_kwargs.pop('facets')
+        assert isinstance(facets, CrawlableFacets)
+
+        # Verify that pagination was picked up from the request.
+        pagination = out_kwargs.pop('pagination')
+        eq_(11, pagination.offset)
+        eq_(23, pagination.size)
+
+        # We're done looking at the arguments.
+        eq_({}, out_kwargs)
+
+        # If a custom Annotator is passed in to _crawlable_feed, it's
+        # propagated to the page() call.
+        mock_annotator = object()
+        with self.app.test_request_context("/"):
+            response = self.manager.opds_feeds._crawlable_feed(
+                annotator=mock_annotator, **in_kwargs
+            )
+            eq_(mock_annotator, self.page_called_with['annotator'])
+
+        # Finally, remove the mock feed class and verify that a real OPDS
+        # feed is generated from the result of MockLane.works()
+        del in_kwargs['feed_class']
+        with self.request_context_with_library("/"):
+            response = self.manager.opds_feeds._crawlable_feed(**in_kwargs)
+        feed = feedparser.parse(response.data)
+
+        # There is one entry with the expected title.
+        [entry] = feed['entries']
+        eq_(entry['title'], work.title)
 
 
 class TestMARCRecordController(CirculationControllerTest):

@@ -47,7 +47,10 @@ from core.entrypoint import (
     AudiobooksEntryPoint,
     EverythingEntryPoint,
 )
-from core.external_search import MockExternalSearchIndex
+from core.external_search import (
+    MockExternalSearchIndex,
+    WorkSearchResult,
+)
 
 from core.util.opds_writer import (
     AtomFeed,
@@ -882,59 +885,51 @@ class TestLibraryAnnotator(VendorIDTest):
         assert annotation_rel not in [x['rel'] for x in entry['links']]
 
     def test_work_entry_includes_updated(self):
+
+        # By default, the 'updated' date is the value of
+        # Work.last_update_time.
         work = self._work(with_open_access_download=True)
-        work.license_pools[0].availability_time = datetime.datetime(2018, 1, 1, 0, 0, 0)
-        work.last_update_time = datetime.datetime(2018, 2, 4, 0, 0, 0)
-        self.add_to_materialized_view([work])
+        # This date is later, but we don't check it.
+        work.license_pools[0].availability_time = datetime.datetime(2019, 1, 1)
+        work.last_update_time = datetime.datetime(2018, 2, 4)
 
         feed = self.get_parsed_feed([work])
         [entry] = feed.entries
         assert '2018-02-04' in entry.get("updated")
 
-        # If this is a lane based on one list, the work's first appearance on the list may
-        # be used instead of the work's update time.
-        list, ignore = self._customlist()
-        list_entry, ignore = list.add_entry(work)
-        list_entry.first_appearance = datetime.datetime(2018, 2, 5, 0, 0, 0)
-        lane = CrawlableCustomListBasedLane()
-        lane.initialize(self._default_library, list)
-        SessionManager.refresh_materialized_views(self._db)
-        from core.model import MaterializedWorkWithGenre as work_model
-        mw = self._db.query(work_model).filter(work_model.works_id==work.id).one()
+        # If the work passed in is a WorkSearchResult that indicates
+        # the search index found a later 'update time', then the later
+        # time is used. This value is only calculated when the list is
+        # being _ordered_ by 'update time' -- otherwise it's too slow
+        # to bother.
+        class MockHit(object):
+            def __init__(self, last_update):
+                # Store the time the way we get it from ElasticSearch --
+                # as a single-element list containing seconds since epoch.
+                self.last_update = [
+                    (last_update-datetime.datetime(1970, 1, 1)).total_seconds()
+                ]
+        hit = MockHit(datetime.datetime(2018, 2, 5))
+        result = WorkSearchResult(work, hit)
         feed = AcquisitionFeed(
-            self._db, "test", "url", [mw],
-            LibraryAnnotator(None, lane, self._default_library, test_mode=True)
+            self._db, "test", "url", [result],
+            LibraryAnnotator(None, None, self._default_library, test_mode=True)
         )
         feed = feedparser.parse(unicode(feed))
         [entry] = feed.entries
         assert '2018-02-05' in entry.get("updated")
 
-        # But if the last updated time is more recent than the first appearance,
-        # it's still used.
-        work.last_update_time = datetime.datetime(2018, 2, 6, 0, 0, 0)
-        self._db.flush()
-        SessionManager.refresh_materialized_views(self._db)
-        mw = self._db.query(work_model).filter(work_model.works_id==work.id).one()
+        # Any 'update time' provided by ElasticSearch is used even if
+        # it's clearly earlier than Work.last_update_time.
+        hit = MockHit(datetime.datetime(2017, 1, 1))
+        result._hit = hit
         feed = AcquisitionFeed(
-            self._db, "test", "url", [mw],
-            LibraryAnnotator(None, lane, self._default_library, test_mode=True)
+            self._db, "test", "url", [result],
+            LibraryAnnotator(None, None, self._default_library, test_mode=True)
         )
         feed = feedparser.parse(unicode(feed))
         [entry] = feed.entries
-        assert '2018-02-06' in entry.get("updated")
-
-        # If the availability date is more recent than the other dates, then it's used.
-        work.license_pools[0].availability_time = datetime.datetime(2018, 2, 7, 0, 0, 0)
-        self._db.flush()
-        SessionManager.refresh_materialized_views(self._db)
-        mw = self._db.query(work_model).filter(work_model.works_id==work.id).one()
-        feed = AcquisitionFeed(
-            self._db, "test", "url", [mw],
-            LibraryAnnotator(None, lane, self._default_library, test_mode=True)
-        )
-        feed = feedparser.parse(unicode(feed))
-        [entry] = feed.entries
-        assert '2018-02-07' in entry.get("updated")
+        assert '2017-01-01' in entry.get("updated")
 
     def test_active_loan_feed(self):
         self.initialize_adobe(self._default_library)
