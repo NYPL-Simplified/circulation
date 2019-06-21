@@ -682,33 +682,6 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                 )
             )
 
-    def contributor_tag(cls, work, edition, contribution, state):
-        """Create an <author> or <contributor> tag, then
-        add a link to a feed of books by that person.
-        """
-        tag = super(LibraryAnnotator, super).contributor_tag(
-            contribution, state
-        )
-        if tag is None:
-            return tag
-
-        contributor = contribution.contributor
-        languages, audiences = self.language_and_audience_key_from_work(work)
-        feed.add_link_to_entry(
-            tag,
-            rel='contributor',
-            type=OPDSFeed.ACQUISITION_FEED_TYPE,
-            title=contributor_name,
-            href=self.url_for(
-                'contributor',
-                contributor_id=contributor.id,
-                languages=languages,
-                audiences=audiences,
-                library_short_name=self.library.short_name,
-                _external=True
-            )
-        )
-
     @classmethod
     def related_books_available(cls, work, library):
         """:return: bool asserting whether related books might exist for
@@ -782,7 +755,6 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                     _external=True
                 )
             )
-
 
     def add_series_link(self, work, feed, entry):
         series_tag = OPDSFeed.schema_('Series')
