@@ -220,6 +220,67 @@ class ContributorData(object):
             roles=[contribution.role]
         )
 
+    @classmethod
+    def lookup(cls, _db, sort_name=None, display_name=None, lc=None,
+               viaf=None):
+        """Create a (potentially synthetic) ContributorData based on
+        the best available information in the database.
+
+        :return: A ContributorData.
+        """
+        clauses = []
+        if sort_name:
+            clauses.append(Contributor.sort_name==sort_name)
+        if display_name:
+            clauses.append(Contributor.display_name==display_name)
+        if lc:
+            clauses.append(Contributor.lc==lc)
+        if viaf:
+            clauses.append(Contributor.viaf==viaf)
+
+        if not clauses:
+            raise ValueError("No Contributor information provided!")
+
+        or_clause = or_(*clauses)
+        contributors = _db.query(Contributor).filter(or_clause).all()
+        if len(contributors) == 0:
+            # We have no idea who this person is.
+            return None
+
+        # We found at least one matching Contributor. Let's try to
+        # build a composite ContributorData for the person.
+        values_by_field = defaultdict(set)
+
+        # If all the people we found share (e.g.) a VIAF field, then
+        # we can use that as a clue when doing a search -- anyone with
+        # that VIAF number is probably this person, even if their display
+        # name doesn't match.
+        for c in contributors:
+            if c.sort_name:
+                values_by_field['sort_name'].add(c.sort_name)
+            if c.display_name:
+                values_by_field['display_name'].add(c.display_name)
+            if c.lc:
+                values_by_field['lc'].add(c.lc)
+            if c.viaf:
+                values_by_field['viaf'].add(c.viaf)
+
+        # Use any passed-in values as default values for the
+        # ContributorData. Below, missing values may be filled in and
+        # inaccurate values may be replaced.
+        kwargs = dict(
+            sort_name=sort_name,
+            display_name=display_name,
+            lc=lc,
+            viaf=viaf
+        )
+        for k, values in values_by_field.items():
+            if len(values) == 1:
+                # All the Contributors we found have the same
+                # value for this field. We can use it.
+                kwargs[k] = list(values)[0]
+
+        return ContributorData(roles=[], **kwargs)
 
     def apply(self, destination, replace=None):
         """ Update the passed-in Contributor-type object with this
