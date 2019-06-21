@@ -1560,8 +1560,12 @@ class WorkController(CirculationManagerController):
         )
         if not contributor:
             return NO_SUCH_LANE.detailed(
-                _("No matching contributor: %s", contributor_name)
+                _("Unknown contributor: %s") % contributor_name
             )
+
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
 
         languages, audiences = self._lane_details(languages, audiences)
 
@@ -1578,7 +1582,7 @@ class WorkController(CirculationManagerController):
         if isinstance(pagination, ProblemDetail):
             return pagination
 
-        annotator = self.manager.annotator(lane)
+        annotator = self.manager.annotator(lane, facets)
 
         url = annotator.feed_url(
             lane,
@@ -1586,10 +1590,11 @@ class WorkController(CirculationManagerController):
             pagination=pagination,
         )
 
-        feed = AcquisitionFeed.page(
-            self._db, lane.display_name, url, lane,
+        feed = feed_class.page(
+            _db=self._db, title=lane.display_name, url=url, lane=lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=CachedFeed.CONTRIBUTOR_TYPE
+            annotator=annotator, cache_type=CachedFeed.CONTRIBUTOR_TYPE,
+            search_engine=search_engine
         )
         return feed_response(unicode(feed))
 
