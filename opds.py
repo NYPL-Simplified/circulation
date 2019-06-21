@@ -302,7 +302,6 @@ class Annotator(object):
         """Create one or more <author> and <contributor> tags for the given
         Work.
 
-        :param entry: A Tag representing the OPDS entry in progress.
         :param work: The Work under consideration.
         :param edition: The Edition to use as a reference
             for bibliographic information, including the list of
@@ -313,7 +312,7 @@ class Annotator(object):
         for contribution in edition.contributions:
             tag = cls.contributor_tag(contribution, state)
             if tag is None:
-                # author_tag decided that this contribution doesn't
+                # contributor_tag decided that this contribution doesn't
                 # need a tag.
                 continue
             authors.append(tag)
