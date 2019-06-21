@@ -300,7 +300,14 @@ class Annotator(object):
     @classmethod
     def authors(cls, work, edition):
         """Create one or more <author> and <contributor> tags for the given
-        work."""
+        Work.
+
+        :param entry: A Tag representing the OPDS entry in progress.
+        :param work: The Work under consideration.
+        :param edition: The Edition to use as a reference
+            for bibliographic information, including the list of
+            Contributions.
+        """
         authors = list()
         state = defaultdict(set)
         for contribution in edition.contributions:
@@ -316,7 +323,7 @@ class Annotator(object):
         return [AtomFeed.author(AtomFeed.name(""))]
 
     @classmethod
-    def contributor_tag(self, contribution):
+    def contributor_tag(cls, contribution, state):
         """Build an <author> or <contributor> tag for a Contribution.
 
         :param contribution: A Contribution.
