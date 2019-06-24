@@ -296,14 +296,6 @@ class FacetsWithEntryPoint(BaseFacets):
             yield (self.ENTRY_POINT_FACET_GROUP_NAME,
                    self.entrypoint.INTERNAL_NAME)
 
-    def apply(self, _db, qu):
-        """Modify the given query based on the EntryPoint associated
-        with this object.
-        """
-        if self.entrypoint:
-            qu = self.entrypoint.apply(qu)
-        return qu
-
     def modify_search_filter(self, filter):
         """Modify the given external_search.Filter object
         so that it reflects this set of facets.
@@ -620,7 +612,7 @@ class DatabaseBackedFacets(Facets):
                     order_by.append(i)
         else:
             # Use the default sort order
-            order_by = default_order_by
+            order_by = default_sort_order
 
         # order_ascending applies only to the first field in the sort order.
         # Everything else is ordered ascending.
@@ -635,6 +627,9 @@ class DatabaseBackedFacets(Facets):
         matches works that fit this Faceting object, and so that the query is
         ordered appropriately.
         """
+        if self.entrypoint:
+            qu = self.entrypoint.modify_database_query(qu)
+
         if self.availability == self.AVAILABLE_NOW:
             availability_clause = or_(
                 LicensePool.open_access==True,
@@ -1406,8 +1401,10 @@ class WorkList(object):
         #
 
         work_ids = [x.work_id for x in hits]
+
+        # TODO: Use the hook method instead of a custom faceting object.
         facets = SpecificWorkFacets(work_ids)
-        wl = DatabaseBackedWorkList()
+        wl = DatabaseBackedWorkList(work_ids)
         wl.initialize(self.get_library(_db))
         qu = wl.works(_db, facets)
         a = time.time()

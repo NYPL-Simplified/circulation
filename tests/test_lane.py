@@ -36,6 +36,7 @@ from ..external_search import (
 )
 
 from ..lane import (
+    DatabaseBackedFacets,
     Facets,
     FacetsWithEntryPoint,
     FeaturedFacets,
@@ -56,7 +57,6 @@ from ..model import (
     Identifier,
     Library,
     LicensePool,
-    MaterializedWorkWithGenre as work_model,
     SessionManager,
     Work,
     WorkGenre,
@@ -469,49 +469,6 @@ class TestFacets(DatabaseTest):
         eq_([work_model.random],
             fields(Facets.ORDER_RANDOM))
 
-    def test_order_by(self):
-        from ..model import MaterializedWorkWithGenre as m
-
-        def order(facet, ascending=None):
-            f = Facets(
-                self._default_library,
-                collection=Facets.COLLECTION_FULL,
-                availability=Facets.AVAILABLE_ALL,
-                order=facet,
-                order_ascending=ascending,
-            )
-            return f.order_by()[0]
-
-        def compare(a, b):
-            assert(len(a) == len(b))
-            for i in range(0, len(a)):
-                assert(a[i].compare(b[i]))
-
-        expect = [m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
-        actual = order(Facets.ORDER_AUTHOR, True)
-        compare(expect, actual)
-
-        expect = [m.sort_author.desc(), m.sort_title.asc(), m.works_id.asc()]
-        actual = order(Facets.ORDER_AUTHOR, False)
-        compare(expect, actual)
-
-        expect = [m.sort_title.asc(), m.sort_author.asc(), m.works_id.asc()]
-        actual = order(Facets.ORDER_TITLE, True)
-        compare(expect, actual)
-
-        expect = [m.last_update_time.asc(), m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
-        actual = order(Facets.ORDER_LAST_UPDATE, True)
-        compare(expect, actual)
-
-        expect = [m.random.asc(), m.sort_author.asc(), m.sort_title.asc(),
-                  m.works_id.asc()]
-        actual = order(Facets.ORDER_RANDOM, True)
-        compare(expect, actual)
-
-        expect = [m.availability_time.desc(), m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
-        actual = order(Facets.ORDER_ADDED_TO_COLLECTION, None)
-        compare(expect, actual)
-
     def test_default_order_ascending(self):
 
         # Most fields are ordered ascending by default (A-Z).
@@ -735,9 +692,62 @@ class TestFacets(DatabaseTest):
         eq_(None, filter.order)
         
 
-class TestFacetsApply(DatabaseTest):
+class TestDatabaseBackedFacets(DatabaseTest):
 
-    def test_apply(self):
+    def test_available_facets(self):
+        # The only available sort orders are the ones that map
+        # directly onto a database field.
+        pass
+
+    def test_default_facets(self):
+        # If the configured default facet is not available,
+        # DatabaseBackedFacets chooses a different default.
+        pass
+
+    def test_order_by(self):
+        from ..model import MaterializedWorkWithGenre as m
+
+        def order(facet, ascending=None):
+            f = Facets(
+                self._default_library,
+                collection=Facets.COLLECTION_FULL,
+                availability=Facets.AVAILABLE_ALL,
+                order=facet,
+                order_ascending=ascending,
+            )
+            return f.order_by()[0]
+
+        def compare(a, b):
+            assert(len(a) == len(b))
+            for i in range(0, len(a)):
+                assert(a[i].compare(b[i]))
+
+        expect = [m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
+        actual = order(Facets.ORDER_AUTHOR, True)
+        compare(expect, actual)
+
+        expect = [m.sort_author.desc(), m.sort_title.asc(), m.works_id.asc()]
+        actual = order(Facets.ORDER_AUTHOR, False)
+        compare(expect, actual)
+
+        expect = [m.sort_title.asc(), m.sort_author.asc(), m.works_id.asc()]
+        actual = order(Facets.ORDER_TITLE, True)
+        compare(expect, actual)
+
+        expect = [m.last_update_time.asc(), m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
+        actual = order(Facets.ORDER_LAST_UPDATE, True)
+        compare(expect, actual)
+
+        expect = [m.random.asc(), m.sort_author.asc(), m.sort_title.asc(),
+                  m.works_id.asc()]
+        actual = order(Facets.ORDER_RANDOM, True)
+        compare(expect, actual)
+
+        expect = [m.availability_time.desc(), m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
+        actual = order(Facets.ORDER_ADDED_TO_COLLECTION, None)
+        compare(expect, actual)
+
+    def test_modify_database_query(self):
         # Set up works that are matched by different types of collections.
 
         # A high-quality open-access work.
@@ -774,18 +784,19 @@ class TestFacetsApply(DatabaseTest):
         licensed_p2.licenses_available = 1
         licensed_low.random = 0.1
 
-        self.add_to_materialized_view([open_access_high, open_access_low,
-                                       licensed_high, licensed_low])
-
-        qu = self._db.query(work_model).join(
-            LicensePool, work_model.license_pool_id==LicensePool.id
+        qu = self._db.query(Work).join(
+            LicensePool, LicensePool.work_id==Work.id
+        ).join(
+            Edition, Work.presentation_edition_id==Edition.id
         )
         def facetify(collection=Facets.COLLECTION_FULL,
                      available=Facets.AVAILABLE_ALL,
                      order=Facets.ORDER_TITLE
         ):
-            f = Facets(self._default_library, collection, available, order)
-            return f.apply(self._db, qu)
+            f = DatabaseBackedFacets(
+                self._default_library, collection, available, order
+            )
+            return f.modify_database_query(self._db, qu)
 
         # When holds are allowed, we can find all works by asking
         # for everything.
@@ -827,15 +838,35 @@ class TestFacetsApply(DatabaseTest):
         assert open_access_low not in featured_collection
         assert licensed_low not in featured_collection
 
+        # Try some different orderings to verify that order_by()
+        # is called and used properly.
         title_order = facetify(order=Facets.ORDER_TITLE)
         eq_([open_access_high.id, open_access_low.id, licensed_high.id,
              licensed_low.id],
-            [x.works_id for x in title_order])
+            [x.id for x in title_order])
+        eq_(
+            ['sort_title', 'sort_author', 'id'],
+            [x.name for x in title_order._distinct],
+        )
 
         random_order = facetify(order=Facets.ORDER_RANDOM)
         eq_([licensed_low.id, open_access_high.id, licensed_high.id,
              open_access_low.id],
-            [x.works_id for x in random_order])
+            [x.id for x in random_order])
+        eq_(
+            ['random', 'sort_author', 'sort_title', 'id'],
+            [x.name for x in random_order._distinct],
+        )
+
+        # This sort order is not supported, so the default is used.
+        unsupported_order = facetify(order=Facets.ORDER_ADDED_TO_COLLECTION)
+        eq_([licensed_low.id, licensed_high.id, open_access_low.id,
+             open_access_high.id],
+            [x.id for x in unsupported_order])
+        eq_(
+            ['sort_author', 'sort_title', 'id'],
+            [x.name for x in unsupported_order._distinct],
+        )
 
 
 class TestFeaturedFacets(DatabaseTest):
