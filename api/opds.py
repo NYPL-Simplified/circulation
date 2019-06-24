@@ -629,7 +629,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             work, active_license_pool, edition, identifier, feed, entry, updated
         )
 
-        # Add a link for each author.
+        # Add a link to each author tag.
         self.add_author_links(work, feed, entry)
 
         # And a series, if there is one.
@@ -730,12 +730,29 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         return language_key, audience_key
 
     def add_author_links(self, work, feed, entry):
+        """Find all the <author> tags and add a link
+        to each one that points to the author's other works.
+        """
         author_tag = '{%s}author' % OPDSFeed.ATOM_NS
         author_entries = entry.findall(author_tag)
 
         languages, audiences = self.language_and_audience_key_from_work(work)
         for author_entry in author_entries:
             name_tag = '{%s}name' % OPDSFeed.ATOM_NS
+
+            # A database ID would be better than a name, but the
+            # <author> tag was created as part of the work's cached
+            # OPDS entry, and as a rule we don't put database IDs into
+            # the cached OPDS entry.
+            #
+            # So we take the content of the <author> tag, use it in
+            # the link, and -- only if the user decides to fetch this feed
+            # -- we do a little extra work to turn this name back into
+            # one or more contributors.
+            #
+            # TODO: If we reliably had VIAF IDs for our contributors,
+            # we could stick them in the <author> tags and get the
+            # best of both worlds.
             contributor_name = author_entry.find(name_tag).text
             if not contributor_name:
                 continue

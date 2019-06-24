@@ -231,7 +231,11 @@ class TestLibraryAnnotator(VendorIDTest):
         self._default_library.library_registry_shared_secret = "s3cr3t5"
 
         # A ContributorLane to test code that handles it differently.
-        self.contributor_lane = ContributorLane(self._default_library, "Someone", languages=["eng"], audiences=None)
+        self.contributor, ignore = self._contributor("Someone")
+        self.contributor_lane = ContributorLane(
+            self._default_library, self.contributor, languages=["eng"],
+            audiences=None
+        )
 
     def test__hidden_content_types(self):
 
@@ -526,7 +530,7 @@ class TestLibraryAnnotator(VendorIDTest):
         self.annotator.lane = self.contributor_lane
         feed_url_contributor = self.annotator.feed_url(self.contributor_lane, dict(), dict())
         assert self.contributor_lane.ROUTE in feed_url_contributor
-        assert self.contributor_lane.contributor_name in feed_url_contributor
+        assert self.contributor_lane.contributor_key in feed_url_contributor
         assert self._default_library.name in feed_url_contributor
 
     def test_search_url(self):
@@ -551,7 +555,7 @@ class TestLibraryAnnotator(VendorIDTest):
         facet_url_contributor = self.annotator.facet_url(facets)
         assert "collection=main" in facet_url_contributor
         assert self.contributor_lane.ROUTE in facet_url_contributor
-        assert self.contributor_lane.contributor_name in facet_url_contributor
+        assert self.contributor_lane.contributor_key in facet_url_contributor
 
     def test_alternate_link_is_permalink(self):
         work = self._work(with_open_access_download=True)

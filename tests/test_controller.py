@@ -37,6 +37,8 @@ from api.controller import (
 )
 from api.lanes import (
     create_default_lanes,
+    ContributorFacets,
+    ContributorLane,
     CrawlableCollectionBasedLane,
     CrawlableCustomListBasedLane,
     CrawlableFacets,
@@ -61,7 +63,10 @@ from core.external_search import (
     MockExternalSearchIndex,
     mock_search_index,
 )
-from core.metadata_layer import Metadata
+from core.metadata_layer import (
+    ContributorData,
+    Metadata,
+)
 from core import model
 from core.entrypoint import (
     EbooksEntryPoint,
@@ -2185,86 +2190,177 @@ class TestWorkController(CirculationControllerTest):
         self.identifier = self.lp.identifier
 
     def test_contributor(self):
-        # Give the Contributor a display_name.
+        m = self.manager.work_controller.contributor
+
+        # Find a real Contributor put in the system through the setup
+        # process.
         [contribution] = self.english_1.presentation_edition.contributions
-        contribution.contributor.display_name = u"John Bull"
+        contributor = contribution.contributor
 
-        # For works without a contributor name, a ProblemDetail is returned.
+        # No contributor name -> ProblemDetail
         with self.request_context_with_library('/'):
-            response = self.manager.work_controller.contributor('', None, None)
+            response = m('', None, None)
         eq_(404, response.status_code)
-        eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+        eq_(NO_SUCH_LANE.uri, response.uri)
+        eq_("No contributor provided", response.detail)
 
-        contributor = self.edition.contributions[0].contributor
-        contributor.display_name = name = 'John Bull'
-
-        # Similarly if the pagination data is bad.
-        with self.request_context_with_library('/?size=abc'):
-            response = self.manager.work_controller.contributor(name, None, None)
-            eq_(400, response.status_code)
-
-        # Or if the facet data is bad.
-        with self.request_context_with_library('/?order=nosuchorder'):
-            response = self.manager.work_controller.contributor(name, None, None)
-            eq_(400, response.status_code)
-
-        # If the work has a contributor, a feed is returned.
-        SessionManager.refresh_materialized_views(self._db)
+        # Unable to load ContributorData from contributor name ->
+        # ProblemDetail
         with self.request_context_with_library('/'):
-            response = self.manager.work_controller.contributor(name, None, None)
+            response = m('Unknown Author', None, None)
+        eq_(404, response.status_code)
+        eq_(NO_SUCH_LANE.uri, response.uri)
+        eq_("Unknown contributor: Unknown Author", response.detail)
 
+        contributor = contributor.sort_name
+
+        # Search index misconfiguration -> Problem detail
+        self.assert_bad_search_index_gives_problem_detail(
+            lambda: self.manager.work_controller.series(
+                contributor, None, None
+            )
+        )
+
+        # Bad facet data -> ProblemDetail
+        with self.request_context_with_library('/?order=nosuchorder'):
+            response = m(contributor, None, None)
+            eq_(400, response.status_code)
+            eq_(INVALID_INPUT.uri, response.uri)
+
+        # Bad pagination data -> ProblemDetail
+        with self.request_context_with_library('/?size=abc'):
+            response = m(contributor, None, None)
+            eq_(400, response.status_code)
+            eq_(INVALID_INPUT.uri, response.uri)
+
+        # Test an end-to-end success (not including a test that the
+        # search engine can actually find books by a given person --
+        # that's tested in core/tests/test_external_search.py).
+        with self.request_context_with_library('/'):
+            response = m(contributor, 'eng,spa', 'Children,Young Adult')
         eq_(200, response.status_code)
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['Content-Type'])
         feed = feedparser.parse(response.data)
-        eq_(name, feed['feed']['title'])
+
+        # The feed is named after the person we looked up.
+        eq_(contributor, feed['feed']['title'])
+
+        # It's got one entry -- the book added to the search engine
+        # during test setup.
         [entry] = feed['entries']
         eq_(self.english_1.title, entry['title'])
 
         # The feed has facet links.
         links = feed['feed']['links']
-        facet_links = [link for link in links if link['rel'] == 'http://opds-spec.org/facet']
+        facet_links = [link for link in links
+                       if link['rel'] == 'http://opds-spec.org/facet']
         eq_(9, len(facet_links))
 
-        another_work = self._work("Not open access", name, with_license_pool=True)
-        another_work.license_pools[0].open_access = False
-        duplicate_contributor = another_work.presentation_edition.contributions[0].contributor
-        duplicate_contributor.display_name = name
+        # The feed was cached.
+        cached = self._db.query(CachedFeed).one()
+        eq_(CachedFeed.CONTRIBUTOR_TYPE, cached.type)
+        eq_(
+            'Bull, John-eng,spa-Children,Young+Adult',
+            cached.unique_key
+        )
 
-        # Facets work.
-        SessionManager.refresh_materialized_views(self._db)
-        with self.request_context_with_library("/?order=title"):
-            response = self.manager.work_controller.contributor(name, None, None)
+        # At this point we don't want to generate real feeds anymore.
+        # We can't do a real end-to-end test without setting up a real
+        # search index, which is obnoxiously slow.
+        #
+        # Instead, we will mock AcquisitionFeed.page, and examine the objects
+        # passed into it under different mock requests.
+        #
+        # Those objects, such as ContributorLane and
+        # ContributorFacets, are tested elsewhere, in terms of their
+        # effects on search objects such as Filter. Those search
+        # objects are the things that are tested against a real search
+        # index (in core).
+        #
+        # We know from the previous test that any results returned
+        # from the search engine are converted into an OPDS feed. Now
+        # we verify that an incoming request results in the objects
+        # we'd expect to use to generate the feed for that request.
+        class Mock(object):
+            @classmethod
+            def page(cls, **kwargs):
+                self.called_with = kwargs
+                return "An OPDS feed"
 
+        # Test a basic request with custom faceting, pagination, and a
+        # language and audience restriction. This will exercise nearly
+        # all the functionality we need to check.
+        languages = "some languages"
+        audiences = "some audiences"
+        with self.request_context_with_library(
+            "/?order=title&size=100&after=20&entrypoint=Audio"
+        ):
+            response = m(contributor, languages, audiences, feed_class=Mock)
+
+        # We got a 200 response, where the data returned by the mock
+        # method is served as an OPDS feed.
         eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(2, len(feed['entries']))
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
+        eq_("An OPDS feed", response.data)
 
-        with self.request_context_with_library("/?available=always"):
-            response = self.manager.work_controller.contributor(name, None, None)
+        # Now check all the keyword arguments that were passed into
+        # page().
+        kwargs = self.called_with
 
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(1, len(feed['entries']))
-        [entry] = feed['entries']
-        eq_(self.english_1.title, entry['title'])
+        eq_(self._db, kwargs.pop('_db'))
+        eq_(self.manager._external_search, kwargs.pop('search_engine'))
+        eq_(CachedFeed.CONTRIBUTOR_TYPE, kwargs.pop('cache_type'))
 
-        # Pagination works.
-        with self.request_context_with_library("/?size=1"):
-            response = self.manager.work_controller.contributor(name, None, None)
+        # The feed is named after the contributor the request asked
+        # about.
+        eq_(contributor, kwargs.pop('title'))
 
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(1, len(feed['entries']))
-        [entry] = feed['entries']
-        eq_(another_work.title, entry['title'])
+        # Query string arguments were taken into account when
+        # creating the Facets and Pagination objects.
+        facets = kwargs.pop('facets')
+        assert isinstance(facets, ContributorFacets)
+        eq_(AudiobooksEntryPoint, facets.entrypoint)
+        eq_('title', facets.order)
+        pagination = kwargs.pop('pagination')
+        eq_(100, pagination.size)
+        eq_(20, pagination.offset)
 
-        with self.request_context_with_library("/?after=1"):
-            response = self.manager.work_controller.contributor(name, None, None)
+        lane = kwargs.pop('lane')
+        assert isinstance(lane, ContributorLane)
+        assert isinstance(lane.contributor, ContributorData)
 
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(1, len(feed['entries']))
-        [entry] = feed['entries']
-        eq_(self.english_1.title, entry['title'])
+        # We don't know whether the incoming name is a sort name
+        # or a display name, so we ask ContributorData.lookup to
+        # try it both ways.
+        eq_(contributor, lane.contributor.sort_name)
+        eq_(contributor, lane.contributor.display_name)
+        eq_([languages], lane.languages)
+        eq_([audiences], lane.audiences)
+
+        # Checking the URL is difficult because it requires a request
+        # context, _plus_ the ContributorFacets, Pagination and Lane
+        # created during the original request.
+        library = self._default_library
+        route, url_kwargs = lane.url_arguments
+        url_kwargs.update(dict(facets.items()))
+        url_kwargs.update(dict(pagination.items()))
+        with self.request_context_with_library(""):
+            expect_url = self.manager.opds_feeds.url_for(
+                route, lane_identifier=None,
+                library_short_name=library.short_name,
+                **url_kwargs
+            )
+        eq_(kwargs.pop('url'), expect_url)
+
+        # The Annotator object was instantiated with the proper lane
+        # and the newly created Facets object.
+        annotator = kwargs.pop('annotator')
+        eq_(lane, annotator.lane)
+        eq_(facets, annotator.facets)
+
+        # No other arguments were passed into page().
+        eq_({}, kwargs)
+
 
     def test_permalink(self):
         with self.request_context_with_library("/"):
@@ -2678,8 +2774,8 @@ class TestWorkController(CirculationControllerTest):
         # We can't do a real end-to-end test without setting up a real
         # search index, which is obnoxiously slow.
         #
-        # Instead, we will mock OPDSFeed.page, and examine the objects
-        # passed into it under different mock requests.
+        # Instead, we will mock AcquisitionFeed.page, and examine the
+        # objects passed into it under different mock requests.
         #
         # Those objects, such as SeriesLane and SeriesFacets, are
         # tested elsewhere, in terms of their effects on search

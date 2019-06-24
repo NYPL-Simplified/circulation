@@ -50,6 +50,7 @@ from core.lane import (
     SearchFacets,
     WorkList,
 )
+from core.metadata_layer import ContributorData
 from core.model import (
     get_one,
     get_one_or_create,
@@ -126,6 +127,7 @@ from config import (
 
 from lanes import (
     load_lanes,
+    ContributorFacets,
     ContributorLane,
     RecommendationLane,
     RelatedBooksLane,
@@ -1591,35 +1593,58 @@ class WorkController(CirculationManagerController):
 
         return languages, audiences
 
-    def contributor(self, contributor_name, languages, audiences):
+    def contributor(
+        self, contributor_name, languages, audiences,
+        feed_class=AcquisitionFeed
+    ):
         """Serve a feed of books written by a particular author"""
         library = flask.request.library
         if not contributor_name:
             return NO_SUCH_LANE.detailed(_("No contributor provided"))
 
+        # contributor_name is probably a display_name, but it could be a
+        # sort_name. Pass it in for both fields and
+        # ContributorData.lookup() will do its best to figure it out.
+        contributor = ContributorData.lookup(
+            self._db, sort_name=contributor_name, display_name=contributor_name
+        )
+        if not contributor:
+            return NO_SUCH_LANE.detailed(
+                _("Unknown contributor: %s") % contributor_name
+            )
+
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
         languages, audiences = self._lane_details(languages, audiences)
 
         lane = ContributorLane(
-            library, contributor_name, languages=languages, audiences=audiences
+            library, contributor, languages=languages, audiences=audiences
         )
-
-        annotator = self.manager.annotator(lane)
-        facets = load_facets_from_request(worklist=lane)
+        facets = load_facets_from_request(
+            worklist=lane, base_class=ContributorFacets
+        )
         if isinstance(facets, ProblemDetail):
             return facets
+
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
+
+        annotator = self.manager.annotator(lane, facets)
+
         url = annotator.feed_url(
             lane,
             facets=facets,
             pagination=pagination,
         )
 
-        feed = AcquisitionFeed.page(
-            self._db, lane.display_name, url, lane,
+        feed = feed_class.page(
+            _db=self._db, title=lane.display_name, url=url, lane=lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=CachedFeed.CONTRIBUTOR_TYPE
+            annotator=annotator, cache_type=CachedFeed.CONTRIBUTOR_TYPE,
+            search_engine=search_engine
         )
         return feed_response(unicode(feed))
 

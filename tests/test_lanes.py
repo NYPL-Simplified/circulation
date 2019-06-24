@@ -1,6 +1,11 @@
 # encoding: utf-8
 from collections import Counter
-from nose.tools import set_trace, eq_, assert_raises
+from nose.tools import (
+    set_trace,
+    eq_,
+    assert_raises,
+    assert_raises_regexp,
+)
 import json
 import datetime
 
@@ -10,12 +15,16 @@ from . import (
 
 from core.classifier import Classifier
 from core.entrypoint import AudiobooksEntryPoint
+from core.external_search import Filter
 from core.lane import (
     Facets,
     Lane,
     WorkList,
 )
-from core.metadata_layer import Metadata
+from core.metadata_layer import (
+    ContributorData,
+    Metadata,
+)
 from core.lane import FacetsWithEntryPoint
 from core.model import (
     create,
@@ -42,6 +51,7 @@ from api.lanes import (
     create_world_languages_lane,
     _lane_configuration_from_collection_sizes,
     load_lanes,
+    ContributorFacets,
     ContributorLane,
     CrawlableCollectionBasedLane,
     CrawlableFacets,
@@ -369,9 +379,8 @@ class TestRelatedBooksLane(DatabaseTest):
         self.edition = self.work.presentation_edition
 
     def test_initialization(self):
-        """Asserts that a RelatedBooksLane won't be initialized for a work
-        without related books
-        """
+        # Asserts that a RelatedBooksLane won't be initialized for a work
+        # without related books
 
         # A book without a series or a contributor on a circ manager without
         # NoveList recommendations raises an error.
@@ -390,7 +399,7 @@ class TestRelatedBooksLane(DatabaseTest):
         eq_(self.work, result.work)
         [sublane] = result.children
         eq_(True, isinstance(sublane, ContributorLane))
-        eq_(sublane.contributors, [luthor])
+        eq_(sublane.contributor, luthor)
 
         # As does a book in a series.
         self.edition.series = "All By Myself"
@@ -439,7 +448,7 @@ class TestRelatedBooksLane(DatabaseTest):
         result = RelatedBooksLane(self._default_library, self.work, '')
         eq_(1, len(result.children))
         [sublane] = result.children
-        eq_([original], sublane.contributors)
+        eq_(original, sublane.contributor)
 
         # A book with multiple contributors results in multiple
         # ContributorLane sublanes.
@@ -448,7 +457,7 @@ class TestRelatedBooksLane(DatabaseTest):
         result = RelatedBooksLane(self._default_library, self.work, '')
         eq_(2, len(result.children))
         sublane_contributors = list()
-        [sublane_contributors.extend(c.contributors) for c in result.children]
+        [sublane_contributors.append(c.contributor) for c in result.children]
         eq_(set([lane, original]), set(sublane_contributors))
 
         # When there are no AUTHOR_ROLES present, contributors in
@@ -461,7 +470,7 @@ class TestRelatedBooksLane(DatabaseTest):
         result = RelatedBooksLane(self._default_library, self.work, '')
         eq_(1, len(result.children))
         [sublane] = result.children
-        eq_([luthor], sublane.contributors)
+        eq_(luthor, sublane.contributor)
 
     def test_works_query(self):
         """RelatedBooksLane is an invisible, groups lane without works."""
@@ -591,6 +600,17 @@ class TestRecommendationLane(LaneTest):
 
 class TestSeriesFacets(DatabaseTest):
 
+    def setup(self):
+        # Set up a generic SeriesFacets object.
+        super(TestSeriesFacets, self).setup()
+        library = self._default_library
+        self.worklist = SeriesLane(library, "Snake Eyes")
+        args = {}
+        self.facets = SeriesFacets.from_request(
+            library, library, args.get, args.get, self.worklist
+        )
+        assert isinstance(self.facets, SeriesFacets)
+
     def test_class_methods(self):
         config = self._default_library
         # In general, SeriesFacets has the same options and defaults
@@ -617,20 +637,19 @@ class TestSeriesFacets(DatabaseTest):
         # When a SeriesFacets is instantiated for a SeriesLane,
         # the series associated with the SeriesLane is copied to the
         # SeriesFacets.
-        library = self._default_library
-        worklist = SeriesLane(library, "Snake Eyes")
-        args = {}
-        facets = SeriesFacets.from_request(
-            library, library, args.get, args.get, worklist
-        )
-        eq_("Snake Eyes", facets.series)
+        eq_("Snake Eyes", self.facets.series)
 
         # Navigating to another entry point gets us another SeriesFacets
         # for the same series.
-        new_facets = facets.navigate(entrypoint=AudiobooksEntryPoint)
+        new_facets = self.facets.navigate(entrypoint=AudiobooksEntryPoint)
         assert isinstance(new_facets, SeriesFacets)
         eq_("Snake Eyes", new_facets.series)
         eq_(AudiobooksEntryPoint, new_facets.entrypoint)
+
+    def test_modify_search_filter(self):
+        filter = Filter()
+        self.facets.modify_search_filter(filter)
+        eq_("Snake Eyes", filter.series)
 
 
 class TestSeriesLane(LaneTest):
@@ -665,6 +684,39 @@ class TestSeriesLane(LaneTest):
         eq_(work_based_lane.languages, child.languages)
 
 
+class TestContributorFacets(DatabaseTest):
+
+    def setup(self):
+        # Set up a generic ContributorFacets object.
+        super(TestContributorFacets, self).setup()
+        library = self._default_library
+        self.contributor_data = ContributorData(display_name="An Author")
+        self.worklist = ContributorLane(library, self.contributor_data)
+        args = {}
+        self.facets = ContributorFacets.from_request(
+            library, library, args.get, args.get, self.worklist
+        )
+        assert isinstance(self.facets, ContributorFacets)
+
+    def test_instantiation_and_navigation(self):
+        # When a ContributorFacets is instantiated for a ContributorLane,
+        # the series associated with the ContributorLane is copied to the
+        # ContributorFacets.
+        eq_(self.contributor_data, self.facets.contributor)
+
+        # Navigating to another entry point gets us another ContributorFacets
+        # for the same series.
+        new_facets = self.facets.navigate(entrypoint=AudiobooksEntryPoint)
+        assert isinstance(new_facets, ContributorFacets)
+        eq_(self.contributor_data, new_facets.contributor)
+        eq_(AudiobooksEntryPoint, new_facets.entrypoint)
+
+    def test_modify_search_filter(self):
+        filter = Filter()
+        self.facets.modify_search_filter(filter)
+        eq_(self.contributor_data, filter.author)
+
+
 class TestContributorLane(LaneTest):
 
     def setup(self):
@@ -674,78 +726,55 @@ class TestContributorLane(LaneTest):
         )
 
     def test_initialization(self):
-        # An error is raised if ContributorLane is created without
-        # at least a name.
-        assert_raises(ValueError, ContributorLane, self._default_library, '')
-
-    def test_works_query(self):
-        # A work by someone else.
-        w1 = self._work(with_license_pool=True)
-
-        # A work by the contributor with the same name, without VIAF info.
-        w2 = self._work(title="X is for Xylophone", with_license_pool=True)
-        same_name = w2.presentation_edition.contributions[0].contributor
-        same_name.display_name = 'Lois Lane'
-        self._db.commit()
-        SessionManager.refresh_materialized_views(self._db)
-
-        # The work with a matching name is found in the contributor lane.
-        lane = ContributorLane(self._default_library, 'Lois Lane')
-        self.assert_works_queries(lane, [w2])
-
-        # And when we add some additional works, like:
-        # A work by the contributor.
-        w3 = self._work(title="A is for Apple", with_license_pool=True)
-        w3.presentation_edition.add_contributor(self.contributor, [Contributor.PRIMARY_AUTHOR_ROLE])
-
-        # A work by the contributor with VIAF info, writing with a pseudonym.
-        w4 = self._work(title="D is for Dinosaur", with_license_pool=True)
-        same_viaf, i = self._contributor('Lane, L', **dict(viaf='7'))
-        w4.presentation_edition.add_contributor(same_viaf, [Contributor.EDITOR_ROLE])
-        self._db.commit()
-        SessionManager.refresh_materialized_views(self._db)
-
-        # Those works are also included in the lane, in alphabetical order.
-        self.assert_works_queries(lane, [w3, w4, w2])
-
-        # If the lane is created with languages, works in other languages
-        # aren't included.
-        fre = self._work(with_license_pool=True, language='fre')
-        spa = self._work(with_license_pool=True, language='spa')
-        for work in [fre, spa]:
-            main_contribution = work.presentation_edition.contributions[0]
-            main_contribution.contributor = self.contributor
-        self._db.commit()
-        SessionManager.refresh_materialized_views(self._db)
-
-        lane = ContributorLane(self._default_library, 'Lois Lane', languages=['eng'])
-        self.assert_works_queries(lane, [w3, w4, w2])
-
-        lane.languages = ['fre', 'spa']
-        self.assert_works_queries(lane, [fre, spa])
-
-    def test_works_query_accounts_for_source_audience(self):
-        works = self.sample_works_for_each_audience()
-        [children, ya] = works[:2]
-
-        # Give them all the same contributor.
-        for work in works:
-            work.presentation_edition.contributions[0].contributor = self.contributor
-        self._db.commit()
-        SessionManager.refresh_materialized_views(self._db)
-
-        # Only childrens works are available in a ContributorLane with a
-        # Children audience source
-        children_lane = ContributorLane(
-            self._default_library, 'Lois Lane', audiences=[Classifier.AUDIENCE_CHILDREN]
+        assert_raises_regexp(
+            ValueError, 
+            "ContributorLane can't be created without contributor",
+            ContributorLane,
+            self._default_library,
+            None
         )
-        self.assert_works_queries(children_lane, [children])
 
-        # When more than one audience is requested, all are included.
-        ya_lane = ContributorLane(
-            self._default_library, 'Lois Lane', audiences=list(Classifier.AUDIENCES_JUVENILE)
+        parent = WorkList()
+        parent.initialize(self._default_library)
+
+        lane = ContributorLane(
+            self._default_library, self.contributor, parent,
+            languages=['a'], audiences=['b'],
         )
-        self.assert_works_queries(ya_lane, [children, ya])
+        eq_(self.contributor, lane.contributor)
+        eq_(['a'], lane.languages)
+        eq_(['b'], lane.audiences)
+        eq_([lane], parent.children)
+
+        # The contributor_key will be used in links to other pages
+        # of this Lane and so on.
+        eq_("Lois Lane", lane.contributor_key)
+
+        # If the contributor used to create a ContributorLane has no
+        # display name, their sort name is used as the
+        # contributor_key.
+        contributor = ContributorData(sort_name="Lane, Lois")
+        lane = ContributorLane(self._default_library, contributor)
+        eq_(contributor, lane.contributor)
+        eq_("Lane, Lois", lane.contributor_key)
+
+    def test_url_arguments(self):
+        lane = ContributorLane(
+            self._default_library, self.contributor,
+            languages=['eng', 'spa'], audiences=['Adult', 'Children'],
+        )
+        route, kwargs = lane.url_arguments
+        eq_(lane.ROUTE, route)
+
+        eq_(
+            dict(
+                contributor_name=lane.contributor_key,
+                languages='eng,spa',
+                audiences='Adult,Children'
+            ),
+            kwargs
+        )
+
 
 class TestCrawlableFacets(DatabaseTest):
 
