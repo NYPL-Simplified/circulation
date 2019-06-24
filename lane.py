@@ -962,7 +962,7 @@ class Pagination(object):
         # a next page.
         return True
 
-    def apply(self, qu):
+    def modify_database_query(self, qu):
         """Modify the given database query with OFFSET and LIMIT."""
         return qu.offset(self.offset).limit(self.size)
 
@@ -1360,54 +1360,6 @@ class WorkList(object):
         ):
             yield work, worklist
 
-    def default_featured_facets(self, _db):
-        """DEPRECATED - Used only in a deprecated method."""
-        library = self.get_library(_db)
-        return FeaturedFacets(
-            minimum_featured_quality=library.minimum_featured_quality,
-            uses_customlists=self.uses_customlists
-        )
-
-    def featured_works(self, _db, facets=None):
-        """Find a random sample of featured books.
-
-        Used when building a grouped OPDS feed for this WorkList's parent.
-
-        DEPRECATED - Pass a FeaturedFacets object into
-        works_from_search_index instead.
-
-        :param facets: A FeaturedFacets object.
-
-        :return: A list of MaterializedWorkWithGenre objects.  Under
-        no circumstances will a single work show up multiple times in
-        this list, even if that means the list contains fewer works
-        than anticipated.
-        """
-        books = []
-        book_ids = set()
-        featured_subquery = None
-        library = self.get_library(_db)
-        target_size = library.featured_lane_size
-
-        facets = facets or self.default_featured_facets(_db)
-        query = self.works_from_database(_db, facets=facets)
-        if not query:
-            # works() may return None, indicating that the whole
-            # thing is a bad idea and the query should not even be
-            # run.
-            return []
-
-        work_ids = set()
-        works = []
-        for work in self.random_sample(query, target_size)[:target_size]:
-            if isinstance(work, tuple):
-                # This is a (work, score) 2-tuple.
-                work = work[0]
-            if work.works_id not in work_ids:
-                works.append(work)
-                work_ids.add(work.works_id)
-        return works
-
     def works(self, _db, facets=None, pagination=None, **kwargs):
         """Obtain -- somehow -- Work or Work-like objects that belong
         in this WorkList.
@@ -1783,20 +1735,16 @@ class DatabaseBackedWorkList(WorkList):
         This tends to be slower than works_from_search_index, but not all
         lanes can be generated through search engine queries.
 
-        :NOTE: If the WorkList includes genre restrictions, they will
-        be ignored.
-
         :param _db: A database connection.
         :param facets: A DatabaseFacets object which may put additional
            constraints on WorkList membership.
         :param pagination: A Pagination object indicating which part of
            the WorkList the caller is looking at.
-        :param kwargs: Ignored -- only included for compatibility
-           with works_from_search_engine, so that callers can invoke
-           works() without worrying about whether a given WorkList
-           gets works from the search engine or the database.
+        :param kwargs: Ignored -- only included for compatibility with Lane so
+           that callers can invoke works() without worrying about whether
+           a given WorkList gets works from the search engine or the
+           database.
         :return: A Query.
-
         """
         qu = _db.query(Work).join(Work.license_pools).join(Work.presentation_edition)
         qu = self.apply_filters(_db, qu, facets, pagination)
