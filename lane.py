@@ -1837,37 +1837,6 @@ class DatabaseBackedWorklist(WorkList):
         qu = self._defer_unused_fields(qu)
         return qu
 
-    def works_in_window(self, _db, facets, target_size):
-        """Find all MaterializedWorkWithGenre objects within a randomly
-        selected window of values for the `random` field.
-
-        DEPRECATED This should not be necessary anymore.
-
-        :param facets: A `FeaturedFacets` object.
-
-        :param target_size: Try to get approximately this many
-        items. There may be more or less; this controls the size of
-        the window and the LIMIT on the query.
-        """
-        lane_query = self.works_from_database(_db, facets=facets)
-
-        # Make sure this query finds a number of works proportinal
-        # to the expected size of the lane.
-        lane_query = self._restrict_query_to_window(
-            lane_query, target_size, facets
-        )
-
-        lane_query = lane_query.order_by(
-            text("quality_tier desc"), mw.random.desc()
-        )
-
-        # Allow some overage to reduce the risk that we'll have to
-        # use a given book more than once in the overall feed. But
-        # set an upper limit so that a weird random distribution
-        # doesn't retrieve far more items than we need.
-        lane_query = lane_query.limit(target_size*1.3)
-        return lane_query
-
     def apply_filters(self, _db, qu, facets, pagination, featured=False):
         """Apply common WorkList filters to a query. Also apply any
         subclass-specific filters defined by
@@ -1952,20 +1921,7 @@ class DatabaseBackedWorklist(WorkList):
         """
         if not self.audiences:
             return []
-        clauses = [mw.audience.in_(self.audiences)]
-        if (Classifier.AUDIENCE_CHILDREN in self.audiences
-            or Classifier.AUDIENCE_YOUNG_ADULT in self.audiences):
-            # TODO: A huge hack to exclude Project Gutenberg
-            # books (which were deemed appropriate for
-            # pre-1923 children but are not necessarily so for
-            # 21st-century children.)
-            #
-            # This hack should be removed in favor of a
-            # whitelist system and some way of allowing adults
-            # to see books aimed at pre-1923 children.
-            gutenberg = DataSource.lookup(_db, DataSource.GUTENBERG)
-            clauses.append(LicensePool.data_source_id != gutenberg.id)
-        return clauses
+        return [mw.audience.in_(self.audiences)]
 
     def customlist_filter_clauses(
             self, qu, must_be_featured=False, outer_join=False
@@ -2073,71 +2029,16 @@ class DatabaseBackedWorklist(WorkList):
         )
 
     @classmethod
-    def random_sample(self, query, target_size, quality_coefficient=0.1):
-        """Take a random sample of high-quality items from a query.
-
-        :param: A database query, assumed to cover every relevant
-        item, with the higher-quality items grouped at the front and
-        with items ordered randomly within each quality tier.
-
-        :param quality_coefficient: What fraction of the query
-        represents 'high-quality' works. Empirical measurement
-        indicates that the top tier of titles -- very high quality
-        items that are currently available -- represents about ten
-        percent of a library's holdings at any given time.
-        """
-        if not query:
-            return []
-        if isinstance(query, list):
-            # This is probably a unit test.
-            total_size = len(query)
-        else:
-            total_size = fast_query_count(query)
-
-        # Determine the highest offset we could choose and still
-        # choose `target_size` items that fit entirely in the portion
-        # of the query delimited by the quality coefficient.
-        if quality_coefficient < 0:
-            quality_coefficient = 0.1
-        if quality_coefficient > 1:
-            quality_coefficient = 1
-        max_offset = int((total_size * quality_coefficient)-target_size)
-
-        if max_offset > 0:
-            # There are enough high-quality items that we can pick a
-            # random entry point into the list, increasing the variety
-            # of featured works shown to patrons.
-            offset = random.randint(0, max_offset)
-        else:
-            offset = 0
-        items = query.offset(offset).limit(target_size).all()
-        random.shuffle(items)
-        return items
-
-    @classmethod
     def _modify_loading(cls, qu, work_model=mw):
         """Optimize a query for use in generating OPDS feeds, by modifying
         which related objects get pulled from the database.
         """
-        # Avoid eager loading of objects that are already being loaded
-        # -- whether through the materialized view or through a join
-        # within the query.
-        if work_model == mw:
-            pool = work_model.license_pool
-            qu = qu.options(
-                contains_eager(mw.license_pool),
-                lazyload(pool, LicensePool.data_source),
-                lazyload(pool, LicensePool.identifier),
-                lazyload(pool, LicensePool.presentation_edition),
-            )
-            qu = qu.enable_eagerloads(False)
-            license_pool_name = 'license_pool'
-        else:
-            qu = qu.options(
-                contains_eager(work_model.presentation_edition),
-                contains_eager(work_model.license_pools),
-            )
-            license_pool_name = 'license_pools'
+        # Avoid eager loading of objects that are already being loaded.
+        qu = qu.options(
+            contains_eager(work_model.presentation_edition),
+            contains_eager(work_model.license_pools),
+        )
+        license_pool_name = 'license_pools'
 
         # Load some objects that wouldn't normally be loaded, but
         # which are necessary when generating OPDS feeds.
@@ -2160,79 +2061,16 @@ class DatabaseBackedWorklist(WorkList):
         return qu
 
     @classmethod
-    def _defer_unused_fields(cls, query, work_model=mw):
+    def _defer_unused_fields(cls, query):
         """Some applications use the simple OPDS entry and some
         applications use the verbose. Whichever one we don't need,
         we can stop from even being sent over from the
         database.
         """
         if Configuration.DEFAULT_OPDS_FORMAT == "simple_opds_entry":
-            return query.options(defer(work_model.verbose_opds_entry))
+            return query.options(defer(Work.verbose_opds_entry))
         else:
-            return query.options(defer(work_model.simple_opds_entry))
-
-    def _restrict_query_to_window(self, query, target_size, facets):
-        """Restrict the given SQLAlchemy query so that it matches
-        approximately `target_size` items.
-
-        DEPRECATED This should not be necessary anymore.
-        """
-        if query is None:
-            return query
-        window_start, window_end = self.featured_window(target_size, facets)
-        if window_start > 0 and window_start < 1:
-            query = query.filter(
-                mw.random <= window_end,
-                mw.random >= window_start
-            )
-        return query
-
-    def _fill_parent_lane(self, additional_needed, unused_by_tier,
-                          used_by_tier, previously_used):
-        """Yield up to `additional_needed` randomly selected items from
-        `unused_by_tier`, falling back to `used_by_tier` if necessary.
-
-        NOTE: This method is currently unused.
-        DEPRECATED This should not be necessary anymore.
-
-        :param unused_by_tier: A dictionary mapping quality tiers to
-        lists of unused MaterializedWorkWithGenre items. Because the
-        same book may have shown up as multiple
-        MaterializedWorkWithGenre items, it may show up as 'unused'
-        here even if another occurance of it has been used.
-
-        :param used_by_tier: A dictionary mapping quality tiers to lists
-        of previously used MaterializedWorkWithGenre items. These will only
-        be chosen once every item in unused_by_tier has been chosen.
-
-        :param previously_used: A set of work IDs corresponding to
-        previously selected MaterializedWorkWithGenre items. A work in
-        `unused_by_tier` will be treated as actually having been used
-        if its ID is in this set.
-
-        """
-        if not additional_needed:
-            return
-        additional_found = 0
-        for by_tier in unused_by_tier, used_by_tier:
-            # Go through each tier in decreasing quality order.
-            for tier in sorted(by_tier.keys(), key=lambda x: -x):
-                mws = by_tier[tier]
-                random.shuffle(mws)
-                for mw in mws:
-                    if (by_tier is unused_by_tier
-                        and mw.works_id in previously_used):
-                        # We initially thought this work was unused,
-                        # and put it in the 'unused' bucket, but then
-                        # the work was used after that happened.
-                        # Treat it as used and don't use it again.
-                        continue
-                    yield (mw, self)
-                    previously_used.add(mw.works_id)
-                    additional_found += 1
-                    if additional_found >= additional_needed:
-                        # We're all done.
-                        return
+            return query.options(defer(Work.simple_opds_entry))
 
 
 class LaneGenre(Base):
