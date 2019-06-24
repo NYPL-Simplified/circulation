@@ -1360,9 +1360,13 @@ class WorkList(object):
         ):
             yield work, worklist
 
-    def works(self, _db, facets=None, pagination=None, **kwargs):
-        """Obtain -- somehow -- Work or Work-like objects that belong
+    def works(self, _db, facets=None, pagination=None, search_engine=None,
+              debug=False, **kwargs):
+        """Obtain Work or Work-like objects that belong
         in this WorkList.
+
+        The default strategy is to use a search index, but subclasses may
+        do things differently.
 
         :param _db: A database connection.
         :param facets: A Facets object which may put additional
@@ -1375,22 +1379,6 @@ class WorkList(object):
            keyword arguments.
         :return: A list of Work or Work-like objects, or a database query
             that generates such a list when executed.
-        """
-        # By default, we get a list of Work objects through the search
-        # index. Some subclasses may need to get works from the database,
-        # which is slower.
-        return self.works_from_search_index(
-            _db=_db, facets=facets, pagination=pagination, **kwargs
-        )
-
-    def works_from_search_index(
-        self, _db, facets, pagination, search_engine=None, debug=False
-    ):
-        """Retrieve a list of Work objects, the way works_from_database() does,
-        but use the search index instead of the database.
-
-        If it's possible to build a lane this way, it can be a lot faster
-        than going through the database.
         """
         from external_search import (
             Filter,
@@ -1405,13 +1393,15 @@ class WorkList(object):
         return self.works_for_hits(_db, hits)
 
     def works_for_hits(self, _db, hits):
-        """Create the appearance of having called works(), but return the
-        specific MaterializedWorks or Works identified by `hits`.
+        """Create the appearance of having called works to run a search(), but
+        return the specific MaterializedWorks or Works identified by
+        `hits`.
 
         :param _db: A database connection
         :param hits: A list of Hit objects from ElasticSearch.
         :return A list of Work or (if the search results include
             script fields), WorkSearchResult objects.
+
         """
 
         # Get a list of Work objects, using the same rules applied in
