@@ -146,6 +146,12 @@ class BaseFacets(FacetConstants):
         """
         return filter
 
+    def modify_database_query(self, _db, qu):
+        """Modify a database query to filter out works
+        excluded by the business logic of this faceting class.
+        """
+        return qu
+
     def scoring_functions(self, filter):
         """Create a list of ScoringFunction objects that modify how
         works in the given WorkList should be ordered.
@@ -962,7 +968,7 @@ class Pagination(object):
         # a next page.
         return True
 
-    def modify_database_query(self, qu):
+    def modify_database_query(self, _db, qu):
         """Modify the given database query with OFFSET and LIMIT."""
         return qu.offset(self.offset).limit(self.size)
 
@@ -1404,24 +1410,12 @@ class WorkList(object):
         # Get a list of Work objects, using the same rules applied in
         # works() and works_from_search().
         #
-        # TODO: This could be done with less code by making a DatabaseBackedWorkList,
-        # or by reusing some code from that class. But not so much less code
-        # that the answer is obvious.
-        work_id_field = Work.id
-        qu = _db.query(Work).join(
-            Work.license_pools
-        ).join(
-            Work.presentation_edition
-        )
+
         work_ids = [x.work_id for x in hits]
-        qu = qu.filter(
-            Work.id.in_(work_ids),
-            LicensePool.work_id.in_(work_ids), # Query optimization
-        )
-        qu = self._modify_loading(qu)
-        qu = self._defer_unused_fields(qu)
-        qu = self.only_show_ready_deliverable_works(_db, qu)
-        qu = qu.distinct(Work.id)
+        facets = SpecificWorkFacets(work_ids)
+        wl = DatabaseBackedWorkList()
+        wl.initialize(self.get_library(_db))
+        qu = wl.works(_db, facets)
         a = time.time()
         works = qu.all()
 
@@ -1458,7 +1452,7 @@ class WorkList(object):
 
         b = time.time()
         logging.info(
-            u"Obtained %sx%d in %.2fsec", work_model.__name__, len(results), b-a
+            u"Obtained %sxWork in %.2fsec", len(results), b-a
         )
         return results
 
@@ -1708,14 +1702,25 @@ class WorkList(object):
             return query.options(defer(Work.simple_opds_entry))
 
 
+class SpecificWorkFacets(BaseFacets):
+    def __init__(self, work_ids):
+        self.work_ids = work_ids
+
+    def modify_database_query(self, _db, qu):
+        qu = qu.filter(
+            Work.id.in_(self.work_ids),
+            LicensePool.work_id.in_(self.work_ids), # Query optimization
+        )
+        return qu
+
+
 class DatabaseBackedWorkList(WorkList):
     """A WorkList that gets its works from a database query rather than
     the search index.
     """
 
     def works(
-        self, _db, facets=None, pagination=None, include_quality_tier=False,
-        **kwargs
+        self, _db, facets=None, pagination=None, **kwargs
     ):
         """Create a query against the `works` table that finds Work objects
         corresponding to all the Works that belong in this WorkList.
@@ -1738,6 +1743,11 @@ class DatabaseBackedWorkList(WorkList):
         :return: A Query.
         """
         qu = _db.query(Work).join(Work.license_pools).join(Work.presentation_edition)
+
+        # In general, we only show books that are present in one of
+        # the WorkList's collections and ready to be delivered to
+        # patrons.
+        qu = self.only_show_ready_deliverable_works(_db, qu)
         qu = self.apply_filters(_db, qu, facets, pagination)
         qu = self._modify_loading(qu)
         qu = self._defer_unused_fields(qu)
@@ -1748,10 +1758,6 @@ class DatabaseBackedWorkList(WorkList):
         subclass-specific filters defined by
         bibliographic_filter_clause().
         """
-        # In general, we only show books that are present in one of
-        # the WorkList's collections and ready to be delivered to patrons.
-        qu = self.only_show_ready_deliverable_works(_db, qu)
-
         # This method applies whatever filters are necessary to implement
         # the rules of this particular WorkList.
         qu, bibliographic_clause = self.bibliographic_filter_clause(
@@ -1760,19 +1766,17 @@ class DatabaseBackedWorkList(WorkList):
         if bibliographic_clause is not None:
             qu = qu.filter(bibliographic_clause)
 
-        qu = self.apply_extra_filters(_db, qu)
-
         if facets:
             qu = facets.modify_database_query(_db, qu)
         else:
-            # Ordinarily facets.apply() would take care of ordering
+            # Ordinarily facets.modify_database_query() would take care of ordering
             # the query and making it distinct. In the absence
             # of any ordering information, we will make the query distinct
             # based on work ID.
             qu = qu.distinct(Work.id)
 
         if pagination:
-            qu = pagination.modify_database_query(qu)
+            qu = pagination.modify_database_query(_db, qu)
 
         return qu
 
@@ -1810,10 +1814,6 @@ class DatabaseBackedWorkList(WorkList):
         else:
             clause = and_(*clauses)
         return qu, clause
-
-    def apply_extra_filters(self, _db, qu):
-        # A hook method for subclasses to use.
-        return qu
 
     def audience_filter_clauses(self, _db, qu):
         """Create a SQLAlchemy filter that excludes books whose intended

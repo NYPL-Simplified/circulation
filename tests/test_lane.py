@@ -1871,8 +1871,7 @@ class TestWorkList(DatabaseTest):
 
     def test_works_for_hits(self):
         # Verify that WorkList.works_for_hits turns (mocked) Hit
-        # objects into Work, MaterializedWorkWithGenre, or
-        # WorkSearchResult objects.
+        # objects into Work or WorkSearchResult objects.
 
         # Create two works.
         w1 = self._work(with_license_pool=True)
@@ -1894,46 +1893,25 @@ class TestWorkList(DatabaseTest):
         hit1 = MockHit(w1)
         hit2 = MockHit(w2)
 
-        # Right now, works_for_hits won't return anything,
-        # because the works aren't in the materialized view.
         wl = WorkList()
         wl.initialize(self._default_library)
-        eq_([], wl.works_for_hits(self._db, [hit2]))
-
-        # We can get results by telling it to use Work as the work model
-        # instead.
-        eq_([w2], wl.works_for_hits(self._db, [hit2], Work))
+        eq_([w2], wl.works_for_hits(self._db, [hit2]))
 
         # Works are returned in the order we ask for.
         for ordering in ([hit1, hit2], [hit2, hit1]):
-            works = wl.works_for_hits(self._db, ordering, Work)
+            works = wl.works_for_hits(self._db, ordering)
             eq_([x.work_id for x in ordering], [x.id for x in works])
 
-        # If we ask for a work ID that's not in the materialized view,
+        # If we ask for a work ID that's not in the database,
         # we don't get it.
-        eq_([], wl.works_for_hits(self._db, [MockHit(-100)], Work))
-
-        # Now add the works to the materialized view, and verify that
-        # similar tests pass when works_for_hits is told to
-        # look for MaterializedWork objects (this is the default).
-        self.add_to_materialized_view([w1, w2])
-
-        # If we ask for w2 only, we get (the materialized view's
-        # version of) w2 only.
-        [w2_mv] = wl.works_for_hits(self._db, [hit2])
-        eq_(w2_mv.sort_title, w2.sort_title)
-
-        # Works are returned in the order we ask for.
-        for ordering in ([hit1, hit2], [hit2, hit1]):
-            mv_works = wl.works_for_hits(self._db, ordering)
-            eq_([x.work_id for x in ordering], [x.works_id for x in mv_works])
+        eq_([], wl.works_for_hits(self._db, [MockHit(-100)]))
 
         # If we pass in Hit objects that have extra information in them,
         # we get WorkSearchResult objects
         hit1_extra = MockHit(w1, True)
         hit2_extra = MockHit(w2, True)
 
-        results = wl.works_for_hits(self._db, [hit2_extra, hit1_extra], Work)
+        results = wl.works_for_hits(self._db, [hit2_extra, hit1_extra])
         assert all(isinstance(x, WorkSearchResult) for x in results)
         r1, r2 = results
 
@@ -1948,9 +1926,7 @@ class TestWorkList(DatabaseTest):
         # Finally, test that undeliverable works are filtered out.
         for lpdm in w2.license_pools[0].delivery_mechanisms:
             self._db.delete(lpdm)
-            from ..model import MaterializedWorkWithGenre
-            for m in (Work, MaterializedWorkWithGenre):
-                eq_([], wl.works_for_hits(self._db, [hit2], m))
+            eq_([], wl.works_for_hits(self._db, [hit2]))
 
     def test_apply_filters(self):
 
