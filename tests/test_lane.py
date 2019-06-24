@@ -37,6 +37,7 @@ from ..external_search import (
 
 from ..lane import (
     DatabaseBackedFacets,
+    FacetConstants,
     Facets,
     FacetsWithEntryPoint,
     FeaturedFacets,
@@ -697,12 +698,78 @@ class TestDatabaseBackedFacets(DatabaseTest):
     def test_available_facets(self):
         # The only available sort orders are the ones that map
         # directly onto a database field.
-        pass
 
+        f1 = Facets
+        f2 = DatabaseBackedFacets
+
+        # The sort orders available to a DatabaseBackedFacets are a
+        # subset of the ones available to a Facets under the same
+        # configuration.
+        f1_orders = f1.available_facets(
+            self._default_library, FacetConstants.ORDER_FACET_GROUP_NAME
+        )
+
+        f2_orders = f2.available_facets(
+            self._default_library, FacetConstants.ORDER_FACET_GROUP_NAME
+        )
+        assert len(f2_orders) < len(f1_orders)
+        for order in f2_orders:
+            assert (
+                order in f1_orders and order in f2.ORDER_FACET_TO_DATABASE_FIELD
+            )
+
+        # The rules for collection and availability are the same.
+        for group in (
+            FacetConstants.COLLECTION_FACET_GROUP_NAME,
+            FacetConstants.AVAILABILITY_FACET_GROUP_NAME,
+        ):
+            eq_(f1.available_facets(self._default_library, group),
+                f2.available_facets(self._default_library, group))
+            
     def test_default_facets(self):
-        # If the configured default facet is not available,
-        # DatabaseBackedFacets chooses a different default.
-        pass
+        # If the configured default sort order is not available,
+        # DatabaseBackedFacets chooses the first enabled sort order.
+        f1 = Facets
+        f2 = DatabaseBackedFacets
+
+        # The rules for collection and availability are the same.
+        for group in (
+            FacetConstants.COLLECTION_FACET_GROUP_NAME,
+            FacetConstants.AVAILABILITY_FACET_GROUP_NAME,
+        ):
+            eq_(f1.default_facet(self._default_library, group),
+                f2.default_facet(self._default_library, group))
+
+        # In this bizarre library, the default sort order is 'time
+        # added to collection' -- an order not supported by
+        # DatabaseBackedFacets.
+        class Mock(object):
+            enabled = [
+                FacetConstants.ORDER_ADDED_TO_COLLECTION,
+                FacetConstants.ORDER_TITLE, FacetConstants.ORDER_AUTHOR
+            ]
+            def enabled_facets(self, group_name):
+                return self.enabled
+
+            def default_facet(self, group_name):
+                return FacetConstants.ORDER_ADDED_TO_COLLECTION
+
+        # A Facets object uses the 'time added to collection' order by
+        # default.
+        config = Mock()
+        eq_(f1.ORDER_ADDED_TO_COLLECTION, 
+            f1.default_facet(config, f1.ORDER_FACET_GROUP_NAME))
+
+        # A DatabaseBacked Facets can't do that. It finds the first
+        # enabled sort order that it can support, and uses it instead.
+        eq_(f2.ORDER_TITLE, 
+            f2.default_facet(config, f2.ORDER_FACET_GROUP_NAME))
+
+        # If no enabled sort orders are supported, it just sorts
+        # by Work ID, so that there is always _some_ sort order.
+        config.enabled = [FacetConstants.ORDER_ADDED_TO_COLLECTION]
+        eq_(f2.ORDER_WORK_ID,
+            f2.default_facet(config, f2.ORDER_FACET_GROUP_NAME))
 
     def test_order_by(self):
         E = Edition

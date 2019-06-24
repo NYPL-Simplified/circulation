@@ -589,9 +589,12 @@ class DatabaseBackedFacets(Facets):
         # The default sort order is not supported. Just pick the first
         # enabled sort order.
         enabled = config.enabled_facets(facet_group_name)
-        if enabled:
-            return enabled[0]
-        return enabled
+        for i in enabled:
+            if i in cls.ORDER_FACET_TO_DATABASE_FIELD:
+                return i
+
+        # None of the enabled sort orders are usable. Order by work ID.
+        return cls.ORDER_WORK_ID
 
     def order_by(self):
         """Given these Facets, create a complete ORDER BY clause for queries
