@@ -944,12 +944,10 @@ class TestFeaturedFacets(DatabaseTest):
     def test_constructor(self):
         # Verify that constructor arguments are stored.
         entrypoint = object()
-        facets = FeaturedFacets(1, True, entrypoint, entrypoint_is_default=True)
+        facets = FeaturedFacets(1, entrypoint, entrypoint_is_default=True)
         eq_(1, facets.minimum_featured_quality)
-        eq_(True, facets.uses_customlists)
         eq_(entrypoint, facets.entrypoint)
         eq_(True, facets.entrypoint_is_default)
-
 
     def test_navigate(self):
         """Test the ability of navigate() to move between slight
@@ -960,19 +958,13 @@ class TestFeaturedFacets(DatabaseTest):
 
         different_entrypoint = f.navigate(entrypoint=AudiobooksEntryPoint)
         eq_(1, different_entrypoint.minimum_featured_quality)
-        eq_(True, different_entrypoint.uses_customlists)
         eq_(AudiobooksEntryPoint, different_entrypoint.entrypoint)
+        eq_(False, different_entrypoint.entrypoint_is_default)
 
         different_quality = f.navigate(minimum_featured_quality=2)
         eq_(2, different_quality.minimum_featured_quality)
-        eq_(True, different_quality.uses_customlists)
         eq_(entrypoint, different_quality.entrypoint)
-
-        not_a_list = f.navigate(uses_customlists=False)
-        eq_(1, not_a_list.minimum_featured_quality)
-        eq_(False, not_a_list.uses_customlists)
-        eq_(entrypoint, not_a_list.entrypoint)
-
+        eq_(True, different_entrypoint.entrypoint_is_default)
 
     def test_quality_calculation(self):
 

@@ -683,8 +683,8 @@ class FeaturedFacets(FacetsWithEntryPoint):
 
     DETERMINISTIC = object()
 
-    def __init__(self, minimum_featured_quality, uses_customlists=False,
-                 entrypoint=None, random_seed=None, **kwargs):
+    def __init__(self, minimum_featured_quality, entrypoint=None,
+                 random_seed=None, **kwargs):
         """Set up an object that finds featured books in a given
         WorkList.
 
@@ -693,21 +693,15 @@ class FeaturedFacets(FacetsWithEntryPoint):
         """
         super(FeaturedFacets, self).__init__(entrypoint=entrypoint, **kwargs)
         self.minimum_featured_quality = minimum_featured_quality
-        self.uses_customlists = uses_customlists
         self.random_seed=random_seed
 
-    def navigate(self, minimum_featured_quality=None, uses_customlists=None,
-                 entrypoint=None):
+    def navigate(self, minimum_featured_quality=None, entrypoint=None):
         """Create a slightly different FeaturedFacets object based on this
         one.
         """
         minimum_featured_quality = minimum_featured_quality or self.minimum_featured_quality
-        if uses_customlists is None:
-            uses_customlists = self.uses_customlists
         entrypoint = entrypoint or self.entrypoint
-        return self.__class__(
-            minimum_featured_quality, uses_customlists, entrypoint
-        )
+        return self.__class__(minimum_featured_quality, entrypoint)
 
     def scoring_functions(self, filter):
         """Generate scoring functions that weight works randomly, but
