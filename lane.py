@@ -146,12 +146,6 @@ class BaseFacets(FacetConstants):
         """
         return filter
 
-    def modify_database_query(self, _db, qu):
-        """Modify a database query to filter out works
-        excluded by the business logic of this faceting class.
-        """
-        return qu
-
     def scoring_functions(self, filter):
         """Create a list of ScoringFunction objects that modify how
         works in the given WorkList should be ordered.
@@ -562,25 +556,19 @@ class Facets(FacetsWithEntryPoint):
                 logging.error("Unrecognized sort order: %s", self.order)
 
 
-class DatabaseFacets(Facets):
+class DatabaseBackedFacets(Facets):
     """A generic faceting object designed for managing queries against the
-    `works` table. (Other faceting objects are designed for managing
+    database. (Other faceting objects are designed for managing
     Elasticsearch searches.)
     """
 
-    # These search orders are not available when running a query against
-    # the database.
-    ORDER_NOT_SUPPORTED = set(
-        [FacetConstants.ORDER_ADDED_TO_COLLECTION,
-         FacetConstants.ORDER_SERIES_POSITION]
-    )
-
-    # These search orders are available, because they map directly onto a field
-    # of the table we're querying.
+    # Of the sort orders in Facets, these are the only available ones
+    # -- they map directly onto a field of one of the tables we're
+    # querying.
     ORDER_FACET_TO_DATABASE_FIELD = {
         FacetConstants.ORDER_WORK_ID : Work.id,
-        FacetConstants.ORDER_TITLE : Work.sort_title,
-        FacetConstants.ORDER_AUTHOR : Work.sort_author,
+        FacetConstants.ORDER_TITLE : Edition.sort_title,
+        FacetConstants.ORDER_AUTHOR : Edition.sort_author,
         FacetConstants.ORDER_LAST_UPDATE : Work.last_update_time,
         FacetConstants.ORDER_RANDOM : Work.random,
     }
@@ -589,19 +577,20 @@ class DatabaseFacets(Facets):
     def available_facets(cls, config, facet_group_name):
         """Exclude search orders not available through database queries."""
         standard = config.enabled_facets(facet_group_name)
-        if facet_group_name != ORDER_FACET_GROUP_NAME:
+        if facet_group_name != cls.ORDER_FACET_GROUP_NAME:
             return standard
-        return [order for order in standated if order not in cls.ORDER_NOT_SUPPORTED]
+        return [order for order in standard
+                if order in cls.ORDER_FACET_TO_DATABASE_FIELD]
 
     @classmethod
     def default_facet(cls, config, facet_group_name):
         """Exclude search orders not available through database queries."""
-        standard_default = super(Facets, cls).default_facet(
+        standard_default = super(DatabaseBackedFacets, cls).default_facet(
             config, facet_group_name
         )
-        if facet_group_name != ORDER_FACET_GROUP_NAME:
+        if facet_group_name != cls.ORDER_FACET_GROUP_NAME:
             return standard_default
-        if standard_default not in cls.ORDER_NOT_SUPPORTED:
+        if standard_default in cls.ORDER_FACET_TO_DATABASE_FIELD:
             # This default sort order is supported.
             return standard_default
 
@@ -617,7 +606,7 @@ class DatabaseFacets(Facets):
         against WorkModelWithGenre.
         """
         default_sort_order = [
-            Work.sort_author, Work.sort_title, Work.id
+            Edition.sort_author, Edition.sort_title, Work.id
         ]
 
         primary_order_by = self.ORDER_FACET_TO_DATABASE_FIELD.get(self.order)
@@ -681,11 +670,7 @@ class DatabaseFacets(Facets):
         # Set the ORDER BY clause.
         order_by, order_distinct = self.order_by()
         qu = qu.order_by(*order_by)
-
-        # We always mark the query as distinct because the `works` table is
-        # joined against the `licensepools` table.
         qu = qu.distinct(*order_distinct)
-
         return qu
 
 
@@ -1392,11 +1377,20 @@ class WorkList(object):
         )
         search_engine = search_engine or ExternalSearchIndex.load(_db)
         filter = Filter.from_worklist(_db, self, facets)
+        filter = self.modify_search_filter_hook(filter)
         hits = search_engine.query_works(
             query_string=None, filter=filter, pagination=pagination,
             debug=debug
         )
         return self.works_for_hits(_db, hits)
+
+    def modify_search_filter_hook(self, filter):
+        """A hook method allowing subclasses to modify a Filter
+        object that's about to find all the works in this WorkList.
+
+        This can avoid the need for complex subclasses of Facets.
+        """
+        return filter
 
     def works_for_hits(self, _db, hits):
         """Convert a list of search results into Work objects.
@@ -1702,7 +1696,7 @@ class WorkList(object):
             return query.options(defer(Work.simple_opds_entry))
 
 
-class SpecificWorkFacets(BaseFacets):
+class SpecificWorkFacets(DatabaseBackedFacets):
     def __init__(self, work_ids):
         self.work_ids = work_ids
 
@@ -1717,6 +1711,10 @@ class SpecificWorkFacets(BaseFacets):
 class DatabaseBackedWorkList(WorkList):
     """A WorkList that gets its works from a database query rather than
     the search index.
+
+    Even when works _are_ obtained through the search index, a
+    DatabaseBackedWorkList is then created to look up the Work objects
+    for use in an OPDS feed.
     """
 
     def works(
@@ -1728,11 +1726,11 @@ class DatabaseBackedWorkList(WorkList):
         The apply_filters() implementation defines which Works qualify
         for membership in a WorkList of this type.
 
-        This tends to be slower than works_from_search_index, but not all
+        This tends to be slower than WorkList.works, but not all
         lanes can be generated through search engine queries.
 
         :param _db: A database connection.
-        :param facets: A DatabaseFacets object which may put additional
+        :param facets: A DatabaseBackedFacets object which may put additional
            constraints on WorkList membership.
         :param pagination: A Pagination object indicating which part of
            the WorkList the caller is looking at.
@@ -1748,39 +1746,40 @@ class DatabaseBackedWorkList(WorkList):
         # the WorkList's collections and ready to be delivered to
         # patrons.
         qu = self.only_show_ready_deliverable_works(_db, qu)
-        qu = self.apply_filters(_db, qu, facets, pagination)
-        qu = self._modify_loading(qu)
-        qu = self._defer_unused_fields(qu)
-        return qu
 
-    def apply_filters(self, _db, qu, facets, pagination, featured=False):
-        """Apply common WorkList filters to a query. Also apply any
-        subclass-specific filters defined by
-        bibliographic_filter_clause().
-        """
-        # This method applies whatever filters are necessary to implement
-        # the rules of this particular WorkList.
-        qu, bibliographic_clause = self.bibliographic_filter_clause(
-            _db, qu, featured
-        )
+        # Apply to the database the bibliographic restrictions with
+        # which this WorkList was initialized -- genre, audience, and
+        # whatnote.
+        qu, bibliographic_clause = self.bibliographic_filter_clause(_db, qu)
         if bibliographic_clause is not None:
             qu = qu.filter(bibliographic_clause)
 
+        if not isinstance(facets, DatabaseBackedFacets):
+            raise ValueError(
+                "Incompatible faceting object for DatabaseBackedWorkList: %r",
+                facets
+            )
         if facets:
             qu = facets.modify_database_query(_db, qu)
-        else:
-            # Ordinarily facets.modify_database_query() would take care of ordering
-            # the query and making it distinct. In the absence
-            # of any ordering information, we will make the query distinct
-            # based on work ID.
+
+        qu = self.modify_database_query_hook(_db, qu)
+
+        if qu._distinct is False:
+            # This query must be made distinct, since a Work can have
+            # more than one LicensePool. If the faceting object didn't
+            # take the opportunity to make it distinct (e.g. while
+            # setting sort order), we'll make it distinct based on
+            # work ID.
             qu = qu.distinct(Work.id)
 
         if pagination:
             qu = pagination.modify_database_query(_db, qu)
 
+        qu = self._modify_loading(qu)
+        qu = self._defer_unused_fields(qu)
         return qu
 
-    def bibliographic_filter_clause(self, _db, qu, featured=False, outer_join=False):
+    def bibliographic_filter_clause(self, _db, qu, outer_join=False):
         """Create a SQLAlchemy filter that excludes books whose bibliographic
         metadata doesn't match what we're looking for.
 
@@ -1805,7 +1804,7 @@ class DatabaseBackedWorkList(WorkList):
 
         if self.customlist_ids:
             qu, customlist_clauses = self.customlist_filter_clauses(
-                qu, featured, outer_join
+                qu, outer_join
             )
             clauses.extend(customlist_clauses)
 
@@ -1823,14 +1822,9 @@ class DatabaseBackedWorkList(WorkList):
             return []
         return [Work.audience.in_(self.audiences)]
 
-    def customlist_filter_clauses(
-            self, qu, must_be_featured=False, outer_join=False
-    ):
+    def customlist_filter_clauses(self, qu, outer_join=False):
         """Create a filter clause that only books that are on one of the
         CustomLists allowed by Lane configuration.
-
-        :param must_be_featured: It's not enough for the book to be on
-        an appropriate list; it must be _featured_ on an appropriate list.
 
         :return: A 3-tuple (query, clauses).
 
@@ -1873,8 +1867,6 @@ class DatabaseBackedWorkList(WorkList):
             customlist_ids = self.customlist_ids
         if customlist_ids is not None:
             clauses.append(a_entry.list_id.in_(customlist_ids))
-        if must_be_featured:
-            clauses.append(a_entry.featured==True)
         if self.list_seen_in_previous_days:
             cutoff = datetime.datetime.utcnow() - datetime.timedelta(
                 self.list_seen_in_previous_days
@@ -1882,6 +1874,15 @@ class DatabaseBackedWorkList(WorkList):
             clauses.append(a_entry.most_recent_appearance >=cutoff)
 
         return qu, clauses
+
+    def modify_database_query_hook(self, _db, qu):
+        """A hook method allowing subclasses to modify a database query
+        that's about to find all the works in this WorkList.
+
+        This can avoid the need for complex subclasses of
+        DatabaseBackedFacets.
+        """
+        return qu
 
 
 class LaneGenre(Base):
@@ -2242,13 +2243,19 @@ class Lane(Base, WorkList):
 
     def update_size(self, _db):
         """Update the stored estimate of the number of Works in this Lane."""
-        query = self.works_from_database(_db).limit(None)
-        query = query.distinct(Work.works_id)
+        library = self.get_library(_db)
+        wl = DatabaseBackedWorkList()
+        wl.initialize(library)
 
         # Do the estimate for every known entry point.
         by_entrypoint = dict()
         for entrypoint in EntryPoint.ENTRY_POINTS:
-            qu = entrypoint.apply(query)
+            facets = DatabaseBackedFacets(
+                library, FacetConstants.COLLECTION_FULL,
+                FacetConstants.AVAILABLE_ALL,
+                order=FacetConstants.ORDER_WORK_ID, entrypoint=entrypoint
+            )
+            qu = wl.works(_db, facets)
             by_entrypoint[entrypoint.URI] = fast_query_count(qu)
         self.size_by_entrypoint = by_entrypoint
         self.size = by_entrypoint[EverythingEntryPoint.URI]
@@ -2412,39 +2419,6 @@ class Lane(Base, WorkList):
         wl.initialize(self.library, display_name=display_name,
                       languages=languages, media=media, audiences=audiences)
         return wl
-
-    def featured_window(self, target_size, facets):
-        """Randomly select an interval over `Work.random` that ought to
-        contain approximately `target_size` high-quality works from
-        this lane.
-
-        :param target_size: Try to get this many works.
-        :param facets: A FeaturedFacets object that will be applied to the
-           query, and affects how many results are likely to be returned.
-
-        :return: A 2-tuple (low value, high value), or None if the
-        entire span should be considered.
-        """
-        size = self._size_for_facets(facets)
-        if size < target_size:
-            # Don't bother -- we're returning the whole lane.
-            return 0,1
-        width = target_size / (size * 0.2)
-        width = min(1, width)
-
-        maximum_offset = 1-width
-        start = random.random() * maximum_offset
-        end = start+width
-
-        # TODO: The resolution of Work.random is only three decimal
-        # places. It should be increased. Until then, we need to make
-        # sure start and end are at least 0.001 apart, or in a very
-        # large lane we'll pick up nothing.
-        start = round(start, 3)
-        end = round(end, 3)
-        if start == end:
-            end = start + 0.001
-        return start, end
 
     def _size_for_facets(self, facets):
         """How big is this lane under the given `Facets` object?
