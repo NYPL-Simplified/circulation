@@ -564,7 +564,20 @@ class DatabaseFacets(Facets):
 
     # These search orders are not available when running a query against
     # the database.
-    NOT_AVAILABLE = set([ORDER_ADDED_TO_COLLECTION, ORDER_SERIES_POSITION])
+    ORDER_NOT_SUPPORTED = set(
+        [FacetConstants.ORDER_ADDED_TO_COLLECTION,
+         FacetConstants.ORDER_SERIES_POSITION]
+    )
+
+    # These search orders are available, because they map directly onto a field
+    # of the table we're querying.
+    ORDER_FACET_TO_DATABASE_FIELD = {
+        FacetConstants.ORDER_WORK_ID : Work.id,
+        FacetConstants.ORDER_TITLE : Work.sort_title,
+        FacetConstants.ORDER_AUTHOR : Work.sort_author,
+        FacetConstants.ORDER_LAST_UPDATE : Work.last_update_time,
+        FacetConstants.ORDER_RANDOM : Work.random,
+    }
 
     @classmethod
     def available_facets(cls, config, facet_group_name):
@@ -572,9 +585,7 @@ class DatabaseFacets(Facets):
         standard = config.enabled_facets(facet_group_name)
         if facet_group_name != ORDER_FACET_GROUP_NAME:
             return standard
-        for i in standard:
-            if i not in cls.NOT_AVAILABLE:
-                yield i
+        return [order for order in standated if order not in cls.ORDER_NOT_SUPPORTED]
 
     @classmethod
     def default_facet(cls, config, facet_group_name):
@@ -584,29 +595,16 @@ class DatabaseFacets(Facets):
         )
         if facet_group_name != ORDER_FACET_GROUP_NAME:
             return standard_default
-        if standard_default not in cls.NOT_AVAILABLE:
+        if standard_default not in cls.ORDER_NOT_SUPPORTED:
+            # This default sort order is supported.
             return standard_default
+
+        # The default sort order is not supported. Just pick the first
+        # enabled sort order.
         enabled = config.enabled_facets(facet_group_name)
         if enabled:
             return enabled[0]
         return enabled
-
-    @classmethod
-    def order_facet_to_database_field(cls, order_facet):
-        """Turn the name of an order facet into a field of Work for use in an
-        ORDER BY clause.
-
-        Note that this faceting class supports only a subset of the
-        normal sort orders.
-        """
-        order_facet_to_database_field = {
-            cls.ORDER_WORK_ID : Work.id
-            cls.ORDER_TITLE : Work.sort_title,
-            cls.ORDER_AUTHOR : Work.sort_author,
-            cls.ORDER_LAST_UPDATE : Work.last_update_time,
-            cls.ORDER_RANDOM : Work.random,
-        }
-        return order_facet_to_database_field.get(order_facet)
 
     def order_by(self):
         """Given these Facets, create a complete ORDER BY clause for queries
@@ -616,7 +614,7 @@ class DatabaseFacets(Facets):
             Work.sort_author, Work.sort_title, Work.id
         ]
 
-        primary_order_by = self.order_facet_to_database_field(self.order)
+        primary_order_by = self.ORDER_FACET_TO_DATABASE_FIELD.get(self.order)
         if primary_order_by is not None:
             # Promote the field designated by the sort facet to the top of
             # the order-by list.
@@ -677,6 +675,10 @@ class DatabaseFacets(Facets):
         # Set the ORDER BY clause.
         order_by, order_distinct = self.order_by()
         qu = qu.order_by(*order_by)
+
+        # We always mark the query as distinct because the `works` table is
+        # joined against the `licensepools` table.
+        qu = qu.distinct(*order_distinct)
 
         return qu
 
@@ -776,79 +778,6 @@ class FeaturedFacets(FacetsWithEntryPoint):
             featured_on_relevant_list = dict(filter=nested, weight=11)
             function_scores.append(featured_on_relevant_list)
         return function_scores
-
-    def apply(self, _db, qu):
-        """Order a query by quality tier, and then randomly.
-
-        This isn't usually necessary because works_in_window orders
-        items by quality tier, then randomly, but if you want to call
-        apply() on a query to get a featured subset of that query,
-        this will work.
-        """
-        qu = super(FeaturedFacets, self).apply(_db, qu)
-        quality = self.quality_tier_field()
-        qu = qu.order_by(
-            quality.desc(), mw.random.desc(), mw.works_id
-        )
-        qu = qu.distinct(quality, mw.random, mw.works_id)
-        return qu
-
-    def quality_tier_field(self):
-        """A selectable field that summarizes the overall quality of a work
-        from a materialized view as a single numeric value.
-
-        Works of featurable quality will have a higher number than
-        works not of featurable quality; works that are available now
-        will have a higher number than works not currently available;
-        and so on.
-
-        The tiers correspond roughly to the selectable facets, but
-        this is a historical quirk and could change in the future.
-
-        Using this field in an ORDER BY statement ensures that
-        higher-quality works show up at the beginning of the
-        results. But if there aren't enough high-quality works,
-        lower-quality works will show up later on in the results,
-        eliminating the need to find lower-quality works with a second
-        query.
-        """
-        if hasattr(self, '_quality_tier_field'):
-            return self._quality_tier_field
-        featurable_quality = self.minimum_featured_quality
-
-        mwg = mw
-        # Being of featureable quality is great.
-        featurable_quality = case(
-            [(mwg.quality >= featurable_quality, 5)],
-            else_=0
-        )
-
-        # Being a licensed work or an open-access work of decent quality
-        # is good.
-        regular_collection = case(
-            [(or_(LicensePool.open_access==False, mwg.quality >= 0.3), 2)],
-            else_=0
-        )
-
-        # All else being equal, it's better if a book is available
-        # now.
-        available_now = case(
-            [(or_(LicensePool.licenses_available > 0,
-                  LicensePool.open_access==True), 1)],
-            else_=0
-        )
-
-        tier = featurable_quality + regular_collection + available_now
-        if self.uses_customlists:
-            # Being explicitly featured in your CustomListEntry is the
-            # best.
-            featured_on_list = case(
-                [(CustomListEntry.featured, 11)], else_=0
-            )
-            tier = tier + featured_on_list
-        tier = tier.label("quality_tier")
-        self._quality_tier_field = tier
-        return self._quality_tier_field
 
 
 class SearchFacets(FacetsWithEntryPoint):
@@ -1521,60 +1450,42 @@ class WorkList(object):
             query_string=None, filter=filter, pagination=pagination,
             debug=debug
         )
-        return self.works_for_hits(_db, hits, Work)
+        return self.works_for_hits(_db, hits)
 
-    def works_for_hits(self, _db, hits, work_model=mw):
+    def works_for_hits(self, _db, hits):
         """Create the appearance of having called works(), but return the
         specific MaterializedWorks or Works identified by `hits`.
 
         :param _db: A database connection
         :param hits: A list of Hit objects from ElasticSearch.
-        :param work_model: By default, this method will look up
-            MaterializedWorkWithGenre objects. Pass in Work here
-            to look up Work objects.
-        :return A list of Work, MaterializedWorkWithGenre, or (if the
-            search results include script fields), WorkSearchResult
-            objects.
+        :return A list of Work or (if the search results include
+            script fields), WorkSearchResult objects.
         """
 
-        # Get a list of Work or MaterializedWorkWithView objects, using
-        # the same rules applied in works() and works_from_search().
-        if work_model == mw:
-            work_id_field = work_model.works_id
-            qu = _db.query(work_model).join(
-                LicensePool, LicensePool.id == work_model.license_pool_id
-            )
-            edition_model = mw
-        else:
-            work_id_field = work_model.id
-            qu = _db.query(work_model).join(
-                work_model.license_pools
-            ).join(
-                work_model.presentation_edition
-            )
-            edition_model = Edition
+        # Get a list of Work objects, using the same rules applied in
+        # works() and works_from_search().
+        work_id_field = Work.id
+        qu = _db.query(Work).join(
+            Work.license_pools
+        ).join(
+            Work.presentation_edition
+        )
         work_ids = [x.work_id for x in hits]
         qu = qu.filter(
-            work_id_field.in_(work_ids),
+            Work.id.in_(work_ids),
             LicensePool.work_id.in_(work_ids), # Query optimization
         )
-        qu = self._modify_loading(qu, work_model)
-        qu = self._defer_unused_fields(qu, work_model)
-        qu = self.only_show_ready_deliverable_works(
-            _db, qu, work_model=work_model, edition_model=edition_model
-        )
-        qu = qu.distinct(work_id_field)
+        qu = self._modify_loading(qu)
+        qu = self._defer_unused_fields(qu)
+        qu = self.only_show_ready_deliverable_works(_db, qu)
+        qu = qu.distinct(Work.id)
         work_by_id = dict()
         a = time.time()
         works = qu.all()
 
         # Put the results in the same order as the work_ids were.
         for w in works:
-            if work_model == mw:
-                work_id = w.works_id
-            else:
-                work_id = w.id
-            work_by_id[work_id] = w
+            work_by_id[w.id] = w
 
         from external_search import (
             Filter,
@@ -1794,227 +1705,8 @@ class WorkList(object):
             ):
                 yield work, lane
 
-
-class DatabaseBackedWorklist(WorkList):
-    """A WorkList that gets its works from a database query rather than
-    the search index.
-    """
-
-    def works(
-        self, _db, facets=None, pagination=None, include_quality_tier=False,
-        **kwargs
-    ):
-        """Create a query against the `works` table that finds Work objects
-        corresponding to all the Works that belong in this WorkList.
-
-        The apply_filters() implementation defines which Works qualify
-        for membership in a WorkList of this type.
-
-        This tends to be slower than works_from_search_index, but not all
-        lanes can be generated through search engine queries.
-
-        :param _db: A database connection.
-        :param facets: A DatabaseFacets object which may put additional
-           constraints on WorkList membership.
-        :param pagination: A Pagination object indicating which part of
-           the WorkList the caller is looking at.
-        :param kwargs: Ignored -- only included for compatibility
-           with works_from_search_engine, so that callers can invoke
-           works() without worrying about whether a given WorkList
-           gets works from the search engine or the database.
-        :return: A Query.
-
-        """
-        qu = _db.query(Work).join(Work.license_pools)
-
-        # Apply some database optimizations.
-        if self.collection_ids is not None:
-            qu = qu.filter(
-                LicensePool.collection_id.in_(self.collection_ids)
-            )
-        qu = self.apply_filters(_db, qu, facets, pagination)
-        qu = self._modify_loading(qu)
-        qu = self._defer_unused_fields(qu)
-        return qu
-
-    def apply_filters(self, _db, qu, facets, pagination, featured=False):
-        """Apply common WorkList filters to a query. Also apply any
-        subclass-specific filters defined by
-        bibliographic_filter_clause().
-        """
-        # In general, we only show books that are ready to be delivered
-        # to patrons.
-        qu = self.only_show_ready_deliverable_works(_db, qu)
-
-        # This method applies whatever filters are necessary to implement
-        # the rules of this particular WorkList.
-        qu, bibliographic_clause = self.bibliographic_filter_clause(
-            _db, qu, featured
-        )
-        if qu is None:
-            # bibliographic_filter_clause() may return a null query to
-            # indicate that the WorkList should not exist at all.
-            return None
-        if bibliographic_clause is not None:
-            qu = qu.filter(bibliographic_clause)
-
-        if facets:
-            qu = facets.apply(_db, qu)
-        else:
-            # Ordinarily facets.apply() would take care of ordering
-            # the query and making it distinct. In the absence
-            # of any ordering information, we will make the query distinct
-            # based on work ID.
-            qu = qu.distinct(mw.works_id)
-
-        if pagination:
-            qu = pagination.apply(qu)
-
-        return qu
-
-    def bibliographic_filter_clause(self, _db, qu, featured=False, outer_join=False):
-        """Create a SQLAlchemy filter that excludes books whose bibliographic
-        metadata doesn't match what we're looking for.
-
-        :return: A 2-tuple (query, clause).
-
-        - query is either `qu`, or a new query that has been modified to
-        join against additional tables.
-        """
-        # Audience and language restrictions are common to all
-        # WorkLists. (So are genre and collection restrictions, bt those
-        # were applied back in works().)
-
-        clauses = self.audience_filter_clauses(_db, qu)
-        if self.languages:
-            clauses.append(mw.language.in_(self.languages))
-        if self.media:
-            clauses.append(mw.medium.in_(self.media))
-        if self.genre_ids:
-            already_filtered_genre_id_on_materialized_view = getattr(
-                qu, 'genre_id_filtered', False
-            )
-            if already_filtered_genre_id_on_materialized_view:
-                wg = aliased(WorkGenre)
-                qu = qu.join(wg, wg.work_id==mw.works_id)
-                field = wg.genre_id
-            else:
-                qu.genre_id_filtered = True
-                field = mw.genre_id
-            clauses.append(field.in_(self.genre_ids))
-
-        if self.customlist_ids:
-            qu, customlist_clauses = self.customlist_filter_clauses(
-                qu, featured, outer_join
-            )
-            clauses.extend(customlist_clauses)
-
-        if not clauses:
-            clause = None
-        else:
-            clause = and_(*clauses)
-        return qu, clause
-
-    def audience_filter_clauses(self, _db, qu):
-        """Create a SQLAlchemy filter that excludes books whose intended
-        audience doesn't match what we're looking for.
-        """
-        if not self.audiences:
-            return []
-        return [mw.audience.in_(self.audiences)]
-
-    def customlist_filter_clauses(
-            self, qu, must_be_featured=False, outer_join=False
-    ):
-        """Create a filter clause that only books that are on one of the
-        CustomLists allowed by Lane configuration.
-
-        :param must_be_featured: It's not enough for the book to be on
-        an appropriate list; it must be _featured_ on an appropriate list.
-
-        :return: A 3-tuple (query, clauses).
-
-        `query` is the same query as `qu`, possibly extended with
-        additional table joins.
-
-        `clauses` is a list of SQLAlchemy statements for use in a
-        filter() or case() statement.
-        """
-        from model import MaterializedWorkWithGenre as mw
-        if not self.uses_customlists:
-            # This lane does not require that books be on any particular
-            # CustomList.
-            return qu, []
-
-        already_filtered_customlist_on_materialized_view = getattr(
-            qu, 'customlist_id_filtered', False
-        )
-
-        # We will be joining against CustomListEntry at least once, to
-        # run filters on fields like `featured` not found in the
-        # materialized view. For a lane derived from the intersection
-        # of two or more custom lists, we may be joining
-        # CustomListEntry multiple times. To avoid confusion, we make
-        # a new alias for the table every time except the first time.
-        if already_filtered_customlist_on_materialized_view:
-            a_entry = aliased(CustomListEntry)
-        else:
-            a_entry = CustomListEntry
-
-        clause = a_entry.work_id==mw.works_id
-        if not already_filtered_customlist_on_materialized_view:
-            # Since this is the first join, we're treating
-            # mw.list_id as a stand-in for CustomListEntry.list_id,
-            # which means we should force them to be the same when joining
-            # the view to the table.
-            #
-            # For subsequent joins, this won't apply -- we want to
-            # match a _different_ list's entry for the same work.
-            clause = and_(clause, a_entry.list_id==mw.list_id)
-        if outer_join:
-            qu = qu.outerjoin(a_entry, clause)
-        else:
-            qu = qu.join(a_entry, clause)
-
-        # Actually build the restriction clauses.
-        clauses = []
-        customlist_ids = None
-        if self.list_datasource_id:
-            # Use a subquery to obtain the CustomList IDs of all
-            # CustomLists from this DataSource. This is significantly
-            # simpler than adding a join against CustomList.
-            customlist_ids = Select(
-                [CustomList.id],
-                CustomList.data_source_id==self.list_datasource_id
-            )
-        else:
-            customlist_ids = self.customlist_ids
-        if customlist_ids is not None:
-            clauses.append(a_entry.list_id.in_(customlist_ids))
-            if not already_filtered_customlist_on_materialized_view:
-                clauses.append(mw.list_id.in_(customlist_ids))
-                # Now that we've put a restriction on the materialized
-                # view's list_id, we need to signal that no future
-                # call to this method should put a restriction on the
-                # same field.
-                #
-                # Future calls will apply their restrictions
-                # solely by restricting CustomListEntry.list_id,
-                # as above.
-                qu.customlist_id_filtered = True
-        if must_be_featured:
-            clauses.append(a_entry.featured==True)
-        if self.list_seen_in_previous_days:
-            cutoff = datetime.datetime.utcnow() - datetime.timedelta(
-                self.list_seen_in_previous_days
-            )
-            clauses.append(a_entry.most_recent_appearance >=cutoff)
-
-        return qu, clauses
-
     def only_show_ready_deliverable_works(
-            self, _db, query, show_suppressed=False, work_model=mw,
-            edition_model=mw
+        self, _db, query, show_suppressed=False
     ):
         """Restrict a query to show only presentation-ready works present in
         an appropriate collection which the default client can
@@ -2024,19 +1716,19 @@ class DatabaseBackedWorklist(WorkList):
         LicensePool.
         """
         return Collection.restrict_to_ready_deliverable_works(
-            query, work_model, edition_model, show_suppressed=show_suppressed,
+            query, Work, Edition, show_suppressed=show_suppressed,
             collection_ids=self.collection_ids
         )
 
     @classmethod
-    def _modify_loading(cls, qu, work_model=mw):
+    def _modify_loading(cls, qu):
         """Optimize a query for use in generating OPDS feeds, by modifying
         which related objects get pulled from the database.
         """
         # Avoid eager loading of objects that are already being loaded.
         qu = qu.options(
-            contains_eager(work_model.presentation_edition),
-            contains_eager(work_model.license_pools),
+            contains_eager(Work.presentation_edition),
+            contains_eager(Work.license_pools),
         )
         license_pool_name = 'license_pools'
 
@@ -2071,6 +1763,186 @@ class DatabaseBackedWorklist(WorkList):
             return query.options(defer(Work.verbose_opds_entry))
         else:
             return query.options(defer(Work.simple_opds_entry))
+
+
+class DatabaseBackedWorkList(WorkList):
+    """A WorkList that gets its works from a database query rather than
+    the search index.
+    """
+
+    def works(
+        self, _db, facets=None, pagination=None, include_quality_tier=False,
+        **kwargs
+    ):
+        """Create a query against the `works` table that finds Work objects
+        corresponding to all the Works that belong in this WorkList.
+
+        The apply_filters() implementation defines which Works qualify
+        for membership in a WorkList of this type.
+
+        This tends to be slower than works_from_search_index, but not all
+        lanes can be generated through search engine queries.
+
+        :NOTE: If the WorkList includes genre restrictions, they will
+        be ignored.
+
+        :param _db: A database connection.
+        :param facets: A DatabaseFacets object which may put additional
+           constraints on WorkList membership.
+        :param pagination: A Pagination object indicating which part of
+           the WorkList the caller is looking at.
+        :param kwargs: Ignored -- only included for compatibility
+           with works_from_search_engine, so that callers can invoke
+           works() without worrying about whether a given WorkList
+           gets works from the search engine or the database.
+        :return: A Query.
+
+        """
+        qu = _db.query(Work).join(Work.license_pools).join(Work.presentation_edition)
+        qu = self.apply_filters(_db, qu, facets, pagination)
+        qu = self._modify_loading(qu)
+        qu = self._defer_unused_fields(qu)
+        return qu
+
+    def apply_filters(self, _db, qu, facets, pagination, featured=False):
+        """Apply common WorkList filters to a query. Also apply any
+        subclass-specific filters defined by
+        bibliographic_filter_clause().
+        """
+        # In general, we only show books that are present in one of
+        # the WorkList's collections and ready to be delivered to patrons.
+        qu = self.only_show_ready_deliverable_works(_db, qu)
+
+        # This method applies whatever filters are necessary to implement
+        # the rules of this particular WorkList.
+        qu, bibliographic_clause = self.bibliographic_filter_clause(
+            _db, qu, featured
+        )
+        if bibliographic_clause is not None:
+            qu = qu.filter(bibliographic_clause)
+
+        qu = self.apply_extra_filters(_db, qu)
+
+        if facets:
+            qu = facets.modify_database_query(_db, qu)
+        else:
+            # Ordinarily facets.apply() would take care of ordering
+            # the query and making it distinct. In the absence
+            # of any ordering information, we will make the query distinct
+            # based on work ID.
+            qu = qu.distinct(Work.id)
+
+        if pagination:
+            qu = pagination.modify_database_query(qu)
+
+        return qu
+
+    def bibliographic_filter_clause(self, _db, qu, featured=False, outer_join=False):
+        """Create a SQLAlchemy filter that excludes books whose bibliographic
+        metadata doesn't match what we're looking for.
+
+        :return: A 2-tuple (query, clause).
+
+        - query is either `qu`, or a new query that has been modified to
+        join against additional tables.
+        """
+        # Audience language, and genre restrictions are allowed on all
+        # WorkLists. (So are collection restrictions, but those are
+        # applied by only_show_ready_deliverable_works().
+        clauses = self.audience_filter_clauses(_db, qu)
+        if self.languages:
+            clauses.append(Edition.language.in_(self.languages))
+        if self.media:
+            clauses.append(Edition.medium.in_(self.media))
+        if self.genre_ids:
+            wg = aliased(WorkGenre)
+            qu = qu.join(wg, wg.work_id==Work.work_id)
+            field = wg.genre_id
+            clauses.append(field.in_(self.genre_ids))
+
+        if self.customlist_ids:
+            qu, customlist_clauses = self.customlist_filter_clauses(
+                qu, featured, outer_join
+            )
+            clauses.extend(customlist_clauses)
+
+        if not clauses:
+            clause = None
+        else:
+            clause = and_(*clauses)
+        return qu, clause
+
+    def apply_extra_filters(self, _db, qu):
+        # A hook method for subclasses to use.
+        return qu
+
+    def audience_filter_clauses(self, _db, qu):
+        """Create a SQLAlchemy filter that excludes books whose intended
+        audience doesn't match what we're looking for.
+        """
+        if not self.audiences:
+            return []
+        return [Work.audience.in_(self.audiences)]
+
+    def customlist_filter_clauses(
+            self, qu, must_be_featured=False, outer_join=False
+    ):
+        """Create a filter clause that only books that are on one of the
+        CustomLists allowed by Lane configuration.
+
+        :param must_be_featured: It's not enough for the book to be on
+        an appropriate list; it must be _featured_ on an appropriate list.
+
+        :return: A 3-tuple (query, clauses).
+
+        `query` is the same query as `qu`, possibly extended with
+        additional table joins.
+
+        `clauses` is a list of SQLAlchemy statements for use in a
+        filter() or case() statement.
+        """
+        if not self.uses_customlists:
+            # This lane does not require that books be on any particular
+            # CustomList.
+            return qu, []
+
+        # We will be joining against CustomListEntry at least
+        # once. For a lane derived from the intersection of two or
+        # more custom lists, we may be joining CustomListEntry
+        # multiple times. To avoid confusion, we make a new alias for
+        # the table every time.
+        a_entry = aliased(CustomListEntry)
+
+        clause = a_entry.work_id==Work.id
+        if outer_join:
+            qu = qu.outerjoin(a_entry, clause)
+        else:
+            qu = qu.join(a_entry, clause)
+
+        # Actually build the restriction clauses.
+        clauses = []
+        customlist_ids = None
+        if self.list_datasource_id:
+            # Use a subquery to obtain the CustomList IDs of all
+            # CustomLists from this DataSource. This is significantly
+            # simpler than adding a join against CustomList.
+            customlist_ids = Select(
+                [CustomList.id],
+                CustomList.data_source_id==self.list_datasource_id
+            )
+        else:
+            customlist_ids = self.customlist_ids
+        if customlist_ids is not None:
+            clauses.append(a_entry.list_id.in_(customlist_ids))
+        if must_be_featured:
+            clauses.append(a_entry.featured==True)
+        if self.list_seen_in_previous_days:
+            cutoff = datetime.datetime.utcnow() - datetime.timedelta(
+                self.list_seen_in_previous_days
+            )
+            clauses.append(a_entry.most_recent_appearance >=cutoff)
+
+        return qu, clauses
 
 
 class LaneGenre(Base):
@@ -2432,7 +2304,7 @@ class Lane(Base, WorkList):
     def update_size(self, _db):
         """Update the stored estimate of the number of Works in this Lane."""
         query = self.works_from_database(_db).limit(None)
-        query = query.distinct(mw.works_id)
+        query = query.distinct(Work.works_id)
 
         # Do the estimate for every known entry point.
         by_entrypoint = dict()
@@ -2747,7 +2619,7 @@ class Lane(Base, WorkList):
             clauses.append(LicensePool.data_source==self.license_datasource)
 
         if self.fiction is not None:
-            clauses.append(mw.fiction==self.fiction)
+            clauses.append(Work.fiction==self.fiction)
 
         clauses.extend(self.age_range_filter_clauses())
 
@@ -2768,7 +2640,7 @@ class Lane(Base, WorkList):
             or Classifier.AUDIENCE_ADULTS_ONLY in self.audiences):
             # Books for adults don't have target ages. If we're including
             # books for adults, allow the target age to be empty.
-            audience_has_no_target_age = mw.target_age == None
+            audience_has_no_target_age = Work.target_age == None
         else:
             audience_has_no_target_age = False
 
@@ -2777,7 +2649,7 @@ class Lane(Base, WorkList):
         # must overlap that of the lane.
         return [
             or_(
-                mw.target_age.overlaps(self.target_age),
+                Work.target_age.overlaps(self.target_age),
                 audience_has_no_target_age
             )
         ]
