@@ -73,7 +73,6 @@ from model import (
     Library,
     LicensePool,
     LicensePoolDeliveryMechanism,
-    MaterializedWorkWithGenre as mw,
     Session,
     Work,
     WorkGenre,
@@ -533,107 +532,6 @@ class Facets(FacetsWithEntryPoint):
             for facet in collection_facets:
                 yield dy(facet)
 
-    @classmethod
-    def order_facet_to_database_field(cls, order_facet):
-        """Turn the name of an order facet into a materialized-view field
-        for use in an ORDER BY clause.
-
-        DEPRECATED - Should be removed or at least changed to use
-        Work fields.
-        """
-        order_facet_to_database_field = {
-            cls.ORDER_ADDED_TO_COLLECTION: mw.availability_time,
-            cls.ORDER_WORK_ID : mw.works_id,
-            cls.ORDER_TITLE : mw.sort_title,
-            cls.ORDER_AUTHOR : mw.sort_author,
-            cls.ORDER_LAST_UPDATE : mw.last_update_time,
-            cls.ORDER_SERIES_POSITION : mw.series_position,
-            cls.ORDER_RANDOM : mw.random,
-        }
-        return order_facet_to_database_field[order_facet]
-
-    def apply(self, _db, qu):
-        """Restrict a query against MaterializedWorkWithGenre so that it only
-        matches works that fit the given facets, and the query is
-        ordered appropriately.
-
-        DEPRECATED - Should be removed or at least changed to use
-        Work fields.
-        """
-        qu = super(Facets, self).apply(_db, qu)
-        if self.availability == self.AVAILABLE_NOW:
-            availability_clause = or_(
-                LicensePool.open_access==True,
-                LicensePool.licenses_available > 0)
-        elif self.availability == self.AVAILABLE_ALL:
-            availability_clause = or_(
-                LicensePool.open_access==True,
-                LicensePool.licenses_owned > 0)
-        elif self.availability == self.AVAILABLE_OPEN_ACCESS:
-            availability_clause = LicensePool.open_access==True
-        qu = qu.filter(availability_clause)
-
-        if self.collection == self.COLLECTION_FULL:
-            # Include everything.
-            pass
-        elif self.collection == self.COLLECTION_MAIN:
-            # Exclude open-access books with a quality of less than
-            # 0.3.
-            or_clause = or_(
-                LicensePool.open_access==False,
-                mw.quality >= 0.3
-            )
-            qu = qu.filter(or_clause)
-        elif self.collection == self.COLLECTION_FEATURED:
-            # Exclude books with a quality of less than the library's
-            # minimum featured quality.
-            qu = qu.filter(
-                mw.quality >= self.library.minimum_featured_quality
-            )
-
-        # Set the ORDER BY clause.
-        order_by, order_distinct = self.order_by()
-        qu = qu.order_by(*order_by)
-
-        # We always mark the query as distinct because the materialized
-        # view can contain the same title many times.
-        qu = qu.distinct(*order_distinct)
-
-        return qu
-
-    def order_by(self):
-        """Given these Facets, create a complete ORDER BY clause for queries
-        against WorkModelWithGenre.
-
-        DEPRECATED - Should be removed or at least changed to use
-        Work fields.
-        """
-        work_id = mw.works_id
-        default_sort_order = [
-            mw.sort_author, mw.sort_title, work_id
-        ]
-
-        primary_order_by = self.order_facet_to_database_field(self.order)
-        if primary_order_by is not None:
-            # Promote the field designated by the sort facet to the top of
-            # the order-by list.
-            order_by = [primary_order_by]
-
-            for i in default_sort_order:
-                if i not in order_by:
-                    order_by.append(i)
-        else:
-            # Use the default sort order
-            order_by = default_order_by
-
-        # order_ascending applies only to the first field in the sort order.
-        # For now, everything else is ordered ascending.
-        if self.order_ascending:
-            order_by_sorted = [x.asc() for x in order_by]
-        else:
-            order_by_sorted = [order_by[0].desc()] + [x.asc() for x in order_by[1:]]
-        return order_by_sorted, order_by
-
     def modify_search_filter(self, filter):
         """Modify the given external_search.Filter object
         so that it reflects the settings of this Facets object.
@@ -656,6 +554,131 @@ class Facets(FacetsWithEntryPoint):
                 filter.order_ascending = self.order_ascending
             else:
                 logging.error("Unrecognized sort order: %s", self.order)
+
+
+class DatabaseFacets(Facets):
+    """A generic faceting object designed for managing queries against the
+    `works` table. (Other faceting objects are designed for managing
+    Elasticsearch searches.)
+    """
+
+    # These search orders are not available when running a query against
+    # the database.
+    NOT_AVAILABLE = set([ORDER_ADDED_TO_COLLECTION, ORDER_SERIES_POSITION])
+
+    @classmethod
+    def available_facets(cls, config, facet_group_name):
+        """Exclude search orders not available through database queries."""
+        standard = config.enabled_facets(facet_group_name)
+        if facet_group_name != ORDER_FACET_GROUP_NAME:
+            return standard
+        for i in standard:
+            if i not in cls.NOT_AVAILABLE:
+                yield i
+
+    @classmethod
+    def default_facet(cls, config, facet_group_name):
+        """Exclude search orders not available through database queries."""
+        standard_default = super(Facets, cls).default_facet(
+            config, facet_group_name
+        )
+        if facet_group_name != ORDER_FACET_GROUP_NAME:
+            return standard_default
+        if standard_default not in cls.NOT_AVAILABLE:
+            return standard_default
+        enabled = config.enabled_facets(facet_group_name)
+        if enabled:
+            return enabled[0]
+        return enabled
+
+    @classmethod
+    def order_facet_to_database_field(cls, order_facet):
+        """Turn the name of an order facet into a field of Work for use in an
+        ORDER BY clause.
+
+        Note that this faceting class supports only a subset of the
+        normal sort orders.
+        """
+        order_facet_to_database_field = {
+            cls.ORDER_WORK_ID : Work.id
+            cls.ORDER_TITLE : Work.sort_title,
+            cls.ORDER_AUTHOR : Work.sort_author,
+            cls.ORDER_LAST_UPDATE : Work.last_update_time,
+            cls.ORDER_RANDOM : Work.random,
+        }
+        return order_facet_to_database_field.get(order_facet)
+
+    def order_by(self):
+        """Given these Facets, create a complete ORDER BY clause for queries
+        against WorkModelWithGenre.
+        """
+        default_sort_order = [
+            Work.sort_author, Work.sort_title, Work.id
+        ]
+
+        primary_order_by = self.order_facet_to_database_field(self.order)
+        if primary_order_by is not None:
+            # Promote the field designated by the sort facet to the top of
+            # the order-by list.
+            order_by = [primary_order_by]
+
+            for i in default_sort_order:
+                if i not in order_by:
+                    order_by.append(i)
+        else:
+            # Use the default sort order
+            order_by = default_order_by
+
+        # order_ascending applies only to the first field in the sort order.
+        # Everything else is ordered ascending.
+        if self.order_ascending:
+            order_by_sorted = [x.asc() for x in order_by]
+        else:
+            order_by_sorted = [order_by[0].desc()] + [x.asc() for x in order_by[1:]]
+        return order_by_sorted, order_by
+
+    def modify_database_query(self, _db, qu):
+        """Restrict a query against Work+LicensePool so that it only
+        matches works that fit this Faceting object, and so that the query is
+        ordered appropriately.
+        """
+        if self.availability == self.AVAILABLE_NOW:
+            availability_clause = or_(
+                LicensePool.open_access==True,
+                LicensePool.licenses_available > 0
+            )
+        elif self.availability == self.AVAILABLE_ALL:
+            availability_clause = or_(
+                LicensePool.open_access==True,
+                LicensePool.licenses_owned > 0
+            )
+        elif self.availability == self.AVAILABLE_OPEN_ACCESS:
+            availability_clause = LicensePool.open_access==True
+        qu = qu.filter(availability_clause)
+
+        if self.collection == self.COLLECTION_FULL:
+            # Include everything.
+            pass
+        elif self.collection == self.COLLECTION_MAIN:
+            # Exclude open-access books with a quality of less than
+            # 0.3.
+            or_clause = or_(
+                LicensePool.open_access==False,
+                Work.quality >= 0.3
+            )
+            qu = qu.filter(or_clause)
+        elif self.collection == self.COLLECTION_FEATURED:
+            # Exclude books with a quality of less than the library's
+            # minimum featured quality.
+            qu = qu.filter(
+                Work.quality >= self.library.minimum_featured_quality
+            )
+
+        # Set the ORDER BY clause.
+        order_by, order_distinct = self.order_by()
+        qu = qu.order_by(*order_by)
+
+        return qu
 
 
 class FeaturedFacets(FacetsWithEntryPoint):
@@ -1479,70 +1502,6 @@ class WorkList(object):
             _db=_db, facets=facets, pagination=pagination, **kwargs
         )
 
-    def works_from_database(
-        self, _db, facets=None, pagination=None, include_quality_tier=False,
-        **kwargs
-    ):
-        """Create a query against a materialized view that finds Work-like
-        objects corresponding to all the Works that belong in this
-        WorkList.
-
-        The apply_filters() implementation defines which Works qualify
-        for membership in a WorkList of this type.
-
-        This tends to be slower than works_from_search_index, but not all
-        lanes can be generated through search engine queries.
-
-        TODO - This method, and all methods it calls, must be modified
-        to use normal database queries instead of the materialized
-        view.
-
-        :param _db: A database connection.
-        :param facets: A Facets object which may put additional
-           constraints on WorkList membership.
-        :param pagination: A Pagination object indicating which part of
-           the WorkList the caller is looking at.
-        :param kwargs: Ignored -- only included for compatibility
-           with works_from_search_engine, so that callers can invoke
-           works() without worrying about whether a given WorkList
-           gets works from the search engine or the database.
-        :return: A Query, or None if the WorkList is deemed to be a
-           bad idea in the first place.
-
-        """
-        # apply_filters() will apply the genre
-        # restrictions.
-
-        if isinstance(facets, FeaturedFacets):
-            field = facets.quality_tier_field()
-            qu = _db.query(mw, field)
-            if include_quality_tier:
-                qu = qu.add_columns(field)
-        else:
-            qu = _db.query(mw)
-
-        # Apply some database optimizations.
-        # apply_filters() requires that the query include a join
-        # against LicensePool. If nothing else, the `facets` may
-        # restrict the query to currently available items.
-        qu = qu.join(mw.license_pool)
-
-        if self.collection_ids is not None:
-            qu = qu.filter(
-                LicensePool.collection_id.in_(self.collection_ids)
-            )
-            # Also apply the filter on the materialized view --
-            # this doesn't seem to do anything, but it's possible that
-            # applying the filter here might cause the database to use
-            # an index it wouldn't have otherwise used.
-            qu = qu.filter(
-                mw.collection_id.in_(self.collection_ids)
-            )
-        qu = self.apply_filters(_db, qu, facets, pagination)
-        qu = self._modify_loading(qu)
-        qu = self._defer_unused_fields(qu)
-        return qu
-
     def works_from_search_index(
         self, _db, facets, pagination, search_engine=None, debug=False
     ):
@@ -1648,6 +1607,266 @@ class WorkList(object):
             u"Obtained %sx%d in %.2fsec", work_model.__name__, len(results), b-a
         )
         return results
+
+    @property
+    def search_target(self):
+        """By default, a WorkList is searchable."""
+        return self
+
+    def search(self, _db, query, search_client, pagination=None, facets=None,
+               debug=False):
+        """Find works in this WorkList that match a search query.
+
+        :param _db: A database connection.
+        :param query: Search for this string.
+        :param search_client: An ExternalSearchIndex object.
+        :param pagination: A Pagination object.
+        :param facets: A faceting object, probably a SearchFacets.
+        :param debug: Pass in True to see a summary of results returned
+            from the search index.
+        """
+        results = []
+        hits = None
+        if not search_client:
+            # We have no way of actually doing a search. Return nothing.
+            return results
+
+        if not pagination:
+            pagination = Pagination(
+                offset=0, size=Pagination.DEFAULT_SEARCH_SIZE
+            )
+
+        from external_search import Filter
+        filter = Filter.from_worklist(_db, self, facets)
+        try:
+            hits = search_client.query_works(
+                query, filter, pagination, debug
+            )
+        except elasticsearch.exceptions.ElasticsearchException, e:
+            logging.error(
+                "Problem communicating with ElasticSearch. Returning empty list of search results.",
+                exc_info=e
+            )
+        if hits:
+            results = self.works_for_hits(_db, hits, Work)
+
+        return results
+
+    def _groups_for_lanes(
+        self, _db, relevant_lanes, queryable_lanes, facets,
+        search_engine=None, debug=False
+    ):
+        """Ask the search engine for groups of featurable works in the
+        given lanes. Fill in gaps as necessary.
+
+        :param facets: A FeaturedFacets object.
+
+        :param search_engine: An ExternalSearchIndex to use when
+           asking for the featured works in a given WorkList.
+        :param debug: A debug argument passed into `search_engine` when
+           running the search.
+        :yield: A sequence of (Work, WorkList) 2-tuples, with each
+            WorkList representing the child WorkList in which the Work is
+            found.
+        """
+        library = self.get_library(_db)
+        target_size = library.featured_lane_size
+        facets = facets or self.default_featured_facets(_db)
+
+        # We ask for a few extra works for each lane, to reduce the
+        # risk that we'll end up reusing a book in two different
+        # lanes.
+        ask_for_size = max(target_size+1, int(target_size * 1.10))
+        # TODO: we're reusing this pagination object, which means
+        # page_loaded will be called multiple times. Could this be a
+        # problem?
+        pagination = Pagination(size=ask_for_size)
+
+        from external_search import ExternalSearchIndex
+        search_engine = search_engine or ExternalSearchIndex.load(_db)
+
+        if isinstance(self, Lane):
+            parent_lane = self
+        else:
+            parent_lane = None
+
+        queryable_lane_set = set(queryable_lanes)
+        works_and_lanes = list(
+            self._featured_works_with_lanes(
+                _db, queryable_lanes, facets=facets,
+                pagination=pagination, search_engine=search_engine,
+                debug=debug
+            )
+        )
+
+        def _done_with_lane(lane):
+            """Called when we're done with a Lane, either because
+            the lane changes or we've reached the end of the list.
+            """
+            # Did we get enough items?
+            num_missing = target_size-len(by_lane[lane])
+            if num_missing > 0 and might_need_to_reuse:
+                # No, we need to use some works we used in a
+                # previous lane to fill out this lane. Stick
+                # them at the end.
+                by_lane[lane].extend(
+                    might_need_to_reuse.values()[:num_missing]
+                )
+
+        used_works = set()
+        by_lane = defaultdict(list)
+        working_lane = None
+        might_need_to_reuse = dict()
+        for work, lane in works_and_lanes:
+            if lane != working_lane:
+                # Either we're done with the old lane, or we're just
+                # starting and there was no old lane.
+                if working_lane:
+                    _done_with_lane(working_lane)
+                working_lane = lane
+                used_works_this_lane = set()
+                might_need_to_reuse = dict()
+            if len(by_lane[lane]) >= target_size:
+                # We've already filled this lane.
+                continue
+
+            if work.id in used_works:
+                if work.id not in used_works_this_lane:
+                    # We already used this work in another lane, but we
+                    # might need to use it again to fill out this lane.
+                    might_need_to_reuse[work.id] = work
+            else:
+                by_lane[lane].append(work)
+                used_works.add(work.id)
+                used_works_this_lane.add(work.id)
+
+        # Close out the last lane encountered.
+        _done_with_lane(working_lane)
+        for lane in relevant_lanes:
+            if lane in queryable_lane_set:
+                # We found results for this lane through the main query.
+                # Yield those results.
+                for work in by_lane.get(lane, []):
+                    yield (work, lane)
+            else:
+                # We didn't try to use the main query to find results
+                # for this lane because we knew the results, if there
+                # were any, wouldn't be representative. This is most
+                # likely because this 'lane' is a WorkList and not a
+                # Lane at all. Do a whole separate query and plug it
+                # in at this point.
+                for x in lane.groups(
+                    _db, include_sublanes=False, facets=facets,
+                ):
+                    yield x
+
+    def _featured_works_with_lanes(
+        self, _db, lanes, facets, pagination, search_engine, debug=False
+    ):
+        """Find a sequence of works that can be used to
+        populate this lane's grouped acquisition feed.
+
+        :param lanes: Classify Work objects
+            as belonging to one of these WorkLists (presumably sublanes
+            of `self`).
+        :param facets: A faceting object, presumably a FeaturedFacets
+        :param pagination: A Pagination object explaining how many
+            items to ask for. In most cases this should be slightly more than
+            the number of items you actually want, so that you have some
+            slack to remove duplicates across multiple lanes.
+        :param search_engine: An ExternalSearchIndex to use when
+           asking for the featured works in a given WorkList.
+        :param debug: A debug argument passed into `search_engine` when
+           running the search.
+
+        :yield: A sequence of (MaterializedWorkWithGenre,
+        quality_tier, Lane) 3-tuples.
+        """
+        if not lanes:
+            # We can't run this query at all.
+            return
+
+        # Ask the search engine for works from every lane we're given.
+        for lane in lanes:
+            for work in lane.works(
+                _db, facets, pagination, search_engine=search_engine,
+                debug=debug
+            ):
+                yield work, lane
+
+
+class DatabaseBackedWorklist(WorkList):
+    """A WorkList that gets its works from a database query rather than
+    the search index.
+    """
+
+    def works(
+        self, _db, facets=None, pagination=None, include_quality_tier=False,
+        **kwargs
+    ):
+        """Create a query against the `works` table that finds Work objects
+        corresponding to all the Works that belong in this WorkList.
+
+        The apply_filters() implementation defines which Works qualify
+        for membership in a WorkList of this type.
+
+        This tends to be slower than works_from_search_index, but not all
+        lanes can be generated through search engine queries.
+
+        :param _db: A database connection.
+        :param facets: A DatabaseFacets object which may put additional
+           constraints on WorkList membership.
+        :param pagination: A Pagination object indicating which part of
+           the WorkList the caller is looking at.
+        :param kwargs: Ignored -- only included for compatibility
+           with works_from_search_engine, so that callers can invoke
+           works() without worrying about whether a given WorkList
+           gets works from the search engine or the database.
+        :return: A Query.
+
+        """
+        qu = _db.query(Work).join(Work.license_pools)
+
+        # Apply some database optimizations.
+        if self.collection_ids is not None:
+            qu = qu.filter(
+                LicensePool.collection_id.in_(self.collection_ids)
+            )
+        qu = self.apply_filters(_db, qu, facets, pagination)
+        qu = self._modify_loading(qu)
+        qu = self._defer_unused_fields(qu)
+        return qu
+
+    def works_in_window(self, _db, facets, target_size):
+        """Find all MaterializedWorkWithGenre objects within a randomly
+        selected window of values for the `random` field.
+
+        DEPRECATED This should not be necessary anymore.
+
+        :param facets: A `FeaturedFacets` object.
+
+        :param target_size: Try to get approximately this many
+        items. There may be more or less; this controls the size of
+        the window and the LIMIT on the query.
+        """
+        lane_query = self.works_from_database(_db, facets=facets)
+
+        # Make sure this query finds a number of works proportinal
+        # to the expected size of the lane.
+        lane_query = self._restrict_query_to_window(
+            lane_query, target_size, facets
+        )
+
+        lane_query = lane_query.order_by(
+            text("quality_tier desc"), mw.random.desc()
+        )
+
+        # Allow some overage to reduce the risk that we'll have to
+        # use a given book more than once in the overall feed. But
+        # set an upper limit so that a weird random distribution
+        # doesn't retrieve far more items than we need.
+        lane_query = lane_query.limit(target_size*1.3)
+        return lane_query
 
     def apply_filters(self, _db, qu, facets, pagination, featured=False):
         """Apply common WorkList filters to a query. Also apply any
@@ -1951,223 +2170,6 @@ class WorkList(object):
             return query.options(defer(work_model.verbose_opds_entry))
         else:
             return query.options(defer(work_model.simple_opds_entry))
-
-    @property
-    def search_target(self):
-        """By default, a WorkList is searchable."""
-        return self
-
-    def search(self, _db, query, search_client, pagination=None, facets=None,
-               debug=False):
-        """Find works in this WorkList that match a search query.
-
-        :param _db: A database connection.
-        :param query: Search for this string.
-        :param search_client: An ExternalSearchIndex object.
-        :param pagination: A Pagination object.
-        :param facets: A faceting object, probably a SearchFacets.
-        :param debug: Pass in True to see a summary of results returned
-            from the search index.
-        """
-        results = []
-        hits = None
-        if not search_client:
-            # We have no way of actually doing a search. Return nothing.
-            return results
-
-        if not pagination:
-            pagination = Pagination(
-                offset=0, size=Pagination.DEFAULT_SEARCH_SIZE
-            )
-
-        from external_search import Filter
-        filter = Filter.from_worklist(_db, self, facets)
-        try:
-            hits = search_client.query_works(
-                query, filter, pagination, debug
-            )
-        except elasticsearch.exceptions.ElasticsearchException, e:
-            logging.error(
-                "Problem communicating with ElasticSearch. Returning empty list of search results.",
-                exc_info=e
-            )
-        if hits:
-            results = self.works_for_hits(_db, hits, Work)
-
-        return results
-
-    def _groups_for_lanes(
-        self, _db, relevant_lanes, queryable_lanes, facets,
-        search_engine=None, debug=False
-    ):
-        """Ask the search engine for groups of featurable works in the
-        given lanes. Fill in gaps as necessary.
-
-        :param facets: A FeaturedFacets object.
-
-        :param search_engine: An ExternalSearchIndex to use when
-           asking for the featured works in a given WorkList.
-        :param debug: A debug argument passed into `search_engine` when
-           running the search.
-        :yield: A sequence of (Work, WorkList) 2-tuples, with each
-            WorkList representing the child WorkList in which the Work is
-            found.
-        """
-        library = self.get_library(_db)
-        target_size = library.featured_lane_size
-        facets = facets or self.default_featured_facets(_db)
-
-        # We ask for a few extra works for each lane, to reduce the
-        # risk that we'll end up reusing a book in two different
-        # lanes.
-        ask_for_size = max(target_size+1, int(target_size * 1.10))
-        # TODO: we're reusing this pagination object, which means
-        # page_loaded will be called multiple times. Could this be a
-        # problem?
-        pagination = Pagination(size=ask_for_size)
-
-        from external_search import ExternalSearchIndex
-        search_engine = search_engine or ExternalSearchIndex.load(_db)
-
-        if isinstance(self, Lane):
-            parent_lane = self
-        else:
-            parent_lane = None
-
-        queryable_lane_set = set(queryable_lanes)
-        works_and_lanes = list(
-            self._featured_works_with_lanes(
-                _db, queryable_lanes, facets=facets,
-                pagination=pagination, search_engine=search_engine,
-                debug=debug
-            )
-        )
-
-        def _done_with_lane(lane):
-            """Called when we're done with a Lane, either because
-            the lane changes or we've reached the end of the list.
-            """
-            # Did we get enough items?
-            num_missing = target_size-len(by_lane[lane])
-            if num_missing > 0 and might_need_to_reuse:
-                # No, we need to use some works we used in a
-                # previous lane to fill out this lane. Stick
-                # them at the end.
-                by_lane[lane].extend(
-                    might_need_to_reuse.values()[:num_missing]
-                )
-
-        used_works = set()
-        by_lane = defaultdict(list)
-        working_lane = None
-        might_need_to_reuse = dict()
-        for work, lane in works_and_lanes:
-            if lane != working_lane:
-                # Either we're done with the old lane, or we're just
-                # starting and there was no old lane.
-                if working_lane:
-                    _done_with_lane(working_lane)
-                working_lane = lane
-                used_works_this_lane = set()
-                might_need_to_reuse = dict()
-            if len(by_lane[lane]) >= target_size:
-                # We've already filled this lane.
-                continue
-
-            if work.id in used_works:
-                if work.id not in used_works_this_lane:
-                    # We already used this work in another lane, but we
-                    # might need to use it again to fill out this lane.
-                    might_need_to_reuse[work.id] = work
-            else:
-                by_lane[lane].append(work)
-                used_works.add(work.id)
-                used_works_this_lane.add(work.id)
-
-        # Close out the last lane encountered.
-        _done_with_lane(working_lane)
-        for lane in relevant_lanes:
-            if lane in queryable_lane_set:
-                # We found results for this lane through the main query.
-                # Yield those results.
-                for work in by_lane.get(lane, []):
-                    yield (work, lane)
-            else:
-                # We didn't try to use the main query to find results
-                # for this lane because we knew the results, if there
-                # were any, wouldn't be representative. This is most
-                # likely because this 'lane' is a WorkList and not a
-                # Lane at all. Do a whole separate query and plug it
-                # in at this point.
-                for x in lane.groups(
-                    _db, include_sublanes=False, facets=facets,
-                ):
-                    yield x
-
-    def _featured_works_with_lanes(
-        self, _db, lanes, facets, pagination, search_engine, debug=False
-    ):
-        """Find a sequence of works that can be used to
-        populate this lane's grouped acquisition feed.
-
-        :param lanes: Classify Work objects
-            as belonging to one of these WorkLists (presumably sublanes
-            of `self`).
-        :param facets: A faceting object, presumably a FeaturedFacets
-        :param pagination: A Pagination object explaining how many
-            items to ask for. In most cases this should be slightly more than
-            the number of items you actually want, so that you have some
-            slack to remove duplicates across multiple lanes.
-        :param search_engine: An ExternalSearchIndex to use when
-           asking for the featured works in a given WorkList.
-        :param debug: A debug argument passed into `search_engine` when
-           running the search.
-
-        :yield: A sequence of (MaterializedWorkWithGenre,
-        quality_tier, Lane) 3-tuples.
-        """
-        if not lanes:
-            # We can't run this query at all.
-            return
-
-        # Ask the search engine for works from every lane we're given.
-        for lane in lanes:
-            for work in lane.works(
-                _db, facets, pagination, search_engine=search_engine,
-                debug=debug
-            ):
-                yield work, lane
-
-    def works_in_window(self, _db, facets, target_size):
-        """Find all MaterializedWorkWithGenre objects within a randomly
-        selected window of values for the `random` field.
-
-        DEPRECATED This should not be necessary anymore.
-
-        :param facets: A `FeaturedFacets` object.
-
-        :param target_size: Try to get approximately this many
-        items. There may be more or less; this controls the size of
-        the window and the LIMIT on the query.
-        """
-        lane_query = self.works_from_database(_db, facets=facets)
-
-        # Make sure this query finds a number of works proportinal
-        # to the expected size of the lane.
-        lane_query = self._restrict_query_to_window(
-            lane_query, target_size, facets
-        )
-
-        lane_query = lane_query.order_by(
-            text("quality_tier desc"), mw.random.desc()
-        )
-
-        # Allow some overage to reduce the risk that we'll have to
-        # use a given book more than once in the overall feed. But
-        # set an upper limit so that a weird random distribution
-        # doesn't retrieve far more items than we need.
-        lane_query = lane_query.limit(target_size*1.3)
-        return lane_query
 
     def _restrict_query_to_window(self, query, target_size, facets):
         """Restrict the given SQLAlchemy query so that it matches
