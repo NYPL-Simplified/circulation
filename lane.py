@@ -1393,19 +1393,20 @@ class WorkList(object):
         return self.works_for_hits(_db, hits)
 
     def works_for_hits(self, _db, hits):
-        """Create the appearance of having called works to run a search(), but
-        return the specific MaterializedWorks or Works identified by
-        `hits`.
+        """Convert a list of search results into Work objects.
 
         :param _db: A database connection
         :param hits: A list of Hit objects from ElasticSearch.
         :return A list of Work or (if the search results include
             script fields), WorkSearchResult objects.
-
         """
 
         # Get a list of Work objects, using the same rules applied in
         # works() and works_from_search().
+        #
+        # TODO: This could be done with less code by making a DatabaseBackedWorkList,
+        # or by reusing some code from that class. But not so much less code
+        # that the answer is obvious.
         work_id_field = Work.id
         qu = _db.query(Work).join(
             Work.license_pools
@@ -1421,11 +1422,11 @@ class WorkList(object):
         qu = self._defer_unused_fields(qu)
         qu = self.only_show_ready_deliverable_works(_db, qu)
         qu = qu.distinct(Work.id)
-        work_by_id = dict()
         a = time.time()
         works = qu.all()
 
         # Put the results in the same order as the work_ids were.
+        work_by_id = dict()
         for w in works:
             work_by_id[w.id] = w
 
