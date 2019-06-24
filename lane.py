@@ -703,6 +703,23 @@ class FeaturedFacets(FacetsWithEntryPoint):
         entrypoint = entrypoint or self.entrypoint
         return self.__class__(minimum_featured_quality, entrypoint)
 
+    # The Painless script to generate a 'featurability' score for
+    # a work.
+    #
+    # A higher-quality work is more featurable. But we don't want
+    # to constantly feature the very highest-quality works, and if
+    # there are no high-quality works, we want medium-quality to
+    # outrank low-quality.
+    #
+    # So we establish a cutoff -- the minimum featured quality --
+    # beyond which a work is considered 'featurable'. All featurable
+    # works get the same (high) score.
+    #
+    # Below that point, we prefer higher-quality works to
+    # lower-quality works, such that a work's score is proportional to
+    # the square of its quality.
+    FEATURABLE_SCRIPT = "Math.pow(Math.min(%(cutoff).5f, doc['quality'].value), %(exponent).5f) * 5"
+
     def scoring_functions(self, filter):
         """Generate scoring functions that weight works randomly, but
         with 'more featurable' works tending to be at the top.
@@ -710,22 +727,11 @@ class FeaturedFacets(FacetsWithEntryPoint):
         from elasticsearch_dsl import SF, Q
         from external_search import SearchBase
 
-        # A higher-quality work is more featurable. But we don't want
-        # to constantly feature the very highest-quality works, and if
-        # there are no high-quality works, we want medium-quality to
-        # outrank low-quality.
-        #
-        # So we establish a cutoff -- the minimum featured quality --
-        # beyond which a work is considered 'featurable'. All featurable
-        # works get the same (high) score.
-        #
-        # Below that point, we prefer higher-quality works to lower-quality
-        # works, so a work's score is proportional to the square of its
-        # quality.
         exponent = 2
         cutoff = (self.minimum_featured_quality ** exponent)
-        script = ("Math.pow(Math.min(%.5f, doc['quality'].value), %.5f) * 5"
-                  % (cutoff, exponent))
+        script = self.FEATURABLE_SCRIPT % dict(
+            cutoff=cutoff, exponent=exponent
+        )
         quality_field = SF('script_score', script=dict(source=script))
 
         # Currently available works are more featurable.

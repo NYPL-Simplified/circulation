@@ -18,6 +18,11 @@ from sqlalchemy import (
     func,
 )
 
+from elasticsearch_dsl.function import (
+    ScriptScore,
+    RandomScore,
+)
+
 from elasticsearch.exceptions import ElasticsearchException
 
 from ..classifier import Classifier
@@ -950,200 +955,79 @@ class TestFeaturedFacets(DatabaseTest):
         eq_(True, facets.entrypoint_is_default)
 
     def test_navigate(self):
-        """Test the ability of navigate() to move between slight
-        variations of a FeaturedFacets object.
-        """
+        # Test the ability of navigate() to move between slight
+        # variations of a FeaturedFacets object.
         entrypoint = EbooksEntryPoint
-        f = FeaturedFacets(1, True, entrypoint)
+        f = FeaturedFacets(1, entrypoint)
 
         different_entrypoint = f.navigate(entrypoint=AudiobooksEntryPoint)
         eq_(1, different_entrypoint.minimum_featured_quality)
         eq_(AudiobooksEntryPoint, different_entrypoint.entrypoint)
-        eq_(False, different_entrypoint.entrypoint_is_default)
 
         different_quality = f.navigate(minimum_featured_quality=2)
         eq_(2, different_quality.minimum_featured_quality)
         eq_(entrypoint, different_quality.entrypoint)
-        eq_(True, different_entrypoint.entrypoint_is_default)
 
-    def test_quality_calculation(self):
+    def test_scoring_functions(self):        
+        # Verify that FeaturedFacets sets appropriate scoring functions
+        # for ElasticSearch queries.
+        f = FeaturedFacets(minimum_featured_quality=0.55, random_seed=42)
+        from core.external_search import Filter
+        filter = Filter()
 
-        minimum_featured_quality = 0.6
+        # In most cases, there are three things that can boost a work's score.
+        [featurable, available_now, random] = f.scoring_functions(filter)
 
-        # Create a number of works that fall into various quality tiers.
-        featurable = self._work(title="Featurable", with_license_pool=True)
-        featurable.quality = minimum_featured_quality
-
-        featurable_but_not_available = self._work(
-            title="Featurable but not available",
-            with_license_pool=True
+        # It can be high-quality enough to be featured.
+        assert isinstance(featurable, ScriptScore)
+        source = f.FEATURABLE_SCRIPT % dict(
+            cutoff=f.minimum_featured_quality ** 2, exponent=2
         )
-        featurable_but_not_available.quality = minimum_featured_quality
-        featurable_but_not_available.license_pools[0].licenses_available = 0
+        eq_(source, featurable.script['source'])
 
-        awful_but_licensed = self._work(
-            title="Awful but licensed",
-            with_license_pool=True
-        )
-        awful_but_licensed.quality = 0
-
-        decent_open_access = self._work(
-            title="Decent open access", with_license_pool=True,
-            with_open_access_download=True
-        )
-        decent_open_access.quality = 0.3
-
-        awful_open_access = self._work(
-            title="Awful open access", with_license_pool=True,
-            with_open_access_download=True
-        )
-        awful_open_access.quality = 0
-
-        awful_but_featured_on_a_list = self._work(
-            title="Awful but featured on a list", with_license_pool=True,
-            with_open_access_download=True
-        )
-        awful_but_featured_on_a_list.license_pools[0].licenses_available = 0
-        awful_but_featured_on_a_list.quality = 0
-
-        custom_list, ignore = self._customlist(num_entries=0)
-        entry, ignore = custom_list.add_entry(
-            awful_but_featured_on_a_list, featured=True
-        )
-
-        self.add_to_materialized_view(
-            [awful_but_featured_on_a_list, featurable,
-             featurable_but_not_available, decent_open_access,
-             awful_but_licensed, awful_open_access]
-        )
-
-        # This FeaturedFacets object will be able to assign a numeric
-        # value to each work that places it in a quality tier.
-        facets = FeaturedFacets(minimum_featured_quality, True)
-
-        # This custom database query field will perform the calculation.
-        quality_field = facets.quality_tier_field().label("tier")
-
-        # Test it out by using it in a SELECT statement.
-        qu = self._db.query(
-            work_model, quality_field
-        ).join(
-            LicensePool,
-            LicensePool.id==work_model.license_pool_id
-        ).outerjoin(
-            CustomListEntry, CustomListEntry.work_id==work_model.works_id
-        )
-
-        expect_scores = {
-            # featured on list (11) + available (1)
-            awful_but_featured_on_a_list.sort_title: 12,
-
-            # featurable (5) + licensed (2) + available (1)
-            featurable.sort_title : 8,
-
-            # featurable (5) + licensed (2)
-            featurable_but_not_available.sort_title : 7,
-
-            # quality open access (2) + available (1)
-            decent_open_access.sort_title : 3,
-
-            # licensed (2) + available (1)
-            awful_but_licensed.sort_title : 3,
-
-            # available (1)
-            awful_open_access.sort_title : 1,
-        }
-
-        def best_score_dict(qu):
-            return dict((x.sort_title,y) for x, y in qu)
-
-        actual_scores = best_score_dict(qu)
-        eq_(expect_scores, actual_scores)
-
-        # If custom lists are not being considered, the "awful but
-        # featured on a list" work loses its cachet.
-        no_list_facets = FeaturedFacets(minimum_featured_quality, False)
-        quality_field = no_list_facets.quality_tier_field().label("tier")
-        no_list_qu = self._db.query(work_model, quality_field).join(
-            LicensePool,
-            LicensePool.id==work_model.license_pool_id
-        )
-
-        # 1 is the expected score for a work that has nothing going
-        # for it except for being available right now.
-        expect_scores[awful_but_featured_on_a_list.sort_title] = 1
-        actual_scores = best_score_dict(no_list_qu)
-        eq_(expect_scores, actual_scores)
-
-        # A low-quality work achieves the same low score if lists are
-        # considered but the work is not _featured_ on its list.
-        entry.featured = False
-        actual_scores = best_score_dict(qu)
-        eq_(expect_scores, actual_scores)
-
-
-    def test_apply(self):
-        """apply() orders a query randomly within quality tiers."""
-        high_quality_low_random = self._work(
-            title="High quality, low random", with_license_pool=True
-        )
-        high_quality_low_random.quality = 1
-        high_quality_low_random.random = 0
-
-        high_quality_high_random = self._work(
-            title="High quality, high random", with_license_pool=True
-        )
-        high_quality_high_random.quality = 0.7
-        high_quality_high_random.random = 1
-
-        low_quality = self._work(
-            title="Low quality, high random", with_license_pool=True
-        )
-        low_quality.quality = 0
-        low_quality.random = 1
-
-        self.add_to_materialized_view(
-            [high_quality_low_random, high_quality_high_random,
-             low_quality]
-        )
-
-        facets = FeaturedFacets(0.5, False)
-        base_query = self._db.query(work_model).join(work_model.license_pool)
-
-        def expect(works, qu):
-            expect_ids = [x.id for x in works]
-            actual_ids = [x.works_id for x in qu]
-            eq_(expect_ids, actual_ids)
-
-        # Higher-tier works show up before lower-tier works.
-        #
-        # Within a tier, works with a high random number show up
-        # before works with a low random number. The exact quality
-        # doesn't matter (high_quality_2 is slightly lower quality
-        # than high_quality_1), only the quality tier.
-        featured = facets.apply(self._db, base_query)
-        expect(
-            [high_quality_high_random, high_quality_low_random, low_quality],
-            featured
-        )
-
-        # Switch the random numbers, and the order of high-quality
-        # works is switched, but the high-quality works still show up
-        # first.
-        high_quality_high_random.random = 0.12
-        high_quality_low_random.random = 0.98
-        self._db.commit()
-        SessionManager.refresh_materialized_views(self._db)
-        expect([high_quality_low_random, high_quality_high_random, low_quality], featured)
-
-        # The query is distinct on works_id. (It's also distinct on the
-        # fields used in the ORDER BY clause, but that's just to get the
-        # query to work.)
-        eq_(False, base_query._distinct)
-        distinct_query = facets.apply(self._db, base_query)
+        # It can be currently available.
+        availability_filter = available_now['filter']
         eq_(
-            work_model.works_id, distinct_query._distinct[-1]
+            dict(nested=dict(
+                path='licensepools',
+                query=dict(term={'licensepools.available': True})
+            )),
+            availability_filter.to_dict()
         )
+        eq_(5, available_now['weight'])
+
+        # It can get lucky.
+        assert isinstance(random, RandomScore)
+        eq_(42, random.seed)
+        eq_(1.1, random.weight)
+
+        # If the FeaturedFacets is set to be deterministic (which only happens
+        # in tests), the RandomScore is removed.
+        f.random_seed = f.DETERMINISTIC
+        [featurable_2, available_now_2] = f.scoring_functions(filter)
+        eq_(featurable_2, featurable)
+        eq_(available_now_2, available_now)
+
+        # If custom lists are in play, it can also be featured on one
+        # of its custom lists.
+        filter.customlist_restriction_sets = [[1,2], [3]]
+        [featurable_2, available_now_2,
+         featured_on_list] = f.scoring_functions(filter)
+        eq_(featurable_2, featurable)
+        eq_(available_now_2, available_now)
+
+        # Any list will do -- the customlist restriction sets aren't
+        # relevant here.
+        featured_filter = featured_on_list['filter']
+        eq_(dict(
+            nested=dict(
+                path='customlists',
+                query=dict(bool=dict(
+                    must=[{'term': {'customlists.featured': True}},
+                          {'terms': {'customlists.list_id': [1, 2, 3]}}])))),
+            featured_filter.to_dict()
+        )
+        eq_(11, featured_on_list['weight'])
 
 
 class TestSearchFacets(DatabaseTest):
