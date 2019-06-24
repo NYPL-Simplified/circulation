@@ -964,8 +964,10 @@ class Pagination(object):
 
 
 class WorkList(object):
-    """An object that can obtain a list of Work/MaterializedWorkWithGenre
-    objects for use in generating an OPDS feed.
+    """An object that can obtain a list of Work objects for use
+    in generating an OPDS feed.
+
+    By default, these Work objects come from a search index.
     """
 
     # Unless a sitewide setting intervenes, the set of Works in a
@@ -1615,8 +1617,7 @@ class WorkList(object):
         :param debug: A debug argument passed into `search_engine` when
            running the search.
 
-        :yield: A sequence of (MaterializedWorkWithGenre,
-        quality_tier, Lane) 3-tuples.
+        :yield: A sequence of (Work, Lane) 2-tuples.
         """
         if not lanes:
             # We can't run this query at all.
@@ -2434,7 +2435,7 @@ class Lane(Base, WorkList):
 
     def groups(self, _db, include_sublanes=True, facets=None,
                search_engine=None, debug=False):
-        """Return a list of (MaterializedWorkWithGenre, Lane) 2-tuples
+        """Return a list of (Work, Lane) 2-tuples
         describing a sequence of featured items for this lane and
         (optionally) its children.
 
