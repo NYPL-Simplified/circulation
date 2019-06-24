@@ -261,7 +261,7 @@ class TestAnnotators(DatabaseTest):
         eq_(tag_string, etree.tostring(same_tag))
 
     def test_duplicate_author_names_are_ignored(self):
-        """Ignores duplicate author names"""
+        # Ignores duplicate author names
         work = self._work(with_license_pool=True)
         duplicate = self._contributor()[0]
         duplicate.sort_name = work.author

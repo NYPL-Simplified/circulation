@@ -300,37 +300,75 @@ class Annotator(object):
     @classmethod
     def authors(cls, work, edition):
         """Create one or more <author> and <contributor> tags for the given
-        work."""
+        Work.
+
+        :param work: The Work under consideration.
+        :param edition: The Edition to use as a reference
+            for bibliographic information, including the list of
+            Contributions.
+        """
         authors = list()
-        listed_by_role = defaultdict(set)
+        state = defaultdict(set)
         for contribution in edition.contributions:
-            contributor = contribution.contributor
-            name = contributor.display_name or contributor.sort_name
-            if contribution.role in Contributor.AUTHOR_ROLES:
-                tag_f = AtomFeed.author
-                role = None
-            else:
-                tag_f = AtomFeed.contributor
-                role = Contributor.MARC_ROLE_CODES.get(contribution.role)
-                if not role:
-                    # This contribution is not one that we publish as
-                    # a <atom:contributor> tag. Skip it.
-                    continue
-
-            name_key = name.lower()
-            if name_key in listed_by_role[role]:
+            tag = cls.contributor_tag(contribution, state)
+            if tag is None:
+                # contributor_tag decided that this contribution doesn't
+                # need a tag.
                 continue
-
-            properties = dict()
-            if role:
-                properties['{%s}role' % AtomFeed.OPF_NS] = role
-            tag = tag_f(AtomFeed.name(name), **properties)
             authors.append(tag)
-            listed_by_role[role].add(name_key)
 
         if authors:
             return authors
+
+        # We have no author information, so we add empty <author> tag
+        # to avoid the implication (per RFC 4287 4.2.1) that this book
+        # was written by whoever wrote the OPDS feed.
         return [AtomFeed.author(AtomFeed.name(""))]
+
+    @classmethod
+    def contributor_tag(cls, contribution, state):
+        """Build an <author> or <contributor> tag for a Contribution.
+
+        :param contribution: A Contribution.
+        :param state: A defaultdict of sets, which may be used to keep
+            track of what happened during previous calls to
+            contributor_tag for a given Work.
+        :return: A Tag, or None if creating a Tag for this Contribution
+            would be redundant or of low value.
+
+        """
+        contributor = contribution.contributor
+        role = contribution.role
+
+        if role in Contributor.AUTHOR_ROLES:
+            tag_f = AtomFeed.author
+            marc_role = None
+        else:
+            tag_f = AtomFeed.contributor
+            marc_role = Contributor.MARC_ROLE_CODES.get(role)
+            if not marc_role:
+                # This contribution is not one that we publish as
+                # a <atom:contributor> tag. Skip it.
+                return None
+
+        name = contributor.display_name or contributor.sort_name
+        name_key = name.lower()
+        if name_key in state[marc_role]:
+            # We've already credited this person with this
+            # MARC role. Returning a tag would be redundant.
+            return None
+
+        # Okay, we're creating a tag.
+        properties = dict()
+        if marc_role:
+            properties['{%s}role' % AtomFeed.OPF_NS] = marc_role
+        tag = tag_f(AtomFeed.name(name), **properties)
+
+        # Record the fact that we credited this person with this role,
+        # so that we don't do it again on a subsequent call.
+        state[marc_role].add(name_key)
+
+        return tag
 
     @classmethod
     def series(cls, series_name, series_position):

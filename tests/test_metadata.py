@@ -783,6 +783,117 @@ class TestContributorData(DatabaseTest):
         eq_(contributor_data.wikipedia_name, contributor.wikipedia_name)
         eq_(contributor_data.biography, contributor.biography)
 
+    def test_lookup(self):
+        # Test the method that uses the database to gather as much
+        # self-consistent information as possible about a person.
+        def m(*args, **kwargs):
+            return ContributorData.lookup(self._db, *args, **kwargs)
+
+        # We know very little about this person.
+        l1, ignore = self._contributor(
+            display_name="Ann Leckie",
+            sort_name="Leckie, Ann",
+        )
+
+        # We know a lot about this person.
+        pkd, ignore = self._contributor(
+            sort_name="Dick, Phillip K.", display_name="Phillip K. Dick",
+            viaf="27063583", lc="n79018147"
+        )
+
+        def _match(expect, actual):
+            # Verify that two ContributorData objects have the
+            # same data.
+            #
+            # If a value is None in one ContributorData, it must be None
+            # in the other.
+            assert isinstance(actual, ContributorData)
+            eq_(expect.sort_name, actual.sort_name)
+            eq_(expect.display_name, actual.display_name)
+            eq_(expect.lc, actual.lc)
+            eq_(expect.viaf, actual.viaf)
+
+        # If there's no Contributor that matches the request, the method
+        # returns None.
+        eq_(None, m(sort_name="Marenghi, Garth"))
+
+        # If one and only one Contributor matches the request, the method
+        # returns a ContributorData with all necessary information.
+        _match(pkd, m(display_name="Phillip K. Dick"))
+        _match(pkd, m(sort_name="Dick, Phillip K."))
+        _match(pkd, m(viaf="27063583"))
+        _match(pkd, m(lc="n79018147"))
+
+        # If we're able to identify a Contributor from part of the
+        # input, then any contradictory input is ignored in favor of
+        # what we know from the database.
+        _match(
+            pkd,
+            m(display_name="Phillip K. Dick", sort_name="Marenghi, Garth",
+              viaf="1234", lc="abcd"
+            )
+        )
+
+        # If we're able to identify a Contributor, but we don't know some
+        # of the information, those fields are left blank.
+        expect = ContributorData(
+            display_name="Ann Leckie", sort_name="Leckie, Ann"
+        )
+        _match(expect, m(display_name="Ann Leckie"))
+
+        # Now let's test cases where the database lookup finds
+        # multiple Contributors.
+
+        # An exact duplicate of an existing Contributor changes
+        # nothing.
+        duplicate, ignore = self._contributor(
+            display_name="Ann Leckie",
+            sort_name="Leckie, Ann",
+        )
+        _match(expect, m(display_name="Ann Leckie"))
+
+        # If there's a duplicate that adds more information, multiple
+        # records are consolidated, creating a synthetic
+        # ContributorData that doesn't correspond to any one
+        # Contributor.
+        with_viaf, ignore = self._contributor(
+            display_name="Ann Leckie", viaf="73520345",
+        )
+        # _contributor() set sort_name to a random value; remove it.
+        with_viaf.sort_name = None
+
+        expect = ContributorData(
+            display_name="Ann Leckie", sort_name="Leckie, Ann",
+            viaf="73520345"
+        )
+        _match(
+            expect, m(display_name="Ann Leckie")
+        )
+
+        # Again, this works even if some of the incoming arguments
+        # turn out not to be supported by the database data.
+        _match(
+            expect, m(display_name="Ann Leckie", sort_name="Ann Leckie",
+                      viaf="abcd")
+        )
+
+        # If there's a duplicate that provides conflicting information,
+        # the corresponding field is left blank -- we don't know which
+        # value is correct.
+        with_incorrect_viaf, ignore = self._contributor(
+            display_name="Ann Leckie", viaf="abcd",
+        )
+        with_incorrect_viaf.sort_name=None
+        expect = ContributorData(
+            display_name="Ann Leckie", sort_name="Leckie, Ann",
+        )
+        _match(expect, m(display_name="Ann Leckie"))
+
+        # If there's conflicting information in the database for a
+        # field, but the input included a value for that field, then
+        # the input value is used.
+        expect.viaf = "73520345"
+        _match(expect, m(display_name="Ann Leckie", viaf="73520345"))
 
     def test_apply(self):
         # Makes sure ContributorData.apply copies all the fields over when there's changes to be made.
