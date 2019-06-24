@@ -445,36 +445,6 @@ class TestFacets(DatabaseTest):
             sorted(facets.items())
         )
 
-    def test_order_facet_to_database_field(self):
-        def fields(facet):
-            return [
-                Facets.order_facet_to_database_field(facet)
-            ]
-
-        # You can sort by title...
-        eq_([work_model.sort_title],
-            fields(Facets.ORDER_TITLE))
-
-        # ...by author...
-        eq_([work_model.sort_author],
-            fields(Facets.ORDER_AUTHOR))
-
-        # ...by work ID...
-        eq_([work_model.works_id],
-            fields(Facets.ORDER_WORK_ID))
-
-        # ...by last update time...
-        eq_([work_model.last_update_time],
-            fields(Facets.ORDER_LAST_UPDATE))
-
-        # ...by most recently added...
-        eq_([work_model.availability_time],
-            fields(Facets.ORDER_ADDED_TO_COLLECTION))
-
-        # ...or randomly.
-        eq_([work_model.random],
-            fields(Facets.ORDER_RANDOM))
-
     def test_default_order_ascending(self):
 
         # Most fields are ordered ascending by default (A-Z).
@@ -942,335 +912,6 @@ class TestDatabaseBackedFacets(DatabaseTest):
             ['sort_author', 'sort_title', 'id'],
             [x.name for x in unsupported_order._distinct],
         )
-
-    def test_bibliographic_filter_clause(self):
-        called = dict()
-
-        class MockWorkList(WorkList):
-            """Mock WorkList that simply verifies that
-            bibliographic_filter_clause() calls various hook methods.
-            """
-
-            def __init__(self, languages=None, genre_ids=None, media=None,
-                         customlists=[], list_datasource=None,
-                         list_seen_in_previous_days=None):
-                self.languages = languages
-                self.genre_ids = genre_ids
-                self.media = media
-                self._customlist_ids=[x.id for x in customlists]
-                if list_datasource:
-                    self.list_datasource_id = list_datasource.id
-                else:
-                    self.list_datasource_id = None
-                self.list_seen_in_previous_days = list_seen_in_previous_days
-
-            def audience_filter_clauses(self, _db, qu):
-                called['apply_audience_filter'] = (_db, qu)
-                return []
-
-            def customlist_filter_clauses(self, *args, **kwargs):
-                called['customlist_filter_clauses'] = (args, kwargs)
-                return super(MockWorkList, self).customlist_filter_clauses(
-                    *args, **kwargs
-                )
-
-        wl = MockWorkList()
-        from ..model import MaterializedWorkWithGenre as wg
-        original_qu = self._db.query(wg)
-
-        # If no languages or genre IDs are specified, and the hook
-        # methods do nothing, then bibliographic_filter_clause() has
-        # no effect.
-        featured_object = object()
-        final_qu, bibliographic_filter = wl.bibliographic_filter_clause(
-            self._db, original_qu, featured_object
-        )
-        eq_(original_qu, final_qu)
-        eq_(None, bibliographic_filter)
-
-        # But at least the apply_audience_filter was called with the correct
-        # arguments.
-        _db, qu = called['apply_audience_filter']
-        eq_(self._db, _db)
-        eq_(original_qu, qu)
-
-        # customlist_filter_clauses was not called because the WorkList
-        # doesn't do anything relating to custom lists.
-        assert 'customlist_filter_clauses' not in called
-
-        # If languages, media, and genre IDs are specified, then they are
-        # incorporated into the query.
-        #
-        english_sf = self._work(language="eng", with_license_pool=True)
-        english_sf.presentation_edition.medium = Edition.BOOK_MEDIUM
-        sf, ignore = Genre.lookup(self._db, "Science Fiction")
-        romance, ignore = Genre.lookup(self._db, "Romance")
-        english_sf.genres.append(sf)
-        self.add_to_materialized_view(english_sf)
-
-        # Create a WorkList that will find the MaterializedWorkWithGenre
-        # for the English SF book.
-        def worklist_has_books(
-                expect_books, featured=False, outer_join=False,
-                **worklist_constructor_args
-        ):
-            """Apply bibliographic filters to a query and verify
-            that it finds only the given books.
-            """
-            worklist = MockWorkList(**worklist_constructor_args)
-            qu, clause = worklist.bibliographic_filter_clause(
-                self._db, original_qu, featured=featured,
-                outer_join=outer_join
-            )
-            qu = qu.filter(clause)
-            expect_titles = sorted([x.sort_title for x in expect_books])
-            actual_titles = sorted([x.sort_title for x in qu])
-            eq_(expect_titles, actual_titles)
-
-        worklist_has_books(
-            [english_sf],
-            languages=["eng"], genre_ids=[sf.id], media=[Edition.BOOK_MEDIUM]
-        )
-
-        # WorkLists that do not match by language, medium, or genre will not
-        # find the English SF book.
-        worklist_has_books([], languages=["spa"], genre_ids=[sf.id])
-        worklist_has_books([], languages=["eng"], genre_ids=[romance.id])
-        worklist_has_books(
-            [],
-            languages=["eng"], genre_ids=[sf.id], media=[Edition.AUDIO_MEDIUM]
-        )
-
-        # If the WorkList has custom list IDs, then works will only show up if
-        # they're on one of the matching CustomLists.
-
-        sf_list, ignore = self._customlist(num_entries=0)
-        sf_list.add_entry(english_sf)
-        empty_list, ignore = self._customlist(num_entries=0)
-        self.add_to_materialized_view(english_sf)
-
-        worklist_has_books([], featured="featured value",
-                           outer_join="outer_join value",
-                           customlists=[empty_list])
-        # There were no results, but customlist_filter_clauses was
-        # called, with the arguments we passed in for `featured`
-        # and `outer_join` (plus an intermediary query that we can't
-        # really test).
-        args, kwargs= called['customlist_filter_clauses']
-        untestable, featured, outer_join = args
-        eq_(outer_join, "outer_join value")
-        eq_(featured, "featured value")
-
-        worklist_has_books([english_sf], customlists=[sf_list])
-
-    def test_customlist_filter_clauses(self):
-        """Standalone test of customlist_filter_clauses
-        """
-
-        # If a lane has nothing to do with CustomLists,
-        # apply_customlist_filter does nothing.
-        no_lists = self._lane()
-        qu = self._db.query(Work)
-        new_qu, clauses = no_lists.customlist_filter_clauses(qu)
-        eq_(qu, new_qu)
-        eq_([], clauses)
-
-        # Now set up a Work and a CustomList that contains the work.
-        work = self._work(with_license_pool=True)
-        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        eq_(gutenberg, work.license_pools[0].data_source)
-        gutenberg_list, ignore = self._customlist(num_entries=0)
-        gutenberg_list.data_source = gutenberg
-        gutenberg_list_entry, ignore = gutenberg_list.add_entry(work)
-
-        # This WorkList gets every work on a specific list.
-        works_on_list = WorkList()
-        works_on_list.initialize(
-            self._default_library, customlists=[gutenberg_list]
-        )
-
-        # This lane gets every work on every list associated with Project
-        # Gutenberg.
-        works_on_gutenberg_lists = WorkList()
-        works_on_gutenberg_lists.initialize(
-            self._default_library, list_datasource=gutenberg
-        )
-        self.add_to_materialized_view([work])
-
-        def _run(qu, clauses):
-            # Run a query with certain clauses and pick out the
-            # work IDs returned.
-            modified = qu.filter(and_(*clauses))
-            return [x.works_id for x in modified]
-
-        def results(wl=works_on_gutenberg_lists, must_be_featured=False):
-            qu = self._db.query(work_model)
-            new_qu, clauses = wl.customlist_filter_clauses(
-                qu, must_be_featured=must_be_featured
-            )
-
-            if must_be_featured or wl.list_seen_in_previous_days:
-                # The query comes out different than it goes in -- there's a
-                # new join against CustomListEntry.
-                assert new_qu != qu
-            return _run(new_qu, clauses)
-
-        # Both lanes contain the work.
-        eq_([work.id], results(works_on_list))
-        eq_([work.id], results(works_on_gutenberg_lists))
-
-        # If there's another list with the same work on it, the
-        # work only shows up once.
-        gutenberg_list_2, ignore = self._customlist(num_entries=0)
-        gutenberg_list_2_entry, ignore = gutenberg_list_2.add_entry(work)
-        works_on_list._customlist_ids.append(gutenberg_list.id)
-        eq_([work.id], results(works_on_list))
-
-        # This WorkList gets every work on a list associated with Overdrive.
-        # There are no such lists, so the lane is empty.
-        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        works_on_overdrive_lists = WorkList()
-        works_on_overdrive_lists.initialize(
-            self._default_library, list_datasource=overdrive
-        )
-        eq_([], results(works_on_overdrive_lists))
-
-        # It's possible to restrict a WorkList so that only works that
-        # are _featured_ on a list show up. The work isn't featured,
-        # so it doesn't show up.
-        eq_([], results(must_be_featured=True))
-
-        # Now it's featured, and it shows up.
-        gutenberg_list_entry.featured = True
-        eq_([work.id], results(must_be_featured=True))
-
-        # It's possible to restrict a WorkList to works that were seen on
-        # a certain list recently.
-        now = datetime.datetime.utcnow()
-        two_days_ago = now - datetime.timedelta(days=2)
-        gutenberg_list_entry.most_recent_appearance = two_days_ago
-
-        # The lane will only show works that were seen within the last
-        # day. There are no such works.
-        works_on_gutenberg_lists.list_seen_in_previous_days = 1
-        eq_([], results())
-
-        # Now it's been loosened to three days, and the work shows up.
-        works_on_gutenberg_lists.list_seen_in_previous_days = 3
-        eq_([work.id], results())
-
-        # Now let's test what happens when we chain calls to this
-        # method.
-        gutenberg_list_2_wl = WorkList()
-        gutenberg_list_2_wl.initialize(
-            self._default_library, customlists = [gutenberg_list_2]
-        )
-
-        # These two lines won't work, because these are WorkLists, not
-        # Lanes, but they show the scenario in which this would
-        # actually happen. When determining which works belong in the
-        # child lane, Lane.customlist_filter_clauses() will be called
-        # on the parent lane and then on the child. In this case, only
-        # want books that are on _both_ works_on_list and
-        # gutenberg_list_2.
-        #
-        # gutenberg_list_2_wl.parent = works_on_list
-        # gutenberg_list_2_wl.inherit_parent_restrictions = True
-
-        qu = self._db.query(work_model)
-        list_1_qu, list_1_clauses = works_on_list.customlist_filter_clauses(qu)
-
-        # The query has been modified to indicate that we are filtering
-        # on the materialized view's customlist_id field.
-        eq_(True, list_1_qu.customlist_id_filtered)
-        eq_([work.id], [x.works_id for x in list_1_qu])
-
-        # Now call customlist_filter_clauses again so that the query
-        # must only match books on _both_ lists. This simulates
-        # what happens when the second lane is a child of the first,
-        # and inherits its restrictions.
-        both_lists_qu, list_2_clauses = gutenberg_list_2_wl.customlist_filter_clauses(
-            list_1_qu,
-        )
-        both_lists_clauses = list_1_clauses + list_2_clauses
-
-        # The combined query matches the work that shows up on
-        # both lists.
-        eq_([work.id], _run(both_lists_qu, both_lists_clauses))
-
-        # If we remove `work` from either list, the combined query
-        # matches nothing. This works even though the materialized
-        # view has not been refreshed.
-        for l in [gutenberg_list, gutenberg_list_2]:
-            l.remove_entry(work)
-            eq_([], _run(both_lists_qu, both_lists_clauses))
-            l.add_entry(work)
-
-    def test_audience_filter_clauses(self):
-
-        # Create two childrens' books (one from Gutenberg, one not)
-        # and one book for adults.
-
-        gutenberg_children = self._work(
-            title="Beloved Treasury of Racist Nursery Rhymes",
-            with_license_pool=True,
-            with_open_access_download=True,
-        )
-        eq_(DataSource.GUTENBERG,
-            gutenberg_children.license_pools[0].data_source.name)
-
-        # _work() will not create a test Gutenberg book for children
-        # to avoid exactly the problem we're trying to test, so
-        # we need to set it manually.
-        gutenberg_children.audience=Classifier.AUDIENCE_CHILDREN
-
-        gutenberg_adult = self._work(
-            title="Diseases of the Horse",
-            with_license_pool=True, with_open_access_download=True,
-            audience=Classifier.AUDIENCE_ADULT
-        )
-
-        edition, lp = self._edition(
-            title="Wholesome Nursery Rhymes For All Children",
-            data_source_name=DataSource.OVERDRIVE,
-            with_license_pool=True
-        )
-        non_gutenberg_children = self._work(
-            presentation_edition=edition, audience=Classifier.AUDIENCE_CHILDREN
-        )
-        self.add_to_materialized_view(
-            [gutenberg_children, non_gutenberg_children, gutenberg_adult]
-        )
-
-        def for_audiences(*audiences):
-            """Invoke WorkList.apply_audience_clauses using the given
-            `audiences`, and return all the matching Work objects.
-            """
-            wl = WorkList()
-            wl.audiences = audiences
-            qu = self._db.query(work_model).join(work_model.license_pool)
-            clauses = wl.audience_filter_clauses(self._db, qu)
-            if clauses:
-                qu = qu.filter(and_(*clauses))
-            return [x.works_id for x in qu.all()]
-
-        eq_([gutenberg_adult.id], for_audiences(Classifier.AUDIENCE_ADULT))
-
-        # The Gutenberg "children's" book is filtered out because it we have
-        # no guarantee it is actually suitable for children.
-        eq_([non_gutenberg_children.id],
-            for_audiences(Classifier.AUDIENCE_CHILDREN))
-
-        # This can sometimes lead to unexpected results, but the whole
-        # thing is a hack and needs to be improved anyway.
-        eq_([non_gutenberg_children.id],
-            for_audiences(Classifier.AUDIENCE_ADULT,
-                          Classifier.AUDIENCE_CHILDREN))
-
-        # If no particular audiences are specified, no books are filtered.
-        eq_(set([gutenberg_adult.id, gutenberg_children.id,
-                 non_gutenberg_children.id]),
-            set(for_audiences()))
 
 
 class TestFeaturedFacets(DatabaseTest):
@@ -2337,6 +1978,338 @@ class TestWorkList(DatabaseTest):
             def query_works(self, *args, **kwargs):
                 raise ElasticsearchException("oh no")
         eq_([], wl.search(self._db, query, RaisesException()))
+
+
+class TestDatabaseBackedWorkList(DatabaseTest):
+
+    def test_bibliographic_filter_clause(self):
+        called = dict()
+
+        class MockWorkList(WorkList):
+            """Mock WorkList that simply verifies that
+            bibliographic_filter_clause() calls various hook methods.
+            """
+
+            def __init__(self, languages=None, genre_ids=None, media=None,
+                         customlists=[], list_datasource=None,
+                         list_seen_in_previous_days=None):
+                self.languages = languages
+                self.genre_ids = genre_ids
+                self.media = media
+                self._customlist_ids=[x.id for x in customlists]
+                if list_datasource:
+                    self.list_datasource_id = list_datasource.id
+                else:
+                    self.list_datasource_id = None
+                self.list_seen_in_previous_days = list_seen_in_previous_days
+
+            def audience_filter_clauses(self, _db, qu):
+                called['apply_audience_filter'] = (_db, qu)
+                return []
+
+            def customlist_filter_clauses(self, *args, **kwargs):
+                called['customlist_filter_clauses'] = (args, kwargs)
+                return super(MockWorkList, self).customlist_filter_clauses(
+                    *args, **kwargs
+                )
+
+        wl = MockWorkList()
+        from ..model import MaterializedWorkWithGenre as wg
+        original_qu = self._db.query(wg)
+
+        # If no languages or genre IDs are specified, and the hook
+        # methods do nothing, then bibliographic_filter_clause() has
+        # no effect.
+        featured_object = object()
+        final_qu, bibliographic_filter = wl.bibliographic_filter_clause(
+            self._db, original_qu, featured_object
+        )
+        eq_(original_qu, final_qu)
+        eq_(None, bibliographic_filter)
+
+        # But at least the apply_audience_filter was called with the correct
+        # arguments.
+        _db, qu = called['apply_audience_filter']
+        eq_(self._db, _db)
+        eq_(original_qu, qu)
+
+        # customlist_filter_clauses was not called because the WorkList
+        # doesn't do anything relating to custom lists.
+        assert 'customlist_filter_clauses' not in called
+
+        # If languages, media, and genre IDs are specified, then they are
+        # incorporated into the query.
+        #
+        english_sf = self._work(language="eng", with_license_pool=True)
+        english_sf.presentation_edition.medium = Edition.BOOK_MEDIUM
+        sf, ignore = Genre.lookup(self._db, "Science Fiction")
+        romance, ignore = Genre.lookup(self._db, "Romance")
+        english_sf.genres.append(sf)
+        self.add_to_materialized_view(english_sf)
+
+        # Create a WorkList that will find the MaterializedWorkWithGenre
+        # for the English SF book.
+        def worklist_has_books(
+                expect_books, featured=False, outer_join=False,
+                **worklist_constructor_args
+        ):
+            """Apply bibliographic filters to a query and verify
+            that it finds only the given books.
+            """
+            worklist = MockWorkList(**worklist_constructor_args)
+            qu, clause = worklist.bibliographic_filter_clause(
+                self._db, original_qu, featured=featured,
+                outer_join=outer_join
+            )
+            qu = qu.filter(clause)
+            expect_titles = sorted([x.sort_title for x in expect_books])
+            actual_titles = sorted([x.sort_title for x in qu])
+            eq_(expect_titles, actual_titles)
+
+        worklist_has_books(
+            [english_sf],
+            languages=["eng"], genre_ids=[sf.id], media=[Edition.BOOK_MEDIUM]
+        )
+
+        # WorkLists that do not match by language, medium, or genre will not
+        # find the English SF book.
+        worklist_has_books([], languages=["spa"], genre_ids=[sf.id])
+        worklist_has_books([], languages=["eng"], genre_ids=[romance.id])
+        worklist_has_books(
+            [],
+            languages=["eng"], genre_ids=[sf.id], media=[Edition.AUDIO_MEDIUM]
+        )
+
+        # If the WorkList has custom list IDs, then works will only show up if
+        # they're on one of the matching CustomLists.
+
+        sf_list, ignore = self._customlist(num_entries=0)
+        sf_list.add_entry(english_sf)
+        empty_list, ignore = self._customlist(num_entries=0)
+        self.add_to_materialized_view(english_sf)
+
+        worklist_has_books([], featured="featured value",
+                           outer_join="outer_join value",
+                           customlists=[empty_list])
+        # There were no results, but customlist_filter_clauses was
+        # called, with the arguments we passed in for `featured`
+        # and `outer_join` (plus an intermediary query that we can't
+        # really test).
+        args, kwargs= called['customlist_filter_clauses']
+        untestable, featured, outer_join = args
+        eq_(outer_join, "outer_join value")
+        eq_(featured, "featured value")
+
+        worklist_has_books([english_sf], customlists=[sf_list])
+
+    def test_customlist_filter_clauses(self):
+        """Standalone test of customlist_filter_clauses
+        """
+
+        # If a lane has nothing to do with CustomLists,
+        # apply_customlist_filter does nothing.
+        no_lists = self._lane()
+        qu = self._db.query(Work)
+        new_qu, clauses = no_lists.customlist_filter_clauses(qu)
+        eq_(qu, new_qu)
+        eq_([], clauses)
+
+        # Now set up a Work and a CustomList that contains the work.
+        work = self._work(with_license_pool=True)
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        eq_(gutenberg, work.license_pools[0].data_source)
+        gutenberg_list, ignore = self._customlist(num_entries=0)
+        gutenberg_list.data_source = gutenberg
+        gutenberg_list_entry, ignore = gutenberg_list.add_entry(work)
+
+        # This WorkList gets every work on a specific list.
+        works_on_list = WorkList()
+        works_on_list.initialize(
+            self._default_library, customlists=[gutenberg_list]
+        )
+
+        # This lane gets every work on every list associated with Project
+        # Gutenberg.
+        works_on_gutenberg_lists = WorkList()
+        works_on_gutenberg_lists.initialize(
+            self._default_library, list_datasource=gutenberg
+        )
+        self.add_to_materialized_view([work])
+
+        def _run(qu, clauses):
+            # Run a query with certain clauses and pick out the
+            # work IDs returned.
+            modified = qu.filter(and_(*clauses))
+            return [x.works_id for x in modified]
+
+        def results(wl=works_on_gutenberg_lists, must_be_featured=False):
+            qu = self._db.query(work_model)
+            new_qu, clauses = wl.customlist_filter_clauses(
+                qu, must_be_featured=must_be_featured
+            )
+
+            if must_be_featured or wl.list_seen_in_previous_days:
+                # The query comes out different than it goes in -- there's a
+                # new join against CustomListEntry.
+                assert new_qu != qu
+            return _run(new_qu, clauses)
+
+        # Both lanes contain the work.
+        eq_([work.id], results(works_on_list))
+        eq_([work.id], results(works_on_gutenberg_lists))
+
+        # If there's another list with the same work on it, the
+        # work only shows up once.
+        gutenberg_list_2, ignore = self._customlist(num_entries=0)
+        gutenberg_list_2_entry, ignore = gutenberg_list_2.add_entry(work)
+        works_on_list._customlist_ids.append(gutenberg_list.id)
+        eq_([work.id], results(works_on_list))
+
+        # This WorkList gets every work on a list associated with Overdrive.
+        # There are no such lists, so the lane is empty.
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        works_on_overdrive_lists = WorkList()
+        works_on_overdrive_lists.initialize(
+            self._default_library, list_datasource=overdrive
+        )
+        eq_([], results(works_on_overdrive_lists))
+
+        # It's possible to restrict a WorkList so that only works that
+        # are _featured_ on a list show up. The work isn't featured,
+        # so it doesn't show up.
+        eq_([], results(must_be_featured=True))
+
+        # Now it's featured, and it shows up.
+        gutenberg_list_entry.featured = True
+        eq_([work.id], results(must_be_featured=True))
+
+        # It's possible to restrict a WorkList to works that were seen on
+        # a certain list recently.
+        now = datetime.datetime.utcnow()
+        two_days_ago = now - datetime.timedelta(days=2)
+        gutenberg_list_entry.most_recent_appearance = two_days_ago
+
+        # The lane will only show works that were seen within the last
+        # day. There are no such works.
+        works_on_gutenberg_lists.list_seen_in_previous_days = 1
+        eq_([], results())
+
+        # Now it's been loosened to three days, and the work shows up.
+        works_on_gutenberg_lists.list_seen_in_previous_days = 3
+        eq_([work.id], results())
+
+        # Now let's test what happens when we chain calls to this
+        # method.
+        gutenberg_list_2_wl = WorkList()
+        gutenberg_list_2_wl.initialize(
+            self._default_library, customlists = [gutenberg_list_2]
+        )
+
+        # These two lines won't work, because these are WorkLists, not
+        # Lanes, but they show the scenario in which this would
+        # actually happen. When determining which works belong in the
+        # child lane, Lane.customlist_filter_clauses() will be called
+        # on the parent lane and then on the child. In this case, only
+        # want books that are on _both_ works_on_list and
+        # gutenberg_list_2.
+        #
+        # gutenberg_list_2_wl.parent = works_on_list
+        # gutenberg_list_2_wl.inherit_parent_restrictions = True
+
+        qu = self._db.query(work_model)
+        list_1_qu, list_1_clauses = works_on_list.customlist_filter_clauses(qu)
+
+        # The query has been modified to indicate that we are filtering
+        # on the materialized view's customlist_id field.
+        eq_(True, list_1_qu.customlist_id_filtered)
+        eq_([work.id], [x.works_id for x in list_1_qu])
+
+        # Now call customlist_filter_clauses again so that the query
+        # must only match books on _both_ lists. This simulates
+        # what happens when the second lane is a child of the first,
+        # and inherits its restrictions.
+        both_lists_qu, list_2_clauses = gutenberg_list_2_wl.customlist_filter_clauses(
+            list_1_qu,
+        )
+        both_lists_clauses = list_1_clauses + list_2_clauses
+
+        # The combined query matches the work that shows up on
+        # both lists.
+        eq_([work.id], _run(both_lists_qu, both_lists_clauses))
+
+        # If we remove `work` from either list, the combined query
+        # matches nothing. This works even though the materialized
+        # view has not been refreshed.
+        for l in [gutenberg_list, gutenberg_list_2]:
+            l.remove_entry(work)
+            eq_([], _run(both_lists_qu, both_lists_clauses))
+            l.add_entry(work)
+
+    def test_audience_filter_clauses(self):
+
+        # Create two childrens' books (one from Gutenberg, one not)
+        # and one book for adults.
+
+        gutenberg_children = self._work(
+            title="Beloved Treasury of Racist Nursery Rhymes",
+            with_license_pool=True,
+            with_open_access_download=True,
+        )
+        eq_(DataSource.GUTENBERG,
+            gutenberg_children.license_pools[0].data_source.name)
+
+        # _work() will not create a test Gutenberg book for children
+        # to avoid exactly the problem we're trying to test, so
+        # we need to set it manually.
+        gutenberg_children.audience=Classifier.AUDIENCE_CHILDREN
+
+        gutenberg_adult = self._work(
+            title="Diseases of the Horse",
+            with_license_pool=True, with_open_access_download=True,
+            audience=Classifier.AUDIENCE_ADULT
+        )
+
+        edition, lp = self._edition(
+            title="Wholesome Nursery Rhymes For All Children",
+            data_source_name=DataSource.OVERDRIVE,
+            with_license_pool=True
+        )
+        non_gutenberg_children = self._work(
+            presentation_edition=edition, audience=Classifier.AUDIENCE_CHILDREN
+        )
+        self.add_to_materialized_view(
+            [gutenberg_children, non_gutenberg_children, gutenberg_adult]
+        )
+
+        def for_audiences(*audiences):
+            """Invoke WorkList.apply_audience_clauses using the given
+            `audiences`, and return all the matching Work objects.
+            """
+            wl = WorkList()
+            wl.audiences = audiences
+            qu = self._db.query(work_model).join(work_model.license_pool)
+            clauses = wl.audience_filter_clauses(self._db, qu)
+            if clauses:
+                qu = qu.filter(and_(*clauses))
+            return [x.works_id for x in qu.all()]
+
+        eq_([gutenberg_adult.id], for_audiences(Classifier.AUDIENCE_ADULT))
+
+        # The Gutenberg "children's" book is filtered out because it we have
+        # no guarantee it is actually suitable for children.
+        eq_([non_gutenberg_children.id],
+            for_audiences(Classifier.AUDIENCE_CHILDREN))
+
+        # This can sometimes lead to unexpected results, but the whole
+        # thing is a hack and needs to be improved anyway.
+        eq_([non_gutenberg_children.id],
+            for_audiences(Classifier.AUDIENCE_ADULT,
+                          Classifier.AUDIENCE_CHILDREN))
+
+        # If no particular audiences are specified, no books are filtered.
+        eq_(set([gutenberg_adult.id, gutenberg_children.id,
+                 non_gutenberg_children.id]),
+            set(for_audiences()))
 
 
 class TestLane(DatabaseTest):
