@@ -1601,71 +1601,7 @@ class TestWorkList(DatabaseTest):
         [x for x in mock.groups(self._db, facets=facets, include_sublanes=False)]
         eq_(facets, mock.featured_called_with)
 
-    def test_works_from_database(self):
-        """Verify that WorkList.works_from_database() correctly locates works
-        that match the criteria specified by apply_filters().
-        """
-
-        # Create two books and add them to the materialized view.
-        oliver_twist = self._work(title='Oliver Twist', with_license_pool=True)
-        not_oliver_twist = self._work(
-            title='Barnaby Rudge', with_license_pool=True
-        )
-        self.add_to_materialized_view([oliver_twist, not_oliver_twist])
-
-        class OnlyOliverTwist(WorkList):
-            """Mock WorkList that overrides apply_filters() so that it
-            only finds copies of 'Oliver Twist'.
-            """
-            def apply_filters(self, _db, qu, *args, **kwargs):
-                return qu.filter(work_model.sort_title=='Oliver Twist')
-
-        # A normal WorkList will use the default apply_filters()
-        # implementation and find both books.
-        wl = WorkList()
-        wl.initialize(self._default_library)
-        eq_(2, wl.works_from_database(self._db).count())
-
-        # But the mock WorkList will only find Oliver Twist.
-        wl = OnlyOliverTwist()
-        wl.initialize(self._default_library)
-        eq_([oliver_twist.id], [x.works_id for x in wl.works_from_database(self._db)])
-
-        # A WorkList will only find books licensed through one of its
-        # collections.
-        library2 = self._library()
-        collection = self._collection()
-        library2.collections = [collection]
-        library_2_worklist = WorkList()
-        library_2_worklist.initialize(library2)
-        eq_(0, library_2_worklist.works_from_database(self._db).count())
-
-        # If a WorkList has no collections, it has no books.
-        self._default_library.collections = []
-        wl.initialize(self._default_library)
-        eq_(0, wl.works_from_database(self._db).count())
-
-        # A WorkList can also have a collection with no library.
-        wl = WorkList()
-        wl.initialize(None)
-        wl.collection_ids = [self._default_collection.id]
-        eq_(2, wl.works_from_database(self._db).count())
-
-    def test_works_from_database_propagates_facets(self):
-        """Verify that the Facets object passed into works_from_database() is
-        propagated to the methods called by works_from_database().
-        """
-        class Mock(WorkList):
-            def apply_filters(self, _db, qu, facets, pagination):
-                self.apply_filters_called_with = facets
-                return qu
-        wl = Mock()
-        wl.initialize(self._default_library)
-        facets = FacetsWithEntryPoint()
-        wl.works_from_database(self._db, facets=facets)
-        eq_(facets, wl.apply_filters_called_with)
-
-    def test_works_from_search_index(self):
+    def test_works(self):
         """Test the method that uses the search index to fetch a list of
         results appropriate for a given WorkList.
         """
@@ -1791,99 +1727,11 @@ class TestWorkList(DatabaseTest):
             self._db.delete(lpdm)
             eq_([], wl.works_for_hits(self._db, [hit2]))
 
-    def test_apply_filters(self):
-
-        called = dict()
-
-        class MockWorkList(WorkList):
-            """Mock WorkList that simply verifies that apply_filters()
-            calls various hook methods.
-            """
-
-            def only_show_ready_deliverable_works(
-                    self, _db, query, *args, **kwargs
-            ):
-                called['only_show_ready_deliverable_works'] = True
-                return query
-
-            def bibliographic_filter_clause(
-                    self, _db, query, featured
-            ):
-                called['apply_bibliographic_filters'] = True
-                called['apply_bibliographic_filters.featured'] = featured
-                return query, None
-
-        class MockFacets(object):
-            def apply(self, _db, query):
-                called['facets.apply'] = True
-                return query
-
-        class MockPagination(object):
-            def apply(self, query):
-                called['pagination.apply'] = True
-                return query
-
-        original_qu = self._db.query(work_model)
-        wl = MockWorkList()
-        final_qu = wl.apply_filters(
-            self._db, original_qu, MockFacets(),
-            MockPagination()
-        )
-
-        # The hook methods were called with the right arguments.
-        eq_(called['only_show_ready_deliverable_works'], True)
-        eq_(called['apply_bibliographic_filters'], True)
-        eq_(called['facets.apply'], True)
-        eq_(called['pagination.apply'], True)
-
-        eq_(called['apply_bibliographic_filters.featured'], False)
-
-        # We mocked everything that might have changed the final query,
-        # and the end result was the query wasn't modified.
-        eq_(original_qu, final_qu)
-
-        # Test that apply_filters() makes a query distinct if there is
-        # no Facets object to do the job.
-        called = dict()
-        distinct_qu = wl.apply_filters(self._db, original_qu, None, None)
-        eq_(str(original_qu.distinct(work_model.works_id)), str(distinct_qu))
-        assert 'facets.apply' not in called
-        assert 'pagination.apply' not in called
-
-        # If a Facets is passed into apply_filters, the query
-        # is passed into the Facets.apply() method.
-        class MockFacets(object):
-            def apply(self, _db, qu):
-                self.called_with = qu
-                return qu
-        facets = MockFacets()
-        wl.apply_filters(self._db, original_qu, facets, None)
-        # The query was modified by the time it was passed in, so it's
-        # not the same as original_qu, but all we need to check is that
-        # _some_ query was passed in.
-        assert isinstance(facets.called_with, type(original_qu))
-
-    def test_apply_bibliographic_filters_short_circuits_apply_filters(self):
-        class MockWorkList(WorkList):
-            """Mock WorkList whose bibliographic_filter_clause implementation
-            believes the WorkList should not exist at all.
-            """
-
-            def bibliographic_filter_clause(
-                    self, _db, query, featured
-            ):
-                return None, None
-
-        wl = MockWorkList()
-        wl.initialize(self._default_library)
-        qu = self._db.query(work_model)
-        eq_(None, wl.apply_filters(self._db, qu, None, None))
 
     def test_search_target(self):
         # A WorkList can be searched - it is its own search target.
         wl = WorkList()
         eq_(wl, wl.search_target)
-
 
     def test_search(self):
         # Test the successful execution of WorkList.search()
@@ -1981,6 +1829,157 @@ class TestWorkList(DatabaseTest):
 
 
 class TestDatabaseBackedWorkList(DatabaseTest):
+
+    def test_works(self):
+        """Verify that works() correctly locates works
+        that match the criteria specified by apply_filters().
+        """
+
+        # Create two books and add them to the materialized view.
+        oliver_twist = self._work(title='Oliver Twist', with_license_pool=True)
+        not_oliver_twist = self._work(
+            title='Barnaby Rudge', with_license_pool=True
+        )
+
+        class OnlyOliverTwist(WorkList):
+            """Mock WorkList that overrides apply_filters() so that it
+            only finds copies of 'Oliver Twist'.
+            """
+            def apply_filters(self, _db, qu, *args, **kwargs):
+                return qu.filter(work_model.sort_title=='Oliver Twist')
+
+        # A normal WorkList will use the default apply_filters()
+        # implementation and find both books.
+        wl = WorkList()
+        wl.initialize(self._default_library)
+        eq_(2, wl.works(self._db).count())
+
+        # But the mock WorkList will only find Oliver Twist.
+        wl = OnlyOliverTwist()
+        wl.initialize(self._default_library)
+        eq_([oliver_twist.id], [x.works_id for x in wl.works(self._db)])
+
+        # A WorkList will only find books licensed through one of its
+        # collections.
+        library2 = self._library()
+        collection = self._collection()
+        library2.collections = [collection]
+        library_2_worklist = WorkList()
+        library_2_worklist.initialize(library2)
+        eq_(0, library_2_worklist.works(self._db).count())
+
+        # If a WorkList has no collections, it has no books.
+        self._default_library.collections = []
+        wl.initialize(self._default_library)
+        eq_(0, wl.works(self._db).count())
+
+        # A WorkList can also have a collection with no library.
+        wl = WorkList()
+        wl.initialize(None)
+        wl.collection_ids = [self._default_collection.id]
+        eq_(2, wl.works(self._db).count())
+
+    def test_works_propagates_facets(self):
+        """Verify that the Facets object passed into works() is
+        propagated to the methods called by works().
+        """
+        class Mock(WorkList):
+            def apply_filters(self, _db, qu, facets, pagination):
+                self.apply_filters_called_with = facets
+                return qu
+        wl = Mock()
+        wl.initialize(self._default_library)
+        facets = FacetsWithEntryPoint()
+        wl.works(self._db, facets=facets)
+        eq_(facets, wl.apply_filters_called_with)
+
+    def test_apply_filters(self):
+
+        called = dict()
+
+        class MockWorkList(WorkList):
+            """Mock WorkList that simply verifies that apply_filters()
+            calls various hook methods.
+            """
+
+            def only_show_ready_deliverable_works(
+                    self, _db, query, *args, **kwargs
+            ):
+                called['only_show_ready_deliverable_works'] = True
+                return query
+
+            def bibliographic_filter_clause(
+                    self, _db, query, featured
+            ):
+                called['apply_bibliographic_filters'] = True
+                called['apply_bibliographic_filters.featured'] = featured
+                return query, None
+
+        class MockFacets(object):
+            def apply(self, _db, query):
+                called['facets.apply'] = True
+                return query
+
+        class MockPagination(object):
+            def apply(self, query):
+                called['pagination.apply'] = True
+                return query
+
+        original_qu = self._db.query(work_model)
+        wl = MockWorkList()
+        final_qu = wl.apply_filters(
+            self._db, original_qu, MockFacets(),
+            MockPagination()
+        )
+
+        # The hook methods were called with the right arguments.
+        eq_(called['only_show_ready_deliverable_works'], True)
+        eq_(called['apply_bibliographic_filters'], True)
+        eq_(called['facets.apply'], True)
+        eq_(called['pagination.apply'], True)
+
+        eq_(called['apply_bibliographic_filters.featured'], False)
+
+        # We mocked everything that might have changed the final query,
+        # and the end result was the query wasn't modified.
+        eq_(original_qu, final_qu)
+
+        # Test that apply_filters() makes a query distinct if there is
+        # no Facets object to do the job.
+        called = dict()
+        distinct_qu = wl.apply_filters(self._db, original_qu, None, None)
+        eq_(str(original_qu.distinct(work_model.works_id)), str(distinct_qu))
+        assert 'facets.apply' not in called
+        assert 'pagination.apply' not in called
+
+        # If a Facets is passed into apply_filters, the query
+        # is passed into the Facets.apply() method.
+        class MockFacets(object):
+            def apply(self, _db, qu):
+                self.called_with = qu
+                return qu
+        facets = MockFacets()
+        wl.apply_filters(self._db, original_qu, facets, None)
+        # The query was modified by the time it was passed in, so it's
+        # not the same as original_qu, but all we need to check is that
+        # _some_ query was passed in.
+        assert isinstance(facets.called_with, type(original_qu))
+
+    def test_apply_bibliographic_filters_short_circuits_apply_filters(self):
+        class MockWorkList(WorkList):
+            """Mock WorkList whose bibliographic_filter_clause implementation
+            believes the WorkList should not exist at all.
+            """
+
+            def bibliographic_filter_clause(
+                    self, _db, query, featured
+            ):
+                return None, None
+
+        wl = MockWorkList()
+        wl.initialize(self._default_library)
+        qu = self._db.query(work_model)
+        eq_(None, wl.apply_filters(self._db, qu, None, None))
 
     def test_bibliographic_filter_clause(self):
         called = dict()
