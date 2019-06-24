@@ -705,10 +705,10 @@ class TestDatabaseBackedFacets(DatabaseTest):
         pass
 
     def test_order_by(self):
-        from ..model import MaterializedWorkWithGenre as m
-
+        E = Edition
+        W = Work
         def order(facet, ascending=None):
-            f = Facets(
+            f = DatabaseBackedFacets(
                 self._default_library,
                 collection=Facets.COLLECTION_FULL,
                 availability=Facets.AVAILABLE_ALL,
@@ -722,30 +722,33 @@ class TestDatabaseBackedFacets(DatabaseTest):
             for i in range(0, len(a)):
                 assert(a[i].compare(b[i]))
 
-        expect = [m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
+        expect = [E.sort_author.asc(), E.sort_title.asc(), W.id.asc()]
         actual = order(Facets.ORDER_AUTHOR, True)
         compare(expect, actual)
 
-        expect = [m.sort_author.desc(), m.sort_title.asc(), m.works_id.asc()]
+        expect = [E.sort_author.desc(), E.sort_title.asc(), W.id.asc()]
         actual = order(Facets.ORDER_AUTHOR, False)
         compare(expect, actual)
 
-        expect = [m.sort_title.asc(), m.sort_author.asc(), m.works_id.asc()]
+        expect = [E.sort_title.asc(), E.sort_author.asc(), W.id.asc()]
         actual = order(Facets.ORDER_TITLE, True)
         compare(expect, actual)
 
-        expect = [m.last_update_time.asc(), m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
+        expect = [W.last_update_time.asc(), E.sort_author.asc(), 
+                  E.sort_title.asc(), W.id.asc()]
         actual = order(Facets.ORDER_LAST_UPDATE, True)
         compare(expect, actual)
 
-        expect = [m.random.asc(), m.sort_author.asc(), m.sort_title.asc(),
-                  m.works_id.asc()]
+        expect = [W.random.asc(), E.sort_author.asc(), E.sort_title.asc(),
+                  W.id.asc()]
         actual = order(Facets.ORDER_RANDOM, True)
         compare(expect, actual)
 
-        expect = [m.availability_time.desc(), m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
-        actual = order(Facets.ORDER_ADDED_TO_COLLECTION, None)
+        # Unsupported sort order -> default (author, title, work ID)
+        expect = [E.sort_author.asc(), E.sort_title.asc(), W.id.asc()]
+        actual = order(Facets.ORDER_ADDED_TO_COLLECTION, True)
         compare(expect, actual)
+
 
     def test_modify_database_query(self):
         # Set up works that are matched by different types of collections.
