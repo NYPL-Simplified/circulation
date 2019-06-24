@@ -1314,26 +1314,6 @@ class TestPagination(DatabaseTest):
         eq_(o, pagination.modify_search_query(o))
 
 
-class MockFeaturedWorks(object):
-    """A mock WorkList that mocks featured_works()."""
-
-    def __init__(self):
-        self._featured_works = []
-        self.visible = True
-        self.priority = 0
-        self.display_name = "name"
-
-    def queue_featured_works(self, works):
-        """Set the next return value for featured_works()."""
-        self._featured_works.append(works)
-
-    def groups(self, *args, **kwargs):
-        try:
-            for work in self._featured_works.pop(0):
-                yield work, self
-        except IndexError:
-            return
-
 class MockWork(object):
     """Acts as a Work or a MaterializedWorkWithGenre interchangeably."""
     def __init__(self, id):
@@ -1341,7 +1321,7 @@ class MockWork(object):
         self.works_id = id
 
 class MockWorks(WorkList):
-    """A WorkList that mocks works_from_database() but not featured_works()."""
+    """A WorkList that mocks works_from_database()."""
 
     def __init__(self):
         self.reset()
@@ -1650,70 +1630,6 @@ class TestWorkList(DatabaseTest):
 
         [x for x in mock.groups(self._db, facets=facets, include_sublanes=False)]
         eq_(facets, mock.featured_called_with)
-
-    def test_featured_works(self):
-        wl = MockWorks()
-        self._default_library.setting(Library.FEATURED_LANE_SIZE).value = "10"
-        wl.initialize(library=self._default_library)
-
-        w1 = MockWork(1)
-
-        # Set the underlying 'query' to return the same work twice.
-        # This can happen in real life. For instance, if a lane is
-        # based on a number of CustomLists, and a single work is
-        # featured on one CustomList but not featured on another, the
-        # query will find the same work with two different quality
-        # scores.
-        wl.queue_works([w1, w1])
-
-        # We asked for 10 works, the query returned two, but there was
-        # a duplicate, so we ended up with one.
-        featured = wl.featured_works(self._db)
-        eq_([w1], featured)
-
-        # We created a FeaturedFacets object and passed it in to
-        # works_from_database().
-        [(facets, pagination, featured)] = wl.works_from_database_calls
-        eq_(self._default_library.minimum_featured_quality,
-            facets.minimum_featured_quality)
-        eq_(False, facets.uses_customlists)
-
-        # We then called random_sample() on the results.
-        [(query, target_size)] = wl.random_sample_calls
-        eq_([w1, w1], query)
-        eq_(self._default_library.featured_lane_size, target_size)
-
-    def test_methods_that_call_works_from_database_propagate_entrypoint(self):
-        """Verify that the EntryPoint mentioned in the Facets object passed
-        into featured_works() and works_in_window() is propagated when
-        those methods call works().
-        """
-        class Mock(WorkList):
-            def works_from_database(self, _db, *args, **kwargs):
-                self.works_from_database_called_with = kwargs['facets']
-                # This query won't work, but we need to return some
-                # kind of query so works_in_window can complete.
-                return _db.query(Work)
-
-            def _restrict_query_to_window(self, query, target_size, facets):
-                return query
-
-        wl = Mock()
-        wl.initialize(library=self._default_library)
-        audio = AudiobooksEntryPoint
-        facets = FeaturedFacets(0, entrypoint=audio)
-
-        # The Facets object passed in to works() is different from the
-        # one we passed in -- it's got some settings for
-        # minimum_featured_quality and uses_customlists which we
-        # didn't bother to provide -- but the EntryPoint we did provide
-        # is propagated.
-        wl.featured_works(self._db, facets=facets)
-        eq_(audio, wl.works_from_database_called_with.entrypoint)
-
-        wl.works_called_with = None
-        wl.works_in_window(self._db, facets, 10)
-        eq_(audio, wl.works_from_database_called_with.entrypoint)
 
     def test_works_from_database(self):
         """Verify that WorkList.works_from_database() correctly locates works
@@ -3723,61 +3639,6 @@ class TestWorkListGroups(DatabaseTest):
         eq_(facets, called_with_facets)
         eq_(pagination, pagination)
 
-    def test_featured_window(self):
-        lane = self._lane()
-
-        facets = FeaturedFacets(
-            minimum_featured_quality=0.5, entrypoint=EbooksEntryPoint
-        )
-
-        # Unless the lane has more items than we are asking for, the
-        # 'window' spans the entire range from zero to one.
-        eq_((0,1), lane.featured_window(1, facets))
-        lane.size = 99
-        eq_((0,1), lane.featured_window(99, facets))
-
-        # Otherwise, the 'window' is a smaller, randomly selected range
-        # between zero and one.
-        lane.size = 6094
-        start, end = lane.featured_window(17, facets)
-        expect_start = 0.025
-        eq_(expect_start, start)
-        eq_(round(start+0.014,8), end)
-
-        # Given a lane with 6094 works, selecting works with .random
-        # between 0.630 and 0.644 should give us about 85 items, which
-        # is what we need to make it likely that we get 17 items of
-        # featurable quality.
-        width = (end-start)
-        estimated_items = lane.size * width
-        eq_(85, int(estimated_items))
-
-        # Given a lane with one billion works, you'd expect the range
-        # to be incredibly small. But the resolution of Works.random
-        # is only three decimal places, so there's a limit on how
-        # small the range can get.
-        lane.size = 10**9
-        start, end = lane.featured_window(10, facets)
-        assert end == start + 0.001
-
-        # The size of the featured window depends on the active facets.
-        # Here, there are a billion audiobooks but only 10 ebooks.
-        #
-        # test__size_for_facets tests this in more detail.
-        lane.size_by_entrypoint = {
-            EbooksEntryPoint.URI : 10,
-            AudiobooksEntryPoint.URI : 10**9
-        }
-        start, end = lane.featured_window(10, facets)
-        eq_(0, start)
-        eq_(1, end)
-
-        facets = FeaturedFacets(
-            minimum_featured_quality=0.5, entrypoint=AudiobooksEntryPoint
-        )
-        start, end = lane.featured_window(10, facets)
-        assert end == start + 0.001
-
     def test__size_for_facets(self):
 
         lane = self._lane()
@@ -3815,105 +3676,3 @@ class TestWorkListGroups(DatabaseTest):
         # materialized view refresh script is run.
         del lane.size_by_entrypoint[AudiobooksEntryPoint.URI]
         eq_(100, m(audio))
-
-    def test_fill_parent_lane(self):
-
-        class Mock(object):
-            def __init__(self, works_id):
-                self.works_id = works_id
-
-            def __repr__(self):
-                return self.works_id
-
-        a = Mock("a")
-        b = Mock("b")
-        c = Mock("c")
-        d = Mock("d")
-        e = Mock("e")
-        f = Mock("f")
-
-        def fill(lane, additional_needed, unused_by_tier, used_by_tier,
-              used_works=[]):
-            mws = []
-            used_ids = set([x.works_id for x in used_works])
-            for mw, yielded_lane in lane._fill_parent_lane(
-                    additional_needed, unused_by_tier, used_by_tier,
-                    used_ids
-            ):
-                # The lane should always be the lane on which
-                # _fill_parent_lane was called.
-                eq_(yielded_lane, lane)
-                mws.append(mw)
-            return mws
-
-        unused = { 10 : [a], 1 : [b]}
-        used = { 10 : [c] }
-        lane = self._lane()
-
-        # If we don't ask for any works, we don't get any.
-        eq_([], fill(lane, 0, unused, used))
-
-        # If we ask for three or more, we get all three, with unused
-        # prioritized over used and high-quality prioritized over
-        # low-quality.
-        eq_([a,b,c], fill(lane, 3, unused, used))
-        eq_([a,b,c], fill(lane, 100, unused, used))
-
-        # If one of the items in 'unused' is actually used,
-        # it will be ignored. (TODO: it would make more sense
-        # to treat it like the other 'used' items, but it doesn't
-        # matter much in real usage.)
-        eq_([b,c], fill(lane, 3, unused, used, set([a, c])))
-
-        # TODO: If a work shows up multiple times in the 'used'
-        # dictionary it can be reused multiple times -- basically once
-        # we go into the 'used' dictionary we don't care how often we
-        # reuse things. I don't think this matters in real usage.
-
-        # Within a quality tier, works are given up in random order.
-        unused = { 10 : [a, b, c], 1 : [d, e, f]}
-        eq_([c,a,b, e,f,d], fill(lane, 6, unused, used))
-
-    def test_restrict_query_to_window(self):
-        lane = self._lane()
-
-        query = self._db.query(work_model).filter(work_model.fiction==True)
-        target_size = 10
-
-        facets = FeaturedFacets(0.5, entrypoint=EbooksEntryPoint)
-
-        # If the lane is so small that windowing is not safe,
-        # _restrict_query_to_window does nothing.
-        lane.size = 1
-        eq_(
-            query,
-            lane._restrict_query_to_window(query, target_size, facets)
-        )
-
-        # If the lane size is small enough to window, then
-        # _restrict_query_to_window adds restrictions on the .random
-        # field.
-        lane.size = 960
-        modified = lane._restrict_query_to_window(query, target_size, facets)
-
-        # Check the SQL.
-        sql = dump_query(modified)
-
-        expect_lower = 0.606
-        expect_upper = 0.658
-        args = dict(mv=work_model.__table__.name, lower=expect_lower,
-                    upper=expect_upper)
-
-        assert '%(mv)s.fiction =' % args in sql
-        expect_upper_range = '%(mv)s.random <= %(upper)s' % args
-        assert expect_upper_range in sql
-
-        expect_lower_range = '%(mv)s.random >= %(lower)s' % args
-        assert expect_lower_range in sql
-
-        # Those values came from featured_window(). If we call that
-        # method ourselves we will get a different window of
-        # approximately the same width.
-        width = expect_upper-expect_lower
-        new_lower, new_upper = lane.featured_window(target_size, facets)
-        eq_(round(width, 3), round(new_upper-new_lower, 3))
