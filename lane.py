@@ -1730,8 +1730,8 @@ class SpecificWorkFacets(DatabaseBackedFacets):
 
 
 class DatabaseBackedWorkList(WorkList):
-    """A WorkList that gets its works from a database query rather than
-    the search index.
+    """A WorkList that can get its works from the database in addition to
+    (or possibly instead of) the search index.
 
     Even when works _are_ obtained through the search index, a
     DatabaseBackedWorkList is then created to look up the Work objects
