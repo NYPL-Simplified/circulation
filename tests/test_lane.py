@@ -3355,9 +3355,25 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
         )
         discredited_nonfiction.inherit_parent_restrictions = False
 
+        # Since we have a bunch of lanes and works, plus an
+        # Elasticsearch index, let's take this opportunity to verify that
+        # WorkList.works and DatabaseBackedWorkList.works_from_database
+        # give the same results.
+        facets = DatabaseBackedFacets(
+            self._default_library,
+            collection=Facets.COLLECTION_FULL,
+            availability=Facets.AVAILABLE_ALL,
+            order=Facets.ORDER_TITLE
+        )
+        for lane in [fiction, best_sellers, staff_picks, sf_lane, romance_lane,
+                     discredited_nonfiction]:
+            t1 = [x.id for x in lane.works(self._db, facets)]
+            t2 = [x.id for x in lane.works_from_database(self._db, facets)]
+            eq_(t1, t2)
+
         def assert_contents(g, expect):
             """Assert that a generator yields the expected
-            (MaterializedWorkWithGenre, lane) 2-tuples.
+            (Work, lane) 2-tuples.
             """
             results = list(g)
             expect = [

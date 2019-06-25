@@ -1428,11 +1428,9 @@ class WorkList(object):
 
         work_ids = [x.work_id for x in hits]
 
-        # TODO: Use the hook method instead of a custom faceting object.
-        facets = SpecificWorkFacets(work_ids)
-        wl = DatabaseBackedWorkList()
+        wl = SpecificWorkList(work_ids)
         wl.initialize(self.get_library(_db))
-        qu = wl.works(_db, facets)
+        qu = wl.works_from_database(_db)
         a = time.time()
         works = qu.all()
 
@@ -1717,18 +1715,6 @@ class WorkList(object):
             return query.options(defer(Work.simple_opds_entry))
 
 
-class SpecificWorkFacets(DatabaseBackedFacets):
-    def __init__(self, work_ids):
-        self.work_ids = work_ids
-
-    def modify_database_query(self, _db, qu):
-        qu = qu.filter(
-            Work.id.in_(self.work_ids),
-            LicensePool.work_id.in_(self.work_ids), # Query optimization
-        )
-        return qu
-
-
 class DatabaseBackedWorkList(WorkList):
     """A WorkList that can get its works from the database in addition to
     (or possibly instead of) the search index.
@@ -1738,7 +1724,7 @@ class DatabaseBackedWorkList(WorkList):
     for use in an OPDS feed.
     """
 
-    def works(self, _db, facets=None, pagination=None, **kwargs):
+    def works_from_database(self, _db, facets=None, pagination=None, **kwargs):
         """Create a query against the `works` table that finds Work objects
         corresponding to all the Works that belong in this WorkList.
 
@@ -1977,6 +1963,19 @@ class DatabaseBackedWorkList(WorkList):
         return qu
 
 
+class SpecificWorkList(DatabaseBackedWorkList):
+    def __init__(self, work_ids):
+        super(SpecificWorkList, self).__init__()
+        self.work_ids = work_ids
+
+    def modify_database_query_hook(self, _db, qu):
+        qu = qu.filter(
+            Work.id.in_(self.work_ids),
+            LicensePool.work_id.in_(self.work_ids), # Query optimization
+        )
+        return qu
+
+
 class LaneGenre(Base):
     """Relationship object between Lane and Genre."""
     __tablename__ = 'lanes_genres'
@@ -2013,7 +2012,7 @@ Genre.lane_genres = relationship(
 )
 
 
-class Lane(Base, WorkList):
+class Lane(Base, DatabaseBackedWorkList):
     """A WorkList that draws its search criteria from a row in a
     database table.
 
