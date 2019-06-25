@@ -798,6 +798,16 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
             "president", age_8_10, ordered=False
         )
 
+        # Filters on license source.
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        gutenberg_only = Filter(license_datasource=gutenberg)
+        expect([self.moby_dick, self.moby_duck], "moby", gutenberg_only,
+               ordered=False)
+
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        overdrive_only = Filter(license_datasource=overdrive)
+        expect([], "moby", overdrive_only, ordered=False)
+
         # Filters on last modified time.
 
         # Obviously this query string matches "Moby-Dick", but it's
@@ -876,7 +886,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         expect([self.moby_dick], "moby duck", f)
 
         # Finally, let's do some end-to-end tests of
-        # WorkList.works_from_search_index.
+        # WorkList.works()
         #
         # That's a simple method that puts together a few pieces
         # which are tested separately, so we don't need to go all-out.
@@ -890,7 +900,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
             )
             pages = []
             while pagination:
-                pages.append(worklist.works_from_search_index(
+                pages.append(worklist.works(
                     self._db, facets, pagination, self.search
                 ))
                 pagination = pagination.next_page
@@ -1653,7 +1663,7 @@ class TestFeaturedFacets(EndToEndSearchTest):
         def assert_featured(description, worklist, facets, expect):
             # Generate a list of featured works for the given `worklist`
             # and compare that list against `expect`.
-            actual = worklist.works_from_search_index(
+            actual = worklist.works(
                 self._db, facets, None, self.search, debug=True
             )
             self._assert_works(description, expect, actual)

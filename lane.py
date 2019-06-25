@@ -1857,8 +1857,10 @@ class DatabaseBackedWorkList(WorkList):
 
         # If a license source is specified, only show books from that
         # source.
-        if self.license_datasource:
-            clauses.append(LicensePool.data_source==self.license_datasource)
+        if self.license_datasource_id:
+            clauses.append(
+                LicensePool.data_source_id==self.license_datasource_id
+            )
 
         clauses.extend(self.age_range_filter_clauses())
 

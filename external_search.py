@@ -1764,7 +1764,7 @@ class Filter(SearchBase):
             target_age, genre_id_restrictions, customlist_id_restrictions,
             facets,
             excluded_audiobook_data_sources=excluded_audiobook_data_sources,
-            allow_holds=allow_holds, license_datasource_id=license_datasource_id
+            allow_holds=allow_holds, license_datasource=license_datasource_id
         )
 
     def __init__(self, collections=None, media=None, languages=None,
@@ -1906,10 +1906,10 @@ class Filter(SearchBase):
             )
             nested_filters['licensepools'].append(collection_match)
 
-        license_datasource = filter_ids(self.license_datasource)
-        if license_datasource:
+        license_datasources = filter_ids(self.license_datasources)
+        if license_datasources:
             datasource_match = F(
-                'terms', **{'licensepools.data_source_id' : license_datasource}
+                'terms', **{'licensepools.data_source_id' : license_datasources}
             )
             nested_filters['licensepools'].append(datasource_match)
 
