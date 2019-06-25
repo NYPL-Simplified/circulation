@@ -1409,7 +1409,7 @@ class WorkList(object):
 
         # TODO: Use the hook method instead of a custom faceting object.
         facets = SpecificWorkFacets(work_ids)
-        wl = DatabaseBackedWorkList(work_ids)
+        wl = DatabaseBackedWorkList()
         wl.initialize(self.get_library(_db))
         qu = wl.works(_db, facets)
         a = time.time()
@@ -1718,9 +1718,7 @@ class DatabaseBackedWorkList(WorkList):
     for use in an OPDS feed.
     """
 
-    def works(
-        self, _db, facets=None, pagination=None, **kwargs
-    ):
+    def works(self, _db, facets=None, pagination=None, **kwargs):
         """Create a query against the `works` table that finds Work objects
         corresponding to all the Works that belong in this WorkList.
 
@@ -1741,7 +1739,13 @@ class DatabaseBackedWorkList(WorkList):
            database.
         :return: A Query.
         """
-        qu = _db.query(Work).join(Work.license_pools).join(Work.presentation_edition)
+        if facets is not None and not isinstance(facets, DatabaseBackedFacets):
+            raise ValueError(
+                "Incompatible faceting object for DatabaseBackedWorkList: %r" %
+                facets
+            )
+
+        qu = self.base_query(_db)
 
         # In general, we only show books that are present in one of
         # the WorkList's collections and ready to be delivered to
@@ -1750,37 +1754,51 @@ class DatabaseBackedWorkList(WorkList):
 
         # Apply to the database the bibliographic restrictions with
         # which this WorkList was initialized -- genre, audience, and
-        # whatnote.
+        # whatnot.
         qu, bibliographic_clause = self.bibliographic_filter_clause(_db, qu)
         if bibliographic_clause is not None:
             qu = qu.filter(bibliographic_clause)
 
-        if not isinstance(facets, DatabaseBackedFacets):
-            raise ValueError(
-                "Incompatible faceting object for DatabaseBackedWorkList: %r",
-                facets
-            )
-        if facets:
+        # Allow the faceting object to modify the database query.
+        if facets is not None:
             qu = facets.modify_database_query(_db, qu)
 
+        # Allow a subclass to modify the database query.
         qu = self.modify_database_query_hook(_db, qu)
 
         if qu._distinct is False:
-            # This query must be made distinct, since a Work can have
-            # more than one LicensePool. If the faceting object didn't
-            # take the opportunity to make it distinct (e.g. while
-            # setting sort order), we'll make it distinct based on
-            # work ID.
+            # This query must always be made distinct, since a Work
+            # can have more than one LicensePool. If no one else has
+            # taken the opportunity to make it distinct (e.g. the
+            # faceting object, while setting sort order), we'll make
+            # it distinct based on work ID.
             qu = qu.distinct(Work.id)
 
-        if pagination:
+        # Allow the pagination object to modify the database query.
+        if pagination is not None:
             qu = pagination.modify_database_query(_db, qu)
 
+        return qu
+
+    def base_query(self, _db):
+        """Return a query that contains the joins set up as necessary to
+        create OPDS feeds.
+        """
+        qu = _db.query(
+            Work
+        ).join(
+            Work.license_pools
+        ).join(
+            Work.presentation_edition
+        )
+
+        # Apply optimizations.
         qu = self._modify_loading(qu)
         qu = self._defer_unused_fields(qu)
         return qu
 
-    def bibliographic_filter_clause(self, _db, qu, outer_join=False):
+
+    def bibliographic_filter_clause(self, _db, qu):
         """Create a SQLAlchemy filter that excludes books whose bibliographic
         metadata doesn't match what we're looking for.
 
@@ -1804,9 +1822,7 @@ class DatabaseBackedWorkList(WorkList):
             clauses.append(field.in_(self.genre_ids))
 
         if self.customlist_ids:
-            qu, customlist_clauses = self.customlist_filter_clauses(
-                qu, outer_join
-            )
+            qu, customlist_clauses = self.customlist_filter_clauses(qu)
             clauses.extend(customlist_clauses)
 
         if not clauses:
@@ -1823,7 +1839,7 @@ class DatabaseBackedWorkList(WorkList):
             return []
         return [Work.audience.in_(self.audiences)]
 
-    def customlist_filter_clauses(self, qu, outer_join=False):
+    def customlist_filter_clauses(self, qu):
         """Create a filter clause that only books that are on one of the
         CustomLists allowed by Lane configuration.
 
@@ -1848,10 +1864,7 @@ class DatabaseBackedWorkList(WorkList):
         a_entry = aliased(CustomListEntry)
 
         clause = a_entry.work_id==Work.id
-        if outer_join:
-            qu = qu.outerjoin(a_entry, clause)
-        else:
-            qu = qu.join(a_entry, clause)
+        qu = qu.join(a_entry, clause)
 
         # Actually build the restriction clauses.
         clauses = []
@@ -2494,7 +2507,7 @@ class Lane(Base, WorkList):
         return m(_db, query_string, search_client, pagination,
                  facets=facets)
 
-    def bibliographic_filter_clause(self, _db, qu, featured, outer_join=False):
+    def bibliographic_filter_clause(self, _db, qu, featured):
         """Create an AND clause that restricts a query to find
         only works classified in this lane.
 
@@ -2512,7 +2525,7 @@ class Lane(Base, WorkList):
         qu, superclass_clause = super(
             Lane, self
         ).bibliographic_filter_clause(
-            _db, qu, featured, outer_join
+            _db, qu, featured
         )
         clauses = []
         if superclass_clause is not None:
@@ -2521,9 +2534,7 @@ class Lane(Base, WorkList):
             # In addition to the other restrictions imposed by this
             # Lane, books will show up here only if they would
             # also show up in the parent Lane.
-            qu, clause = self.parent.bibliographic_filter_clause(
-                _db, qu, featured
-            )
+            qu, clause = self.parent.bibliographic_filter_clause(_db, qu)
             if clause is not None:
                 clauses.append(clause)
 
