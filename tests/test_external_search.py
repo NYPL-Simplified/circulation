@@ -2930,6 +2930,9 @@ class TestFilter(DatabaseTest):
         last_update_time = datetime.datetime(2019, 1, 1)
         filter.updated_after = last_update_time
 
+        # We want books from a specific license source.
+        filter.license_datasources = overdrive
+
         # We want books by a specific author.
         filter.author = ContributorData(sort_name="Ebrity, Sel")
 
@@ -2951,17 +2954,22 @@ class TestFilter(DatabaseTest):
 
         # This time we do see a nested filter. The information
         # necessary to enforce the 'current collection', 'excluded
-        # audiobook sources', and 'no holds' restrictions is kept in
-        # the nested 'licensepools' document, so those restrictions
-        # must be described in terms of nested filters on that
-        # document.
-        [licensepool_filter, excluded_audiobooks_filter, no_holds_filter] = nested.pop('licensepools')
+        # audiobook sources', 'no holds', and 'license source'
+        # restrictions is kept in the nested 'licensepools' document,
+        # so those restrictions must be described in terms of nested
+        # filters on that document.
+        [licensepool_filter, datasource_filter, excluded_audiobooks_filter,
+         no_holds_filter] = nested.pop('licensepools')
 
         # The 'current collection' filter.
         eq_(
             {'terms': {'licensepools.collection_id': [self._default_collection.id]}},
             licensepool_filter.to_dict()
         )
+
+        # The 'only certain data sources' filter.
+        eq_({'terms': {'licensepools.data_source_id': [overdrive.id]}},
+            datasource_filter.to_dict())
 
         # The 'excluded audiobooks' filter.
         audio = F('term', **{'licensepools.medium': Edition.AUDIO_MEDIUM})
