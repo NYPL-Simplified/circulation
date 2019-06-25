@@ -2237,22 +2237,29 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         # DatabaseBackedWorkLists.
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
         english_sf = self._work(
-            language="eng", with_license_pool=True,
+            title="English SF", language="eng", with_license_pool=True,
+            audience=Classifier.AUDIENCE_YOUNG_ADULT
+        )
+        italian_sf = self._work(
+            title="Italian SF", language="ita", with_license_pool=True,
             audience=Classifier.AUDIENCE_YOUNG_ADULT
         )
         english_sf.target_age = tuple_to_numericrange((12,14))
         gutenberg = english_sf.license_pools[0].data_source
         english_sf.presentation_edition.medium = Edition.BOOK_MEDIUM
         english_sf.genres.append(sf)
+        italian_sf.genres.append(sf)
 
         # Create a DatabaseBackedWorkList that will find (or not find)
         # the English SF book.
-        def worklist_has_books(expect_books, **initialize_kwargs):
+        def worklist_has_books(expect_books, worklist=None,
+                               **initialize_kwargs):
             """Apply bibliographic filters to a query and verify
             that it finds only the given books.
             """
-            worklist = DatabaseBackedWorkList()
-            worklist.initialize(self._default_library, **initialize_kwargs)
+            if worklist is None:
+                worklist = DatabaseBackedWorkList()
+                worklist.initialize(self._default_library, **initialize_kwargs)
             qu, clauses = worklist.bibliographic_filter_clauses(
                 self._db, original_qu
             )
@@ -2261,18 +2268,21 @@ class TestDatabaseBackedWorkList(DatabaseTest):
             actual_titles = sorted([x.sort_title for x in qu])
             eq_(expect_titles, actual_titles)
 
-        # A WorkList will find the English SF book only if all restrictions
+        # A WorkList will find a book only if all restrictions
         # are met.
         worklist_has_books(
             [english_sf],
-            languages=["eng"], genres=[sf], media=[Edition.BOOK_MEDIUM],
-            fiction=True, license_datasource=gutenberg,
+            languages=["eng"],
+            genres=[sf],
+            media=[Edition.BOOK_MEDIUM],
+            fiction=True,
+            license_datasource=gutenberg,
             audiences=[Classifier.AUDIENCE_YOUNG_ADULT],
             target_age=tuple_to_numericrange((13,13))
         )
 
         # This might be because there _are_ no restrictions.
-        worklist_has_books([english_sf])
+        worklist_has_books([english_sf, italian_sf], fiction=None)
 
         # DatabaseBackedWorkLists with a contradictory setting for one
         # of those fields will not find the English SF book.
@@ -2293,13 +2303,73 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         # they're on one of the matching CustomLists.
         sf_list, ignore = self._customlist(num_entries=0)
         sf_list.add_entry(english_sf)
+        sf_list.add_entry(italian_sf)
 
-        worklist_has_books([english_sf], customlists=[sf_list])
+        worklist_has_books([english_sf, italian_sf], customlists=[sf_list])
 
         empty_list, ignore = self._customlist(num_entries=0)
         worklist_has_books([], customlists=[empty_list])
 
-        # TODO: We need to test the parent restriction.
+        # Test parent restrictions.
+        #
+        # Ordinary DatabaseBackedWorkLists can't inherit restrictions
+        # from their parent (TODO: no reason not to implement this)
+        # but Lanes can, so let's use Lanes for the rest of this test.
+
+        # This lane has books from a list of English books.
+        english_list, ignore = self._customlist(num_entries=0)
+        english_list.add_entry(english_sf)
+        english_lane = self._lane()
+        english_lane.customlists.append(english_list)
+
+        # This child of that lane has books from the list of SF books.
+        sf_lane = self._lane(
+            parent=english_lane, inherit_parent_restrictions=False
+        )
+        sf_lane.customlists.append(sf_list)
+
+        # When the child lane does not inherit its parent restrictions,
+        # both SF books show up.
+        worklist_has_books([english_sf, italian_sf], sf_lane)
+
+        # When the child inherits its parent's restrictions, only the
+        # works that are on _both_ lists show up in the lane,
+        sf_lane.inherit_parent_restrictions = True
+        worklist_has_books([english_sf], sf_lane)
+
+        # Other restrictions are inherited as well. Here, a title must
+        # show up on both lists _and_ be a nonfiction book. There are
+        # no titles that meet all three criteria.
+        sf_lane.fiction = False
+        worklist_has_books([], sf_lane)
+
+        sf_lane.fiction = True
+        worklist_has_books([english_sf], sf_lane)
+
+        # Parent restrictions based on genre can also be inherited.
+        #
+
+        # Here's a lane that finds only short stories.
+        short_stories, ignore = Genre.lookup(self._db, "Short Stories")
+        short_stories_lane = self._lane(genres=["Short Stories"])
+
+        # Here's a child of that lane, which contains science fiction.
+        sf_shorts = self._lane(
+            genres=[sf], parent=short_stories_lane,
+            inherit_parent_restrictions=False
+        )
+        self._db.flush()
+
+        # Without the parent restriction in place, all science fiction
+        # shows up in sf_shorts.
+        worklist_has_books([english_sf, italian_sf], sf_shorts)
+
+        # With the parent restriction in place, a book must be classified
+        # under both science fiction and short stories to show up.
+        sf_shorts.inherit_parent_restrictions = True
+        worklist_has_books([], sf_shorts)
+        english_sf.genres.append(short_stories)
+        worklist_has_books([english_sf], sf_shorts)
 
     def test_age_range_filter_clauses_end_to_end(self):
         """Standalone test of age_range_filter_clauses().
@@ -3066,163 +3136,6 @@ class TestLane(DatabaseTest):
         # Restore methods that were mocked.
         Lane.search_target = old_lane_search_target
         WorkList.search = old_wl_search
-
-    def test_bibliographic_filter_clauses_bad(self):
-
-        # Create some works that will or won't show up in various
-        # lanes.
-        childrens_fiction = self._work(
-            fiction=True, with_license_pool=True,
-            audience=Classifier.AUDIENCE_CHILDREN
-        )
-        nonfiction = self._work(fiction=False, with_license_pool=True)
-        childrens_fiction.target_age = tuple_to_numericrange((8,8))
-        self.add_to_materialized_view([childrens_fiction, nonfiction])
-
-        def match_works(lane, works, featured=False,
-                        expect_bibliographic_filter=True):
-            """Verify that calling apply_bibliographic_filters to the given
-            lane yields the given list of works.
-            """
-            base_query = self._db.query(Work).join(
-                LicensePool, LicensePool.work_id==Work.id
-            )
-            new_query, bibliographic_clause = lane.bibliographic_filter_clauses(
-                self._db, base_query, featured
-            )
-
-            if lane.uses_customlists:
-                # bibliographic_filter_clauses modifies the query (by
-                # calling customlist_filter_clauses).
-                assert base_query != new_query
-
-            # The query will also be modified if a lane includes genre
-            # restrictions and also inherits genre restrictions from
-            # its parent, but we don't have a good way of seeing
-            # whether that happened.
-
-            if expect_bibliographic_filter:
-                # There must be some kind of bibliographic filter.
-                assert bibliographic_clause is not None
-                final_query = new_query.filter(bibliographic_clause)
-            else:
-                # There must *not* be some kind of bibliographic filter.
-                assert bibliographic_clause is None
-                final_query = new_query
-            results = final_query.all()
-            works = sorted([(x.id, x.sort_title) for x in works])
-            materialized_works = sorted(
-                [(x.works_id, x.sort_title) for x in results]
-            )
-            eq_(works, materialized_works)
-
-        # A lane may show only titles that come from a specific license source.
-        gutenberg_only = self._lane()
-        gutenberg_only.license_datasource = DataSource.lookup(
-            self._db, DataSource.GUTENBERG
-        )
-
-        match_works(gutenberg_only, [nonfiction])
-
-        # A lane may show fiction, nonfiction, or both.
-        fiction_lane = self._lane()
-        fiction_lane.fiction = True
-        match_works(fiction_lane, [childrens_fiction])
-
-        nonfiction_lane = self._lane()
-        nonfiction_lane.fiction = False
-        match_works(nonfiction_lane, [nonfiction])
-
-        both_lane = self._lane()
-        both_lane.fiction = None
-        match_works(both_lane, [childrens_fiction, nonfiction],
-                    expect_bibliographic_filter=False)
-
-        # A lane may include a target age range.
-        children_lane = self._lane()
-        children_lane.target_age = (0,2)
-        match_works(children_lane, [])
-        children_lane.target_age = (8,10)
-        match_works(children_lane, [childrens_fiction])
-
-        # A lane may restrict itself to works on certain CustomLists.
-        best_sellers, ignore = self._customlist(num_entries=0)
-        childrens_fiction_entry, ignore = best_sellers.add_entry(
-            childrens_fiction
-        )
-        best_sellers_lane = self._lane()
-        best_sellers_lane.customlists.append(best_sellers)
-
-        # The materialized view must be refreshed for the changes to
-        # list membership to take effect.
-        self.add_to_materialized_view([childrens_fiction, nonfiction])
-
-        match_works(
-            best_sellers_lane, [childrens_fiction], featured=False
-        )
-
-        # Now that CustomLists are in play, the `featured` argument
-        # makes a difference. The work isn't featured on its list, so
-        # the lane appears empty when featured=True.
-        match_works(best_sellers_lane, [], featured=True)
-
-        # If the work becomes featured, it starts showing up again.
-        childrens_fiction_entry.featured = True
-        match_works(best_sellers_lane, [childrens_fiction], featured=True)
-
-        # A lane may inherit restrictions from its parent.
-        all_time_classics, ignore = self._customlist(num_entries=0)
-        all_time_classics.add_entry(childrens_fiction)
-        all_time_classics.add_entry(nonfiction)
-
-        # This lane takes its entries from a list, and is the child
-        # of a lane that takes its entries from a second list.
-        best_selling_classics = self._lane(parent=best_sellers_lane)
-        best_selling_classics.customlists.append(all_time_classics)
-        best_selling_classics.inherit_parent_restrictions = False
-
-        SessionManager.refresh_materialized_views(self._db)
-        match_works(best_selling_classics, [childrens_fiction, nonfiction])
-
-        # When it inherits its parent's restrictions, only the
-        # works that are on _both_ lists show up in the lane,
-        best_selling_classics.inherit_parent_restrictions = True
-        match_works(best_selling_classics, [childrens_fiction])
-
-        # Other restrictions are inherited as well. Here, a title must
-        # show up on both lists _and_ be a nonfiction book. There are
-        # no titles that meet all three criteria.
-        best_sellers_lane.fiction = False
-        match_works(best_selling_classics, [])
-
-        best_sellers_lane.fiction = True
-        match_works(best_selling_classics, [childrens_fiction])
-
-        # Parent restrictions based on genre can also be inherited.
-        #
-
-        # Here's a lane that finds only short stories.
-        short_stories, ignore = Genre.lookup(self._db, "Short Stories")
-        short_stories_lane = self._lane(genres=["Short Stories"])
-
-        # Here's a child of that lane, which contains science fiction.
-        sf, ignore = Genre.lookup(self._db, "Science Fiction")
-        sf_lane = self._lane(genres=[sf], parent=short_stories_lane)
-
-        # Without the parent restriction in place, all science fiction
-        # shows up in sf_lane.
-        sf_lane.inherit_parent_restrictions = False
-        sf_short = self._work(with_license_pool=True)
-        sf_short.genres.append(sf)
-        self.add_to_materialized_view(sf_short)
-        match_works(sf_lane, [sf_short])
-
-        # With the parent restriction in place, a book must be classified
-        # under both science fiction and short stories to show up.
-        sf_lane.inherit_parent_restrictions = True
-        match_works(sf_lane, [])
-        sf_short.genres.append(short_stories)
-        match_works(sf_lane, [sf_short])
 
     def test_explain(self):
         parent = self._lane(display_name="Parent")

@@ -404,7 +404,7 @@ class DatabaseTest(object):
 
     def _lane(self, display_name=None, library=None,
               parent=None, genres=None, languages=None,
-              fiction=None
+              fiction=None, inherit_parent_restrictions=True
     ):
         display_name = display_name or self._str
         library = library or self._default_library
@@ -412,7 +412,8 @@ class DatabaseTest(object):
             self._db, Lane,
             library=library,
             parent=parent, display_name=display_name,
-            fiction=fiction
+            fiction=fiction,
+            inherit_parent_restrictions=inherit_parent_restrictions
         )
         if is_new and parent:
             lane.priority = len(parent.sublanes)-1
