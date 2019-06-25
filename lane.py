@@ -1797,7 +1797,6 @@ class DatabaseBackedWorkList(WorkList):
         qu = self._defer_unused_fields(qu)
         return qu
 
-
     def bibliographic_filter_clause(self, _db, qu):
         """Create a SQLAlchemy filter that excludes books whose bibliographic
         metadata doesn't match what we're looking for.
@@ -1817,7 +1816,7 @@ class DatabaseBackedWorkList(WorkList):
             clauses.append(Edition.medium.in_(self.media))
         if self.genre_ids:
             wg = aliased(WorkGenre)
-            qu = qu.join(wg, wg.work_id==Work.work_id)
+            qu = qu.join(wg, wg.work_id==Work.id)
             field = wg.genre_id
             clauses.append(field.in_(self.genre_ids))
 

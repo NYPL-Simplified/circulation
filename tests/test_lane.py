@@ -1839,6 +1839,10 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         class MockQuery(object):
             # Simulates the behavior of a database Query object
             # without the need to pass around actual database clauses.
+            #
+            # This is a lot of instrumentation but it means we can
+            # test what happened inside works() mainly by looking at a
+            # string of method names in the result object.
             def __init__(self, clauses, distinct=False):
                 self.clauses = clauses
                 self._distinct = distinct
@@ -1912,7 +1916,8 @@ class TestDatabaseBackedWorkList(DatabaseTest):
                 )
                 self.stages.append(new_query)
                 return (
-                    new_query, "bibliographic filter"
+                    new_query,
+                    "bibliographic filter returned by active_bibliographic_filter_clause"
                 )
 
         # The simplest case: no facets or pagination,
@@ -1988,16 +1993,15 @@ class TestDatabaseBackedWorkList(DatabaseTest):
             self._db, facets=MockFacets(wl), pagination=MockPagination(wl)
         )
 
-
         # Here are the methods called before bibliographic_filter_clause.
         eq_(['base_query', 'only_show_ready_deliverable_works'],
             wl.pre_bibliographic_filter.clauses)
 
         # bibliographic_filter_clause created a brand new object,
-        # which ended up as our result after more methods were called
-        # on it.
+        # which ended up as our result after some more methods were
+        # called on it.
         eq_(['new query made inside active_bibliographic_filter_clause',
-             'bibliographic filter',
+             'bibliographic filter returned by active_bibliographic_filter_clause',
              'facets',
              'modify_database_query_hook',
              'pagination',
@@ -2072,129 +2076,35 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         facets.order_ascending = False
         eq_([barnaby_rudge], wl.works(self._db, facets, pagination).all())
 
-    def test_works_propagates_facets(self):
-        """Verify that the Facets object passed into works() is
-        propagated to the methods called by works().
-        """
-        class Mock(WorkList):
-            def apply_filters(self, _db, qu, facets, pagination):
-                self.apply_filters_called_with = facets
-                return qu
-        wl = Mock()
-        wl.initialize(self._default_library)
-        facets = FacetsWithEntryPoint()
-        wl.works(self._db, facets=facets)
-        eq_(facets, wl.apply_filters_called_with)
+    def test_base_query(self):
+        # Verify that base_query makes the query we expect and then
+        # calls some optimization methods (not tested).
+        class Mock(DatabaseBackedWorkList):
+            def _modify_loading(self, qu):
+                return [qu, "_modify_loading"]
 
-    def test_apply_filters(self):
+            def _defer_unused_fields(self, qu):
+                return qu + ['_defer_unused_fields']
 
-        called = dict()
+        result = Mock().base_query(self._db)
 
-        class MockWorkList(WorkList):
-            """Mock WorkList that simply verifies that apply_filters()
-            calls various hook methods.
-            """
-
-            def only_show_ready_deliverable_works(
-                    self, _db, query, *args, **kwargs
-            ):
-                called['only_show_ready_deliverable_works'] = True
-                return query
-
-            def bibliographic_filter_clause(
-                    self, _db, query, featured
-            ):
-                called['apply_bibliographic_filters'] = True
-                called['apply_bibliographic_filters.featured'] = featured
-                return query, None
-
-        class MockFacets(object):
-            def apply(self, _db, query):
-                called['facets.apply'] = True
-                return query
-
-        class MockPagination(object):
-            def apply(self, query):
-                called['pagination.apply'] = True
-                return query
-
-        original_qu = self._db.query(Work)
-        wl = MockWorkList()
-        final_qu = wl.apply_filters(
-            self._db, original_qu, MockFacets(),
-            MockPagination()
+        [base_query, m, d] = result
+        expect = self._db.query(Work).join(Work.license_pools).join(
+            Work.presentation_edition
         )
-
-        # The hook methods were called with the right arguments.
-        eq_(called['only_show_ready_deliverable_works'], True)
-        eq_(called['apply_bibliographic_filters'], True)
-        eq_(called['facets.apply'], True)
-        eq_(called['pagination.apply'], True)
-
-        eq_(called['apply_bibliographic_filters.featured'], False)
-
-        # We mocked everything that might have changed the final query,
-        # and the end result was the query wasn't modified.
-        eq_(original_qu, final_qu)
-
-        # Test that apply_filters() makes a query distinct if there is
-        # no Facets object to do the job.
-        called = dict()
-        distinct_qu = wl.apply_filters(self._db, original_qu, None, None)
-        eq_(str(original_qu.distinct(Work.id)), str(distinct_qu))
-        assert 'facets.apply' not in called
-        assert 'pagination.apply' not in called
-
-        # If a Facets is passed into apply_filters, the query
-        # is passed into the Facets.apply() method.
-        class MockFacets(object):
-            def apply(self, _db, qu):
-                self.called_with = qu
-                return qu
-        facets = MockFacets()
-        wl.apply_filters(self._db, original_qu, facets, None)
-        # The query was modified by the time it was passed in, so it's
-        # not the same as original_qu, but all we need to check is that
-        # _some_ query was passed in.
-        assert isinstance(facets.called_with, type(original_qu))
-
-    def test_apply_bibliographic_filters_short_circuits_apply_filters(self):
-        class MockWorkList(WorkList):
-            """Mock WorkList whose bibliographic_filter_clause implementation
-            believes the WorkList should not exist at all.
-            """
-
-            def bibliographic_filter_clause(
-                    self, _db, query, featured
-            ):
-                return None, None
-
-        wl = MockWorkList()
-        wl.initialize(self._default_library)
-        qu = self._db.query(Work)
-        eq_(None, wl.apply_filters(self._db, qu, None, None))
+        eq_(str(expect), str(base_query))
+        eq_("_modify_loading", m)
+        eq_("_defer_unused_fields", d)
 
     def test_bibliographic_filter_clause(self):
         called = dict()
 
-        class MockWorkList(WorkList):
-            """Mock WorkList that simply verifies that
-            bibliographic_filter_clause() calls various hook methods.
+        class MockWorkList(DatabaseBackedWorkList):
+            """Verifies that bibliographic_filter_clause() calls various hook
+            methods.
+
+            The hook methods themselves are tested separately.
             """
-
-            def __init__(self, languages=None, genre_ids=None, media=None,
-                         customlists=[], list_datasource=None,
-                         list_seen_in_previous_days=None):
-                self.languages = languages
-                self.genre_ids = genre_ids
-                self.media = media
-                self._customlist_ids=[x.id for x in customlists]
-                if list_datasource:
-                    self.list_datasource_id = list_datasource.id
-                else:
-                    self.list_datasource_id = None
-                self.list_seen_in_previous_days = list_seen_in_previous_days
-
             def audience_filter_clauses(self, _db, qu):
                 called['apply_audience_filter'] = (_db, qu)
                 return []
@@ -2206,15 +2116,14 @@ class TestDatabaseBackedWorkList(DatabaseTest):
                 )
 
         wl = MockWorkList()
-        from ..model import MaterializedWorkWithGenre as wg
-        original_qu = self._db.query(wg)
+        wl.initialize(self._default_library)
+        original_qu = self._db.query(Work)
 
         # If no languages or genre IDs are specified, and the hook
         # methods do nothing, then bibliographic_filter_clause() has
         # no effect.
-        featured_object = object()
         final_qu, bibliographic_filter = wl.bibliographic_filter_clause(
-            self._db, original_qu, featured_object
+            self._db, original_qu
         )
         eq_(original_qu, final_qu)
         eq_(None, bibliographic_filter)
@@ -2237,21 +2146,16 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
         romance, ignore = Genre.lookup(self._db, "Romance")
         english_sf.genres.append(sf)
-        self.add_to_materialized_view(english_sf)
 
-        # Create a WorkList that will find the MaterializedWorkWithGenre
-        # for the English SF book.
-        def worklist_has_books(
-                expect_books, featured=False, outer_join=False,
-                **worklist_constructor_args
-        ):
+        # Create a WorkList that will find the English SF book.
+        def worklist_has_books(expect_books, **initialize_kwargs):
             """Apply bibliographic filters to a query and verify
             that it finds only the given books.
             """
-            worklist = MockWorkList(**worklist_constructor_args)
+            worklist = MockWorkList()
+            worklist.initialize(self._default_library, **initialize_kwargs)
             qu, clause = worklist.bibliographic_filter_clause(
-                self._db, original_qu, featured=featured,
-                outer_join=outer_join
+                self._db, original_qu
             )
             qu = qu.filter(clause)
             expect_titles = sorted([x.sort_title for x in expect_books])
@@ -2260,16 +2164,16 @@ class TestDatabaseBackedWorkList(DatabaseTest):
 
         worklist_has_books(
             [english_sf],
-            languages=["eng"], genre_ids=[sf.id], media=[Edition.BOOK_MEDIUM]
+            languages=["eng"], genres=[sf], media=[Edition.BOOK_MEDIUM]
         )
 
         # WorkLists that do not match by language, medium, or genre will not
         # find the English SF book.
-        worklist_has_books([], languages=["spa"], genre_ids=[sf.id])
-        worklist_has_books([], languages=["eng"], genre_ids=[romance.id])
+        worklist_has_books([], languages=["spa"], genres=[sf])
+        worklist_has_books([], languages=["eng"], genres=[romance])
         worklist_has_books(
             [],
-            languages=["eng"], genre_ids=[sf.id], media=[Edition.AUDIO_MEDIUM]
+            languages=["eng"], genres=[sf], media=[Edition.AUDIO_MEDIUM]
         )
 
         # If the WorkList has custom list IDs, then works will only show up if
@@ -2280,17 +2184,12 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         empty_list, ignore = self._customlist(num_entries=0)
         self.add_to_materialized_view(english_sf)
 
-        worklist_has_books([], featured="featured value",
-                           outer_join="outer_join value",
-                           customlists=[empty_list])
-        # There were no results, but customlist_filter_clauses was
-        # called, with the arguments we passed in for `featured`
-        # and `outer_join` (plus an intermediary query that we can't
-        # really test).
-        args, kwargs= called['customlist_filter_clauses']
-        untestable, featured, outer_join = args
-        eq_(outer_join, "outer_join value")
-        eq_(featured, "featured value")
+        worklist_has_books([], customlists=[empty_list])
+        # We ended up with no results, but customlist_filter_clauses
+        # was called with a query that _would_ have returned results.
+        [query], kwargs= called['customlist_filter_clauses']
+        eq_([english_sf], query.all())
+        eq_({}, kwargs)
 
         worklist_has_books([english_sf], customlists=[sf_list])
 
