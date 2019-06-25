@@ -88,7 +88,7 @@ class TestFacetsWithEntryPoint(DatabaseTest):
 
     def test_modify_database_query(self):
         class MockEntryPoint(object):
-            def modify_database_query(self, qu):
+            def modify_database_query(self, _db, qu):
                 self.called_with = qu
 
         ep = MockEntryPoint()
@@ -1555,13 +1555,19 @@ class TestWorkList(DatabaseTest):
         w2 = MockWork(2)
         w3 = MockWork(3)
 
+        class MockWorkList(object):
+            def __init__(self, works):
+                self._works = works
+                self.visible = True
+
+            def groups(self, *args, **kwargs):
+                return self._works
+
         # This WorkList has one featured work.
-        child1 = MockFeaturedWorks()
-        child1.queue_featured_works([w1])
+        child1 = MockWorkList([w1])
 
         # This WorkList has two featured works.
-        child2 = MockFeaturedWorks()
-        child2.queue_featured_works([w2, w1])
+        child2 = MockWorkList([w2, w1])
 
         # This WorkList has two children -- the two WorkLists created
         # above.
@@ -1660,7 +1666,7 @@ class TestWorkList(DatabaseTest):
         # The fake work IDs returned from query_works() were passed into
         # works_for_hits().
         eq_(
-            (self._db, search_client.fake_work_ids, Work),
+            (self._db, search_client.fake_work_ids),
             wl.called_with
         )
 
@@ -1762,7 +1768,7 @@ class TestWorkList(DatabaseTest):
         # The results of query_works were passed into
         # MockWorkList.works_for_hits.
         eq_(
-            (self._db, "A bunch of work IDs", Work),
+            (self._db, "A bunch of work IDs"),
             wl.works_for_hits_called_with
         )
 
@@ -3599,31 +3605,6 @@ class TestWorkListGroups(DatabaseTest):
         facets = FeaturedFacets(0)
         groups = list(wl._groups_for_lanes(self._db, [], [], facets))
         eq_(facets, wl.featured_called_with)
-
-    def test_featured_works_propagates_facets(self):
-        # featured_works uses facets when it calls works_from_database().
-        class Mock(WorkList):
-            def works_from_database(self, _db, facets):
-                self.works_from_database_called_with = facets
-                return []
-
-        wl = Mock()
-        wl.initialize(library=self._default_library)
-        facets = FeaturedFacets(
-            minimum_featured_quality = object(),
-            uses_customlists = object(),
-            entrypoint=AudiobooksEntryPoint
-        )
-        groups = list(wl.featured_works(self._db, facets))
-        eq_(facets, wl.works_from_database_called_with)
-
-        # If no FeaturedFacets object is specified, one is created
-        # based on default library configuration.
-        groups = list(wl.featured_works(self._db, None))
-        facets2 = wl.works_from_database_called_with
-        eq_(self._default_library.minimum_featured_quality,
-            facets2.minimum_featured_quality)
-        eq_(wl.uses_customlists, facets2.uses_customlists)
 
     def test_featured_works_with_lanes(self):
         # _featured_works_with_lanes calls works_from_search_index

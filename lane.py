@@ -304,12 +304,12 @@ class FacetsWithEntryPoint(BaseFacets):
             self.entrypoint.modify_search_filter(filter)
         return filter
 
-    def modify_database_query(self, qu):
+    def modify_database_query(self, _db, qu):
         """Modify the given database query so that it reflects this set of
         facets.
         """
         if self.entrypoint:
-            qu = self.entrypoint.modify_database_query(filter)
+            qu = self.entrypoint.modify_database_query(_db, filter)
         return qu
 
 class Facets(FacetsWithEntryPoint):
@@ -638,7 +638,7 @@ class DatabaseBackedFacets(Facets):
         ordered appropriately.
         """
         if self.entrypoint:
-            qu = self.entrypoint.modify_database_query(qu)
+            qu = self.entrypoint.modify_database_query(_db, qu)
 
         if self.availability == self.AVAILABLE_NOW:
             availability_clause = or_(
@@ -1536,7 +1536,6 @@ class WorkList(object):
         """
         library = self.get_library(_db)
         target_size = library.featured_lane_size
-        facets = facets or self.default_featured_facets(_db)
 
         # We ask for a few extra works for each lane, to reduce the
         # risk that we'll end up reusing a book in two different
@@ -1623,7 +1622,7 @@ class WorkList(object):
                 for x in lane.groups(
                     _db, include_sublanes=False, facets=facets,
                 ):
-                    yield x
+                    yield x, lane
 
     def _featured_works_with_lanes(
         self, _db, lanes, facets, pagination, search_engine, debug=False

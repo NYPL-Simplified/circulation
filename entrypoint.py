@@ -93,7 +93,7 @@ class EntryPoint(object):
         return filter
 
     @classmethod
-    def modify_database_query(cls, qu):
+    def modify_database_query(cls, _db, qu):
         """Default behavior is to not change a database query at all."""
         return qu
 
@@ -115,7 +115,7 @@ class MediumEntryPoint(EntryPoint):
     """
 
     @classmethod
-    def modify_database_query(cls, qu):
+    def modify_database_query(cls, _db, qu):
         """Modify a query against Work+LicensePool+Edition
         to match only items with the right medium.
         """
