@@ -2751,9 +2751,9 @@ class TestFilter(DatabaseTest):
         parent.target_age = NumericRange(10, 11, '[]')
         parent.genres = [self.horror, self.fantasy]
         parent.customlists = [self.best_sellers]
-        parent.license_datasource_id = DataSource.lookup(
+        parent.license_datasource = DataSource.lookup(
             self._db, DataSource.GUTENBERG
-        ).id
+        )
 
         # This lane inherits most of its configuration from its parent.
         inherits = self._lane(
