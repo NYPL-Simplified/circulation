@@ -1836,11 +1836,9 @@ class TestWorkList(DatabaseTest):
 
 class TestDatabaseBackedWorkList(DatabaseTest):
 
-    def test_works(self):
-        """Verify that the works() method calls the methods we expect,
-        in the right order.
-        """
-
+    def test_works_from_database(self):
+        # Verify that the works_from_database() method calls the
+        # methods we expect, in the right order.
         class MockQuery(object):
             # Simulates the behavior of a database Query object
             # without the need to pass around actual database clauses.
@@ -1927,7 +1925,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         # The simplest case: no facets or pagination,
         # and bibliographic_filter_clauses does nothing.
         wl = MockWorkList(self._db)
-        result = wl.works(self._db, extra_kwarg="ignored")
+        result = wl.works_from_database(self._db, extra_kwarg="ignored")
 
         # We got a MockQuery.
         assert isinstance(result, MockQuery)
@@ -1983,7 +1981,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         assert_raises_regexp(
             ValueError,
             "Incompatible faceting object for DatabaseBackedWorkList: 'bad facet'",
-            wl.works, self._db, facets="bad facet"
+            wl.works_from_database, self._db, facets="bad facet"
         )
 
         class MockPagination(object):
@@ -1993,7 +1991,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
             def modify_database_query(self, _db, qu):
                 return self.wl._stage("pagination", _db, qu)
 
-        result = wl.works(
+        result = wl.works_from_database(
             self._db, facets=MockFacets(wl), pagination=MockPagination(wl)
         )
 
@@ -2026,14 +2024,14 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         # triggered.
         eq_("some other field", result._distinct)
 
-    def test_works_end_to_end(self):
-        """Verify that works() correctly locates works that match the criteria
-        specified by the DatabaseBackedWorkList, the faceting object, and
-        the pagination object.
-
-        This is a simple end-to-end test of functionality that's
-        tested in more detail elsewhere.
-        """
+    def test_works_from_database_end_to_end(self):
+        # Verify that works_from_database() correctly locates works
+        # that match the criteria specified by the
+        # DatabaseBackedWorkList, the faceting object, and the
+        # pagination object.
+        #
+        # This is a simple end-to-end test of functionality that's
+        # tested in more detail elsewhere.
 
         # Create two books.
         oliver_twist = self._work(
@@ -2046,25 +2044,25 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         # A standard DatabaseBackedWorkList will find both books.
         wl = DatabaseBackedWorkList()
         wl.initialize(self._default_library)
-        eq_(2, wl.works(self._db).count())
+        eq_(2, wl.works_from_database(self._db).count())
 
         # A work list with a language restriction will only find books
         # in that language.
         wl.initialize(self._default_library, languages=['eng'])
-        eq_([oliver_twist], [x for x in wl.works(self._db)])
+        eq_([oliver_twist], [x for x in wl.works_from_database(self._db)])
 
         # A DatabaseBackedWorkList will only find books licensed
         # through one of its collections.
         collection = self._collection()
         self._default_library.collections = [collection]
         wl.initialize(self._default_library)
-        eq_(0, wl.works(self._db).count())
+        eq_(0, wl.works_from_database(self._db).count())
 
         # If a DatabaseBackedWorkList has no collections, it has no
         # books.
         self._default_library.collections = []
         wl.initialize(self._default_library)
-        eq_(0, wl.works(self._db).count())
+        eq_(0, wl.works_from_database(self._db).count())
 
         # A DatabaseBackedWorkList can be set up with a collection
         # rather than a library. TODO: The syntax here could be improved.
@@ -2072,7 +2070,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         wl.initialize(None)
         wl.collection_ids = [self._default_collection.id]
         eq_(None, wl.get_library(self._db))
-        eq_(2, wl.works(self._db).count())
+        eq_(2, wl.works_from_database(self._db).count())
 
         # Facets and pagination can affect which entries and how many
         # are returned.
@@ -2083,10 +2081,10 @@ class TestDatabaseBackedWorkList(DatabaseTest):
             order=Facets.ORDER_TITLE
         )
         pagination = Pagination(offset=1, size=1)
-        eq_([oliver_twist], wl.works(self._db, facets, pagination).all())
+        eq_([oliver_twist], wl.works_from_database(self._db, facets, pagination).all())
 
         facets.order_ascending = False
-        eq_([barnaby_rudge], wl.works(self._db, facets, pagination).all())
+        eq_([barnaby_rudge], wl.works_from_database(self._db, facets, pagination).all())
 
     def test_base_query(self):
         # Verify that base_query makes the query we expect and then
@@ -2383,7 +2381,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
             qu = self._db.query(Work)
             clauses = wl.age_range_filter_clauses()
             qu = qu.filter(and_(*clauses))
-            eq_(expect, qu.all())
+            eq_(set(expect), set(qu.all()))
 
         adult = self._work(
             title="For adults",
