@@ -2336,11 +2336,6 @@ class Lane(Base, DatabaseBackedWorkList):
         """Update the stored estimate of the number of Works in this Lane."""
         library = self.get_library(_db)
 
-        # TODO: We need some way of _converting_ the Lane to a
-        # DatabaseBackedWorkList.
-        wl = DatabaseBackedWorkList()
-        wl.initialize(library)
-
         # Do the estimate for every known entry point.
         by_entrypoint = dict()
         for entrypoint in EntryPoint.ENTRY_POINTS:
@@ -2349,7 +2344,7 @@ class Lane(Base, DatabaseBackedWorkList):
                 FacetConstants.AVAILABLE_ALL,
                 order=FacetConstants.ORDER_WORK_ID, entrypoint=entrypoint
             )
-            qu = wl.works(_db, facets)
+            qu = self.works_from_database(_db, facets)
             by_entrypoint[entrypoint.URI] = fast_query_count(qu)
         self.size_by_entrypoint = by_entrypoint
         self.size = by_entrypoint[EverythingEntryPoint.URI]
