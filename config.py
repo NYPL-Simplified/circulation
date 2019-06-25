@@ -131,6 +131,7 @@ class Configuration(object):
     # Each library may set a minimum quality for the books that show
     # up in the 'featured' lanes that show up on the front page.
     MINIMUM_FEATURED_QUALITY = "minimum_featured_quality"
+    DEFAULT_MINIMUM_FEATURED_QUALITY = 0.65
 
     # Each library may configure the maximum number of books in the
     # 'featured' lanes.
@@ -259,7 +260,7 @@ class Configuration(object):
             "description": _("Between 0 and 1."),
             "type": "number",
             "max": 1,
-            "default": 0.65,
+            "default": DEFAULT_MINIMUM_FEATURED_QUALITY,
             "category": "Lanes & Filters",
         },
     ] + [

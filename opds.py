@@ -802,7 +802,7 @@ class AcquisitionFeed(OPDSFeed):
 
         # TODO: Can this be removed?
         """
-        page_of_works = pagination.modify_database_query(query)
+        page_of_works = pagination.modify_database_query(_db, query)
         pagination.total_size = int(query.count())
 
         feed = cls(_db, feed_name, url, page_of_works, annotator)
