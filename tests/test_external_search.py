@@ -2694,6 +2694,14 @@ class TestFilter(DatabaseTest):
             Filter(customlist_restriction_sets=[[]]).customlist_restriction_sets
         )
 
+        # Test the license_datasource argument
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        overdrive_only = Filter(license_datasource=overdrive)
+        eq_([overdrive.id], overdrive_only.license_datasources)
+
+        overdrive_only = Filter(license_datasource=overdrive.id)
+        eq_([overdrive.id], overdrive_only.license_datasources)
+
         # If you pass in a Facets object, its modify_search_filter()
         # and scoring_functions() methods are called.
         class Mock(object):
@@ -2743,6 +2751,9 @@ class TestFilter(DatabaseTest):
         parent.target_age = NumericRange(10, 11, '[]')
         parent.genres = [self.horror, self.fantasy]
         parent.customlists = [self.best_sellers]
+        parent.license_datasource_id = DataSource.lookup(
+            self._db, DataSource.GUTENBERG
+        ).id
 
         # This lane inherits most of its configuration from its parent.
         inherits = self._lane(
@@ -2764,6 +2775,7 @@ class TestFilter(DatabaseTest):
         eq_(parent.languages, filter.languages)
         eq_(parent.fiction, filter.fiction)
         eq_(parent.audiences, filter.audiences)
+        eq_([parent.license_datasource_id], filter.license_datasources)
         eq_((parent.target_age.lower, parent.target_age.upper),
             filter.target_age)
         eq_(True, filter.allow_holds)
