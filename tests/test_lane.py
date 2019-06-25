@@ -2193,6 +2193,41 @@ class TestDatabaseBackedWorkList(DatabaseTest):
 
         worklist_has_books([english_sf], customlists=[sf_list])
 
+    def test_audience_filter_clauses(self):
+        # Verify that audience_filter_clauses restricts a query to
+        # reflect a DatabaseBackedWorkList's audience filter.
+
+        # Create a children's book and a book for adults.
+        adult = self._work(
+            title="Diseases of the Horse",
+            with_license_pool=True, with_open_access_download=True,
+            audience=Classifier.AUDIENCE_ADULT
+        )
+
+        children = self._work(
+            title="Wholesome Nursery Rhymes For All Children",
+            with_license_pool=True, with_open_access_download=True,
+            audience=Classifier.AUDIENCE_CHILDREN
+        )
+
+        def for_audiences(*audiences):
+            """Invoke audience_filter_clauses using the given
+            `audiences`, and return all the matching Work objects.
+            """
+            wl = DatabaseBackedWorkList()
+            wl.audiences = audiences
+            qu = wl.base_query(self._db)
+            clauses = wl.audience_filter_clauses(self._db, qu)
+            if clauses:
+                qu = qu.filter(and_(*clauses))
+            return qu.all()
+
+        eq_([adult], for_audiences(Classifier.AUDIENCE_ADULT))
+        eq_([children], for_audiences(Classifier.AUDIENCE_CHILDREN))
+
+        # If no particular audiences are specified, no books are filtered.
+        eq_(set([adult, children]), set(for_audiences()))
+
     def test_customlist_filter_clauses(self):
         """Standalone test of customlist_filter_clauses
         """
@@ -2336,71 +2371,6 @@ class TestDatabaseBackedWorkList(DatabaseTest):
             eq_([], _run(both_lists_qu, both_lists_clauses))
             l.add_entry(work)
 
-    def test_audience_filter_clauses(self):
-
-        # Create two childrens' books (one from Gutenberg, one not)
-        # and one book for adults.
-
-        gutenberg_children = self._work(
-            title="Beloved Treasury of Racist Nursery Rhymes",
-            with_license_pool=True,
-            with_open_access_download=True,
-        )
-        eq_(DataSource.GUTENBERG,
-            gutenberg_children.license_pools[0].data_source.name)
-
-        # _work() will not create a test Gutenberg book for children
-        # to avoid exactly the problem we're trying to test, so
-        # we need to set it manually.
-        gutenberg_children.audience=Classifier.AUDIENCE_CHILDREN
-
-        gutenberg_adult = self._work(
-            title="Diseases of the Horse",
-            with_license_pool=True, with_open_access_download=True,
-            audience=Classifier.AUDIENCE_ADULT
-        )
-
-        edition, lp = self._edition(
-            title="Wholesome Nursery Rhymes For All Children",
-            data_source_name=DataSource.OVERDRIVE,
-            with_license_pool=True
-        )
-        non_gutenberg_children = self._work(
-            presentation_edition=edition, audience=Classifier.AUDIENCE_CHILDREN
-        )
-        self.add_to_materialized_view(
-            [gutenberg_children, non_gutenberg_children, gutenberg_adult]
-        )
-
-        def for_audiences(*audiences):
-            """Invoke WorkList.apply_audience_clauses using the given
-            `audiences`, and return all the matching Work objects.
-            """
-            wl = WorkList()
-            wl.audiences = audiences
-            qu = self._db.query(Work).join(Work.license_pools)
-            clauses = wl.audience_filter_clauses(self._db, qu)
-            if clauses:
-                qu = qu.filter(and_(*clauses))
-            return [x.works_id for x in qu.all()]
-
-        eq_([gutenberg_adult.id], for_audiences(Classifier.AUDIENCE_ADULT))
-
-        # The Gutenberg "children's" book is filtered out because it we have
-        # no guarantee it is actually suitable for children.
-        eq_([non_gutenberg_children.id],
-            for_audiences(Classifier.AUDIENCE_CHILDREN))
-
-        # This can sometimes lead to unexpected results, but the whole
-        # thing is a hack and needs to be improved anyway.
-        eq_([non_gutenberg_children.id],
-            for_audiences(Classifier.AUDIENCE_ADULT,
-                          Classifier.AUDIENCE_CHILDREN))
-
-        # If no particular audiences are specified, no books are filtered.
-        eq_(set([gutenberg_adult.id, gutenberg_children.id,
-                 non_gutenberg_children.id]),
-            set(for_audiences()))
 
 
 class TestLane(DatabaseTest):
