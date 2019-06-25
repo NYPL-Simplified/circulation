@@ -1212,7 +1212,7 @@ class TestPagination(DatabaseTest):
 
         # When total_size is not set, Pagination assumes there is a
         # next page.
-        pagination.modify_database_query(query)
+        pagination.modify_database_query(self._db, query)
         eq_(True, pagination.has_next_page)
 
         # Here, there is one more item on the next page.
@@ -1249,7 +1249,7 @@ class TestPagination(DatabaseTest):
 
         # When this_page_size is not set, Pagination assumes there is a
         # next page.
-        pagination.modify_database_query(query)
+        pagination.modify_database_query(self._db, query)
         eq_(True, pagination.has_next_page)
 
         # Here, there is nothing on the current page. There is no next page.
@@ -2228,16 +2228,20 @@ class TestDatabaseBackedWorkList(DatabaseTest):
     def test_bibliographic_filter_clauses_end_to_end(self):
         original_qu = self._db.query(Work)
 
-        # If languages, media, and genre IDs are specified, then they are
-        # incorporated into the query.
-        #
+        # Create a work that may or may not show up in various
+        # DatabaseBackedWorkLists.
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
-        english_sf = self._work(language="eng", with_license_pool=True)
+        english_sf = self._work(
+            language="eng", with_license_pool=True,
+            audience=Classifier.AUDIENCE_YOUNG_ADULT
+        )
+        english_sf.target_age = tuple_to_numericrange((12,14))
         gutenberg = english_sf.license_pools[0].data_source
         english_sf.presentation_edition.medium = Edition.BOOK_MEDIUM
         english_sf.genres.append(sf)
 
-        # Create a DatabaseBackedWorkList that will find the English SF book.
+        # Create a DatabaseBackedWorkList that will find (or not find)
+        # the English SF book.
         def worklist_has_books(expect_books, **initialize_kwargs):
             """Apply bibliographic filters to a query and verify
             that it finds only the given books.
@@ -2252,15 +2256,18 @@ class TestDatabaseBackedWorkList(DatabaseTest):
             actual_titles = sorted([x.sort_title for x in qu])
             eq_(expect_titles, actual_titles)
 
-        # A WorkList will find the English SF book if its restrictions on
-        # language, medium, genre, fiction status, and data source are
-        # all compatible with that book.
-        worklist_has_books([english_sf])
+        # A WorkList will find the English SF book only if all restrictions
+        # are met.
         worklist_has_books(
             [english_sf],
             languages=["eng"], genres=[sf], media=[Edition.BOOK_MEDIUM],
-            fiction=True, license_datasource=gutenberg
+            fiction=True, license_datasource=gutenberg,
+            audiences=[Classifier.AUDIENCE_YOUNG_ADULT],
+            target_age=tuple_to_numericrange((13,13))
         )
+
+        # This might be because there _are_ no restrictions.
+        worklist_has_books([english_sf])
 
         # DatabaseBackedWorkLists with a contradictory setting for one
         # of those fields will not find the English SF book.
@@ -2288,6 +2295,55 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         worklist_has_books([], customlists=[empty_list])
 
         # TODO: We need to test the parent restriction.
+
+    def test_age_range_filter_clauses_end_to_end(self):
+        """Standalone test of age_range_filter_clauses().
+        """
+        def worklist_has_books(expect, **wl_args):
+            """Make a DatabaseBackedWorkList and find all the works
+            that match its age_range_filter_clauses.
+            """
+            wl = DatabaseBackedWorkList()
+            wl.initialize(self._default_library, **wl_args)
+            qu = self._db.query(Work)
+            clauses = wl.age_range_filter_clauses()
+            qu = qu.filter(and_(*clauses))
+            eq_(expect, qu.all())
+
+        adult = self._work(
+            title="For adults",
+            audience=Classifier.AUDIENCE_ADULT,
+            with_license_pool=True,
+        )
+        eq_(None, adult.target_age)
+        fourteen_or_fifteen = self._work(
+            title="For teens",
+            audience=Classifier.AUDIENCE_YOUNG_ADULT,
+            with_license_pool=True,
+        )
+        fourteen_or_fifteen.target_age = tuple_to_numericrange((14,15))
+
+        # This DatabaseBackedWorkList contains the YA book because its
+        # age range overlaps the age range of the book.
+        worklist_has_books(
+            [fourteen_or_fifteen], target_age=(12, 14)
+        )
+
+        worklist_has_books(
+            [adult, fourteen_or_fifteen],
+            audiences=[Classifier.AUDIENCE_ADULT], target_age=(12, 14)
+        )
+
+        # This lane contains no books because it skews too old for the YA
+        # book, but books for adults are not allowed.
+        older_ya = self._lane()
+        older_ya.target_age = (16,17)
+        self.add_to_materialized_view([older_ya])
+        worklist_has_books([], target_age=(16,17))
+
+        # Expand it to include books for adults, and the adult book
+        # shows up despite having no target age at all.
+        worklist_has_books([adult], target_age=(16, 18))
 
     def test_audience_filter_clauses(self):
         # Verify that audience_filter_clauses restricts a query to
@@ -3162,84 +3218,6 @@ class TestLane(DatabaseTest):
         match_works(sf_lane, [])
         sf_short.genres.append(short_stories)
         match_works(sf_lane, [sf_short])
-
-    def test_bibliographic_filter_clauses_no_restrictions(self):
-        """A lane that matches every single book has no bibliographic
-        filter clause.
-        """
-        lane = self._lane()
-        qu = self._db.query(Work)
-        eq_(
-            (qu, None),
-            lane.bibliographic_filter_clauses(self._db, qu, False, False)
-        )
-
-    def test_bibliographic_filter_clauses_medium_restriction(self):
-        book = self._work(fiction=False, with_license_pool=True)
-        eq_(Edition.BOOK_MEDIUM, book.presentation_edition.medium)
-        lane = self._lane()
-        self.add_to_materialized_view([book])
-
-        def matches(lane):
-            qu = self._db.query(Work)
-            new_qu, bib_filter = lane.bibliographic_filter_clauses(
-                self._db, qu, False
-            )
-            eq_(new_qu, qu)
-            return [x.works_id for x in new_qu.filter(bib_filter)]
-
-        # This lane only includes ebooks, and it has one item.
-        lane.media = [Edition.BOOK_MEDIUM]
-        eq_([book.id], matches(lane))
-
-        # This lane only includes audiobooks, and it's empty
-        lane.media = [Edition.AUDIO_MEDIUM]
-        eq_([], matches(lane))
-
-    def test_age_range_filter_clauses(self):
-        """Standalone test of age_range_filter_clauses().
-        """
-        def filtered(lane):
-            """Build a query that applies the given lane's age filter to the
-            works table.
-            """
-            qu = self._db.query(Work)
-            clauses = lane.age_range_filter_clauses()
-            if clauses:
-                qu = qu.filter(and_(*clauses))
-            return [x.works_id for x in qu]
-
-        adult = self._work(
-            title="For adults",
-            audience=Classifier.AUDIENCE_ADULT,
-            with_license_pool=True,
-        )
-        eq_(None, adult.target_age)
-        fourteen_or_fifteen = self._work(
-            title="For teens",
-            audience=Classifier.AUDIENCE_YOUNG_ADULT,
-            with_license_pool=True,
-        )
-        fourteen_or_fifteen.target_age = tuple_to_numericrange((14,15))
-
-        # This lane contains the YA book because its age range overlaps
-        # the age range of the book.
-        younger_ya = self._lane()
-        younger_ya.target_age = (12,14)
-        self.add_to_materialized_view([adult, younger_ya])
-        eq_([fourteen_or_fifteen.id], filtered(younger_ya))
-
-        # This lane contains no books because it skews too old for the YA
-        # book, but books for adults are not allowed.
-        older_ya = self._lane()
-        older_ya.target_age = (16,17)
-        self.add_to_materialized_view([older_ya])
-        eq_([], filtered(older_ya))
-
-        # Expand it to include books for adults, and the adult book
-        # shows up despite having no target age at all.
-        older_ya.target_age = (16,18)
-        eq_([adult.id], filtered(older_ya))
 
     def test_explain(self):
         parent = self._lane(display_name="Parent")

@@ -1513,7 +1513,7 @@ class WorkList(object):
                 exc_info=e
             )
         if hits:
-            results = self.works_for_hits(_db, hits, Work)
+            results = self.works_for_hits(_db, hits)
 
         return results
 
@@ -1936,10 +1936,23 @@ class DatabaseBackedWorkList(WorkList):
         if self.target_age is None:
             return []
 
-        if (Classifier.AUDIENCE_ADULT in self.audiences
-            or Classifier.AUDIENCE_ADULTS_ONLY in self.audiences):
-            # Books for adults don't have target ages. If we're including
-            # books for adults, allow the target age to be empty.
+        # self.target_age will be a NumericRange for Lanes and a tuple for
+        # most other WorkLists. Make sure it's always a NumericRange.
+        target_age = self.target_age
+        if isinstance(target_age, tuple):
+            target_age = tuple_to_numericrange(target_age)
+
+        audiences = self.audiences or []
+        adult_audiences = [
+            Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_ADULTS_ONLY
+        ]
+        if (target_age.upper >= 18 or (
+                any(x in audiences for x in adult_audiences))
+        ):
+            # Books for adults don't have target ages. If we're
+            # including books for adults, either due to the audience
+            # setting or the target age setting, allow the target age
+            # to be empty.
             audience_has_no_target_age = Work.target_age == None
         else:
             audience_has_no_target_age = False
@@ -1947,9 +1960,10 @@ class DatabaseBackedWorkList(WorkList):
         # The lane's target age is an inclusive NumericRange --
         # set_target_age makes sure of that. The work's target age
         # must overlap that of the lane.
+
         return [
             or_(
-                Work.target_age.overlaps(self.target_age),
+                Work.target_age.overlaps(target_age),
                 audience_has_no_target_age
             )
         ]
