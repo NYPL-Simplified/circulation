@@ -1892,36 +1892,35 @@ class TestDatabaseBackedWorkList(DatabaseTest):
             def only_show_ready_deliverable_works(self, _db, qu):
                 return self._stage('only_show_ready_deliverable_works', _db, qu)
 
-            def bibliographic_filter_clause(self, _db, qu):
+            def bibliographic_filter_clauses(self, _db, qu):
                 # This method is a little different, so we can't use
                 # _stage().
                 #
                 # This implementation doesn't change anything; it will be
                 # replaced with an implementation that does.
                 eq_(_db, self._db)
-                self.bibliographic_filter_clause_called_with = qu
-                return qu, None
+                self.bibliographic_filter_clauses_called_with = qu
+                return qu, []
 
             def modify_database_query_hook(self, _db, qu):
                 return self._stage('modify_database_query_hook', _db, qu)
 
-            def active_bibliographic_filter_clause(self, _db, qu):
+            def active_bibliographic_filter_clauses(self, _db, qu):
                 # This alternate implementation of
-                # bibliographic_filter_clause returns a brand new
-                # MockQuery object and a string that should be used as
-                # a filter on it.
+                # bibliographic_filter_clauses returns a brand new
+                # MockQuery object and a list of filters.
                 self.pre_bibliographic_filter = qu
                 new_query = MockQuery(
-                    ["new query made inside active_bibliographic_filter_clause"]
+                    ["new query made inside active_bibliographic_filter_clauses"]
                 )
                 self.stages.append(new_query)
                 return (
                     new_query,
-                    "bibliographic filter returned by active_bibliographic_filter_clause"
+                    ["clause 1", "clause 2"]
                 )
 
         # The simplest case: no facets or pagination,
-        # and bibliographic_filter_clause does nothing.
+        # and bibliographic_filter_clauses does nothing.
         wl = MockWorkList(self._db)
         result = wl.works(self._db, extra_kwarg="ignored")
 
@@ -1937,24 +1936,24 @@ class TestDatabaseBackedWorkList(DatabaseTest):
             result.clauses
         )
         
-        # bibliographic_filter_clause used a different mechanism, but
+        # bibliographic_filter_clauses used a different mechanism, but
         # since it stored the MockQuery it was called with, we can see
         # when it was called -- just after
         # only_show_ready_deliverable_works.
         eq_(
             ['base_query', 'only_show_ready_deliverable_works'],
-            wl.bibliographic_filter_clause_called_with.clauses
+            wl.bibliographic_filter_clauses_called_with.clauses
         )
-        wl.bibliographic_filter_clause_called_with = None
+        wl.bibliographic_filter_clauses_called_with = None
 
         # Since nobody made the query distinct, it was set distinct on
         # Work.id.
         eq_(Work.id, result._distinct)
 
         # Now we're going to do a more complicated test, with
-        # faceting, pagination, and a bibliographic_filter_clause that
+        # faceting, pagination, and a bibliographic_filter_clauses that
         # actually does something.
-        wl.bibliographic_filter_clause = wl.active_bibliographic_filter_clause
+        wl.bibliographic_filter_clauses = wl.active_bibliographic_filter_clauses
 
         class MockFacets(DatabaseBackedFacets):
             def __init__(self, wl):
@@ -1963,7 +1962,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
             def modify_database_query(self, _db, qu):
                 # This is the only place we pass in False for
                 # qu_is_preivous_stage. This is called right after
-                # bibliographic_filter_clause, which caused a brand
+                # bibliographic_filter_clauses, which caused a brand
                 # new MockQuery object to be created.
                 result = self.wl._stage(
                     "facets", _db, qu, qu_is_previous_stage=False
@@ -1993,16 +1992,24 @@ class TestDatabaseBackedWorkList(DatabaseTest):
             self._db, facets=MockFacets(wl), pagination=MockPagination(wl)
         )
 
-        # Here are the methods called before bibliographic_filter_clause.
+        # Here are the methods called before bibliographic_filter_clauses.
         eq_(['base_query', 'only_show_ready_deliverable_works'],
             wl.pre_bibliographic_filter.clauses)
 
-        # bibliographic_filter_clause created a brand new object,
+        # bibliographic_filter_clauses created a brand new object,
         # which ended up as our result after some more methods were
         # called on it.
-        eq_(['new query made inside active_bibliographic_filter_clause',
-             'bibliographic filter returned by active_bibliographic_filter_clause',
-             'facets',
+        eq_('new query made inside active_bibliographic_filter_clauses',
+            result.clauses.pop(0))
+
+        # bibliographic_filter_clauses() returned two clauses which were
+        # combined with and_().
+        bibliographic_filter_clauses = result.clauses.pop(0)
+        eq_(str(and_('clause 1', 'clause 2')),
+            str(bibliographic_filter_clauses))
+
+        # The rest of the calls are easy to trac.
+        eq_(['facets',
              'modify_database_query_hook',
              'pagination',
              ],
@@ -2028,7 +2035,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
             title='Oliver Twist', with_license_pool=True, language="eng"
         )
         barnaby_rudge = self._work(
-            title='Baraby Rudge', with_license_pool=True, language="spa"
+            title='Barnaby Rudge', with_license_pool=True, language="spa"
         )
 
         # A standard DatabaseBackedWorkList will find both books.
@@ -2096,102 +2103,191 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         eq_("_modify_loading", m)
         eq_("_defer_unused_fields", d)
 
-    def test_bibliographic_filter_clause(self):
+    def test_bibliographic_filter_clauses(self):
         called = dict()
 
         class MockWorkList(DatabaseBackedWorkList):
-            """Verifies that bibliographic_filter_clause() calls various hook
+            """Verifies that bibliographic_filter_clauses() calls various hook
             methods.
 
             The hook methods themselves are tested separately.
             """
+            def __init__(self, parent):
+                super(MockWorkList, self).__init__()
+                self._parent = parent
+                self._inherit_parent_restrictions = False
+
             def audience_filter_clauses(self, _db, qu):
-                called['apply_audience_filter'] = (_db, qu)
+                called['audience_filter_clauses'] = (_db, qu)
                 return []
 
-            def customlist_filter_clauses(self, *args, **kwargs):
-                called['customlist_filter_clauses'] = (args, kwargs)
-                return super(MockWorkList, self).customlist_filter_clauses(
-                    *args, **kwargs
-                )
+            def customlist_filter_clauses(self, qu):
+                called['customlist_filter_clauses'] = qu
+                return qu, []
 
-        wl = MockWorkList()
+            def age_range_filter_clauses(self):
+                called['age_range_filter_clauses'] = True
+                return []
+
+            def genre_filter_clause(self, qu):
+                called['genre_filter_clause'] = qu
+                return qu, None
+
+            @property
+            def parent(self):
+                return self._parent
+
+            @property
+            def inherit_parent_restrictions(self):
+                return self._inherit_parent_restrictions
+
+        class MockParent(object):
+            bibliographic_filter_clauses_called_with = None
+            def bibliographic_filter_clauses(self, _db, qu):
+                self.bibliographic_filter_clauses_called_with = (_db, qu)
+                return qu, []
+
+        parent = MockParent()
+
+        # Create a MockWorkList with a parent.
+        wl = MockWorkList(parent)
         wl.initialize(self._default_library)
         original_qu = self._db.query(Work)
 
         # If no languages or genre IDs are specified, and the hook
-        # methods do nothing, then bibliographic_filter_clause() has
+        # methods do nothing, then bibliographic_filter_clauses() has
         # no effect.
-        final_qu, bibliographic_filter = wl.bibliographic_filter_clause(
+        final_qu, clauses = wl.bibliographic_filter_clauses(
             self._db, original_qu
         )
         eq_(original_qu, final_qu)
-        eq_(None, bibliographic_filter)
+        eq_([], clauses)
 
         # But at least the apply_audience_filter was called with the correct
         # arguments.
-        _db, qu = called['apply_audience_filter']
+        _db, qu = called['audience_filter_clauses']
         eq_(self._db, _db)
         eq_(original_qu, qu)
 
-        # customlist_filter_clauses was not called because the WorkList
-        # doesn't do anything relating to custom lists.
+        # age_range_filter_clauses was also called.
+        eq_(True, called['age_range_filter_clauses'])
+
+        # customlist_filter_clauses and genre_filter_clause were not
+        # called because the WorkList doesn't do anything relating to
+        # custom lists.
         assert 'customlist_filter_clauses' not in called
+        assert 'genre_filter_clause' not in called
+
+        # The parent's bibliographic_filter_clauses() implementation
+        # was not called, because wl.inherit_parent_restrictions is
+        # set to False.
+        eq_(None, parent.bibliographic_filter_clauses_called_with)
+
+        # Set things up so that those other methods will be called.
+        empty_list, ignore = self._customlist(num_entries=0)
+        sf, ignore = Genre.lookup(self._db, "Science Fiction")
+        wl.initialize(self._default_library, customlists=[empty_list],
+                      genres=[sf])
+        wl._inherit_parent_restrictions = True
+
+        final_qu, clauses = wl.bibliographic_filter_clauses(
+            self._db, original_qu
+        )
+
+        eq_((self._db, original_qu),
+            parent.bibliographic_filter_clauses_called_with)
+        eq_(original_qu, called['genre_filter_clause'])
+        eq_(original_qu, called['customlist_filter_clauses'])
+
+        # But none of those methods did anything, because their implementations
+        # don't change return anything
+        eq_([], clauses)
+
+        # Now test the clauses that are created directly by
+        # bibliographic_filter_clauses.
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        wl.initialize(
+            self._default_library, languages=['eng'],
+            media=[Edition.BOOK_MEDIUM],
+            fiction=True, license_datasource=overdrive
+        )
+
+        final_qu, clauses = wl.bibliographic_filter_clauses(
+            self._db, original_qu
+        )
+        eq_(original_qu, final_qu)
+        language, medium, fiction, datasource = clauses
+        
+        # NOTE: str() doesn't prove that the values are the same, only
+        # that the constraints are similar.
+        eq_(str(language), str(Edition.language.in_(wl.languages)))
+        eq_(str(medium), str(Edition.medium.in_(wl.media)))
+        eq_(str(fiction), str(Work.fiction==True))
+        eq_(str(datasource), str(LicensePool.data_source_id==overdrive.id))
+
+    def test_bibliographic_filter_clauses_end_to_end(self):
+        original_qu = self._db.query(Work)
 
         # If languages, media, and genre IDs are specified, then they are
         # incorporated into the query.
         #
-        english_sf = self._work(language="eng", with_license_pool=True)
-        english_sf.presentation_edition.medium = Edition.BOOK_MEDIUM
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
-        romance, ignore = Genre.lookup(self._db, "Romance")
+        english_sf = self._work(language="eng", with_license_pool=True)
+        gutenberg = english_sf.license_pools[0].data_source
+        english_sf.presentation_edition.medium = Edition.BOOK_MEDIUM
         english_sf.genres.append(sf)
 
-        # Create a WorkList that will find the English SF book.
+        # Create a DatabaseBackedWorkList that will find the English SF book.
         def worklist_has_books(expect_books, **initialize_kwargs):
             """Apply bibliographic filters to a query and verify
             that it finds only the given books.
             """
-            worklist = MockWorkList()
+            worklist = DatabaseBackedWorkList()
             worklist.initialize(self._default_library, **initialize_kwargs)
-            qu, clause = worklist.bibliographic_filter_clause(
+            qu, clauses = worklist.bibliographic_filter_clauses(
                 self._db, original_qu
             )
-            qu = qu.filter(clause)
+            qu = qu.filter(and_(*clauses))
             expect_titles = sorted([x.sort_title for x in expect_books])
             actual_titles = sorted([x.sort_title for x in qu])
             eq_(expect_titles, actual_titles)
 
+        # A WorkList will find the English SF book if its restrictions on
+        # language, medium, genre, fiction status, and data source are
+        # all compatible with that book.
+        worklist_has_books([english_sf])
         worklist_has_books(
             [english_sf],
-            languages=["eng"], genres=[sf], media=[Edition.BOOK_MEDIUM]
+            languages=["eng"], genres=[sf], media=[Edition.BOOK_MEDIUM],
+            fiction=True, license_datasource=gutenberg
         )
 
-        # WorkLists that do not match by language, medium, or genre will not
-        # find the English SF book.
+        # DatabaseBackedWorkLists with a contradictory setting for one
+        # of those fields will not find the English SF book.
         worklist_has_books([], languages=["spa"], genres=[sf])
+        romance, ignore = Genre.lookup(self._db, "Romance")
         worklist_has_books([], languages=["eng"], genres=[romance])
         worklist_has_books(
             [],
             languages=["eng"], genres=[sf], media=[Edition.AUDIO_MEDIUM]
         )
+        worklist_has_books([], fiction=False)
+        worklist_has_books(
+            [],
+            license_datasource=DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        )
 
         # If the WorkList has custom list IDs, then works will only show up if
         # they're on one of the matching CustomLists.
-
         sf_list, ignore = self._customlist(num_entries=0)
         sf_list.add_entry(english_sf)
-        empty_list, ignore = self._customlist(num_entries=0)
-        self.add_to_materialized_view(english_sf)
-
-        worklist_has_books([], customlists=[empty_list])
-        # We ended up with no results, but customlist_filter_clauses
-        # was called with a query that _would_ have returned results.
-        [query], kwargs= called['customlist_filter_clauses']
-        eq_([english_sf], query.all())
-        eq_({}, kwargs)
 
         worklist_has_books([english_sf], customlists=[sf_list])
+
+        empty_list, ignore = self._customlist(num_entries=0)
+        worklist_has_books([], customlists=[empty_list])
+
+        # TODO: We need to test the parent restriction.
 
     def test_audience_filter_clauses(self):
         # Verify that audience_filter_clauses restricts a query to
@@ -2910,7 +3006,7 @@ class TestLane(DatabaseTest):
         Lane.search_target = old_lane_search_target
         WorkList.search = old_wl_search
 
-    def test_bibliographic_filter_clause(self):
+    def test_bibliographic_filter_clauses_bad(self):
 
         # Create some works that will or won't show up in various
         # lanes.
@@ -2930,12 +3026,12 @@ class TestLane(DatabaseTest):
             base_query = self._db.query(Work).join(
                 LicensePool, LicensePool.work_id==Work.id
             )
-            new_query, bibliographic_clause = lane.bibliographic_filter_clause(
+            new_query, bibliographic_clause = lane.bibliographic_filter_clauses(
                 self._db, base_query, featured
             )
 
             if lane.uses_customlists:
-                # bibliographic_filter_clause modifies the query (by
+                # bibliographic_filter_clauses modifies the query (by
                 # calling customlist_filter_clauses).
                 assert base_query != new_query
 
@@ -3067,7 +3163,7 @@ class TestLane(DatabaseTest):
         sf_short.genres.append(short_stories)
         match_works(sf_lane, [sf_short])
 
-    def test_bibliographic_filter_clause_no_restrictions(self):
+    def test_bibliographic_filter_clauses_no_restrictions(self):
         """A lane that matches every single book has no bibliographic
         filter clause.
         """
@@ -3075,10 +3171,10 @@ class TestLane(DatabaseTest):
         qu = self._db.query(Work)
         eq_(
             (qu, None),
-            lane.bibliographic_filter_clause(self._db, qu, False, False)
+            lane.bibliographic_filter_clauses(self._db, qu, False, False)
         )
 
-    def test_bibliographic_filter_clause_medium_restriction(self):
+    def test_bibliographic_filter_clauses_medium_restriction(self):
         book = self._work(fiction=False, with_license_pool=True)
         eq_(Edition.BOOK_MEDIUM, book.presentation_edition.medium)
         lane = self._lane()
@@ -3086,7 +3182,7 @@ class TestLane(DatabaseTest):
 
         def matches(lane):
             qu = self._db.query(Work)
-            new_qu, bib_filter = lane.bibliographic_filter_clause(
+            new_qu, bib_filter = lane.bibliographic_filter_clauses(
                 self._db, qu, False
             )
             eq_(new_qu, qu)

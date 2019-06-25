@@ -1776,8 +1776,9 @@ class DatabaseBackedWorkList(WorkList):
         # Apply to the database the bibliographic restrictions with
         # which this WorkList was initialized -- genre, audience, and
         # whatnot.
-        qu, bibliographic_clause = self.bibliographic_filter_clause(_db, qu)
-        if bibliographic_clause is not None:
+        qu, bibliographic_clauses = self.bibliographic_filter_clauses(_db, qu)
+        if bibliographic_clauses:
+            bibliographic_clause = and_(*bibliographic_clauses)
             qu = qu.filter(bibliographic_clause)
 
         # Allow the faceting object to modify the database query.
@@ -1818,11 +1819,11 @@ class DatabaseBackedWorkList(WorkList):
         qu = self._defer_unused_fields(qu)
         return qu
 
-    def bibliographic_filter_clause(self, _db, qu):
+    def bibliographic_filter_clauses(self, _db, qu):
         """Create a SQLAlchemy filter that excludes books whose bibliographic
         metadata doesn't match what we're looking for.
 
-        :return: A 2-tuple (query, clause).
+        :return: A 2-tuple (query, clauses).
 
         - query is either `qu`, or a new query that has been modified to
         join against additional tables.
@@ -1837,38 +1838,33 @@ class DatabaseBackedWorkList(WorkList):
             clauses.append(Edition.medium.in_(self.media))
         if self.fiction is not None:
             clauses.append(Work.fiction==self.fiction)
-        if self.genre_ids:
-            wg = aliased(WorkGenre)
-            qu = qu.join(wg, wg.work_id==Work.id)
-            field = wg.genre_id
-            clauses.append(field.in_(self.genre_ids))
-
-        if self.customlist_ids:
-            qu, customlist_clauses = self.customlist_filter_clauses(qu)
-            clauses.extend(customlist_clauses)
-
-        if self.parent and self.inherit_parent_restrictions:
-            # In addition to the other any other restrictions, books
-            # will show up here only if they would also show up in the
-            # parent WorkList.
-            qu, clause = self.parent.bibliographic_filter_clause(_db, qu)
-            if clause is not None:
-                clauses.append(clause)
-
-        # If a license source is specified, only show books from that
-        # source.
         if self.license_datasource_id:
             clauses.append(
                 LicensePool.data_source_id==self.license_datasource_id
             )
 
+        if self.genre_ids:
+            qu, clause = self.genre_filter_clause(qu)
+            if clause is not None:
+                clauses.append(clause)
+
+        if self.customlist_ids:
+            qu, customlist_clauses = self.customlist_filter_clauses(qu)
+            clauses.extend(customlist_clauses)
+
         clauses.extend(self.age_range_filter_clauses())
 
-        if not clauses:
-            clause = None
-        else:
-            clause = and_(*clauses)
-        return qu, clause
+        if self.parent and self.inherit_parent_restrictions:
+            # In addition to the other any other restrictions, books
+            # will show up here only if they would also show up in the
+            # parent WorkList.
+            qu, parent_clauses = self.parent.bibliographic_filter_clauses(
+                _db, qu
+            )
+            if parent_clauses:
+                clauses.extend(parent_clauses)
+
+        return qu, clauses
 
     def audience_filter_clauses(self, _db, qu):
         """Create a SQLAlchemy filter that excludes books whose intended
@@ -1927,6 +1923,11 @@ class DatabaseBackedWorkList(WorkList):
             clauses.append(a_entry.most_recent_appearance >=cutoff)
 
         return qu, clauses
+
+    def genre_filter_clause(self, qu):
+        wg = aliased(WorkGenre)
+        qu = qu.join(wg, wg.work_id==Work.id)
+        return qu, wg.genre_id.in_(self.genre_ids)
 
     def age_range_filter_clauses(self):
         """Create a clause that filters out all books not classified as
@@ -2322,6 +2323,9 @@ class Lane(Base, WorkList):
     def update_size(self, _db):
         """Update the stored estimate of the number of Works in this Lane."""
         library = self.get_library(_db)
+
+        # TODO: We need some way of _converting_ the Lane to a
+        # DatabaseBackedWorkList.
         wl = DatabaseBackedWorkList()
         wl.initialize(library)
 
