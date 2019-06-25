@@ -2229,13 +2229,13 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         eq_(set([adult, children]), set(for_audiences()))
 
     def test_customlist_filter_clauses(self):
-        """Standalone test of customlist_filter_clauses
-        """
+        # Standalone test of customlist_filter_clauses
 
         # If a lane has nothing to do with CustomLists,
         # apply_customlist_filter does nothing.
-        no_lists = self._lane()
-        qu = self._db.query(Work)
+        no_lists = DatabaseBackedWorkList()
+        no_lists.initialize(self._default_library)
+        qu = no_lists.base_query(self._db)
         new_qu, clauses = no_lists.customlist_filter_clauses(qu)
         eq_(qu, new_qu)
         eq_([], clauses)
@@ -2248,66 +2248,51 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         gutenberg_list.data_source = gutenberg
         gutenberg_list_entry, ignore = gutenberg_list.add_entry(work)
 
-        # This WorkList gets every work on a specific list.
-        works_on_list = WorkList()
+        # This DatabaseBackedWorkList gets every work on a specific list.
+        works_on_list = DatabaseBackedWorkList()
         works_on_list.initialize(
             self._default_library, customlists=[gutenberg_list]
         )
 
         # This lane gets every work on every list associated with Project
         # Gutenberg.
-        works_on_gutenberg_lists = WorkList()
+        works_on_gutenberg_lists = DatabaseBackedWorkList()
         works_on_gutenberg_lists.initialize(
             self._default_library, list_datasource=gutenberg
         )
-        self.add_to_materialized_view([work])
 
         def _run(qu, clauses):
-            # Run a query with certain clauses and pick out the
-            # work IDs returned.
-            modified = qu.filter(and_(*clauses))
-            return [x.works_id for x in modified]
+            # Run a query with certain clauses
+            return qu.filter(and_(*clauses)).all()
 
         def results(wl=works_on_gutenberg_lists, must_be_featured=False):
-            qu = self._db.query(Work)
-            new_qu, clauses = wl.customlist_filter_clauses(
-                qu, must_be_featured=must_be_featured
-            )
+            qu = wl.base_query(self._db)
+            new_qu, clauses = wl.customlist_filter_clauses(qu)
 
-            if must_be_featured or wl.list_seen_in_previous_days:
-                # The query comes out different than it goes in -- there's a
-                # new join against CustomListEntry.
-                assert new_qu != qu
+            # The query comes out different than it goes in -- there's a
+            # new join against CustomListEntry.
+            assert new_qu != qu
             return _run(new_qu, clauses)
 
         # Both lanes contain the work.
-        eq_([work.id], results(works_on_list))
-        eq_([work.id], results(works_on_gutenberg_lists))
+        eq_([work], results(works_on_list))
+        eq_([work], results(works_on_gutenberg_lists))
 
         # If there's another list with the same work on it, the
         # work only shows up once.
         gutenberg_list_2, ignore = self._customlist(num_entries=0)
         gutenberg_list_2_entry, ignore = gutenberg_list_2.add_entry(work)
         works_on_list._customlist_ids.append(gutenberg_list.id)
-        eq_([work.id], results(works_on_list))
+        eq_([work], results(works_on_list))
 
         # This WorkList gets every work on a list associated with Overdrive.
         # There are no such lists, so the lane is empty.
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        works_on_overdrive_lists = WorkList()
+        works_on_overdrive_lists = DatabaseBackedWorkList()
         works_on_overdrive_lists.initialize(
             self._default_library, list_datasource=overdrive
         )
         eq_([], results(works_on_overdrive_lists))
-
-        # It's possible to restrict a WorkList so that only works that
-        # are _featured_ on a list show up. The work isn't featured,
-        # so it doesn't show up.
-        eq_([], results(must_be_featured=True))
-
-        # Now it's featured, and it shows up.
-        gutenberg_list_entry.featured = True
-        eq_([work.id], results(must_be_featured=True))
 
         # It's possible to restrict a WorkList to works that were seen on
         # a certain list recently.
@@ -2322,33 +2307,33 @@ class TestDatabaseBackedWorkList(DatabaseTest):
 
         # Now it's been loosened to three days, and the work shows up.
         works_on_gutenberg_lists.list_seen_in_previous_days = 3
-        eq_([work.id], results())
+        eq_([work], results())
 
         # Now let's test what happens when we chain calls to this
         # method.
-        gutenberg_list_2_wl = WorkList()
+        gutenberg_list_2_wl = DatabaseBackedWorkList()
         gutenberg_list_2_wl.initialize(
             self._default_library, customlists = [gutenberg_list_2]
         )
 
-        # These two lines won't work, because these are WorkLists, not
-        # Lanes, but they show the scenario in which this would
-        # actually happen. When determining which works belong in the
-        # child lane, Lane.customlist_filter_clauses() will be called
-        # on the parent lane and then on the child. In this case, only
-        # want books that are on _both_ works_on_list and
-        # gutenberg_list_2.
+        # These two lines won't work, because these are
+        # DatabaseBackedWorkLists, not Lanes, but they show the
+        # scenario in which this would actually happen. When
+        # determining which works belong in the child lane,
+        # Lane.customlist_filter_clauses() will be called on the
+        # parent lane and then on the child. In this case, only want
+        # books that are on _both_ works_on_list and gutenberg_list_2.
         #
         # gutenberg_list_2_wl.parent = works_on_list
         # gutenberg_list_2_wl.inherit_parent_restrictions = True
 
-        qu = self._db.query(Work)
+        qu = works_on_list.base_query(self._db)
         list_1_qu, list_1_clauses = works_on_list.customlist_filter_clauses(qu)
 
-        # The query has been modified to indicate that we are filtering
-        # on the materialized view's customlist_id field.
-        eq_(True, list_1_qu.customlist_id_filtered)
-        eq_([work.id], [x.works_id for x in list_1_qu])
+        # The query has been modified -- we've added a join against
+        # CustomListEntry.
+        assert list_1_qu != qu
+        eq_([work], list_1_qu.all())
 
         # Now call customlist_filter_clauses again so that the query
         # must only match books on _both_ lists. This simulates
@@ -2357,15 +2342,17 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         both_lists_qu, list_2_clauses = gutenberg_list_2_wl.customlist_filter_clauses(
             list_1_qu,
         )
+        # The query has been modified again -- we've added a second join
+        # against CustomListEntry.
+        assert both_lists_qu != list_1_qu
         both_lists_clauses = list_1_clauses + list_2_clauses
 
         # The combined query matches the work that shows up on
         # both lists.
-        eq_([work.id], _run(both_lists_qu, both_lists_clauses))
+        eq_([work], _run(both_lists_qu, both_lists_clauses))
 
         # If we remove `work` from either list, the combined query
-        # matches nothing. This works even though the materialized
-        # view has not been refreshed.
+        # matches nothing.
         for l in [gutenberg_list, gutenberg_list_2]:
             l.remove_entry(work)
             eq_([], _run(both_lists_qu, both_lists_clauses))
