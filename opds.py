@@ -52,6 +52,7 @@ from model import (
 from lane import (
     Facets,
     FacetsWithEntryPoint,
+    FeaturedFacets,
     Lane,
     Pagination,
     SearchFacets,
@@ -607,7 +608,7 @@ class AcquisitionFeed(OPDSFeed):
                 annotator = annotator()
             cached = None
             use_cache = cache_type != cls.NO_CACHE
-            facets = facets or lane.default_featured_facets(_db)
+            facets = facets or FeaturedFacets.default(lane)
             if use_cache:
                 cache_type = cache_type or CachedFeed.GROUPS_TYPE
                 cached, usable = CachedFeed.fetch(
@@ -798,8 +799,10 @@ class AcquisitionFeed(OPDSFeed):
     def from_query(cls, query, _db, feed_name, url, pagination, url_fn, annotator):
         """Build  a feed representing one page of a given list. Currently used for
         creating an OPDS feed for a custom list and not cached.
+
+        # TODO: Can this be removed?
         """
-        page_of_works = pagination.apply(query)
+        page_of_works = pagination.modify_database_query(query)
         pagination.total_size = int(query.count())
 
         feed = cls(_db, feed_name, url, page_of_works, annotator)
@@ -1706,7 +1709,7 @@ class NavigationFeed(OPDSFeed):
             annotator = annotator()
         cached = None
         use_cache = cache_type != cls.NO_CACHE
-        facets = facets or lane.default_featured_facets(_db)
+        facets = facets or FeaturedFacets.default(lane)
         if use_cache:
             cache_type = cache_type or CachedFeed.NAVIGATION_TYPE
             cached, usable = CachedFeed.fetch(

@@ -702,6 +702,10 @@ class FeaturedFacets(FacetsWithEntryPoint):
         self.minimum_featured_quality = minimum_featured_quality
         self.random_seed=random_seed
 
+    @classmethod
+    def default(cls, lane, **lwargs):
+        return cls(library.minimum_featured_quality, **kwargs)
+
     def navigate(self, minimum_featured_quality=None, entrypoint=None):
         """Create a slightly different FeaturedFacets object based on this
         one.
