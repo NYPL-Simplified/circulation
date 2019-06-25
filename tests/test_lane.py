@@ -89,14 +89,14 @@ class TestFacetsWithEntryPoint(DatabaseTest):
     def test_modify_database_query(self):
         class MockEntryPoint(object):
             def modify_database_query(self, _db, qu):
-                self.called_with = qu
+                self.called_with = (_db, qu)
 
         ep = MockEntryPoint()
         f = FacetsWithEntryPoint(ep)
         _db = object()
         qu = object()
         f.modify_database_query(_db, qu)
-        eq_(qu, ep.called_with)
+        eq_((_db, qu), ep.called_with)
 
     def test_navigate(self):
         # navigate creates a new FacetsWithEntryPoint.
@@ -1561,7 +1561,8 @@ class TestWorkList(DatabaseTest):
                 self.visible = True
 
             def groups(self, *args, **kwargs):
-                return self._works
+                for i in self._works:
+                    yield i, self
 
         # This WorkList has one featured work.
         child1 = MockWorkList([w1])
@@ -1609,9 +1610,8 @@ class TestWorkList(DatabaseTest):
         eq_(facets, mock.featured_called_with)
 
     def test_works(self):
-        """Test the method that uses the search index to fetch a list of
-        results appropriate for a given WorkList.
-        """
+        # Test the method that uses the search index to fetch a list of
+        # results appropriate for a given WorkList.
 
         class MockSearchClient(object):
             """Respond to search requests with some fake work IDs."""
@@ -1640,7 +1640,7 @@ class TestWorkList(DatabaseTest):
 
         # Ask the WorkList for a page of works, using the search index
         # to drive the query instead of the database.
-        result = wl.works_from_search_index(
+        result = wl.works(
             self._db, facets, mock_pagination, search_client, mock_debug
         )
 
@@ -1670,9 +1670,8 @@ class TestWorkList(DatabaseTest):
             wl.called_with
         )
 
-        # And the fake return value of works_for_hits() was
-        # used as the return value of works_from_search_index(), the
-        # method we're testing.
+        # And the fake return value of works_for_hits() was used as
+        # the return value of works(), the method we're testing.
         eq_(wl.fake_work_list, result)
 
     def test_works_for_hits(self):

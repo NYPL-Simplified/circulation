@@ -309,7 +309,7 @@ class FacetsWithEntryPoint(BaseFacets):
         facets.
         """
         if self.entrypoint:
-            qu = self.entrypoint.modify_database_query(_db, filter)
+            qu = self.entrypoint.modify_database_query(_db, qu)
         return qu
 
 class Facets(FacetsWithEntryPoint):
@@ -1622,7 +1622,7 @@ class WorkList(object):
                 for x in lane.groups(
                     _db, include_sublanes=False, facets=facets,
                 ):
-                    yield x, lane
+                    yield x
 
     def _featured_works_with_lanes(
         self, _db, lanes, facets, pagination, search_engine, debug=False
