@@ -86,16 +86,16 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         eq_([expect_items], list(f.items()))
         eq_("%s=%s" % expect_items, f.query_string)
 
-    def test_apply(self):
+    def test_modify_database_query(self):
         class MockEntryPoint(object):
-            def apply(self, qu):
+            def modify_database_query(self, qu):
                 self.called_with = qu
 
         ep = MockEntryPoint()
         f = FacetsWithEntryPoint(ep)
         _db = object()
         qu = object()
-        f.apply(_db, qu)
+        f.modify_database_query(_db, qu)
         eq_(qu, ep.called_with)
 
     def test_navigate(self):
@@ -1212,7 +1212,7 @@ class TestPagination(DatabaseTest):
 
         # When total_size is not set, Pagination assumes there is a
         # next page.
-        pagination.apply(query)
+        pagination.modify_database_query(query)
         eq_(True, pagination.has_next_page)
 
         # Here, there is one more item on the next page.
@@ -1249,7 +1249,7 @@ class TestPagination(DatabaseTest):
 
         # When this_page_size is not set, Pagination assumes there is a
         # next page.
-        pagination.apply(query)
+        pagination.modify_database_query(query)
         eq_(True, pagination.has_next_page)
 
         # Here, there is nothing on the current page. There is no next page.

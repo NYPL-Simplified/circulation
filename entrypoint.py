@@ -76,13 +76,6 @@ class EntryPoint(object):
             cls.DEFAULT_ENABLED.remove(entrypoint_class)
 
     @classmethod
-    def modified_materialized_view_query(cls, qu):
-        """Modify a query against the mv_works_for_lanes materialized view
-        so it matches only items that belong in this entry point.
-        """
-        raise NotImplementedError()
-
-    @classmethod
     def modify_search_filter(cls, filter):
         """If necessary modify an ElasticSearch Filter object so that it
         restricts results to items shown through this entry point.

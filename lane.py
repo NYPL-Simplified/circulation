@@ -304,6 +304,13 @@ class FacetsWithEntryPoint(BaseFacets):
             self.entrypoint.modify_search_filter(filter)
         return filter
 
+    def modify_database_query(self, qu):
+        """Modify the given database query so that it reflects this set of
+        facets.
+        """
+        if self.entrypoint:
+            qu = self.entrypoint.modify_database_query(filter)
+        return qu
 
 class Facets(FacetsWithEntryPoint):
     """A full-fledged facet class that supports complex navigation between
@@ -1032,6 +1039,8 @@ class WorkList(object):
                    customlists=None, list_datasource=None,
                    list_seen_in_previous_days=None,
                    children=None, priority=None, entrypoints=None,
+                   fiction=None, license_datasource=None,
+                   target_age=None,
     ):
         """Initialize with basic data.
 
@@ -1056,6 +1065,15 @@ class WorkList(object):
 
         :param media: Only Works in one of these media will be included
         in lists.
+
+        :param fiction: Only Works with this fiction status will be included
+        in lists.
+
+        :param target_age: Only Works targeted at readers in this age range
+        will be included in lists.
+
+        :param license_datasource: Only Works with a LicensePool from this
+        DataSource will be included in lists.
 
         :param customlists: Only Works included on one of these CustomLists
         will be included in lists.
@@ -1095,6 +1113,12 @@ class WorkList(object):
         self.audiences = audiences
         self.languages = languages
         self.media = media
+        self.fiction = fiction
+
+        if license_datasource:
+            self.license_datasource_id = license_datasource.id
+        else:
+            self.license_datasource_id = None
 
         # If a specific set of CustomLists was passed in, store their IDs.
         #
@@ -1120,11 +1144,8 @@ class WorkList(object):
             self._customlist_ids = [x.id for x in customlists]
         self.list_seen_in_previous_days = list_seen_in_previous_days
 
-        # By default, a WorkList doesn't have a fiction status or target age.
-        # Set them to None so they can be ignored in search on a WorkList, but
-        # used when calling search on a Lane.
-        self.fiction = None
-        self.target_age = None
+        self.fiction = fiction
+        self.target_age = target_age
 
         self.children = []
         if children:
@@ -1814,6 +1835,8 @@ class DatabaseBackedWorkList(WorkList):
             clauses.append(Edition.language.in_(self.languages))
         if self.media:
             clauses.append(Edition.medium.in_(self.media))
+        if self.fiction is not None:
+            clauses.append(Work.fiction==self.fiction)
         if self.genre_ids:
             wg = aliased(WorkGenre)
             qu = qu.join(wg, wg.work_id==Work.id)
@@ -1823,6 +1846,21 @@ class DatabaseBackedWorkList(WorkList):
         if self.customlist_ids:
             qu, customlist_clauses = self.customlist_filter_clauses(qu)
             clauses.extend(customlist_clauses)
+
+        if self.parent and self.inherit_parent_restrictions:
+            # In addition to the other any other restrictions, books
+            # will show up here only if they would also show up in the
+            # parent WorkList.
+            qu, clause = self.parent.bibliographic_filter_clause(_db, qu)
+            if clause is not None:
+                clauses.append(clause)
+
+        # If a license source is specified, only show books from that
+        # source.
+        if self.license_datasource:
+            clauses.append(LicensePool.data_source==self.license_datasource)
+
+        clauses.extend(self.age_range_filter_clauses())
 
         if not clauses:
             clause = None
@@ -1887,6 +1925,31 @@ class DatabaseBackedWorkList(WorkList):
             clauses.append(a_entry.most_recent_appearance >=cutoff)
 
         return qu, clauses
+
+    def age_range_filter_clauses(self):
+        """Create a clause that filters out all books not classified as
+        suitable for this DatabaseBackedWorkList's age range.
+        """
+        if self.target_age is None:
+            return []
+
+        if (Classifier.AUDIENCE_ADULT in self.audiences
+            or Classifier.AUDIENCE_ADULTS_ONLY in self.audiences):
+            # Books for adults don't have target ages. If we're including
+            # books for adults, allow the target age to be empty.
+            audience_has_no_target_age = Work.target_age == None
+        else:
+            audience_has_no_target_age = False
+
+        # The lane's target age is an inclusive NumericRange --
+        # set_target_age makes sure of that. The work's target age
+        # must overlap that of the lane.
+        return [
+            or_(
+                Work.target_age.overlaps(self.target_age),
+                audience_has_no_target_age
+            )
+        ]
 
     def modify_database_query_hook(self, _db, qu):
         """A hook method allowing subclasses to modify a database query
@@ -2505,78 +2568,6 @@ class Lane(Base, WorkList):
 
         return m(_db, query_string, search_client, pagination,
                  facets=facets)
-
-    def bibliographic_filter_clause(self, _db, qu, featured):
-        """Create an AND clause that restricts a query to find
-        only works classified in this lane.
-
-        :param qu: A Query object. The filter will not be applied to this
-        Query, but the query may be extended with additional table joins.
-
-        :return: A 2-tuple (query, statement).
-
-        `query` is the same query as `qu`, possibly extended with
-        additional table joins.
-
-        `statement` is a SQLAlchemy statement suitable for passing
-        into filter() or case().
-        """
-        qu, superclass_clause = super(
-            Lane, self
-        ).bibliographic_filter_clause(
-            _db, qu, featured
-        )
-        clauses = []
-        if superclass_clause is not None:
-            clauses.append(superclass_clause)
-        if self.parent and self.inherit_parent_restrictions:
-            # In addition to the other restrictions imposed by this
-            # Lane, books will show up here only if they would
-            # also show up in the parent Lane.
-            qu, clause = self.parent.bibliographic_filter_clause(_db, qu)
-            if clause is not None:
-                clauses.append(clause)
-
-        # If a license source is specified, only show books from that
-        # source.
-        if self.license_datasource:
-            clauses.append(LicensePool.data_source==self.license_datasource)
-
-        if self.fiction is not None:
-            clauses.append(Work.fiction==self.fiction)
-
-        clauses.extend(self.age_range_filter_clauses())
-
-        if clauses:
-            clause = and_(*clauses)
-        else:
-            clause = None
-        return qu, clause
-
-    def age_range_filter_clauses(self):
-        """Create a clause that filters out all books not classified as
-        suitable for this Lane's age range.
-        """
-        if self.target_age == None:
-            return []
-
-        if (Classifier.AUDIENCE_ADULT in self.audiences
-            or Classifier.AUDIENCE_ADULTS_ONLY in self.audiences):
-            # Books for adults don't have target ages. If we're including
-            # books for adults, allow the target age to be empty.
-            audience_has_no_target_age = Work.target_age == None
-        else:
-            audience_has_no_target_age = False
-
-        # The lane's target age is an inclusive NumericRange --
-        # set_target_age makes sure of that. The work's target age
-        # must overlap that of the lane.
-        return [
-            or_(
-                Work.target_age.overlaps(self.target_age),
-                audience_has_no_target_age
-            )
-        ]
 
     def explain(self):
         """Create a series of human-readable strings to explain a lane's settings."""
