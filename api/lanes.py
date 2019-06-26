@@ -774,6 +774,10 @@ class DynamicLane(WorkList):
     """A WorkList that's used to from an OPDS lane, but isn't a Lane
     in the database."""
 
+class DatabaseExclusiveWorkList(DatabaseBackedWorkList):
+    """A DatabaseBackedWorkList that can _only_ get Works through the database."""
+    def works(self, *args, **kwargs):
+        return self.works_from_database(*args, **kwargs)
 
 class WorkBasedLane(DynamicLane):
     """A lane that shows works related to one particular Work."""
@@ -901,22 +905,24 @@ class RelatedBooksLane(WorkBasedLane):
 
     def _recommendation_sublane(self, _db, novelist_api):
         """Create a recommendations sublane."""
+        lane_name = "Recommendations for %s by %s" % (
+            self.work.title, self.work.author
+        )
         try:
-            lane_name = "Recommendations for %s by %s" % (
-                self.work.title, self.work.author
-            )
             recommendation_lane = RecommendationLane(
-                self.get_library(_db), self.work, lane_name, novelist_api=novelist_api,
+                library=self.get_library(_db), work=self.work,
+                display_name=lane_name, novelist_api=novelist_api,
                 parent=self,
             )
             if recommendation_lane.recommendations:
                 yield recommendation_lane
         except CannotLoadConfiguration, e:
-            # NoveList isn't configured.
+            # NoveList isn't configured. This isn't fatal -- we just won't
+            # use this sublane.
             pass
 
 
-class RecommendationLane(WorkBasedLane, DatabaseBackedWorkList):
+class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
     """A lane of recommended Works based on a particular Work"""
 
     DISPLAY_NAME = "Recommended Books"
@@ -925,10 +931,15 @@ class RecommendationLane(WorkBasedLane, DatabaseBackedWorkList):
 
     def __init__(self, library, work, display_name=None,
                  novelist_api=None, parent=None):
+        """Constructor.
+
+        :raises: CannotLoadConfiguration if `novelist_api` is not provided
+        and no Novelist integration is configured for this library.
+        """
         super(RecommendationLane, self).__init__(
             library, work, display_name=display_name,
         )
-        self.novelist_api = novelist_api
+        self.novelist_api = novelist_api or NoveListAPI.from_config(library)
         if parent:
             parent.append_child(self)
         _db = Session.object_session(library)

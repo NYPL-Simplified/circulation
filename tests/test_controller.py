@@ -2376,12 +2376,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
 
     def test_recommendations(self):
-        # TODO: This test creates its own work to avoid
-        # Gutenberg books getting filtered out, since
-        # the recommendation lanes have all audiences,
-        # including children and ya.
-        self.work = self._work("Quite British", "John Bull", with_license_pool=True, language="eng", data_source_name=DataSource.OVERDRIVE)
-        [self.lp] = self.work.license_pools
+        [self.lp] = self.english_1.license_pools
         self.edition = self.lp.presentation_edition
         self.datasource = self.lp.data_source.name
         self.identifier = self.lp.identifier
@@ -2392,7 +2387,6 @@ class TestWorkController(CirculationControllerTest):
         mock_api = MockNoveListAPI(self._db)
         mock_api.setup(metadata)
 
-        SessionManager.refresh_materialized_views(self._db)
         args = [self.identifier.type,
                 self.identifier.identifier]
         kwargs = dict(novelist_api=mock_api)
@@ -2547,74 +2541,60 @@ class TestWorkController(CirculationControllerTest):
         eq_(self.work.title, entry['title'])
 
     def test_related_books(self):
-        # A book with no related books returns a ProblemDetail.
+        # Test the related_books controller.
 
-        # TODO: This test creates its own work to avoid
-        # Gutenberg books getting filtered out, since
-        # the recommendation lanes have all audiences,
-        # including children and ya.
-        self.work = self._work("Quite British", "John Bull", with_license_pool=True, language="eng", data_source_name=DataSource.OVERDRIVE)
-        [self.lp] = self.work.license_pools
-        self.edition = self.lp.presentation_edition
-        self.datasource = self.lp.data_source.name
-        self.identifier = self.lp.identifier
-
-        # Remove contribution.
-        [contribution] = self.edition.contributions
-        [original, role] = [contribution.contributor, contribution.role]
+        # Remove the contributor from the work created during setup.
+        work = self.english_1
+        edition = work.presentation_edition
+        identifier = edition.primary_identifier
+        [contribution] = edition.contributions
+        contributor = contribution.contributor
+        role = contribution.role
         self._db.delete(contribution)
         self._db.commit()
+        eq_(None, edition.series)
 
+        # The work has no contributors or series, and no NoveList
+        # integration is configured. The 'related books' lane ends up
+        # with no sublanes, so the controller acts as if the lane
+        # itself does not exist.
         with self.request_context_with_library('/'):
             response = self.manager.work_controller.related(
-                self.identifier.type, self.identifier.identifier
+                identifier.type, identifier.identifier
             )
+            eq_(404, response.status_code)
+            eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
-        eq_(404, response.status_code)
-        eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+        # Now test the case where we do get something.
 
-        # Prep book with a contribution, a series, and a recommendation.
-        self.lp.presentation_edition.add_contributor(original, role)
-        same_author = self._work(
-            "What is Sunday?", original.display_name,
-            language="eng", fiction=True, with_open_access_download=True,
-            data_source_name=DataSource.OVERDRIVE
+        # Give the work a series and a contributor, so that it will
+        # have lanes for both types of recommendations.
+        edition.series = "Around the World"
+        edition.add_contributor(contributor, role)
+
+        # The mock search engine will return the same results for
+        # every search. That means this book will show up as a 'same
+        # author' recommendation and a 'same series' recommentation.
+        search_engine = MockExternalSearchIndex()
+        same_author_and_series = self._work(
+            title="Same author and series", with_license_pool=True
         )
-        duplicate = same_author.presentation_edition.contributions[0].contributor
-        original.display_name = duplicate.display_name = u"John Bull"
+        search_engine.bulk_update([same_author_and_series])
 
-        self.edition.series = u"Around the World"
-        self.edition.series_position = 1
+        # Recommendations from the NoveList API are looked up through
+        # the database, not the search engine. Create a book, and set
+        # up a mock API to recommend its identifier for any input.
+        recommended_work = self._work(
+            title="A Recommendation from NoveList", with_license_pool=True
+        )
+        [recommended_lp] = recommended_work.license_pools
+        metadata = Metadata(recommended_lp.data_source)
+        metadata.recommendations = [recommended_lp.identifier]
 
-        same_series_work = self._work(
-            title="ZZZ", authors="ZZZ ZZZ", with_license_pool=True,
-            series="Around the World", data_source_name=DataSource.OVERDRIVE
-        )
-        same_series_work.presentation_edition.series_position = 0
-        # Classify this work under a Subject that indicates an adult
-        # audience, so that when we recalculate its presentation there
-        # will be evidence for audience=Adult.  Otherwise
-        # recalculating the presentation will set audience=None.
-        self.work.license_pools[0].identifier.classify(
-            self.edition.data_source, Subject.OVERDRIVE, "Law"
-        )
-        self.work.calculate_presentation(
-            PresentationCalculationPolicy(regenerate_opds_entries=True),
-            MockExternalSearchIndex()
-        )
-        SessionManager.refresh_materialized_views(self._db)
-
-        source = DataSource.lookup(self._db, self.datasource)
-        metadata = Metadata(source)
         mock_api = MockNoveListAPI(self._db)
-        metadata.recommendations = [same_author.license_pools[0].identifier]
         mock_api.setup(metadata)
 
-        search_engine = MockExternalSearchIndex()
-        search_engine.bulk_update([self.work, same_series_work])
-
-        # A grouped feed is returned with all of the related books
-
+        # Now, ask for works related to self.english_1.
         with mock_search_index(search_engine):
             with self.request_context_with_library('/'):
                 response = self.manager.work_controller.related(
@@ -2623,60 +2603,43 @@ class TestWorkController(CirculationControllerTest):
                 )
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_(5, len(feed['entries']))
 
+        # The feed contains three entries: one for each sublane.
+        eq_(3, len(feed['entries']))
+
+        # Group the entries by the sublane they're in.
         def collection_link(entry):
             [link] = [l for l in entry['links'] if l['rel']=='collection']
             return link['title'], link['href']
+        by_collection_link = {}
+        for entry in feed['entries']:
+            title, href = collection_link(entry)
+            by_collection_link[title] = (href, entry)
 
-        # This feed contains five books: one recommended,
-        # two in the same series, and two by the same author.
-        # One of the 'same series' books is the same title as the
-        # 'same author' book.
-        recommendations = []
-        same_series = []
-        same_contributor = []
-        feeds_with_original_book = []
-        for e in feed['entries']:
-            for link in e['links']:
-                if link['rel'] != 'collection':
-                    continue
-                if link['title'] == 'Recommendations for Quite British by John Bull':
-                    recommendations.append(e)
-                elif link['title'] == 'Around the World':
-                    same_series.append(e)
-                elif link['title'] == 'John Bull':
-                    same_contributor.append(e)
-                if e['title'] == self.work.title:
-                    feeds_with_original_book.append(link['title'])
+        # Here's the sublane for books in the same series.
+        [same_series_href, same_series_entry] = by_collection_link[
+            'Around the World'
+        ]
+        eq_("Same author and series", same_series_entry['title'])
+        expected_series_link = 'series/%s/eng/Adult' % urllib.quote("Around the World")
+        assert same_series_href.endswith(expected_series_link)
 
-        [recommendation] = recommendations
-        title, href = collection_link(recommendation)
-        work_url = "/works/%s/%s/" % (self.identifier.type, self.identifier.identifier)
+        # Here's the sublane for books by this contributor.
+        [same_contributor_href, same_contributor_entry] = by_collection_link[
+            'Bull, John'
+        ]
+        eq_("Same author and series", same_contributor_entry['title'])
+        expected_contributor_link = urllib.quote('contributor/Bull, John/eng/')
+        assert same_contributor_href.endswith(expected_contributor_link)
+
+        # Here's the sublane for recommendations from NoveList.
+        [recommended_href, recommended_entry] = by_collection_link[
+            'Recommendations for Quite British by John Bull'
+        ]
+        eq_("A Recommendation from NoveList", recommended_entry['title'])
+        work_url = "/works/%s/%s/" % (identifier.type, identifier.identifier)
         expected = urllib.quote(work_url + 'recommendations')
-        eq_(True, href.endswith(expected))
-
-        # All books in the series are in the series feed.
-        for book in same_series:
-            title, href = collection_link(book)
-            expected_series_link = 'series/%s/eng/Adult' % urllib.quote("Around the World")
-            eq_(True, href.endswith(expected_series_link))
-
-        # The other book by this contributor is in the contributor feed.
-        for contributor in same_contributor:
-            title, href = collection_link(contributor)
-            expected_contributor_link = urllib.quote('contributor/John Bull/eng/')
-            eq_(True, href.endswith(expected_contributor_link))
-
-        # The book for which we got recommendations is itself listed in the
-        # series feed and in the 'books by this author' feed.
-        eq_(set(["John Bull", "Around the World"]),
-            set(feeds_with_original_book))
-
-        # The series feed is sorted by series position.
-        [series_e1, series_e2] = same_series
-        eq_(same_series_work.title, series_e1['title'])
-        eq_(self.work.title, series_e2['title'])
+        eq_(True, recommended_href.endswith(expected))
 
     def test_report_problem_get(self):
         with self.request_context_with_library("/"):
@@ -3121,7 +3084,6 @@ class TestFeedController(CirculationControllerTest):
         assert isinstance(facets, FeaturedFacets)
         eq_(AudiobooksEntryPoint, facets.entrypoint)
         eq_(0.15, facets.minimum_featured_quality)
-        eq_(lane.uses_customlists, facets.uses_customlists)
 
         # A LibraryAnnotator object was created from the Lane and
         # Facets objects.
@@ -3167,7 +3129,6 @@ class TestFeedController(CirculationControllerTest):
         facets = kwargs['facets']
         assert isinstance(facets, FeaturedFacets)
         eq_(library.minimum_featured_quality, facets.minimum_featured_quality)
-        eq_(lane.uses_customlists, facets.uses_customlists)
         NavigationFeed.navigation = old_navigation
 
     def _set_update_times(self):

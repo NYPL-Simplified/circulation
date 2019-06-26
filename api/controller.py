@@ -1690,9 +1690,12 @@ class WorkController(CirculationManagerController):
         except ValueError, e:
             # No related books were found.
             return NO_SUCH_LANE.detailed(e.message)
-
         annotator = self.manager.annotator(lane)
-        facets = load_facets_from_request(worklist=lane)
+        # One of the sublanes can only take a DatabaseBackedFacets,
+        # which limits our options here.
+        facets = load_facets_from_request(
+            worklist=lane, base_class=DatabaseBackedFacets
+        )
         if isinstance(facets, ProblemDetail):
             return facets
         pagination = load_pagination_from_request()
@@ -1720,12 +1723,13 @@ class WorkController(CirculationManagerController):
 
         lane_name = "Recommendations for %s by %s" % (work.title, work.author)
         try:
-            novelist_api = novelist_api or NoveListAPI.from_config(library)
+            lane = RecommendationLane(
+                library=library, work=work, display_name=lane_name,
+                novelist_api=novelist_api
+            )
         except CannotLoadConfiguration, e:
             # NoveList isn't configured.
             return NO_SUCH_LANE.detailed(_("Recommendations not available"))
-
-        lane = RecommendationLane(library, work, lane_name, novelist_api)
 
         facets = load_facets_from_request(
             worklist=lane, base_class=DatabaseBackedFacets
