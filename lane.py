@@ -1973,6 +1973,7 @@ class DatabaseBackedWorkList(WorkList):
 
 
 class SpecificWorkList(DatabaseBackedWorkList):
+    """A WorkList that only finds specific works, identified by ID."""
     def __init__(self, work_ids):
         super(SpecificWorkList, self).__init__()
         self.work_ids = work_ids

@@ -1877,6 +1877,10 @@ class TestDatabaseBackedWorkList(DatabaseTest):
                     # qu must be the MockQuery returned from the
                     # previous call.
                     eq_(qu, self.stages[-1])
+                else:
+                    # qu must be a new object, and _not_ the MockQuery
+                    # returned from the previous call.
+                    assert qu != self.stages[-1]
 
                 # Create a new MockQuery with an additional filter,
                 # named after the method that was called.
@@ -1964,9 +1968,13 @@ class TestDatabaseBackedWorkList(DatabaseTest):
 
             def modify_database_query(self, _db, qu):
                 # This is the only place we pass in False for
-                # qu_is_preivous_stage. This is called right after
+                # qu_is_previous_stage. This is called right after
                 # bibliographic_filter_clauses, which caused a brand
                 # new MockQuery object to be created.
+                #
+                # Normally, _stage() will assert that `qu` is the
+                # return value from the previous call, but this time
+                # we want to assert the opposite.
                 result = self.wl._stage(
                     "facets", _db, qu, qu_is_previous_stage=False
                 )
@@ -1977,7 +1985,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
 
         # MockFacets has to subclass DatabaseBasedFacets because we check
         # for this, in an attempt to avoid bugs caused by passing a normal
-        # Facets into works().
+        # Facets into works_from_database().
         assert_raises_regexp(
             ValueError,
             "Incompatible faceting object for DatabaseBackedWorkList: 'bad facet'",
@@ -2202,8 +2210,8 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         eq_(original_qu, called['genre_filter_clause'])
         eq_(original_qu, called['customlist_filter_clauses'])
 
-        # But none of those methods did anything, because their implementations
-        # don't change return anything
+        # But none of those methods changed anything, because their
+        # implementations didn't return anything.
         eq_([], clauses)
 
         # Now test the clauses that are created directly by
@@ -2229,6 +2237,9 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         eq_(str(datasource), str(LicensePool.data_source_id==overdrive.id))
 
     def test_bibliographic_filter_clauses_end_to_end(self):
+        # Verify that bibliographic_filter_clauses generates
+        # SQLAlchemy clauses that give the expected results when
+        # applied to a real `works` table.
         original_qu = self._db.query(Work)
 
         # Create a work that may or may not show up in various
@@ -2248,8 +2259,6 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         english_sf.genres.append(sf)
         italian_sf.genres.append(sf)
 
-        # Create a DatabaseBackedWorkList that will find (or not find)
-        # the English SF book.
         def worklist_has_books(expect_books, worklist=None,
                                **initialize_kwargs):
             """Apply bibliographic filters to a query and verify
@@ -2283,8 +2292,9 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         worklist_has_books([english_sf, italian_sf], fiction=None)
 
         # DatabaseBackedWorkLists with a contradictory setting for one
-        # of those fields will not find the English SF book.
-        worklist_has_books([], languages=["spa"], genres=[sf])
+        # of the fields associated with the English SF book will not
+        # find it.
+        worklist_has_books([italian_sf], languages=["ita"], genres=[sf])
         romance, ignore = Genre.lookup(self._db, "Romance")
         worklist_has_books([], languages=["eng"], genres=[romance])
         worklist_has_books(
@@ -2548,6 +2558,9 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         # Lane.customlist_filter_clauses() will be called on the
         # parent lane and then on the child. In this case, only want
         # books that are on _both_ works_on_list and gutenberg_list_2.
+        #
+        # TODO: There's no reason WorkLists shouldn't be able to have
+        # parents and inherit parent restrictions.
         #
         # gutenberg_list_2_wl.parent = works_on_list
         # gutenberg_list_2_wl.inherit_parent_restrictions = True
