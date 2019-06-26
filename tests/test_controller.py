@@ -2554,7 +2554,8 @@ class TestWorkController(CirculationControllerTest):
         self._db.commit()
         eq_(None, edition.series)
 
-        # The work has no contributors or series, and no NoveList
+        # First, let's test a complex error case. We're asking about a
+        # work with no contributors or series, and no NoveList
         # integration is configured. The 'related books' lane ends up
         # with no sublanes, so the controller acts as if the lane
         # itself does not exist.
@@ -2565,25 +2566,44 @@ class TestWorkController(CirculationControllerTest):
             eq_(404, response.status_code)
             eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
-        # Now test the case where we do get something.
+        # Now test some error cases where the lane exists but
+        # something else goes wrong.
 
         # Give the work a series and a contributor, so that it will
-        # have lanes for both types of recommendations.
+        # get sublanes for both types of recommendations.
         edition.series = "Around the World"
         edition.add_contributor(contributor, role)
+
+        # Bad facets -> problem detail
+        with self.request_context_with_library("/?order=nosuchorder"):
+            response = self.manager.work_controller.related(
+                identifier.type, identifier.identifier
+            )
+            eq_(400, response.status_code)
+            eq_(
+                "http://librarysimplified.org/terms/problem/invalid-input",
+                response.uri
+            )
+
+        # Bad search index setup -> Problem detail
+        self.assert_bad_search_index_gives_problem_detail(
+            lambda: self.manager.work_controller.related(
+                identifier.type, identifier.identifier
+            )
+        )
 
         # The mock search engine will return the same results for
         # every search. That means this book will show up as a 'same
         # author' recommendation and a 'same series' recommentation.
-        search_engine = MockExternalSearchIndex()
         same_author_and_series = self._work(
             title="Same author and series", with_license_pool=True
         )
-        search_engine.bulk_update([same_author_and_series])
+        self.manager.search_engine.bulk_update([same_author_and_series])
 
         # Recommendations from the NoveList API are looked up through
-        # the database, not the search engine. Create a book, and set
-        # up a mock API to recommend its identifier for any input.
+        # the database, not the search engine. Create a fresh book,
+        # and set up a mock API to recommend its identifier for any
+        # input.
         recommended_work = self._work(
             title="A Recommendation from NoveList", with_license_pool=True
         )
@@ -2595,14 +2615,16 @@ class TestWorkController(CirculationControllerTest):
         mock_api.setup(metadata)
 
         # Now, ask for works related to self.english_1.
-        with mock_search_index(search_engine):
+        with mock_search_index(self.search_engine):
             with self.request_context_with_library('/'):
                 response = self.manager.work_controller.related(
                     self.identifier.type, self.identifier.identifier,
                     novelist_api=mock_api
                 )
         eq_(200, response.status_code)
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
         feed = feedparser.parse(response.data)
+        eq_("Related Books", feed['feed']['title'])
 
         # The feed contains three entries: one for each sublane.
         eq_(3, len(feed['entries']))
@@ -2640,6 +2662,39 @@ class TestWorkController(CirculationControllerTest):
         work_url = "/works/%s/%s/" % (identifier.type, identifier.identifier)
         expected = urllib.quote(work_url + 'recommendations')
         eq_(True, recommended_href.endswith(expected))
+
+        # Finally, let's pass in a mock feed class so we can look at the
+        # objects passed into AcquisitionFeed.groups().
+        class Mock(object):
+            @classmethod
+            def groups(cls, **kwargs):
+                cls.called_with = kwargs
+                return "An OPDS feed"
+
+        # Queue up the same recommendation as before.
+        metadata.recommendations = [recommended_lp.identifier]
+        with self.request_context_with_library('/'):
+            response = self.manager.work_controller.related(
+                self.identifier.type, self.identifier.identifier,
+                novelist_api=mock_api, feed_class=Mock
+            )
+
+        eq_(200, response.status_code)
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
+        eq_("An OPDS feed", response.data)
+
+        # Verify that groups() was called with the arguments we expect.
+        kwargs = Mock.called_with
+        eq_(self._db, kwargs.pop('_db'))
+        eq_(self.search_engine, kwargs.pop('search_engine'))
+        eq_("Related Books", kwargs.pop('title'))
+        facets = kwargs.pop('facets')
+        lane = kwargs.pop('lane')
+        assert isinstance(lane, RelatedBooksLane)
+        url = kwargs.pop('url')
+        set_trace()
+        pass
+
 
     def test_report_problem_get(self):
         with self.request_context_with_library("/"):

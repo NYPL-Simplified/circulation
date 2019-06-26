@@ -1668,7 +1668,8 @@ class WorkController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-    def related(self, identifier_type, identifier, novelist_api=None):
+    def related(self, identifier_type, identifier, novelist_api=None,
+                feed_class=AcquisitionFeed):
         """Serve a groups feed of books related to a given book."""
 
         library = flask.request.library
@@ -1690,25 +1691,25 @@ class WorkController(CirculationManagerController):
         except ValueError, e:
             # No related books were found.
             return NO_SUCH_LANE.detailed(e.message)
-        annotator = self.manager.annotator(lane)
+
         # One of the sublanes can only take a DatabaseBackedFacets,
-        # which limits our options here.
+        # which limits our options here -- although faceting information
+        # isn't really used since we're going to make a group feed.
         facets = load_facets_from_request(
             worklist=lane, base_class=DatabaseBackedFacets
         )
         if isinstance(facets, ProblemDetail):
             return facets
-        pagination = load_pagination_from_request()
-        if isinstance(pagination, ProblemDetail):
-            return pagination
+
+        annotator = self.manager.annotator(lane)
         url = annotator.feed_url(
             lane,
             facets=facets,
-            pagination=pagination,
         )
 
-        feed = AcquisitionFeed.groups(
-            self._db, lane.DISPLAY_NAME, url, lane, annotator=annotator,
+        feed = feed_class.groups(
+            _db=self._db, title=lane.DISPLAY_NAME,
+            url=url, lane=lane, annotator=annotator,
             facets=facets, search_engine=search_engine
         )
         return feed_response(unicode(feed))
