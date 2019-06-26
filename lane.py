@@ -555,6 +555,21 @@ class Facets(FacetsWithEntryPoint):
                 logging.error("Unrecognized sort order: %s", self.order)
 
 
+class DefaultSortOrderFacets(Facets):
+    """A faceting object that changes the default sort order.
+
+    Subclasses must set DEFAULT_SORT_ORDER
+    """
+
+    @classmethod
+    def default_facet(cls, config, facet_group_name):
+        if facet_group_name == cls.ORDER_FACET_GROUP_NAME:
+            return cls.DEFAULT_SORT_ORDER
+        return super(DefaultSortOrderFacets, cls).default_facet(
+            config, facet_group_name
+        )
+
+
 class DatabaseBackedFacets(Facets):
     """A generic faceting object designed for managing queries against the
     database. (Other faceting objects are designed for managing
