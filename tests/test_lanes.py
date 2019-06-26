@@ -477,22 +477,20 @@ class TestRelatedBooksLane(DatabaseTest):
 
         self.edition.series = "All By Myself"
         lane = RelatedBooksLane(self._default_library, self.work, "")
+        eq_([], lane.works(self._db))
         eq_([], lane.works_from_database(self._db).all())
 
 
 class LaneTest(DatabaseTest):
 
-    def assert_works_queries(self, lane, expected):
-        """Tests resulting Lane.works() and Lane.materialized_works() results"""
+    def assert_works_from_database(self, lane, expected):
+        """Tests resulting Lane.works_from_database() results"""
 
-        materialized_expected = []
         if expected:
-            materialized_expected = [work.id for work in expected]
+            expected = [work.id for work in expected]
+        actual = [work.id for work in lane.works_from_database(self._db)]
 
-        query = lane.works_from_database(self._db)
-        materialized_results = [work.works_id for work in query.all()]
-
-        eq_(sorted(materialized_expected), sorted(materialized_results))
+        eq_(sorted(expected), sorted(actual))
 
     def sample_works_for_each_audience(self):
         """Create a work for each audience-type."""
@@ -531,16 +529,12 @@ class TestRecommendationLane(LaneTest):
 
         # With an empty recommendation result, the lane is empty.
         lane = RecommendationLane(self._default_library, self.work, '', novelist_api=mock_api)
-        eq_([], lane.works_from_database(self._db).all())
+        self.assert_works_from_database(lane, [])
 
         # Resulting recommendations are returned when available, though.
-        # TODO: Setting a data source name is necessary because Gutenberg
-        # books get filtered out when children or ya is one of the lane's
-        # audiences.
-        result = self._work(with_license_pool=True, data_source_name=DataSource.OVERDRIVE)
+        result = self._work(with_license_pool=True)
         lane.recommendations = [result.license_pools[0].identifier]
-        SessionManager.refresh_materialized_views(self._db)
-        self.assert_works_queries(lane, [result])
+        self.assert_works_from_database(lane, [result])
 
     def test_works_query_with_source_audience(self):
 
@@ -560,24 +554,19 @@ class TestRecommendationLane(LaneTest):
 
         for audience, results in expected.items():
             self.work.audience = audience
-            SessionManager.refresh_materialized_views(self._db)
 
             mock_api = self.generate_mock_api()
             lane = RecommendationLane(
                 self._default_library, self.work, '', novelist_api=mock_api
             )
             lane.recommendations = recommendations
-            self.assert_works_queries(lane, results)
+            self.assert_works_from_database(lane, results)
 
     def test_works_query_with_source_language(self):
         # Prepare a number of works with different languages.
-        # TODO: Setting a data source name is necessary because
-        # Gutenberg books get filtered out when children or ya
-        # is one of the lane's audiences.
-        eng = self._work(with_license_pool=True, language='eng', data_source_name=DataSource.OVERDRIVE)
-        fre = self._work(with_license_pool=True, language='fre', data_source_name=DataSource.OVERDRIVE)
-        spa = self._work(with_license_pool=True, language='spa', data_source_name=DataSource.OVERDRIVE)
-        SessionManager.refresh_materialized_views(self._db)
+        eng = self._work(with_license_pool=True, language='eng')
+        fre = self._work(with_license_pool=True, language='fre')
+        spa = self._work(with_license_pool=True, language='spa')
 
         # They're all returned as recommendations from NoveList Select.
         recommendations = list()
@@ -588,7 +577,7 @@ class TestRecommendationLane(LaneTest):
         mock_api = self.generate_mock_api()
         lane = RecommendationLane(self._default_library, self.work, '', novelist_api=mock_api)
         lane.recommendations = recommendations
-        self.assert_works_queries(lane, [eng])
+        self.assert_works_from_database(lane, [eng])
 
         # It doesn't matter the language.
         self.work.presentation_edition.language = 'fre'
@@ -596,7 +585,8 @@ class TestRecommendationLane(LaneTest):
         mock_api = self.generate_mock_api()
         lane = RecommendationLane(self._default_library, self.work, '', novelist_api=mock_api)
         lane.recommendations = recommendations
-        self.assert_works_queries(lane, [fre])
+        self.assert_works_from_database(lane, [fre])
+
 
 class TestSeriesFacets(DatabaseTest):
 

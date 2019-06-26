@@ -2447,10 +2447,13 @@ class TestWorkController(CirculationControllerTest):
         expected_author_name = author.display_name or author.sort_name
         eq_(expected_author_name, entry.author)
 
-        # The feed has facet links.
+        # The feed has facet links, but not as many as other feeds.
+        # There's no way to sort by 'recently added' because
+        # this query is going against the database, not the search index.
         links = feed['feed']['links']
         facet_links = [link for link in links if link['rel'] == 'http://opds-spec.org/facet']
-        eq_(9, len(facet_links))
+        eq_(8, len(facet_links))
+        assert 'Recently Added' not in [x['title'] for x in facet_links]
 
         with self.request_context_with_library('/'):
             response = self.manager.work_controller.recommendations(

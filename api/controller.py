@@ -43,6 +43,7 @@ from core.external_search import (
 from core.facets import FacetConfig
 from core.log import LogConfiguration
 from core.lane import (
+    DatabaseBackedFacets,
     Facets,
     FeaturedFacets,
     Pagination,
@@ -710,7 +711,6 @@ class OPDSFeedController(CirculationManagerController):
             return lane
         facet_class_kwargs = dict(
             minimum_featured_quality=library.minimum_featured_quality,
-            uses_customlists=lane.uses_customlists
         )
         facets = load_facets_from_request(
             worklist=lane, base_class=FeaturedFacets,
@@ -780,7 +780,6 @@ class OPDSFeedController(CirculationManagerController):
         title = lane.display_name
         facet_class_kwargs = dict(
             minimum_featured_quality=library.minimum_featured_quality,
-            uses_customlists=lane.uses_customlists
         )
         facets = load_facets_from_request(
             worklist=lane, base_class=FeaturedFacets,
@@ -1721,20 +1720,24 @@ class WorkController(CirculationManagerController):
 
         lane_name = "Recommendations for %s by %s" % (work.title, work.author)
         try:
-            lane = RecommendationLane(
-                library, work, lane_name, novelist_api=novelist_api
-            )
+            novelist_api = novelist_api or NoveListAPI.from_config(library)
         except CannotLoadConfiguration, e:
             # NoveList isn't configured.
             return NO_SUCH_LANE.detailed(_("Recommendations not available"))
 
-        annotator = self.manager.annotator(lane)
-        facets = load_facets_from_request(worklist=lane)
+        lane = RecommendationLane(library, work, lane_name, novelist_api)
+
+        facets = load_facets_from_request(
+            worklist=lane, base_class=DatabaseBackedFacets
+        )
         if isinstance(facets, ProblemDetail):
             return facets
+
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
+
+        annotator = self.manager.annotator(lane)
         url = annotator.feed_url(
             lane,
             facets=facets,

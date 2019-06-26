@@ -25,6 +25,8 @@ from core import classifier
 
 from core.lane import (
     BaseFacets,
+    DatabaseBackedFacets,
+    DatabaseBackedWorkList,
     Facets,
     FacetsWithEntryPoint,
     Pagination,
@@ -773,14 +775,6 @@ class DynamicLane(WorkList):
     in the database."""
 
 
-class WorksFromDatabase(DynamicLane):
-    """A DynamicLane that still gets its works from the database rather
-    than the search engine.
-    """
-    pass
-WorksFromDatabase.works = WorksFromDatabase.works_from_database
-
-
 class WorkBasedLane(DynamicLane):
     """A lane that shows works related to one particular Work."""
 
@@ -922,7 +916,7 @@ class RelatedBooksLane(WorkBasedLane):
             pass
 
 
-class RecommendationLane(WorkBasedLane, WorksFromDatabase):
+class RecommendationLane(WorkBasedLane, DatabaseBackedWorkList):
     """A lane of recommended Works based on a particular Work"""
 
     DISPLAY_NAME = "Recommended Books"
@@ -934,35 +928,36 @@ class RecommendationLane(WorkBasedLane, WorksFromDatabase):
         super(RecommendationLane, self).__init__(
             library, work, display_name=display_name,
         )
-        _db = Session.object_session(library)
-        self.api = novelist_api or NoveListAPI.from_config(library)
-        self.recommendations = self.fetch_recommendations(_db)
+        self.novelist_api = novelist_api
         if parent:
             parent.append_child(self)
+        _db = Session.object_session(library)
+        self.recommendations = self.fetch_recommendations(_db)
 
     def fetch_recommendations(self, _db):
         """Get identifiers of recommendations for this LicensePool"""
-
-        metadata = self.api.lookup(self.edition.primary_identifier)
+        metadata = self.novelist_api.lookup(self.edition.primary_identifier)
         if metadata:
             metadata.filter_recommendations(_db)
             return metadata.recommendations
         return []
 
-    def apply_filters(self, _db, qu, facets, pagination, featured=False):
-        from core.model import MaterializedWorkWithGenre as mw
+    def modify_database_query_hook(self, _db, qu):
+        """Find Works corresponding to the ISBNs returned
+        by an external recommendation engine.
+
+        :param _db: A database connection.
+        :param qu: A database query.
+        """
         if not self.recommendations:
-            # Return a self-contradictory query that will return
-            # no results.
-            return _db.query(mw).filter(True==False)
-        qu = qu.join(LicensePool.identifier)
-        qu = Work.from_identifiers(
-            _db, self.recommendations, base_query=qu,
-            identifier_id_field=mw.identifier_id
-        )
-        return super(RecommendationLane, self).apply_filters(
-            _db, qu, facets, pagination, featured=featured
-        )
+            # There are no recommendations. Add a contradiction to the
+            # query so it will return nothing.
+            qu = qu.filter(Work.id!=Work.id)
+        else:
+            qu = Work.from_identifiers(
+                _db, self.recommendations, qu, LicensePool.identifier_id
+            )
+        return qu
 
 
 class SeriesFacets(Facets):
