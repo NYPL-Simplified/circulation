@@ -1737,7 +1737,8 @@ class DatabaseBackedWorkList(WorkList):
 
         return qu
 
-    def base_query(self, _db):
+    @classmethod
+    def base_query(cls, _db):
         """Return a query that contains the joins set up as necessary to
         create OPDS feeds.
         """
@@ -1750,24 +1751,9 @@ class DatabaseBackedWorkList(WorkList):
         )
 
         # Apply optimizations.
-        qu = self._modify_loading(qu)
-        qu = self._defer_unused_fields(qu)
+        qu = cls._modify_loading(qu)
+        qu = cls._defer_unused_fields(qu)
         return qu
-
-    def only_show_ready_deliverable_works(
-        self, _db, query, show_suppressed=False
-    ):
-        """Restrict a query to show only presentation-ready works present in
-        an appropriate collection which the default client can
-        fulfill.
-
-        Note that this assumes the query has an active join against
-        LicensePool.
-        """
-        return Collection.restrict_to_ready_deliverable_works(
-            query, Work, Edition, show_suppressed=show_suppressed,
-            collection_ids=self.collection_ids
-        )
 
     @classmethod
     def _modify_loading(cls, qu):
@@ -1800,6 +1786,21 @@ class DatabaseBackedWorkList(WorkList):
             joinedload(license_pool_name, "delivery_mechanisms", "resource", "representation"),
         )
         return qu
+
+    def only_show_ready_deliverable_works(
+        self, _db, query, show_suppressed=False
+    ):
+        """Restrict a query to show only presentation-ready works present in
+        an appropriate collection which the default client can
+        fulfill.
+
+        Note that this assumes the query has an active join against
+        LicensePool.
+        """
+        return Collection.restrict_to_ready_deliverable_works(
+            query, Work, Edition, show_suppressed=show_suppressed,
+            collection_ids=self.collection_ids
+        )
 
     @classmethod
     def _defer_unused_fields(cls, query):

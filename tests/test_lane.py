@@ -831,11 +831,7 @@ class TestDatabaseBackedFacets(DatabaseTest):
         licensed_p2.licenses_available = 1
         licensed_low.random = 0.1
 
-        qu = self._db.query(Work).join(
-            LicensePool, LicensePool.work_id==Work.id
-        ).join(
-            Edition, Work.presentation_edition_id==Edition.id
-        )
+        qu = DatabaseBackedWorkList.base_query(self._db)
         def facetify(collection=Facets.COLLECTION_FULL,
                      available=Facets.AVAILABLE_ALL,
                      order=Facets.ORDER_TITLE
@@ -2098,16 +2094,20 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         # Verify that base_query makes the query we expect and then
         # calls some optimization methods (not tested).
         class Mock(DatabaseBackedWorkList):
-            def _modify_loading(self, qu):
+            @classmethod
+            def _modify_loading(cls, qu):
                 return [qu, "_modify_loading"]
 
-            def _defer_unused_fields(self, qu):
+            @classmethod
+            def _defer_unused_fields(cls, qu):
                 return qu + ['_defer_unused_fields']
 
-        result = Mock().base_query(self._db)
+        result = Mock.base_query(self._db)
 
         [base_query, m, d] = result
-        expect = self._db.query(Work).join(Work.license_pools).join(
+        expect = self._db.query(Work).join(
+            Work.license_pools
+        ).join(
             Work.presentation_edition
         )
         eq_(str(expect), str(base_query))
@@ -2163,7 +2163,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         # Create a MockWorkList with a parent.
         wl = MockWorkList(parent)
         wl.initialize(self._default_library)
-        original_qu = self._db.query(Work)
+        original_qu = DatabaseBackedWorkList.base_query(self._db)
 
         # If no languages or genre IDs are specified, and the hook
         # methods do nothing, then bibliographic_filter_clauses() has
@@ -2240,7 +2240,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         # Verify that bibliographic_filter_clauses generates
         # SQLAlchemy clauses that give the expected results when
         # applied to a real `works` table.
-        original_qu = self._db.query(Work)
+        original_qu = DatabaseBackedWorkList.base_query(self._db)
 
         # Create a work that may or may not show up in various
         # DatabaseBackedWorkLists.
