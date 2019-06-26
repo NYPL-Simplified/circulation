@@ -43,6 +43,8 @@ from api.lanes import (
     CrawlableCustomListBasedLane,
     CrawlableFacets,
     DynamicLane,
+    RecommendationLane,
+    RelatedBooksLane,
     SeriesFacets,
     SeriesLane,
 )
@@ -106,6 +108,7 @@ from core.model import (
     create,
 )
 from core.lane import (
+    DatabaseBackedFacets,
     Facets,
     FeaturedFacets,
     SearchFacets,
@@ -2592,13 +2595,14 @@ class TestWorkController(CirculationControllerTest):
             )
         )
 
-        # The mock search engine will return the same results for
-        # every search. That means this book will show up as a 'same
-        # author' recommendation and a 'same series' recommentation.
+        # The mock search engine will return this Work for every
+        # search. That means this book will show up as a 'same author'
+        # recommendation and a 'same series' recommentation.
         same_author_and_series = self._work(
             title="Same author and series", with_license_pool=True
         )
-        self.manager.search_engine.bulk_update([same_author_and_series])
+        self.manager.external_search.docs = {}
+        self.manager.external_search.bulk_update([same_author_and_series])
 
         # Recommendations from the NoveList API are looked up through
         # the database, not the search engine. Create a fresh book,
@@ -2615,7 +2619,7 @@ class TestWorkController(CirculationControllerTest):
         mock_api.setup(metadata)
 
         # Now, ask for works related to self.english_1.
-        with mock_search_index(self.search_engine):
+        with mock_search_index(self.manager.external_search):
             with self.request_context_with_library('/'):
                 response = self.manager.work_controller.related(
                     self.identifier.type, self.identifier.identifier,
@@ -2672,7 +2676,7 @@ class TestWorkController(CirculationControllerTest):
                 return "An OPDS feed"
 
         # Queue up the same recommendation as before.
-        metadata.recommendations = [recommended_lp.identifier]
+        mock_api.setup(metadata)
         with self.request_context_with_library('/'):
             response = self.manager.work_controller.related(
                 self.identifier.type, self.identifier.identifier,
@@ -2686,15 +2690,51 @@ class TestWorkController(CirculationControllerTest):
         # Verify that groups() was called with the arguments we expect.
         kwargs = Mock.called_with
         eq_(self._db, kwargs.pop('_db'))
-        eq_(self.search_engine, kwargs.pop('search_engine'))
+        eq_(self.manager.external_search, kwargs.pop('search_engine'))
         eq_("Related Books", kwargs.pop('title'))
+
+        # We're using a DatabaseBackedFacets, because the
+        # RecommendationLane can't take a regular Facets object.
         facets = kwargs.pop('facets')
+        assert isinstance(facets, DatabaseBackedFacets)
+
+        # We're generating a grouped feed using a RelatedBooksLane
+        # that has three sublanes.
         lane = kwargs.pop('lane')
         assert isinstance(lane, RelatedBooksLane)
-        url = kwargs.pop('url')
-        set_trace()
-        pass
+        contributor_lane, novelist_lane, series_lane = lane.children
 
+        assert isinstance(contributor_lane, ContributorLane)
+        eq_(contributor, contributor_lane.contributor)
+
+        assert isinstance(novelist_lane, RecommendationLane)
+        eq_([recommended_lp.identifier], novelist_lane.recommendations)
+
+        assert isinstance(series_lane, SeriesLane)
+        eq_("Around the World", series_lane.series)
+
+        # The Annotator is associated with the parent RelatedBooksLane.
+        annotator = kwargs.pop('annotator')
+        assert isinstance(annotator, LibraryAnnotator)
+        eq_(self._default_library, annotator.library)
+        eq_(lane, annotator.lane)
+
+        # Checking the URL is difficult because it requires a request
+        # context, _plus_ the DatabaseBackedFacets and Lane
+        # created during the original request.
+        library = self._default_library
+        route, url_kwargs = lane.url_arguments
+        url_kwargs.update(dict(facets.items()))
+        with self.request_context_with_library(""):
+            expect_url = self.manager.work_controller.url_for(
+                route, lane_identifier=None,
+                library_short_name=library.short_name,
+                **url_kwargs
+            )
+        eq_(kwargs.pop('url'), expect_url)
+
+        # That's it!
+        eq_({}, kwargs)
 
     def test_report_problem_get(self):
         with self.request_context_with_library("/"):
