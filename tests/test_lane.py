@@ -2012,7 +2012,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         # bibliographic_filter_clauses() returned two clauses which were
         # combined with and_().
         bibliographic_filter_clauses = result.clauses.pop(0)
-        eq_(str(and_('clause 1', 'clause 2')),
+        eq_(str(and_(text('clause 1'), text('clause 2'))),
             str(bibliographic_filter_clauses))
 
         # The rest of the calls are easy to trac.
