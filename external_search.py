@@ -1738,6 +1738,8 @@ class Filter(SearchBase):
         target_age = inherit_one('target_age')
         collections = inherit_one('collection_ids') or library
 
+        license_datasource_id = inherit_one('license_datasource_id')
+
         # For genre IDs and CustomList IDs, we might get a separate
         # set of restrictions from every item in the WorkList hierarchy.
         # _All_ restrictions must be met for a work to match the filter.
@@ -1762,17 +1764,15 @@ class Filter(SearchBase):
             target_age, genre_id_restrictions, customlist_id_restrictions,
             facets,
             excluded_audiobook_data_sources=excluded_audiobook_data_sources,
-            allow_holds=allow_holds,
+            allow_holds=allow_holds, license_datasource=license_datasource_id
         )
-
 
     def __init__(self, collections=None, media=None, languages=None,
                  fiction=None, audiences=None, target_age=None,
                  genre_restriction_sets=None, customlist_restriction_sets=None,
                  facets=None, script_fields=None, **kwargs
     ):
-        """
-        These minor arguments were made into unnamed keyword arguments to
+        """These minor arguments were made into unnamed keyword arguments to
         avoid cluttering the method signature:
 
         :param excluded_audiobook_data_sources: A list of DataSources that
@@ -1788,6 +1788,10 @@ class Filter(SearchBase):
         :param author: If this is set to a Contributor or
         ContributorData, then only books where this person had an
         authorship role will be included.
+
+        :param license_datasource: If this is set to a DataSource,
+        only books with LicensePools from that DataSource will be
+        included.
 
         :param updated_after: If this is set to a datetime, only books
         whose Work records (~bibliographic metadata) have been updated since
@@ -1845,6 +1849,9 @@ class Filter(SearchBase):
 
         self.author = kwargs.pop('author', None)
 
+        license_datasources = kwargs.pop('license_datasource', None)
+        self.license_datasources = self._filter_ids(license_datasources)
+
         # At this point there should be no keyword arguments -- you can't pass
         # whatever you want into this method.
         if kwargs:
@@ -1898,6 +1905,13 @@ class Filter(SearchBase):
                 'terms', **{'licensepools.collection_id' : collection_ids}
             )
             nested_filters['licensepools'].append(collection_match)
+
+        license_datasources = filter_ids(self.license_datasources)
+        if license_datasources:
+            datasource_match = F(
+                'terms', **{'licensepools.data_source_id' : license_datasources}
+            )
+            nested_filters['licensepools'].append(datasource_match)
 
         if self.author is not None:
             nested_filters['contributors'].append(self.author_filter)

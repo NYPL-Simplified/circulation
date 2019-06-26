@@ -665,7 +665,7 @@ class MARCExporter(object):
             this_batch_size = 0
             while pagination is not None:
                 # Retrieve one 'page' of works from the search index.
-                works = lane.works_from_search_index(
+                works = lane.works(
                     self._db, pagination=pagination, facets=facets,
                     search_engine=search_engine
                 )

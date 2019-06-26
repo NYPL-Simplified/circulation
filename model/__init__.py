@@ -12,6 +12,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Table,
+    text,
 )
 from sqlalchemy.exc import (
     IntegrityError,

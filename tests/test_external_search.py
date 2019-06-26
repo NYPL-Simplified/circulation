@@ -798,6 +798,16 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
             "president", age_8_10, ordered=False
         )
 
+        # Filters on license source.
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        gutenberg_only = Filter(license_datasource=gutenberg)
+        expect([self.moby_dick, self.moby_duck], "moby", gutenberg_only,
+               ordered=False)
+
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        overdrive_only = Filter(license_datasource=overdrive)
+        expect([], "moby", overdrive_only, ordered=False)
+
         # Filters on last modified time.
 
         # Obviously this query string matches "Moby-Dick", but it's
@@ -876,7 +886,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         expect([self.moby_dick], "moby duck", f)
 
         # Finally, let's do some end-to-end tests of
-        # WorkList.works_from_search_index.
+        # WorkList.works()
         #
         # That's a simple method that puts together a few pieces
         # which are tested separately, so we don't need to go all-out.
@@ -890,7 +900,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
             )
             pages = []
             while pagination:
-                pages.append(worklist.works_from_search_index(
+                pages.append(worklist.works(
                     self._db, facets, pagination, self.search
                 ))
                 pagination = pagination.next_page
@@ -1653,7 +1663,7 @@ class TestFeaturedFacets(EndToEndSearchTest):
         def assert_featured(description, worklist, facets, expect):
             # Generate a list of featured works for the given `worklist`
             # and compare that list against `expect`.
-            actual = worklist.works_from_search_index(
+            actual = worklist.works(
                 self._db, facets, None, self.search, debug=True
             )
             self._assert_works(description, expect, actual)
@@ -2684,6 +2694,14 @@ class TestFilter(DatabaseTest):
             Filter(customlist_restriction_sets=[[]]).customlist_restriction_sets
         )
 
+        # Test the license_datasource argument
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        overdrive_only = Filter(license_datasource=overdrive)
+        eq_([overdrive.id], overdrive_only.license_datasources)
+
+        overdrive_only = Filter(license_datasource=overdrive.id)
+        eq_([overdrive.id], overdrive_only.license_datasources)
+
         # If you pass in a Facets object, its modify_search_filter()
         # and scoring_functions() methods are called.
         class Mock(object):
@@ -2733,6 +2751,9 @@ class TestFilter(DatabaseTest):
         parent.target_age = NumericRange(10, 11, '[]')
         parent.genres = [self.horror, self.fantasy]
         parent.customlists = [self.best_sellers]
+        parent.license_datasource = DataSource.lookup(
+            self._db, DataSource.GUTENBERG
+        )
 
         # This lane inherits most of its configuration from its parent.
         inherits = self._lane(
@@ -2754,6 +2775,7 @@ class TestFilter(DatabaseTest):
         eq_(parent.languages, filter.languages)
         eq_(parent.fiction, filter.fiction)
         eq_(parent.audiences, filter.audiences)
+        eq_([parent.license_datasource_id], filter.license_datasources)
         eq_((parent.target_age.lower, parent.target_age.upper),
             filter.target_age)
         eq_(True, filter.allow_holds)
@@ -2908,6 +2930,9 @@ class TestFilter(DatabaseTest):
         last_update_time = datetime.datetime(2019, 1, 1)
         filter.updated_after = last_update_time
 
+        # We want books from a specific license source.
+        filter.license_datasources = overdrive
+
         # We want books by a specific author.
         filter.author = ContributorData(sort_name="Ebrity, Sel")
 
@@ -2929,17 +2954,22 @@ class TestFilter(DatabaseTest):
 
         # This time we do see a nested filter. The information
         # necessary to enforce the 'current collection', 'excluded
-        # audiobook sources', and 'no holds' restrictions is kept in
-        # the nested 'licensepools' document, so those restrictions
-        # must be described in terms of nested filters on that
-        # document.
-        [licensepool_filter, excluded_audiobooks_filter, no_holds_filter] = nested.pop('licensepools')
+        # audiobook sources', 'no holds', and 'license source'
+        # restrictions is kept in the nested 'licensepools' document,
+        # so those restrictions must be described in terms of nested
+        # filters on that document.
+        [licensepool_filter, datasource_filter, excluded_audiobooks_filter,
+         no_holds_filter] = nested.pop('licensepools')
 
         # The 'current collection' filter.
         eq_(
             {'terms': {'licensepools.collection_id': [self._default_collection.id]}},
             licensepool_filter.to_dict()
         )
+
+        # The 'only certain data sources' filter.
+        eq_({'terms': {'licensepools.data_source_id': [overdrive.id]}},
+            datasource_filter.to_dict())
 
         # The 'excluded audiobooks' filter.
         audio = F('term', **{'licensepools.medium': Edition.AUDIO_MEDIUM})

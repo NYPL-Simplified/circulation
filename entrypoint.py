@@ -76,13 +76,6 @@ class EntryPoint(object):
             cls.DEFAULT_ENABLED.remove(entrypoint_class)
 
     @classmethod
-    def modified_materialized_view_query(cls, qu):
-        """Modify a query against the mv_works_for_lanes materialized view
-        so it matches only items that belong in this entry point.
-        """
-        raise NotImplementedError()
-
-    @classmethod
     def modify_search_filter(cls, filter):
         """If necessary modify an ElasticSearch Filter object so that it
         restricts results to items shown through this entry point.
@@ -100,8 +93,8 @@ class EntryPoint(object):
         return filter
 
     @classmethod
-    def apply(cls, qu):
-        """Default behavior is to not change a query at all."""
+    def modify_database_query(cls, _db, qu):
+        """Default behavior is to not change a database query at all."""
         return qu
 
 
@@ -122,12 +115,12 @@ class MediumEntryPoint(EntryPoint):
     """
 
     @classmethod
-    def apply(cls, qu):
-        """Modify a query against the mv_works_for_lanes materialized view
+    def modify_database_query(cls, _db, qu):
+        """Modify a query against Work+LicensePool+Edition
         to match only items with the right medium.
         """
-        from model import MaterializedWorkWithGenre as mv
-        return qu.filter(mv.medium==cls.INTERNAL_NAME)
+        from model import Edition
+        return qu.filter(Edition.medium==cls.INTERNAL_NAME)
 
     @classmethod
     def modify_search_filter(cls, filter):
