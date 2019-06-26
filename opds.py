@@ -800,7 +800,9 @@ class AcquisitionFeed(OPDSFeed):
         """Build  a feed representing one page of a given list. Currently used for
         creating an OPDS feed for a custom list and not cached.
 
-        # TODO: Can this be removed?
+        TODO: This is used by the circulation manager admin interface.
+        Investigating replacing the code that uses this so that it uses
+        the search index.
         """
         page_of_works = pagination.modify_database_query(_db, query)
         pagination.total_size = int(query.count())
