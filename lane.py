@@ -562,6 +562,24 @@ class DefaultSortOrderFacets(Facets):
     """
 
     @classmethod
+    def available_facets(cls, config, facet_group_name):
+        """Make sure the default sort order is the first item
+        in the list of available sort orders.
+        """
+        if facet_group_name != cls.ORDER_FACET_GROUP_NAME:
+            return super(SeriesFacets, cls).available_facets(
+                config, facet_group_name
+            )
+        default = config.enabled_facets(facet_group_name)
+
+        # Promote the default sort order to the front of the list,
+        # adding it if necessary.
+        order = cls.DEFAULT_SORT_ORDER
+        if order in default:
+            default = filter(lambda x: x==order, default)
+        return [order] + default
+
+    @classmethod
     def default_facet(cls, config, facet_group_name):
         if facet_group_name == cls.ORDER_FACET_GROUP_NAME:
             return cls.DEFAULT_SORT_ORDER
