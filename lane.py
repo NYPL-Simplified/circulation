@@ -704,8 +704,11 @@ class FeaturedFacets(FacetsWithEntryPoint):
 
     @classmethod
     def default(cls, lane, **kwargs):
-        library = lane.library
-        if lane.library:
+        if isinstance(lane, Library):
+            library = lane
+        else:
+            library = lane.library
+        if library:
             quality = Configuration.DEFAULT_MINIMUM_FEATURED_QUALITY
         else:
             quality = library.minimum_featured_quality
@@ -1328,6 +1331,13 @@ class WorkList(object):
             key += ','.join(audiences)
         return key
 
+    def adapt_featured_facets(self, _db, facets):
+        """Convert a generic FeaturedFacets to some other faceting
+        object, suitable for showing the "featured" view of this
+        WorkList.
+        """
+        return facets
+
     def groups(self, _db, include_sublanes=True, facets=None,
                search_engine=None, debug=False):
         """Extract a list of samples from each child of this WorkList.  This
@@ -1345,7 +1355,8 @@ class WorkList(object):
         if not include_sublanes:
             # We only need to find featured works for this lane,
             # not this lane plus its sublanes.
-            for work in self.works(_db, facets=facets):
+            adapted = self.adapt_featured_facets(_db, facets)
+            for work in self.works(_db, facets=adapted):
                 yield work, self
             return
 
@@ -1661,8 +1672,9 @@ class WorkList(object):
 
         # Ask the search engine for works from every lane we're given.
         for lane in lanes:
+            adapted = lane.adapt_featured_facets(_db, facets)
             for work in lane.works(
-                _db, facets, pagination, search_engine=search_engine,
+                _db, adapted, pagination, search_engine=search_engine,
                 debug=debug
             ):
                 yield work, lane

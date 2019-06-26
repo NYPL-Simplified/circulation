@@ -66,6 +66,7 @@ class CachedFeed(Base):
     GROUPS_TYPE = u'groups'
     PAGE_TYPE = u'page'
     NAVIGATION_TYPE = u'navigation'
+    RELATED_TYPE = u'related'
     RECOMMENDATIONS_TYPE = u'recommendations'
     SERIES_TYPE = u'series'
     CONTRIBUTOR_TYPE = u'contributor'
@@ -78,12 +79,12 @@ class CachedFeed(Base):
         from ..opds import AcquisitionFeed
         from ..lane import Lane, WorkList
         if max_age is None:
-            if type == cls.GROUPS_TYPE:
+            if hasattr(lane, 'MAX_CACHE_AGE'):
+                max_age = lane.MAX_CACHE_AGE
+            elif type == cls.GROUPS_TYPE:
                 max_age = AcquisitionFeed.grouped_max_age(_db)
             elif type == cls.PAGE_TYPE:
                 max_age = AcquisitionFeed.nongrouped_max_age(_db)
-            elif hasattr(lane, 'MAX_CACHE_AGE'):
-                max_age = lane.MAX_CACHE_AGE
             else:
                 max_age = 0
         if isinstance(max_age, int):
