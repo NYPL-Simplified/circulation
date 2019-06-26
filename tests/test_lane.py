@@ -16,6 +16,7 @@ from sqlalchemy.sql.elements import Case
 from sqlalchemy import (
     and_,
     func,
+    text,
 )
 
 from elasticsearch_dsl.function import (
@@ -943,7 +944,6 @@ class TestFeaturedFacets(DatabaseTest):
         # Verify that FeaturedFacets sets appropriate scoring functions
         # for ElasticSearch queries.
         f = FeaturedFacets(minimum_featured_quality=0.55, random_seed=42)
-        from core.external_search import Filter
         filter = Filter()
 
         # In most cases, there are three things that can boost a work's score.
@@ -1923,7 +1923,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
                 self.stages.append(new_query)
                 return (
                     new_query,
-                    ["clause 1", "clause 2"]
+                    [text("clause 1"), text("clause 2")]
                 )
 
         # The simplest case: no facets or pagination,
