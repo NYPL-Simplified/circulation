@@ -868,6 +868,13 @@ class RelatedBooksLane(WorkBasedLane):
             )
         self.children = sublanes
 
+    def works(self, _db, *args, **kwargs):
+        """This lane never has works of its own.
+
+        Only its sublanes have works.
+        """
+        return []
+
     def _get_sublanes(self, _db, novelist_api):
         sublanes = list()
 

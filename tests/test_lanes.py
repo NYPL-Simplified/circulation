@@ -478,7 +478,6 @@ class TestRelatedBooksLane(DatabaseTest):
         self.edition.series = "All By Myself"
         lane = RelatedBooksLane(self._default_library, self.work, "")
         eq_([], lane.works(self._db))
-        eq_([], lane.works_from_database(self._db).all())
 
 
 class LaneTest(DatabaseTest):

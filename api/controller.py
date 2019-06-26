@@ -1693,8 +1693,14 @@ class WorkController(CirculationManagerController):
             return NO_SUCH_LANE.detailed(e.message)
 
         # One of the sublanes can only take a DatabaseBackedFacets,
-        # which limits our options here -- although faceting information
-        # isn't really used since we're going to make a group feed.
+        # which limits our options here. Faceting information isn't
+        # really used here, though, since this is a grouped feed.  The
+        # only thing this really does is make sure the lanes are
+        # sorted by author.
+        #
+        # TODO: That's not really the right choice here. Each of these
+        # feeds has its own default sort order and should know to use
+        # that.
         facets = load_facets_from_request(
             worklist=lane, base_class=DatabaseBackedFacets
         )
