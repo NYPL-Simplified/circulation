@@ -1692,17 +1692,11 @@ class WorkController(CirculationManagerController):
             # No related books were found.
             return NO_SUCH_LANE.detailed(e.message)
 
-        # One of the sublanes can only take a DatabaseBackedFacets,
-        # which limits our options here. Faceting information isn't
-        # really used here, though, since this is a grouped feed.  The
-        # only thing this really does is make sure the lanes are
-        # sorted by author.
-        #
-        # TODO: That's not really the right choice here. Each of these
-        # feeds has its own default sort order and should know to use
-        # that.
         facets = load_facets_from_request(
-            worklist=lane, base_class=DatabaseBackedFacets
+            worklist=lane, base_class=FeaturedFacets,
+            base_class_constructor_kwargs=dict(
+                minimum_featured_quality=library.minimum_featured_quality
+            )
         )
         if isinstance(facets, ProblemDetail):
             return facets
@@ -1716,7 +1710,8 @@ class WorkController(CirculationManagerController):
         feed = feed_class.groups(
             _db=self._db, title=lane.DISPLAY_NAME,
             url=url, lane=lane, annotator=annotator,
-            facets=facets, search_engine=search_engine
+            facets=facets, search_engine=search_engine,
+            cache_type=CachedFeed.RELATED_TYPE
         )
         return feed_response(unicode(feed))
 

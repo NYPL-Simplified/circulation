@@ -27,6 +27,7 @@ from core.lane import (
     BaseFacets,
     DatabaseBackedFacets,
     DatabaseBackedWorkList,
+    DefaultSortOrderFacets,
     Facets,
     FacetsWithEntryPoint,
     Pagination,
@@ -852,8 +853,11 @@ class RelatedBooksLane(WorkBasedLane):
     * RecommendationLane: Works provided by a third-party recommendation
       service.
     """
+    CACHED_FEED_TYPE = "related"
     DISPLAY_NAME = "Related Books"
     ROUTE = 'related_books'
+    MAX_CACHE_AGE = 48*60*60 # 48 hours, the shortest time of any component
+                             # sublane.
 
     def __init__(self, library, work, display_name=None,
                  novelist_api=None):
@@ -960,6 +964,13 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
             return metadata.recommendations
         return []
 
+    def adapt_featured_facets(self, _db, facets):
+        # The faceting object doesn't matter much here, but it
+        # does need to be a DatabaseBackedFacets.
+        return DatabaseBackedFacets.default(
+            self.get_library(_db), entrypoint=facets.entrypoint
+        )
+
     def modify_database_query_hook(self, _db, qu):
         """Find Works corresponding to the ISBNs returned
         by an external recommendation engine.
@@ -978,50 +989,11 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
         return qu
 
 
-class SeriesFacets(Facets):
-    """A custom faceting object for filtering a lane based on series and
-    ordering it based on series position (and secondarily by title).
+class SeriesFacets(DefaultSortOrderFacets):
+    """A list with a series restriction is ordered by series position by
+    default.
     """
-
-    @classmethod
-    def available_facets(cls, config, facet_group_name):
-        "Unlike most feeds, this one can be ordered by series position."
-        if facet_group_name != cls.ORDER_FACET_GROUP_NAME:
-            return super(SeriesFacets, cls).available_facets(
-                config, facet_group_name
-            )
-        default = config.enabled_facets(facet_group_name)
-        return [cls.ORDER_SERIES_POSITION] + default
-
-    @classmethod
-    def default_facet(cls, config, facet_group_name):
-        "Unlike most feeds, this one is, by default, ordered by series position."
-        if facet_group_name == cls.ORDER_FACET_GROUP_NAME:
-            return cls.ORDER_SERIES_POSITION
-        return super(SeriesFacets, cls).default_facet(config, facet_group_name)
-
-    @classmethod
-    def from_request(cls, library, config, get_argument, get_header, worklist,
-                     *args, **kwargs):
-        """Instantiate a SeriesFacets from request information plus
-        the series associated with the given WorkList.
-        """
-        facets = super(SeriesFacets, cls).from_request(
-            library, config, get_argument, get_header, worklist, *args,
-            **kwargs
-        )
-        facets.series = worklist.series
-        return facets
-
-    def navigate(self, *args, **kwargs):
-        """Propagate the selected series to a new Facets object."""
-        facets = super(SeriesFacets, self).navigate(*args, **kwargs)
-        facets.series = self.series
-        return facets
-
-    def modify_search_filter(self, filter):
-        super(SeriesFacets, self).modify_search_filter(filter)
-        filter.series = self.series
+    DEFAULT_SORT_ORDER = Facets.ORDER_SERIES_POSITION
 
 
 class SeriesLane(DynamicLane):
@@ -1059,33 +1031,26 @@ class SeriesLane(DynamicLane):
             kwargs['audiences'] = self.audience_key
         return self.ROUTE, kwargs
 
-class ContributorFacets(Facets):
-
-    @classmethod
-    def from_request(cls, library, config, get_argument, get_header, worklist,
-                     *args, **kwargs):
-        """Instantiate a ContributorFacets from request information plus the
-        ContributorData associated with the given WorkList.
-        """
-        facets = super(ContributorFacets, cls).from_request(
-            library, config, get_argument, get_header, worklist, *args,
-            **kwargs
+    def adapt_featured_facets(self, _db, facets):
+        """Convert a FeaturedFacets to a SeriesFacets."""
+        return SeriesFacets.default(
+            self.get_library(_db), entrypoint=facets.entrypoint
         )
-        facets.contributor = worklist.contributor
-        return facets
 
-    def navigate(self, *args, **kwargs):
-        """Propagate the selected contributor to a new Facets object."""
-        facets = super(ContributorFacets, self).navigate(*args, **kwargs)
-        facets.contributor = self.contributor
-        return facets
+    def modify_search_filter_hook(self, filter):
+        filter.series = self.series
+        return filter
 
-    def modify_search_filter(self, filter):
-        super(ContributorFacets, self).modify_search_filter(filter)
-        filter.author = self.contributor
+
+class ContributorFacets(DefaultSortOrderFacets):
+    """A list with a contributor restriction is, by default, sorted by
+    title.
+    """
+    DEFAULT_SORT_ORDER = Facets.ORDER_TITLE
 
 
 class ContributorLane(DynamicLane):
+
     """A lane of Works written by a particular contributor"""
 
     ROUTE = 'contributor'
@@ -1125,6 +1090,16 @@ class ContributorLane(DynamicLane):
             audiences=self.audience_key
         )
         return self.ROUTE, kwargs
+
+    def adapt_featured_facets(self, _db, facets):
+        """Convert a FeaturedFacets to a ContributorFacets."""
+        return ContributorFacets.default(
+            self.get_library(_db), entrypoint=facets.entrypoint
+        )
+
+    def modify_search_filter_hook(self, filter):
+        filter.author = self.contributor
+        return filter
 
 
 class CrawlableFacets(Facets):
