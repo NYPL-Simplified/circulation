@@ -633,9 +633,9 @@ class DatabaseBackedFacets(Facets):
         return order_by_sorted, order_by
 
     def modify_database_query(self, _db, qu):
-        """Restrict a query against Work+LicensePool so that it only
-        matches works that fit this Faceting object, and so that the query is
-        ordered appropriately.
+        """Restrict a query against Work+LicensePool+Edition so that it only
+        matches works that fit this Faceting object, and so that the
+        query is appropriately ordered and made distinct.
         """
         if self.entrypoint:
             qu = self.entrypoint.modify_database_query(_db, qu)
@@ -1383,11 +1383,12 @@ class WorkList(object):
 
     def works(self, _db, facets=None, pagination=None, search_engine=None,
               debug=False, **kwargs):
-        """Obtain Work or Work-like objects that belong
+
+        """Use a search engine to obtain Work or Work-like objects that belong
         in this WorkList.
 
-        The default strategy is to use a search index, but subclasses may
-        do things differently.
+        Compare DatabaseBackedWorkList.works_from_database, which uses
+        a database query to obtain the same Work objects.
 
         :param _db: A database connection.
         :param facets: A Facets object which may put additional
@@ -1400,6 +1401,7 @@ class WorkList(object):
            keyword arguments.
         :return: A list of Work or Work-like objects, or a database query
             that generates such a list when executed.
+
         """
         from external_search import (
             Filter,
@@ -1431,12 +1433,13 @@ class WorkList(object):
             script fields), WorkSearchResult objects.
         """
 
-        # Get a list of Work objects, using the same rules applied in
-        # works() and works_from_search().
-        #
-
         work_ids = [x.work_id for x in hits]
 
+        # The simplest way to do this is to create a
+        # DatabaseBackedWorkList that fetches those specific works
+        # while applying the general availability filters.
+        #
+        # TODO: There's a lot of room for improvement here.
         wl = SpecificWorkList(work_ids)
         wl.initialize(self.get_library(_db))
         qu = wl.works_from_database(_db)
@@ -1664,65 +1667,6 @@ class WorkList(object):
             ):
                 yield work, lane
 
-    def only_show_ready_deliverable_works(
-        self, _db, query, show_suppressed=False
-    ):
-        """Restrict a query to show only presentation-ready works present in
-        an appropriate collection which the default client can
-        fulfill.
-
-        Note that this assumes the query has an active join against
-        LicensePool.
-        """
-        return Collection.restrict_to_ready_deliverable_works(
-            query, Work, Edition, show_suppressed=show_suppressed,
-            collection_ids=self.collection_ids
-        )
-
-    @classmethod
-    def _modify_loading(cls, qu):
-        """Optimize a query for use in generating OPDS feeds, by modifying
-        which related objects get pulled from the database.
-        """
-        # Avoid eager loading of objects that are already being loaded.
-        qu = qu.options(
-            contains_eager(Work.presentation_edition),
-            contains_eager(Work.license_pools),
-        )
-        license_pool_name = 'license_pools'
-
-        # Load some objects that wouldn't normally be loaded, but
-        # which are necessary when generating OPDS feeds.
-
-        # TODO: Strictly speaking, these joinedload calls are
-        # only needed by the circulation manager. This code could
-        # be moved to circulation and everyone else who uses this
-        # would be a little faster. (But right now there is no one
-        # else who uses this.)
-        qu = qu.options(
-            # These speed up the process of generating acquisition links.
-            joinedload(license_pool_name, "delivery_mechanisms"),
-            joinedload(license_pool_name, "delivery_mechanisms", "delivery_mechanism"),
-
-            # These speed up the process of generating the open-access link
-            # for open-access works.
-            joinedload(license_pool_name, "delivery_mechanisms", "resource"),
-            joinedload(license_pool_name, "delivery_mechanisms", "resource", "representation"),
-        )
-        return qu
-
-    @classmethod
-    def _defer_unused_fields(cls, query):
-        """Some applications use the simple OPDS entry and some
-        applications use the verbose. Whichever one we don't need,
-        we can stop from even being sent over from the
-        database.
-        """
-        if Configuration.DEFAULT_OPDS_FORMAT == "simple_opds_entry":
-            return query.options(defer(Work.verbose_opds_entry))
-        else:
-            return query.options(defer(Work.simple_opds_entry))
-
 
 class DatabaseBackedWorkList(WorkList):
     """A WorkList that can get its works from the database in addition to
@@ -1748,10 +1692,7 @@ class DatabaseBackedWorkList(WorkList):
            constraints on WorkList membership.
         :param pagination: A Pagination object indicating which part of
            the WorkList the caller is looking at.
-        :param kwargs: Ignored -- only included for compatibility with Lane so
-           that callers can invoke works() without worrying about whether
-           a given WorkList gets works from the search engine or the
-           database.
+        :param kwargs: Ignored -- only included for compatibility with works().
         :return: A Query.
         """
         if facets is not None and not isinstance(facets, DatabaseBackedFacets):
@@ -1812,6 +1753,65 @@ class DatabaseBackedWorkList(WorkList):
         qu = self._modify_loading(qu)
         qu = self._defer_unused_fields(qu)
         return qu
+
+    def only_show_ready_deliverable_works(
+        self, _db, query, show_suppressed=False
+    ):
+        """Restrict a query to show only presentation-ready works present in
+        an appropriate collection which the default client can
+        fulfill.
+
+        Note that this assumes the query has an active join against
+        LicensePool.
+        """
+        return Collection.restrict_to_ready_deliverable_works(
+            query, Work, Edition, show_suppressed=show_suppressed,
+            collection_ids=self.collection_ids
+        )
+
+    @classmethod
+    def _modify_loading(cls, qu):
+        """Optimize a query for use in generating OPDS feeds, by modifying
+        which related objects get pulled from the database.
+        """
+        # Avoid eager loading of objects that are already being loaded.
+        qu = qu.options(
+            contains_eager(Work.presentation_edition),
+            contains_eager(Work.license_pools),
+        )
+        license_pool_name = 'license_pools'
+
+        # Load some objects that wouldn't normally be loaded, but
+        # which are necessary when generating OPDS feeds.
+
+        # TODO: Strictly speaking, these joinedload calls are
+        # only needed by the circulation manager. This code could
+        # be moved to circulation and everyone else who uses this
+        # would be a little faster. (But right now there is no one
+        # else who uses this.)
+        qu = qu.options(
+            # These speed up the process of generating acquisition links.
+            joinedload(license_pool_name, "delivery_mechanisms"),
+            joinedload(license_pool_name, "delivery_mechanisms", "delivery_mechanism"),
+
+            # These speed up the process of generating the open-access link
+            # for open-access works.
+            joinedload(license_pool_name, "delivery_mechanisms", "resource"),
+            joinedload(license_pool_name, "delivery_mechanisms", "resource", "representation"),
+        )
+        return qu
+
+    @classmethod
+    def _defer_unused_fields(cls, query):
+        """Some applications use the simple OPDS entry and some
+        applications use the verbose. Whichever one we don't need,
+        we can stop from even being sent over from the
+        database.
+        """
+        if Configuration.DEFAULT_OPDS_FORMAT == "simple_opds_entry":
+            return query.options(defer(Work.verbose_opds_entry))
+        else:
+            return query.options(defer(Work.simple_opds_entry))
 
     def bibliographic_filter_clauses(self, _db, qu):
         """Create a SQLAlchemy filter that excludes books whose bibliographic
