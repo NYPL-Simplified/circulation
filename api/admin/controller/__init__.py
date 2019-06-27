@@ -1740,16 +1740,24 @@ class CustomListsController(AdminCirculationManagerController):
             # Build the list of affected lanes before modifying the
             # CustomList.
             affected_lanes = Lane.affected_by_customlist(list)
+            surviving_lanes = []
             for lane in affected_lanes:
-                lane.update_size(self._db)
-                # There's only one custom list in the lane and it's going
-                # to be deleted.
-                if lane.size == 0 and len(lane._customlist_ids) == 1:
+                if (lane.list_datasource == None
+                    and len(lane.customlist_ids) == 1):
+                    # This Lane is based solely upon this custom list,
+                    # which is about to be deleted. Delete the Lane
+                    # itself.
                     self._db.delete(lane)
+                else:
+                    surviving_lanes.append(lane)
             for entry in list.entries:
                 self._db.delete(entry)
             self._db.delete(list)
-
+            self._db.flush()
+            # Update the size for any lanes affected by this
+            # CustomList which _weren't_ deleted.
+            for lane in surviving_lanes:
+                lane.update_size(self._db)
             return Response(unicode(_("Deleted")), 200)
 
 

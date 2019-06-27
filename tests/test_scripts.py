@@ -491,9 +491,6 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
             # library's minimum quality level.
             eq_(library.minimum_featured_quality,
                 facets.minimum_featured_quality)
-            # The FeaturedFacets object knows that custom lists are
-            # not in play.
-            eq_(False, facets.uses_customlists)
 
         # The first entry point is treated as the default only for WorkLists
         # that have no parent. When the WorkList has a parent, the selected

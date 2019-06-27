@@ -668,7 +668,7 @@ class TestSeriesLane(LaneTest):
 class TestContributorFacets(DatabaseTest):
 
     def test_default_sort_order(self):
-        eq_(Facets.ORDER_TITLE, SeriesFacets.DEFAULT_SORT_ORDER)
+        eq_(Facets.ORDER_TITLE, ContributorFacets.DEFAULT_SORT_ORDER)
         facets = ContributorFacets.default(self._default_library)
         assert isinstance(facets, DefaultSortOrderFacets)
         eq_(Facets.ORDER_TITLE, facets.order)

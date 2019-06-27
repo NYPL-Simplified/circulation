@@ -2384,8 +2384,12 @@ class TestCustomListsController(AdminControllerTest):
 
     def test_custom_list_delete_success(self):
         self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
-        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
-        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
+
+        # Create a CustomList with two Works on it.
+        library_staff = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        list, ignore = create(
+            self._db, CustomList, name=self._str, data_source=library_staff
+        )
         list.library = self._default_library
 
         w1 = self._work(with_license_pool=True)
@@ -2393,25 +2397,60 @@ class TestCustomListsController(AdminControllerTest):
         list.add_entry(w1)
         list.add_entry(w2)
 
-        # This lane depends heavily on lists from this data source.
-        lane = self._lane()
-        lane.display_name = "to be automatically removed"
-        lane.list_datasource = list.data_source
+        # Create a second CustomList, from another data source,
+        # containing a single work.
+        nyt = DataSource.lookup(self._db, DataSource.NYT)
+        list2, ignore = create(
+            self._db, CustomList, name=self._str, data_source=nyt
+        )
+        list2.library = self._default_library
+        list2.add_entry(w2)
+
+        # Create a Lane which takes all of its contents from that
+        # CustomList. When the CustomList is deleted, the Lane will
+        # have no reason to exist, and it will be automatically
+        # deleted as well.
+        lane = self._lane(display_name="to be automatically removed")
         lane.customlists.append(list)
         lane.size = 100
-        eq_(1, self._db.query(Lane).filter(Lane.display_name=="to be automatically removed").count())
+
+        # This Lane is based on two different CustomLists. Its size
+        # will be updated when the CustomList is deleted, but the Lane
+        # itself will not be deleted, since it's still based on
+        # something.
+        lane2 = self._lane(display_name="to have size updated")
+        lane2.customlists.append(list)
+        lane2.customlists.append(list2)
+        lane2.update_size(self._db)
+        eq_(2, lane2.size)
+
+        # This lane is based on _all_ lists from a given data source.
+        # It will also not be deleted when the CustomList is deleted,
+        # because other lists from that data source might show up in
+        # the future.
+        lane3 = self._lane(display_name="All library staff lists")
+        lane3.list_datasource = list.data_source
+        lane3.update_size(self._db)
+        eq_(2, lane3.size)
 
         with self.request_context_with_library_and_admin("/", method="DELETE"):
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
             eq_(200, response.status_code)
 
-            eq_(0, self._db.query(CustomList).count())
-            eq_(0, self._db.query(CustomListEntry).count())
-            eq_(0, self._db.query(Lane).filter(Lane.display_name=="to be automatically removed").count())
+        # The first CustomList and all of its entries have been removed.
+        # Only the second one remains.
+        eq_([list2], self._db.query(CustomList).all())
+        eq_(list2.entries, self._db.query(CustomListEntry).all())
 
-        # The lane's estimate has been updated to reflect the removal
-        # of a list from its data source.
-        eq_(0, lane.size)
+        # The first lane was automatically removed when it became
+        # based on an empty set of CustomLists.
+        eq_(None, get_one(self._db, Lane, id=lane.id))
+
+        # The second and third lanes were not removed, because they
+        # weren't based solely on this specific list. But their .size
+        # attributes were updated to reflect the removal of the list.
+        eq_(1, lane2.size)
+        eq_(0, lane3.size)
 
     def test_custom_list_delete_errors(self):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
