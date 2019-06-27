@@ -17,7 +17,9 @@ from core.classifier import Classifier
 from core.entrypoint import AudiobooksEntryPoint
 from core.external_search import Filter
 from core.lane import (
+    DefaultSortOrderFacets,
     Facets,
+    FeaturedFacets,
     Lane,
     WorkList,
 )
@@ -589,56 +591,11 @@ class TestRecommendationLane(LaneTest):
 
 class TestSeriesFacets(DatabaseTest):
 
-    def setup(self):
-        # Set up a generic SeriesFacets object.
-        super(TestSeriesFacets, self).setup()
-        library = self._default_library
-        self.worklist = SeriesLane(library, "Snake Eyes")
-        args = {}
-        self.facets = SeriesFacets.from_request(
-            library, library, args.get, args.get, self.worklist
-        )
-        assert isinstance(self.facets, SeriesFacets)
-
-    def test_class_methods(self):
-        config = self._default_library
-        # In general, SeriesFacets has the same options and defaults
-        # as a normal Facets object.
-        for group_name in (Facets.COLLECTION_FACET_GROUP_NAME,
-                           Facets.AVAILABILITY_FACET_GROUP_NAME):
-            eq_(Facets.available_facets(config, group_name),
-                SeriesFacets.available_facets(config, group_name))
-            eq_(Facets.default_facet(config, group_name),
-                SeriesFacets.default_facet(config, group_name))
-
-        # However, SeriesFacets has an extra sort option -- you can
-        # sort by series position.
-        group_name = Facets.ORDER_FACET_GROUP_NAME
-        default = Facets.available_facets(config, group_name)
-        series = SeriesFacets.available_facets(config, group_name)
-        eq_([SeriesFacets.ORDER_SERIES_POSITION] + default, series)
-
-        # This is the default sort option for SeriesFacets.
-        eq_(SeriesFacets.ORDER_SERIES_POSITION,
-            SeriesFacets.default_facet(config, group_name))
-
-    def test_instantiation_and_navigation(self):
-        # When a SeriesFacets is instantiated for a SeriesLane,
-        # the series associated with the SeriesLane is copied to the
-        # SeriesFacets.
-        eq_("Snake Eyes", self.facets.series)
-
-        # Navigating to another entry point gets us another SeriesFacets
-        # for the same series.
-        new_facets = self.facets.navigate(entrypoint=AudiobooksEntryPoint)
-        assert isinstance(new_facets, SeriesFacets)
-        eq_("Snake Eyes", new_facets.series)
-        eq_(AudiobooksEntryPoint, new_facets.entrypoint)
-
-    def test_modify_search_filter(self):
-        filter = Filter()
-        self.facets.modify_search_filter(filter)
-        eq_("Snake Eyes", filter.series)
+    def test_default_sort_order(self):
+        eq_(Facets.ORDER_SERIES_POSITION, SeriesFacets.DEFAULT_SORT_ORDER)
+        facets = SeriesFacets.default(self._default_library)
+        assert isinstance(facets, DefaultSortOrderFacets)
+        eq_(Facets.ORDER_SERIES_POSITION, facets.order)
 
 
 class TestSeriesLane(LaneTest):
@@ -672,38 +629,33 @@ class TestSeriesLane(LaneTest):
         eq_([work_based_lane.source_audience], child.audiences)
         eq_(work_based_lane.languages, child.languages)
 
+    def test_modify_search_filter_hook(self):
+        lane = SeriesLane(self._default_library, "So That Happened")
+        filter = Filter()
+        lane.modify_search_filter_hook(filter)
+        eq_("So That Happened", filter.series)
+
+    def test_overview_facets(self):
+        # A FeaturedFacets object is adapted to a SeriesFacets object.
+        # This guarantees that a SeriesLane's contributions to a
+        # grouped feed will be ordered correctly.
+        featured = FeaturedFacets(0.44, entrypoint=AudiobooksEntryPoint)
+        lane = SeriesLane(self._default_library, "Alrighty Then")
+        overview = lane.overview_facets(self._db, featured)
+        assert isinstance(overview, SeriesFacets)
+        eq_(Facets.ORDER_SERIES_POSITION, overview.order)
+
+        # Entry point was preserved.
+        eq_(AudiobooksEntryPoint, overview.entrypoint)
+
 
 class TestContributorFacets(DatabaseTest):
 
-    def setup(self):
-        # Set up a generic ContributorFacets object.
-        super(TestContributorFacets, self).setup()
-        library = self._default_library
-        self.contributor_data = ContributorData(display_name="An Author")
-        self.worklist = ContributorLane(library, self.contributor_data)
-        args = {}
-        self.facets = ContributorFacets.from_request(
-            library, library, args.get, args.get, self.worklist
-        )
-        assert isinstance(self.facets, ContributorFacets)
-
-    def test_instantiation_and_navigation(self):
-        # When a ContributorFacets is instantiated for a ContributorLane,
-        # the series associated with the ContributorLane is copied to the
-        # ContributorFacets.
-        eq_(self.contributor_data, self.facets.contributor)
-
-        # Navigating to another entry point gets us another ContributorFacets
-        # for the same series.
-        new_facets = self.facets.navigate(entrypoint=AudiobooksEntryPoint)
-        assert isinstance(new_facets, ContributorFacets)
-        eq_(self.contributor_data, new_facets.contributor)
-        eq_(AudiobooksEntryPoint, new_facets.entrypoint)
-
-    def test_modify_search_filter(self):
-        filter = Filter()
-        self.facets.modify_search_filter(filter)
-        eq_(self.contributor_data, filter.author)
+    def test_default_sort_order(self):
+        eq_(Facets.ORDER_TITLE, SeriesFacets.DEFAULT_SORT_ORDER)
+        facets = ContributorFacets.default(self._default_library)
+        assert isinstance(facets, DefaultSortOrderFacets)
+        eq_(Facets.ORDER_TITLE, facets.order)
 
 
 class TestContributorLane(LaneTest):
@@ -763,6 +715,25 @@ class TestContributorLane(LaneTest):
             ),
             kwargs
         )
+
+    def test_modify_search_filter_hook(self):
+        lane = ContributorLane(self._default_library, self.contributor)
+        filter = Filter()
+        lane.modify_search_filter_hook(filter)
+        eq_(self.contributor, filter.author)
+
+    def test_overview_facets(self):
+        # A FeaturedFacets object is adapted to a ContributorFacets object.
+        # This guarantees that a ContributorLane's contributions to a
+        # grouped feed will be ordered correctly.
+        featured = FeaturedFacets(0.44, entrypoint=AudiobooksEntryPoint)
+        lane = ContributorLane(self._default_library, self.contributor)
+        overview = lane.overview_facets(self._db, featured)
+        assert isinstance(overview, ContributorFacets)
+        eq_(Facets.ORDER_TITLE, overview.order)
+
+        # Entry point was preserved.
+        eq_(AudiobooksEntryPoint, overview.entrypoint)
 
 
 class TestCrawlableFacets(DatabaseTest):

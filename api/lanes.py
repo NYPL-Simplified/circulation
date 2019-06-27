@@ -964,7 +964,11 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
             return metadata.recommendations
         return []
 
-    def adapt_featured_facets(self, _db, facets):
+    def overview_facets(self, _db, facets):
+        """Convert a generic FeaturedFacets to some other faceting object,
+        suitable for showing an overview of this WorkList in a grouped
+        feed.
+        """
         # The faceting object doesn't matter much here, but it
         # does need to be a DatabaseBackedFacets.
         return DatabaseBackedFacets.default(
@@ -1031,8 +1035,11 @@ class SeriesLane(DynamicLane):
             kwargs['audiences'] = self.audience_key
         return self.ROUTE, kwargs
 
-    def adapt_featured_facets(self, _db, facets):
-        """Convert a FeaturedFacets to a SeriesFacets."""
+    def overview_facets(self, _db, facets):
+        """Convert a FeaturedFacets to a SeriesFacets suitable for
+        use in a grouped feed. Our contribution to a grouped feed will
+        be ordered by series position.
+        """
         return SeriesFacets.default(
             self.get_library(_db), entrypoint=facets.entrypoint
         )
@@ -1091,8 +1098,10 @@ class ContributorLane(DynamicLane):
         )
         return self.ROUTE, kwargs
 
-    def adapt_featured_facets(self, _db, facets):
-        """Convert a FeaturedFacets to a ContributorFacets."""
+    def overview_facets(self, _db, facets):
+        """Convert a FeaturedFacets to a ContributorFacets suitable for
+        use in a grouped feed.
+        """
         return ContributorFacets.default(
             self.get_library(_db), entrypoint=facets.entrypoint
         )
