@@ -3731,15 +3731,20 @@ class TestWorkListGroups(DatabaseTest):
         class Mock(object):
             """A Mock of Lane.works_from_search_index."""
 
-            def __init__(self, mock_works):
+            def __init__(self, title, mock_works):
+                self.title = title
                 self.mock_works = mock_works
 
             def works(self, _db, facets, pagination, *args, **kwargs):
-                self.called_with = [_db, facets, pagination]
+                self.works_called_with = [_db, facets, pagination]
                 return [self.mock_works]
 
-        mock1 = Mock(["work1", "work2"])
-        mock2 = Mock(["workA", "workB"])
+            def overview_facets(self, _db, facets):
+                self.overview_facets_called_with = (_db, facets)
+                return "Overview facets for %s" % self.title
+
+        mock1 = Mock("Lane 1", ["work1", "work2"])
+        mock2 = Mock("Lane 2", ["workA", "workB"])
 
         lane = self._lane()
         facets = FeaturedFacets(0.1)
@@ -3753,15 +3758,20 @@ class TestWorkListGroups(DatabaseTest):
         eq_([(['work1', 'work2'], mock1), (['workA', 'workB'], mock2)],
             list(results))
 
-        # Each Mock's works_in_window was called with the same
-        # arguments.
-        eq_(mock1.called_with, mock2.called_with)
+        # Each Mock was given the chance to adapt the FeaturedFacets object
+        # to its needs.
+        eq_((self._db, facets), mock1.overview_facets_called_with)
+        eq_((self._db, facets), mock2.overview_facets_called_with)
 
-        # The Facets object passed in to _featured_works_with_lanes()
-        # is passed on into works_from_search_index().
-        _db, called_with_facets, pagination = mock1.called_with
+        # The resulting new faceting object was passed into works()
+        _db, called_with_facets, pagination = mock1.works_called_with
         eq_(self._db, _db)
-        eq_(facets, called_with_facets)
+        eq_("Overview facets for Lane 1", called_with_facets)
+        eq_(pagination, pagination)
+
+        _db, called_with_facets, pagination = mock2.works_called_with
+        eq_(self._db, _db)
+        eq_("Overview facets for Lane 2", called_with_facets)
         eq_(pagination, pagination)
 
     def test__size_for_facets(self):

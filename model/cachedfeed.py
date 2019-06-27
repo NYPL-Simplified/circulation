@@ -66,6 +66,7 @@ class CachedFeed(Base):
     GROUPS_TYPE = u'groups'
     PAGE_TYPE = u'page'
     NAVIGATION_TYPE = u'navigation'
+    CRAWLABLE_TYPE = u'crawlable'
     RELATED_TYPE = u'related'
     RECOMMENDATIONS_TYPE = u'recommendations'
     SERIES_TYPE = u'series'
