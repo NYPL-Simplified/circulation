@@ -567,7 +567,7 @@ class DefaultSortOrderFacets(Facets):
         in the list of available sort orders.
         """
         if facet_group_name != cls.ORDER_FACET_GROUP_NAME:
-            return super(SeriesFacets, cls).available_facets(
+            return super(DefaultSortOrderFacets, cls).available_facets(
                 config, facet_group_name
             )
         default = config.enabled_facets(facet_group_name)
@@ -576,7 +576,7 @@ class DefaultSortOrderFacets(Facets):
         # adding it if necessary.
         order = cls.DEFAULT_SORT_ORDER
         if order in default:
-            default = filter(lambda x: x==order, default)
+            default = filter(lambda x: x!=order, default)
         return [order] + default
 
     @classmethod
@@ -737,14 +737,16 @@ class FeaturedFacets(FacetsWithEntryPoint):
 
     @classmethod
     def default(cls, lane, **kwargs):
-        if isinstance(lane, Library):
-            library = lane
-        else:
-            library = lane.library
+        library = None
+        if lane:
+            if isinstance(lane, Library):
+                library = lane
+            else:
+                library = lane.library
         if library:
-            quality = Configuration.DEFAULT_MINIMUM_FEATURED_QUALITY
-        else:
             quality = library.minimum_featured_quality
+        else:
+            quality = Configuration.DEFAULT_MINIMUM_FEATURED_QUALITY
         return cls(quality, **kwargs)
 
     def navigate(self, minimum_featured_quality=None, entrypoint=None):
@@ -1364,10 +1366,10 @@ class WorkList(object):
             key += ','.join(audiences)
         return key
 
-    def adapt_featured_facets(self, _db, facets):
-        """Convert a generic FeaturedFacets to some other faceting
-        object, suitable for showing the "featured" view of this
-        WorkList.
+    def overview_facets(self, _db, facets):
+        """Convert a generic FeaturedFacets to some other faceting object,
+        suitable for showing an overview of this WorkList in a grouped
+        feed.
         """
         return facets
 
@@ -1388,7 +1390,7 @@ class WorkList(object):
         if not include_sublanes:
             # We only need to find featured works for this lane,
             # not this lane plus its sublanes.
-            adapted = self.adapt_featured_facets(_db, facets)
+            adapted = self.overview_facets(_db, facets)
             for work in self.works(_db, facets=adapted):
                 yield work, self
             return
@@ -1705,7 +1707,7 @@ class WorkList(object):
 
         # Ask the search engine for works from every lane we're given.
         for lane in lanes:
-            adapted = lane.adapt_featured_facets(_db, facets)
+            adapted = lane.overview_facets(_db, facets)
             for work in lane.works(
                 _db, adapted, pagination, search_engine=search_engine,
                 debug=debug

@@ -28,6 +28,8 @@ from elasticsearch.exceptions import ElasticsearchException
 
 from ..classifier import Classifier
 
+from ..config import Configuration
+
 from ..entrypoint import (
     AudiobooksEntryPoint,
     EbooksEntryPoint,
@@ -44,6 +46,7 @@ from ..external_search import (
 from ..lane import (
     DatabaseBackedFacets,
     DatabaseBackedWorkList,
+    DefaultSortOrderFacets,
     FacetConstants,
     Facets,
     FacetsWithEntryPoint,
@@ -668,6 +671,74 @@ class TestFacets(DatabaseTest):
         filter = Filter()
         facets.modify_search_filter(filter)
         eq_(None, filter.order)
+
+
+class TestDefaultSortOrderFacets(DatabaseTest):
+
+    def setup(self):
+        super(TestDefaultSortOrderFacets, self).setup()
+        self.config = self._default_library
+
+    def _check_other_groups_not_changed(self, cls):
+        # Verify that nothing has changed for the collection or
+        # availability facet groups.
+        for group_name in (Facets.COLLECTION_FACET_GROUP_NAME,
+                           Facets.AVAILABILITY_FACET_GROUP_NAME):
+            eq_(Facets.available_facets(self.config, group_name),
+                cls.available_facets(self.config, group_name))
+            eq_(Facets.default_facet(self.config, group_name),
+                cls.default_facet(self.config, group_name))
+
+    def test_sort_order_rearrangement(self):
+        # Test the case where a DefaultSortOrderFacets does nothing but
+        # rearrange the default sort orders.
+
+        class TitleFirst(DefaultSortOrderFacets):
+            DEFAULT_SORT_ORDER = Facets.ORDER_TITLE
+
+        # In general, TitleFirst has the same options and
+        # defaults as a normal Facets object.
+        self._check_other_groups_not_changed(TitleFirst)
+
+        # But the default sort order for TitleFirst is ORDER_TITLE.
+        order = Facets.ORDER_FACET_GROUP_NAME
+        eq_(TitleFirst.DEFAULT_SORT_ORDER,
+            TitleFirst.default_facet(self.config, order))
+        assert Facets.default_facet(
+            self.config, order
+        ) != TitleFirst.DEFAULT_SORT_ORDER
+
+        # TitleFirst has the same sort orders as Facets, but ORDER_TITLE
+        # comes first in the list.
+        default_orders = Facets.available_facets(self.config, order)
+        title_first_orders = TitleFirst.available_facets(self.config, order)
+        eq_(set(default_orders), set(title_first_orders))
+        eq_(Facets.ORDER_TITLE, title_first_orders[0])
+        assert default_orders[0] != Facets.ORDER_TITLE
+
+    def test_new_sort_order(self):
+        # Test the case where DefaultSortOrderFacets adds a sort order
+        # not ordinarily supported.
+        class SeriesFirst(DefaultSortOrderFacets):
+            DEFAULT_SORT_ORDER = Facets.ORDER_SERIES_POSITION
+
+        # In general, SeriesFirst has the same options and
+        # defaults as a normal Facets object.
+        self._check_other_groups_not_changed(SeriesFirst)
+
+        # But its default sort order is ORDER_SERIES.
+        order = Facets.ORDER_FACET_GROUP_NAME
+        eq_(SeriesFirst.DEFAULT_SORT_ORDER,
+            SeriesFirst.default_facet(self.config, order))
+        assert Facets.default_facet(
+            self.config, order
+        ) != SeriesFirst.DEFAULT_SORT_ORDER
+
+        # Its list of sort orders is the same as Facets, except Series
+        # has been added to the front of the list.
+        default = Facets.available_facets(self.config, order)
+        series = SeriesFirst.available_facets(self.config, order)
+        eq_([SeriesFirst.DEFAULT_SORT_ORDER] + default, series)
         
 
 class TestDatabaseBackedFacets(DatabaseTest):
@@ -921,6 +992,29 @@ class TestFeaturedFacets(DatabaseTest):
         eq_(1, facets.minimum_featured_quality)
         eq_(entrypoint, facets.entrypoint)
         eq_(True, facets.entrypoint_is_default)
+
+    def test_default(self):
+        # Check how FeaturedFacets gets its minimum_featured_quality value.
+
+        library1 = self._default_library
+        library1.setting(Configuration.MINIMUM_FEATURED_QUALITY).value = 0.22
+        library2 = self._library()
+        library2.setting(Configuration.MINIMUM_FEATURED_QUALITY).value = 0.99
+        lane = self._lane(library=library2)
+
+        # FeaturedFacets can be instantiated for a library...
+        facets = FeaturedFacets.default(library1)
+        eq_(library1.minimum_featured_quality, facets.minimum_featured_quality)
+
+        # Or for a lane -- in which case it will take on the value for
+        # the library associated with that lane.
+        facets = FeaturedFacets.default(lane)
+        eq_(library2.minimum_featured_quality, facets.minimum_featured_quality)
+
+        # Or with nothing -- in which case the default value is used.
+        facets = FeaturedFacets.default(None)
+        eq_(Configuration.DEFAULT_MINIMUM_FEATURED_QUALITY,
+            facets.minimum_featured_quality)
 
     def test_navigate(self):
         # Test the ability of navigate() to move between slight
@@ -1586,24 +1680,54 @@ class TestWorkList(DatabaseTest):
         """
         class MockWorkList(WorkList):
 
+            overview_facets_called_with = None
+
             def works(self, _db, facets):
-                self.featured_called_with = facets
+                self.works_called_with = facets
                 return []
 
+            def overview_facets(self, _db, facets):
+                self.overview_facets_called_with = facets
+                return "A new faceting object"
+
             def _groups_for_lanes(
-                self, _db, relevant_children, relevant_lanes, facets, search_engine=None, debug=False
+                self, _db, relevant_children, relevant_lanes, facets, **kwargs
             ):
-                self.groups_called_with = facets
+                self._groups_for_lanes_called_with = facets
                 return []
 
         mock = MockWorkList()
         mock.initialize(library=self._default_library)
         facets = object()
-        [x for x in mock.groups(self._db, facets=facets)]
-        eq_(facets, mock.groups_called_with)
 
+        # First, try the situation where we're trying to make a grouped feed
+        # out of the (imaginary) sublanes of this lane.
+        [x for x in mock.groups(self._db, facets=facets)]
+
+        # overview_facets() was not called.
+        eq_(None, mock.overview_facets_called_with)
+
+        # The _groups_for_lanes() method was called with the
+        # (imaginary) list of sublanes and the original faceting
+        # object.  The _groups_for_lanes() implementation is
+        # responsible for giving each sublane a chance to adapt that
+        # faceting object to its own needs.
+        eq_(facets, mock._groups_for_lanes_called_with)
+        mock._groups_for_lanes_called_with = None
+
+        # Now try the situation where we're just trying to get _part_ of
+        # a grouped feed -- the part for which this lane is responsible.
         [x for x in mock.groups(self._db, facets=facets, include_sublanes=False)]
-        eq_(facets, mock.featured_called_with)
+        # Now, the original faceting object was passed into
+        # overview_facets().
+        eq_(facets, mock.overview_facets_called_with)
+
+        # And the return value of overview_facets() was passed into
+        # works()
+        eq_("A new faceting object", mock.works_called_with)
+
+        # _groups_for_lanes was not called.
+        eq_(None, mock._groups_for_lanes_called_with)
 
     def test_works(self):
         # Test the method that uses the search index to fetch a list of
@@ -3533,17 +3657,73 @@ class TestWorkListGroups(DatabaseTest):
         # same way every time.
         random.seed(42)
 
-    def test_groups_for_lanes_propagates_facets(self):
-        class Mock(WorkList):
-            def _featured_works_with_lanes(self, *args, **kwargs):
-                self.featured_called_with = kwargs['facets']
-                return []
+    def test_groups_for_lanes_adapts_facets(self):
+        # Verify that _groups_for_lanes gives each of a WorkList's
+        # non-queryable children the opportunity to adapt the incoming
+        # FeaturedFacets objects to its own needs.
 
-        wl = Mock()
-        wl.initialize(library=self._default_library)
+        class MockParent(WorkList):
+
+            def _featured_works_with_lanes(
+                    self, _db, lanes, facets, *args, **kwargs
+            ):
+                self._featured_works_with_lanes_called_with = (lanes, facets)
+                return super(MockParent, self)._featured_works_with_lanes(
+                    _db, lanes, facets, *args, **kwargs
+                )
+
+        class MockChild(WorkList):
+            def __init__(self, work):
+                self.work = work
+                self.id = work.title
+                super(MockChild, self).__init__()
+
+            def overview_facets(self, _db, facets):
+                self.overview_facets_called_with = (_db, facets)
+                return "Custom facets for %s." % self.id
+
+            def works(self, _db, facets, *args, **kwargs):
+                self.works_called_with = facets
+                return [self.work]
+
+        parent = MockParent()
+        child1 = MockChild(self._work(title="Lane 1"))
+        child2 = MockChild(self._work(title="Lane 2"))
+        children = [child1, child2]
+
+        for wl in children:
+            wl.initialize(library=self._default_library)
+        parent.initialize(library=self._default_library,
+                         children=[child1, child2])
+
+        # We're going to make a grouped feed in which both children
+        # are relevant, but neither one is queryable.
+        relevant = parent.children
+        queryable = []
         facets = FeaturedFacets(0)
-        groups = list(wl._groups_for_lanes(self._db, [], [], facets))
-        eq_(facets, wl.featured_called_with)
+        groups = list(
+            parent._groups_for_lanes(self._db, relevant, queryable, facets)
+        )
+
+        # Each sublane was asked in turn to provide works for the feed.
+        eq_([(child1.work, child1), (child2.work, child2)], groups)
+
+        # But we're more interested in what happened to the faceting objects.
+
+        # The original faceting object was passed into
+        # _featured_works_with_lanes, but none of the lanes were
+        # queryable, so it ended up doing nothing.
+        eq_(([], facets), parent._featured_works_with_lanes_called_with)
+
+        # Each non-queryable sublane was given a chance to adapt that
+        # faceting object to its own needs.
+        for wl in children:
+            eq_(wl.overview_facets_called_with, (self._db, facets))
+
+        # Each lane's adapted faceting object was then passed into
+        # works().
+        eq_("Custom facets for Lane 1.", child1.works_called_with)
+        eq_("Custom facets for Lane 2.", child2.works_called_with)
 
     def test_featured_works_with_lanes(self):
         # _featured_works_with_lanes calls works_from_search_index
