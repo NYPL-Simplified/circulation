@@ -17,6 +17,7 @@ from core.classifier import Classifier
 from core.entrypoint import AudiobooksEntryPoint
 from core.external_search import Filter
 from core.lane import (
+    DatabaseBackedFacets,
     DefaultSortOrderFacets,
     Facets,
     FeaturedFacets,
@@ -587,6 +588,21 @@ class TestRecommendationLane(LaneTest):
         lane = RecommendationLane(self._default_library, self.work, '', novelist_api=mock_api)
         lane.recommendations = recommendations
         self.assert_works_from_database(lane, [fre])
+
+    def test_overview_facets(self):
+        # A FeaturedFacets object is adapted to a DatabaseBackedFacets object.
+        # This doesn't matter much -- it's just to avoid a crash.
+        featured = FeaturedFacets(0.44, entrypoint=AudiobooksEntryPoint)
+        lane = RecommendationLane(
+            self._default_library, self.work, '',
+            novelist_api=self.generate_mock_api()
+        )
+        overview = lane.overview_facets(self._db, featured)
+        assert isinstance(overview, DatabaseBackedFacets)
+        eq_(Facets.ORDER_AUTHOR, overview.order)
+
+        # Entry point was preserved.
+        eq_(AudiobooksEntryPoint, overview.entrypoint)
 
 
 class TestSeriesFacets(DatabaseTest):

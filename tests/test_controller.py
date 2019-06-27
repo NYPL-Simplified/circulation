@@ -2577,16 +2577,14 @@ class TestWorkController(CirculationControllerTest):
         edition.series = "Around the World"
         edition.add_contributor(contributor, role)
 
-        # Bad facets -> problem detail
-        with self.request_context_with_library("/?order=nosuchorder"):
-            response = self.manager.work_controller.related(
-                identifier.type, identifier.identifier
-            )
-            eq_(400, response.status_code)
-            eq_(
-                "http://librarysimplified.org/terms/problem/invalid-input",
-                response.uri
-            )
+        # A grouped feed is not paginated, so we don't check pagination
+        # information and there's no chance of a problem detail.
+
+        # Theoretically, if bad faceting information is provided we'll
+        # get a problem detail. But the faceting class created is
+        # FeaturedFacets, which can't raise an exception during the
+        # creation process -- an invalid entrypoint will simply be
+        # ignored.
 
         # Bad search index setup -> Problem detail
         self.assert_bad_search_index_gives_problem_detail(
@@ -2620,7 +2618,7 @@ class TestWorkController(CirculationControllerTest):
 
         # Now, ask for works related to self.english_1.
         with mock_search_index(self.manager.external_search):
-            with self.request_context_with_library('/'):
+            with self.request_context_with_library('/?entrypoint=Book'):
                 response = self.manager.work_controller.related(
                     self.identifier.type, self.identifier.identifier,
                     novelist_api=mock_api
@@ -2677,7 +2675,7 @@ class TestWorkController(CirculationControllerTest):
 
         # Queue up the same recommendation as before.
         mock_api.setup(metadata)
-        with self.request_context_with_library('/'):
+        with self.request_context_with_library('/?entrypoint=Audio'):
             response = self.manager.work_controller.related(
                 self.identifier.type, self.identifier.identifier,
                 novelist_api=mock_api, feed_class=Mock
@@ -2692,11 +2690,13 @@ class TestWorkController(CirculationControllerTest):
         eq_(self._db, kwargs.pop('_db'))
         eq_(self.manager.external_search, kwargs.pop('search_engine'))
         eq_("Related Books", kwargs.pop('title'))
+        eq_(CachedFeed.RELATED_TYPE, kwargs.pop('cache_type'))
 
-        # We're using a DatabaseBackedFacets, because the
-        # RecommendationLane can't take a regular Facets object.
+        # We're passing in a FeaturedFacets. Each lane will have a chance
+        # to adapt it to a faceting object appropriate for that lane.
         facets = kwargs.pop('facets')
-        assert isinstance(facets, DatabaseBackedFacets)
+        assert isinstance(facets, FeaturedFacets)
+        eq_(AudiobooksEntryPoint, facets.entrypoint)
 
         # We're generating a grouped feed using a RelatedBooksLane
         # that has three sublanes.

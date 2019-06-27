@@ -37,6 +37,7 @@ from core.lane import (
 from core.model import (
     get_one,
     create,
+    CachedFeed,
     Contribution,
     Contributor,
     DataSource,
@@ -853,7 +854,7 @@ class RelatedBooksLane(WorkBasedLane):
     * RecommendationLane: Works provided by a third-party recommendation
       service.
     """
-    CACHED_FEED_TYPE = "related"
+    CACHED_FEED_TYPE = CachedFeed.RELATED_TYPE
     DISPLAY_NAME = "Related Books"
     ROUTE = 'related_books'
     MAX_CACHE_AGE = 48*60*60 # 48 hours, the shortest time of any component
@@ -939,6 +940,7 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
     DISPLAY_NAME = "Recommended Books"
     ROUTE = "recommendations"
     MAX_CACHE_AGE = 7*24*60*60      # one week
+    CACHED_FEED_TYPE = CachedFeed.RECOMMENDATIONS_TYPE
 
     def __init__(self, library, work, display_name=None,
                  novelist_api=None, parent=None):
@@ -971,8 +973,11 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
         """
         # The faceting object doesn't matter much here, but it
         # does need to be a DatabaseBackedFacets.
+        #
+        # TODO: It would be better to order works in the same order
+        # they come from the recommendation engine.
         return DatabaseBackedFacets.default(
-            self.get_library(_db), entrypoint=facets.entrypoint
+            self.get_library(_db), entrypoint=facets.entrypoint,
         )
 
     def modify_database_query_hook(self, _db, qu):
@@ -1005,6 +1010,7 @@ class SeriesLane(DynamicLane):
 
     ROUTE = 'series'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
+    CACHED_FEED_TYPE = CachedFeed.SERIES_TYPE
 
     def __init__(self, library, series_name, parent=None, **kwargs):
         if not series_name:
@@ -1062,6 +1068,7 @@ class ContributorLane(DynamicLane):
 
     ROUTE = 'contributor'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
+    CACHED_FEED_TYPE = CachedFeed.CONTRIBUTOR_TYPE
 
     def __init__(self, library, contributor,
                  parent=None, languages=None, audiences=None):
@@ -1114,7 +1121,7 @@ class ContributorLane(DynamicLane):
 class CrawlableFacets(Facets):
     """A special Facets class for crawlable feeds."""
 
-    CACHED_FEED_TYPE = "crawlable"
+    CACHED_FEED_TYPE = CachedFeed.CRAWLABLE_TYPE
 
     # These facet settings are definitive of a crawlable feed.
     # Library configuration settings don't matter.

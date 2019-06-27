@@ -1642,7 +1642,7 @@ class WorkController(CirculationManagerController):
         feed = feed_class.page(
             _db=self._db, title=lane.display_name, url=url, lane=lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=CachedFeed.CONTRIBUTOR_TYPE,
+            annotator=annotator, cache_type=lane.CACHED_FEED_TYPE,
             search_engine=search_engine
         )
         return feed_response(unicode(feed))
@@ -1711,7 +1711,7 @@ class WorkController(CirculationManagerController):
             _db=self._db, title=lane.DISPLAY_NAME,
             url=url, lane=lane, annotator=annotator,
             facets=facets, search_engine=search_engine,
-            cache_type=CachedFeed.RELATED_TYPE
+            cache_type=lane.CACHED_FEED_TYPE
         )
         return feed_response(unicode(feed))
 
@@ -1753,7 +1753,7 @@ class WorkController(CirculationManagerController):
         feed = AcquisitionFeed.page(
             self._db, lane.DISPLAY_NAME, url, lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE
+            annotator=annotator, cache_type=lane.CACHED_FEED_TYPE
         )
         return feed_response(unicode(feed))
 
@@ -1813,7 +1813,7 @@ class WorkController(CirculationManagerController):
         feed = feed_class.page(
             _db=self._db, title=lane.display_name, url=url, lane=lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=CachedFeed.SERIES_TYPE,
+            annotator=annotator, cache_type=lane.CACHED_FEED_TYPE,
             search_engine=search_engine
         )
         return feed_response(unicode(feed))
