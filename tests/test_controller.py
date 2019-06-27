@@ -2379,6 +2379,8 @@ class TestWorkController(CirculationControllerTest):
         eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
 
     def test_recommendations(self):
+        # Test the ability to get a feed of works recommended by an
+        # external service.
         [self.lp] = self.english_1.license_pools
         self.edition = self.lp.presentation_edition
         self.datasource = self.lp.data_source.name
@@ -2388,7 +2390,6 @@ class TestWorkController(CirculationControllerTest):
         source = DataSource.lookup(self._db, self.datasource)
         metadata = Metadata(source)
         mock_api = MockNoveListAPI(self._db)
-        mock_api.setup(metadata)
 
         args = [self.identifier.type,
                 self.identifier.identifier]
@@ -2402,15 +2403,23 @@ class TestWorkController(CirculationControllerTest):
             eq_(400, response.status_code)
 
         # Or if the facet data is bad.
-        mock_api.setup(metadata)
         with self.request_context_with_library('/?order=nosuchorder'):
             response = self.manager.work_controller.recommendations(
                 *args, **kwargs
             )
             eq_(400, response.status_code)
 
-        # Show it working.
-        mock_api.setup(metadata)
+        # If no NoveList API is configured, the lane does not exist.
+        with self.request_context_with_library('/'):
+            response = self.manager.work_controller.recommendations(
+                *args, novelist_api=None
+            )
+        eq_(404, response.status_code)
+        eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+        eq_("Recommendations not available", response.detail)
+
+        # This works, but there are no recommendations, because the
+        # mock_api returns no suggestions.
         with self.request_context_with_library('/'):
             response = self.manager.work_controller.recommendations(
                 *args, **kwargs
@@ -2420,18 +2429,15 @@ class TestWorkController(CirculationControllerTest):
         eq_('Recommended Books', feed['feed']['title'])
         eq_(0, len(feed['entries']))
 
-
         # Delete the cache and prep a recommendation result.
         [cached_empty_feed] = self._db.query(CachedFeed).all()
         self._db.delete(cached_empty_feed)
         metadata.recommendations = [self.identifier]
         mock_api.setup(metadata)
 
-        SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library('/'):
             response = self.manager.work_controller.recommendations(
-                self.identifier.type, self.identifier.identifier,
-                novelist_api=mock_api
+                *args, **kwargs
             )
         # A feed is returned with the proper recommendation.
         eq_(200, response.status_code)
@@ -2452,98 +2458,60 @@ class TestWorkController(CirculationControllerTest):
         eq_(8, len(facet_links))
         assert 'Recently Added' not in [x['title'] for x in facet_links]
 
-        # TODO: The rest of this test needs work.
+        # Now let's pass in a mocked AcquisitionFeed so we can check
+        # the arguments used to invoke page().
+        class Mock(object):
+            @classmethod
+            def page(cls, **kwargs):
+                cls.called_with = kwargs
 
-        with self.request_context_with_library('/'):
+        kwargs['feed_class'] = Mock
+        with self.request_context_with_library(
+            '/?order=title&size=2&after=30&entrypoint=Audio'
+        ):
             response = self.manager.work_controller.recommendations(
-                self.identifier.type, self.identifier.identifier
+                *args, **kwargs
             )
 
-        eq_(404, response.status_code)
-        eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+        kwargs = Mock.called_with
+        eq_(self._db, kwargs.pop('_db'))
+        eq_('Recommended Books', kwargs.pop('title'))
+        eq_(RecommendationLane.CACHED_FEED_TYPE, kwargs.pop('cache_type'))
 
-        another_work = self._work("Before Quite British", "Not Before John Bull", with_open_access_download=True, data_source_name=DataSource.OVERDRIVE)
+        # The RecommendationLane is set up to ask for recommendations
+        # for this book.
+        lane = kwargs.pop('lane')
+        assert isinstance(lane, RecommendationLane)
+        library = self._default_library
+        eq_(library.id, lane.library_id)
+        eq_(self.english_1, lane.work)
+        eq_('Recommendations for Quite British by John Bull', lane.display_name)
+        eq_(mock_api, lane.novelist_api)
 
-        # Delete the cache again and prep a recommendation result.
-        [cached_feed] = self._db.query(CachedFeed).all()
-        self._db.delete(cached_feed)
+        facets = kwargs.pop('facets')
+        assert isinstance(facets, DatabaseBackedFacets)
+        eq_(Facets.ORDER_TITLE, facets.order)
+        eq_(AudiobooksEntryPoint, facets.entrypoint)
 
-        metadata.recommendations = [
-            self.identifier,
-            another_work.license_pools[0].identifier,
-        ]
-        mock_api.setup(metadata)
+        pagination = kwargs.pop('pagination')
+        eq_(30, pagination.offset)
+        eq_(2, pagination.size)
 
-        # Facets work.
-        SessionManager.refresh_materialized_views(self._db)
-        with self.request_context_with_library("/?order=title"):
-            response = self.manager.work_controller.recommendations(
-                self.identifier.type, self.identifier.identifier,
-                novelist_api=mock_api
+        annotator = kwargs.pop('annotator')
+        eq_(lane, annotator.lane)
+
+        # Checking the URL is difficult because it requires a request
+        # context, _plus_ the DatabaseBackedFacets, Pagination and Lane
+        # created during the original request.
+        route, url_kwargs = lane.url_arguments
+        url_kwargs.update(dict(facets.items()))
+        url_kwargs.update(dict(pagination.items()))
+        with self.request_context_with_library(""):
+            expect_url = self.manager.work_controller.url_for(
+                route, library_short_name=library.short_name,
+                **url_kwargs
             )
-
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(2, len(feed['entries']))
-        [entry1, entry2] = feed['entries']
-        eq_(another_work.title, entry1['title'])
-        eq_(self.english_1.title, entry2['title'])
-
-        metadata.recommendations = [
-            self.identifier,
-            another_work.license_pools[0].identifier,
-        ]
-        mock_api.setup(metadata)
-
-        with self.request_context_with_library("/?order=author"):
-            response = self.manager.work_controller.recommendations(
-                self.identifier.type, self.identifier.identifier,
-                novelist_api=mock_api
-            )
-
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(2, len(feed['entries']))
-        [entry1, entry2] = feed['entries']
-        eq_(self.english_1.title, entry1['title'])
-        eq_(another_work.title, entry2['title'])
-
-        metadata.recommendations = [
-            self.english_1.license_pools[0].identifier,
-            another_work.license_pools[0].identifier,
-        ]
-        mock_api.setup(metadata)
-
-        # Pagination works.
-        with self.request_context_with_library("/?size=1&order=title"):
-            response = self.manager.work_controller.recommendations(
-                self.identifier.type, self.identifier.identifier,
-                novelist_api=mock_api
-            )
-
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(1, len(feed['entries']))
-        [entry] = feed['entries']
-        eq_(another_work.title, entry['title'])
-
-        metadata.recommendations = [
-            self.english_1.license_pools[0].identifier,
-            another_work.license_pools[0].identifier,
-        ]
-        mock_api.setup(metadata)
-
-        with self.request_context_with_library("/?after=1&order=title"):
-            response = self.manager.work_controller.recommendations(
-                self.identifier.type, self.identifier.identifier,
-                novelist_api=mock_api
-            )
-
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(1, len(feed['entries']))
-        [entry] = feed['entries']
-        eq_(self.english_1.title, entry['title'])
+        eq_(kwargs.pop('url'), expect_url)
 
     def test_related_books(self):
         # Test the related_books controller.

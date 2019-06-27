@@ -1063,7 +1063,6 @@ class ContributorFacets(DefaultSortOrderFacets):
 
 
 class ContributorLane(DynamicLane):
-
     """A lane of Works written by a particular contributor"""
 
     ROUTE = 'contributor'

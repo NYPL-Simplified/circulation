@@ -1715,7 +1715,8 @@ class WorkController(CirculationManagerController):
         )
         return feed_response(unicode(feed))
 
-    def recommendations(self, identifier_type, identifier, novelist_api=None):
+    def recommendations(self, identifier_type, identifier, novelist_api=None,
+                        feed_class=AcquisitionFeed):
         """Serve a feed of recommendations related to a given book."""
 
         library = flask.request.library
@@ -1750,8 +1751,8 @@ class WorkController(CirculationManagerController):
             pagination=pagination,
         )
 
-        feed = AcquisitionFeed.page(
-            self._db, lane.DISPLAY_NAME, url, lane,
+        feed = feed_class.page(
+            _db=self._db, title=lane.DISPLAY_NAME, url=url, lane=lane,
             facets=facets, pagination=pagination,
             annotator=annotator, cache_type=lane.CACHED_FEED_TYPE
         )
