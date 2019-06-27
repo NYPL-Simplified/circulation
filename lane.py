@@ -320,8 +320,10 @@ class Facets(FacetsWithEntryPoint):
     feeds that list all the works in some WorkList.
     """
     @classmethod
-    def default(cls, library):
-        return cls(library, collection=None, availability=None, order=None)
+    def default(cls, library, collection=None, availability=None, order=None,
+                entrypoint=None):
+        return cls(library, collection=collection, availability=availability,
+                   order=availability, entrypoint=entrypoint)
 
     @classmethod
     def available_facets(cls, config, facet_group_name):
