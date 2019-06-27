@@ -803,9 +803,7 @@ class OPDSFeedController(CirculationManagerController):
         title = library.name
         lane = CrawlableCollectionBasedLane()
         lane.initialize(library)
-        return self._crawlable_feed(
-            library=library, title=title, url=url, lane=lane
-        )
+        return self._crawlable_feed(title=title, url=url, lane=lane)
 
     def crawlable_collection_feed(self, collection_name):
         """Build or retrieve a crawlable acquisition feed for the
