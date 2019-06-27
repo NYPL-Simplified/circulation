@@ -510,10 +510,6 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
         no_entry_point, = script.facets(lane)
         eq_(None, no_entry_point.entrypoint)
 
-        # The FeaturedFacets object knows that custom lists are in
-        # play.
-        eq_(True, no_entry_point.uses_customlists)
-
     def test_do_run(self):
 
         work = self._work(fiction=True, with_license_pool=True,
