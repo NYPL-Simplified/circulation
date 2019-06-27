@@ -354,7 +354,8 @@ class TestFacets(DatabaseTest):
                 self.kwargs = kwargs
         facets = Mock.default(self._default_library)
         eq_(self._default_library, facets.library)
-        eq_(dict(collection=None, availability=None, order=None),
+        eq_(dict(collection=None, availability=None, order=None,
+                 entrypoint=None),
             facets.kwargs)
 
     def test_default_availability(self):
