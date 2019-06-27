@@ -1413,8 +1413,9 @@ class WorkList(object):
                 continue
 
             if isinstance(child, Lane):
-                # Children that turn out to be Lanes go into relevant_lanes.
-                # Their Works will all be filled in with a single query.
+                # Children that turn out to be Lanes go into
+                # relevant_lanes. Their Works will be obtained from
+                # the search index.
                 relevant_lanes.append(child)
             # Both Lanes and WorkLists go into relevant_children.
             # This controls the yield order for Works.
