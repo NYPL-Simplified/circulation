@@ -80,14 +80,9 @@ class CachedFeed(Base):
         from ..opds import AcquisitionFeed
         from ..lane import Lane, WorkList
         if max_age is None:
-            if hasattr(lane, 'MAX_CACHE_AGE'):
-                max_age = lane.MAX_CACHE_AGE
-            elif type == cls.GROUPS_TYPE:
-                max_age = AcquisitionFeed.grouped_max_age(_db)
-            elif type == cls.PAGE_TYPE:
-                max_age = AcquisitionFeed.nongrouped_max_age(_db)
-            else:
-                max_age = 0
+            # Figure out the default max age for a feed of this type
+            # for this lane.
+            max_age = cls.calculate_max_age(_db, lane, type)
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
 
@@ -173,6 +168,45 @@ class CachedFeed(Base):
 
         # Either there is no cached feed or it's time to update it.
         return feed, False
+
+    @classmethod
+    def calculate_max_age(cls, _db, lane, type):
+        """Helper method to calculate the proper cache time for
+        a WorkList.
+        """
+        from ..opds import AcquisitionFeed
+        from ..lane import Lane
+        # The cache time might come from a site-wide database setting
+        # or from the class definition.
+        database_default = None
+        if type == cls.GROUPS_TYPE:
+            database_default = AcquisitionFeed.grouped_max_age(_db)
+        elif type == cls.PAGE_TYPE:
+            database_default = AcquisitionFeed.nongrouped_max_age(_db)
+
+        class_default = getattr(lane, 'MAX_CACHE_AGE', 0)
+
+        if isinstance(lane, Lane):
+            if type == cls.GROUPS_TYPE:
+                # It's too expensive to generate grouped feeds for
+                # Lanes on the fly. To generate these you will
+                # need to pass in force_refresh=True
+                return AcquisitionFeed.CACHE_FOREVER
+            elif database_default is not None:
+                # For a Lane, the database default takes precedence
+                # over Lane.MAX_CACHE_AGE.
+                return database_default
+            else:
+                return class_default
+
+        # For any WorkList other than a Lane, the MAX_CACHE_AGE takes
+        # precedence over the database default.
+        if class_default is not None:
+            return class_default
+        if database_default is not None:
+            return database_default
+        return 0 # Do not cache
+
 
     def update(self, _db, content):
         self.content = content
