@@ -2424,7 +2424,7 @@ class TestWorkController(CirculationControllerTest):
         # Delete the cache and prep a recommendation result.
         [cached_empty_feed] = self._db.query(CachedFeed).all()
         self._db.delete(cached_empty_feed)
-        metadata.recommendations = [self.work.license_pools[0].identifier]
+        metadata.recommendations = [self.identifier]
         mock_api.setup(metadata)
 
         SessionManager.refresh_materialized_views(self._db)
@@ -2439,8 +2439,8 @@ class TestWorkController(CirculationControllerTest):
 
         eq_('Recommended Books', feed.feed.title)
         [entry] = feed.entries
-        eq_(self.work.title, entry['title'])
-        author = self.work.presentation_edition.author_contributors[0]
+        eq_(self.english_1.title, entry['title'])
+        author = self.edition.author_contributors[0]
         expected_author_name = author.display_name or author.sort_name
         eq_(expected_author_name, entry.author)
 
@@ -2451,6 +2451,8 @@ class TestWorkController(CirculationControllerTest):
         facet_links = [link for link in links if link['rel'] == 'http://opds-spec.org/facet']
         eq_(8, len(facet_links))
         assert 'Recently Added' not in [x['title'] for x in facet_links]
+
+        # TODO: The rest of this test needs work.
 
         with self.request_context_with_library('/'):
             response = self.manager.work_controller.recommendations(
@@ -2467,7 +2469,7 @@ class TestWorkController(CirculationControllerTest):
         self._db.delete(cached_feed)
 
         metadata.recommendations = [
-            self.work.license_pools[0].identifier,
+            self.identifier,
             another_work.license_pools[0].identifier,
         ]
         mock_api.setup(metadata)
@@ -2485,10 +2487,10 @@ class TestWorkController(CirculationControllerTest):
         eq_(2, len(feed['entries']))
         [entry1, entry2] = feed['entries']
         eq_(another_work.title, entry1['title'])
-        eq_(self.work.title, entry2['title'])
+        eq_(self.english_1.title, entry2['title'])
 
         metadata.recommendations = [
-            self.work.license_pools[0].identifier,
+            self.identifier,
             another_work.license_pools[0].identifier,
         ]
         mock_api.setup(metadata)
@@ -2503,11 +2505,11 @@ class TestWorkController(CirculationControllerTest):
         feed = feedparser.parse(response.data)
         eq_(2, len(feed['entries']))
         [entry1, entry2] = feed['entries']
-        eq_(self.work.title, entry1['title'])
+        eq_(self.english_1.title, entry1['title'])
         eq_(another_work.title, entry2['title'])
 
         metadata.recommendations = [
-            self.work.license_pools[0].identifier,
+            self.english_1.license_pools[0].identifier,
             another_work.license_pools[0].identifier,
         ]
         mock_api.setup(metadata)
@@ -2526,7 +2528,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(another_work.title, entry['title'])
 
         metadata.recommendations = [
-            self.work.license_pools[0].identifier,
+            self.english_1.license_pools[0].identifier,
             another_work.license_pools[0].identifier,
         ]
         mock_api.setup(metadata)
@@ -2541,7 +2543,7 @@ class TestWorkController(CirculationControllerTest):
         feed = feedparser.parse(response.data)
         eq_(1, len(feed['entries']))
         [entry] = feed['entries']
-        eq_(self.work.title, entry['title'])
+        eq_(self.english_1.title, entry['title'])
 
     def test_related_books(self):
         # Test the related_books controller.
@@ -2891,7 +2893,6 @@ class TestWorkController(CirculationControllerTest):
         # be provided through the faceting object.
         facets = kwargs.pop('facets')
         assert isinstance(facets, SeriesFacets)
-        eq_(series_name, facets.series)
 
         # The 'order' in the query string went into the SeriesFacets
         # object.
