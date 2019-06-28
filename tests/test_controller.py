@@ -3372,8 +3372,12 @@ class TestCrawlableFeed(CirculationControllerTest):
         """
         controller = self.manager.opds_feeds
         original = controller._crawlable_feed
-        def mock(**kwargs):
-            self._crawlable_feed_called_with = kwargs
+        def mock(title, url, lane, annotator=None,
+                 feed_class=AcquisitionFeed):
+            self._crawlable_feed_called_with = dict(
+                title=title, url=url, lane=lane, annotator=annotator,
+                feed_class=feed_class
+            )
             return "An OPDS feed."
         controller._crawlable_feed = mock
         yield
@@ -3400,8 +3404,9 @@ class TestCrawlableFeed(CirculationControllerTest):
         # Verify that _crawlable_feed was called with the right arguments.
         kwargs = self._crawlable_feed_called_with
         eq_(expect_url, kwargs.pop('url'))
-        eq_(library, kwargs.pop('library'))
         eq_(library.name, kwargs.pop('title'))
+        eq_(None, kwargs.pop('annotator'))
+        eq_(AcquisitionFeed, kwargs.pop('feed_class'))
 
         # A CrawlableCollectionBasedLane has been set up to show
         # everything in any of the requested library's collections.
@@ -3410,6 +3415,7 @@ class TestCrawlableFeed(CirculationControllerTest):
         eq_(library.id, lane.library_id)
         eq_([x.id for x in library.collections], lane.collection_ids)
         eq_({}, kwargs)
+
 
     def test_crawlable_collection_feed(self):
         # Test the creation of a crawlable feed for everything in
@@ -3512,6 +3518,8 @@ class TestCrawlableFeed(CirculationControllerTest):
         kwargs = self._crawlable_feed_called_with
         eq_(expect_url, kwargs.pop('url'))
         eq_(customlist.name, kwargs.pop('title'))
+        eq_(None, kwargs.pop('annotator'))
+        eq_(AcquisitionFeed, kwargs.pop('feed_class'))
 
         # A CrawlableCustomListBasedLane was created to fetch only
         # the works in the custom list.
