@@ -1321,6 +1321,11 @@ class TestPagination(DatabaseTest):
         eq_(Pagination.DEFAULT_SIZE, pagination.size)
         eq_(6, pagination.offset)
 
+        pagination = Pagination.from_request(dict(size=4, after=6).get)
+        assert isinstance(pagination, Pagination)
+        eq_(4, pagination.size)
+        eq_(6, pagination.offset)
+
         # Invalid size or offset -> problem detail
         error = Pagination.from_request(dict(size="string").get)
         eq_(INVALID_INPUT.uri, error.uri)
