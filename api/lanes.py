@@ -849,7 +849,10 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
 
     DISPLAY_NAME = "Recommended Books"
     ROUTE = "recommendations"
-    MAX_CACHE_AGE = 7*24*60*60      # one week
+
+    # Cache for 24 hours -- would ideally be much longer but availability
+    # information goes stale.
+    MAX_CACHE_AGE = 24*60*60
     CACHED_FEED_TYPE = CachedFeed.RECOMMENDATIONS_TYPE
 
     def __init__(self, library, work, display_name=None,
@@ -934,7 +937,9 @@ class SeriesLane(DynamicLane):
     """A lane of Works in a particular series."""
 
     ROUTE = 'series'
-    MAX_CACHE_AGE = 96*60*60    # 96 hours
+    # Cache for 24 hours -- would ideally be longer but availability
+    # information goes stale.
+    MAX_CACHE_AGE = 24*60*60
     CACHED_FEED_TYPE = CachedFeed.SERIES_TYPE
 
     def __init__(self, library, series_name, parent=None, **kwargs):
@@ -992,7 +997,9 @@ class ContributorLane(DynamicLane):
     """A lane of Works written by a particular contributor"""
 
     ROUTE = 'contributor'
-    MAX_CACHE_AGE = 96*60*60    # 96 hours
+    # Cache for 24 hours -- would ideally be longer but availability
+    # information goes stale.
+    MAX_CACHE_AGE = 24*60*60
     CACHED_FEED_TYPE = CachedFeed.CONTRIBUTOR_TYPE
 
     def __init__(self, library, contributor,
