@@ -941,6 +941,7 @@ class Pagination(object):
     DEFAULT_SEARCH_SIZE = 10
     DEFAULT_FEATURED_SIZE = 10
     DEFAULT_CRAWLABLE_SIZE = 100
+    MAX_SIZE = 100
 
     @classmethod
     def default(cls):
@@ -957,6 +958,51 @@ class Pagination(object):
         self.total_size = None
         self.this_page_size = None
         self.page_has_loaded = False
+        self.max_size = self.MAX_SIZE
+
+    @classmethod
+    def _int_from_request(cls, key, get_arg, make_problem_detail, default=None):
+        """Helper method to get and parse an integer value from 
+        a URL query argument in a Flask request.
+
+        :param key: Name of the argument.
+        :param get_arg: A function which when called with (key, default)
+           returns the value of the query argument.
+        :pass make_problem_detail: A function, called with the value
+           obtained from the request, which returns the detail
+           information that should be included in a problem detail
+           document if the input isn't convertable to an integer.
+        :param default: Use this value if none is specified.
+        """
+        raw = get_arg(key, default)
+        try:
+            as_int = int(raw)
+        except ValueError:
+            return INVALID_INPUT.detailed(make_detail(raw))
+        return as_int
+
+    @classmethod
+    def size_from_request(cls, get_arg, default):
+        make_detail = lambda size: (
+            _("Invalid size: %(size)s", size=size)
+        )
+        return cls._int_from_request(
+            'size', get_arg, make_detail, default or cls.DEFAULT_SIZE
+        )
+
+    @classmethod
+    def from_request(cls, get_arg, default_size):
+        """Instantiate a Pagination object from a Flask request."""
+        size = cls.size_from_request(get_arg, default_size)
+        if isinstance(size, ProblemDetail):
+            return size
+        offset = self._int_from_request(
+            'after', get_arg,
+            lambda offset: _("Invalid offset: %(offset)s", offset=offset)
+        )
+        if isinstance(offset, ProblemDetail):
+            return offset
+        return cls(offset, size)
 
     def items(self):
         yield("after", self.offset)
