@@ -323,7 +323,7 @@ class Facets(FacetsWithEntryPoint):
     def default(cls, library, collection=None, availability=None, order=None,
                 entrypoint=None):
         return cls(library, collection=collection, availability=availability,
-                   order=availability, entrypoint=entrypoint)
+                   order=order, entrypoint=entrypoint)
 
     @classmethod
     def available_facets(cls, config, facet_group_name):
