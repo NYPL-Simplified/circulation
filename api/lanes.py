@@ -971,13 +971,21 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
         suitable for showing an overview of this WorkList in a grouped
         feed.
         """
-        # The faceting object doesn't matter much here, but it
-        # does need to be a DatabaseBackedFacets.
+        # We're looking up specific works in the database, so this
+        # must be a DatabaseBackedFacets.
+        #
+        # For most other WorkLists that implement overview_facets, the
+        # overview is a place to show a full picture of the library's
+        # holdings; those WorkLists set availability=AVAILABLE_ALL. But
+        # the purpose of the recommendation feed is to suggest books
+        # that can be borrowed immediately, so we set
+        # availability=AVAILABLE_NOW.
         #
         # TODO: It would be better to order works in the same order
         # they come from the recommendation engine.
         return DatabaseBackedFacets.default(
-            self.get_library(_db), entrypoint=facets.entrypoint,
+            self.get_library(_db), collection=facets.COLLECTION_FULL,
+            availability=facets.AVAILABLE_NOW, entrypoint=facets.entrypoint,
         )
 
     def modify_database_query_hook(self, _db, qu):
@@ -1047,7 +1055,8 @@ class SeriesLane(DynamicLane):
         be ordered by series position.
         """
         return SeriesFacets.default(
-            self.get_library(_db), entrypoint=facets.entrypoint
+            self.get_library(_db), collection=facets.COLLECTION_FULL,
+            availability=facets.AVAILABLE_ALL, entrypoint=facets.entrypoint,
         )
 
     def modify_search_filter_hook(self, filter):
@@ -1109,7 +1118,8 @@ class ContributorLane(DynamicLane):
         use in a grouped feed.
         """
         return ContributorFacets.default(
-            self.get_library(_db), entrypoint=facets.entrypoint
+            self.get_library(_db), collection=facets.COLLECTION_FULL,
+            availability=facets.AVAILABLE_ALL, entrypoint=facets.entrypoint,
         )
 
     def modify_search_filter_hook(self, filter):

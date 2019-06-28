@@ -629,7 +629,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         )
 
         super(LibraryAnnotator, self).annotate_work_entry(
-            work, active_license_pool, edition, identifier, feed, entry, updated
+            work, active_license_pool, edition, identifier, feed, entry
         )
 
         # Add a link to each author tag.
