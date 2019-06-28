@@ -884,18 +884,25 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
         # We're looking up specific works in the database, so this
         # must be a DatabaseBackedFacets.
         #
-        # For most other WorkLists that implement overview_facets, the
-        # overview is a place to show a full picture of the library's
-        # holdings; those WorkLists set availability=AVAILABLE_ALL. But
-        # the purpose of the recommendation feed is to suggest books
-        # that can be borrowed immediately, so we set
-        # availability=AVAILABLE_NOW.
+        # TODO: Since the purpose of the recommendation feed is to
+        # suggest books that can be borrowed immediately, it would be
+        # better to set availability=AVAILABLE_NOW. However, this feed
+        # is cached for so long that we can't rely on the availability
+        # information staying accurate. It would be especially bad if
+        # people borrowed all of the recommendations that were
+        # available at the time this feed was generated, and then
+        # recommendations that were unavailable when the feed was
+        # generated became available.
+        #
+        # For now, it's better to look up all books and let people put
+        # the unavailable ones on hold if they want.
         #
         # TODO: It would be better to order works in the same order
-        # they come from the recommendation engine.
+        # they come from the recommendation engine, since presumably
+        # the best recommendations are in the front.
         return DatabaseBackedFacets.default(
             self.get_library(_db), collection=facets.COLLECTION_FULL,
-            availability=facets.AVAILABLE_NOW, entrypoint=facets.entrypoint,
+            availability=facets.AVAILABLE_ALL, entrypoint=facets.entrypoint,
         )
 
     def modify_database_query_hook(self, _db, qu):
