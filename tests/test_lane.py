@@ -1446,6 +1446,15 @@ class TestWorkList(DatabaseTest):
         # to the constructor.
         eq_([1,2,3], wl.entrypoints)
 
+    def test_initialize_without_library(self):
+        # It's possible to initialize a WorkList with no Library.
+        worklist = WorkList()
+        worklist.initialize(None)
+
+        # No restriction is placed on the collection IDs of the
+        # Works in this list.
+        eq_(None, worklist.collection_ids)
+
     def test_initialize_with_customlists(self):
 
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)

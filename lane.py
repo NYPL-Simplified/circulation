@@ -1148,7 +1148,7 @@ class WorkList(object):
 
         """
         self.library_id = None
-        self.collection_ids = []
+        self.collection_ids = None
         if library:
             self.library_id = library.id
             self.collection_ids = [
