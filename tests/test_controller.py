@@ -3078,8 +3078,6 @@ class TestFeedController(CirculationControllerTest):
         # full end-to-end test would require setting up a real search
         # index, so we're just going to test that groups() is called
         # properly.
-        ConfigurationSetting.sitewide(
-            self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY).value = 10
         library = self._default_library
         library.setting(library.MINIMUM_FEATURED_QUALITY).value = 0.15
         library.setting(library.FEATURED_LANE_SIZE).value = 2
