@@ -159,7 +159,7 @@ class TestCachedFeed(DatabaseTest):
         # When site-wide configuration settings are not set, grouped
         # feeds for lanes are cached forever and other feeds are
         # cached for Lane.MAX_CACHE_AGE.
-        time(lane, groups, AcquisitionFeed.CACHE_FOREVER)
+        time(lane, groups, Lane.CACHE_FOREVER)
         time(lane, page, Lane.MAX_CACHE_AGE)
         time(lane, other, Lane.MAX_CACHE_AGE)
 
@@ -172,35 +172,7 @@ class TestCachedFeed(DatabaseTest):
         for type in (groups, page, other):
             time(has_max_cache_age, type, HasMaxCacheAge.MAX_CACHE_AGE)
 
-        # WorkLists with MAX_CACHE_AGE set to None use values that
-        # come from AcquisitionFeed.
-        time(no_max_cache_age, groups, AcquisitionFeed.DEFAULT_GROUPED_MAX_AGE)
-        time(no_max_cache_age, page, AcquisitionFeed.DEFAULT_NONGROUPED_MAX_AGE)
-
-        # AcquisitionFeed doesn't know what kind of feed this is and
-        # assumes it should not be cached.
-        time(no_max_cache_age, other, 0)
-
-        # Now set the sitewide feed time settings. This will affect
-        # some values but not others.
-        conf = ConfigurationSetting.sitewide
-        conf(self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY).value = "10"
-        conf(self._db, AcquisitionFeed.NONGROUPED_MAX_AGE_POLICY).value = "20"
-
-        # Grouped lane feeds are cached forever, no matter what, but
-        # caching time of their paginated feeds is affected.
-        time(lane, groups, AcquisitionFeed.CACHE_FOREVER)
-        time(lane, page, 20)
-        time(lane, other, Lane.MAX_CACHE_AGE)
-
-        # Works with no explicit MAX_CACHE_AGE set are unaffected.
+        # If MAX_CACHE_AGE is set to None, AcquisitionFeed assumes the feed
+        # should not be cached at all.
         for type in (groups, page, other):
-            time(default_max_cache_age, type, WorkList.MAX_CACHE_AGE)
-
-        # Works with explicit MAX_CACHE_AGE set are unaffected.
-        for type in (groups, page, other):
-            time(has_max_cache_age, type, HasMaxCacheAge.MAX_CACHE_AGE)
-
-        # Works with MAX_CACHE_AGE set to None are affected.
-        time(no_max_cache_age, groups, 10)
-        time(no_max_cache_age, page, 20)
+            time(no_max_cache_age, type, 0)

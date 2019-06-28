@@ -134,7 +134,7 @@ class TestCachedFeed(DatabaseTest):
         # If we ask for a group feed that will be cached forever, and it's
         # not around, we'll get a page feed instead.
         feed, fresh = CachedFeed.fetch(
-            *args, max_age=AcquisitionFeed.CACHE_FOREVER
+            *args, max_age=WorkList.CACHE_FOREVER
         )
         eq_(CachedFeed.PAGE_TYPE, feed.type)
 
@@ -145,13 +145,13 @@ class TestCachedFeed(DatabaseTest):
         # Or if we explicitly demand that the feed be created, it will
         # be created.
         feed, fresh = CachedFeed.fetch(
-            *args, force_refresh=True, max_age=AcquisitionFeed.CACHE_FOREVER
+            *args, force_refresh=True, max_age=WorkList.CACHE_FOREVER
         )
         feed.update(self._db, "Cache this forever!")
 
         # Once the feed has content associated with it, we can ask for
         # it in cached-forever mode and no longer get the exception.
         feed, fresh = CachedFeed.fetch(
-            *args, max_age=AcquisitionFeed.CACHE_FOREVER
+            *args, max_age=WorkList.CACHE_FOREVER
         )
         eq_("Cache this forever!", feed.content)

@@ -183,6 +183,9 @@ class CachedFeed(Base):
             # Lanes on the fly. To generate these you will
             # need to pass in force_refresh=True
             return lane.CACHE_FOREVER
+        if lane.MAX_CACHE_AGE is None:
+            # Assume the feed should not be cached at all.
+            return 0
         return lane.MAX_CACHE_AGE
 
     def update(self, _db, content):
