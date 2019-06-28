@@ -1036,6 +1036,11 @@ class WorkList(object):
     # default. Most WorkList subclasses will override this.
     MAX_CACHE_AGE = 14*24*60*60
 
+    # In your subclass, set MAX_CACHE_AGE to this value to guarantee
+    # that cached feeds never expire -- they must be explicitly
+    # regenerated.
+    CACHE_FOREVER = 'forever'
+
     # By default, a WorkList is always visible.
     visible = True
 

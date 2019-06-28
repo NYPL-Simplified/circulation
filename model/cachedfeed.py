@@ -73,9 +73,6 @@ class CachedFeed(Base):
     SERIES_TYPE = u'series'
     CONTRIBUTOR_TYPE = u'contributor'
 
-    # A constant indicating that, once generated, a feed should never expire.
-    CACHE_FOREVER = 'forever'
-
     log = logging.getLogger("CachedFeed")
 
     @classmethod
@@ -137,7 +134,7 @@ class CachedFeed(Base):
             # cached feed as stale.
             return feed, False
 
-        if max_age is self.CACHE_FOREVER:
+        if max_age is lane.CACHE_FOREVER:
             # This feed is so expensive to generate that it must be cached
             # forever (unless force_refresh is True).
             if not is_new and feed.content:
@@ -185,8 +182,8 @@ class CachedFeed(Base):
             # It's too expensive to generate grouped feeds for
             # Lanes on the fly. To generate these you will
             # need to pass in force_refresh=True
-            return cls.CACHE_FOREVER
-        return cls.MAX_CACHE_AGE
+            return lane.CACHE_FOREVER
+        return lane.MAX_CACHE_AGE
 
     def update(self, _db, content):
         self.content = content
