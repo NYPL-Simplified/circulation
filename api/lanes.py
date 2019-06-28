@@ -844,96 +844,6 @@ class WorkBasedLane(DynamicLane):
         worklist.audiences = self.audiences
 
 
-class RelatedBooksLane(WorkBasedLane):
-    """A lane of Works all related to a given Work by various criteria.
-
-    Each criterion is represented by another WorkBaseLane class:
-
-    * ContributorLane: Works by one of the contributors to this work.
-    * SeriesLane: Works in the same series.
-    * RecommendationLane: Works provided by a third-party recommendation
-      service.
-    """
-    CACHED_FEED_TYPE = CachedFeed.RELATED_TYPE
-    DISPLAY_NAME = "Related Books"
-    ROUTE = 'related_books'
-    MAX_CACHE_AGE = 48*60*60 # 48 hours, the shortest time of any component
-                             # sublane.
-
-    def __init__(self, library, work, display_name=None,
-                 novelist_api=None):
-        super(RelatedBooksLane, self).__init__(
-            library, work, display_name=display_name,
-        )
-        _db = Session.object_session(library)
-        sublanes = self._get_sublanes(_db, novelist_api)
-        if not sublanes:
-            raise ValueError(
-                "No related books for %s by %s" % (self.work.title, self.work.author)
-            )
-        self.children = sublanes
-
-    def works(self, _db, *args, **kwargs):
-        """This lane never has works of its own.
-
-        Only its sublanes have works.
-        """
-        return []
-
-    def _get_sublanes(self, _db, novelist_api):
-        sublanes = list()
-
-        for contributor_lane in self._contributor_sublanes(_db):
-            sublanes.append(contributor_lane)
-
-        for recommendation_lane in self._recommendation_sublane(_db, novelist_api):
-            sublanes.append(recommendation_lane)
-
-        # Create a series sublane.
-        series_name = self.edition.series
-        if series_name:
-            sublanes.append(SeriesLane(self.get_library(_db), series_name, parent=self, languages=self.languages))
-
-        return sublanes
-
-    def _contributor_sublanes(self, _db):
-        """Create contributor sublanes"""
-        viable_contributors = list()
-        roles_by_priority = list(Contributor.author_contributor_tiers())[1:]
-
-        while roles_by_priority and not viable_contributors:
-            author_roles = roles_by_priority.pop(0)
-            viable_contributors = [c.contributor
-                                   for c in self.edition.contributions
-                                   if c.role in author_roles]
-
-        library = self.get_library(_db)
-        for contributor in viable_contributors:
-            contributor_lane = ContributorLane(
-                library, contributor, parent=self,
-                languages=self.languages, audiences=self.audiences,
-            )
-            yield contributor_lane
-
-    def _recommendation_sublane(self, _db, novelist_api):
-        """Create a recommendations sublane."""
-        lane_name = "Recommendations for %s by %s" % (
-            self.work.title, self.work.author
-        )
-        try:
-            recommendation_lane = RecommendationLane(
-                library=self.get_library(_db), work=self.work,
-                display_name=lane_name, novelist_api=novelist_api,
-                parent=self,
-            )
-            if recommendation_lane.recommendations:
-                yield recommendation_lane
-        except CannotLoadConfiguration, e:
-            # NoveList isn't configured. This isn't fatal -- we just won't
-            # use this sublane.
-            pass
-
-
 class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
     """A lane of recommended Works based on a particular Work"""
 
@@ -1017,7 +927,7 @@ class SeriesLane(DynamicLane):
     """A lane of Works in a particular series."""
 
     ROUTE = 'series'
-    MAX_CACHE_AGE = 48*60*60    # 48 hours
+    MAX_CACHE_AGE = 96*60*60    # 96 hours
     CACHED_FEED_TYPE = CachedFeed.SERIES_TYPE
 
     def __init__(self, library, series_name, parent=None, **kwargs):
@@ -1075,7 +985,7 @@ class ContributorLane(DynamicLane):
     """A lane of Works written by a particular contributor"""
 
     ROUTE = 'contributor'
-    MAX_CACHE_AGE = 48*60*60    # 48 hours
+    MAX_CACHE_AGE = 96*60*60    # 96 hours
     CACHED_FEED_TYPE = CachedFeed.CONTRIBUTOR_TYPE
 
     def __init__(self, library, contributor,
@@ -1125,6 +1035,100 @@ class ContributorLane(DynamicLane):
     def modify_search_filter_hook(self, filter):
         filter.author = self.contributor
         return filter
+
+
+class RelatedBooksLane(WorkBasedLane):
+    """A lane of Works all related to a given Work by various criteria.
+
+    Each criterion is represented by another WorkBaseLane class:
+
+    * ContributorLane: Works by one of the contributors to this work.
+    * SeriesLane: Works in the same series.
+    * RecommendationLane: Works provided by a third-party recommendation
+      service.
+    """
+    CACHED_FEED_TYPE = CachedFeed.RELATED_TYPE
+    DISPLAY_NAME = "Related Books"
+    ROUTE = 'related_books'
+
+    # Cache this lane for the shortest amount of time any of its
+    # component lane should be cached.
+    MAX_CACHE_AGE = min(ContributorLane.MAX_CACHE_AGE,
+                        SeriesLane.MAX_CACHE_AGE,
+                        RecommendationLane.MAX_CACHE_AGE)
+
+    def __init__(self, library, work, display_name=None,
+                 novelist_api=None):
+        super(RelatedBooksLane, self).__init__(
+            library, work, display_name=display_name,
+        )
+        _db = Session.object_session(library)
+        sublanes = self._get_sublanes(_db, novelist_api)
+        if not sublanes:
+            raise ValueError(
+                "No related books for %s by %s" % (self.work.title, self.work.author)
+            )
+        self.children = sublanes
+
+    def works(self, _db, *args, **kwargs):
+        """This lane never has works of its own.
+
+        Only its sublanes have works.
+        """
+        return []
+
+    def _get_sublanes(self, _db, novelist_api):
+        sublanes = list()
+
+        for contributor_lane in self._contributor_sublanes(_db):
+            sublanes.append(contributor_lane)
+
+        for recommendation_lane in self._recommendation_sublane(_db, novelist_api):
+            sublanes.append(recommendation_lane)
+
+        # Create a series sublane.
+        series_name = self.edition.series
+        if series_name:
+            sublanes.append(SeriesLane(self.get_library(_db), series_name, parent=self, languages=self.languages))
+
+        return sublanes
+
+    def _contributor_sublanes(self, _db):
+        """Create contributor sublanes"""
+        viable_contributors = list()
+        roles_by_priority = list(Contributor.author_contributor_tiers())[1:]
+
+        while roles_by_priority and not viable_contributors:
+            author_roles = roles_by_priority.pop(0)
+            viable_contributors = [c.contributor
+                                   for c in self.edition.contributions
+                                   if c.role in author_roles]
+
+        library = self.get_library(_db)
+        for contributor in viable_contributors:
+            contributor_lane = ContributorLane(
+                library, contributor, parent=self,
+                languages=self.languages, audiences=self.audiences,
+            )
+            yield contributor_lane
+
+    def _recommendation_sublane(self, _db, novelist_api):
+        """Create a recommendations sublane."""
+        lane_name = "Recommendations for %s by %s" % (
+            self.work.title, self.work.author
+        )
+        try:
+            recommendation_lane = RecommendationLane(
+                library=self.get_library(_db), work=self.work,
+                display_name=lane_name, novelist_api=novelist_api,
+                parent=self,
+            )
+            if recommendation_lane.recommendations:
+                yield recommendation_lane
+        except CannotLoadConfiguration, e:
+            # NoveList isn't configured. This isn't fatal -- we just won't
+            # use this sublane.
+            pass
 
 
 class CrawlableFacets(Facets):
