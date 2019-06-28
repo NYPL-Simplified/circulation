@@ -1296,6 +1296,58 @@ class TestSearchFacets(DatabaseTest):
 
 class TestPagination(DatabaseTest):
 
+    def test_from_request(self):
+
+        # No arguments -> Class defaults.
+        pagination = Pagination.from_request({}.get, None)
+        assert isinstance(pagination, Pagination)
+        eq_(Pagination.DEFAULT_SIZE, pagination.size)
+        eq_(0, pagination.offset)
+
+        # Override the default page size.
+        pagination = Pagination.from_request({}.get, 100)
+        assert isinstance(pagination, Pagination)
+        eq_(100, pagination.size)
+        eq_(0, pagination.offset)
+
+        # The most common usages.
+        pagination = Pagination.from_request(dict(size="4").get)
+        assert isinstance(pagination, Pagination)
+        eq_(4, pagination.size)
+        eq_(0, pagination.offset)
+
+        pagination = Pagination.from_request(dict(after="6").get)
+        assert isinstance(pagination, Pagination)
+        eq_(Pagination.DEFAULT_SIZE, pagination.size)
+        eq_(6, pagination.offset)
+
+        # Invalid size or offset -> problem detail
+        error = Pagination.from_request(dict(size="string").get)
+        eq_(INVALID_INPUT.uri, error.uri)
+        eq_("Invalid page size: string", str(error.detail))
+
+        error = Pagination.from_request(dict(after="string").get)
+        eq_(INVALID_INPUT.uri, error.uri)
+        eq_("Invalid offset: string", str(error.detail))
+
+        # Size too large -> cut down to MAX_SIZE
+        pagination = Pagination.from_request(dict(size="10000").get)
+        assert isinstance(pagination, Pagination)
+        eq_(Pagination.MAX_SIZE, pagination.size)
+        eq_(0, pagination.offset)
+
+    def test_load_pagination_from_request_default_size(self):
+        with self.app.test_request_context('/?size=50&after=10'):
+            pagination = load_pagination_from_request(default_size=10)
+            eq_(50, pagination.size)
+            eq_(10, pagination.offset)
+
+        with self.app.test_request_context('/'):
+            pagination = load_pagination_from_request(default_size=10)
+            eq_(10, pagination.size)
+            eq_(0, pagination.offset)
+
+
     def test_has_next_page_total_size(self):
         """Test the ability of Pagination.total_size to control whether there is a next page."""
         query = self._db.query(Work)

@@ -341,40 +341,47 @@ class TestLoadMethods(DatabaseTest):
         eq_('some value', facets.called_with['some_arg'])
 
     def test_load_pagination_from_request(self):
+        # Verify that load_pagination_from_request insantiates a 
+        # class 
+
+        class Mock(object):
+            DEFAULT_SIZE = 22
+
+            @classmethod
+            def from_request(cls, get_arg, default_size, **kwargs):
+                cls.called_with = (get_arg, default_size, kwargs)
+                return "I'm a pagination object!"
+
+        with self.app.test_request_context('/'):
+            # Call load_pagination_from_request and verify that
+            # Mock.from_request was called with the arguments we expect.
+            extra_kwargs = dict(extra='kwarg')
+            pagination = load_pagination_from_request(
+                base_class=Mock, base_class_constructor_kwargs=extra_kwargs,
+                default_size=44
+            )
+            eq_("I'm a pagination object!", pagination)
+            eq_((flask.request.args.get, 44, extra_kwargs),
+                Mock.called_with)
+
+        # If no default size is specified, the class DEFAULT_SIZE is
+        # used.
+        with self.app.test_request_context('/'):
+            pagination = load_pagination_from_request(base_class=Mock)
+            eq_((flask.request.args.get, 22, {}),
+                Mock.called_with)
+
+        # Now try a real case using the default pagination class,
+        # Pagination
         with self.app.test_request_context('/?size=50&after=10'):
             pagination = load_pagination_from_request()
+            assert isinstance(pagination, Pagination)
             eq_(50, pagination.size)
             eq_(10, pagination.offset)
 
-        with self.app.test_request_context('/'):
-            pagination = load_pagination_from_request()
-            eq_(Pagination.DEFAULT_SIZE, pagination.size)
-            eq_(0, pagination.offset)
+        # Tests of from_request() are found in the tests of the various
+        # pagination classes.
 
-        with self.app.test_request_context('/?size=string'):
-            pagination = load_pagination_from_request()
-            eq_(INVALID_INPUT.uri, pagination.uri)
-            eq_("Invalid page size: string", str(pagination.detail))
-
-        with self.app.test_request_context('/?after=string'):
-            pagination = load_pagination_from_request()
-            eq_(INVALID_INPUT.uri, pagination.uri)
-            eq_("Invalid offset: string", str(pagination.detail))
-
-        with self.app.test_request_context('/?size=5000'):
-            pagination = load_pagination_from_request()
-            eq_(100, pagination.size)
-
-    def test_load_pagination_from_request_default_size(self):
-        with self.app.test_request_context('/?size=50&after=10'):
-            pagination = load_pagination_from_request(default_size=10)
-            eq_(50, pagination.size)
-            eq_(10, pagination.offset)
-
-        with self.app.test_request_context('/'):
-            pagination = load_pagination_from_request(default_size=10)
-            eq_(10, pagination.size)
-            eq_(0, pagination.offset)
 
 class CanBeProblemDetailDocument(Exception):
     """A fake exception that can be represented as a problem

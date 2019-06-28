@@ -961,14 +961,14 @@ class Pagination(object):
         self.max_size = self.MAX_SIZE
 
     @classmethod
-    def _int_from_request(cls, key, get_arg, make_problem_detail, default=None):
+    def _int_from_request(cls, key, get_arg, make_detail, default):
         """Helper method to get and parse an integer value from 
         a URL query argument in a Flask request.
 
         :param key: Name of the argument.
         :param get_arg: A function which when called with (key, default)
            returns the value of the query argument.
-        :pass make_problem_detail: A function, called with the value
+        :pass make_detail: A function, called with the value
            obtained from the request, which returns the detail
            information that should be included in a problem detail
            document if the input isn't convertable to an integer.
@@ -984,21 +984,26 @@ class Pagination(object):
     @classmethod
     def size_from_request(cls, get_arg, default):
         make_detail = lambda size: (
-            _("Invalid size: %(size)s", size=size)
+            _("Invalid page size: %(size)s", size=size)
         )
-        return cls._int_from_request(
+        size = cls._int_from_request(
             'size', get_arg, make_detail, default or cls.DEFAULT_SIZE
         )
+        if isinstance(size, ProblemDetail):
+            return size
+        return min(size, cls.MAX_SIZE)
 
     @classmethod
-    def from_request(cls, get_arg, default_size):
+    def from_request(cls, get_arg, default_size=None):
         """Instantiate a Pagination object from a Flask request."""
+        default_size = default_size or cls.DEFAULT_SIZE
         size = cls.size_from_request(get_arg, default_size)
         if isinstance(size, ProblemDetail):
             return size
-        offset = self._int_from_request(
+        offset = cls._int_from_request(
             'after', get_arg,
-            lambda offset: _("Invalid offset: %(offset)s", offset=offset)
+            lambda offset: _("Invalid offset: %(offset)s", offset=offset),
+            0
         )
         if isinstance(offset, ProblemDetail):
             return offset

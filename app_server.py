@@ -128,7 +128,7 @@ def load_pagination_from_request(
 ):
     """Figure out which Pagination object this request is asking for.
 
-    :param base_class: The Pagination subclass to use.
+    :param base_class: A subclass of Pagination to instantiate.
     :param base_class_constructor_kwargs: Extra keyword arguments to use
         when instantiating the Pagination subclass.
     :param default_size: The default page size.
@@ -137,7 +137,6 @@ def load_pagination_from_request(
     kwargs = base_class_constructor_kwargs or dict()
 
     get_arg = flask.request.args.get
-    get_header = flask.request.headers.get
     default_size = default_size or base_class.DEFAULT_SIZE
     return base_class.from_request(get_arg, default_size, **kwargs)
         
