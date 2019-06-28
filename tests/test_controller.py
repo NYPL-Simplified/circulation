@@ -3416,7 +3416,6 @@ class TestCrawlableFeed(CirculationControllerTest):
         eq_([x.id for x in library.collections], lane.collection_ids)
         eq_({}, kwargs)
 
-
     def test_crawlable_collection_feed(self):
         # Test the creation of a crawlable feed for everything in
         # a collection.

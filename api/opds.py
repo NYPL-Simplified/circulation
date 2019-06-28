@@ -197,7 +197,6 @@ class CirculationManagerAnnotator(Annotator):
         super(CirculationManagerAnnotator, self).annotate_work_entry(
             work, active_license_pool, edition, identifier, feed, entry, updated
         )
-
         active_loan = self.active_loans_by_work.get(work)
         active_hold = self.active_holds_by_work.get(work)
         active_fulfillment = self.active_fulfillments_by_work.get(work)
