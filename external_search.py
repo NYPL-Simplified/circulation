@@ -54,6 +54,7 @@ from coverage import (
     CoverageFailure,
     WorkPresentationProvider,
 )
+from problem_details import INVALID_INPUT
 from selftest import (
     HasSelfTests,
     SelfTestResult,
@@ -2378,14 +2379,19 @@ class SortKeyPagination(Pagination):
         self.this_page_size = None
 
     @classmethod
-    def from_request(cls, get_arg, default_size):
-        """Instantiate a Pagination object from a Flask request."""
+    def from_request(cls, get_arg, default_size=None):
+        """Instantiate a SortKeyPagination object from a Flask request."""
         size = cls.size_from_request(get_arg, default_size)
         if isinstance(size, ProblemDetail):
             return size
         pagination_key = get_arg('key', None)
         if pagination_key:
-            pagination_key = cls.parse_pagination_key(pagination_key)
+            try:
+                pagination_key = cls.parse_pagination_key(pagination_key)
+            except ValueError, e:
+                return INVALID_INPUT.detailed(
+                    _("Invalid page key: %(key)s", key=pagination_key)
+                )
         return cls(pagination_key, size)
 
     def items(self):

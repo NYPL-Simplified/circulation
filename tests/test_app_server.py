@@ -341,9 +341,9 @@ class TestLoadMethods(DatabaseTest):
         eq_('some value', facets.called_with['some_arg'])
 
     def test_load_pagination_from_request(self):
-        # Verify that load_pagination_from_request insantiates a 
-        # class 
-
+        # Verify that load_pagination_from_request insantiates a
+        # pagination object of the specified class (Pagination, by
+        # default.)
         class Mock(object):
             DEFAULT_SIZE = 22
 
