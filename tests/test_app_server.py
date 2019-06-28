@@ -364,11 +364,11 @@ class TestLoadMethods(DatabaseTest):
             eq_((flask.request.args.get, 44, extra_kwargs),
                 Mock.called_with)
 
-        # If no default size is specified, the class DEFAULT_SIZE is
-        # used.
+        # If no default size is specified, we trust from_request to
+        # use the class default.
         with self.app.test_request_context('/'):
             pagination = load_pagination_from_request(base_class=Mock)
-            eq_((flask.request.args.get, 22, {}),
+            eq_((flask.request.args.get, None, {}),
                 Mock.called_with)
 
         # Now try a real case using the default pagination class,

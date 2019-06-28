@@ -1341,18 +1341,6 @@ class TestPagination(DatabaseTest):
         eq_(Pagination.MAX_SIZE, pagination.size)
         eq_(0, pagination.offset)
 
-    def test_load_pagination_from_request_default_size(self):
-        with self.app.test_request_context('/?size=50&after=10'):
-            pagination = load_pagination_from_request(default_size=10)
-            eq_(50, pagination.size)
-            eq_(10, pagination.offset)
-
-        with self.app.test_request_context('/'):
-            pagination = load_pagination_from_request(default_size=10)
-            eq_(10, pagination.size)
-            eq_(0, pagination.offset)
-
-
     def test_has_next_page_total_size(self):
         """Test the ability of Pagination.total_size to control whether there is a next page."""
         query = self._db.query(Work)
