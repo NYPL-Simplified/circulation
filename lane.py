@@ -320,8 +320,10 @@ class Facets(FacetsWithEntryPoint):
     feeds that list all the works in some WorkList.
     """
     @classmethod
-    def default(cls, library):
-        return cls(library, collection=None, availability=None, order=None)
+    def default(cls, library, collection=None, availability=None, order=None,
+                entrypoint=None):
+        return cls(library, collection=collection, availability=availability,
+                   order=order, entrypoint=entrypoint)
 
     @classmethod
     def available_facets(cls, config, facet_group_name):
@@ -555,6 +557,39 @@ class Facets(FacetsWithEntryPoint):
                 logging.error("Unrecognized sort order: %s", self.order)
 
 
+class DefaultSortOrderFacets(Facets):
+    """A faceting object that changes the default sort order.
+
+    Subclasses must set DEFAULT_SORT_ORDER
+    """
+
+    @classmethod
+    def available_facets(cls, config, facet_group_name):
+        """Make sure the default sort order is the first item
+        in the list of available sort orders.
+        """
+        if facet_group_name != cls.ORDER_FACET_GROUP_NAME:
+            return super(DefaultSortOrderFacets, cls).available_facets(
+                config, facet_group_name
+            )
+        default = config.enabled_facets(facet_group_name)
+
+        # Promote the default sort order to the front of the list,
+        # adding it if necessary.
+        order = cls.DEFAULT_SORT_ORDER
+        if order in default:
+            default = filter(lambda x: x!=order, default)
+        return [order] + default
+
+    @classmethod
+    def default_facet(cls, config, facet_group_name):
+        if facet_group_name == cls.ORDER_FACET_GROUP_NAME:
+            return cls.DEFAULT_SORT_ORDER
+        return super(DefaultSortOrderFacets, cls).default_facet(
+            config, facet_group_name
+        )
+
+
 class DatabaseBackedFacets(Facets):
     """A generic faceting object designed for managing queries against the
     database. (Other faceting objects are designed for managing
@@ -704,11 +739,16 @@ class FeaturedFacets(FacetsWithEntryPoint):
 
     @classmethod
     def default(cls, lane, **kwargs):
-        library = lane.library
-        if lane.library:
-            quality = Configuration.DEFAULT_MINIMUM_FEATURED_QUALITY
-        else:
+        library = None
+        if lane:
+            if isinstance(lane, Library):
+                library = lane
+            else:
+                library = lane.library
+        if library:
             quality = library.minimum_featured_quality
+        else:
+            quality = Configuration.DEFAULT_MINIMUM_FEATURED_QUALITY
         return cls(quality, **kwargs)
 
     def navigate(self, minimum_featured_quality=None, entrypoint=None):
@@ -992,9 +1032,14 @@ class WorkList(object):
     By default, these Work objects come from a search index.
     """
 
-    # Unless a sitewide setting intervenes, the set of Works in a
-    # WorkList is cacheable for two weeks by default.
+    # The set of Works in a WorkList is cacheable for two weeks by
+    # default. Most WorkList subclasses will override this.
     MAX_CACHE_AGE = 14*24*60*60
+
+    # In your subclass, set MAX_CACHE_AGE to this value to guarantee
+    # that cached feeds never expire -- they must be explicitly
+    # regenerated.
+    CACHE_FOREVER = 'forever'
 
     # By default, a WorkList is always visible.
     visible = True
@@ -1108,7 +1153,7 @@ class WorkList(object):
 
         """
         self.library_id = None
-        self.collection_ids = []
+        self.collection_ids = None
         if library:
             self.library_id = library.id
             self.collection_ids = [
@@ -1328,6 +1373,13 @@ class WorkList(object):
             key += ','.join(audiences)
         return key
 
+    def overview_facets(self, _db, facets):
+        """Convert a generic FeaturedFacets to some other faceting object,
+        suitable for showing an overview of this WorkList in a grouped
+        feed.
+        """
+        return facets
+
     def groups(self, _db, include_sublanes=True, facets=None,
                search_engine=None, debug=False):
         """Extract a list of samples from each child of this WorkList.  This
@@ -1345,7 +1397,8 @@ class WorkList(object):
         if not include_sublanes:
             # We only need to find featured works for this lane,
             # not this lane plus its sublanes.
-            for work in self.works(_db, facets=facets):
+            adapted = self.overview_facets(_db, facets)
+            for work in self.works(_db, facets=adapted):
                 yield work, self
             return
 
@@ -1365,8 +1418,9 @@ class WorkList(object):
                 continue
 
             if isinstance(child, Lane):
-                # Children that turn out to be Lanes go into relevant_lanes.
-                # Their Works will all be filled in with a single query.
+                # Children that turn out to be Lanes go into
+                # relevant_lanes. Their Works will be obtained from
+                # the search index.
                 relevant_lanes.append(child)
             # Both Lanes and WorkLists go into relevant_children.
             # This controls the yield order for Works.
@@ -1661,8 +1715,9 @@ class WorkList(object):
 
         # Ask the search engine for works from every lane we're given.
         for lane in lanes:
+            adapted = lane.overview_facets(_db, facets)
             for work in lane.works(
-                _db, facets, pagination, search_engine=search_engine,
+                _db, adapted, pagination, search_engine=search_engine,
                 debug=debug
             ):
                 yield work, lane
@@ -2032,8 +2087,9 @@ class Lane(Base, DatabaseBackedWorkList):
     books.
     """
 
-    # Unless a sitewide setting intervenes, the set of Works in a
-    # Lane is cacheable for twenty minutes by default.
+    # The set of Works in a standard Lane is cacheable for twenty
+    # minutes. Note that this only applies to paginated feeds --
+    # grouped feeds are cached indefinitely.
     MAX_CACHE_AGE = 20*60
 
     __tablename__ = 'lanes'

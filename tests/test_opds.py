@@ -1337,11 +1337,6 @@ class TestOPDS(DatabaseTest):
                 pagination=Pagination.default(), search_engine=search_engine
             )
 
-        af = AcquisitionFeed
-        policy = ConfigurationSetting.sitewide(
-            self._db, af.NONGROUPED_MAX_AGE_POLICY)
-        policy.value = "10"
-
         feed1 = make_page()
         assert work1.title in feed1
         cached = get_one(self._db, CachedFeed, lane=fantasy_lane)
@@ -1359,10 +1354,9 @@ class TestOPDS(DatabaseTest):
         assert work2.title not in feed2
         assert cached.timestamp == old_timestamp
 
-        # Change the policy to disable caching, and we get
-        # a brand new page with the new work.
-        policy.value = "0"
-
+        # Change the WorkList's MAX_CACHE_AGE to disable caching, and
+        # we get a brand new page with the new work.
+        fantasy_lane.MAX_CACHE_AGE = 0
         feed3 = make_page()
         assert cached.timestamp > old_timestamp
         assert work2.title in feed3

@@ -522,6 +522,11 @@ return champion;
     def bulk_update(self, works, retry_on_batch_failure=True):
         """Upload a batch of works to the search index at once."""
 
+        if not works:
+            # There's nothing to do. Don't bother making any requests
+            # to the search index.
+            return [], []
+
         time1 = time.time()
         needs_add = []
         successes = []
