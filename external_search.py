@@ -2387,7 +2387,7 @@ class SortKeyPagination(Pagination):
         pagination_key = get_arg('key', None)
         if pagination_key:
             try:
-                pagination_key = cls.parse_pagination_key(pagination_key)
+                pagination_key = json.loads(pagination_key)
             except ValueError, e:
                 return INVALID_INPUT.detailed(
                     _("Invalid page key: %(key)s", key=pagination_key)
@@ -2395,7 +2395,9 @@ class SortKeyPagination(Pagination):
         return cls(pagination_key, size)
 
     def items(self):
-        """Yield the URL arguments necessary to convey the current page."""
+        """Yield the URL arguments necessary to convey the current page
+        state.
+        """
         pagination_key = self.pagination_key
         if pagination_key:
             yield("key", self.pagination_key)
@@ -2403,16 +2405,10 @@ class SortKeyPagination(Pagination):
 
     @property
     def pagination_key(self):
-        """Create the pagination key for this page.
-
-        """
+        """Create the pagination key for this page."""
         if not self.last_item_on_previous_page:
             return None
         return json.dumps(self.last_item_on_previous_page)
-
-    @classmethod
-    def parse_pagination_key(self, value):
-        return json.loads(value)
 
     @property
     def offset(self):
