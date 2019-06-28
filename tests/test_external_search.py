@@ -3566,6 +3566,14 @@ class TestSortKeyPagination(DatabaseTest):
         eq_(SortKeyPagination.MAX_SIZE, pagination.size)
         eq_(None, pagination.pagination_key)
 
+    def test_items(self):
+        pagination = SortKeyPagination(size=20)
+        eq_(("size", 20), list(pagination.items()))
+        pagination.pagination_key = "some kind of key"
+        eq_(
+            [("key", "some kind of key"), ("size", 20)],
+            list(pagination.items())
+        )
 
     def test_unimplemented_features(self):
         # Check certain features of a normal Pagination object that
