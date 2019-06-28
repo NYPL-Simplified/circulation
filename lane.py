@@ -962,7 +962,7 @@ class Pagination(object):
 
     @classmethod
     def _int_from_request(cls, key, get_arg, make_detail, default):
-        """Helper method to get and parse an integer value from 
+        """Helper method to get and parse an integer value from
         a URL query argument in a Flask request.
 
         :param key: Name of the argument.

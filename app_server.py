@@ -122,6 +122,7 @@ def load_facets_from_request(
         default_entrypoint, **kwargs
     )
 
+
 def load_pagination_from_request(
     base_class=Pagination, base_class_constructor_kwargs=None,
     default_size=None
@@ -137,9 +138,8 @@ def load_pagination_from_request(
     kwargs = base_class_constructor_kwargs or dict()
 
     get_arg = flask.request.args.get
-    default_size = default_size or base_class.DEFAULT_SIZE
     return base_class.from_request(get_arg, default_size, **kwargs)
-        
+
 
 def returns_problem_detail(f):
     @wraps(f)
