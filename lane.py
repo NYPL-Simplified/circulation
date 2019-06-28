@@ -1032,8 +1032,8 @@ class WorkList(object):
     By default, these Work objects come from a search index.
     """
 
-    # Unless a sitewide setting intervenes, the set of Works in a
-    # WorkList is cacheable for two weeks by default.
+    # The set of Works in a WorkList is cacheable for two weeks by
+    # default. Most WorkList subclasses will override this.
     MAX_CACHE_AGE = 14*24*60*60
 
     # By default, a WorkList is always visible.
@@ -2082,8 +2082,9 @@ class Lane(Base, DatabaseBackedWorkList):
     books.
     """
 
-    # Unless a sitewide setting intervenes, the set of Works in a
-    # Lane is cacheable for twenty minutes by default.
+    # The set of Works in a standard Lane is cacheable for twenty
+    # minutes. Note that this only applies to paginated feeds --
+    # grouped feeds are cached indefinitely.
     MAX_CACHE_AGE = 20*60
 
     __tablename__ = 'lanes'

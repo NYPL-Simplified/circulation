@@ -1041,37 +1041,6 @@ class AcquisitionFeed(OPDSFeed):
             facet_title = str(Facets.FACET_DISPLAY_TITLES[value])
             yield cls.facet_link(url, facet_title, group_title, selected)
 
-    CACHE_FOREVER = 'forever'
-
-    NONGROUPED_MAX_AGE_POLICY = Configuration.NONGROUPED_MAX_AGE_POLICY
-    DEFAULT_NONGROUPED_MAX_AGE = 1200
-
-    GROUPED_MAX_AGE_POLICY = Configuration.GROUPED_MAX_AGE_POLICY
-    DEFAULT_GROUPED_MAX_AGE = CACHE_FOREVER
-
-    @classmethod
-    def grouped_max_age(cls, _db):
-        "The maximum cache time for a grouped acquisition feed."
-        value = ConfigurationSetting.sitewide(
-            _db, cls.GROUPED_MAX_AGE_POLICY).int_value
-        if value is None:
-            value = cls.DEFAULT_GROUPED_MAX_AGE
-        return value
-
-    @classmethod
-    def nongrouped_max_age(cls, _db):
-        "The maximum cache time for a non-grouped acquisition feed."
-        value = ConfigurationSetting.sitewide(
-            _db, cls.NONGROUPED_MAX_AGE_POLICY).int_value
-        if value is cls.CACHE_FOREVER:
-            logging.error(
-                "Non-grouped acquisition feed cannot be cached forever."
-            )
-            value = None
-        if value is None:
-            value = cls.DEFAULT_NONGROUPED_MAX_AGE
-        return value
-
     def __init__(self, _db, title, url, works, annotator=None,
                  precomposed_entries=[]):
         """Turn a list of works, messages, and precomposed <opds> entries
