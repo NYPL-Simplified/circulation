@@ -894,7 +894,7 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
         # recommendations that were unavailable when the feed was
         # generated became available.
         #
-        # For now, it's better to look up all books and let people put
+        # For now, it's better to show all books and let people put
         # the unavailable ones on hold if they want.
         #
         # TODO: It would be better to order works in the same order
