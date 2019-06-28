@@ -234,9 +234,9 @@ class TestCirculationManagerAnnotator(DatabaseTest):
 
         # If the work passed in is a WorkSearchResult that indicates
         # the search index found a later 'update time', then the later
-        # time is used. This value isn't always present -- it's only calculated when the
-        # list is being _ordered_ by 'update time' -- otherwise it's
-        # too slow to bother.
+        # time is used. This value isn't always present -- it's only
+        # calculated when the list is being _ordered_ by 'update time'.
+        # Otherwise it's too slow to bother.
         class MockHit(object):
             def __init__(self, last_update):
                 # Store the time the way we get it from ElasticSearch --
