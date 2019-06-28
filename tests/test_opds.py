@@ -18,6 +18,7 @@ from core.analytics import Analytics
 from core.lane import (
     FacetsWithEntryPoint,
     Lane,
+    WorkList,
 )
 from core.model import (
     create,
@@ -209,6 +210,51 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         eq_({}, m(lpdm))
 
         eq_({}, m(None))
+
+    def test_work_entry_includes_updated(self):
+
+        # By default, the 'updated' date is the value of
+        # Work.last_update_time.
+        work = self._work(with_open_access_download=True)
+        # This date is later, but we don't check it.
+        work.license_pools[0].availability_time = datetime.datetime(2019, 1, 1)
+        work.last_update_time = datetime.datetime(2018, 2, 4)
+
+        def entry_for(work):
+            worklist = WorkList()
+            worklist.initialize(None)
+            annotator = CirculationManagerAnnotator(worklist, test_mode=True)
+            feed = AcquisitionFeed(self._db, "test", "url", [work], annotator)
+            feed = feedparser.parse(unicode(feed))
+            [entry] = feed.entries
+            return entry
+
+        entry = entry_for(work)
+        assert '2018-02-04' in entry.get("updated")
+
+        # If the work passed in is a WorkSearchResult that indicates
+        # the search index found a later 'update time', then the later
+        # time is used. This value isn't always present -- it's only calculated when the
+        # list is being _ordered_ by 'update time' -- otherwise it's
+        # too slow to bother.
+        class MockHit(object):
+            def __init__(self, last_update):
+                # Store the time the way we get it from ElasticSearch --
+                # as a single-element list containing seconds since epoch.
+                self.last_update = [
+                    (last_update-datetime.datetime(1970, 1, 1)).total_seconds()
+                ]
+        hit = MockHit(datetime.datetime(2018, 2, 5))
+        result = WorkSearchResult(work, hit)
+        entry = entry_for(result)
+        assert '2018-02-05' in entry.get("updated")
+
+        # Any 'update time' provided by ElasticSearch is used even if
+        # it's clearly earlier than Work.last_update_time.
+        hit = MockHit(datetime.datetime(2017, 1, 1))
+        result._hit = hit
+        entry = entry_for(result)
+        assert '2017-01-01' in entry.get("updated")
 
 
 class TestLibraryAnnotator(VendorIDTest):
@@ -883,53 +929,6 @@ class TestLibraryAnnotator(VendorIDTest):
         )
         [entry] = feed.entries
         assert annotation_rel not in [x['rel'] for x in entry['links']]
-
-    def test_work_entry_includes_updated(self):
-
-        # By default, the 'updated' date is the value of
-        # Work.last_update_time.
-        work = self._work(with_open_access_download=True)
-        # This date is later, but we don't check it.
-        work.license_pools[0].availability_time = datetime.datetime(2019, 1, 1)
-        work.last_update_time = datetime.datetime(2018, 2, 4)
-
-        feed = self.get_parsed_feed([work])
-        [entry] = feed.entries
-        assert '2018-02-04' in entry.get("updated")
-
-        # If the work passed in is a WorkSearchResult that indicates
-        # the search index found a later 'update time', then the later
-        # time is used. This value is only calculated when the list is
-        # being _ordered_ by 'update time' -- otherwise it's too slow
-        # to bother.
-        class MockHit(object):
-            def __init__(self, last_update):
-                # Store the time the way we get it from ElasticSearch --
-                # as a single-element list containing seconds since epoch.
-                self.last_update = [
-                    (last_update-datetime.datetime(1970, 1, 1)).total_seconds()
-                ]
-        hit = MockHit(datetime.datetime(2018, 2, 5))
-        result = WorkSearchResult(work, hit)
-        feed = AcquisitionFeed(
-            self._db, "test", "url", [result],
-            LibraryAnnotator(None, None, self._default_library, test_mode=True)
-        )
-        feed = feedparser.parse(unicode(feed))
-        [entry] = feed.entries
-        assert '2018-02-05' in entry.get("updated")
-
-        # Any 'update time' provided by ElasticSearch is used even if
-        # it's clearly earlier than Work.last_update_time.
-        hit = MockHit(datetime.datetime(2017, 1, 1))
-        result._hit = hit
-        feed = AcquisitionFeed(
-            self._db, "test", "url", [result],
-            LibraryAnnotator(None, None, self._default_library, test_mode=True)
-        )
-        feed = feedparser.parse(unicode(feed))
-        [entry] = feed.entries
-        assert '2017-01-01' in entry.get("updated")
 
     def test_active_loan_feed(self):
         self.initialize_adobe(self._default_library)
