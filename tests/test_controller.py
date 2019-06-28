@@ -43,6 +43,8 @@ from api.lanes import (
     CrawlableCustomListBasedLane,
     CrawlableFacets,
     DynamicLane,
+    RecommendationLane,
+    RelatedBooksLane,
     SeriesFacets,
     SeriesLane,
 )
@@ -106,6 +108,7 @@ from core.model import (
     create,
 )
 from core.lane import (
+    DatabaseBackedFacets,
     Facets,
     FeaturedFacets,
     SearchFacets,
@@ -2376,12 +2379,9 @@ class TestWorkController(CirculationControllerTest):
         eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
 
     def test_recommendations(self):
-        # TODO: This test creates its own work to avoid
-        # Gutenberg books getting filtered out, since
-        # the recommendation lanes have all audiences,
-        # including children and ya.
-        self.work = self._work("Quite British", "John Bull", with_license_pool=True, language="eng", data_source_name=DataSource.OVERDRIVE)
-        [self.lp] = self.work.license_pools
+        # Test the ability to get a feed of works recommended by an
+        # external service.
+        [self.lp] = self.english_1.license_pools
         self.edition = self.lp.presentation_edition
         self.datasource = self.lp.data_source.name
         self.identifier = self.lp.identifier
@@ -2390,9 +2390,7 @@ class TestWorkController(CirculationControllerTest):
         source = DataSource.lookup(self._db, self.datasource)
         metadata = Metadata(source)
         mock_api = MockNoveListAPI(self._db)
-        mock_api.setup(metadata)
 
-        SessionManager.refresh_materialized_views(self._db)
         args = [self.identifier.type,
                 self.identifier.identifier]
         kwargs = dict(novelist_api=mock_api)
@@ -2405,15 +2403,23 @@ class TestWorkController(CirculationControllerTest):
             eq_(400, response.status_code)
 
         # Or if the facet data is bad.
-        mock_api.setup(metadata)
         with self.request_context_with_library('/?order=nosuchorder'):
             response = self.manager.work_controller.recommendations(
                 *args, **kwargs
             )
             eq_(400, response.status_code)
 
-        # Show it working.
-        mock_api.setup(metadata)
+        # If no NoveList API is configured, the lane does not exist.
+        with self.request_context_with_library('/'):
+            response = self.manager.work_controller.recommendations(
+                *args, novelist_api=None
+            )
+        eq_(404, response.status_code)
+        eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+        eq_("Recommendations not available", response.detail)
+
+        # This works, but there are no recommendations, because the
+        # mock_api returns no suggestions.
         with self.request_context_with_library('/'):
             response = self.manager.work_controller.recommendations(
                 *args, **kwargs
@@ -2423,18 +2429,15 @@ class TestWorkController(CirculationControllerTest):
         eq_('Recommended Books', feed['feed']['title'])
         eq_(0, len(feed['entries']))
 
-
         # Delete the cache and prep a recommendation result.
         [cached_empty_feed] = self._db.query(CachedFeed).all()
         self._db.delete(cached_empty_feed)
-        metadata.recommendations = [self.work.license_pools[0].identifier]
+        metadata.recommendations = [self.identifier]
         mock_api.setup(metadata)
 
-        SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library('/'):
             response = self.manager.work_controller.recommendations(
-                self.identifier.type, self.identifier.identifier,
-                novelist_api=mock_api
+                *args, **kwargs
             )
         # A feed is returned with the proper recommendation.
         eq_(200, response.status_code)
@@ -2442,238 +2445,266 @@ class TestWorkController(CirculationControllerTest):
 
         eq_('Recommended Books', feed.feed.title)
         [entry] = feed.entries
-        eq_(self.work.title, entry['title'])
-        author = self.work.presentation_edition.author_contributors[0]
+        eq_(self.english_1.title, entry['title'])
+        author = self.edition.author_contributors[0]
         expected_author_name = author.display_name or author.sort_name
         eq_(expected_author_name, entry.author)
 
-        # The feed has facet links.
+        # The feed has facet links, but not as many as other feeds.
+        # There's no way to sort by 'recently added' because
+        # this query is going against the database, not the search index.
         links = feed['feed']['links']
         facet_links = [link for link in links if link['rel'] == 'http://opds-spec.org/facet']
-        eq_(9, len(facet_links))
+        eq_(8, len(facet_links))
+        assert 'Recently Added' not in [x['title'] for x in facet_links]
 
-        with self.request_context_with_library('/'):
+        # Now let's pass in a mocked AcquisitionFeed so we can check
+        # the arguments used to invoke page().
+        class Mock(object):
+            @classmethod
+            def page(cls, **kwargs):
+                cls.called_with = kwargs
+
+        kwargs['feed_class'] = Mock
+        with self.request_context_with_library(
+            '/?order=title&size=2&after=30&entrypoint=Audio'
+        ):
             response = self.manager.work_controller.recommendations(
-                self.identifier.type, self.identifier.identifier
+                *args, **kwargs
             )
 
-        eq_(404, response.status_code)
-        eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+        kwargs = Mock.called_with
+        eq_(self._db, kwargs.pop('_db'))
+        eq_('Recommended Books', kwargs.pop('title'))
+        eq_(RecommendationLane.CACHED_FEED_TYPE, kwargs.pop('cache_type'))
 
-        another_work = self._work("Before Quite British", "Not Before John Bull", with_open_access_download=True, data_source_name=DataSource.OVERDRIVE)
+        # The RecommendationLane is set up to ask for recommendations
+        # for this book.
+        lane = kwargs.pop('lane')
+        assert isinstance(lane, RecommendationLane)
+        library = self._default_library
+        eq_(library.id, lane.library_id)
+        eq_(self.english_1, lane.work)
+        eq_('Recommendations for Quite British by John Bull', lane.display_name)
+        eq_(mock_api, lane.novelist_api)
 
-        # Delete the cache again and prep a recommendation result.
-        [cached_feed] = self._db.query(CachedFeed).all()
-        self._db.delete(cached_feed)
+        facets = kwargs.pop('facets')
+        assert isinstance(facets, DatabaseBackedFacets)
+        eq_(Facets.ORDER_TITLE, facets.order)
+        eq_(AudiobooksEntryPoint, facets.entrypoint)
 
-        metadata.recommendations = [
-            self.work.license_pools[0].identifier,
-            another_work.license_pools[0].identifier,
-        ]
-        mock_api.setup(metadata)
+        pagination = kwargs.pop('pagination')
+        eq_(30, pagination.offset)
+        eq_(2, pagination.size)
 
-        # Facets work.
-        SessionManager.refresh_materialized_views(self._db)
-        with self.request_context_with_library("/?order=title"):
-            response = self.manager.work_controller.recommendations(
-                self.identifier.type, self.identifier.identifier,
-                novelist_api=mock_api
+        annotator = kwargs.pop('annotator')
+        eq_(lane, annotator.lane)
+
+        # Checking the URL is difficult because it requires a request
+        # context, _plus_ the DatabaseBackedFacets, Pagination and Lane
+        # created during the original request.
+        route, url_kwargs = lane.url_arguments
+        url_kwargs.update(dict(facets.items()))
+        url_kwargs.update(dict(pagination.items()))
+        with self.request_context_with_library(""):
+            expect_url = self.manager.work_controller.url_for(
+                route, library_short_name=library.short_name,
+                **url_kwargs
             )
-
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(2, len(feed['entries']))
-        [entry1, entry2] = feed['entries']
-        eq_(another_work.title, entry1['title'])
-        eq_(self.work.title, entry2['title'])
-
-        metadata.recommendations = [
-            self.work.license_pools[0].identifier,
-            another_work.license_pools[0].identifier,
-        ]
-        mock_api.setup(metadata)
-
-        with self.request_context_with_library("/?order=author"):
-            response = self.manager.work_controller.recommendations(
-                self.identifier.type, self.identifier.identifier,
-                novelist_api=mock_api
-            )
-
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(2, len(feed['entries']))
-        [entry1, entry2] = feed['entries']
-        eq_(self.work.title, entry1['title'])
-        eq_(another_work.title, entry2['title'])
-
-        metadata.recommendations = [
-            self.work.license_pools[0].identifier,
-            another_work.license_pools[0].identifier,
-        ]
-        mock_api.setup(metadata)
-
-        # Pagination works.
-        with self.request_context_with_library("/?size=1&order=title"):
-            response = self.manager.work_controller.recommendations(
-                self.identifier.type, self.identifier.identifier,
-                novelist_api=mock_api
-            )
-
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(1, len(feed['entries']))
-        [entry] = feed['entries']
-        eq_(another_work.title, entry['title'])
-
-        metadata.recommendations = [
-            self.work.license_pools[0].identifier,
-            another_work.license_pools[0].identifier,
-        ]
-        mock_api.setup(metadata)
-
-        with self.request_context_with_library("/?after=1&order=title"):
-            response = self.manager.work_controller.recommendations(
-                self.identifier.type, self.identifier.identifier,
-                novelist_api=mock_api
-            )
-
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-        eq_(1, len(feed['entries']))
-        [entry] = feed['entries']
-        eq_(self.work.title, entry['title'])
+        eq_(kwargs.pop('url'), expect_url)
 
     def test_related_books(self):
-        # A book with no related books returns a ProblemDetail.
+        # Test the related_books controller.
 
-        # TODO: This test creates its own work to avoid
-        # Gutenberg books getting filtered out, since
-        # the recommendation lanes have all audiences,
-        # including children and ya.
-        self.work = self._work("Quite British", "John Bull", with_license_pool=True, language="eng", data_source_name=DataSource.OVERDRIVE)
-        [self.lp] = self.work.license_pools
-        self.edition = self.lp.presentation_edition
-        self.datasource = self.lp.data_source.name
-        self.identifier = self.lp.identifier
-
-        # Remove contribution.
-        [contribution] = self.edition.contributions
-        [original, role] = [contribution.contributor, contribution.role]
+        # Remove the contributor from the work created during setup.
+        work = self.english_1
+        edition = work.presentation_edition
+        identifier = edition.primary_identifier
+        [contribution] = edition.contributions
+        contributor = contribution.contributor
+        role = contribution.role
         self._db.delete(contribution)
         self._db.commit()
+        eq_(None, edition.series)
 
+        # First, let's test a complex error case. We're asking about a
+        # work with no contributors or series, and no NoveList
+        # integration is configured. The 'related books' lane ends up
+        # with no sublanes, so the controller acts as if the lane
+        # itself does not exist.
         with self.request_context_with_library('/'):
             response = self.manager.work_controller.related(
-                self.identifier.type, self.identifier.identifier
+                identifier.type, identifier.identifier
             )
+            eq_(404, response.status_code)
+            eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
-        eq_(404, response.status_code)
-        eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
+        # Now test some error cases where the lane exists but
+        # something else goes wrong.
 
-        # Prep book with a contribution, a series, and a recommendation.
-        self.lp.presentation_edition.add_contributor(original, role)
-        same_author = self._work(
-            "What is Sunday?", original.display_name,
-            language="eng", fiction=True, with_open_access_download=True,
-            data_source_name=DataSource.OVERDRIVE
+        # Give the work a series and a contributor, so that it will
+        # get sublanes for both types of recommendations.
+        edition.series = "Around the World"
+        edition.add_contributor(contributor, role)
+
+        # A grouped feed is not paginated, so we don't check pagination
+        # information and there's no chance of a problem detail.
+
+        # Theoretically, if bad faceting information is provided we'll
+        # get a problem detail. But the faceting class created is
+        # FeaturedFacets, which can't raise an exception during the
+        # creation process -- an invalid entrypoint will simply be
+        # ignored.
+
+        # Bad search index setup -> Problem detail
+        self.assert_bad_search_index_gives_problem_detail(
+            lambda: self.manager.work_controller.related(
+                identifier.type, identifier.identifier
+            )
         )
-        duplicate = same_author.presentation_edition.contributions[0].contributor
-        original.display_name = duplicate.display_name = u"John Bull"
 
-        self.edition.series = u"Around the World"
-        self.edition.series_position = 1
+        # The mock search engine will return this Work for every
+        # search. That means this book will show up as a 'same author'
+        # recommendation and a 'same series' recommentation.
+        same_author_and_series = self._work(
+            title="Same author and series", with_license_pool=True
+        )
+        self.manager.external_search.docs = {}
+        self.manager.external_search.bulk_update([same_author_and_series])
 
-        same_series_work = self._work(
-            title="ZZZ", authors="ZZZ ZZZ", with_license_pool=True,
-            series="Around the World", data_source_name=DataSource.OVERDRIVE
+        # Recommendations from the NoveList API are looked up through
+        # the database, not the search engine. Create a fresh book,
+        # and set up a mock API to recommend its identifier for any
+        # input.
+        recommended_work = self._work(
+            title="A Recommendation from NoveList", with_license_pool=True
         )
-        same_series_work.presentation_edition.series_position = 0
-        # Classify this work under a Subject that indicates an adult
-        # audience, so that when we recalculate its presentation there
-        # will be evidence for audience=Adult.  Otherwise
-        # recalculating the presentation will set audience=None.
-        self.work.license_pools[0].identifier.classify(
-            self.edition.data_source, Subject.OVERDRIVE, "Law"
-        )
-        self.work.calculate_presentation(
-            PresentationCalculationPolicy(regenerate_opds_entries=True),
-            MockExternalSearchIndex()
-        )
-        SessionManager.refresh_materialized_views(self._db)
+        [recommended_lp] = recommended_work.license_pools
+        metadata = Metadata(recommended_lp.data_source)
+        metadata.recommendations = [recommended_lp.identifier]
 
-        source = DataSource.lookup(self._db, self.datasource)
-        metadata = Metadata(source)
         mock_api = MockNoveListAPI(self._db)
-        metadata.recommendations = [same_author.license_pools[0].identifier]
         mock_api.setup(metadata)
 
-        search_engine = MockExternalSearchIndex()
-        search_engine.bulk_update([self.work, same_series_work])
-
-        # A grouped feed is returned with all of the related books
-
-        with mock_search_index(search_engine):
-            with self.request_context_with_library('/'):
+        # Now, ask for works related to self.english_1.
+        with mock_search_index(self.manager.external_search):
+            with self.request_context_with_library('/?entrypoint=Book'):
                 response = self.manager.work_controller.related(
                     self.identifier.type, self.identifier.identifier,
                     novelist_api=mock_api
                 )
         eq_(200, response.status_code)
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
         feed = feedparser.parse(response.data)
-        eq_(5, len(feed['entries']))
+        eq_("Related Books", feed['feed']['title'])
 
+        # The feed contains three entries: one for each sublane.
+        eq_(3, len(feed['entries']))
+
+        # Group the entries by the sublane they're in.
         def collection_link(entry):
             [link] = [l for l in entry['links'] if l['rel']=='collection']
             return link['title'], link['href']
+        by_collection_link = {}
+        for entry in feed['entries']:
+            title, href = collection_link(entry)
+            by_collection_link[title] = (href, entry)
 
-        # This feed contains five books: one recommended,
-        # two in the same series, and two by the same author.
-        # One of the 'same series' books is the same title as the
-        # 'same author' book.
-        recommendations = []
-        same_series = []
-        same_contributor = []
-        feeds_with_original_book = []
-        for e in feed['entries']:
-            for link in e['links']:
-                if link['rel'] != 'collection':
-                    continue
-                if link['title'] == 'Recommendations for Quite British by John Bull':
-                    recommendations.append(e)
-                elif link['title'] == 'Around the World':
-                    same_series.append(e)
-                elif link['title'] == 'John Bull':
-                    same_contributor.append(e)
-                if e['title'] == self.work.title:
-                    feeds_with_original_book.append(link['title'])
+        # Here's the sublane for books in the same series.
+        [same_series_href, same_series_entry] = by_collection_link[
+            'Around the World'
+        ]
+        eq_("Same author and series", same_series_entry['title'])
+        expected_series_link = 'series/%s/eng/Adult' % urllib.quote("Around the World")
+        assert same_series_href.endswith(expected_series_link)
 
-        [recommendation] = recommendations
-        title, href = collection_link(recommendation)
-        work_url = "/works/%s/%s/" % (self.identifier.type, self.identifier.identifier)
+        # Here's the sublane for books by this contributor.
+        [same_contributor_href, same_contributor_entry] = by_collection_link[
+            'Bull, John'
+        ]
+        eq_("Same author and series", same_contributor_entry['title'])
+        expected_contributor_link = urllib.quote('contributor/Bull, John/eng/')
+        assert same_contributor_href.endswith(expected_contributor_link)
+
+        # Here's the sublane for recommendations from NoveList.
+        [recommended_href, recommended_entry] = by_collection_link[
+            'Recommendations for Quite British by John Bull'
+        ]
+        eq_("A Recommendation from NoveList", recommended_entry['title'])
+        work_url = "/works/%s/%s/" % (identifier.type, identifier.identifier)
         expected = urllib.quote(work_url + 'recommendations')
-        eq_(True, href.endswith(expected))
+        eq_(True, recommended_href.endswith(expected))
 
-        # All books in the series are in the series feed.
-        for book in same_series:
-            title, href = collection_link(book)
-            expected_series_link = 'series/%s/eng/Adult' % urllib.quote("Around the World")
-            eq_(True, href.endswith(expected_series_link))
+        # Finally, let's pass in a mock feed class so we can look at the
+        # objects passed into AcquisitionFeed.groups().
+        class Mock(object):
+            @classmethod
+            def groups(cls, **kwargs):
+                cls.called_with = kwargs
+                return "An OPDS feed"
 
-        # The other book by this contributor is in the contributor feed.
-        for contributor in same_contributor:
-            title, href = collection_link(contributor)
-            expected_contributor_link = urllib.quote('contributor/John Bull/eng/')
-            eq_(True, href.endswith(expected_contributor_link))
+        # Queue up the same recommendation as before.
+        mock_api.setup(metadata)
+        with self.request_context_with_library('/?entrypoint=Audio'):
+            response = self.manager.work_controller.related(
+                self.identifier.type, self.identifier.identifier,
+                novelist_api=mock_api, feed_class=Mock
+            )
 
-        # The book for which we got recommendations is itself listed in the
-        # series feed and in the 'books by this author' feed.
-        eq_(set(["John Bull", "Around the World"]),
-            set(feeds_with_original_book))
+        eq_(200, response.status_code)
+        eq_(OPDSFeed.ACQUISITION_FEED_TYPE, response.headers['content-type'])
+        eq_("An OPDS feed", response.data)
 
-        # The series feed is sorted by series position.
-        [series_e1, series_e2] = same_series
-        eq_(same_series_work.title, series_e1['title'])
-        eq_(self.work.title, series_e2['title'])
+        # Verify that groups() was called with the arguments we expect.
+        kwargs = Mock.called_with
+        eq_(self._db, kwargs.pop('_db'))
+        eq_(self.manager.external_search, kwargs.pop('search_engine'))
+        eq_("Related Books", kwargs.pop('title'))
+        eq_(CachedFeed.RELATED_TYPE, kwargs.pop('cache_type'))
+
+        # We're passing in a FeaturedFacets. Each lane will have a chance
+        # to adapt it to a faceting object appropriate for that lane.
+        facets = kwargs.pop('facets')
+        assert isinstance(facets, FeaturedFacets)
+        eq_(AudiobooksEntryPoint, facets.entrypoint)
+
+        # We're generating a grouped feed using a RelatedBooksLane
+        # that has three sublanes.
+        lane = kwargs.pop('lane')
+        assert isinstance(lane, RelatedBooksLane)
+        contributor_lane, novelist_lane, series_lane = lane.children
+
+        assert isinstance(contributor_lane, ContributorLane)
+        eq_(contributor, contributor_lane.contributor)
+
+        assert isinstance(novelist_lane, RecommendationLane)
+        eq_([recommended_lp.identifier], novelist_lane.recommendations)
+
+        assert isinstance(series_lane, SeriesLane)
+        eq_("Around the World", series_lane.series)
+
+        # The Annotator is associated with the parent RelatedBooksLane.
+        annotator = kwargs.pop('annotator')
+        assert isinstance(annotator, LibraryAnnotator)
+        eq_(self._default_library, annotator.library)
+        eq_(lane, annotator.lane)
+
+        # Checking the URL is difficult because it requires a request
+        # context, _plus_ the DatabaseBackedFacets and Lane
+        # created during the original request.
+        library = self._default_library
+        route, url_kwargs = lane.url_arguments
+        url_kwargs.update(dict(facets.items()))
+        with self.request_context_with_library(""):
+            expect_url = self.manager.work_controller.url_for(
+                route, lane_identifier=None,
+                library_short_name=library.short_name,
+                **url_kwargs
+            )
+        eq_(kwargs.pop('url'), expect_url)
+
+        # That's it!
+        eq_({}, kwargs)
 
     def test_report_problem_get(self):
         with self.request_context_with_library("/"):
@@ -2830,7 +2861,6 @@ class TestWorkController(CirculationControllerTest):
         # be provided through the faceting object.
         facets = kwargs.pop('facets')
         assert isinstance(facets, SeriesFacets)
-        eq_(series_name, facets.series)
 
         # The 'order' in the query string went into the SeriesFacets
         # object.
@@ -3048,8 +3078,6 @@ class TestFeedController(CirculationControllerTest):
         # full end-to-end test would require setting up a real search
         # index, so we're just going to test that groups() is called
         # properly.
-        ConfigurationSetting.sitewide(
-            self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY).value = 10
         library = self._default_library
         library.setting(library.MINIMUM_FEATURED_QUALITY).value = 0.15
         library.setting(library.FEATURED_LANE_SIZE).value = 2
@@ -3118,7 +3146,6 @@ class TestFeedController(CirculationControllerTest):
         assert isinstance(facets, FeaturedFacets)
         eq_(AudiobooksEntryPoint, facets.entrypoint)
         eq_(0.15, facets.minimum_featured_quality)
-        eq_(lane.uses_customlists, facets.uses_customlists)
 
         # A LibraryAnnotator object was created from the Lane and
         # Facets objects.
@@ -3164,7 +3191,6 @@ class TestFeedController(CirculationControllerTest):
         facets = kwargs['facets']
         assert isinstance(facets, FeaturedFacets)
         eq_(library.minimum_featured_quality, facets.minimum_featured_quality)
-        eq_(lane.uses_customlists, facets.uses_customlists)
         NavigationFeed.navigation = old_navigation
 
     def _set_update_times(self):

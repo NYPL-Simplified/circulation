@@ -17,7 +17,10 @@ from core.classifier import Classifier
 from core.entrypoint import AudiobooksEntryPoint
 from core.external_search import Filter
 from core.lane import (
+    DatabaseBackedFacets,
+    DefaultSortOrderFacets,
     Facets,
+    FeaturedFacets,
     Lane,
     WorkList,
 )
@@ -477,22 +480,19 @@ class TestRelatedBooksLane(DatabaseTest):
 
         self.edition.series = "All By Myself"
         lane = RelatedBooksLane(self._default_library, self.work, "")
-        eq_([], lane.works_from_database(self._db).all())
+        eq_([], lane.works(self._db))
 
 
 class LaneTest(DatabaseTest):
 
-    def assert_works_queries(self, lane, expected):
-        """Tests resulting Lane.works() and Lane.materialized_works() results"""
+    def assert_works_from_database(self, lane, expected):
+        """Tests resulting Lane.works_from_database() results"""
 
-        materialized_expected = []
         if expected:
-            materialized_expected = [work.id for work in expected]
+            expected = [work.id for work in expected]
+        actual = [work.id for work in lane.works_from_database(self._db)]
 
-        query = lane.works_from_database(self._db)
-        materialized_results = [work.works_id for work in query.all()]
-
-        eq_(sorted(materialized_expected), sorted(materialized_results))
+        eq_(sorted(expected), sorted(actual))
 
     def sample_works_for_each_audience(self):
         """Create a work for each audience-type."""
@@ -531,16 +531,12 @@ class TestRecommendationLane(LaneTest):
 
         # With an empty recommendation result, the lane is empty.
         lane = RecommendationLane(self._default_library, self.work, '', novelist_api=mock_api)
-        eq_([], lane.works_from_database(self._db).all())
+        self.assert_works_from_database(lane, [])
 
         # Resulting recommendations are returned when available, though.
-        # TODO: Setting a data source name is necessary because Gutenberg
-        # books get filtered out when children or ya is one of the lane's
-        # audiences.
-        result = self._work(with_license_pool=True, data_source_name=DataSource.OVERDRIVE)
+        result = self._work(with_license_pool=True)
         lane.recommendations = [result.license_pools[0].identifier]
-        SessionManager.refresh_materialized_views(self._db)
-        self.assert_works_queries(lane, [result])
+        self.assert_works_from_database(lane, [result])
 
     def test_works_query_with_source_audience(self):
 
@@ -560,24 +556,19 @@ class TestRecommendationLane(LaneTest):
 
         for audience, results in expected.items():
             self.work.audience = audience
-            SessionManager.refresh_materialized_views(self._db)
 
             mock_api = self.generate_mock_api()
             lane = RecommendationLane(
                 self._default_library, self.work, '', novelist_api=mock_api
             )
             lane.recommendations = recommendations
-            self.assert_works_queries(lane, results)
+            self.assert_works_from_database(lane, results)
 
     def test_works_query_with_source_language(self):
         # Prepare a number of works with different languages.
-        # TODO: Setting a data source name is necessary because
-        # Gutenberg books get filtered out when children or ya
-        # is one of the lane's audiences.
-        eng = self._work(with_license_pool=True, language='eng', data_source_name=DataSource.OVERDRIVE)
-        fre = self._work(with_license_pool=True, language='fre', data_source_name=DataSource.OVERDRIVE)
-        spa = self._work(with_license_pool=True, language='spa', data_source_name=DataSource.OVERDRIVE)
-        SessionManager.refresh_materialized_views(self._db)
+        eng = self._work(with_license_pool=True, language='eng')
+        fre = self._work(with_license_pool=True, language='fre')
+        spa = self._work(with_license_pool=True, language='spa')
 
         # They're all returned as recommendations from NoveList Select.
         recommendations = list()
@@ -588,7 +579,7 @@ class TestRecommendationLane(LaneTest):
         mock_api = self.generate_mock_api()
         lane = RecommendationLane(self._default_library, self.work, '', novelist_api=mock_api)
         lane.recommendations = recommendations
-        self.assert_works_queries(lane, [eng])
+        self.assert_works_from_database(lane, [eng])
 
         # It doesn't matter the language.
         self.work.presentation_edition.language = 'fre'
@@ -596,60 +587,31 @@ class TestRecommendationLane(LaneTest):
         mock_api = self.generate_mock_api()
         lane = RecommendationLane(self._default_library, self.work, '', novelist_api=mock_api)
         lane.recommendations = recommendations
-        self.assert_works_queries(lane, [fre])
+        self.assert_works_from_database(lane, [fre])
+
+    def test_overview_facets(self):
+        # A FeaturedFacets object is adapted to a DatabaseBackedFacets object.
+        # This doesn't matter much -- it's just to avoid a crash.
+        featured = FeaturedFacets(0.44, entrypoint=AudiobooksEntryPoint)
+        lane = RecommendationLane(
+            self._default_library, self.work, '',
+            novelist_api=self.generate_mock_api()
+        )
+        overview = lane.overview_facets(self._db, featured)
+        assert isinstance(overview, DatabaseBackedFacets)
+        eq_(Facets.ORDER_AUTHOR, overview.order)
+
+        # Entry point was preserved.
+        eq_(AudiobooksEntryPoint, overview.entrypoint)
+
 
 class TestSeriesFacets(DatabaseTest):
 
-    def setup(self):
-        # Set up a generic SeriesFacets object.
-        super(TestSeriesFacets, self).setup()
-        library = self._default_library
-        self.worklist = SeriesLane(library, "Snake Eyes")
-        args = {}
-        self.facets = SeriesFacets.from_request(
-            library, library, args.get, args.get, self.worklist
-        )
-        assert isinstance(self.facets, SeriesFacets)
-
-    def test_class_methods(self):
-        config = self._default_library
-        # In general, SeriesFacets has the same options and defaults
-        # as a normal Facets object.
-        for group_name in (Facets.COLLECTION_FACET_GROUP_NAME,
-                           Facets.AVAILABILITY_FACET_GROUP_NAME):
-            eq_(Facets.available_facets(config, group_name),
-                SeriesFacets.available_facets(config, group_name))
-            eq_(Facets.default_facet(config, group_name),
-                SeriesFacets.default_facet(config, group_name))
-
-        # However, SeriesFacets has an extra sort option -- you can
-        # sort by series position.
-        group_name = Facets.ORDER_FACET_GROUP_NAME
-        default = Facets.available_facets(config, group_name)
-        series = SeriesFacets.available_facets(config, group_name)
-        eq_([SeriesFacets.ORDER_SERIES_POSITION] + default, series)
-
-        # This is the default sort option for SeriesFacets.
-        eq_(SeriesFacets.ORDER_SERIES_POSITION,
-            SeriesFacets.default_facet(config, group_name))
-
-    def test_instantiation_and_navigation(self):
-        # When a SeriesFacets is instantiated for a SeriesLane,
-        # the series associated with the SeriesLane is copied to the
-        # SeriesFacets.
-        eq_("Snake Eyes", self.facets.series)
-
-        # Navigating to another entry point gets us another SeriesFacets
-        # for the same series.
-        new_facets = self.facets.navigate(entrypoint=AudiobooksEntryPoint)
-        assert isinstance(new_facets, SeriesFacets)
-        eq_("Snake Eyes", new_facets.series)
-        eq_(AudiobooksEntryPoint, new_facets.entrypoint)
-
-    def test_modify_search_filter(self):
-        filter = Filter()
-        self.facets.modify_search_filter(filter)
-        eq_("Snake Eyes", filter.series)
+    def test_default_sort_order(self):
+        eq_(Facets.ORDER_SERIES_POSITION, SeriesFacets.DEFAULT_SORT_ORDER)
+        facets = SeriesFacets.default(self._default_library)
+        assert isinstance(facets, DefaultSortOrderFacets)
+        eq_(Facets.ORDER_SERIES_POSITION, facets.order)
 
 
 class TestSeriesLane(LaneTest):
@@ -683,38 +645,33 @@ class TestSeriesLane(LaneTest):
         eq_([work_based_lane.source_audience], child.audiences)
         eq_(work_based_lane.languages, child.languages)
 
+    def test_modify_search_filter_hook(self):
+        lane = SeriesLane(self._default_library, "So That Happened")
+        filter = Filter()
+        lane.modify_search_filter_hook(filter)
+        eq_("So That Happened", filter.series)
+
+    def test_overview_facets(self):
+        # A FeaturedFacets object is adapted to a SeriesFacets object.
+        # This guarantees that a SeriesLane's contributions to a
+        # grouped feed will be ordered correctly.
+        featured = FeaturedFacets(0.44, entrypoint=AudiobooksEntryPoint)
+        lane = SeriesLane(self._default_library, "Alrighty Then")
+        overview = lane.overview_facets(self._db, featured)
+        assert isinstance(overview, SeriesFacets)
+        eq_(Facets.ORDER_SERIES_POSITION, overview.order)
+
+        # Entry point was preserved.
+        eq_(AudiobooksEntryPoint, overview.entrypoint)
+
 
 class TestContributorFacets(DatabaseTest):
 
-    def setup(self):
-        # Set up a generic ContributorFacets object.
-        super(TestContributorFacets, self).setup()
-        library = self._default_library
-        self.contributor_data = ContributorData(display_name="An Author")
-        self.worklist = ContributorLane(library, self.contributor_data)
-        args = {}
-        self.facets = ContributorFacets.from_request(
-            library, library, args.get, args.get, self.worklist
-        )
-        assert isinstance(self.facets, ContributorFacets)
-
-    def test_instantiation_and_navigation(self):
-        # When a ContributorFacets is instantiated for a ContributorLane,
-        # the series associated with the ContributorLane is copied to the
-        # ContributorFacets.
-        eq_(self.contributor_data, self.facets.contributor)
-
-        # Navigating to another entry point gets us another ContributorFacets
-        # for the same series.
-        new_facets = self.facets.navigate(entrypoint=AudiobooksEntryPoint)
-        assert isinstance(new_facets, ContributorFacets)
-        eq_(self.contributor_data, new_facets.contributor)
-        eq_(AudiobooksEntryPoint, new_facets.entrypoint)
-
-    def test_modify_search_filter(self):
-        filter = Filter()
-        self.facets.modify_search_filter(filter)
-        eq_(self.contributor_data, filter.author)
+    def test_default_sort_order(self):
+        eq_(Facets.ORDER_TITLE, ContributorFacets.DEFAULT_SORT_ORDER)
+        facets = ContributorFacets.default(self._default_library)
+        assert isinstance(facets, DefaultSortOrderFacets)
+        eq_(Facets.ORDER_TITLE, facets.order)
 
 
 class TestContributorLane(LaneTest):
@@ -774,6 +731,25 @@ class TestContributorLane(LaneTest):
             ),
             kwargs
         )
+
+    def test_modify_search_filter_hook(self):
+        lane = ContributorLane(self._default_library, self.contributor)
+        filter = Filter()
+        lane.modify_search_filter_hook(filter)
+        eq_(self.contributor, filter.author)
+
+    def test_overview_facets(self):
+        # A FeaturedFacets object is adapted to a ContributorFacets object.
+        # This guarantees that a ContributorLane's contributions to a
+        # grouped feed will be ordered correctly.
+        featured = FeaturedFacets(0.44, entrypoint=AudiobooksEntryPoint)
+        lane = ContributorLane(self._default_library, self.contributor)
+        overview = lane.overview_facets(self._db, featured)
+        assert isinstance(overview, ContributorFacets)
+        eq_(Facets.ORDER_TITLE, overview.order)
+
+        # Entry point was preserved.
+        eq_(AudiobooksEntryPoint, overview.entrypoint)
 
 
 class TestCrawlableFacets(DatabaseTest):

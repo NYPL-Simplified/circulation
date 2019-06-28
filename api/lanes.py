@@ -25,6 +25,9 @@ from core import classifier
 
 from core.lane import (
     BaseFacets,
+    DatabaseBackedFacets,
+    DatabaseBackedWorkList,
+    DefaultSortOrderFacets,
     Facets,
     FacetsWithEntryPoint,
     Pagination,
@@ -34,6 +37,7 @@ from core.lane import (
 from core.model import (
     get_one,
     create,
+    CachedFeed,
     Contribution,
     Contributor,
     DataSource,
@@ -772,14 +776,10 @@ class DynamicLane(WorkList):
     """A WorkList that's used to from an OPDS lane, but isn't a Lane
     in the database."""
 
-
-class WorksFromDatabase(DynamicLane):
-    """A DynamicLane that still gets its works from the database rather
-    than the search engine.
-    """
-    pass
-WorksFromDatabase.works = WorksFromDatabase.works_from_database
-
+class DatabaseExclusiveWorkList(DatabaseBackedWorkList):
+    """A DatabaseBackedWorkList that can _only_ get Works through the database."""
+    def works(self, *args, **kwargs):
+        return self.works_from_database(*args, **kwargs)
 
 class WorkBasedLane(DynamicLane):
     """A lane that shows works related to one particular Work."""
@@ -844,6 +844,189 @@ class WorkBasedLane(DynamicLane):
         worklist.audiences = self.audiences
 
 
+class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
+    """A lane of recommended Works based on a particular Work"""
+
+    DISPLAY_NAME = "Recommended Books"
+    ROUTE = "recommendations"
+    MAX_CACHE_AGE = 7*24*60*60      # one week
+    CACHED_FEED_TYPE = CachedFeed.RECOMMENDATIONS_TYPE
+
+    def __init__(self, library, work, display_name=None,
+                 novelist_api=None, parent=None):
+        """Constructor.
+
+        :raises: CannotLoadConfiguration if `novelist_api` is not provided
+        and no Novelist integration is configured for this library.
+        """
+        super(RecommendationLane, self).__init__(
+            library, work, display_name=display_name,
+        )
+        self.novelist_api = novelist_api or NoveListAPI.from_config(library)
+        if parent:
+            parent.append_child(self)
+        _db = Session.object_session(library)
+        self.recommendations = self.fetch_recommendations(_db)
+
+    def fetch_recommendations(self, _db):
+        """Get identifiers of recommendations for this LicensePool"""
+        metadata = self.novelist_api.lookup(self.edition.primary_identifier)
+        if metadata:
+            metadata.filter_recommendations(_db)
+            return metadata.recommendations
+        return []
+
+    def overview_facets(self, _db, facets):
+        """Convert a generic FeaturedFacets to some other faceting object,
+        suitable for showing an overview of this WorkList in a grouped
+        feed.
+        """
+        # The faceting object doesn't matter much here, but it
+        # does need to be a DatabaseBackedFacets.
+        #
+        # TODO: It would be better to order works in the same order
+        # they come from the recommendation engine.
+        return DatabaseBackedFacets.default(
+            self.get_library(_db), entrypoint=facets.entrypoint,
+        )
+
+    def modify_database_query_hook(self, _db, qu):
+        """Find Works corresponding to the ISBNs returned
+        by an external recommendation engine.
+
+        :param _db: A database connection.
+        :param qu: A database query.
+        """
+        if not self.recommendations:
+            # There are no recommendations. Add a contradiction to the
+            # query so it will return nothing.
+            qu = qu.filter(Work.id!=Work.id)
+        else:
+            qu = Work.from_identifiers(
+                _db, self.recommendations, qu, LicensePool.identifier_id
+            )
+        return qu
+
+
+class SeriesFacets(DefaultSortOrderFacets):
+    """A list with a series restriction is ordered by series position by
+    default.
+    """
+    DEFAULT_SORT_ORDER = Facets.ORDER_SERIES_POSITION
+
+
+class SeriesLane(DynamicLane):
+    """A lane of Works in a particular series."""
+
+    ROUTE = 'series'
+    MAX_CACHE_AGE = 96*60*60    # 96 hours
+    CACHED_FEED_TYPE = CachedFeed.SERIES_TYPE
+
+    def __init__(self, library, series_name, parent=None, **kwargs):
+        if not series_name:
+            raise ValueError("SeriesLane can't be created without series")
+        super(SeriesLane, self).initialize(
+            library, display_name=series_name, **kwargs
+        )
+        self.series = series_name
+        if parent:
+            parent.append_child(self)
+            if isinstance(parent, WorkBasedLane):
+                # WorkBasedLane forces self.audiences to values
+                # compatible with the work in the WorkBasedLane, but
+                # that's not enough for us. We want to force
+                # self.audiences to *the specific audience* of the
+                # work in the WorkBasedLane. If we're looking at a YA
+                # series, we don't want to see books in a children's
+                # series with the same name, even if it would be
+                # appropriate to show those books.
+                self.audiences = [parent.source_audience]
+
+    @property
+    def url_arguments(self):
+        kwargs = dict(series_name=self.series)
+        if self.language_key:
+            kwargs['languages'] = self.language_key
+        if self.audience_key:
+            kwargs['audiences'] = self.audience_key
+        return self.ROUTE, kwargs
+
+    def overview_facets(self, _db, facets):
+        """Convert a FeaturedFacets to a SeriesFacets suitable for
+        use in a grouped feed. Our contribution to a grouped feed will
+        be ordered by series position.
+        """
+        return SeriesFacets.default(
+            self.get_library(_db), entrypoint=facets.entrypoint
+        )
+
+    def modify_search_filter_hook(self, filter):
+        filter.series = self.series
+        return filter
+
+
+class ContributorFacets(DefaultSortOrderFacets):
+    """A list with a contributor restriction is, by default, sorted by
+    title.
+    """
+    DEFAULT_SORT_ORDER = Facets.ORDER_TITLE
+
+
+class ContributorLane(DynamicLane):
+    """A lane of Works written by a particular contributor"""
+
+    ROUTE = 'contributor'
+    MAX_CACHE_AGE = 96*60*60    # 96 hours
+    CACHED_FEED_TYPE = CachedFeed.CONTRIBUTOR_TYPE
+
+    def __init__(self, library, contributor,
+                 parent=None, languages=None, audiences=None):
+        """Constructor.
+
+        :param library: A Library.
+        :param contributor: A Contributor or ContributorData object.
+        :param parent: A WorkList.
+        :param languages: An extra restriction on the languages of Works.
+        :param audiences: An extra restriction on the audience for Works.
+        """
+        if not contributor:
+            raise ValueError(
+                "ContributorLane can't be created without contributor"
+            )
+
+        self.contributor = contributor
+        self.contributor_key = (
+            self.contributor.display_name or self.contributor.sort_name
+        )
+        super(ContributorLane, self).initialize(
+            library, display_name=self.contributor_key,
+            audiences=audiences, languages=languages,
+        )
+        if parent:
+            parent.append_child(self)
+
+    @property
+    def url_arguments(self):
+        kwargs = dict(
+            contributor_name=self.contributor_key,
+            languages=self.language_key,
+            audiences=self.audience_key
+        )
+        return self.ROUTE, kwargs
+
+    def overview_facets(self, _db, facets):
+        """Convert a FeaturedFacets to a ContributorFacets suitable for
+        use in a grouped feed.
+        """
+        return ContributorFacets.default(
+            self.get_library(_db), entrypoint=facets.entrypoint
+        )
+
+    def modify_search_filter_hook(self, filter):
+        filter.author = self.contributor
+        return filter
+
+
 class RelatedBooksLane(WorkBasedLane):
     """A lane of Works all related to a given Work by various criteria.
 
@@ -854,8 +1037,15 @@ class RelatedBooksLane(WorkBasedLane):
     * RecommendationLane: Works provided by a third-party recommendation
       service.
     """
+    CACHED_FEED_TYPE = CachedFeed.RELATED_TYPE
     DISPLAY_NAME = "Related Books"
     ROUTE = 'related_books'
+
+    # Cache this lane for the shortest amount of time any of its
+    # component lane should be cached.
+    MAX_CACHE_AGE = min(ContributorLane.MAX_CACHE_AGE,
+                        SeriesLane.MAX_CACHE_AGE,
+                        RecommendationLane.MAX_CACHE_AGE)
 
     def __init__(self, library, work, display_name=None,
                  novelist_api=None):
@@ -869,6 +1059,13 @@ class RelatedBooksLane(WorkBasedLane):
                 "No related books for %s by %s" % (self.work.title, self.work.author)
             )
         self.children = sublanes
+
+    def works(self, _db, *args, **kwargs):
+        """This lane never has works of its own.
+
+        Only its sublanes have works.
+        """
+        return []
 
     def _get_sublanes(self, _db, novelist_api):
         sublanes = list()
@@ -907,217 +1104,27 @@ class RelatedBooksLane(WorkBasedLane):
 
     def _recommendation_sublane(self, _db, novelist_api):
         """Create a recommendations sublane."""
+        lane_name = "Recommendations for %s by %s" % (
+            self.work.title, self.work.author
+        )
         try:
-            lane_name = "Recommendations for %s by %s" % (
-                self.work.title, self.work.author
-            )
             recommendation_lane = RecommendationLane(
-                self.get_library(_db), self.work, lane_name, novelist_api=novelist_api,
+                library=self.get_library(_db), work=self.work,
+                display_name=lane_name, novelist_api=novelist_api,
                 parent=self,
             )
             if recommendation_lane.recommendations:
                 yield recommendation_lane
         except CannotLoadConfiguration, e:
-            # NoveList isn't configured.
+            # NoveList isn't configured. This isn't fatal -- we just won't
+            # use this sublane.
             pass
-
-
-class RecommendationLane(WorkBasedLane, WorksFromDatabase):
-    """A lane of recommended Works based on a particular Work"""
-
-    DISPLAY_NAME = "Recommended Books"
-    ROUTE = "recommendations"
-    MAX_CACHE_AGE = 7*24*60*60      # one week
-
-    def __init__(self, library, work, display_name=None,
-                 novelist_api=None, parent=None):
-        super(RecommendationLane, self).__init__(
-            library, work, display_name=display_name,
-        )
-        _db = Session.object_session(library)
-        self.api = novelist_api or NoveListAPI.from_config(library)
-        self.recommendations = self.fetch_recommendations(_db)
-        if parent:
-            parent.append_child(self)
-
-    def fetch_recommendations(self, _db):
-        """Get identifiers of recommendations for this LicensePool"""
-
-        metadata = self.api.lookup(self.edition.primary_identifier)
-        if metadata:
-            metadata.filter_recommendations(_db)
-            return metadata.recommendations
-        return []
-
-    def apply_filters(self, _db, qu, facets, pagination, featured=False):
-        from core.model import MaterializedWorkWithGenre as mw
-        if not self.recommendations:
-            # Return a self-contradictory query that will return
-            # no results.
-            return _db.query(mw).filter(True==False)
-        qu = qu.join(LicensePool.identifier)
-        qu = Work.from_identifiers(
-            _db, self.recommendations, base_query=qu,
-            identifier_id_field=mw.identifier_id
-        )
-        return super(RecommendationLane, self).apply_filters(
-            _db, qu, facets, pagination, featured=featured
-        )
-
-
-class SeriesFacets(Facets):
-    """A custom faceting object for filtering a lane based on series and
-    ordering it based on series position (and secondarily by title).
-    """
-
-    @classmethod
-    def available_facets(cls, config, facet_group_name):
-        "Unlike most feeds, this one can be ordered by series position."
-        if facet_group_name != cls.ORDER_FACET_GROUP_NAME:
-            return super(SeriesFacets, cls).available_facets(
-                config, facet_group_name
-            )
-        default = config.enabled_facets(facet_group_name)
-        return [cls.ORDER_SERIES_POSITION] + default
-
-    @classmethod
-    def default_facet(cls, config, facet_group_name):
-        "Unlike most feeds, this one is, by default, ordered by series position."
-        if facet_group_name == cls.ORDER_FACET_GROUP_NAME:
-            return cls.ORDER_SERIES_POSITION
-        return super(SeriesFacets, cls).default_facet(config, facet_group_name)
-
-    @classmethod
-    def from_request(cls, library, config, get_argument, get_header, worklist,
-                     *args, **kwargs):
-        """Instantiate a SeriesFacets from request information plus
-        the series associated with the given WorkList.
-        """
-        facets = super(SeriesFacets, cls).from_request(
-            library, config, get_argument, get_header, worklist, *args,
-            **kwargs
-        )
-        facets.series = worklist.series
-        return facets
-
-    def navigate(self, *args, **kwargs):
-        """Propagate the selected series to a new Facets object."""
-        facets = super(SeriesFacets, self).navigate(*args, **kwargs)
-        facets.series = self.series
-        return facets
-
-    def modify_search_filter(self, filter):
-        super(SeriesFacets, self).modify_search_filter(filter)
-        filter.series = self.series
-
-
-class SeriesLane(DynamicLane):
-    """A lane of Works in a particular series."""
-
-    ROUTE = 'series'
-    MAX_CACHE_AGE = 48*60*60    # 48 hours
-
-    def __init__(self, library, series_name, parent=None, **kwargs):
-        if not series_name:
-            raise ValueError("SeriesLane can't be created without series")
-        super(SeriesLane, self).initialize(
-            library, display_name=series_name, **kwargs
-        )
-        self.series = series_name
-        if parent:
-            parent.append_child(self)
-            if isinstance(parent, WorkBasedLane):
-                # WorkBasedLane forces self.audiences to values
-                # compatible with the work in the WorkBasedLane, but
-                # that's not enough for us. We want to force
-                # self.audiences to *the specific audience* of the
-                # work in the WorkBasedLane. If we're looking at a YA
-                # series, we don't want to see books in a children's
-                # series with the same name, even if it would be
-                # appropriate to show those books.
-                self.audiences = [parent.source_audience]
-
-    @property
-    def url_arguments(self):
-        kwargs = dict(series_name=self.series)
-        if self.language_key:
-            kwargs['languages'] = self.language_key
-        if self.audience_key:
-            kwargs['audiences'] = self.audience_key
-        return self.ROUTE, kwargs
-
-class ContributorFacets(Facets):
-
-    @classmethod
-    def from_request(cls, library, config, get_argument, get_header, worklist,
-                     *args, **kwargs):
-        """Instantiate a ContributorFacets from request information plus the
-        ContributorData associated with the given WorkList.
-        """
-        facets = super(ContributorFacets, cls).from_request(
-            library, config, get_argument, get_header, worklist, *args,
-            **kwargs
-        )
-        facets.contributor = worklist.contributor
-        return facets
-
-    def navigate(self, *args, **kwargs):
-        """Propagate the selected contributor to a new Facets object."""
-        facets = super(ContributorFacets, self).navigate(*args, **kwargs)
-        facets.contributor = self.contributor
-        return facets
-
-    def modify_search_filter(self, filter):
-        super(ContributorFacets, self).modify_search_filter(filter)
-        filter.author = self.contributor
-
-
-class ContributorLane(DynamicLane):
-    """A lane of Works written by a particular contributor"""
-
-    ROUTE = 'contributor'
-    MAX_CACHE_AGE = 48*60*60    # 48 hours
-
-    def __init__(self, library, contributor,
-                 parent=None, languages=None, audiences=None):
-        """Constructor.
-
-        :param library: A Library.
-        :param contributor: A Contributor or ContributorData object.
-        :param parent: A WorkList.
-        :param languages: An extra restriction on the languages of Works.
-        :param audiences: An extra restriction on the audience for Works.
-        """
-        if not contributor:
-            raise ValueError(
-                "ContributorLane can't be created without contributor"
-            )
-
-        self.contributor = contributor
-        self.contributor_key = (
-            self.contributor.display_name or self.contributor.sort_name
-        )
-        super(ContributorLane, self).initialize(
-            library, display_name=self.contributor_key,
-            audiences=audiences, languages=languages,
-        )
-        if parent:
-            parent.append_child(self)
-
-    @property
-    def url_arguments(self):
-        kwargs = dict(
-            contributor_name=self.contributor_key,
-            languages=self.language_key,
-            audiences=self.audience_key
-        )
-        return self.ROUTE, kwargs
 
 
 class CrawlableFacets(Facets):
     """A special Facets class for crawlable feeds."""
 
-    CACHED_FEED_TYPE = "crawlable"
+    CACHED_FEED_TYPE = CachedFeed.CRAWLABLE_TYPE
 
     # These facet settings are definitive of a crawlable feed.
     # Library configuration settings don't matter.

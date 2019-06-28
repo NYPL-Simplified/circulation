@@ -43,6 +43,7 @@ from core.external_search import (
 from core.facets import FacetConfig
 from core.log import LogConfiguration
 from core.lane import (
+    DatabaseBackedFacets,
     Facets,
     FeaturedFacets,
     Pagination,
@@ -710,7 +711,6 @@ class OPDSFeedController(CirculationManagerController):
             return lane
         facet_class_kwargs = dict(
             minimum_featured_quality=library.minimum_featured_quality,
-            uses_customlists=lane.uses_customlists
         )
         facets = load_facets_from_request(
             worklist=lane, base_class=FeaturedFacets,
@@ -780,7 +780,6 @@ class OPDSFeedController(CirculationManagerController):
         title = lane.display_name
         facet_class_kwargs = dict(
             minimum_featured_quality=library.minimum_featured_quality,
-            uses_customlists=lane.uses_customlists
         )
         facets = load_facets_from_request(
             worklist=lane, base_class=FeaturedFacets,
@@ -1643,7 +1642,7 @@ class WorkController(CirculationManagerController):
         feed = feed_class.page(
             _db=self._db, title=lane.display_name, url=url, lane=lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=CachedFeed.CONTRIBUTOR_TYPE,
+            annotator=annotator, cache_type=lane.CACHED_FEED_TYPE,
             search_engine=search_engine
         )
         return feed_response(unicode(feed))
@@ -1669,7 +1668,8 @@ class WorkController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-    def related(self, identifier_type, identifier, novelist_api=None):
+    def related(self, identifier_type, identifier, novelist_api=None,
+                feed_class=AcquisitionFeed):
         """Serve a groups feed of books related to a given book."""
 
         library = flask.request.library
@@ -1692,26 +1692,31 @@ class WorkController(CirculationManagerController):
             # No related books were found.
             return NO_SUCH_LANE.detailed(e.message)
 
-        annotator = self.manager.annotator(lane)
-        facets = load_facets_from_request(worklist=lane)
+        facets = load_facets_from_request(
+            worklist=lane, base_class=FeaturedFacets,
+            base_class_constructor_kwargs=dict(
+                minimum_featured_quality=library.minimum_featured_quality
+            )
+        )
         if isinstance(facets, ProblemDetail):
             return facets
-        pagination = load_pagination_from_request()
-        if isinstance(pagination, ProblemDetail):
-            return pagination
+
+        annotator = self.manager.annotator(lane)
         url = annotator.feed_url(
             lane,
             facets=facets,
-            pagination=pagination,
         )
 
-        feed = AcquisitionFeed.groups(
-            self._db, lane.DISPLAY_NAME, url, lane, annotator=annotator,
-            facets=facets, search_engine=search_engine
+        feed = feed_class.groups(
+            _db=self._db, title=lane.DISPLAY_NAME,
+            url=url, lane=lane, annotator=annotator,
+            facets=facets, search_engine=search_engine,
+            cache_type=lane.CACHED_FEED_TYPE
         )
         return feed_response(unicode(feed))
 
-    def recommendations(self, identifier_type, identifier, novelist_api=None):
+    def recommendations(self, identifier_type, identifier, novelist_api=None,
+                        feed_class=AcquisitionFeed):
         """Serve a feed of recommendations related to a given book."""
 
         library = flask.request.library
@@ -1722,29 +1727,34 @@ class WorkController(CirculationManagerController):
         lane_name = "Recommendations for %s by %s" % (work.title, work.author)
         try:
             lane = RecommendationLane(
-                library, work, lane_name, novelist_api=novelist_api
+                library=library, work=work, display_name=lane_name,
+                novelist_api=novelist_api
             )
         except CannotLoadConfiguration, e:
             # NoveList isn't configured.
             return NO_SUCH_LANE.detailed(_("Recommendations not available"))
 
-        annotator = self.manager.annotator(lane)
-        facets = load_facets_from_request(worklist=lane)
+        facets = load_facets_from_request(
+            worklist=lane, base_class=DatabaseBackedFacets
+        )
         if isinstance(facets, ProblemDetail):
             return facets
+
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
+
+        annotator = self.manager.annotator(lane)
         url = annotator.feed_url(
             lane,
             facets=facets,
             pagination=pagination,
         )
 
-        feed = AcquisitionFeed.page(
-            self._db, lane.DISPLAY_NAME, url, lane,
+        feed = feed_class.page(
+            _db=self._db, title=lane.DISPLAY_NAME, url=url, lane=lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE
+            annotator=annotator, cache_type=lane.CACHED_FEED_TYPE
         )
         return feed_response(unicode(feed))
 
@@ -1804,7 +1814,7 @@ class WorkController(CirculationManagerController):
         feed = feed_class.page(
             _db=self._db, title=lane.display_name, url=url, lane=lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=CachedFeed.SERIES_TYPE,
+            annotator=annotator, cache_type=lane.CACHED_FEED_TYPE,
             search_engine=search_engine
         )
         return feed_response(unicode(feed))
