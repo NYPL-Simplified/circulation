@@ -76,6 +76,8 @@ from ..external_search import (
 
 from ..classifier import Classifier
 
+from ..problem_details import INVALID_INPUT
+
 from ..testing import (
     ExternalSearchTest,
     EndToEndSearchTest,
@@ -3520,6 +3522,73 @@ class TestSortKeyPagination(DatabaseTest):
     pagination by tracking the last item on the previous page,
     rather than by tracking the number of items seen so far.
     """
+
+    def test_from_request(self):
+        # No arguments -> Class defaults.
+        pagination = SortKeyPagination.from_request({}.get, None)
+        assert isinstance(pagination, SortKeyPagination)
+        eq_(SortKeyPagination.DEFAULT_SIZE, pagination.size)
+        eq_(None, pagination.pagination_key)
+
+        # Override the default page size.
+        pagination = SortKeyPagination.from_request({}.get, 100)
+        assert isinstance(pagination, SortKeyPagination)
+        eq_(100, pagination.size)
+        eq_(None, pagination.pagination_key)
+
+        # The most common usages.
+        pagination = SortKeyPagination.from_request(dict(size="4").get)
+        assert isinstance(pagination, SortKeyPagination)
+        eq_(4, pagination.size)
+        eq_(None, pagination.pagination_key)
+
+        pagination_key = json.dumps(["field 1", 2])
+
+        pagination = SortKeyPagination.from_request(
+            dict(key=pagination_key).get
+        )
+        assert isinstance(pagination, SortKeyPagination)
+        eq_(SortKeyPagination.DEFAULT_SIZE, pagination.size)
+        eq_(pagination_key, pagination.pagination_key)
+
+        # Invalid size -> problem detail
+        error = SortKeyPagination.from_request(dict(size="string").get)
+        eq_(INVALID_INPUT.uri, error.uri)
+        eq_("Invalid page size: string", str(error.detail))
+
+        # Invalid pagination key -> problem detail
+        error = SortKeyPagination.from_request(dict(key="not json").get)
+        eq_(INVALID_INPUT.uri, error.uri)
+        eq_("Invalid page key: not json", str(error.detail))
+
+        # Size too large -> cut down to MAX_SIZE
+        pagination = SortKeyPagination.from_request(dict(size="10000").get)
+        assert isinstance(pagination, SortKeyPagination)
+        eq_(SortKeyPagination.MAX_SIZE, pagination.size)
+        eq_(None, pagination.pagination_key)
+
+    def test_items(self):
+        # Test the values added to URLs to propagate pagination
+        # settings across requests.
+        pagination = SortKeyPagination(size=20)
+        eq_([("size", 20)], list(pagination.items()))
+        key = ["the last", "item"]
+        pagination.last_item_on_previous_page = key
+        eq_(
+            [("key", json.dumps(key)), ("size", 20)],
+            list(pagination.items())
+        )
+
+    def test_pagination_key(self):
+        # SortKeyPagination has no pagination key until it knows
+        # about the last item on the previous page.
+        pagination = SortKeyPagination()
+        eq_(None, pagination. pagination_key)
+
+        key = ["the last", "item"]
+        pagination.last_item_on_previous_page = key
+        eq_(pagination.pagination_key, json.dumps(key))
+
     def test_unimplemented_features(self):
         # Check certain features of a normal Pagination object that
         # are not implemented in SortKeyPagination.
@@ -3544,7 +3613,7 @@ class TestSortKeyPagination(DatabaseTest):
         assert_raises_regexp(
             NotImplementedError,
             "SortKeyPagination does not work with database queries.",
-            pagination.apply, object()
+            pagination.modify_database_query, object()
         )
 
     def test_modify_search_query(self):
@@ -3603,7 +3672,9 @@ class TestSortKeyPagination(DatabaseTest):
         last_hit = hits[-1]
 
         # Tell the page about the results.
+        eq_(False, this_page.page_has_loaded)
         this_page.page_loaded(hits)
+        eq_(True, this_page.page_has_loaded)
 
         # We know the size.
         eq_(5, this_page.this_page_size)
