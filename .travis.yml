@@ -38,7 +38,6 @@ before_script:
 env:
   global:
     - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_circulation_test"
-    - SIMPLIFIED_ELASTICSEARCH_VERSION=1
 
 script:
   - ./verbose-test
