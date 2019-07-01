@@ -2544,7 +2544,15 @@ class MockExternalSearchIndex(ExternalSearchIndex):
         self.queries.append((query_string, filter, pagination, debug))
         # During a test we always sort works by the order in which the
         # work was created.
-        docs = sorted(self.docs.values(), key=lambda x: x['_id'])
+
+        def sort_key(x):
+            # This needs to work with either a MockSearchResult or a
+            # dictionary representing a raw search result.
+            if isinstance(x, MockSearchResult):
+                return x.work_id
+            else:
+                return x['_id']
+        docs = sorted(self.docs.values(), key=sort_key)
         if pagination:
             start_at = 0
             if isinstance(pagination, SortKeyPagination):
