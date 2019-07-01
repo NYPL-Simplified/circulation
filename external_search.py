@@ -699,7 +699,7 @@ return champion;
 
 class ExternalSearchIndexVersions(object):
 
-    VERSIONS = ['v1']
+    VERSIONS = ['v4']
 
     @classmethod
     def latest(cls):
@@ -752,7 +752,7 @@ class ExternalSearchIndexVersions(object):
             elif type == 'filterable_text':
                 description['type'] = 'text'
                 description['analyzer'] = "en_analyzer"
-                description['fields'] =  cls.V1_FILTERABLE_TEXT_FIELDS
+                description['fields'] =  cls.V4_FILTERABLE_TEXT_FIELDS
             mapping = cls.map_fields(
                 fields=fields,
                 mapping=mapping,
@@ -763,8 +763,8 @@ class ExternalSearchIndexVersions(object):
     # Use regular expressions to normalized values in sortable fields.
     # These regexes are applied in order; that way "H. G. Wells"
     # becomes "H G Wells" becomes "HG Wells".
-    V1_CHAR_FILTERS = {}
-    V1_AUTHOR_CHAR_FILTER_NAMES = []
+    V4_CHAR_FILTERS = {}
+    V4_AUTHOR_CHAR_FILTER_NAMES = []
     for name, pattern, replacement in [
         # The special author name "[Unknown]" should sort after everything
         # else. REPLACEMENT CHARACTER is the final valid Unicode character.
@@ -788,13 +788,13 @@ class ExternalSearchIndexVersions(object):
         normalizer = dict(type="pattern_replace",
                           pattern=pattern,
                           replacement=replacement)
-        V1_CHAR_FILTERS[name] = normalizer
-        V1_AUTHOR_CHAR_FILTER_NAMES.append(name)
+        V4_CHAR_FILTERS[name] = normalizer
+        V4_AUTHOR_CHAR_FILTER_NAMES.append(name)
 
     # We want to index most text fields twice: once using the standard
     # analyzer and once using a minimal analyzer for near-exact
     # matches.
-    V1_BASIC_STRING_FIELDS = {
+    V4_BASIC_STRING_FIELDS = {
         "minimal": {
             "type": "text",
             "analyzer": "en_minimal_analyzer"},
@@ -808,8 +808,8 @@ class ExternalSearchIndexVersions(object):
     # index as text fields (for use in searching) _and_ as keyword
     # fields (for use in filtering). For the keyword field, only
     # the most basic normalization is applied.
-    V1_FILTERABLE_TEXT_FIELDS = dict(V1_BASIC_STRING_FIELDS)
-    V1_FILTERABLE_TEXT_FIELDS["keyword"] = {
+    V4_FILTERABLE_TEXT_FIELDS = dict(V4_BASIC_STRING_FIELDS)
+    V4_FILTERABLE_TEXT_FIELDS["keyword"] = {
         "type": "keyword",
         "index": True,
         "store": False,
@@ -817,7 +817,7 @@ class ExternalSearchIndexVersions(object):
     }
 
     @classmethod
-    def v1_body(cls):
+    def v4_body(cls):
         """The first search body designed for ElasticSearch 6.
 
         This body has bibliographic information in the core document,
@@ -853,7 +853,7 @@ class ExternalSearchIndexVersions(object):
                         "country": "US"
                     }
                 },
-                "char_filter" : cls.V1_CHAR_FILTERS,
+                "char_filter" : cls.V4_CHAR_FILTERS,
 
                 # This normalizer is used on freeform strings that
                 # will be used as tokens in filters. This way we can,
@@ -890,7 +890,7 @@ class ExternalSearchIndexVersions(object):
                     # normalizing names.
                     "en_sort_author_analyzer": {
                         "tokenizer": "keyword",
-                        "char_filter": cls.V1_AUTHOR_CHAR_FILTER_NAMES,
+                        "char_filter": cls.V4_AUTHOR_CHAR_FILTER_NAMES,
                         "filter": [ "en_sortable_filter" ],
                     }
                 }
@@ -905,7 +905,7 @@ class ExternalSearchIndexVersions(object):
             field_description={
                 "type": "text",
                 "analyzer": "en_analyzer",
-                "fields": cls.V1_BASIC_STRING_FIELDS
+                "fields": cls.V4_BASIC_STRING_FIELDS
             }
         )
 

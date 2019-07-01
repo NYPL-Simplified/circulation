@@ -133,7 +133,7 @@ class TestExternalSearch(ExternalSearchTest):
         """
         if not self.search:
             return
-        eq_("test_index-v1", self.search.works_index_name(self._db))
+        eq_("test_index-v4", self.search.works_index_name(self._db))
 
     def test_setup_index_creates_new_index(self):
         if not self.search:
@@ -329,8 +329,8 @@ class TestExternalSearchIndexVersions(object):
         for searching.
         """
         filters = []
-        for filter_name in ExternalSearchIndexVersions.V1_AUTHOR_CHAR_FILTER_NAMES:
-            configuration = ExternalSearchIndexVersions.V1_CHAR_FILTERS[filter_name]
+        for filter_name in ExternalSearchIndexVersions.V4_AUTHOR_CHAR_FILTER_NAMES:
+            configuration = ExternalSearchIndexVersions.V4_CHAR_FILTERS[filter_name]
             find = re.compile(configuration['pattern'])
             replace = configuration['replacement']
             # Hack to (imperfectly) convert Java regex format to Python format.
