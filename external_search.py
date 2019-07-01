@@ -14,7 +14,6 @@ from elasticsearch_dsl import (
     Search,
     Q,
 )
-from elasticsearch_dsl import Q as F
 from elasticsearch_dsl.query import (
     Bool,
     Query as BaseQuery
@@ -1787,14 +1786,14 @@ class Filter(SearchBase):
         nested_filters = defaultdict(list)
         collection_ids = filter_ids(self.collection_ids)
         if collection_ids:
-            collection_match = F(
+            collection_match = Q(
                 'terms', **{'licensepools.collection_id' : collection_ids}
             )
             nested_filters['licensepools'].append(collection_match)
 
         license_datasources = filter_ids(self.license_datasources)
         if license_datasources:
-            datasource_match = F(
+            datasource_match = Q(
                 'terms', **{'licensepools.data_source_id' : license_datasources}
             )
             nested_filters['licensepools'].append(datasource_match)
@@ -1803,44 +1802,44 @@ class Filter(SearchBase):
             nested_filters['contributors'].append(self.author_filter)
 
         if self.media:
-            f = chain(f, F('terms', medium=scrub_list(self.media)))
+            f = chain(f, Q('terms', medium=scrub_list(self.media)))
 
         if self.languages:
-            f = chain(f, F('terms', language=scrub_list(self.languages)))
+            f = chain(f, Q('terms', language=scrub_list(self.languages)))
 
         if self.fiction is not None:
             if self.fiction:
                 value = 'fiction'
             else:
                 value = 'nonfiction'
-            f = chain(f, F('term', fiction=value))
+            f = chain(f, Q('term', fiction=value))
 
         if self.series:
-            f = chain(f, F('term', **{"series.keyword": self.series}))
+            f = chain(f, Q('term', **{"series.keyword": self.series}))
 
         if self.audiences:
-            f = chain(f, F('terms', audience=scrub_list(self.audiences)))
+            f = chain(f, Q('terms', audience=scrub_list(self.audiences)))
 
         target_age_filter = self.target_age_filter
         if target_age_filter:
             f = chain(f, self.target_age_filter)
 
         for genre_ids in self.genre_restriction_sets:
-            f = chain(f, F('terms', **{'genres.term' : filter_ids(genre_ids)}))
+            f = chain(f, Q('terms', **{'genres.term' : filter_ids(genre_ids)}))
 
         for customlist_ids in self.customlist_restriction_sets:
             ids = filter_ids(customlist_ids)
             nested_filters['customlists'].append(
-                F('terms', **{'customlists.list_id' : ids})
+                Q('terms', **{'customlists.list_id' : ids})
             )
 
-        open_access = F('term', **{'licensepools.open_access' : True})
+        open_access = Q('term', **{'licensepools.open_access' : True})
         if self.availability==FacetConstants.AVAILABLE_NOW:
             # Only open-access books and books with currently available
             # copies should be displayed.
-            available = F('term', **{'licensepools.available' : True})
+            available = Q('term', **{'licensepools.available' : True})
             nested_filters['licensepools'].append(
-                F('bool', should=[open_access, available])
+                Q('bool', should=[open_access, available])
             )
         elif self.availability==FacetConstants.AVAILABLE_OPEN_ACCESS:
             # Only open-access books should be displayed.
@@ -1849,10 +1848,10 @@ class Filter(SearchBase):
         if self.subcollection==FacetConstants.COLLECTION_MAIN:
             # Exclude open-access books with a quality of less than
             # 0.3.
-            not_open_access = F('term', **{'licensepools.open_access' : False})
+            not_open_access = Q('term', **{'licensepools.open_access' : False})
             decent_quality = self._match_range('licensepools.quality', 'gte', 0.3)
             nested_filters['licensepools'].append(
-                F('bool', should=[not_open_access, decent_quality])
+                Q('bool', should=[not_open_access, decent_quality])
             )
         elif self.subcollection==FacetConstants.COLLECTION_FEATURED:
             # Exclude books with a quality of less than the library's
@@ -1860,15 +1859,15 @@ class Filter(SearchBase):
             range_query = self._match_range(
                 'quality', 'gte', self.minimum_featured_quality
             )
-            f = chain(f, F('bool', must=range_query))
+            f = chain(f, Q('bool', must=range_query))
 
         # Some sources of audiobooks may be excluded because the
         # server can't fulfill them or the anticipated client can't
         # play them.
         excluded = self.excluded_audiobook_data_sources
         if excluded:
-            audio = F('term', **{'licensepools.medium': Edition.AUDIO_MEDIUM})
-            excluded_audio_source = F(
+            audio = Q('term', **{'licensepools.medium': Edition.AUDIO_MEDIUM})
+            excluded_audio_source = Q(
                 'terms', **{'licensepools.data_source_id' : excluded}
             )
             excluded_audio = Bool(must=[audio, excluded_audio_source])
@@ -1878,7 +1877,7 @@ class Filter(SearchBase):
         # If holds are not allowed, only license pools that are
         # currently available should be considered.
         if not self.allow_holds:
-            licenses_available = F('term', **{'licensepools.available' : True})
+            licenses_available = Q('term', **{'licensepools.available' : True})
             currently_available = Bool(should=[licenses_available, open_access])
             nested_filters['licensepools'].append(currently_available)
 
@@ -1895,7 +1894,7 @@ class Filter(SearchBase):
             last_update_time_query = self._match_range(
                 'last_update_time', 'gte', updated_after
             )
-            f = chain(f, F('bool', must=last_update_time_query))
+            f = chain(f, Q('bool', must=last_update_time_query))
 
         return f, nested_filters
 
@@ -1917,7 +1916,7 @@ class Filter(SearchBase):
 
         # We only want to show works that are presentation-ready.
         base_filter = _chain_filters(
-            base_filter, F('term', **{"presentation_ready":True})
+            base_filter, Q('term', **{"presentation_ready":True})
         )
 
         return base_filter
@@ -1942,12 +1941,12 @@ class Filter(SearchBase):
         # It's easier to stay consistent by indexing all Works and
         # filtering them out later, than to do it by adding and
         # removing works from the index.
-        not_suppressed = F('term', **{'licensepools.suppressed' : False})
+        not_suppressed = Q('term', **{'licensepools.suppressed' : False})
         nested_filters['licensepools'].append(not_suppressed)
 
-        owns_licenses = F('term', **{'licensepools.licensed' : True})
-        open_access = F('term', **{'licensepools.open_access' : True})
-        currently_owned = F('bool', should=[owns_licenses, open_access])
+        owns_licenses = Q('term', **{'licensepools.licensed' : True})
+        open_access = Q('term', **{'licensepools.open_access' : True})
+        currently_owned = Q('bool', should=[owns_licenses, open_access])
         nested_filters['licensepools'].append(currently_owned)
 
         return nested_filters
@@ -2114,13 +2113,13 @@ class Filter(SearchBase):
             return None
         def does_not_exist(field):
             """A filter that matches if there is no value for `field`."""
-            return F('bool', must_not=[F('exists', field=field)])
+            return Q('bool', must_not=[Q('exists', field=field)])
 
         def or_does_not_exist(clause, field):
             """Either the given `clause` matches or the given field
             does not exist.
             """
-            return F('bool', should=[clause, does_not_exist(field)],
+            return Q('bool', should=[clause, does_not_exist(field)],
                      minimum_should_match=1)
 
         clauses = []
@@ -2146,7 +2145,7 @@ class Filter(SearchBase):
             return clauses[0]
 
         # Both upper and lower age must match.
-        return F('bool', must=clauses)
+        return Q('bool', must=clauses)
 
     @property
     def author_filter(self):
@@ -2155,7 +2154,7 @@ class Filter(SearchBase):
         """
         if not self.author:
             return None
-        authorship_role = F(
+        authorship_role = Q(
             'terms', **{'contributors.role' : self.AUTHOR_MATCH_ROLES}
         )
         clauses = []
@@ -2168,11 +2167,11 @@ class Filter(SearchBase):
             if not value or value == Edition.UNKNOWN_AUTHOR:
                 continue
             clauses.append(
-                F('term', **{'contributors.%s' % field : value})
+                Q('term', **{'contributors.%s' % field : value})
             )
 
-        same_person = F('bool', should=clauses, minimum_should_match=1)
-        return F('bool', must=[authorship_role, same_person])
+        same_person = Q('bool', should=clauses, minimum_should_match=1)
+        return Q('bool', must=[authorship_role, same_person])
 
 
     @classmethod

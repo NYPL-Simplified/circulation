@@ -17,6 +17,7 @@ from . import (
     DatabaseTest,
 )
 
+from elasticsearch_dsl import Q
 from elasticsearch_dsl.query import (
     Bool,
     Query as elasticsearch_dsl_query,
@@ -63,14 +64,6 @@ from ..external_search import (
     SortKeyPagination,
     WorkSearchResult,
     mock_search_index,
-)
-# NOTE: external_search took care of handling the differences between
-# Elasticsearch versions and making sure 'Q' and 'F' are set
-# appropriately.  That's why we import them from external_search
-# instead of elasticsearch_dsl.
-from ..external_search import (
-    Q,
-    F,
 )
 
 from ..classifier import Classifier
@@ -1804,8 +1797,8 @@ class TestQuery(DatabaseTest):
         # replace them with simpler versions.
         class MockFilter(object):
 
-            universal_base_term = F('term', universal_base_called=True)
-            universal_nested_term = F('term', universal_nested_called=True)
+            universal_base_term = Q('term', universal_base_called=True)
+            universal_nested_term = Q('term', universal_nested_called=True)
             universal_nested_filter = dict(nested_called=[universal_nested_term])
 
             @classmethod
@@ -1995,7 +1988,7 @@ class TestQuery(DatabaseTest):
         quality_range = Filter._match_range(
             'quality', 'gte', self._default_library.minimum_featured_quality
         )
-        eq_(F('bool', must=quality_range), quality_filter)
+        eq_(Q('bool', must=quality_range), quality_filter)
 
         # When using the AVAILABLE_OPEN_ACCESS availability restriction...
         built = from_facets(Facets.COLLECTION_FULL,
@@ -2946,8 +2939,8 @@ class TestFilter(DatabaseTest):
             datasource_filter.to_dict())
 
         # The 'excluded audiobooks' filter.
-        audio = F('term', **{'licensepools.medium': Edition.AUDIO_MEDIUM})
-        excluded_audio_source = F(
+        audio = Q('term', **{'licensepools.medium': Edition.AUDIO_MEDIUM})
+        excluded_audio_source = Q(
             'terms', **{'licensepools.data_source_id' : [overdrive.id]}
         )
         excluded_audio = Bool(must=[audio, excluded_audio_source])
@@ -2955,8 +2948,8 @@ class TestFilter(DatabaseTest):
         eq_(not_excluded_audio, excluded_audiobooks_filter)
 
         # The 'no holds' filter.
-        open_access = F('term', **{'licensepools.open_access' : True})
-        licenses_available = F('term', **{'licensepools.available' : True})
+        open_access = Q('term', **{'licensepools.open_access' : True})
+        licenses_available = Q('term', **{'licensepools.available' : True})
         currently_available = Bool(should=[licenses_available, open_access])
         eq_(currently_available, no_holds_filter)
 
@@ -3421,8 +3414,8 @@ class TestFilter(DatabaseTest):
     def test__chain_filters(self):
         # Test the _chain_filters method, which combines
         # two Elasticsearch filter objects.
-        f1 = F('term', key="value")
-        f2 = F('term', key2="value2")
+        f1 = Q('term', key="value")
+        f2 = Q('term', key2="value2")
 
         m = Filter._chain_filters
 
