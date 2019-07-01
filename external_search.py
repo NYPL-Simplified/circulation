@@ -14,12 +14,7 @@ from elasticsearch_dsl import (
     Search,
     Q,
 )
-try:
-    from elasticsearch_dsl import F
-    MAJOR_VERSION = 1
-except ImportError, e:
-    from elasticsearch_dsl import Q as F
-    MAJOR_VERSION = 6
+from elasticsearch_dsl import Q as F
 from elasticsearch_dsl.query import (
     Bool,
     Query as BaseQuery
@@ -454,10 +449,7 @@ return champion;
         # Change the Search object so it only retrieves the fields
         # we're asking for.
         if fields:
-            if MAJOR_VERSION == 1:
-                search = search.fields(fields)
-            else:
-                search = search.source(fields)
+            search = search.source(fields)
 
         return search
 
@@ -708,7 +700,7 @@ return champion;
 
 class ExternalSearchIndexVersions(object):
 
-    VERSIONS = ['v2', 'v3', 'v4']
+    VERSIONS = ['v1']
 
     @classmethod
     def latest(cls):
@@ -761,7 +753,7 @@ class ExternalSearchIndexVersions(object):
             elif type == 'filterable_text':
                 description['type'] = 'text'
                 description['analyzer'] = "en_analyzer"
-                description['fields'] =  cls.V4_FILTERABLE_TEXT_FIELDS
+                description['fields'] =  cls.V1_FILTERABLE_TEXT_FIELDS
             mapping = cls.map_fields(
                 fields=fields,
                 mapping=mapping,
@@ -772,8 +764,8 @@ class ExternalSearchIndexVersions(object):
     # Use regular expressions to normalized values in sortable fields.
     # These regexes are applied in order; that way "H. G. Wells"
     # becomes "H G Wells" becomes "HG Wells".
-    V4_CHAR_FILTERS = {}
-    V4_AUTHOR_CHAR_FILTER_NAMES = []
+    V1_CHAR_FILTERS = {}
+    V1_AUTHOR_CHAR_FILTER_NAMES = []
     for name, pattern, replacement in [
         # The special author name "[Unknown]" should sort after everything
         # else. REPLACEMENT CHARACTER is the final valid Unicode character.
@@ -797,13 +789,13 @@ class ExternalSearchIndexVersions(object):
         normalizer = dict(type="pattern_replace",
                           pattern=pattern,
                           replacement=replacement)
-        V4_CHAR_FILTERS[name] = normalizer
-        V4_AUTHOR_CHAR_FILTER_NAMES.append(name)
+        V1_CHAR_FILTERS[name] = normalizer
+        V1_AUTHOR_CHAR_FILTER_NAMES.append(name)
 
     # We want to index most text fields twice: once using the standard
     # analyzer and once using a minimal analyzer for near-exact
     # matches.
-    V4_BASIC_STRING_FIELDS = {
+    V1_BASIC_STRING_FIELDS = {
         "minimal": {
             "type": "text",
             "analyzer": "en_minimal_analyzer"},
@@ -817,8 +809,8 @@ class ExternalSearchIndexVersions(object):
     # index as text fields (for use in searching) _and_ as keyword
     # fields (for use in filtering). For the keyword field, only
     # the most basic normalization is applied.
-    V4_FILTERABLE_TEXT_FIELDS = dict(V4_BASIC_STRING_FIELDS)
-    V4_FILTERABLE_TEXT_FIELDS["keyword"] = {
+    V1_FILTERABLE_TEXT_FIELDS = dict(V1_BASIC_STRING_FIELDS)
+    V1_FILTERABLE_TEXT_FIELDS["keyword"] = {
         "type": "keyword",
         "index": True,
         "store": False,
@@ -826,20 +818,19 @@ class ExternalSearchIndexVersions(object):
     }
 
     @classmethod
-    def v4_body(cls):
-        """The v4 body adds a significant number of fields so that
-        queries can sort by those fields rather than by term relevance.
+    def v1_body(cls):
+        """The first search body designed for ElasticSearch 6.
 
-        v3 had a 'collections' collection that listed the collections
-        through which a work is made available. In v4, detailed
-        information about each LicensePool (not just its collection
-        ID) is kept in a nested data type ('licensepools').
+        This body has bibliographic information in the core document,
+        primarily used for matching search requests. It also has
+        nested documents, which are used for filtering and ranking
+        Works when generating other types of feeds:
+
+        * licensepools -- the Work has these LicensePools (includes current
+          availability as a boolean, but not detailed availability information)
+        * customlists -- the Work is on these CustomLists
+        * contributors -- these Contributors worked on the Work
         """
-        if MAJOR_VERSION == 1:
-            string_type = 'string'
-        else:
-            string_type = 'text'
-
         settings = {
             "analysis": {
                 "filter": {
@@ -863,7 +854,7 @@ class ExternalSearchIndexVersions(object):
                         "country": "US"
                     }
                 },
-                "char_filter" : cls.V4_CHAR_FILTERS,
+                "char_filter" : cls.V1_CHAR_FILTERS,
 
                 # This normalizer is used on freeform strings that
                 # will be used as tokens in filters. This way we can,
@@ -900,7 +891,7 @@ class ExternalSearchIndexVersions(object):
                     # normalizing names.
                     "en_sort_author_analyzer": {
                         "tokenizer": "keyword",
-                        "char_filter": cls.V4_AUTHOR_CHAR_FILTER_NAMES,
+                        "char_filter": cls.V1_AUTHOR_CHAR_FILTER_NAMES,
                         "filter": [ "en_sortable_filter" ],
                     }
                 }
@@ -913,9 +904,9 @@ class ExternalSearchIndexVersions(object):
         mapping = cls.map_fields(
             fields=["title", "subtitle", "summary", "classifications.term"],
             field_description={
-                "type": string_type,
+                "type": "text",
                 "analyzer": "en_analyzer",
-                "fields": cls.V4_BASIC_STRING_FIELDS
+                "fields": cls.V1_BASIC_STRING_FIELDS
             }
         )
 
@@ -994,119 +985,6 @@ class ExternalSearchIndexVersions(object):
         # Finally, name the mapping to connect it to the 'works'
         # document type.
         mappings = { ExternalSearchIndex.work_document_type : mapping }
-        return dict(settings=settings, mappings=mappings)
-
-    @classmethod
-    def v3_body(cls):
-        """The v3 body is the same as the v2 except for the inclusion of the
-        '.standard' version of fields, analyzed using the standard
-        analyzer for near-exact matches.
-        """
-        if MAJOR_VERSION == 1:
-            string_type = 'string'
-        else:
-            string_type = 'text'
-
-        settings = {
-            "analysis": {
-                "filter": {
-                    "en_stop_filter": {
-                        "type": "stop",
-                        "stopwords": ["_english_"]
-                    },
-                    "en_stem_filter": {
-                        "type": "stemmer",
-                        "name": "english"
-                    },
-                    "en_stem_minimal_filter": {
-                        "type": "stemmer",
-                        "name": "english"
-                    },
-                },
-                "analyzer" : {
-                    "en_analyzer": {
-                        "type": "custom",
-                        "char_filter": ["html_strip"],
-                        "tokenizer": "standard",
-                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
-                    },
-                    "en_minimal_analyzer": {
-                        "type": "custom",
-                        "char_filter": ["html_strip"],
-                        "tokenizer": "standard",
-                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
-                    },
-                }
-            }
-        }
-
-        mapping = cls.map_fields(
-            fields=["title", "series", "subtitle", "summary", "classifications.term"],
-            field_description={
-                "type": string_type,
-                "analyzer": "en_analyzer",
-                "fields": {
-                    "minimal": {
-                        "type": string_type,
-                        "analyzer": "en_minimal_analyzer"},
-                    "standard": {
-                        "type": string_type,
-                        "analyzer": "standard"
-                    }
-                }}
-        )
-        mappings = { ExternalSearchIndex.work_document_type : mapping }
-
-        return dict(settings=settings, mappings=mappings)
-
-    @classmethod
-    def v2_body(cls):
-
-        settings = {
-            "analysis": {
-                "filter": {
-                    "en_stop_filter": {
-                        "type": "stop",
-                        "stopwords": ["_english_"]
-                    },
-                    "en_stem_filter": {
-                        "type": "stemmer",
-                        "name": "english"
-                    },
-                    "en_stem_minimal_filter": {
-                        "type": "stemmer",
-                        "name": "english"
-                    },
-                },
-                "analyzer" : {
-                    "en_analyzer": {
-                        "type": "custom",
-                        "char_filter": ["html_strip"],
-                        "tokenizer": "standard",
-                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
-                    },
-                    "en_minimal_analyzer": {
-                        "type": "custom",
-                        "char_filter": ["html_strip"],
-                        "tokenizer": "standard",
-                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
-                    },
-                }
-            }
-        }
-
-        mapping = cls.map_fields(
-            fields=["title", "series", "subtitle", "summary", "classifications.term"],
-            field_description={
-                "type": "string",
-                "analyzer": "en_analyzer",
-                "fields": {
-                    "minimal": {
-                        "type": "string",
-                        "analyzer": "en_minimal_analyzer"}}}
-        )
-        mappings = { ExternalSearchIndex.work_document_type : mapping }
-
         return dict(settings=settings, mappings=mappings)
 
     @classmethod
@@ -2242,11 +2120,8 @@ class Filter(SearchBase):
             """Either the given `clause` matches or the given field
             does not exist.
             """
-            if MAJOR_VERSION==1:
-                return F('or', [clause, does_not_exist(field)])
-            else:
-                return F('bool', should=[clause, does_not_exist(field)],
-                         minimum_should_match=1)
+            return F('bool', should=[clause, does_not_exist(field)],
+                     minimum_should_match=1)
 
         clauses = []
 

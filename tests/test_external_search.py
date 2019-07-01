@@ -53,7 +53,6 @@ from ..external_search import (
     ExternalSearchIndex,
     ExternalSearchIndexVersions,
     Filter,
-    MAJOR_VERSION,
     MockExternalSearchIndex,
     MockSearchResult,
     Query,
@@ -141,7 +140,7 @@ class TestExternalSearch(ExternalSearchTest):
         """
         if not self.search:
             return
-        eq_("test_index-v4", self.search.works_index_name(self._db))
+        eq_("test_index-v1", self.search.works_index_name(self._db))
 
     def test_setup_index_creates_new_index(self):
         if not self.search:
@@ -337,8 +336,8 @@ class TestExternalSearchIndexVersions(object):
         for searching.
         """
         filters = []
-        for filter_name in ExternalSearchIndexVersions.V4_AUTHOR_CHAR_FILTER_NAMES:
-            configuration = ExternalSearchIndexVersions.V4_CHAR_FILTERS[filter_name]
+        for filter_name in ExternalSearchIndexVersions.V1_AUTHOR_CHAR_FILTER_NAMES:
+            configuration = ExternalSearchIndexVersions.V1_CHAR_FILTERS[filter_name]
             find = re.compile(configuration['pattern'])
             replace = configuration['replacement']
             # Hack to (imperfectly) convert Java regex format to Python format.
@@ -592,21 +591,13 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         expect(self.moby_dick, "gutenberg")
 
         # Title > subtitle > summary > publisher.
-        if MAJOR_VERSION == 1:
-            order = [
-                self.title_match,
-                self.subtitle_match,
-                self.summary_match,
-                self.publisher_match,
-            ]
-        else:
-            # TODO: This is incorrect -- summary is boosted way too much.
-            order = [
-                self.title_match,
-                self.summary_match,
-                self.subtitle_match,
-                self.publisher_match,
-            ]
+        # TODO: This is incorrect -- summary is boosted way too much.
+        order = [
+            self.title_match,
+            self.summary_match,
+            self.subtitle_match,
+            self.publisher_match,
+        ]
         expect(order, "match")
 
         # (title match + author match) > title match
@@ -659,15 +650,10 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
 
         # Find results based on genre.
 
-        if MAJOR_VERSION == 1:
-            # The name of the genre also shows up in the title of a
-            # book, but the genre boost means the romance novel is the
-            # first result.
-            expect([self.ya_romance, self.modern_romance], "romance")
-        else:
-            # In ES6, the title boost is higher (TODO: how?) so
-            # the book with 'romance' in the title is the first result.
-            expect([self.modern_romance, self.ya_romance], "romance")
+        # In ES6, the title boost is higher than the genre boost so
+        # the book with 'romance' in the title is the first result.
+        # TODO: This isn't ideal.
+        expect([self.modern_romance, self.ya_romance], "romance")
 
         # Find results based on audience.
         expect(self.children_work, "children's")
@@ -1601,31 +1587,17 @@ class TestExactMatches(EndToEndSearchTest):
         ]
         expect(order, "peter graves")
 
-        if MAJOR_VERSION == 1:
-            # In Elasticsearch 1, 'The Making of Biography With Peter
-            # Graves' does worse in a search for 'peter graves
-            # biography' than a biography whose title includes the
-            # phrase 'peter graves'. Although the title contains all
-            # three search terms, it's not an exact token match. But
-            # "The Making of..." still does better than books that
-            # match 'peter graves' (or 'peter' and 'graves'), but not
-            # 'biography'.
-            order = [
-                self.biography_of_peter_graves, # title + genre 'biography'
-                self.behind_the_scenes,         # all words match in title
-                self.book_by_peter_graves,      # author (no 'biography')
-                self.book_by_someone_else,      # match across fields (no 'biography')
-            ]
-        else:
-            # In Elasticsearch 6, the exact author match that doesn't
-            # mention 'biography' is boosted above a book that
-            # mentions all three words in its title.
-            order = [
-                self.biography_of_peter_graves, # title + genre 'biography'
-                self.book_by_peter_graves,      # author (no 'biography')
-                self.behind_the_scenes,         # all words match in title
-                self.book_by_someone_else,      # match across fields (no 'biography')
-            ]
+        # An exact author match that doesn't mention 'biography'
+        # is boosted above a book that mentions all three words in
+        # its title.
+        #
+        # TODO: We may want to revisit this.
+        order = [
+            self.biography_of_peter_graves, # title + genre 'biography'
+            self.book_by_peter_graves,      # author (no 'biography')
+            self.behind_the_scenes,         # all words match in title
+            self.book_by_someone_else,      # match across fields (no 'biography')
+        ]
 
         expect(order, "peter graves biography")
 
@@ -3347,13 +3319,9 @@ class TestFilter(DatabaseTest):
             matches one of a number of possibilities. Return those
             possibilities.
             """
-            if MAJOR_VERSION == 1:
-                eq_("or", filter.name)
-                return filter.filters
-            else:
-                eq_("bool", filter.name)
-                eq_(1, filter.minimum_should_match)
-                return filter.should
+            eq_("bool", filter.name)
+            eq_(1, filter.minimum_should_match)
+            return filter.should
         more_than_two, no_upper_limit = dichotomy(upper_match)
 
 
