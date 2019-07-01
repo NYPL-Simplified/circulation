@@ -39,6 +39,7 @@ from core.entrypoint import EverythingEntryPoint
 from core.external_search import (
     ExternalSearchIndex,
     MockExternalSearchIndex,
+    SortKeyPagination,
 )
 from core.facets import FacetConfig
 from core.log import LogConfiguration
@@ -743,7 +744,7 @@ class OPDSFeedController(CirculationManagerController):
         facets = load_facets_from_request(worklist=lane)
         if isinstance(facets, ProblemDetail):
             return facets
-        pagination = load_pagination_from_request()
+        pagination = load_pagination_from_request(SortKeyPagination)
         if isinstance(pagination, ProblemDetail):
             return pagination
         search_engine = self.search_engine
@@ -862,7 +863,7 @@ class OPDSFeedController(CirculationManagerController):
             for use in tests.
         """
         pagination = load_pagination_from_request(
-            default_size=Pagination.DEFAULT_CRAWLABLE_SIZE
+            SortKeyPagination, default_size=Pagination.DEFAULT_CRAWLABLE_SIZE
         )
         if isinstance(pagination, ProblemDetail):
             return pagination
@@ -906,8 +907,11 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(lane, ProblemDetail):
             return lane
 
+        # Althoug the search query goes against Elasticsearch, we must
+        # use normal pagination because the results are sorted by
+        # match quality, not bibliographic information.
         pagination = load_pagination_from_request(
-            default_size=Pagination.DEFAULT_SEARCH_SIZE
+            Pagination, default_size=Pagination.DEFAULT_SEARCH_SIZE
         )
         if isinstance(pagination, ProblemDetail):
             return pagination
@@ -1625,7 +1629,7 @@ class WorkController(CirculationManagerController):
         if isinstance(facets, ProblemDetail):
             return facets
 
-        pagination = load_pagination_from_request()
+        pagination = load_pagination_from_request(SortKeyPagination)
         if isinstance(pagination, ProblemDetail):
             return pagination
 
@@ -1738,7 +1742,10 @@ class WorkController(CirculationManagerController):
         if isinstance(facets, ProblemDetail):
             return facets
 
-        pagination = load_pagination_from_request()
+        # We use a normal Pagination object because recommendations
+        # are looked up in a third-party API and paginated through the
+        # database lookup.
+        pagination = load_pagination_from_request(Pagination)
         if isinstance(pagination, ProblemDetail):
             return pagination
 
@@ -1802,7 +1809,7 @@ class WorkController(CirculationManagerController):
         if isinstance(facets, ProblemDetail):
             return facets
 
-        pagination = load_pagination_from_request()
+        pagination = load_pagination_from_request(SortKeyPagination)
         if isinstance(pagination, ProblemDetail):
             return pagination
 
