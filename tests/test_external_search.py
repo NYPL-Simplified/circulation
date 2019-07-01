@@ -17,6 +17,7 @@ from . import (
     DatabaseTest,
 )
 
+from elasticsearch_dsl import Q
 from elasticsearch_dsl.query import (
     Bool,
     Query as elasticsearch_dsl_query,
@@ -53,7 +54,6 @@ from ..external_search import (
     ExternalSearchIndex,
     ExternalSearchIndexVersions,
     Filter,
-    MAJOR_VERSION,
     MockExternalSearchIndex,
     MockSearchResult,
     Query,
@@ -64,14 +64,6 @@ from ..external_search import (
     SortKeyPagination,
     WorkSearchResult,
     mock_search_index,
-)
-# NOTE: external_search took care of handling the differences between
-# Elasticsearch versions and making sure 'Q' and 'F' are set
-# appropriately.  That's why we import them from external_search
-# instead of elasticsearch_dsl.
-from ..external_search import (
-    Q,
-    F,
 )
 
 from ..classifier import Classifier
@@ -592,21 +584,13 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         expect(self.moby_dick, "gutenberg")
 
         # Title > subtitle > summary > publisher.
-        if MAJOR_VERSION == 1:
-            order = [
-                self.title_match,
-                self.subtitle_match,
-                self.summary_match,
-                self.publisher_match,
-            ]
-        else:
-            # TODO: This is incorrect -- summary is boosted way too much.
-            order = [
-                self.title_match,
-                self.summary_match,
-                self.subtitle_match,
-                self.publisher_match,
-            ]
+        # TODO: This is incorrect -- summary is boosted way too much.
+        order = [
+            self.title_match,
+            self.summary_match,
+            self.subtitle_match,
+            self.publisher_match,
+        ]
         expect(order, "match")
 
         # (title match + author match) > title match
@@ -659,15 +643,10 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
 
         # Find results based on genre.
 
-        if MAJOR_VERSION == 1:
-            # The name of the genre also shows up in the title of a
-            # book, but the genre boost means the romance novel is the
-            # first result.
-            expect([self.ya_romance, self.modern_romance], "romance")
-        else:
-            # In ES6, the title boost is higher (TODO: how?) so
-            # the book with 'romance' in the title is the first result.
-            expect([self.modern_romance, self.ya_romance], "romance")
+        # In ES6, the title boost is higher than the genre boost so
+        # the book with 'romance' in the title is the first result.
+        # TODO: This isn't ideal.
+        expect([self.modern_romance, self.ya_romance], "romance")
 
         # Find results based on audience.
         expect(self.children_work, "children's")
@@ -1601,31 +1580,17 @@ class TestExactMatches(EndToEndSearchTest):
         ]
         expect(order, "peter graves")
 
-        if MAJOR_VERSION == 1:
-            # In Elasticsearch 1, 'The Making of Biography With Peter
-            # Graves' does worse in a search for 'peter graves
-            # biography' than a biography whose title includes the
-            # phrase 'peter graves'. Although the title contains all
-            # three search terms, it's not an exact token match. But
-            # "The Making of..." still does better than books that
-            # match 'peter graves' (or 'peter' and 'graves'), but not
-            # 'biography'.
-            order = [
-                self.biography_of_peter_graves, # title + genre 'biography'
-                self.behind_the_scenes,         # all words match in title
-                self.book_by_peter_graves,      # author (no 'biography')
-                self.book_by_someone_else,      # match across fields (no 'biography')
-            ]
-        else:
-            # In Elasticsearch 6, the exact author match that doesn't
-            # mention 'biography' is boosted above a book that
-            # mentions all three words in its title.
-            order = [
-                self.biography_of_peter_graves, # title + genre 'biography'
-                self.book_by_peter_graves,      # author (no 'biography')
-                self.behind_the_scenes,         # all words match in title
-                self.book_by_someone_else,      # match across fields (no 'biography')
-            ]
+        # An exact author match that doesn't mention 'biography'
+        # is boosted above a book that mentions all three words in
+        # its title.
+        #
+        # TODO: We may want to revisit this.
+        order = [
+            self.biography_of_peter_graves, # title + genre 'biography'
+            self.book_by_peter_graves,      # author (no 'biography')
+            self.behind_the_scenes,         # all words match in title
+            self.book_by_someone_else,      # match across fields (no 'biography')
+        ]
 
         expect(order, "peter graves biography")
 
@@ -1832,8 +1797,8 @@ class TestQuery(DatabaseTest):
         # replace them with simpler versions.
         class MockFilter(object):
 
-            universal_base_term = F('term', universal_base_called=True)
-            universal_nested_term = F('term', universal_nested_called=True)
+            universal_base_term = Q('term', universal_base_called=True)
+            universal_nested_term = Q('term', universal_nested_called=True)
             universal_nested_filter = dict(nested_called=[universal_nested_term])
 
             @classmethod
@@ -2023,7 +1988,7 @@ class TestQuery(DatabaseTest):
         quality_range = Filter._match_range(
             'quality', 'gte', self._default_library.minimum_featured_quality
         )
-        eq_(F('bool', must=quality_range), quality_filter)
+        eq_(Q('bool', must=quality_range), quality_filter)
 
         # When using the AVAILABLE_OPEN_ACCESS availability restriction...
         built = from_facets(Facets.COLLECTION_FULL,
@@ -2974,8 +2939,8 @@ class TestFilter(DatabaseTest):
             datasource_filter.to_dict())
 
         # The 'excluded audiobooks' filter.
-        audio = F('term', **{'licensepools.medium': Edition.AUDIO_MEDIUM})
-        excluded_audio_source = F(
+        audio = Q('term', **{'licensepools.medium': Edition.AUDIO_MEDIUM})
+        excluded_audio_source = Q(
             'terms', **{'licensepools.data_source_id' : [overdrive.id]}
         )
         excluded_audio = Bool(must=[audio, excluded_audio_source])
@@ -2983,8 +2948,8 @@ class TestFilter(DatabaseTest):
         eq_(not_excluded_audio, excluded_audiobooks_filter)
 
         # The 'no holds' filter.
-        open_access = F('term', **{'licensepools.open_access' : True})
-        licenses_available = F('term', **{'licensepools.available' : True})
+        open_access = Q('term', **{'licensepools.open_access' : True})
+        licenses_available = Q('term', **{'licensepools.available' : True})
         currently_available = Bool(should=[licenses_available, open_access])
         eq_(currently_available, no_holds_filter)
 
@@ -3347,13 +3312,9 @@ class TestFilter(DatabaseTest):
             matches one of a number of possibilities. Return those
             possibilities.
             """
-            if MAJOR_VERSION == 1:
-                eq_("or", filter.name)
-                return filter.filters
-            else:
-                eq_("bool", filter.name)
-                eq_(1, filter.minimum_should_match)
-                return filter.should
+            eq_("bool", filter.name)
+            eq_(1, filter.minimum_should_match)
+            return filter.should
         more_than_two, no_upper_limit = dichotomy(upper_match)
 
 
@@ -3453,8 +3414,8 @@ class TestFilter(DatabaseTest):
     def test__chain_filters(self):
         # Test the _chain_filters method, which combines
         # two Elasticsearch filter objects.
-        f1 = F('term', key="value")
-        f2 = F('term', key2="value2")
+        f1 = Q('term', key="value")
+        f2 = Q('term', key2="value2")
 
         m = Filter._chain_filters
 
