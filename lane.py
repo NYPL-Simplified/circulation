@@ -1513,13 +1513,22 @@ class WorkList(object):
             ExternalSearchIndex,
         )
         search_engine = search_engine or ExternalSearchIndex.load(_db)
-        filter = Filter.from_worklist(_db, self, facets)
-        filter = self.modify_search_filter_hook(filter)
+        filter = self.filter(_db, facets)
         hits = search_engine.query_works(
             query_string=None, filter=filter, pagination=pagination,
             debug=debug
         )
         return self.works_for_hits(_db, hits)
+
+    def filter(self, _db, facets):
+        """Helper method to instantiate a Filter object for this WorkList.
+
+        Using this ensures that modify_search_filter_hook() is always
+        called.
+        """
+        from external_search import Filter
+        filter = Filter.from_worklist(_db, self, facets)
+        return self.modify_search_filter_hook(filter)
 
     def modify_search_filter_hook(self, filter):
         """A hook method allowing subclasses to modify a Filter
@@ -1616,8 +1625,7 @@ class WorkList(object):
                 offset=0, size=Pagination.DEFAULT_SEARCH_SIZE
             )
 
-        from external_search import Filter
-        filter = Filter.from_worklist(_db, self, facets)
+        filter = self.filter(_db, facets)
         try:
             hits = search_client.query_works(
                 query, filter, pagination, debug
@@ -2450,9 +2458,11 @@ class Lane(Base, DatabaseBackedWorkList):
             return True
         return False
 
-    def update_size(self, _db):
+    def update_size(self, _db, search_engine=None):
         """Update the stored estimate of the number of Works in this Lane."""
         library = self.get_library(_db)
+        from external_search import ExternalSearchIndex
+        search_engine = search_engine or ExternalSearchIndex.load(_db)
 
         # Do the estimate for every known entry point.
         by_entrypoint = dict()
@@ -2462,8 +2472,8 @@ class Lane(Base, DatabaseBackedWorkList):
                 FacetConstants.AVAILABLE_ALL,
                 order=FacetConstants.ORDER_WORK_ID, entrypoint=entrypoint
             )
-            qu = self.works_from_database(_db, facets)
-            by_entrypoint[entrypoint.URI] = fast_query_count(qu)
+            filter = self.filter(_db, facets)
+            by_entrypoint[entrypoint.URI] = search_engine.count_works(filter)
         self.size_by_entrypoint = by_entrypoint
         self.size = by_entrypoint[EverythingEntryPoint.URI]
 

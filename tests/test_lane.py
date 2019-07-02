@@ -41,6 +41,7 @@ from ..external_search import (
     Filter,
     MockExternalSearchIndex,
     WorkSearchResult,
+    mock_search_index,
 )
 
 from ..lane import (
@@ -2559,8 +2560,7 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         worklist_has_books([english_sf], sf_shorts)
 
     def test_age_range_filter_clauses_end_to_end(self):
-        """Standalone test of age_range_filter_clauses().
-        """
+        # Standalone test of age_range_filter_clauses().
         def worklist_has_books(expect, **wl_args):
             """Make a DatabaseBackedWorkList and find all the works
             that match its age_range_filter_clauses.
@@ -2817,43 +2817,45 @@ class TestLane(DatabaseTest):
 
     def test_update_size(self):
 
+        class Mock(object):
+            # Mock the ExternalSearchIndex.count_works() method to
+            # return specific values without consulting an actual
+            # search index.
+            def count_works(self, filter):
+                values_by_medium = {
+                    None: 102,
+                    Edition.AUDIO_MEDIUM: 3,
+                    Edition.BOOK_MEDIUM: 99,
+                }
+                if filter.media:
+                    [medium] = filter.media
+                else:
+                    medium = None
+                return values_by_medium[medium]
+        search_engine = Mock()
+
         # Enable the 'ebooks' and 'audiobooks' entry points.
         self._default_library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
             [AudiobooksEntryPoint.INTERNAL_NAME, EbooksEntryPoint.INTERNAL_NAME]
         )
 
-        # One work in two subgenres of fiction.
-        work = self._work(fiction=True, with_license_pool=True,
-                          genre="Science Fiction")
-        romance, ignore = Genre.lookup(self._db, "Romance")
-        work.genres.append(romance)
-
-        # The 'Fiction' lane has one book.
+        # Make a lane with some incorrect values that will be fixed by
+        # update_size().
         fiction = self._lane(display_name="Fiction", fiction=True)
-
-        # But the materialized view contains the book twice -- once under
-        # Science Fiction and once under Romance.
-        self.add_to_materialized_view([work])
-
-        # update_size() sets the Lane's size and size_by_entrypoint to
-        # the correct number.
-        fiction.size = 100
-        fiction.size_by_entrypoint = {"Nonexistent entrypoint": 200}
-        fiction.update_size(self._db)
-
-        # The total number of books in the lane, regardless of entrypoint,
-        # is stored in .size.
-        eq_(1, fiction.size)
+        fiction.size = 44
+        fiction.size_by_entrypoint = {"Nonexistent entrypoint": 33}
+        with mock_search_index(search_engine):
+            fiction.update_size(self._db)
 
         # The lane size is also calculated individually for every
         # enabled entry point. EverythingEntryPoint is used for the
         # total size of the lane.
-        expect = {
-            EverythingEntryPoint.URI: fiction.size,
-            AudiobooksEntryPoint.URI: 0,
-            EbooksEntryPoint.URI: fiction.size,
-        }
-        eq_(expect, fiction.size_by_entrypoint)
+        eq_({AudiobooksEntryPoint.URI: 3,
+             EbooksEntryPoint.URI: 99,
+             EverythingEntryPoint.URI: 102},
+            fiction.size_by_entrypoint
+        )
+        eq_(102, fiction.size)
 
     def test_visibility(self):
         parent = self._lane()
