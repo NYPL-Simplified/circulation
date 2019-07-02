@@ -1620,7 +1620,7 @@ class WorkList(object):
                 offset=0, size=Pagination.DEFAULT_SEARCH_SIZE
             )
 
-        filter = self.filter(_db, self, facets)
+        filter = self.filter(_db, facets)
         try:
             hits = search_client.query_works(
                 query, filter, pagination, debug
@@ -2456,6 +2456,7 @@ class Lane(Base, DatabaseBackedWorkList):
     def update_size(self, _db, search_engine=None):
         """Update the stored estimate of the number of Works in this Lane."""
         library = self.get_library(_db)
+        from external_search import ExternalSearchIndex
         search_engine = search_engine or ExternalSearchIndex.load(_db)
 
         # Do the estimate for every known entry point.
@@ -2467,11 +2468,7 @@ class Lane(Base, DatabaseBackedWorkList):
                 order=FacetConstants.ORDER_WORK_ID, entrypoint=entrypoint
             )
             filter = self.filter(_db, facets)
-            qu = search_engine.create_search_doc(
-                query_string=None, filter=filter, pagination=None,
-                debug=False
-            )
-            by_entrypoint[entrypoint.URI] = qu.count()
+            by_entrypoint[entrypoint.URI] = search_engine.count_works(filter)
         self.size_by_entrypoint = by_entrypoint
         self.size = by_entrypoint[EverythingEntryPoint.URI]
 
