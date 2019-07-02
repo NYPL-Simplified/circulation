@@ -11,6 +11,7 @@ from sqlalchemy.orm.exc import MultipleResultsFound
 
 from .. import DatabaseTest
 from ... import classifier
+from ...external_search import mock_search_index
 from ...config import Configuration
 from ...model import (
     DataSource,
@@ -42,15 +43,29 @@ class TestSessionManager(DatabaseTest):
         fiction.size = 100
         nonfiction.size = 100
 
-        SessionManager.refresh_materialized_views(self._db)
+        class Mock(object):
+            def count_works(self, filter):
+                if filter.fiction == True:
+                    return 51
+                else:
+                    return 22
+
+        with mock_search_index(Mock()):
+            SessionManager.refresh_materialized_views(self._db)
 
         # The work has been added to the materialized view. (It was
         # added twice because it's filed under two genres.)
         eq_([work.id, work.id], [x.works_id for x in self._db.query(mwg)])
 
-        # Both lanes have had .size set to the correct value.
-        eq_(1, fiction.size)
-        eq_(0, nonfiction.size)
+        # Both lanes have had .size set to the value returned by
+        # count_works() for the corresponding filter.
+        #
+        # (NOTE: there's no longer any connection between refreshing
+        # the materialized view and updating the lane sizes -- they're
+        # now two unrelated things that both need to happen
+        # periodically.)
+        eq_(51, fiction.size)
+        eq_(22, nonfiction.size)
 
 class TestDatabaseInterface(DatabaseTest):
 
