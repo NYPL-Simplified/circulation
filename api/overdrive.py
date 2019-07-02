@@ -1159,17 +1159,17 @@ class OverdriveAdvantageAccountListScript(Script):
         print "%d associated Overdrive Advantage account(s)." % len(
             advantage_accounts
         )
-        for i in advantage_accounts:
+        for collection in advantage_accounts:
             self.explain_advantage_collection(collection)
             print
 
     def explain_advantage_collection(self, collection):
         """Explain a single Overdrive Advantage collection."""
-        parent_collection, child = i.to_collection(_db)
+        parent_collection, child = collection.to_collection(self._db)
         print " Overdrive Advantage collection: %s" % child.name
         print " " + ("\n ".join(child.explain()))
         print " A few of the titles in this Advantage collection:"
-        child_api = OverdriveAPI(_db, child)
+        child_api = OverdriveAPI(self._db, child)
         for i, book in enumerate(child_api.all_ids()):
             print " ", book['title']
             if i > 10:
