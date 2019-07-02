@@ -176,6 +176,24 @@ class CirculationManagerAnnotator(Annotator):
             yield lpdm
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry, updated=None):
+        # If ElasticSearch included a more accurate last_update_time,
+        # use it instead of Work.last_update_time
+        updated = work.last_update_time
+        if isinstance(work, WorkSearchResult):
+            # Elasticsearch puts this field in a list, but we've set it up
+            # so there will be at most one value.
+            last_updates = getattr(work._hit, 'last_update', [])
+            if last_updates:
+                # last_update is seconds-since epoch; convert to UTC datetime.
+                updated = datetime.datetime.utcfromtimestamp(last_updates[0])
+
+                # There's a chance that work.last_updated has been
+                # modified but the change hasn't made it to the search
+                # engine yet. Even then, we stick with the search
+                # engine value, because a sorted list is more
+                # important to the import process than an up-to-date
+                # 'last update' value.
+
         super(CirculationManagerAnnotator, self).annotate_work_entry(
             work, active_license_pool, edition, identifier, feed, entry, updated
         )
@@ -596,22 +614,6 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         return url
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
-        updated = work.last_update_time
-        if isinstance(work, WorkSearchResult):
-            # Elasticsearch puts this field in a list, but we've set it up
-            # so there will be at most one value.
-            last_updates = getattr(work._hit, 'last_update', [])
-            if last_updates:
-                # last_update is seconds-since epoch; convert to UTC datetime.
-                updated = datetime.datetime.utcfromtimestamp(last_updates[0])
-
-                # There's a chance that work.last_updated has been
-                # modified but the change hasn't made it to the search
-                # engine yet. Even then, we stick with the search
-                # engine value, because a sorted list is more
-                # important to the import process than an up-to-date
-                # 'last update' value.
-
         # Add a link for reporting problems.
         feed.add_link_to_entry(
             entry,
@@ -626,7 +628,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         )
 
         super(LibraryAnnotator, self).annotate_work_entry(
-            work, active_license_pool, edition, identifier, feed, entry, updated
+            work, active_license_pool, edition, identifier, feed, entry
         )
 
         # Add a link to each author tag.

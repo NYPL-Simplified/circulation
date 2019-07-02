@@ -63,7 +63,10 @@ from core.classifier import Classifier
 from core.config import CannotLoadConfiguration
 from core.external_search import (
     MockExternalSearchIndex,
+    MockSearchResult,
     mock_search_index,
+    SortKeyPagination,
+    WorkSearchResult,
 )
 from core.metadata_layer import (
     ContributorData,
@@ -2295,8 +2298,11 @@ class TestWorkController(CirculationControllerTest):
         # all the functionality we need to check.
         languages = "some languages"
         audiences = "some audiences"
+        sort_key = ["sort", "pagination", "key"]
         with self.request_context_with_library(
-            "/?order=title&size=100&after=20&entrypoint=Audio"
+            "/?order=title&size=100&key=%s&entrypoint=Audio" % (
+                json.dumps(sort_key)
+            )
         ):
             response = m(contributor, languages, audiences, feed_class=Mock)
 
@@ -2324,9 +2330,11 @@ class TestWorkController(CirculationControllerTest):
         assert isinstance(facets, ContributorFacets)
         eq_(AudiobooksEntryPoint, facets.entrypoint)
         eq_('title', facets.order)
+
         pagination = kwargs.pop('pagination')
+        assert isinstance(pagination, SortKeyPagination)
+        eq_(sort_key, pagination.last_item_on_previous_page)
         eq_(100, pagination.size)
-        eq_(20, pagination.offset)
 
         lane = kwargs.pop('lane')
         assert isinstance(lane, ContributorLane)
@@ -2826,8 +2834,9 @@ class TestWorkController(CirculationControllerTest):
         # Test a basic request with custom faceting, pagination, and a
         # language and audience restriction. This will exercise nearly
         # all the functionality we need to check.
+        sort_key = ["sort", "pagination", "key"]
         with self.request_context_with_library(
-            "/?order=title&size=100&after=20"
+            "/?order=title&size=100&key=%s" % json.dumps(sort_key)
         ):
             response = self.manager.work_controller.series(
                 series_name, "some languages", "some audiences",
@@ -2866,9 +2875,10 @@ class TestWorkController(CirculationControllerTest):
         # object.
         eq_("title", facets.order)
 
-        # The 'offset' and 'size' went into a normal Pagination object.
+        # The 'key' and 'size' went into a SortKeyPagination object.
         pagination = kwargs.pop('pagination')
-        eq_(20, pagination.offset)
+        assert isinstance(pagination, SortKeyPagination)
+        eq_(sort_key, pagination.last_item_on_previous_page)
         eq_(100, pagination.size)
 
         # The lane, facets, and pagination were all taken into effect
@@ -2958,7 +2968,7 @@ class TestFeedController(CirculationControllerTest):
 
         # Make a real OPDS feed and poke at it. 
         with self.request_context_with_library(
-            "/?entrypoint=Book&size=10&after=0"
+            "/?entrypoint=Book&size=10"
         ):
             response = self.manager.opds_feeds.feed(
                 self.english_adult_fiction.id
@@ -2999,7 +3009,17 @@ class TestFeedController(CirculationControllerTest):
             assert lane_str in next_link
             assert 'entrypoint=Book' in next_link
             assert 'size=10' in next_link
-            assert 'after=10' in next_link
+            last_item = self.works[-1]
+
+            # The pagination key for the next page is derived from the
+            # sort fields of the last work in the current page.
+            expected_pagination_key = [
+                last_item.sort_title, last_item.sort_author, last_item.id
+            ]
+            expect = "key=%s" % urllib.quote_plus(
+                json.dumps(expected_pagination_key)
+            )
+            assert expect in next_link
 
             search_link = by_rel['search']
             assert lane_str in search_link
@@ -3022,8 +3042,11 @@ class TestFeedController(CirculationControllerTest):
                 self.called_with = kwargs
                 return "An OPDS feed"
 
+        sort_key = ["sort", "pagination", "key"]
         with self.request_context_with_library(
-            "/?entrypoint=Audio&size=36&after=29&order=added"
+            "/?entrypoint=Audio&size=36&key=%s&order=added" % (
+                json.dumps(sort_key)
+            )
         ):
             response = self.manager.opds_feeds.feed(
                 self.english_adult_fiction.id, feed_class=Mock
@@ -3055,9 +3078,11 @@ class TestFeedController(CirculationControllerTest):
         facets = kwargs.pop('facets')
         eq_(AudiobooksEntryPoint, facets.entrypoint)
         eq_('added', facets.order)
+
         pagination = kwargs.pop('pagination')
+        assert isinstance(pagination, SortKeyPagination)
         eq_(36, pagination.size)
-        eq_(29, pagination.offset)
+        eq_(sort_key, pagination.last_item_on_previous_page)
 
         # The Annotator object was instantiated with the proper lane
         # and the newly created Facets object.
@@ -3372,8 +3397,12 @@ class TestCrawlableFeed(CirculationControllerTest):
         """
         controller = self.manager.opds_feeds
         original = controller._crawlable_feed
-        def mock(**kwargs):
-            self._crawlable_feed_called_with = kwargs
+        def mock(title, url, lane, annotator=None,
+                 feed_class=AcquisitionFeed):
+            self._crawlable_feed_called_with = dict(
+                title=title, url=url, lane=lane, annotator=annotator,
+                feed_class=feed_class
+            )
             return "An OPDS feed."
         controller._crawlable_feed = mock
         yield
@@ -3400,8 +3429,9 @@ class TestCrawlableFeed(CirculationControllerTest):
         # Verify that _crawlable_feed was called with the right arguments.
         kwargs = self._crawlable_feed_called_with
         eq_(expect_url, kwargs.pop('url'))
-        eq_(library, kwargs.pop('library'))
         eq_(library.name, kwargs.pop('title'))
+        eq_(None, kwargs.pop('annotator'))
+        eq_(AcquisitionFeed, kwargs.pop('feed_class'))
 
         # A CrawlableCollectionBasedLane has been set up to show
         # everything in any of the requested library's collections.
@@ -3512,6 +3542,8 @@ class TestCrawlableFeed(CirculationControllerTest):
         kwargs = self._crawlable_feed_called_with
         eq_(expect_url, kwargs.pop('url'))
         eq_(customlist.name, kwargs.pop('title'))
+        eq_(None, kwargs.pop('annotator'))
+        eq_(AcquisitionFeed, kwargs.pop('feed_class'))
 
         # A CrawlableCustomListBasedLane was created to fetch only
         # the works in the custom list.
@@ -3531,7 +3563,20 @@ class TestCrawlableFeed(CirculationControllerTest):
 
         work = self._work(with_open_access_download=True)
         class MockLane(DynamicLane):
-            def works(self, *args, **kwargs):
+            def works(self, _db, facets, pagination, *args, **kwargs):
+                # We need to call page_loaded() (normally called by
+                # the search engine after obtaining real search
+                # results), because OPDSFeed.page will call it if it
+                # wasn't already called.
+                #
+                # It's not necessary for this test to call it with a
+                # realistic value, but we might as well.
+                results = [
+                    MockSearchResult(
+                        work.sort_title, work.sort_author, {}, work.id
+                    )
+                ]
+                pagination.page_loaded(results)
                 return [work]
 
         mock_lane = MockLane()
@@ -3556,7 +3601,10 @@ class TestCrawlableFeed(CirculationControllerTest):
         )
 
         # Good pagination data -> feed_class.page() is called.
-        with self.app.test_request_context("/?size=23&after=11"):
+        sort_key = ["sort", "pagination", "key"]
+        with self.app.test_request_context(
+                "/?size=23&key=%s" % json.dumps(sort_key)
+        ):
             response = self.manager.opds_feeds._crawlable_feed(**in_kwargs)
 
         # The result of page() was served as an OPDS feed.
@@ -3589,7 +3637,8 @@ class TestCrawlableFeed(CirculationControllerTest):
 
         # Verify that pagination was picked up from the request.
         pagination = out_kwargs.pop('pagination')
-        eq_(11, pagination.offset)
+        assert isinstance(pagination, SortKeyPagination)
+        eq_(sort_key, pagination.last_item_on_previous_page)
         eq_(23, pagination.size)
 
         # We're done looking at the arguments.
