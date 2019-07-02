@@ -849,7 +849,10 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
 
     DISPLAY_NAME = "Recommended Books"
     ROUTE = "recommendations"
-    MAX_CACHE_AGE = 7*24*60*60      # one week
+
+    # Cache for 24 hours -- would ideally be much longer but availability
+    # information goes stale.
+    MAX_CACHE_AGE = 24*60*60
     CACHED_FEED_TYPE = CachedFeed.RECOMMENDATIONS_TYPE
 
     def __init__(self, library, work, display_name=None,
@@ -881,13 +884,28 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
         suitable for showing an overview of this WorkList in a grouped
         feed.
         """
-        # The faceting object doesn't matter much here, but it
-        # does need to be a DatabaseBackedFacets.
+        # We're looking up specific works in the database, so this
+        # must be a DatabaseBackedFacets.
+        #
+        # TODO: Since the purpose of the recommendation feed is to
+        # suggest books that can be borrowed immediately, it would be
+        # better to set availability=AVAILABLE_NOW. However, this feed
+        # is cached for so long that we can't rely on the availability
+        # information staying accurate. It would be especially bad if
+        # people borrowed all of the recommendations that were
+        # available at the time this feed was generated, and then
+        # recommendations that were unavailable when the feed was
+        # generated became available.
+        #
+        # For now, it's better to show all books and let people put
+        # the unavailable ones on hold if they want.
         #
         # TODO: It would be better to order works in the same order
-        # they come from the recommendation engine.
+        # they come from the recommendation engine, since presumably
+        # the best recommendations are in the front.
         return DatabaseBackedFacets.default(
-            self.get_library(_db), entrypoint=facets.entrypoint,
+            self.get_library(_db), collection=facets.COLLECTION_FULL,
+            availability=facets.AVAILABLE_ALL, entrypoint=facets.entrypoint,
         )
 
     def modify_database_query_hook(self, _db, qu):
@@ -919,7 +937,9 @@ class SeriesLane(DynamicLane):
     """A lane of Works in a particular series."""
 
     ROUTE = 'series'
-    MAX_CACHE_AGE = 96*60*60    # 96 hours
+    # Cache for 24 hours -- would ideally be longer but availability
+    # information goes stale.
+    MAX_CACHE_AGE = 24*60*60
     CACHED_FEED_TYPE = CachedFeed.SERIES_TYPE
 
     def __init__(self, library, series_name, parent=None, **kwargs):
@@ -957,7 +977,8 @@ class SeriesLane(DynamicLane):
         be ordered by series position.
         """
         return SeriesFacets.default(
-            self.get_library(_db), entrypoint=facets.entrypoint
+            self.get_library(_db), collection=facets.COLLECTION_FULL,
+            availability=facets.AVAILABLE_ALL, entrypoint=facets.entrypoint,
         )
 
     def modify_search_filter_hook(self, filter):
@@ -976,7 +997,9 @@ class ContributorLane(DynamicLane):
     """A lane of Works written by a particular contributor"""
 
     ROUTE = 'contributor'
-    MAX_CACHE_AGE = 96*60*60    # 96 hours
+    # Cache for 24 hours -- would ideally be longer but availability
+    # information goes stale.
+    MAX_CACHE_AGE = 24*60*60
     CACHED_FEED_TYPE = CachedFeed.CONTRIBUTOR_TYPE
 
     def __init__(self, library, contributor,
@@ -1019,7 +1042,8 @@ class ContributorLane(DynamicLane):
         use in a grouped feed.
         """
         return ContributorFacets.default(
-            self.get_library(_db), entrypoint=facets.entrypoint
+            self.get_library(_db), collection=facets.COLLECTION_FULL,
+            availability=facets.AVAILABLE_ALL, entrypoint=facets.entrypoint,
         )
 
     def modify_search_filter_hook(self, filter):

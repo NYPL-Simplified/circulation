@@ -599,6 +599,8 @@ class TestRecommendationLane(LaneTest):
         )
         overview = lane.overview_facets(self._db, featured)
         assert isinstance(overview, DatabaseBackedFacets)
+        eq_(Facets.COLLECTION_FULL, overview.collection)
+        eq_(Facets.AVAILABLE_ALL, overview.availability)
         eq_(Facets.ORDER_AUTHOR, overview.order)
 
         # Entry point was preserved.
@@ -659,6 +661,8 @@ class TestSeriesLane(LaneTest):
         lane = SeriesLane(self._default_library, "Alrighty Then")
         overview = lane.overview_facets(self._db, featured)
         assert isinstance(overview, SeriesFacets)
+        eq_(Facets.COLLECTION_FULL, overview.collection)
+        eq_(Facets.AVAILABLE_ALL, overview.availability)
         eq_(Facets.ORDER_SERIES_POSITION, overview.order)
 
         # Entry point was preserved.
@@ -746,6 +750,8 @@ class TestContributorLane(LaneTest):
         lane = ContributorLane(self._default_library, self.contributor)
         overview = lane.overview_facets(self._db, featured)
         assert isinstance(overview, ContributorFacets)
+        eq_(Facets.COLLECTION_FULL, overview.collection)
+        eq_(Facets.AVAILABLE_ALL, overview.availability)
         eq_(Facets.ORDER_TITLE, overview.order)
 
         # Entry point was preserved.
