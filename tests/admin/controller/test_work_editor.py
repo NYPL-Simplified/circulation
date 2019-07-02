@@ -1167,10 +1167,10 @@ class TestWorkController(AdminControllerTest):
             eq_(list, work.custom_list_entries[0].customlist)
             eq_(True, work.custom_list_entries[0].featured)
 
-            # The lane's size will be updated once the materialized
-            # views are refreshed.
-            SessionManager.refresh_materialized_views(self._db)
-            eq_(1, lane.size)
+            # Lane.size will not be updated until the work is
+            # reindexed with its new list memebership and lane sizes
+            # are recalculated.
+            eq_(0, lane.size)
 
         # Now remove the list.
         with self.request_context_with_library_and_admin("/", method="POST"):
