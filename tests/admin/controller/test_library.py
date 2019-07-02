@@ -56,6 +56,26 @@ class TestLibrarySettings(SettingsControllerTest):
             response = self.manager.admin_library_settings_controller.process_get()
             eq_(response.get("libraries"), [])
 
+    def test_libraries_get_with_geographic_info(self):
+        # Delete any existing library created by the controller test setup.
+        library = get_one(self._db, Library)
+        if library:
+            self._db.delete(library)
+
+        test_library = self._library("Library 1", "L1")
+        ConfigurationSetting.for_library(
+            Configuration.LIBRARY_FOCUS_AREA, test_library
+        ).value = '{"CA": ["N3L"], "US": ["11235"]}'
+        ConfigurationSetting.for_library(
+            Configuration.LIBRARY_SERVICE_AREA, test_library
+        ).value = '{"CA": ["J2S"], "US": ["31415"]}'
+
+        with self.request_context_with_admin("/"):
+            response = self.manager.admin_library_settings_controller.process_get()
+            library_settings = response.get("libraries")[0].get("settings")
+            eq_(library_settings.get("focus_area"), {u'CA': [{u'N3L': u'Paris, Ontario'}], u'US': [{u'11235': u'Brooklyn, NY'}]})
+            eq_(library_settings.get("service_area"), {u'CA': [{u'J2S': u'Saint-Hyacinthe Southwest, Quebec'}], u'US': [{u'31415': u'Savannah, GA'}]})
+
     def test_libraries_get_with_multiple_libraries(self):
         # Delete any existing library created by the controller test setup.
         library = get_one(self._db, Library)
@@ -220,7 +240,7 @@ class TestLibrarySettings(SettingsControllerTest):
                 (Configuration.WEBSITE_URL, "https://library.library/"),
                 (Configuration.TINY_COLLECTION_LANGUAGES, ['ger']),
                 (Configuration.LIBRARY_SERVICE_AREA, ['06759', 'everywhere', 'MD', 'Boston, MA']),
-                (Configuration.LIBRARY_FOCUS_AREA, ['V5K', 'Broward County, FL', 'QC']),
+                (Configuration.LIBRARY_FOCUS_AREA, ['Manitoba', 'Broward County, FL', 'QC']),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
                 (Configuration.HELP_EMAIL, "help@example.com"),
                 (Configuration.FEATURED_LANE_SIZE, "5"),
@@ -236,7 +256,6 @@ class TestLibrarySettings(SettingsControllerTest):
             ])
             validator = MockValidator()
             response = self.manager.admin_library_settings_controller.process_post(validator)
-
             eq_(response.status_code, 201)
 
         library = get_one(self._db, Library, short_name="nypl")
@@ -255,9 +274,9 @@ class TestLibrarySettings(SettingsControllerTest):
         eq_("data:image/png;base64,%s" % base64.b64encode(image_data),
             ConfigurationSetting.for_library(Configuration.LOGO, library).value)
         eq_(validator.was_called, True)
-        eq_('{"CA": [], "US": [{"06759": "Litchfield, CT"}, "everywhere", "MD", "Boston, MA"]}',
+        eq_('{"CA": [], "US": ["06759", "everywhere", "MD", "Boston, MA"]}',
             ConfigurationSetting.for_library(Configuration.LIBRARY_SERVICE_AREA, library).value)
-        eq_('{"CA": [{"V5K": "Vancouver (North Hastings- Sunrise), British Columbia"}, "QC"], "US": ["Broward County, FL"]}',
+        eq_('{"CA": ["Manitoba", "Quebec"], "US": ["Broward County, FL"]}',
             ConfigurationSetting.for_library(Configuration.LIBRARY_FOCUS_AREA, library).value)
 
         # When the library was created, default lanes were also created

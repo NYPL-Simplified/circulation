@@ -294,7 +294,11 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
 
         if not return_url:
             # The distributor didn't provide a link to return this loan.
-            raise CannotReturn()
+            # This may be because the book has already been fulfilled and
+            # must be returned through the DRM system. If that's true, the
+            # app will already be doing that on its own, so we'll silently
+            # do nothing.
+            return
 
         # Hit the distributor's return link.
         self._get(return_url)
@@ -303,9 +307,12 @@ class ODLAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         self.update_loan(loan)
 
         # At this point, if the loan still exists, something went wrong.
+        # However, it might be because the loan has already been fulfilled
+        # and must be returned through the DRM system, which the app will
+        # do on its own, so we can ignore the problem.
         loan = get_one(_db, Loan, id=loan.id)
         if loan:
-            raise RemoteRefusedReturn()
+            return
         return True
 
     def checkout(self, patron, pin, licensepool, internal_format):

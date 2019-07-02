@@ -1,0 +1,4 @@
+<AuthorizeResponse>
+ <LibraryID>test</LibraryID>
+ <LastName>Simpson</LastName>
+</AuthorizeResponse>

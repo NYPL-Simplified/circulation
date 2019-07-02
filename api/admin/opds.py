@@ -14,6 +14,8 @@ from core.model import (
 from core.opds import AcquisitionFeed
 from core.util.opds_writer import AtomFeed
 from core.mirror import MirrorUploader
+from api.coverage import MetadataWranglerCollectionRegistrar
+from api.config import CannotLoadConfiguration
 
 class AdminAnnotator(LibraryAnnotator):
 
@@ -31,14 +33,20 @@ class AdminAnnotator(LibraryAnnotator):
             if measurement.data_source.name == DataSource.LIBRARY_STAFF and measurement.is_most_recent:
                 entry.append(self.rating_tag(measurement.quantity_measured, measurement.value))
 
-        feed.add_link_to_entry(
-            entry,
-            rel="http://librarysimplified.org/terms/rel/refresh",
-            href=self.url_for(
-                "refresh",
-                identifier_type=identifier.type,
-                identifier=identifier.identifier, _external=True)
-        )
+        try:
+            MetadataWranglerCollectionRegistrar(work.license_pools[0].collection)
+            feed.add_link_to_entry(
+                entry,
+                rel="http://librarysimplified.org/terms/rel/refresh",
+                href=self.url_for(
+                    "refresh",
+                    identifier_type=identifier.type,
+                    identifier=identifier.identifier, _external=True)
+            )
+        except CannotLoadConfiguration:
+            # Leave out the refresh link if there's no metadata wrangler
+            # configured.
+            pass
 
         if active_license_pool and active_license_pool.suppressed:
             feed.add_link_to_entry(
