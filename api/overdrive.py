@@ -1159,8 +1159,8 @@ class OverdriveAdvantageAccountListScript(Script):
         print "%d associated Overdrive Advantage account(s)." % len(
             advantage_accounts
         )
-        for collection in advantage_accounts:
-            self.explain_advantage_collection(collection)
+        for advantage_collection in advantage_accounts:
+            self.explain_advantage_collection(advantage_collection)
             print
 
     def explain_advantage_collection(self, collection):
