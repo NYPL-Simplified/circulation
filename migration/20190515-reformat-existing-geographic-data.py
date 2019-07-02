@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from nose.tools import set_trace
 from sqlalchemy.sql import *
 import json
