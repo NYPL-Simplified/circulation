@@ -1118,11 +1118,11 @@ class EndToEndSearchTest(ExternalSearchTest):
             )
         )
 
-    def _expect_results(self, expect, *query_args, **kwargs):
+    def _expect_results(self, expect, query_string=None, filter=None, pagination=None, **kwargs):
         """Helper function to call query() and verify that it
         returns certain work IDs.
 
-        :param should_be_ordered: If this is True (the default), then the
+        :param ordered: If this is True (the default), then the
         assertion will only succeed if the search results come in in
         the exact order specified in `works`. If this is False, then
         those exact results must come up, but their order is not
@@ -1133,7 +1133,9 @@ class EndToEndSearchTest(ExternalSearchTest):
 
         should_be_ordered = kwargs.pop('ordered', True)
 
-        hits = self.search.query_works(*query_args, debug=True, **kwargs)
+        hits = self.search.query_works(
+            query_string, filter, pagination, debug=True, **kwargs
+        )
         results = [x.work_id for x in hits]
         actual = self._db.query(Work).filter(Work.id.in_(results)).all()
         if should_be_ordered:
@@ -1147,7 +1149,16 @@ class EndToEndSearchTest(ExternalSearchTest):
                 if result in works_by_id
             ]
 
+        query_args = (query_string, filter, pagination)
         self._assert_works(query_args, expect, actual, should_be_ordered)
+
+        if query_string is None and pagination is None and not kwargs:
+            # Only a filter was provided -- this means if we pass the
+            # filter into count_works() we'll get all the results we
+            # got from query_works(). Take the opportunity to verify
+            # that count_works() gives the right answer.
+            count = self.search.count_works(filter)
+            eq_(count, len(expect))
 
 
 class MockCoverageProvider(object):

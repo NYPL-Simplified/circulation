@@ -514,9 +514,9 @@ return champion;
         return results
 
     def count_works(self, filter):
-        """Instead of retrieving works that match `filter`, count them."""
-        qu = search_engine.create_search_doc(
-            query_string=None, filter=filter, pagination=None,
+        """Instead of retrieving works that match `filter`, count the total."""
+        qu = self.create_search_doc(
+            query_string=query_string, filter=filter, pagination=None,
             debug=False
         )
         return qu.count()
