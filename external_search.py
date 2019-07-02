@@ -516,10 +516,9 @@ return champion;
     def count_works(self, filter):
         """Instead of retrieving works that match `filter`, count the total."""
         qu = self.create_search_doc(
-            query_string=query_string, filter=filter, pagination=None,
-            debug=False
+            query_string=None, filter=filter, pagination=None, debug=False
         )
-        return qu.count()
+        return qu.count(filter)
 
     def bulk_update(self, works, retry_on_batch_failure=True):
         """Upload a batch of works to the search index at once."""

@@ -1521,6 +1521,11 @@ class WorkList(object):
         return self.works_for_hits(_db, hits)
 
     def filter(self, _db, facets):
+        """Helper method to instantiate a Filter object for this WorkList.
+
+        Using this ensures that modify_search_filter_hook() is always
+        called.
+        """
         from external_search import Filter
         filter = Filter.from_worklist(_db, self, facets)
         return self.modify_search_filter_hook(filter)
