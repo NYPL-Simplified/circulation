@@ -774,7 +774,7 @@ class CustomListsController(AdminCirculationManagerController):
             # If this list was used to populate any lanes, those
             # lanes need to have their counts updated.
             for lane in Lane.affected_by_customlist(list):
-                lane.update_size(self._db)
+                lane.update_size(self._db, self.search_engine)
 
         new_collections = []
         for collection_id in collections:
@@ -863,7 +863,7 @@ class CustomListsController(AdminCirculationManagerController):
             # Update the size for any lanes affected by this
             # CustomList which _weren't_ deleted.
             for lane in surviving_lanes:
-                lane.update_size(self._db)
+                lane.update_size(self._db, self.search_engine)
             return Response(unicode(_("Deleted")), 200)
 
 

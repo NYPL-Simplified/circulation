@@ -1167,7 +1167,11 @@ class TestCustomListsController(AdminControllerTest):
         # Create a Lane that depends on this CustomList for its membership.
         lane = self._lane()
         lane.customlists.append(list)
-        eq_(0, lane.size)
+        lane.size = 350
+
+        # Whenever the mocked search engine is asked how many
+        # works are in a Lane, it will say there are two.
+        self.controller.search_engine.docs = dict(id1="doc1", id2="doc2")
 
         w1 = self._work(with_license_pool=True, language="eng")
         w2 = self._work(with_license_pool=True, language="fre")
@@ -1178,7 +1182,6 @@ class TestCustomListsController(AdminControllerTest):
 
         list.add_entry(w1)
         list.add_entry(w2)
-        self.add_to_materialized_view([w1, w2, w3])
 
         new_entries = [dict(id=work.presentation_edition.primary_identifier.urn,
                             medium=Edition.medium_to_additional_type[work.presentation_edition.medium])
@@ -1212,9 +1215,8 @@ class TestCustomListsController(AdminControllerTest):
             set([entry.work for entry in list.entries]))
         eq_(new_collections, list.collections)
 
-        # The lane's estimated size will be updated once the materialized
-        # views are refreshed.
-        SessionManager.refresh_materialized_views(self._db)
+        # This change caused an immediate update to lane.size
+        # based on information from the mocked search index.
         eq_(2, lane.size)
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
@@ -1244,6 +1246,10 @@ class TestCustomListsController(AdminControllerTest):
         list.add_entry(w1)
         list.add_entry(w2)
 
+        # Whenever the mocked search engine is asked how many
+        # works are in a Lane, it will say there are two.
+        self.controller.search_engine.docs = dict(id1="doc1", id2="doc2")
+
         # Create a second CustomList, from another data source,
         # containing a single work.
         nyt = DataSource.lookup(self._db, DataSource.NYT)
@@ -1259,7 +1265,6 @@ class TestCustomListsController(AdminControllerTest):
         # deleted as well.
         lane = self._lane(display_name="to be automatically removed")
         lane.customlists.append(list)
-        lane.size = 100
 
         # This Lane is based on two different CustomLists. Its size
         # will be updated when the CustomList is deleted, but the Lane
@@ -1268,8 +1273,7 @@ class TestCustomListsController(AdminControllerTest):
         lane2 = self._lane(display_name="to have size updated")
         lane2.customlists.append(list)
         lane2.customlists.append(list2)
-        lane2.update_size(self._db)
-        eq_(2, lane2.size)
+        lane2.size = 100
 
         # This lane is based on _all_ lists from a given data source.
         # It will also not be deleted when the CustomList is deleted,
@@ -1277,8 +1281,7 @@ class TestCustomListsController(AdminControllerTest):
         # the future.
         lane3 = self._lane(display_name="All library staff lists")
         lane3.list_datasource = list.data_source
-        lane3.update_size(self._db)
-        eq_(2, lane3.size)
+        lane3.size = 150
 
         with self.request_context_with_library_and_admin("/", method="DELETE"):
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
@@ -1295,9 +1298,14 @@ class TestCustomListsController(AdminControllerTest):
 
         # The second and third lanes were not removed, because they
         # weren't based solely on this specific list. But their .size
-        # attributes were updated to reflect the removal of the list.
-        eq_(1, lane2.size)
-        eq_(0, lane3.size)
+        # attributes were updated to reflect the removal of the list from
+        # the lane.
+        #
+        # In the context of this test, this means that
+        # MockExternalSearchIndex.count_works() was called, and we set
+        # it up to always return 2.
+        eq_(2, lane2.size)
+        eq_(2, lane3.size)
 
     def test_custom_list_delete_errors(self):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
