@@ -674,7 +674,7 @@ class ExternalSearchIndex(HasSelfTests):
 
 
 class HasProperties(object):
-    
+
     def __init__(self):
         self.properties = {}
         self.subdocuments = {}
@@ -693,12 +693,12 @@ class HasProperties(object):
         # searches. When this code is more mature we can do a
         # side-by-side comparison.
         defaults = dict(index=True, store=False)
-        description[type] = type
-        for name, default in defaults.items():
-            if not name in description:
-                description[name] = default
+        description['type'] = type
+        for default_name, default_value in defaults.items():
+            if default_name not in description:
+                description[default_name] = default_value
 
-        hook_method = getattr(self, "%s_property_hook", None)
+        hook_method = getattr(self, type + "_property_hook", None)
         if hook_method is not None:
             hook_method(description)
         # TODO: Cross-check the description for correctness. Do the
@@ -714,15 +714,16 @@ class HasProperties(object):
         customization.
         """
         for type, properties in properties_by_type.items():
-            for property in properties:
-                self.add_property(property, type)
+            for name in properties:
+                self.add_property(name, type)
 
     def subdocument(self, name):
         """Create a new HasProperties object and register it as a
         sub-document of this one.
         """
         subdocument = HasProperties()
-        subdocument.properties['type'] = 'nested'
+        subdocument.BASIC_STRING_FIELDS = self.BASIC_STRING_FIELDS
+        subdocument.FILTERABLE_TEXT_FIELDS = self.FILTERABLE_TEXT_FIELDS
         self.subdocuments[name] = subdocument
         return subdocument
 
@@ -737,7 +738,7 @@ class HasProperties(object):
         """
         description['type'] = 'text'
         description['analyzer'] = "en_analyzer"
-        description['fields'] =  cls.BASIC_STRING_FIELDS        
+        description['fields'] =  self.BASIC_STRING_FIELDS
 
     def filterable_text_property_hook(self, description):
         """Hook method to handle the custom 'filterable_text'
@@ -748,12 +749,12 @@ class HasProperties(object):
         """
         description['type'] = 'text'
         description['analyzer'] = "en_analyzer"
-        description['fields'] =  cls.FILTERABLE_TEXT_FIELDS
+        description['fields'] =  self.FILTERABLE_TEXT_FIELDS
 
     def icu_collation_keyword_property_hook(self, description):
         """Modify the description of an icu_collation_keyword
         property.
-        
+
         The 'icu_collation_keyword' type exists in Elasticsearch, but
         a field of this type can't have a custom analyzer or
         normalizer, and we need a character filter to exclude certain
@@ -775,7 +776,6 @@ class Mapping(HasProperties):
 
     VERSION_NAME = None
 
-    # These methods are called on the Mapping class itself.
     @classmethod
     def latest(cls):
         """Intantiate the the Mapping class currently in use."""
@@ -785,9 +785,6 @@ class Mapping(HasProperties):
     def register(cls, subclass):
         """Add a Mapping subclass to the list of versions."""
         cls.VERSIONS.append(subclass)
-
-    # These class methods are called on a subclass of Mapping and will raise NotImplementedError
-    # if called on Mapping.
 
     @classmethod
     def version_name(cls):
@@ -800,7 +797,8 @@ class Mapping(HasProperties):
         return version
 
     def create(self, search_client, base_index_name):
-        """Ensure that an index exists in `search_client` for this Mapping subclass.
+        """Ensure that an index exists in `search_client` for this Mapping
+        subclass.
 
         :return: True or False, indicating whether the index was created new.
         """
@@ -827,7 +825,9 @@ class Mapping(HasProperties):
         self.analyzers = {}
 
     def body(self):
-        """Generate the body of the mapping document for this version of the mapping."""
+        """Generate the body of the mapping document for this version of the
+        mapping.
+        """
         settings = dict(
             analysis=dict(
                 filter=self.filters,
@@ -842,9 +842,11 @@ class Mapping(HasProperties):
 
         # Add subdocuments as additional properties.
         for name, subdocument in self.subdocuments.items():
-            properties[name] = subdocument['properties']
-            
-        mappings = { 
+            properties[name] = dict(
+                type="nested", properties=subdocument.properties
+            )
+
+        mappings = {
             ExternalSearchIndex.work_document_type : dict(properties=properties)
         }
         return dict(settings=settings, mappings=mappings)
@@ -852,7 +854,7 @@ class Mapping(HasProperties):
 
 class MappingV4(Mapping):
     """Version four of the mapping, the first one to support only Elasticsearch 6.
-    
+
     The body of this mapping looks for bibliographic information in
     the core document, primarily used for matching search
     requests. It also has nested documents, which are used for
@@ -927,39 +929,9 @@ class MappingV4(Mapping):
     def __init__(self):
         super(MappingV4, self).__init__()
 
-        # Set up filters.
-        #
-
-        # Used by the 'default' and 'minimal' views of text fields --
-        # removes stopwords.
-        self.filters['en_stop_filter'] = dict(
-            type="stop", stopwords=["_english_"]
-        )
-
-        # Used by the 'default' view of text fields -- a standard English
-        # stemmer.
-        self.filters['en_stem_filter'] = dict(
-            type="stemmer", name="english"
-        )
-
-        # Used by the 'minimal' view of text fields -- a less aggressive
-        # English stemmer.
-        self.filters['en_stem_minimal_filter'] = dict(
-            type="stemmer", name="minimal_english"
-        )
-
-        # Use the ICU collation algorithm on textual fields we intend
-        # to use as a sort order.
-        self.filters['en_sortable_filter'] = dict(
-            type="icu_collation", language="en", country="US"
-        )
-
         # Set up character filters.
         #
         self.char_filters = self.CHAR_FILTERS
-
-        # Set up normalizers.
-        #
 
         # This normalizer is used on freeform strings that
         # will be used as tokens in filters. This way we can,
@@ -973,37 +945,43 @@ class MappingV4(Mapping):
         # Set up analyzers.
         #
 
-        # These analyzers are used for the 'default' and 'minimal'
-        # views of most text fields. They're identical except for the
-        # last filter in the chain.
+        # The first two analyzers are used for the 'default' and
+        # 'minimal' views of most text fields. They're identical
+        # except for the last filter in the chain.
+
+        # Both analyzers filter out stopwords.
+        self.filters['en_stop_filter'] = dict(
+            type="stop", stopwords=["_english_"]
+        )
         common_text_analyzer = dict(
             type="custom", char_filter=["html_strip"], tokenizer="standard",
             filter=["lowercase", "asciifolding", "en_stop_filter"]
         )
+
+        # The 'default' analyzer uses a standard English stemmer.
+        self.filters['en_stem_filter'] = dict(type="stemmer", name="english")
         self.analyzers['en_analyzer'] = dict(common_text_analyzer)
         self.analyzers['en_analyzer']['filter'].append('en_stem_filter')
 
+        # The 'minimal' analyzer uses a less aggressive English
+        # stemmer.
+        self.filters['en_stem_minimal_filter'] = dict(
+            type="stemmer", name="minimal_english"
+        )
         self.analyzers['en_minimal_analyzer'] = dict(common_text_analyzer)
         self.analyzers['en_minimal_analyzer']['filter'].append(
             'en_stem_minimal_filter'
         )
 
         # An analyzer for textual fields we intend to sort on rather than query.
+        self.filters['en_sortable_filter'] = dict(
+            type="icu_collation", language="en", country="US"
+        )
         self.analyzers['en_sortable_analyzer'] = dict(
             tokenizer="keyword", filter=["en_sortable_filter"],
         )
 
-        # We treat 'sort author' a little differently -- we include
-        # some special character filters for normalizing names.
-        self.analyzers['en_sort_author_analyzer'] = dict(
-            self.analyzers['en_sortable_analyzer']
-        )
-        self.analyzers['en_sort_author_analyzer']['char_filter'] = (
-            self.AUTHOR_CHAR_FILTER_NAMES
-        )
-
         # Now, the main event. Set up the field properties.
-
         fields_by_type = {
             "basic_text": ['title', 'subtitle', 'summary',
                            'classifications.term'],
@@ -1018,11 +996,22 @@ class MappingV4(Mapping):
 
         # Sort author gets a different analyzer designed especially
         # to normalize author names.
+
+        # It's based on the standard analyzer for sortable fields.
+        self.analyzers['en_sort_author_analyzer'] = dict(
+            self.analyzers['en_sortable_analyzer']
+        )
+        # But it has some extra character filters -- regexes that
+        # normalize names like "J. R. R. Tolkein".
+        self.analyzers['en_sort_author_analyzer']['char_filter'] = (
+            self.AUTHOR_CHAR_FILTER_NAMES
+        )
         self.add_property(
             "sort_author", "text", fielddata=True,
             analyzer="en_sort_author_analyzer"
         )
 
+        # Set up subdocuments.
         contributors = self.subdocument("contributors")
         contributor_fields_by_type = {
             'filterable_text' : ['sort_name', 'display_name', 'family_name'],
@@ -2450,7 +2439,7 @@ class SortKeyPagination(Pagination):
 
 
 class WorkSearchResult(object):
-    """Wraps a Work object to give extra information obtained from 
+    """Wraps a Work object to give extra information obtained from
     ElasticSearch.
 
     This object acts just like a Work (though isinstance(x, Work) will
