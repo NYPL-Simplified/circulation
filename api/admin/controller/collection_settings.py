@@ -300,7 +300,7 @@ class CollectionSettingsController(SettingsController):
             return MISSING_COLLECTION
         if len(collection.children) > 0:
             return CANNOT_DELETE_COLLECTION_WITH_CHILDREN
-        
+
         # Flag the collection to be deleted by script in the background.
         collection.marked_for_deletion = True
         return Response(unicode(_("Deleted")), 200)
