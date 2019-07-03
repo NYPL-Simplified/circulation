@@ -222,7 +222,6 @@ class ExternalSearchIndex(HasSelfTests):
         if works_index and integration and not in_testing:
             try:
                 self.set_works_index_and_alias(_db)
-                self.set_stored_scripts()
             except RequestError, e:
                 # This is almost certainly a problem with our code,
                 # not a communications error.
@@ -252,6 +251,10 @@ class ExternalSearchIndex(HasSelfTests):
 
         # Make sure the alias points to the most recent index.
         self.setup_current_alias(_db)
+
+        # Make sure the stored scripts for the latest mapping exist.
+        mapping = Mapping.latest()
+        self.set_stored_scripts(mapping)
 
     def setup_current_alias(self, _db):
         """Finds or creates the works_alias as named by the current site
@@ -297,57 +300,6 @@ class ExternalSearchIndex(HasSelfTests):
             return
         _use_as_works_alias(alias_name)
 
-    def set_stored_scripts(self):
-        """Ensure that the ES server knows about all the scripts necessary for
-        this version of the software.
-        """
-        self.put_script(
-            "simplified.work_last_update",
-            self.work_last_update_script_definition
-        )
-
-    @property
-    def work_last_update_script_definition(self):
-        # Here's the text of the script.
-        source = """
-double champion = -1;
-// Start off by looking at the work's last update time.
-for (candidate in doc['last_update_time']) {
-    if (champion == -1 || candidate > champion) { champion = candidate; }
-}
-if (params.collection_ids != null && params.collection_ids.length > 0) {
-    // Iterate over all licensepools looking for a pool in a collection
-    // relevant to this filter. When one is found, check its
-    // availability time to see if it's later than the last update time.
-    for (licensepool in params._source.licensepools) {
-        if (!params.collection_ids.contains(licensepool['collection_id'])) { continue; }
-        double candidate = licensepool['availability_time'];
-        if (champion == -1 || candidate > champion) { champion = candidate; }
-    }
-}
-if (params.list_ids != null && params.list_ids.length > 0) {
-
-    // Iterate over all customlists looking for a list relevant to
-    // this filter. When one is found, check the previous work's first
-    // appearance on that list to see if it's later than the last
-    // update time.
-    for (customlist in params._source.customlists) {
-        if (!params.list_ids.contains(customlist['list_id'])) { continue; }
-        double candidate = customlist['first_appearance'];
-        if (champion == -1 || candidate > champion) { champion = candidate; }
-    }
-}
-
-return champion;
-"""
-        # Now create the actual field configuration.
-        return dict(
-            script=dict(
-                lang="painless",
-                source=source,
-            )
-        )
-
     def setup_index(self, new_index=None, **index_settings):
         """Create the search index with appropriate mapping.
 
@@ -361,11 +313,24 @@ return champion;
             self.indices.delete(index_name)
 
         self.log.info("Creating index %s", index_name)
-        body = Mapping.latest().body()
+        latest = Mapping.latest()
+        body = latest.body()
         body.setdefault('settings', {}).update(index_settings)
-        index = self.indices.create(
-            index=index_name, body=body
-        )
+        index = self.indices.create(index=index_name, body=body)
+
+    def set_stored_scripts(self, mapping):
+        for name, definition in mapping.stored_scripts():
+            # Make sure the name of the script is scoped and versioned.
+            if not name.startswith("simplified."):
+                name = mapping.script_name(name)
+
+            # If only the source code was provided, configure it as a
+            # Painless script.
+            if isinstance(definition, basestring):
+                definition = dict(script=dict(lang="painless", source=definition))
+
+            # Put it in the database.
+            self.put_script(name, definition)
 
     def transfer_current_alias(self, _db, new_index):
         """Force -current alias onto a new index"""
@@ -704,6 +669,7 @@ return champion;
             _collections
         )
 
+
 class Mapping(object):
     """A class that defines the mapping for a particular version of the search index."""
 
@@ -748,6 +714,15 @@ class Mapping(object):
         else:
             search_client.setup_index(new_index=versioned_index)
             return True
+
+    @classmethod
+    def script_name(cls, base_name):
+        """Scope a script name with "simplified" (to avoid confusion with
+        other applications on the ElasticSearch server), and the
+        version number (to avoid confusion with other versions that
+        implement the same script differently).
+        """
+        return "simplified.%s_%s" % (base_name, cls.version_name())
 
     @classmethod
     def body(cls):
@@ -1032,6 +1007,46 @@ class MappingV4(Mapping):
         # document type.
         mappings = { ExternalSearchIndex.work_document_type : mapping }
         return dict(settings=settings, mappings=mappings)
+
+    @classmethod
+    def stored_scripts(cls):
+        """This version defines a single stored script, "work_last_update",
+        defined below.
+        """
+        yield "work_last_update", cls.WORK_LAST_UPDATE_SCRIPT
+
+    # Definition of the work_last_update_script.
+    WORK_LAST_UPDATE_SCRIPT = """
+double champion = -1;
+// Start off by looking at the work's last update time.
+for (candidate in doc['last_update_time']) {
+    if (champion == -1 || candidate > champion) { champion = candidate; }
+}
+if (params.collection_ids != null && params.collection_ids.length > 0) {
+    // Iterate over all licensepools looking for a pool in a collection
+    // relevant to this filter. When one is found, check its
+    // availability time to see if it's later than the last update time.
+    for (licensepool in params._source.licensepools) {
+        if (!params.collection_ids.contains(licensepool['collection_id'])) { continue; }
+        double candidate = licensepool['availability_time'];
+        if (champion == -1 || candidate > champion) { champion = candidate; }
+    }
+}
+if (params.list_ids != null && params.list_ids.length > 0) {
+
+    // Iterate over all customlists looking for a list relevant to
+    // this filter. When one is found, check the previous work's first
+    // appearance on that list to see if it's later than the last
+    // update time.
+    for (customlist in params._source.customlists) {
+        if (!params.list_ids.contains(customlist['list_id'])) { continue; }
+        double candidate = customlist['first_appearance'];
+        if (champion == -1 || candidate > champion) { champion = candidate; }
+    }
+}
+
+return champion;
+"""
 
 # Register the V4 mapping with the Mapping object.
 Mapping.register(MappingV4)
