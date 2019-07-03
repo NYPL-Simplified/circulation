@@ -3240,6 +3240,27 @@ class UpdateCustomListSizeScript(CustomListSweeperScript):
     def process_custom_list(self, custom_list):
         custom_list.update_size()
 
+
+class SearchIndexCoverageRemover(TimestampScript):
+    """Script that removes search index coverage for all works.
+
+    This guarantees the SearchIndexCoverageProvider will add
+    fresh coverage for every Work the next time it runs.
+    """
+    def do_run(self):
+        """Delete all WorkCoverageRecords for the UPDATE_SEARCH_INDEX_OPERATION.
+        """
+        wcr = WorkCoverageRecord
+        clause = wcr.operation==wcr.UPDATE_SEARCH_INDEX_OPERATION
+        count = self._db.query(wcr).filter(clause).count()
+        self._db.execute(wcr.__table__.delete().where(clause))
+        return TimestampData(
+            achievements="Coverage records deleted: %(deleted)d" % dict(
+                deleted=count
+            )
+        )
+
+
 class MockStdin(object):
     """Mock a list of identifiers passed in on standard input."""
     def __init__(self, *lines):
