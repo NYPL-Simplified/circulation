@@ -673,7 +673,11 @@ class ExternalSearchIndex(HasSelfTests):
         )
 
 
-class HasProperties(object):
+class MappingDocument(object):
+    """This class knows a lot about how the 'properties' section of an
+    Elasticsearch mapping document (or one of its subdocuments) is
+    created.
+    """
 
     def __init__(self):
         self.properties = {}
@@ -687,11 +691,12 @@ class HasProperties(object):
             so long as a hook method is defined for that type.
         :param description: Description of the field.
         """
-        # TODO: For some fields cases we could set index: False
-        # here, which would presumably lead to a smaller index and
-        # faster updates. However, it might hurt performance of
+        # TODO: For some fields we could set index: False here, which
+        # would presumably lead to a smaller index and faster
+        # updates. However, it might hurt performance of
         # searches. When this code is more mature we can do a
         # side-by-side comparison.
+
         defaults = dict(index=True, store=False)
         description['type'] = type
         for default_name, default_value in defaults.items():
@@ -721,9 +726,7 @@ class HasProperties(object):
         """Create a new HasProperties object and register it as a
         sub-document of this one.
         """
-        subdocument = HasProperties()
-        subdocument.BASIC_STRING_FIELDS = self.BASIC_STRING_FIELDS
-        subdocument.FILTERABLE_TEXT_FIELDS = self.FILTERABLE_TEXT_FIELDS
+        subdocument = MappingDocument()
         self.subdocuments[name] = subdocument
         return subdocument
 
@@ -768,13 +771,46 @@ class HasProperties(object):
         description['analyzer'] = 'en_sortable_analyzer'
         description['fielddata'] = True
 
+    # We want to index most text fields twice: once using the standard
+    # analyzer and once using a minimal analyzer for near-exact
+    # matches.
+    BASIC_STRING_FIELDS = {
+        "minimal": {
+            "type": "text",
+            "analyzer": "en_minimal_analyzer"
+        },
+        "standard": {
+            "type": "text",
+            "analyzer": "standard"
+        }
+    }
 
-class Mapping(HasProperties):
+    # Some fields, such as series and contributor name, we want to
+    # index as text fields (for use in searching) _and_ as keyword
+    # fields (for use in filtering). For the keyword field, only
+    # the most basic normalization is applied.
+    FILTERABLE_TEXT_FIELDS = dict(BASIC_STRING_FIELDS)
+    FILTERABLE_TEXT_FIELDS["keyword"] = {
+        "type": "keyword",
+        "index": True,
+        "store": False,
+        "normalizer": "filterable_string",
+    }
+
+
+class Mapping(MappingDocument):
     """A class that defines the mapping for a particular version of the search index."""
 
     VERSIONS = []
 
     VERSION_NAME = None
+
+    @classmethod
+    def latest_version_name(cls):
+        """Find the version name associated with the Mapping class currently
+        in use.
+        """
+        return cls.VERSIONS[-1].version_name()
 
     @classmethod
     def latest(cls):
@@ -811,11 +847,12 @@ class Mapping(HasProperties):
 
     def script_name(self, base_name):
         """Scope a script name with "simplified" (to avoid confusion with
-        other applications on the ElasticSearch server), and the
-        version number (to avoid confusion with other versions that
-        implement the same script differently).
+        other applications on the Elasticsearch server), and the
+        version number (to avoid confusion with other versions _of
+        this application_, which may implement the same script
+        differently, on this Elasticsearch server).
         """
-        return "simplified.%s_%s" % (base_name, self.version_name())
+        return "simplified.%s.%s" % (base_name, self.version_name())
 
     def __init__(self):
         super(Mapping, self).__init__()
@@ -900,32 +937,6 @@ class MappingV4(Mapping):
         CHAR_FILTERS[name] = normalizer
         AUTHOR_CHAR_FILTER_NAMES.append(name)
 
-    # We want to index most text fields twice: once using the standard
-    # analyzer and once using a minimal analyzer for near-exact
-    # matches.
-    BASIC_STRING_FIELDS = {
-        "minimal": {
-            "type": "text",
-            "analyzer": "en_minimal_analyzer"
-        },
-        "standard": {
-            "type": "text",
-            "analyzer": "standard"
-        }
-    }
-
-    # Some fields, such as series and contributor name, we want to
-    # index as text fields (for use in searching) _and_ as keyword
-    # fields (for use in filtering). For the keyword field, only
-    # the most basic normalization is applied.
-    FILTERABLE_TEXT_FIELDS = dict(BASIC_STRING_FIELDS)
-    FILTERABLE_TEXT_FIELDS["keyword"] = {
-        "type": "keyword",
-        "index": True,
-        "store": False,
-        "normalizer": "filterable_string",
-    }
-
     def __init__(self):
         super(MappingV4, self).__init__()
 
@@ -955,13 +966,15 @@ class MappingV4(Mapping):
         )
         common_text_analyzer = dict(
             type="custom", char_filter=["html_strip"], tokenizer="standard",
-            filter=["lowercase", "asciifolding", "en_stop_filter"]
         )
+        common_filter = ["lowercase", "asciifolding", "en_stop_filter"]
 
         # The 'default' analyzer uses a standard English stemmer.
         self.filters['en_stem_filter'] = dict(type="stemmer", name="english")
         self.analyzers['en_analyzer'] = dict(common_text_analyzer)
-        self.analyzers['en_analyzer']['filter'].append('en_stem_filter')
+        self.analyzers['en_analyzer']['filter'] = (
+            common_filter + ['en_stem_filter']
+        )
 
         # The 'minimal' analyzer uses a less aggressive English
         # stemmer.
@@ -969,8 +982,8 @@ class MappingV4(Mapping):
             type="stemmer", name="minimal_english"
         )
         self.analyzers['en_minimal_analyzer'] = dict(common_text_analyzer)
-        self.analyzers['en_minimal_analyzer']['filter'].append(
-            'en_stem_minimal_filter'
+        self.analyzers['en_minimal_analyzer']['filter'] = (
+            common_filter + ['en_stem_minimal_filter']
         )
 
         # An analyzer for textual fields we intend to sort on rather than query.
@@ -2149,9 +2162,10 @@ class Filter(SearchBase):
             collection_ids=collection_ids,
             list_ids=list(all_list_ids)
         )
+        latest_version_name = Mapping.latest_version_name()
         return dict(
             script=dict(
-                stored="simplified.work_last_update",
+                stored="simplified.work_last_update.%s" % latest_version_name,
                 params=params
             )
         )
