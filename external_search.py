@@ -774,7 +774,7 @@ class MappingV4(Mapping):
             elif type == 'filterable_text':
                 description['type'] = 'text'
                 description['analyzer'] = "en_analyzer"
-                description['fields'] =  cls.V4_FILTERABLE_TEXT_FIELDS
+                description['fields'] =  cls.FILTERABLE_TEXT_FIELDS
             mapping = cls.map_fields(
                 fields=fields,
                 mapping=mapping,
@@ -785,8 +785,8 @@ class MappingV4(Mapping):
     # Use regular expressions to normalized values in sortable fields.
     # These regexes are applied in order; that way "H. G. Wells"
     # becomes "H G Wells" becomes "HG Wells".
-    V4_CHAR_FILTERS = {}
-    V4_AUTHOR_CHAR_FILTER_NAMES = []
+    CHAR_FILTERS = {}
+    AUTHOR_CHAR_FILTER_NAMES = []
     for name, pattern, replacement in [
         # The special author name "[Unknown]" should sort after everything
         # else. REPLACEMENT CHARACTER is the final valid Unicode character.
@@ -810,13 +810,13 @@ class MappingV4(Mapping):
         normalizer = dict(type="pattern_replace",
                           pattern=pattern,
                           replacement=replacement)
-        V4_CHAR_FILTERS[name] = normalizer
-        V4_AUTHOR_CHAR_FILTER_NAMES.append(name)
+        CHAR_FILTERS[name] = normalizer
+        AUTHOR_CHAR_FILTER_NAMES.append(name)
 
     # We want to index most text fields twice: once using the standard
     # analyzer and once using a minimal analyzer for near-exact
     # matches.
-    V4_BASIC_STRING_FIELDS = {
+    BASIC_STRING_FIELDS = {
         "minimal": {
             "type": "text",
             "analyzer": "en_minimal_analyzer"},
@@ -830,8 +830,8 @@ class MappingV4(Mapping):
     # index as text fields (for use in searching) _and_ as keyword
     # fields (for use in filtering). For the keyword field, only
     # the most basic normalization is applied.
-    V4_FILTERABLE_TEXT_FIELDS = dict(V4_BASIC_STRING_FIELDS)
-    V4_FILTERABLE_TEXT_FIELDS["keyword"] = {
+    FILTERABLE_TEXT_FIELDS = dict(BASIC_STRING_FIELDS)
+    FILTERABLE_TEXT_FIELDS["keyword"] = {
         "type": "keyword",
         "index": True,
         "store": False,
@@ -875,7 +875,7 @@ class MappingV4(Mapping):
                         "country": "US"
                     }
                 },
-                "char_filter" : cls.V4_CHAR_FILTERS,
+                "char_filter" : cls.CHAR_FILTERS,
 
                 # This normalizer is used on freeform strings that
                 # will be used as tokens in filters. This way we can,
@@ -912,7 +912,7 @@ class MappingV4(Mapping):
                     # normalizing names.
                     "en_sort_author_analyzer": {
                         "tokenizer": "keyword",
-                        "char_filter": cls.V4_AUTHOR_CHAR_FILTER_NAMES,
+                        "char_filter": cls.AUTHOR_CHAR_FILTER_NAMES,
                         "filter": [ "en_sortable_filter" ],
                     }
                 }
@@ -927,7 +927,7 @@ class MappingV4(Mapping):
             field_description={
                 "type": "text",
                 "analyzer": "en_analyzer",
-                "fields": cls.V4_BASIC_STRING_FIELDS
+                "fields": cls.BASIC_STRING_FIELDS
             }
         )
 

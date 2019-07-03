@@ -329,8 +329,8 @@ class TestMappingV4(object):
         # Elasticsearch to use when normalizing fields that will be used
         # for searching.
         filters = []
-        for filter_name in MappingV4.V4_AUTHOR_CHAR_FILTER_NAMES:
-            configuration = MappingV4.V4_CHAR_FILTERS[filter_name]
+        for filter_name in MappingV4.AUTHOR_CHAR_FILTER_NAMES:
+            configuration = MappingV4.CHAR_FILTERS[filter_name]
             find = re.compile(configuration['pattern'])
             replace = configuration['replacement']
             # Hack to (imperfectly) convert Java regex format to Python format.
