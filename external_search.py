@@ -150,7 +150,7 @@ class ExternalSearchIndex(HasSelfTests):
         new one needed to be created, this would be the name of that
         index.
         """
-        return cls.works_prefixed(_db, ExternalSearchIndexVersions.latest())
+        return cls.works_prefixed(_db, Mapping.latest().version_name())
 
     @classmethod
     def works_alias_name(cls, _db):
@@ -361,7 +361,7 @@ return champion;
             self.indices.delete(index_name)
 
         self.log.info("Creating index %s", index_name)
-        body = ExternalSearchIndexVersions.latest_body()
+        body = Mapping.latest().body()
         body.setdefault('settings', {}).update(index_settings)
         index = self.indices.create(
             index=index_name, body=body
@@ -704,21 +704,61 @@ return champion;
             _collections
         )
 
-class ExternalSearchIndexVersions(object):
+class Mapping(object):
+    """A class that defines the mapping for a particular version of the search index."""
 
-    VERSIONS = ['v4']
+    VERSIONS = []
+
+    VERSION_NAME = None
+
+    # These methods are called on the Mapping class itself.
 
     @classmethod
     def latest(cls):
-        version_re = re.compile('v(\d+)')
-        versions = [int(re.match(version_re, v).groups()[0]) for v in cls.VERSIONS]
-        latest = sorted(versions)[-1]
-        return 'v%d' % latest
+        """Look up the Mapping class currently in use."""
+        return cls.VERSIONS[-1]
 
     @classmethod
-    def latest_body(cls):
-        version_method = cls.latest() + '_body'
-        return getattr(cls, version_method)()
+    def register(cls, subclass):
+        """Add a Mapping subclass to the list of versions."""
+        cls.VERSIONS.append(subclass)
+
+    # These methods are called on a subclass of Mapping and will raise NotImplementedError
+    # if called on Mapping.
+
+    @classmethod
+    def version_name(cls):
+        """Return the name of this Mapping subclass."""
+        version = cls.VERSION_NAME
+        if not version:
+            raise NotImplementedError("VERSION_NAME not defined")
+        if not version.startswith('v'):
+            version = 'v%s' % version
+        return version
+
+    @classmethod
+    def create(cls, search_client, base_index_name):
+        """Ensure that an index exists in `search_client` for this Mapping subclass.
+
+        :return: True or False, indicating whether the index was created new.
+        """
+        versioned_index = base_index_name+'-'+cls.version_name()
+        if search_client.indices.exists(index=versioned_index):
+            return False
+        else:
+            search_client.setup_index(new_index=versioned_index)
+            return True
+
+    @classmethod
+    def body(cls):
+        """Generate the body of the mapping document."""
+        raise NotImplementedError()
+
+
+class MappingV4(Mapping):
+    """Version four of the mapping, the first one to support only Elasticsearch 6."""
+
+    VERSION_NAME = "v4"
 
     @classmethod
     def map_fields(cls, fields, field_description, mapping=None):
@@ -824,7 +864,7 @@ class ExternalSearchIndexVersions(object):
     }
 
     @classmethod
-    def v4_body(cls):
+    def body(cls):
         """The first search body designed for ElasticSearch 6.
 
         This body has bibliographic information in the core document,
@@ -993,23 +1033,9 @@ class ExternalSearchIndexVersions(object):
         mappings = { ExternalSearchIndex.work_document_type : mapping }
         return dict(settings=settings, mappings=mappings)
 
-    @classmethod
-    def create_new_version(cls, search_client, base_index_name, version=None):
-        """Creates an index for a new version
+# Register the V4 mapping with the Mapping object.
+Mapping.register(MappingV4)
 
-        :return: True or False, indicating whether the index was created new.
-        """
-        if not version:
-            version = cls.latest()
-        if not version.startswith('v'):
-            version = 'v%s' % version
-
-        versioned_index = base_index_name+'-'+version
-        if search_client.indices.exists(index=versioned_index):
-            return False
-        else:
-            search_client.setup_index(new_index=versioned_index)
-            return True
 
 class SearchBase(object):
 

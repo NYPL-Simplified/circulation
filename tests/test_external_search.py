@@ -52,8 +52,9 @@ from ..model import (
 )
 from ..external_search import (
     ExternalSearchIndex,
-    ExternalSearchIndexVersions,
     Filter,
+    Mapping,
+    MappingV4,
     MockExternalSearchIndex,
     MockSearchResult,
     Query,
@@ -166,7 +167,7 @@ class TestExternalSearch(ExternalSearchTest):
         self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, u'banana')
         self.search.set_works_index_and_alias(self._db)
 
-        expected_index = 'banana-' + ExternalSearchIndexVersions.latest()
+        expected_index = 'banana-' + Mapping.latest().version_name()
         expected_alias = 'banana-' + self.search.CURRENT_ALIAS_SUFFIX
         eq_(expected_index, self.search.works_index)
         eq_(expected_alias, self.search.works_alias)
@@ -182,7 +183,7 @@ class TestExternalSearch(ExternalSearchTest):
             return
 
         # The index was generated from the string in configuration.
-        version = ExternalSearchIndexVersions.VERSIONS[-1]
+        version = Mapping.latest().version_name()
         index_name = 'test_index-' + version
         eq_(index_name, self.search.works_index)
         eq_(True, self.search.indices.exists(index_name))
@@ -321,16 +322,15 @@ class TestExternalSearch(ExternalSearchTest):
         eq_({collection.name: 1}, result)
 
 
-class TestExternalSearchIndexVersions(object):
+class TestMappingV4(object):
 
     def test_character_filters(self):
-        """Verify the functionality of the regular expressions we tell
-        Elasticsearch to use when normalizing fields that will be used
-        for searching.
-        """
+        # Verify the functionality of the regular expressions we tell
+        # Elasticsearch to use when normalizing fields that will be used
+        # for searching.
         filters = []
-        for filter_name in ExternalSearchIndexVersions.V4_AUTHOR_CHAR_FILTER_NAMES:
-            configuration = ExternalSearchIndexVersions.V4_CHAR_FILTERS[filter_name]
+        for filter_name in MappingV4.V4_AUTHOR_CHAR_FILTER_NAMES:
+            configuration = MappingV4.V4_CHAR_FILTERS[filter_name]
             find = re.compile(configuration['pattern'])
             replace = configuration['replacement']
             # Hack to (imperfectly) convert Java regex format to Python format.
