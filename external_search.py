@@ -981,7 +981,8 @@ class MappingV4(Mapping):
             tokenizer="keyword", filter=["en_sortable_filter"],
         )
 
-        # Now, the main event. Set up the field properties.
+        # Now, the main event. Set up the field properties for the
+        # base document.
         fields_by_type = {
             "basic_text": ['title', 'subtitle', 'summary',
                            'classifications.term'],
@@ -994,15 +995,16 @@ class MappingV4(Mapping):
         }
         self.add_properties(fields_by_type)
 
-        # Sort author gets a different analyzer designed especially
-        # to normalize author names.
+        # Sort author is special -- it gets a different analyzer
+        # designed especially to normalize author names.
 
         # It's based on the standard analyzer for sortable fields.
         self.analyzers['en_sort_author_analyzer'] = dict(
             self.analyzers['en_sortable_analyzer']
         )
-        # But it has some extra character filters -- regexes that
-        # normalize names like "J. R. R. Tolkein".
+
+        # But it has some extra character filters -- regexes that do
+        # things like convert "J. R. R. Tolkien" to "J.R.R. Tolkien".
         self.analyzers['en_sort_author_analyzer']['char_filter'] = (
             self.AUTHOR_CHAR_FILTER_NAMES
         )
@@ -1013,28 +1015,28 @@ class MappingV4(Mapping):
 
         # Set up subdocuments.
         contributors = self.subdocument("contributors")
-        contributor_fields_by_type = {
+        contributor_fields = {
             'filterable_text' : ['sort_name', 'display_name', 'family_name'],
             'keyword': ['role', 'lc', 'viaf'],
         }
-        contributors.add_properties(contributor_fields_by_type)
+        contributors.add_properties(contributor_fields)
 
         licensepools = self.subdocument("licensepools")
-        licensepool_fields_by_type = {
+        licensepool_fields = {
             'integer': ['collection_id', 'data_source_id'],
             'long': ['availability_time'],
             'boolean': ['available', 'open_access', 'suppressed', 'licensed'],
             'keyword': ['medium'],
         }
-        licensepools.add_properties(licensepool_fields_by_type)
+        licensepools.add_properties(licensepool_fields)
 
         customlists = self.subdocument("customlists")
-        customlist_fields_by_type = {
+        customlist_fields = {
             'integer': ['list_id'],
             'long':  ['first_appearance'],
             'boolean': ['featured'],
         }
-        customlists.add_properties(customlist_fields_by_type)
+        customlists.add_properties(customlist_fields)
 
     @classmethod
     def stored_scripts(cls):
