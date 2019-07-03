@@ -141,8 +141,7 @@ class ExternalSearchIndex(HasSelfTests):
         prefix = setting.value_or_default(cls.DEFAULT_WORKS_INDEX_PREFIX)
         return prefix + '-' + value
 
-    @classmethod
-    def works_index_name(cls, _db):
+    def works_index_name(self, _db):
         """Look up the name of the search index.
 
         It's possible, but unlikely, that the search index alias will
@@ -150,7 +149,7 @@ class ExternalSearchIndex(HasSelfTests):
         new one needed to be created, this would be the name of that
         index.
         """
-        return cls.works_prefixed(_db, Mapping.latest().version_name())
+        return self.works_prefixed(_db, self.mapping.version_name())
 
     @classmethod
     def works_alias_name(cls, _db):
@@ -165,17 +164,23 @@ class ExternalSearchIndex(HasSelfTests):
         return cls(_db, *args, **kwargs)
 
     def __init__(self, _db, url=None, works_index=None, test_search_term=None,
-                 in_testing=False):
+                 in_testing=False, mapping=None):
         """Constructor
 
         :param in_testing: Set this to true if you don't want an
         Elasticsearch client to be created, e.g. because you're
         running a unit test of the constructor.
+
+
+        :param mapping: A custom Mapping object, for use in unit tests. By
+        default, the most recent mapping will be used.
         """
         self.log = logging.getLogger("External search index")
         self.works_index = None
         self.works_alias = None
         integration = None
+
+        self.mapping = mapping or Mapping.latest()
 
         if not _db:
             raise CannotLoadConfiguration(
@@ -253,8 +258,7 @@ class ExternalSearchIndex(HasSelfTests):
         self.setup_current_alias(_db)
 
         # Make sure the stored scripts for the latest mapping exist.
-        mapping = Mapping.latest()
-        self.set_stored_scripts(mapping)
+        self.set_stored_scripts()
 
     def setup_current_alias(self, _db):
         """Finds or creates the works_alias as named by the current site
@@ -313,16 +317,15 @@ class ExternalSearchIndex(HasSelfTests):
             self.indices.delete(index_name)
 
         self.log.info("Creating index %s", index_name)
-        latest = Mapping.latest()
-        body = latest.body()
+        body = self.mapping.body()
         body.setdefault('settings', {}).update(index_settings)
         index = self.indices.create(index=index_name, body=body)
 
-    def set_stored_scripts(self, mapping):
-        for name, definition in mapping.stored_scripts():
+    def set_stored_scripts(self):
+        for name, definition in self.mapping.stored_scripts():
             # Make sure the name of the script is scoped and versioned.
             if not name.startswith("simplified."):
-                name = mapping.script_name(name)
+                name = self.mapping.script_name(name)
 
             # If only the source code was provided, configure it as a
             # Painless script.
@@ -678,18 +681,17 @@ class Mapping(object):
     VERSION_NAME = None
 
     # These methods are called on the Mapping class itself.
-
     @classmethod
     def latest(cls):
-        """Look up the Mapping class currently in use."""
-        return cls.VERSIONS[-1]
+        """Intantiate the the Mapping class currently in use."""
+        return cls.VERSIONS[-1]()
 
     @classmethod
     def register(cls, subclass):
         """Add a Mapping subclass to the list of versions."""
         cls.VERSIONS.append(subclass)
 
-    # These methods are called on a subclass of Mapping and will raise NotImplementedError
+    # These class methods are called on a subclass of Mapping and will raise NotImplementedError
     # if called on Mapping.
 
     @classmethod
@@ -702,32 +704,49 @@ class Mapping(object):
             version = 'v%s' % version
         return version
 
-    @classmethod
-    def create(cls, search_client, base_index_name):
+    def create(self, search_client, base_index_name):
         """Ensure that an index exists in `search_client` for this Mapping subclass.
 
         :return: True or False, indicating whether the index was created new.
         """
-        versioned_index = base_index_name+'-'+cls.version_name()
+        versioned_index = base_index_name+'-'+self.version_name()
         if search_client.indices.exists(index=versioned_index):
             return False
         else:
             search_client.setup_index(new_index=versioned_index)
             return True
 
-    @classmethod
-    def script_name(cls, base_name):
+    def script_name(self, base_name):
         """Scope a script name with "simplified" (to avoid confusion with
         other applications on the ElasticSearch server), and the
         version number (to avoid confusion with other versions that
         implement the same script differently).
         """
-        return "simplified.%s_%s" % (base_name, cls.version_name())
+        return "simplified.%s_%s" % (base_name, self.version_name())
 
-    @classmethod
-    def body(cls):
-        """Generate the body of the mapping document."""
-        raise NotImplementedError()
+    def __init__(self):
+        self.filters = {}
+        self.char_filters = {}
+        self.normalizers = {}
+        self.analyzers = {}
+        self.properties = {}
+
+    def body(self):
+        """Generate the body of the mapping document for this version of the mapping."""
+        settings = dict(
+            analysis=dict(
+                filter=self.filters,
+                char_filter=self.char_filters,
+                normalizer=self.normalizers,
+                analyzer=self.analyzers
+            )
+        )
+
+        work_mapping = dict(properties=self.properties)
+        mappings = { 
+            ExternalSearchIndex.work_document_type : work_mapping
+        }
+        return dict(settings=settings, mappings=mappings)
 
 
 class MappingV4(Mapping):
