@@ -51,10 +51,10 @@ from ..model import (
     get_one_or_create,
 )
 from ..external_search import (
+    CurrentMapping,
     ExternalSearchIndex,
     Filter,
     Mapping,
-    MappingV4,
     MockExternalSearchIndex,
     MockSearchResult,
     Query,
@@ -167,7 +167,7 @@ class TestExternalSearch(ExternalSearchTest):
         self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, u'banana')
         self.search.set_works_index_and_alias(self._db)
 
-        expected_index = 'banana-' + Mapping.latest().version_name()
+        expected_index = 'banana-' + CurrentMapping.version_name()
         expected_alias = 'banana-' + self.search.CURRENT_ALIAS_SUFFIX
         eq_(expected_index, self.search.works_index)
         eq_(expected_alias, self.search.works_alias)
@@ -183,7 +183,7 @@ class TestExternalSearch(ExternalSearchTest):
             return
 
         # The index was generated from the string in configuration.
-        version = Mapping.latest().version_name()
+        version = CurrentMapping.version_name()
         index_name = 'test_index-' + version
         eq_(index_name, self.search.works_index)
         eq_(True, self.search.indices.exists(index_name))
@@ -322,15 +322,15 @@ class TestExternalSearch(ExternalSearchTest):
         eq_({collection.name: 1}, result)
 
 
-class TestMappingV4(object):
+class TestCurrentMapping(object):
 
     def test_character_filters(self):
         # Verify the functionality of the regular expressions we tell
         # Elasticsearch to use when normalizing fields that will be used
         # for searching.
         filters = []
-        for filter_name in MappingV4.AUTHOR_CHAR_FILTER_NAMES:
-            configuration = MappingV4.CHAR_FILTERS[filter_name]
+        for filter_name in CurrentMapping.AUTHOR_CHAR_FILTER_NAMES:
+            configuration = CurrentMapping.CHAR_FILTERS[filter_name]
             find = re.compile(configuration['pattern'])
             replace = configuration['replacement']
             # Hack to (imperfectly) convert Java regex format to Python format.
@@ -3189,7 +3189,7 @@ class TestFilter(DatabaseTest):
         eq_({}, sort)
 
         # The script is the 'simplified.work_last_update' stored script.
-        version = Mapping.latest_version_name()
+        version = CurrentMapping.version_name()
         eq_('simplified.work_last_update.%s' % version, script.pop('stored'))
 
         # Two parameters are passed into the script -- the IDs of the

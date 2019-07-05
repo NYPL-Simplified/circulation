@@ -173,14 +173,14 @@ class ExternalSearchIndex(HasSelfTests):
 
 
         :param mapping: A custom Mapping object, for use in unit tests. By
-        default, the most recent mapping will be used.
+        default, the most recent mapping will be instantiated.
         """
         self.log = logging.getLogger("External search index")
         self.works_index = None
         self.works_alias = None
         integration = None
 
-        self.mapping = mapping or Mapping.latest()
+        self.mapping = mapping or CurrentMapping()
 
         if not _db:
             raise CannotLoadConfiguration(
@@ -730,6 +730,20 @@ class MappingDocument(object):
         self.subdocuments[name] = subdocument
         return subdocument
 
+    # We want to index most text fields twice: once using the standard
+    # analyzer and once using a minimal analyzer for near-exact
+    # matches.
+    BASIC_STRING_FIELDS = {
+        "minimal": {
+            "type": "text",
+            "analyzer": "en_minimal_analyzer"
+        },
+        "standard": {
+            "type": "text",
+            "analyzer": "standard"
+        }
+    }
+
     def basic_text_property_hook(self, description):
         """Hook method to handle the custom 'basic_text'
         property type.
@@ -742,6 +756,18 @@ class MappingDocument(object):
         description['type'] = 'text'
         description['analyzer'] = "en_analyzer"
         description['fields'] =  self.BASIC_STRING_FIELDS
+
+    # Some fields, such as series and contributor name, we want to
+    # index as text fields (for use in searching) _and_ as keyword
+    # fields (for use in filtering). For the keyword field, only
+    # the most basic normalization is applied.
+    FILTERABLE_TEXT_FIELDS = dict(BASIC_STRING_FIELDS)
+    FILTERABLE_TEXT_FIELDS["keyword"] = {
+        "type": "keyword",
+        "index": True,
+        "store": False,
+        "normalizer": "filterable_string",
+    }
 
     def filterable_text_property_hook(self, description):
         """Hook method to handle the custom 'filterable_text'
@@ -771,56 +797,15 @@ class MappingDocument(object):
         description['analyzer'] = 'en_sortable_analyzer'
         description['fielddata'] = True
 
-    # We want to index most text fields twice: once using the standard
-    # analyzer and once using a minimal analyzer for near-exact
-    # matches.
-    BASIC_STRING_FIELDS = {
-        "minimal": {
-            "type": "text",
-            "analyzer": "en_minimal_analyzer"
-        },
-        "standard": {
-            "type": "text",
-            "analyzer": "standard"
-        }
-    }
-
-    # Some fields, such as series and contributor name, we want to
-    # index as text fields (for use in searching) _and_ as keyword
-    # fields (for use in filtering). For the keyword field, only
-    # the most basic normalization is applied.
-    FILTERABLE_TEXT_FIELDS = dict(BASIC_STRING_FIELDS)
-    FILTERABLE_TEXT_FIELDS["keyword"] = {
-        "type": "keyword",
-        "index": True,
-        "store": False,
-        "normalizer": "filterable_string",
-    }
-
 
 class Mapping(MappingDocument):
-    """A class that defines the mapping for a particular version of the search index."""
+    """A class that defines the mapping for a particular version of the search index.
 
-    VERSIONS = []
+    Code that won't change between versions can go here. (Or code that
+    can change between versions without affecting anything.)
+    """
 
     VERSION_NAME = None
-
-    @classmethod
-    def latest_version_name(cls):
-        """Find the version name associated with the Mapping class currently
-        in use.
-        """
-        return cls.VERSIONS[-1].version_name()
-
-    @classmethod
-    def latest(cls):
-        """Intantiate the the Mapping class currently in use."""
-        return cls.VERSIONS[-1]()
-
-    @classmethod
-    def register(cls, subclass):
-        """Add a Mapping subclass to the list of versions."""
-        cls.VERSIONS.append(subclass)
 
     @classmethod
     def version_name(cls):
@@ -832,9 +817,25 @@ class Mapping(MappingDocument):
             version = 'v%s' % version
         return version
 
+    @classmethod
+    def script_name(cls, base_name):
+        """Scope a script name with "simplified" (to avoid confusion with
+        other applications on the Elasticsearch server), and the
+        version number (to avoid confusion with other versions _of
+        this application_, which may implement the same script
+        differently, on this Elasticsearch server).
+        """
+        return "simplified.%s.%s" % (base_name, cls.version_name())
+
+    def __init__(self):
+        super(Mapping, self).__init__()
+        self.filters = {}
+        self.char_filters = {}
+        self.normalizers = {}
+        self.analyzers = {}
+
     def create(self, search_client, base_index_name):
-        """Ensure that an index exists in `search_client` for this Mapping
-        subclass.
+        """Ensure that an index exists in `search_client` for this Mapping.
 
         :return: True or False, indicating whether the index was created new.
         """
@@ -844,22 +845,6 @@ class Mapping(MappingDocument):
         else:
             search_client.setup_index(new_index=versioned_index)
             return True
-
-    def script_name(self, base_name):
-        """Scope a script name with "simplified" (to avoid confusion with
-        other applications on the Elasticsearch server), and the
-        version number (to avoid confusion with other versions _of
-        this application_, which may implement the same script
-        differently, on this Elasticsearch server).
-        """
-        return "simplified.%s.%s" % (base_name, self.version_name())
-
-    def __init__(self):
-        super(Mapping, self).__init__()
-        self.filters = {}
-        self.char_filters = {}
-        self.normalizers = {}
-        self.analyzers = {}
 
     def body(self):
         """Generate the body of the mapping document for this version of the
@@ -889,8 +874,8 @@ class Mapping(MappingDocument):
         return dict(settings=settings, mappings=mappings)
 
 
-class MappingV4(Mapping):
-    """Version four of the mapping, the first one to support only Elasticsearch 6.
+class CurrentMapping(Mapping):
+    """The first mapping to support only Elasticsearch 6.
 
     The body of this mapping looks for bibliographic information in
     the core document, primarily used for matching search
@@ -938,7 +923,7 @@ class MappingV4(Mapping):
         AUTHOR_CHAR_FILTER_NAMES.append(name)
 
     def __init__(self):
-        super(MappingV4, self).__init__()
+        super(CurrentMapping, self).__init__()
 
         # Set up character filters.
         #
@@ -1090,9 +1075,6 @@ if (params.list_ids != null && params.list_ids.length > 0) {
 
 return champion;
 """
-
-# Register the V4 mapping with the Mapping object.
-Mapping.register(MappingV4)
 
 
 class SearchBase(object):
@@ -2162,10 +2144,9 @@ class Filter(SearchBase):
             collection_ids=collection_ids,
             list_ids=list(all_list_ids)
         )
-        latest_version_name = Mapping.latest_version_name()
         return dict(
             script=dict(
-                stored="simplified.work_last_update.%s" % latest_version_name,
+                stored=CurrentMapping.script_name("work_last_update"),
                 params=params
             )
         )
