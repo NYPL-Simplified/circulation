@@ -774,23 +774,6 @@ class MappingDocument(object):
             "normalizer": "filterable_string",
         }
 
-    def icu_collation_keyword_property_hook(self, description):
-        """Modify the description of an icu_collation_keyword
-        property.
-
-        The 'icu_collation_keyword' type exists in Elasticsearch, but
-        a field of this type can't have a custom analyzer or
-        normalizer, and we need a character filter to exclude certain
-        punctuation characters when determining search
-        order. Converting an 'icu_collation_keyword' field to a 'text'
-        field with the 'en_sortable_analyzer' approximates the
-        functionality of icu_collation_keyword but also lets us have
-        the character filter.
-        """
-        description['type'] = 'text'
-        description['analyzer'] = 'en_sortable_analyzer'
-        description['fielddata'] = True
-
 
 class Mapping(MappingDocument):
     """A class that defines the mapping for a particular version of the search index.
@@ -974,26 +957,24 @@ class CurrentMapping(Mapping):
             common_filter + ['en_stem_minimal_filter']
         )
 
-        # Here's an analyzer for textual fields we intend to sort on
-        # rather than query.
+        # Here's a special filter used only by the analyzer for the
+        # 'sort_author' property (directly below).  It duplicates the
+        # filter used by the icu_collation_keyword data type.
         self.filters['en_sortable_filter'] = dict(
             type="icu_collation", language="en", country="US"
         )
-        self.analyzers['en_sortable_analyzer'] = dict(
-            tokenizer="keyword", filter=["en_sortable_filter"],
-        )
 
-        # Here's a special analyzer used only by the 'sort_author' property.
-
-        # It's based on the analyzer used by other sortable fields.
+        # Here's the analyzer used by the 'sort_author' property.
+        # It's the same as icu_collation_keyword, but it has some
+        # extra character filters -- regexes that do things like
+        # convert "J. R. R. Tolkien" to "J.R.R. Tolkien".
+        #
+        # This is necessary because normal icu_collation_keyword
+        # fields can't specify char_filter.
         self.analyzers['en_sort_author_analyzer'] = dict(
-            self.analyzers['en_sortable_analyzer']
-        )
-
-        # But it has some extra character filters -- regexes that do
-        # things like convert "J. R. R. Tolkien" to "J.R.R. Tolkien".
-        self.analyzers['en_sort_author_analyzer']['char_filter'] = (
-            self.AUTHOR_CHAR_FILTER_NAMES
+            tokenizer="keyword",
+            filter=["en_sortable_filter"],
+            char_filter = self.AUTHOR_CHAR_FILTER_NAMES,
         )
 
         # Now, the main event. Set up the field properties for the
