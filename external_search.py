@@ -840,6 +840,12 @@ class Mapping(MappingDocument):
             search_client.setup_index(new_index=versioned_index)
             return True
 
+    def sort_author_keyword_property_hook(self, description):
+        """Give the `sort_author` property its custom analyzer."""
+        description['type'] = 'text'
+        description['analyzer'] = 'en_sort_author_analyzer'
+        description['fielddata'] = True
+
     def body(self):
         """Generate the body of the mapping document for this version of the
         mapping.
@@ -977,24 +983,9 @@ class CurrentMapping(Mapping):
             tokenizer="keyword", filter=["en_sortable_filter"],
         )
 
-        # Now, the main event. Set up the field properties for the
-        # base document.
-        fields_by_type = {
-            "basic_text": ['title', 'subtitle', 'summary',
-                           'classifications.term'],
-            'filterable_text': ['series'],
-            'boolean': ['presentation_ready'],
-            'icu_collation_keyword': ['sort_author', 'sort_title'],
-            'integer': ['series_position', 'work_id'],
-            'long': ['last_update_time'],
-            'float': ['random'],
-        }
-        self.add_properties(fields_by_type)
+        # Here's a special analyzer used only by the 'sort_author' property.
 
-        # Sort author is special -- it gets a different analyzer
-        # designed especially to normalize author names.
-
-        # It's based on the standard analyzer for sortable fields.
+        # It's based on the analyzer used by other sortable fields.
         self.analyzers['en_sort_author_analyzer'] = dict(
             self.analyzers['en_sortable_analyzer']
         )
@@ -1004,10 +995,21 @@ class CurrentMapping(Mapping):
         self.analyzers['en_sort_author_analyzer']['char_filter'] = (
             self.AUTHOR_CHAR_FILTER_NAMES
         )
-        self.add_property(
-            "sort_author", "text", fielddata=True,
-            analyzer="en_sort_author_analyzer"
-        )
+
+        # Now, the main event. Set up the field properties for the
+        # base document.
+        fields_by_type = {
+            "basic_text": ['title', 'subtitle', 'summary',
+                           'classifications.term'],
+            'filterable_text': ['series'],
+            'boolean': ['presentation_ready'],
+            'icu_collation_keyword': ['sort_title'],
+            'sort_author_keyword' : ['sort_author'],
+            'integer': ['series_position', 'work_id'],
+            'long': ['last_update_time'],
+            'float': ['random'],
+        }
+        self.add_properties(fields_by_type)
 
         # Set up subdocuments.
         contributors = self.subdocument("contributors")
