@@ -1561,10 +1561,6 @@ class TestExactMatches(EndToEndSearchTest):
             "aziz ansari"
         )
 
-        # The next two cases have slightly different outcomes in
-        # Elasticsearch 1 and Elasticsearch 6, so we're only testing
-        # the invariants between versions.
-
         # 'peter graves' is a string that has exact matches in both
         # title and author.
 
