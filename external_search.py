@@ -736,10 +736,11 @@ class MappingDocument(object):
         property type.
 
         This type does not exist in Elasticsearch. It's our name for a
-        text field that is indexed three times: once using the English
-        analyzer ("title"), once using Elasticsearch's standard
-        analyzer ("title.standard"), and once using a minimal analyzer
-        ("title.minimal") for near-exact matches.
+        text field that is indexed three times: once using our default
+        English analyzer ("title"), once using Elasticsearch's
+        standard analyzer ("title.standard"), and once using a minimal
+        analyzer ("title.minimal") for near-exact matches.
+
         """
         description['type'] = 'text'
         description['analyzer'] = 'en_analyzer'
@@ -934,11 +935,14 @@ class CurrentMapping(Mapping):
         # Set up analyzers.
         #
 
-        # The first two analyzers are used for the 'default' and
-        # 'minimal' views of most text fields. They're identical
-        # except for the last filter in the chain.
+        # The first two analyzers are used for the default and
+        # 'minimal' views of most text fields (for the 'standard'
+        # view, we use Elasticsearch's default analyzer). The two
+        # analyzers are identical except for the last filter in the
+        # chain.
 
-        # Both analyzers filter out stopwords.
+        # Both analyzers filter out stopwords, convert to lowercase,
+        # and fold to ASCII when possible.
         self.filters['en_stop_filter'] = dict(
             type="stop", stopwords=["_english_"]
         )
@@ -947,14 +951,14 @@ class CurrentMapping(Mapping):
         )
         common_filter = ["lowercase", "asciifolding", "en_stop_filter"]
 
-        # The 'default' analyzer uses a standard English stemmer.
+        # Our default analyzer uses a standard English stemmer.
         self.filters['en_stem_filter'] = dict(type="stemmer", name="english")
         self.analyzers['en_analyzer'] = dict(common_text_analyzer)
         self.analyzers['en_analyzer']['filter'] = (
             common_filter + ['en_stem_filter']
         )
 
-        # The 'minimal' analyzer uses a less aggressive English
+        # Whereas the 'minimal' analyzer uses a less aggressive English
         # stemmer.
         self.filters['en_stem_minimal_filter'] = dict(
             type="stemmer", name="minimal_english"
@@ -964,7 +968,8 @@ class CurrentMapping(Mapping):
             common_filter + ['en_stem_minimal_filter']
         )
 
-        # An analyzer for textual fields we intend to sort on rather than query.
+        # Here's an analyzer for textual fields we intend to sort on
+        # rather than query.
         self.filters['en_sortable_filter'] = dict(
             type="icu_collation", language="en", country="US"
         )

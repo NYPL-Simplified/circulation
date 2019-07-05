@@ -3189,8 +3189,8 @@ class TestFilter(DatabaseTest):
         eq_({}, sort)
 
         # The script is the 'simplified.work_last_update' stored script.
-        version = CurrentMapping.version_name()
-        eq_('simplified.work_last_update.%s' % version, script.pop('stored'))
+        eq_(CurrentMapping.script_name("work_last_update"),
+            script.pop('stored'))
 
         # Two parameters are passed into the script -- the IDs of the
         # collections and the lists relevant to the query. This is so
