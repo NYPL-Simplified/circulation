@@ -150,7 +150,7 @@ class ExternalSearchIndex(HasSelfTests):
         new one needed to be created, this would be the name of that
         index.
         """
-        return cls.works_prefixed(_db, ExternalSearchIndexVersions.latest())
+        return cls.works_prefixed(_db, CurrentMapping.version_name())
 
     @classmethod
     def works_alias_name(cls, _db):
@@ -165,17 +165,23 @@ class ExternalSearchIndex(HasSelfTests):
         return cls(_db, *args, **kwargs)
 
     def __init__(self, _db, url=None, works_index=None, test_search_term=None,
-                 in_testing=False):
+                 in_testing=False, mapping=None):
         """Constructor
 
         :param in_testing: Set this to true if you don't want an
         Elasticsearch client to be created, e.g. because you're
         running a unit test of the constructor.
+
+
+        :param mapping: A custom Mapping object, for use in unit tests. By
+        default, the most recent mapping will be instantiated.
         """
         self.log = logging.getLogger("External search index")
         self.works_index = None
         self.works_alias = None
         integration = None
+
+        self.mapping = mapping or CurrentMapping()
 
         if not _db:
             raise CannotLoadConfiguration(
@@ -222,7 +228,6 @@ class ExternalSearchIndex(HasSelfTests):
         if works_index and integration and not in_testing:
             try:
                 self.set_works_index_and_alias(_db)
-                self.set_stored_scripts()
             except RequestError, e:
                 # This is almost certainly a problem with our code,
                 # not a communications error.
@@ -252,6 +257,9 @@ class ExternalSearchIndex(HasSelfTests):
 
         # Make sure the alias points to the most recent index.
         self.setup_current_alias(_db)
+
+        # Make sure the stored scripts for the latest mapping exist.
+        self.set_stored_scripts()
 
     def setup_current_alias(self, _db):
         """Finds or creates the works_alias as named by the current site
@@ -297,57 +305,6 @@ class ExternalSearchIndex(HasSelfTests):
             return
         _use_as_works_alias(alias_name)
 
-    def set_stored_scripts(self):
-        """Ensure that the ES server knows about all the scripts necessary for
-        this version of the software.
-        """
-        self.put_script(
-            "simplified.work_last_update",
-            self.work_last_update_script_definition
-        )
-
-    @property
-    def work_last_update_script_definition(self):
-        # Here's the text of the script.
-        source = """
-double champion = -1;
-// Start off by looking at the work's last update time.
-for (candidate in doc['last_update_time']) {
-    if (champion == -1 || candidate > champion) { champion = candidate; }
-}
-if (params.collection_ids != null && params.collection_ids.length > 0) {
-    // Iterate over all licensepools looking for a pool in a collection
-    // relevant to this filter. When one is found, check its
-    // availability time to see if it's later than the last update time.
-    for (licensepool in params._source.licensepools) {
-        if (!params.collection_ids.contains(licensepool['collection_id'])) { continue; }
-        double candidate = licensepool['availability_time'];
-        if (champion == -1 || candidate > champion) { champion = candidate; }
-    }
-}
-if (params.list_ids != null && params.list_ids.length > 0) {
-
-    // Iterate over all customlists looking for a list relevant to
-    // this filter. When one is found, check the previous work's first
-    // appearance on that list to see if it's later than the last
-    // update time.
-    for (customlist in params._source.customlists) {
-        if (!params.list_ids.contains(customlist['list_id'])) { continue; }
-        double candidate = customlist['first_appearance'];
-        if (champion == -1 || candidate > champion) { champion = candidate; }
-    }
-}
-
-return champion;
-"""
-        # Now create the actual field configuration.
-        return dict(
-            script=dict(
-                lang="painless",
-                source=source,
-            )
-        )
-
     def setup_index(self, new_index=None, **index_settings):
         """Create the search index with appropriate mapping.
 
@@ -361,11 +318,23 @@ return champion;
             self.indices.delete(index_name)
 
         self.log.info("Creating index %s", index_name)
-        body = ExternalSearchIndexVersions.latest_body()
+        body = self.mapping.body()
         body.setdefault('settings', {}).update(index_settings)
-        index = self.indices.create(
-            index=index_name, body=body
-        )
+        index = self.indices.create(index=index_name, body=body)
+
+    def set_stored_scripts(self):
+        for name, definition in self.mapping.stored_scripts():
+            # Make sure the name of the script is scoped and versioned.
+            if not name.startswith("simplified."):
+                name = self.mapping.script_name(name)
+
+            # If only the source code was provided, configure it as a
+            # Painless script.
+            if isinstance(definition, basestring):
+                definition = dict(script=dict(lang="painless", source=definition))
+
+            # Put it in the database.
+            self.put_script(name, definition)
 
     def transfer_current_alias(self, _db, new_index):
         """Force -current alias onto a new index"""
@@ -704,74 +673,223 @@ return champion;
             _collections
         )
 
-class ExternalSearchIndexVersions(object):
 
-    VERSIONS = ['v4']
+class MappingDocument(object):
+    """This class knows a lot about how the 'properties' section of an
+    Elasticsearch mapping document (or one of its subdocuments) is
+    created.
+    """
 
-    @classmethod
-    def latest(cls):
-        version_re = re.compile('v(\d+)')
-        versions = [int(re.match(version_re, v).groups()[0]) for v in cls.VERSIONS]
-        latest = sorted(versions)[-1]
-        return 'v%d' % latest
+    def __init__(self):
+        self.properties = {}
+        self.subdocuments = {}
 
-    @classmethod
-    def latest_body(cls):
-        version_method = cls.latest() + '_body'
-        return getattr(cls, version_method)()
+    def add_property(self, name, type, **description):
+        """Add a field to the list of properties.
 
-    @classmethod
-    def map_fields(cls, fields, field_description, mapping=None):
-        mapping = mapping or {"properties": {}}
-        for field in fields:
-            mapping["properties"][field] = field_description
-        return mapping
-
-    @classmethod
-    def map_fields_by_type(cls, fields_by_type, mapping=None):
-        """Create a mapping for a number of fields of different types.
-
-        :param fields_by_type: A dictionary mapping Elasticsearch types
-            to field names.
+        :param name: Name of the field as found in search documents.
+        :param type: Type of the field. This may be a custom type,
+            so long as a hook method is defined for that type.
+        :param description: Description of the field.
         """
-        for type, fields in fields_by_type.items():
-            description={
-                "type": type,
-                # TODO: In some cases we can get away with setting
-                # index: False here, which would presumably lead
-                # to a smaller index and faster updates. However,
-                # it might hurt performance of searches. When this
-                # code is more mature we can do a side-by-side
-                # comparison.
-                "index": True,
-                "store": False,
+        # TODO: For some fields we could set index: False here, which
+        # would presumably lead to a smaller index and faster
+        # updates. However, it might hurt performance of
+        # searches. When this code is more mature we can do a
+        # side-by-side comparison.
+
+        defaults = dict(index=True, store=False)
+        description['type'] = type
+        for default_name, default_value in defaults.items():
+            if default_name not in description:
+                description[default_name] = default_value
+
+        hook_method = getattr(self, type + "_property_hook", None)
+        if hook_method is not None:
+            hook_method(description)
+        # TODO: Cross-check the description for correctness. Do the
+        # things it mention actually exist? Better to fail now with a
+        # useful error than to fail when talking to Elasticsearch.
+        self.properties[name] = description
+
+    def add_properties(self, properties_by_type):
+        """Turn a dictionary mapping types to field names into a
+        bunch of add_property() calls.
+
+        Useful when you have a lot of fields that don't need any
+        customization.
+        """
+        for type, properties in properties_by_type.items():
+            for name in properties:
+                self.add_property(name, type)
+
+    def subdocument(self, name):
+        """Create a new HasProperties object and register it as a
+        sub-document of this one.
+        """
+        subdocument = MappingDocument()
+        self.subdocuments[name] = subdocument
+        return subdocument
+
+    def basic_text_property_hook(self, description):
+        """Hook method to handle the custom 'basic_text'
+        property type.
+
+        This type does not exist in Elasticsearch. It's our name for a
+        text field that is indexed three times: once using our default
+        English analyzer ("title"), once using Elasticsearch's
+        standard analyzer ("title.standard"), and once using a minimal
+        analyzer ("title.minimal") for near-exact matches.
+
+        """
+        description['type'] = 'text'
+        description['analyzer'] = 'en_analyzer'
+        description['fields'] = {
+            "minimal": {
+                "type": "text",
+                "analyzer": "en_minimal_analyzer"
+            },
+            "standard": {
+                "type": "text",
+                "analyzer": "standard"
             }
-            if type == 'icu_collation_keyword':
-                # An icu_collation_keyword field can't have a custom
-                # analyzer or normalizer, and we need a character filter
-                # to exclude certain punctuation characters when determining
-                # search order. A text field with the en_sortable_analyzer
-                # approximates the (much simpler) icu_collation_keyword type
-                # but also lets us have the character filter.
-                description['type'] = 'text'
-                description['analyzer'] = 'en_sortable_analyzer'
-                description['fielddata'] = True
-            elif type == 'filterable_text':
-                description['type'] = 'text'
-                description['analyzer'] = "en_analyzer"
-                description['fields'] =  cls.V4_FILTERABLE_TEXT_FIELDS
-            mapping = cls.map_fields(
-                fields=fields,
-                mapping=mapping,
-                field_description=description,
+        }
+
+    def filterable_text_property_hook(self, description):
+        """Hook method to handle the custom 'filterable_text'
+        property type.
+
+        This type does not exist in Elasticsearch. It's our name for a
+        text field that can be used in both queries and filters.
+
+        This field is indexed _four_ times -- the three ways a normal
+        text field is indexed, plus again as an unparsed keyword that
+        can be used in filters.
+        """
+        self.basic_text_property_hook(description)
+        description["fields"]["keyword"] = {
+            "type": "keyword",
+            "index": True,
+            "store": False,
+            "normalizer": "filterable_string",
+        }
+
+    def icu_collation_keyword_property_hook(self, description):
+        """Modify the description of an icu_collation_keyword
+        property.
+
+        The 'icu_collation_keyword' type exists in Elasticsearch, but
+        a field of this type can't have a custom analyzer or
+        normalizer, and we need a character filter to exclude certain
+        punctuation characters when determining search
+        order. Converting an 'icu_collation_keyword' field to a 'text'
+        field with the 'en_sortable_analyzer' approximates the
+        functionality of icu_collation_keyword but also lets us have
+        the character filter.
+        """
+        description['type'] = 'text'
+        description['analyzer'] = 'en_sortable_analyzer'
+        description['fielddata'] = True
+
+
+class Mapping(MappingDocument):
+    """A class that defines the mapping for a particular version of the search index.
+
+    Code that won't change between versions can go here. (Or code that
+    can change between versions without affecting anything.)
+    """
+
+    VERSION_NAME = None
+
+    @classmethod
+    def version_name(cls):
+        """Return the name of this Mapping subclass."""
+        version = cls.VERSION_NAME
+        if not version:
+            raise NotImplementedError("VERSION_NAME not defined")
+        if not version.startswith('v'):
+            version = 'v%s' % version
+        return version
+
+    @classmethod
+    def script_name(cls, base_name):
+        """Scope a script name with "simplified" (to avoid confusion with
+        other applications on the Elasticsearch server), and the
+        version number (to avoid confusion with other versions _of
+        this application_, which may implement the same script
+        differently, on this Elasticsearch server).
+        """
+        return "simplified.%s.%s" % (base_name, cls.version_name())
+
+    def __init__(self):
+        super(Mapping, self).__init__()
+        self.filters = {}
+        self.char_filters = {}
+        self.normalizers = {}
+        self.analyzers = {}
+
+    def create(self, search_client, base_index_name):
+        """Ensure that an index exists in `search_client` for this Mapping.
+
+        :return: True or False, indicating whether the index was created new.
+        """
+        versioned_index = base_index_name+'-'+self.version_name()
+        if search_client.indices.exists(index=versioned_index):
+            return False
+        else:
+            search_client.setup_index(new_index=versioned_index)
+            return True
+
+    def body(self):
+        """Generate the body of the mapping document for this version of the
+        mapping.
+        """
+        settings = dict(
+            analysis=dict(
+                filter=self.filters,
+                char_filter=self.char_filters,
+                normalizer=self.normalizers,
+                analyzer=self.analyzers
             )
-        return mapping
+        )
+
+        # Start with the normally defined properties.
+        properties = dict(self.properties)
+
+        # Add subdocuments as additional properties.
+        for name, subdocument in self.subdocuments.items():
+            properties[name] = dict(
+                type="nested", properties=subdocument.properties
+            )
+
+        mappings = {
+            ExternalSearchIndex.work_document_type : dict(properties=properties)
+        }
+        return dict(settings=settings, mappings=mappings)
+
+
+class CurrentMapping(Mapping):
+    """The first mapping to support only Elasticsearch 6.
+
+    The body of this mapping looks for bibliographic information in
+    the core document, primarily used for matching search
+    requests. It also has nested documents, which are used for
+    filtering and ranking Works when generating other types of
+    feeds:
+
+    * licensepools -- the Work has these LicensePools (includes current
+      availability as a boolean, but not detailed availability information)
+    * customlists -- the Work is on these CustomLists
+    * contributors -- these Contributors worked on the Work
+    """
+
+    VERSION_NAME = "v4"
 
     # Use regular expressions to normalized values in sortable fields.
     # These regexes are applied in order; that way "H. G. Wells"
     # becomes "H G Wells" becomes "HG Wells".
-    V4_CHAR_FILTERS = {}
-    V4_AUTHOR_CHAR_FILTER_NAMES = []
+    CHAR_FILTERS = {}
+    AUTHOR_CHAR_FILTER_NAMES = []
     for name, pattern, replacement in [
         # The special author name "[Unknown]" should sort after everything
         # else. REPLACEMENT CHARACTER is the final valid Unicode character.
@@ -795,131 +913,75 @@ class ExternalSearchIndexVersions(object):
         normalizer = dict(type="pattern_replace",
                           pattern=pattern,
                           replacement=replacement)
-        V4_CHAR_FILTERS[name] = normalizer
-        V4_AUTHOR_CHAR_FILTER_NAMES.append(name)
+        CHAR_FILTERS[name] = normalizer
+        AUTHOR_CHAR_FILTER_NAMES.append(name)
 
-    # We want to index most text fields twice: once using the standard
-    # analyzer and once using a minimal analyzer for near-exact
-    # matches.
-    V4_BASIC_STRING_FIELDS = {
-        "minimal": {
-            "type": "text",
-            "analyzer": "en_minimal_analyzer"},
-        "standard": {
-            "type": "text",
-            "analyzer": "standard"
-        }
-    }
+    def __init__(self):
+        super(CurrentMapping, self).__init__()
 
-    # Some fields, such as series and contributor name, we want to
-    # index as text fields (for use in searching) _and_ as keyword
-    # fields (for use in filtering). For the keyword field, only
-    # the most basic normalization is applied.
-    V4_FILTERABLE_TEXT_FIELDS = dict(V4_BASIC_STRING_FIELDS)
-    V4_FILTERABLE_TEXT_FIELDS["keyword"] = {
-        "type": "keyword",
-        "index": True,
-        "store": False,
-        "normalizer": "filterable_string",
-    }
+        # Set up character filters.
+        #
+        self.char_filters = self.CHAR_FILTERS
 
-    @classmethod
-    def v4_body(cls):
-        """The first search body designed for ElasticSearch 6.
-
-        This body has bibliographic information in the core document,
-        primarily used for matching search requests. It also has
-        nested documents, which are used for filtering and ranking
-        Works when generating other types of feeds:
-
-        * licensepools -- the Work has these LicensePools (includes current
-          availability as a boolean, but not detailed availability information)
-        * customlists -- the Work is on these CustomLists
-        * contributors -- these Contributors worked on the Work
-        """
-        settings = {
-            "analysis": {
-                "filter": {
-                    "en_stop_filter": {
-                        "type": "stop",
-                        "stopwords": ["_english_"]
-                    },
-                    "en_stem_filter": {
-                        "type": "stemmer",
-                        "name": "english"
-                    },
-                    "en_stem_minimal_filter": {
-                        "type": "stemmer",
-                        "name": "english"
-                    },
-                    # Use the ICU collation algorithm on textual fields we
-                    # intend to use as a sort order.
-                    "en_sortable_filter": {
-                        "type": "icu_collation",
-                        "language": "en",
-                        "country": "US"
-                    }
-                },
-                "char_filter" : cls.V4_CHAR_FILTERS,
-
-                # This normalizer is used on freeform strings that
-                # will be used as tokens in filters. This way we can,
-                # e.g. ignore capitalization when considering whether
-                # two books belong to the same series or whether two
-                # author names are the same.
-                "normalizer": {
-                    "filterable_string": {
-                        "type": "custom",
-                        "filter": ["lowercase", "asciifolding"]
-                    }
-                },
-
-                "analyzer" : {
-                    "en_analyzer": {
-                        "type": "custom",
-                        "char_filter": ["html_strip"],
-                        "tokenizer": "standard",
-                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
-                    },
-                    "en_minimal_analyzer": {
-                        "type": "custom",
-                        "char_filter": ["html_strip"],
-                        "tokenizer": "standard",
-                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
-                    },
-                    # An analyzer for textual fields we intend to sort on.
-                    "en_sortable_analyzer": {
-                        "tokenizer": "keyword",
-                        "filter": [ "en_sortable_filter" ],
-                    },
-                    # A special analyzer for sort author names,
-                    # including some special character filters for
-                    # normalizing names.
-                    "en_sort_author_analyzer": {
-                        "tokenizer": "keyword",
-                        "char_filter": cls.V4_AUTHOR_CHAR_FILTER_NAMES,
-                        "filter": [ "en_sortable_filter" ],
-                    }
-                }
-            }
-        }
-
-        # For most string fields, we want to apply the standard
-        # analyzer (for most searches) and the minimal analyzer (to
-        # privilege near-exact matches).
-        mapping = cls.map_fields(
-            fields=["title", "subtitle", "summary", "classifications.term"],
-            field_description={
-                "type": "text",
-                "analyzer": "en_analyzer",
-                "fields": cls.V4_BASIC_STRING_FIELDS
-            }
+        # This normalizer is used on freeform strings that
+        # will be used as tokens in filters. This way we can,
+        # e.g. ignore capitalization when considering whether
+        # two books belong to the same series or whether two
+        # author names are the same.
+        self.normalizers['filterable_string'] = dict(
+            type="custom", filter=["lowercase", "asciifolding"]
         )
 
-        # These fields are used for sorting and filtering search
-        # results, but (apart from 'series') not for handling search
-        # queries.
+        # Set up analyzers.
+        #
+
+        # The first two analyzers are used for the default and
+        # 'minimal' views of most text fields (for the 'standard'
+        # view, we use Elasticsearch's default analyzer). The two
+        # analyzers are identical except for the last filter in the
+        # chain.
+
+        # Both analyzers filter out stopwords, convert to lowercase,
+        # and fold to ASCII when possible.
+        self.filters['en_stop_filter'] = dict(
+            type="stop", stopwords=["_english_"]
+        )
+        common_text_analyzer = dict(
+            type="custom", char_filter=["html_strip"], tokenizer="standard",
+        )
+        common_filter = ["lowercase", "asciifolding", "en_stop_filter"]
+
+        # Our default analyzer uses a standard English stemmer.
+        self.filters['en_stem_filter'] = dict(type="stemmer", name="english")
+        self.analyzers['en_analyzer'] = dict(common_text_analyzer)
+        self.analyzers['en_analyzer']['filter'] = (
+            common_filter + ['en_stem_filter']
+        )
+
+        # Whereas the 'minimal' analyzer uses a less aggressive English
+        # stemmer.
+        self.filters['en_stem_minimal_filter'] = dict(
+            type="stemmer", name="minimal_english"
+        )
+        self.analyzers['en_minimal_analyzer'] = dict(common_text_analyzer)
+        self.analyzers['en_minimal_analyzer']['filter'] = (
+            common_filter + ['en_stem_minimal_filter']
+        )
+
+        # Here's an analyzer for textual fields we intend to sort on
+        # rather than query.
+        self.filters['en_sortable_filter'] = dict(
+            type="icu_collation", language="en", country="US"
+        )
+        self.analyzers['en_sortable_analyzer'] = dict(
+            tokenizer="keyword", filter=["en_sortable_filter"],
+        )
+
+        # Now, the main event. Set up the field properties for the
+        # base document.
         fields_by_type = {
+            "basic_text": ['title', 'subtitle', 'summary',
+                           'classifications.term'],
             'filterable_text': ['series'],
             'boolean': ['presentation_ready'],
             'icu_collation_keyword': ['sort_author', 'sort_title'],
@@ -927,89 +989,91 @@ class ExternalSearchIndexVersions(object):
             'long': ['last_update_time'],
             'float': ['random'],
         }
-        mapping = cls.map_fields_by_type(fields_by_type, mapping)
+        self.add_properties(fields_by_type)
 
-        # Sort author gets a different analyzer designed especially
-        # to normalize author names.
-        sort_author_description = {
-            "type": "text",
-            "index": True,
-            "store": False,
-            "fielddata": True,
-            'analyzer': 'en_sort_author_analyzer'
-        }
-        mapping = cls.map_fields(
-            fields=['sort_author'],
-            mapping=mapping,
-            field_description=sort_author_description,
+        # Sort author is special -- it gets a different analyzer
+        # designed especially to normalize author names.
+
+        # It's based on the standard analyzer for sortable fields.
+        self.analyzers['en_sort_author_analyzer'] = dict(
+            self.analyzers['en_sortable_analyzer']
         )
 
-        # Build separate mappings for the nested data types.
+        # But it has some extra character filters -- regexes that do
+        # things like convert "J. R. R. Tolkien" to "J.R.R. Tolkien".
+        self.analyzers['en_sort_author_analyzer']['char_filter'] = (
+            self.AUTHOR_CHAR_FILTER_NAMES
+        )
+        self.add_property(
+            "sort_author", "text", fielddata=True,
+            analyzer="en_sort_author_analyzer"
+        )
 
-        # Contributors
-        contributor_fields_by_type = {
+        # Set up subdocuments.
+        contributors = self.subdocument("contributors")
+        contributor_fields = {
             'filterable_text' : ['sort_name', 'display_name', 'family_name'],
             'keyword': ['role', 'lc', 'viaf'],
         }
-        contributor_definition = cls.map_fields_by_type(
-            contributor_fields_by_type
-        )
+        contributors.add_properties(contributor_fields)
 
-        # License pools.
-        licensepool_fields_by_type = {
+        licensepools = self.subdocument("licensepools")
+        licensepool_fields = {
             'integer': ['collection_id', 'data_source_id'],
             'long': ['availability_time'],
             'boolean': ['available', 'open_access', 'suppressed', 'licensed'],
             'keyword': ['medium'],
         }
-        licensepool_definition = cls.map_fields_by_type(
-            licensepool_fields_by_type
-        )
+        licensepools.add_properties(licensepool_fields)
 
-        # Custom list memberships.
-        customlist_fields_by_type = {
+        customlists = self.subdocument("customlists")
+        customlist_fields = {
             'integer': ['list_id'],
             'long':  ['first_appearance'],
             'boolean': ['featured'],
         }
-        customlist_definition = cls.map_fields_by_type(
-            customlist_fields_by_type
-        )
-
-        # Add the nested data type mappings to the main mapping.
-        for type_name, type_definition in [
-            ('licensepools', licensepool_definition),
-            ('customlists', customlist_definition),
-            ('contributors', contributor_definition),
-        ]:
-            type_definition['type'] = 'nested'
-            mapping = cls.map_fields(
-                fields=[type_name],
-                field_description=type_definition,
-                mapping=mapping,
-            )
-        # Finally, name the mapping to connect it to the 'works'
-        # document type.
-        mappings = { ExternalSearchIndex.work_document_type : mapping }
-        return dict(settings=settings, mappings=mappings)
+        customlists.add_properties(customlist_fields)
 
     @classmethod
-    def create_new_version(cls, search_client, base_index_name, version=None):
-        """Creates an index for a new version
-
-        :return: True or False, indicating whether the index was created new.
+    def stored_scripts(cls):
+        """This version defines a single stored script, "work_last_update",
+        defined below.
         """
-        if not version:
-            version = cls.latest()
-        if not version.startswith('v'):
-            version = 'v%s' % version
+        yield "work_last_update", cls.WORK_LAST_UPDATE_SCRIPT
 
-        versioned_index = base_index_name+'-'+version
-        if search_client.indices.exists(index=versioned_index):
-            return False
-        else:
-            search_client.setup_index(new_index=versioned_index)
-            return True
+    # Definition of the work_last_update_script.
+    WORK_LAST_UPDATE_SCRIPT = """
+double champion = -1;
+// Start off by looking at the work's last update time.
+for (candidate in doc['last_update_time']) {
+    if (champion == -1 || candidate > champion) { champion = candidate; }
+}
+if (params.collection_ids != null && params.collection_ids.length > 0) {
+    // Iterate over all licensepools looking for a pool in a collection
+    // relevant to this filter. When one is found, check its
+    // availability time to see if it's later than the last update time.
+    for (licensepool in params._source.licensepools) {
+        if (!params.collection_ids.contains(licensepool['collection_id'])) { continue; }
+        double candidate = licensepool['availability_time'];
+        if (champion == -1 || candidate > champion) { champion = candidate; }
+    }
+}
+if (params.list_ids != null && params.list_ids.length > 0) {
+
+    // Iterate over all customlists looking for a list relevant to
+    // this filter. When one is found, check the previous work's first
+    // appearance on that list to see if it's later than the last
+    // update time.
+    for (customlist in params._source.customlists) {
+        if (!params.list_ids.contains(customlist['list_id'])) { continue; }
+        double candidate = customlist['first_appearance'];
+        if (champion == -1 || candidate > champion) { champion = candidate; }
+    }
+}
+
+return champion;
+"""
+
 
 class SearchBase(object):
 
@@ -1050,9 +1114,9 @@ class Query(SearchBase):
     # author), because we're handling the case where the user typed
     # something in exactly as is.
     #
-    # TODO: If we're really serious about 'minimal stemming',
-    # we should use title.standard and series.standard instead of
-    # .minimal. Using .minimal gets rid of plurals and stop words.
+    # TODO: If we're really serious about 'minimal stemming', we
+    # should use a version that doesn't stem plurals or remove stop
+    # words.
     MINIMAL_STEMMING_QUERY_FIELDS = [
         'title.minimal', 'author', 'series.minimal'
     ]
@@ -2080,7 +2144,7 @@ class Filter(SearchBase):
         )
         return dict(
             script=dict(
-                stored="simplified.work_last_update",
+                stored=CurrentMapping.script_name("work_last_update"),
                 params=params
             )
         )
@@ -2370,7 +2434,7 @@ class SortKeyPagination(Pagination):
 
 
 class WorkSearchResult(object):
-    """Wraps a Work object to give extra information obtained from 
+    """Wraps a Work object to give extra information obtained from
     ElasticSearch.
 
     This object acts just like a Work (though isinstance(x, Work) will

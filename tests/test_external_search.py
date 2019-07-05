@@ -51,9 +51,10 @@ from ..model import (
     get_one_or_create,
 )
 from ..external_search import (
+    CurrentMapping,
     ExternalSearchIndex,
-    ExternalSearchIndexVersions,
     Filter,
+    Mapping,
     MockExternalSearchIndex,
     MockSearchResult,
     Query,
@@ -166,7 +167,7 @@ class TestExternalSearch(ExternalSearchTest):
         self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, u'banana')
         self.search.set_works_index_and_alias(self._db)
 
-        expected_index = 'banana-' + ExternalSearchIndexVersions.latest()
+        expected_index = 'banana-' + CurrentMapping.version_name()
         expected_alias = 'banana-' + self.search.CURRENT_ALIAS_SUFFIX
         eq_(expected_index, self.search.works_index)
         eq_(expected_alias, self.search.works_alias)
@@ -182,7 +183,7 @@ class TestExternalSearch(ExternalSearchTest):
             return
 
         # The index was generated from the string in configuration.
-        version = ExternalSearchIndexVersions.VERSIONS[-1]
+        version = CurrentMapping.version_name()
         index_name = 'test_index-' + version
         eq_(index_name, self.search.works_index)
         eq_(True, self.search.indices.exists(index_name))
@@ -321,16 +322,15 @@ class TestExternalSearch(ExternalSearchTest):
         eq_({collection.name: 1}, result)
 
 
-class TestExternalSearchIndexVersions(object):
+class TestCurrentMapping(object):
 
     def test_character_filters(self):
-        """Verify the functionality of the regular expressions we tell
-        Elasticsearch to use when normalizing fields that will be used
-        for searching.
-        """
+        # Verify the functionality of the regular expressions we tell
+        # Elasticsearch to use when normalizing fields that will be used
+        # for searching.
         filters = []
-        for filter_name in ExternalSearchIndexVersions.V4_AUTHOR_CHAR_FILTER_NAMES:
-            configuration = ExternalSearchIndexVersions.V4_CHAR_FILTERS[filter_name]
+        for filter_name in CurrentMapping.AUTHOR_CHAR_FILTER_NAMES:
+            configuration = CurrentMapping.CHAR_FILTERS[filter_name]
             find = re.compile(configuration['pattern'])
             replace = configuration['replacement']
             # Hack to (imperfectly) convert Java regex format to Python format.
@@ -1560,10 +1560,6 @@ class TestExactMatches(EndToEndSearchTest):
             ],
             "aziz ansari"
         )
-
-        # The next two cases have slightly different outcomes in
-        # Elasticsearch 1 and Elasticsearch 6, so we're only testing
-        # the invariants between versions.
 
         # 'peter graves' is a string that has exact matches in both
         # title and author.
@@ -3189,7 +3185,8 @@ class TestFilter(DatabaseTest):
         eq_({}, sort)
 
         # The script is the 'simplified.work_last_update' stored script.
-        eq_('simplified.work_last_update', script.pop('stored'))
+        eq_(CurrentMapping.script_name("work_last_update"),
+            script.pop('stored'))
 
         # Two parameters are passed into the script -- the IDs of the
         # collections and the lists relevant to the query. This is so
