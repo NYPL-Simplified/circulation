@@ -141,7 +141,8 @@ class ExternalSearchIndex(HasSelfTests):
         prefix = setting.value_or_default(cls.DEFAULT_WORKS_INDEX_PREFIX)
         return prefix + '-' + value
 
-    def works_index_name(self, _db):
+    @classmethod
+    def works_index_name(cls, _db):
         """Look up the name of the search index.
 
         It's possible, but unlikely, that the search index alias will
@@ -149,7 +150,7 @@ class ExternalSearchIndex(HasSelfTests):
         new one needed to be created, this would be the name of that
         index.
         """
-        return self.works_prefixed(_db, self.mapping.version_name())
+        return cls.works_prefixed(_db, CurrentMapping.version_name())
 
     @classmethod
     def works_alias_name(cls, _db):
@@ -1116,9 +1117,9 @@ class Query(SearchBase):
     # author), because we're handling the case where the user typed
     # something in exactly as is.
     #
-    # TODO: If we're really serious about 'minimal stemming',
-    # we should use title.standard and series.standard instead of
-    # .minimal. Using .minimal gets rid of plurals and stop words.
+    # TODO: If we're really serious about 'minimal stemming', we
+    # should use title and series instead of .minimal. Using .minimal
+    # gets rid of plurals and stop words.
     MINIMAL_STEMMING_QUERY_FIELDS = [
         'title.minimal', 'author', 'series.minimal'
     ]
