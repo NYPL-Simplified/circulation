@@ -1115,8 +1115,8 @@ class Query(SearchBase):
     # something in exactly as is.
     #
     # TODO: If we're really serious about 'minimal stemming', we
-    # should use title and series instead of .minimal. Using .minimal
-    # gets rid of plurals and stop words.
+    # should use a version that doesn't stem plurals or remove stop
+    # words.
     MINIMAL_STEMMING_QUERY_FIELDS = [
         'title.minimal', 'author', 'series.minimal'
     ]
