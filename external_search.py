@@ -731,44 +731,28 @@ class MappingDocument(object):
         self.subdocuments[name] = subdocument
         return subdocument
 
-    # We want to index most text fields twice: once using the standard
-    # analyzer and once using a minimal analyzer for near-exact
-    # matches.
-    BASIC_STRING_FIELDS = {
-        "minimal": {
-            "type": "text",
-            "analyzer": "en_minimal_analyzer"
-        },
-        "standard": {
-            "type": "text",
-            "analyzer": "standard"
-        }
-    }
-
     def basic_text_property_hook(self, description):
         """Hook method to handle the custom 'basic_text'
         property type.
 
         This type does not exist in Elasticsearch. It's our name for a
-        text field that is indexed twice -- once using the standard
-        analyzer (used for most searches) and once using the minimal
-        analyzer (used to boost near-exact matches).
+        text field that is indexed three times: once using the English
+        analyzer ("title"), once using Elasticsearch's standard
+        analyzer ("title.standard"), and once using a minimal analyzer
+        ("title.minimal") for near-exact matches.
         """
         description['type'] = 'text'
-        description['analyzer'] = "en_analyzer"
-        description['fields'] =  self.BASIC_STRING_FIELDS
-
-    # Some fields, such as series and contributor name, we want to
-    # index as text fields (for use in searching) _and_ as keyword
-    # fields (for use in filtering). For the keyword field, only
-    # the most basic normalization is applied.
-    FILTERABLE_TEXT_FIELDS = dict(BASIC_STRING_FIELDS)
-    FILTERABLE_TEXT_FIELDS["keyword"] = {
-        "type": "keyword",
-        "index": True,
-        "store": False,
-        "normalizer": "filterable_string",
-    }
+        description['analyzer'] = 'en_analyzer'
+        description['fields'] = {
+            "minimal": {
+                "type": "text",
+                "analyzer": "en_minimal_analyzer"
+            },
+            "standard": {
+                "type": "text",
+                "analyzer": "standard"
+            }
+        }
 
     def filterable_text_property_hook(self, description):
         """Hook method to handle the custom 'filterable_text'
@@ -776,10 +760,18 @@ class MappingDocument(object):
 
         This type does not exist in Elasticsearch. It's our name for a
         text field that can be used in both queries and filters.
+
+        This field is indexed _four_ times -- the three ways a normal
+        text field is indexed, plus again as an unparsed keyword that
+        can be used in filters.
         """
-        description['type'] = 'text'
-        description['analyzer'] = "en_analyzer"
-        description['fields'] =  self.FILTERABLE_TEXT_FIELDS
+        self.basic_text_property_hook(description)
+        description["fields"]["keyword"] = {
+            "type": "keyword",
+            "index": True,
+            "store": False,
+            "normalizer": "filterable_string",
+        }
 
     def icu_collation_keyword_property_hook(self, description):
         """Modify the description of an icu_collation_keyword
