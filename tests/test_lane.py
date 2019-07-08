@@ -19,11 +19,6 @@ from sqlalchemy import (
     text,
 )
 
-from elasticsearch_dsl.function import (
-    ScriptScore,
-    RandomScore,
-)
-
 from elasticsearch.exceptions import ElasticsearchException
 
 from ..classifier import Classifier
@@ -1031,66 +1026,6 @@ class TestFeaturedFacets(DatabaseTest):
         different_quality = f.navigate(minimum_featured_quality=2)
         eq_(2, different_quality.minimum_featured_quality)
         eq_(entrypoint, different_quality.entrypoint)
-
-    def test_scoring_functions(self):        
-        # Verify that FeaturedFacets sets appropriate scoring functions
-        # for ElasticSearch queries.
-        f = FeaturedFacets(minimum_featured_quality=0.55, random_seed=42)
-        filter = Filter()
-
-        # In most cases, there are three things that can boost a work's score.
-        [featurable, available_now, random] = f.scoring_functions(filter)
-
-        # It can be high-quality enough to be featured.
-        assert isinstance(featurable, ScriptScore)
-        source = f.FEATURABLE_SCRIPT % dict(
-            cutoff=f.minimum_featured_quality ** 2, exponent=2
-        )
-        eq_(source, featurable.script['source'])
-
-        # It can be currently available.
-        availability_filter = available_now['filter']
-        eq_(
-            dict(nested=dict(
-                path='licensepools',
-                query=dict(term={'licensepools.available': True})
-            )),
-            availability_filter.to_dict()
-        )
-        eq_(5, available_now['weight'])
-
-        # It can get lucky.
-        assert isinstance(random, RandomScore)
-        eq_(42, random.seed)
-        eq_(1.1, random.weight)
-
-        # If the FeaturedFacets is set to be deterministic (which only happens
-        # in tests), the RandomScore is removed.
-        f.random_seed = f.DETERMINISTIC
-        [featurable_2, available_now_2] = f.scoring_functions(filter)
-        eq_(featurable_2, featurable)
-        eq_(available_now_2, available_now)
-
-        # If custom lists are in play, it can also be featured on one
-        # of its custom lists.
-        filter.customlist_restriction_sets = [[1,2], [3]]
-        [featurable_2, available_now_2,
-         featured_on_list] = f.scoring_functions(filter)
-        eq_(featurable_2, featurable)
-        eq_(available_now_2, available_now)
-
-        # Any list will do -- the customlist restriction sets aren't
-        # relevant here.
-        featured_filter = featured_on_list['filter']
-        eq_(dict(
-            nested=dict(
-                path='customlists',
-                query=dict(bool=dict(
-                    must=[{'term': {'customlists.featured': True}},
-                          {'terms': {'customlists.list_id': [1, 2, 3]}}])))),
-            featured_filter.to_dict()
-        )
-        eq_(11, featured_on_list['weight'])
 
 
 class TestSearchFacets(DatabaseTest):

@@ -12,7 +12,7 @@ from elasticsearch.exceptions import (
 from elasticsearch_dsl import (
     Index,
     Search,
-    Q,
+    SF,
 )
 from elasticsearch_dsl.query import (
     Bool,
@@ -23,6 +23,7 @@ from elasticsearch_dsl.query import (
     MatchAll,
     MatchPhrase,
     MultiMatch,
+    Nested,
     Query as BaseQuery,
     SimpleQueryString,
     Term,
@@ -2204,6 +2205,73 @@ class Filter(SearchBase):
                 order=self.asc,
             ),
         )
+
+    # The Painless script to generate a 'featurability' score for
+    # a work.
+    #
+    # A higher-quality work is more featurable. But we don't want
+    # to constantly feature the very highest-quality works, and if
+    # there are no high-quality works, we want medium-quality to
+    # outrank low-quality.
+    #
+    # So we establish a cutoff -- the minimum featured quality --
+    # beyond which a work is considered 'featurable'. All featurable
+    # works get the same (high) score.
+    #
+    # Below that point, we prefer higher-quality works to
+    # lower-quality works, such that a work's score is proportional to
+    # the square of its quality.
+    FEATURABLE_SCRIPT = "Math.pow(Math.min(%(cutoff).5f, doc['quality'].value), %(exponent).5f) * 5"
+
+    # Used in tests to deactivate the random component of
+    # featurability_scoring_functions.
+    DETERMINISTIC = object()
+
+    def featurability_scoring_functions(self, random_seed):
+        """Generate scoring functions that weight works randomly, but
+        with 'more featurable' works tending to be at the top.
+        """
+
+        exponent = 2
+        cutoff = (self.minimum_featured_quality ** exponent)
+        script = self.FEATURABLE_SCRIPT % dict(
+            cutoff=cutoff, exponent=exponent
+        )
+        quality_field = SF('script_score', script=dict(source=script))
+
+        # Currently available works are more featurable.
+        available = Term(**{'licensepools.available' : True})
+        nested = Nested(path='licensepools', query=available)
+        available_now = dict(filter=nested, weight=5)
+
+        function_scores = [quality_field, available_now]
+
+        # Random chance can boost a lower-quality work, but not by
+        # much -- this mainly ensures we don't get the exact same
+        # books every time.
+        if random_seed != self.DETERMINISTIC:
+            random = SF(
+                'random_score',
+                seed=random_seed or int(time.time()),
+                field="work_id",
+                weight=1.1
+            )
+            function_scores.append(random)
+
+        if self.customlist_restriction_sets:
+            list_ids = set()
+            for restriction in self.customlist_restriction_sets:
+                list_ids.update(restriction)
+            # We're looking for works on certain custom lists. A work
+            # that's _featured_ on one of these lists will be boosted
+            # quite a lot versus one that's not.
+            featured = Term(**{'customlists.featured' : True})
+            on_list = Terms(**{'customlists.list_id' : list(list_ids)})
+            featured_on_list = Bool(must=[featured, on_list])
+            nested = Nested(path='customlists', query=featured_on_list)
+            featured_on_relevant_list = dict(filter=nested, weight=11)
+            function_scores.append(featured_on_relevant_list)
+        return function_scores
 
     @property
     def target_age_filter(self):
