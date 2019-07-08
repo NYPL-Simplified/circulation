@@ -46,7 +46,7 @@ from api.millenium_patron import MilleniumPatronAPI
 from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
 from api.util.patron import PatronUtility
-
+from api.annotations import AnnotationWriter
 from api.authenticator import (
     Authenticator,
     CirculationPatronProfileStorage,
@@ -446,10 +446,12 @@ class TestCirculationPatronProfileStorage(ControllerTest):
             patron.library.short_name.upper() + "TOKEN"
         )
         eq_(adobe["drm:scheme"], "http://librarysimplified.org/terms/drm/scheme/ACS")
-
-        [links] = doc['links']
-        eq_(links['rel'], "http://librarysimplified.org/terms/drm/rel/devices")
-        eq_(links['href'], "http://host/adobe_drm_devices?library_short_name=default")
+        [device_link, annotations_link] = doc['links']
+        eq_(device_link['rel'], "http://librarysimplified.org/terms/drm/rel/devices")
+        eq_(device_link['href'], "http://host/adobe_drm_devices?library_short_name=default")
+        eq_(annotations_link['rel'], "http://www.w3.org/ns/oa#annotationService")
+        eq_(annotations_link['href'], "http://host/annotations?library_short_name=default")
+        eq_(annotations_link['type'], AnnotationWriter.CONTENT_TYPE)
 
 class MockAuthenticator(Authenticator):
     """Allows testing Authenticator methods outside of a request context."""
