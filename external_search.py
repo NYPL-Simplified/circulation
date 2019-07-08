@@ -2116,24 +2116,7 @@ class Filter(SearchBase):
         # At this point we're sorting by a nested field.
         nested = None
         if key == 'licensepools.availability_time':
-            # We're sorting works by the time they became
-            # available to a library. This means we only want to
-            # consider the availability times of license pools
-            # found in one of the library's collections.
-            collection_ids = self._filter_ids(self.collection_ids)
-            if collection_ids:
-                nested = dict(
-                    path="licensepools",
-                    filter=dict(
-                        terms={
-                            "licensepools.collection_id": collection_ids
-                        }
-                    ),
-                )
-
-            # If a book shows up in multiple collections, we're only
-            # interested in the collection that had it the earliest.
-            mode = 'min'
+            nested, mode = self._availability_time_sort_order
         else:
             raise ValueError(
                 "I don't know how to sort by %s." % key
@@ -2142,6 +2125,28 @@ class Filter(SearchBase):
         if nested:
             sort_description['nested']=nested
         return { key : sort_description }
+
+    @property
+    def _availability_time_sort_order(self):
+        # We're sorting works by the time they became
+        # available to a library. This means we only want to
+        # consider the availability times of license pools
+        # found in one of the library's collections.
+        nested = None
+        collection_ids = self._filter_ids(self.collection_ids)
+        if collection_ids:
+            nested = dict(
+                path="licensepools",
+                filter=dict(
+                    terms={
+                        "licensepools.collection_id": collection_ids
+                    }
+                ),
+            )
+        # If a book shows up in multiple collections, we're only
+        # interested in the collection that had it the earliest.
+        mode = 'min'
+        return nested, mode
 
     @property
     def last_update_time_script_field(self):
