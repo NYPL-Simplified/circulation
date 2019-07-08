@@ -924,6 +924,14 @@ class TestWorkController(AdminControllerTest):
             eq_(INVALID_IMAGE.uri, response.uri)
             eq_("Image file or image URL is required.", response.detail)
 
+        with self.request_context_with_library_and_admin("/"):
+            flask.request.form = MultiDict([
+                ("cover_url", "bad_url"),
+            ])
+            response = self.manager.admin_work_controller.preview_book_cover(identifier.type, identifier.identifier)
+            eq_(INVALID_URL.uri, response.uri)
+            eq_('"bad_url" is not a valid URL.', response.detail)
+
         class TestFileUpload(StringIO):
             headers = { "Content-Type": "image/png" }
         base_path = os.path.split(__file__)[0]
@@ -986,6 +994,16 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier)
             eq_(INVALID_IMAGE.uri, response.uri)
             eq_("You must specify the image's license.", response.detail)
+
+        with self.request_context_with_library_and_admin("/"):
+            flask.request.form = MultiDict([
+                ("cover_url", "bad_url"),
+                ("title_position", "none"),
+                ("rights_status", RightsStatus.CC_BY),
+            ])
+            response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier, mirror)
+            eq_(INVALID_URL.uri, response.uri)
+            eq_('"bad_url" is not a valid URL.', response.detail)
 
         with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
