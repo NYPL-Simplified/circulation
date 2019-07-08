@@ -12,6 +12,7 @@ from api.config import (
     CannotLoadConfiguration
 )
 from api.coverage import MetadataWranglerCollectionRegistrar
+from api.admin.validator import Validator
 from core.app_server import (
     entry_response,
     feed_response,
@@ -763,6 +764,8 @@ class WorkController(AdminCirculationManagerController):
         image_url = flask.request.form.get("cover_url")
         if not image_file and not image_url:
             return INVALID_IMAGE.detailed(_("Image file or image URL is required."))
+        elif image_url and not Validator()._is_url(image_url, []):
+            return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=image_url))
 
         title_position = flask.request.form.get("title_position")
 

@@ -1,4 +1,5 @@
 from nose.tools import set_trace
+from api.annotations import AnnotationWriter
 from api.opds import LibraryAnnotator
 from config import (
     Configuration,
@@ -433,6 +434,7 @@ class CirculationPatronProfileStorage(PatronProfileStorage):
         drm = []
         links = []
         device_link = {}
+
         authdata = AuthdataUtility.from_config(self.patron.library)
         if authdata:
             vendor_id, token = authdata.short_client_token_for_patron(self.patron)
@@ -447,7 +449,16 @@ class CirculationPatronProfileStorage(PatronProfileStorage):
                 "adobe_drm_devices", library_short_name=self.patron.library.short_name, _external=True
             )
             links.append(device_link)
+
+            annotations_link = dict(
+                rel="http://www.w3.org/ns/oa#annotationService",
+                type=AnnotationWriter.CONTENT_TYPE,
+                href=self.url_for('annotations', library_short_name=self.patron.library.short_name, _external=True)
+            )
+            links.append(annotations_link)
+
             doc['links'] = links
+
         if drm:
             doc['drm'] = drm
 
