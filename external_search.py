@@ -938,13 +938,13 @@ class CurrentMapping(Mapping):
         common_text_analyzer = dict(
             type="custom", char_filter=["html_strip"], tokenizer="standard",
         )
-        common_filter = ["lowercase", "asciifolding", "en_stop_filter"]
+        common_filter = ["lowercase", "asciifolding"]
 
         # Our default analyzer uses a standard English stemmer.
         self.filters['en_stem_filter'] = dict(type="stemmer", name="english")
         self.analyzers['en_analyzer'] = dict(common_text_analyzer)
         self.analyzers['en_analyzer']['filter'] = (
-            common_filter + ['en_stem_filter']
+            common_filter + ['en_stop_filter', 'en_stem_filter']
         )
 
         # Whereas the 'minimal' analyzer uses a less aggressive English
@@ -954,7 +954,7 @@ class CurrentMapping(Mapping):
         )
         self.analyzers['en_minimal_analyzer'] = dict(common_text_analyzer)
         self.analyzers['en_minimal_analyzer']['filter'] = (
-            common_filter + ['en_stem_minimal_filter']
+            common_filter + ['en_stop_filter', 'en_stem_minimal_filter']
         )
 
         # Here's a special filter used only by the analyzer for the
@@ -967,13 +967,13 @@ class CurrentMapping(Mapping):
         # Here's the analyzer used by the 'sort_author' property.
         # It's the same as icu_collation_keyword, but it has some
         # extra character filters -- regexes that do things like
-        # convert "J. R. R. Tolkien" to "J.R.R. Tolkien".
+        # convert "Tolkien, J. R. R." to "Tolkien, JRR".
         #
         # This is necessary because normal icu_collation_keyword
         # fields can't specify char_filter.
         self.analyzers['en_sort_author_analyzer'] = dict(
             tokenizer="keyword",
-            filter=["en_sortable_filter"],
+            filter=common_filter + ["en_sortable_filter"],
             char_filter = self.AUTHOR_CHAR_FILTER_NAMES,
         )
 
@@ -1562,7 +1562,7 @@ class QueryParser(object):
 
         # Someone who searched for 'asteroids nonfiction' ended up
         # with a query string of 'asteroids'. Their query string
-        # has a field match component and a query-type component.
+        # has a filter-type component and a query-type component.
         #
         # What is likely to be in this query-type component?
         #
@@ -1711,8 +1711,48 @@ class Filter(SearchBase):
                  genre_restriction_sets=None, customlist_restriction_sets=None,
                  facets=None, script_fields=None, **kwargs
     ):
-        """These minor arguments were made into unnamed keyword arguments to
-        avoid cluttering the method signature:
+        """Constructor.
+
+        All arguments are optional. Passing in an empty set of
+        arguments will match everything in the search index that
+        matches the universal filters (e.g. works must be
+        presentation-ready).
+
+        :param collections: Find only works that are licensed to one of
+        these Collections.
+
+        :param media: Find only works in this list of media (use the
+        constants from Edition such as Edition.BOOK_MEDIUM).
+
+        :param languages: Find only works in these languages (use
+        ISO-639-2 alpha-3 codes).
+
+        :param fiction: Find only works with this fiction status.
+
+        :param audiences: Find only works with a target audience in this list.
+
+        :param target_age: Find only works with a target age in this
+        range. (Use a 2-tuple, or a number to represent a specific
+        age.)
+
+        :param genre_restriction_sets: A sequence of lists of Genre
+        objects or IDs. Each list represents an independent
+        restriction. For each restriction, a work only matches if it's
+        in one of the appropriate Genres.
+
+        :param customlist_restriction_sets: A sequence of lists of
+        CustomList objects or IDs. Each list represents an independent
+        restriction. For each restriction, a work only matches if it's
+        in one of the appropriate CustomLists.
+
+        :param facets: A faceting object that can put further restrictions
+        on the match.
+
+        :param script_fields: A list of registered script fields to
+        run on the search results.
+
+        (These minor arguments were made into unnamed keyword arguments
+        to avoid cluttering the method signature:)
 
         :param excluded_audiobook_data_sources: A list of DataSources that
         provide audiobooks known to be unsupported on this system.
