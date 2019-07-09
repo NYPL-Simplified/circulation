@@ -3444,7 +3444,7 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
 
             # Most of the time, we want a simple deterministic query.
             facets = facets or FeaturedFacets(
-                1, random_seed=FeaturedFacets.DETERMINISTIC
+                1, random_seed=Filter.DETERMINISTIC
             )
 
             return lane.groups(
