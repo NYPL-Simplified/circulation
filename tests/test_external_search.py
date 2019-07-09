@@ -1754,8 +1754,7 @@ class TestFeaturedFacets(EndToEndSearchTest):
             "Works permuted by a random seed",
             worklist, random_facets,
             [self.hq_available_2, self.hq_available,
-             self.not_featured_on_list,
-             self.hq_not_available,
+             self.not_featured_on_list, self.hq_not_available,
              self.featured_on_list],
         )
 
