@@ -319,7 +319,7 @@ class Library(Base, HasFullTableCache):
         ).select_from(Work).join(Work.license_pools).join(
             Work.presentation_edition
         ).filter(Edition.language != None).group_by(Edition.language)
-        qu = self.restrict_to_ready_deliverable_works(qu, Work, Edition)
+        qu = self.restrict_to_ready_deliverable_works(qu)
         if not include_open_access:
             qu = qu.filter(LicensePool.open_access==False)
         counter = Counter()

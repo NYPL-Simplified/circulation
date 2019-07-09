@@ -19,6 +19,7 @@ from configuration import (
 )
 from constants import EditionConstants
 from datasource import DataSource
+from edition import Edition
 from hasfulltablecache import HasFullTableCache
 from identifier import Identifier
 from integrationclient import IntegrationClient

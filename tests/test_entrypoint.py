@@ -124,7 +124,7 @@ class TestMediumEntryPoint(DatabaseTest):
 
         # But the video entry point includes it.
         videos = Videos.modify_database_query(self._db, qu)
-        eq_([work.id], [x.works_id for x in videos])
+        eq_([work.id], [x.id for x in videos])
 
 
     def test_modify_search_filter(self):

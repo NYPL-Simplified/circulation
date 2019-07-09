@@ -1811,12 +1811,7 @@ class TestAnnotatorWithGroup(TestAnnotator):
             if additional_lanes:
                 self.lanes_by_work[work] = additional_lanes
         else:
-            if isinstance(work, Work):
-                work_id = work.id
-            else:
-                # MaterialivedWorkWithGenre
-                work_id = work.works_id
-            lane_name = str(work_id)
+            lane_name = str(work.id)
         return ("http://group/%s" % lane_name,
                 "Group Title for %s!" % lane_name)
 
