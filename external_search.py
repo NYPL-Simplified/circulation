@@ -948,13 +948,13 @@ class CurrentMapping(Mapping):
         common_text_analyzer = dict(
             type="custom", char_filter=["html_strip"], tokenizer="standard",
         )
-        common_filter = ["lowercase", "asciifolding"]
+        common_filter = ["lowercase", "asciifolding", "en_stop_filter"]
 
         # Our default analyzer uses a standard English stemmer.
         self.filters['en_stem_filter'] = dict(type="stemmer", name="english")
         self.analyzers['en_analyzer'] = dict(common_text_analyzer)
         self.analyzers['en_analyzer']['filter'] = (
-            common_filter + ['en_stop_filter', 'en_stem_filter']
+            common_filter + ['en_stem_filter']
         )
 
         # Whereas the 'minimal' analyzer uses a less aggressive English
@@ -964,7 +964,7 @@ class CurrentMapping(Mapping):
         )
         self.analyzers['en_minimal_analyzer'] = dict(common_text_analyzer)
         self.analyzers['en_minimal_analyzer']['filter'] = (
-            common_filter + ['en_stop_filter', 'en_stem_minimal_filter']
+            common_filter + ['en_stem_minimal_filter']
         )
 
         # Here's a special filter used only by the analyzer for the
@@ -983,7 +983,7 @@ class CurrentMapping(Mapping):
         # fields can't specify char_filter.
         self.analyzers['en_sort_author_analyzer'] = dict(
             tokenizer="keyword",
-            filter = common_filter + ["en_sortable_filter"],
+            filter = ["en_sortable_filter"],
             char_filter = self.AUTHOR_CHAR_FILTER_NAMES,
         )
 
