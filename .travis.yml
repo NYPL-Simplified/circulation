@@ -10,9 +10,7 @@ addons:
 env:
   global:
     - SIMPLIFIED_TEST_DATABASE="postgres://simplified_test:test@localhost:5432/simplified_core_test"
-  matrix:
-  - ES_VERSION="6.3.2" ES_DOWNLOAD="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz" SIMPLIFIED_ELASTICSEARCH_VERSION=6
-  - ES_VERSION="1.7.0" ES_DOWNLOAD="https://download.elastic.co/elasticsearch/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz" SIMPLIFIED_ELASTICSEARCH_VERSION=1
+    - ES_VERSION="6.3.2" ES_DOWNLOAD="https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz"
 
 services:
   - postgresql
@@ -37,6 +35,7 @@ install:
   # a low-resource development environment.
   - "echo 'transport.host: 127.0.0.1' >> ./${ES_PATH}/config/elasticsearch.yml"
   - "echo 'http.host: 0.0.0.0' >> ./${ES_PATH}/config/elasticsearch.yml"
+  - ./${ES_PATH}/bin/elasticsearch-plugin install analysis-icu
   - ./${ES_PATH}/bin/elasticsearch &
   - pip install -r requirements.txt
   - python -m textblob.download_corpora

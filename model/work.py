@@ -62,6 +62,7 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import (
     and_,
+    extract,
     or_,
     select,
     join,
@@ -1308,6 +1309,10 @@ class Work(Base):
         else:
             self.secondary_appeal = self.NO_APPEAL
 
+    # This can be used in func.to_char to convert a SQL datetime into a string
+    # that Elasticsearch can parse as a date.
+    ELASTICSEARCH_TIME_FORMAT = 'YYYY-MM-DD"T"HH24:MI:SS"."MS'
+
     @classmethod
     def to_search_documents(cls, works, policy=None):
         """Generate search documents for these Works.
@@ -1343,6 +1348,7 @@ class Work(Base):
              Edition.title,
              Edition.subtitle,
              Edition.series,
+             Edition.series_position,
              Edition.language,
              Edition.sort_title,
              Edition.author,
@@ -1356,7 +1362,14 @@ class Work(Base):
              Work.summary_text,
              Work.quality,
              Work.rating,
+             Work.random,
              Work.popularity,
+             Work.presentation_ready,
+             Work.presentation_edition_id,
+             func.extract(
+                 "EPOCH",
+                 Work.last_update_time,
+             ).label('last_update_time')
             ],
             Work.id.in_((w.id for w in works))
         ).select_from(
@@ -1368,6 +1381,14 @@ class Work(Base):
 
         work_id_column = literal_column(
             works_alias.name + '.' + works_alias.c.work_id.name
+        )
+
+        work_presentation_edition_id_column = literal_column(
+            works_alias.name + '.' + works_alias.c.presentation_edition_id.name
+        )
+
+        work_quality_column = literal_column(
+            works_alias.name + '.' + works_alias.c.quality.name
         )
 
         def query_to_json(query):
@@ -1393,22 +1414,74 @@ class Work(Base):
             Subject,
         )
         from customlist import CustomListEntry
-        from licensing import LicensePool
+        from licensing import LicensePool, LicensePoolDeliveryMechanism
 
-        collections = select(
-            [LicensePool.collection_id]
+        # We need information about LicensePools for a few reasons:
+        #
+        # * We always want to filter out Works that are not available
+        #   in any of the collections associated with a given library
+        #   -- either because no licenses are owned, because the
+        #   LicensePools are suppressed, or (TODO) because there are no
+        #   delivery mechanisms.
+        # * A patron may want to sort a list of books by availability
+        #   date.
+        # * A patron may want to show only books currently available,
+        #   or only open-access books.
+        #
+        # Whenever LicensePool.open_access is changed, or
+        # licenses_available moves to zero or away from zero, the
+        # LicensePool signals that its Work needs reindexing.
+        #
+        # The work quality field is stored in the main document, but
+        # it's also stored here, so that we can apply a nested filter
+        # that combines quality with other fields found only in the subdocument.
+        licensepools = select(
+            [
+                LicensePool.id.label('licensepool_id'),
+                LicensePool.data_source_id.label('data_source_id'),
+                LicensePool.collection_id.label('collection_id'),
+                LicensePool.open_access.label('open_access'),
+                LicensePool.suppressed,
+                (LicensePool.licenses_available > 0).label('available'),
+                (LicensePool.licenses_owned > 0).label('licensed'),
+                work_quality_column,
+                Edition.medium,
+                func.extract(
+                    "EPOCH",
+                    LicensePool.availability_time,
+                ).label('availability_time')
+            ]
         ).where(
             and_(
                 LicensePool.work_id==work_id_column,
-                or_(LicensePool.open_access, LicensePool.licenses_owned>0)
+                work_presentation_edition_id_column==Edition.id,
+                or_(
+                    LicensePool.open_access,
+                    LicensePool.licenses_owned>0,
+                ),
             )
-        ).alias("collections_subquery")
-        collections_json = query_to_json_array(collections)
+        ).alias("licensepools_subquery")
+        licensepools_json = query_to_json_array(licensepools)
 
         # This subquery gets CustomList IDs for all lists
         # that contain the work.
+        #
+        # We also keep track of whether the work is featured on each
+        # list. This is used when determining which works should be
+        # featured for a lane based on CustomLists.
+        #
+        # And we keep track of the first time the work appears on the list.
+        # This is used when generating a crawlable feed for the customlist,
+        # which is ordered by a work's first appearance on the list.
         customlists = select(
-            [CustomListEntry.list_id]
+            [
+                CustomListEntry.list_id.label('list_id'),
+                CustomListEntry.featured.label('featured'),
+                func.extract(
+                    "EPOCH",
+                    CustomListEntry.first_appearance,
+                ).label('first_appearance')
+            ]
         ).where(
             CustomListEntry.work_id==work_id_column
         ).alias("listentries_subquery")
@@ -1417,7 +1490,10 @@ class Work(Base):
         # This subquery gets Contributors, filtered on edition_id.
         contributors = select(
             [Contributor.sort_name,
+             Contributor.display_name,
              Contributor.family_name,
+             Contributor.lc,
+             Contributor.viaf,
              Contribution.role,
             ]
         ).where(
@@ -1516,17 +1592,22 @@ class Work(Base):
         # search document.
         search_data = select(
             [works_alias.c.work_id.label("_id"),
+             works_alias.c.work_id.label("work_id"),
              works_alias.c.title,
+             works_alias.c.sort_title,
              works_alias.c.subtitle,
              works_alias.c.series,
+             works_alias.c.series_position,
              works_alias.c.language,
-             works_alias.c.sort_title,
              works_alias.c.author,
              works_alias.c.sort_author,
              works_alias.c.medium,
              works_alias.c.publisher,
              works_alias.c.imprint,
              works_alias.c.permanent_work_id,
+             works_alias.c.presentation_ready,
+             works_alias.c.random,
+             works_alias.c.last_update_time,
 
              # Convert true/false to "Fiction"/"Nonfiction".
              case(
@@ -1543,7 +1624,7 @@ class Work(Base):
              works_alias.c.popularity,
 
              # Here are all the subqueries.
-             collections_json.label("collections"),
+             licensepools_json.label("licensepools"),
              customlists_json.label("customlists"),
              contributors_json.label("contributors"),
              subjects_json.label("classifications"),

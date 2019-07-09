@@ -13,6 +13,11 @@ from config import (
     Configuration,
     CannotLoadConfiguration,
 )
+from lane import BaseFacets
+from external_search import (
+    ExternalSearchIndex,
+    SortKeyPagination,
+)
 from model import (
     get_one,
     get_one_or_create,
@@ -453,6 +458,22 @@ class Annotator(object):
                 ]))
 
 
+class MARCExporterFacets(BaseFacets):
+    """A faceting object used to configure the search engine so that
+    it only works updated since a certain time.
+    """
+
+    def __init__(self, start_time):
+        self.start_time = start_time
+
+    def modify_search_filter(self, filter):
+        filter.order = self.SORT_ORDER_TO_ELASTICSEARCH_FIELD_NAME[
+            self.ORDER_LAST_UPDATE
+        ]
+        filter.order_ascending = True
+        filter.updated_after = self.start_time
+
+
 class MARCExporter(object):
     """Turn a work into a record for a MARC file."""
 
@@ -593,7 +614,10 @@ class MARCExporter(object):
 
         return record
 
-    def records(self, lane, annotator, start_time=None, force_refresh=False, mirror=None, query_batch_size=500, upload_batch_size=7500):
+    def records(self, lane, annotator, start_time=None, force_refresh=False,
+                mirror=None, search_engine=None, query_batch_size=500,
+                upload_batch_size=7500
+    ):
         """
         Create and export a MARC file for the books in a lane.
 
@@ -602,7 +626,7 @@ class MARCExporter(object):
         :param start_time: Only include records that were created or modified after this time.
         :param force_refresh: Create new records even when cached records are available.
         :param mirror: Optional mirror to use instead of loading one from configuration.
-        :param query_batch_size: Number of works to retrieve with a single database query.
+        :param query_batch_size: Number of works to retrieve with a single Elasticsearch query.
         :param upload_batch_size: Number of records to mirror at a time. This is different
           from query_batch_size because S3 enforces a minimum size of 5MB for all parts
           of a multipart upload except the last, but 5MB of records would be too many
@@ -620,51 +644,51 @@ class MARCExporter(object):
         if not mirror:
             raise Exception("No mirror integration is configured")
 
+        search_engine = search_engine or ExternalSearchIndex(self._db)
+
         # End time is before we start the query, because if any records are changed
         # during the processing we may not catch them, and they should be handled
         # again on the next run.
         end_time = datetime.datetime.utcnow()
 
-        works_q = lane.works(self._db)
-        if start_time:
-            works_q = works_q.filter(MaterializedWorkWithGenre.last_update_time>=start_time)
-
-        total = works_q.count()
-        offset = 0
+        facets = MARCExporterFacets(start_time=start_time)
+        pagination = SortKeyPagination(size=query_batch_size)
 
         url = mirror.marc_file_url(self.library, lane, end_time, start_time)
         representation, ignore = get_one_or_create(
-            self._db, Representation, url=url, media_type=Representation.MARC_MEDIA_TYPE)
+            self._db, Representation, url=url,
+            media_type=Representation.MARC_MEDIA_TYPE
+        )
 
         with mirror.multipart_upload(representation, url) as upload:
-            output = StringIO()
-            current_count = 0
-            while offset < total:
-                batch_q = works_q.order_by(
-                    MaterializedWorkWithGenre.works_id).offset(
-                    offset).limit(query_batch_size)
-
-                for work in batch_q:
+            this_batch = StringIO()
+            this_batch_size = 0
+            while pagination is not None:
+                # Retrieve one 'page' of works from the search index.
+                works = lane.works(
+                    self._db, pagination=pagination, facets=facets,
+                    search_engine=search_engine
+                )
+                for work in works:
+                    # Create a record for each work and add it to the
+                    # MARC file in progress.
                     record = self.create_record(
-                        work, annotator, force_refresh, self.integration)
+                        work, annotator, force_refresh, self.integration
+                    )
                     if record:
-                        output.write(record.as_marc())
-                        current_count += 1
+                        this_batch.write(record.as_marc())
+                this_batch_size += pagination.this_page_size
+                if this_batch_size >= upload_batch_size:
+                    # We've reached or exceeded the upload threshold.
+                    # Upload one part of the multi-part document.
+                    self._upload_batch(this_batch, upload)
+                    this_batch = StringIO()
+                    this_batch_size = 0
+                pagination = pagination.next_page
 
-                if current_count == upload_batch_size:
-                    content = output.getvalue()
-                    if content:
-                        upload.upload_part(content)
-                    output.close()
-                    output = StringIO()
-                    current_count = 0
-                offset += query_batch_size
-
-            # Upload anything left over.
-            content = output.getvalue()
-            if content:
-                upload.upload_part(content)
-            output.close()
+            # Upload the final part of the multi-document, if
+            # necessary.
+            self._upload_batch(this_batch, upload)
 
         representation.fetched_at = end_time
         if not representation.mirror_exception:
@@ -677,5 +701,9 @@ class MARCExporter(object):
                 cached.representation = representation
             cached.end_time = end_time
 
-        
-
+    def _upload_batch(self, output, upload):
+        "Upload a batch of MARC records as one part of a multi-part upload."
+        content = output.getvalue()
+        if content:
+            upload.upload_part(content)
+        output.close()

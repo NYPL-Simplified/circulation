@@ -13,7 +13,8 @@ isbnlib
 textblob
 rdflib
 
--r elasticsearch-requirements-${SIMPLIFIED_ELASTICSEARCH_VERSION}.txt
+elasticsearch>6.0.0,<7.0.0
+elasticsearch-dsl>6.0.0,<7.0.0
 
 python-dateutil
 uwsgi

@@ -119,11 +119,6 @@ class Configuration(object):
     # ConfigurationSetting key for a CDN's mirror domain
     CDN_MIRRORED_DOMAIN_KEY = u'mirrored_domain'
 
-    # The names of the site-wide configuration settings that determine
-    # feed cache time.
-    NONGROUPED_MAX_AGE_POLICY = "default_nongrouped_feed_max_age"
-    GROUPED_MAX_AGE_POLICY = "default_grouped_feed_max_age"
-
     # The name of the per-library configuration policy that controls whether
     # books may be put on hold.
     ALLOW_HOLDS = "allow_holds"
@@ -131,6 +126,7 @@ class Configuration(object):
     # Each library may set a minimum quality for the books that show
     # up in the 'featured' lanes that show up on the front page.
     MINIMUM_FEATURED_QUALITY = "minimum_featured_quality"
+    DEFAULT_MINIMUM_FEATURED_QUALITY = 0.65
 
     # Each library may configure the maximum number of books in the
     # 'featured' lanes.
@@ -172,18 +168,6 @@ class Configuration(object):
     EXCLUDED_AUDIO_DATA_SOURCES = 'excluded_audio_data_sources'
 
     SITEWIDE_SETTINGS = [
-        {
-            "key": NONGROUPED_MAX_AGE_POLICY,
-            "label": _("Cache time for paginated OPDS feeds (in seconds)"),
-            "required": True,
-            "type": "number",
-        },
-        {
-            "key": GROUPED_MAX_AGE_POLICY,
-            "label": _("Cache time for grouped OPDS feeds (in seconds)"),
-            "required": True,
-            "type": "number",
-        },
         {
             "key": BASE_URL_KEY,
             "label": _("Base url of the application"),
@@ -259,7 +243,7 @@ class Configuration(object):
             "description": _("Between 0 and 1."),
             "type": "number",
             "max": 1,
-            "default": 0.65,
+            "default": DEFAULT_MINIMUM_FEATURED_QUALITY,
             "category": "Lanes & Filters",
         },
     ] + [

@@ -9,9 +9,13 @@ from ...classifier import Classifier
 from ...lane import (
     Facets,
     Pagination,
+    Lane,
     WorkList,
 )
 from ...model.cachedfeed import CachedFeed
+from ...model.configuration import ConfigurationSetting
+from ...opds import AcquisitionFeed
+
 
 class TestCachedFeed(DatabaseTest):
 
@@ -126,3 +130,49 @@ class TestCachedFeed(DatabaseTest):
         feed, usable = m(self._db, lane, groups, None, None, annotator,
                          force_refresh=True)
         eq_(False, usable)
+
+    def test_calculate_max_age(self):
+        # Verify the rules for determining how long a feed should be cached,
+        # assuming fetch() was called with no explicit time limit.
+
+        # Create three WorkLists -- these are subject to different rules
+        # for different types of feeds.
+        lane = self._lane()
+        default_max_cache_age = WorkList()
+        class NoMaxCacheAge(WorkList):
+            MAX_CACHE_AGE = None
+        no_max_cache_age = NoMaxCacheAge()
+
+        class HasMaxCacheAge(WorkList):
+            MAX_CACHE_AGE = 42
+        has_max_cache_age = HasMaxCacheAge()
+
+        # These are the three feed types we'll be checking.
+        groups = CachedFeed.GROUPS_TYPE
+        page = CachedFeed.PAGE_TYPE
+        other = "some other kind of feed"
+
+        def time(lane, type, expect):
+            actual = CachedFeed.calculate_max_age(self._db, lane, type)
+            eq_(expect, actual)
+
+        # When site-wide configuration settings are not set, grouped
+        # feeds for lanes are cached forever and other feeds are
+        # cached for Lane.MAX_CACHE_AGE.
+        time(lane, groups, Lane.CACHE_FOREVER)
+        time(lane, page, Lane.MAX_CACHE_AGE)
+        time(lane, other, Lane.MAX_CACHE_AGE)
+
+        # WorkLists with no explicit MAX_CACHE_AGE set always get
+        # WorkList.MAX_CACHE_AGE -- two weeks.
+        for type in (groups, page, other):
+            time(default_max_cache_age, type, WorkList.MAX_CACHE_AGE)
+
+        # WorkLists with MAX_CACHE_AGE set always get that value.
+        for type in (groups, page, other):
+            time(has_max_cache_age, type, HasMaxCacheAge.MAX_CACHE_AGE)
+
+        # If MAX_CACHE_AGE is set to None, AcquisitionFeed assumes the feed
+        # should not be cached at all.
+        for type in (groups, page, other):
+            time(no_max_cache_age, type, 0)

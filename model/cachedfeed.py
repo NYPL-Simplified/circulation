@@ -63,9 +63,12 @@ class CachedFeed(Base):
     work_id = Column(Integer, ForeignKey('works.id'),
         nullable=True, index=True)
 
+    # Distinct types of feeds that might be cached.
     GROUPS_TYPE = u'groups'
     PAGE_TYPE = u'page'
     NAVIGATION_TYPE = u'navigation'
+    CRAWLABLE_TYPE = u'crawlable'
+    RELATED_TYPE = u'related'
     RECOMMENDATIONS_TYPE = u'recommendations'
     SERIES_TYPE = u'series'
     CONTRIBUTOR_TYPE = u'contributor'
@@ -75,17 +78,14 @@ class CachedFeed(Base):
     @classmethod
     def fetch(cls, _db, lane, type, facets, pagination, annotator,
               force_refresh=False, max_age=None):
+        # TODO: It would be good to pull type from the Lane and/or Facets
+        # class instead of needing a separate argument.
         from ..opds import AcquisitionFeed
         from ..lane import Lane, WorkList
         if max_age is None:
-            if type == cls.GROUPS_TYPE:
-                max_age = AcquisitionFeed.grouped_max_age(_db)
-            elif type == cls.PAGE_TYPE:
-                max_age = AcquisitionFeed.nongrouped_max_age(_db)
-            elif hasattr(lane, 'MAX_CACHE_AGE'):
-                max_age = lane.MAX_CACHE_AGE
-            else:
-                max_age = 0
+            # Figure out the default max age for a feed of this type
+            # for this lane.
+            max_age = cls.calculate_max_age(_db, lane, type)
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
 
@@ -134,7 +134,7 @@ class CachedFeed(Base):
             # cached feed as stale.
             return feed, False
 
-        if max_age is AcquisitionFeed.CACHE_FOREVER:
+        if max_age is lane.CACHE_FOREVER:
             # This feed is so expensive to generate that it must be cached
             # forever (unless force_refresh is True).
             if not is_new and feed.content:
@@ -171,6 +171,22 @@ class CachedFeed(Base):
 
         # Either there is no cached feed or it's time to update it.
         return feed, False
+
+    @classmethod
+    def calculate_max_age(cls, _db, lane, type):
+        """Helper method to calculate the proper cache time for
+        a WorkList.
+        """
+        from ..lane import Lane
+        if isinstance(lane, Lane) and type == cls.GROUPS_TYPE:
+            # It's too expensive to generate grouped feeds for
+            # Lanes on the fly. To generate these you will
+            # need to pass in force_refresh=True
+            return lane.CACHE_FOREVER
+        if lane.MAX_CACHE_AGE is None:
+            # Assume the feed should not be cached at all.
+            return 0
+        return lane.MAX_CACHE_AGE
 
     def update(self, _db, content):
         self.content = content

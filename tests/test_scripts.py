@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+import random
 import shutil
 import stat
 import tempfile
@@ -46,9 +47,13 @@ from ..model import (
     RightsStatus,
     Timestamp,
     Work,
+    WorkCoverageRecord,
 )
 from ..lane import Lane
-from ..metadata_layer import LinkData
+from ..metadata_layer import (
+    LinkData,
+    TimestampData,
+)
 
 from ..scripts import (
     AddClassificationScript,
@@ -81,6 +86,7 @@ from ..scripts import (
     RunThreadedCollectionCoverageProviderScript,
     RunWorkCoverageProviderScript,
     Script,
+    SearchIndexCoverageRemover,
     ShowCollectionsScript,
     ShowIntegrationsScript,
     ShowLanesScript,
@@ -2745,6 +2751,36 @@ class TestMirrorResourcesScript(DatabaseTest):
         m(self._default_collection, thumb_link, policy)
         attempt = mirror.mirrored.pop()
         eq_(thumb_link.resource.url, attempt['link'].href)
+
+
+class TestSearchIndexCoverageRemover(DatabaseTest):
+
+    SERVICE_NAME = "Search Index Coverage Remover"
+
+    def test_do_run(self):
+        work = self._work()
+        work2 = self._work()
+        wcr = WorkCoverageRecord
+        decoys = [wcr.QUALITY_OPERATION, wcr.GENERATE_MARC_OPERATION]
+
+        # Set up some coverage records.
+        for operation in decoys + [wcr.UPDATE_SEARCH_INDEX_OPERATION]:
+            for w in (work, work2):
+                wcr.add_for(
+                    w, operation, status=random.choice(wcr.ALL_STATUSES)
+                )
+
+        # Run the script.
+        script = SearchIndexCoverageRemover(self._db)
+        result = script.do_run()
+        assert isinstance(result, TimestampData)
+        eq_("Coverage records deleted: 2", result.achievements)
+
+        # UPDATE_SEARCH_INDEX_OPERATION records have been removed.
+        # No other records are affected.
+        for w in (work, work2):
+            remaining = [x.operation for x in w.coverage_records]
+            eq_(sorted(remaining), sorted(decoys))
 
 
 class TestWorkConsolidationScript(object):

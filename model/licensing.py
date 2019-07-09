@@ -405,6 +405,7 @@ class LicensePool(Base):
         """Set .open_access based on whether there is currently
         an open-access LicensePoolDeliveryMechanism for this LicensePool.
         """
+        old_status = self.open_access
         for dm in self.delivery_mechanisms:
             if dm.is_open_access:
                 self.open_access = True

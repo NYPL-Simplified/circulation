@@ -25,10 +25,14 @@ from ..model import (
     RightsStatus,
 )
 from ..config import CannotLoadConfiguration
-
+from ..external_search import (
+    MockExternalSearchIndex,
+    Filter,
+)
 from ..marc import (
   Annotator,
   MARCExporter,
+  MARCExporterFacets,
 )
 
 from ..s3 import (
@@ -496,7 +500,9 @@ class TestMARCExporter(DatabaseTest):
         lane = self._lane("Test Lane", genres=["Mystery"])
         w1 = self._work(genre="Mystery", with_open_access_download=True)
         w2 = self._work(genre="Mystery", with_open_access_download=True)
-        self.add_to_materialized_view([w1, w2])
+
+        search_engine = MockExternalSearchIndex()
+        search_engine.bulk_update([w1, w2])
 
         integration.setting(MARCExporter.STORAGE_PROTOCOL).value = ExternalIntegration.S3
 
@@ -512,7 +518,7 @@ class TestMARCExporter(DatabaseTest):
 
         mirror = MockS3Uploader()
 
-        exporter.records(lane, annotator, mirror=mirror, query_batch_size=1, upload_batch_size=1)
+        exporter.records(lane, annotator, mirror=mirror, query_batch_size=1, upload_batch_size=1, search_engine=search_engine)
 
         # The file was mirrored and a CachedMARCFile was created to track the mirrored file.
         eq_(1, len(mirror.uploaded))
@@ -550,7 +556,7 @@ class TestMARCExporter(DatabaseTest):
         worklist.initialize(self._default_library, display_name="All Books")
 
         mirror = MockS3Uploader()
-        exporter.records(worklist, annotator, mirror=mirror, query_batch_size=1, upload_batch_size=1)
+        exporter.records(worklist, annotator, mirror=mirror, query_batch_size=1, upload_batch_size=1, search_engine=search_engine)
 
         eq_(1, len(mirror.uploaded))
         [cache] = self._db.query(CachedMARCFile).all()
@@ -573,17 +579,19 @@ class TestMARCExporter(DatabaseTest):
 
         self._db.delete(cache)
 
-        # If a start time is set, only records updated since that time are included,
-        # and the start time is in the mirror url.
-        now = datetime.datetime.utcnow()
-        w1.last_update_time = now - datetime.timedelta(days=30)
-        w2.last_update_time = now - datetime.timedelta(days=2)
-        self.add_to_materialized_view([w1, w2])
+        # If a start time is set, it's used in the mirror url.
+        #
+        # (Our mock search engine returns everthing in its 'index',
+        # so this doesn't test that the start time is actually used to
+        # find works -- that's in the search index tests and the
+        # tests of MARCExporterFacets.)
         start_time = now - datetime.timedelta(days=3)
 
         mirror = MockS3Uploader()
-        exporter.records(lane, annotator, start_time, mirror=mirror, query_batch_size=2, upload_batch_size=2)
-        eq_(1, len(mirror.uploaded))
+        exporter.records(
+            lane, annotator, start_time, mirror=mirror, query_batch_size=2,
+            upload_batch_size=2, search_engine=search_engine
+        )
         [cache] = self._db.query(CachedMARCFile).all()
         eq_(self._default_library, cache.library)
         eq_(lane, cache.lane)
@@ -596,31 +604,48 @@ class TestMARCExporter(DatabaseTest):
             mirror.uploaded[0].mirror_url)
         eq_(start_time, cache.start_time)
         assert cache.end_time > now
-
-        complete_file = "".join(mirror.content[0])
-        records = list(MARCReader(complete_file))
-        eq_(1, len(records))
-
-        [record] = records
-        eq_(w2.title, record.get_fields("245")[0].get_subfields("a")[0])
-
         self._db.delete(cache)
 
-        # If the lane is empty, nothing will be mirrored, but a CachedMARCFile
-        # is still created to track that we checked for updates.
-        empty_lane = self._lane("Test Lane", genres=["History"], fiction=False)
+        # If the search engine returns no contents for the lane,
+        # nothing will be mirrored, but a CachedMARCFile is still
+        # created to track that we checked for updates.
+        empty_search_engine = MockExternalSearchIndex()
 
         mirror = MockS3Uploader()
-        exporter.records(empty_lane, annotator, mirror=mirror)
+        exporter.records(lane, annotator, mirror=mirror,
+                         search_engine=empty_search_engine)
 
         eq_([], mirror.content[0])
         [cache] = self._db.query(CachedMARCFile).all()
         eq_(cache.representation, mirror.uploaded[0])
         eq_(self._default_library, cache.library)
-        eq_(empty_lane, cache.lane)
+        eq_(lane, cache.lane)
         eq_(None, cache.representation.content)
         eq_(None, cache.start_time)
         assert cache.end_time > now
 
         self._db.delete(cache)
 
+
+class TestMARCExporterFacets(object):
+    def test_modify_search_filter(self):
+
+        # A facet object.
+        facets = MARCExporterFacets("some start time")
+
+        # A filter about to be modified by the facet object.
+        filter = Filter()
+        filter.order_ascending = False
+
+        facets.modify_search_filter(filter)
+
+        # updated_after has been set and results are to be returned in
+        # order of increasing last_update_time.
+        eq_("last_update_time", filter.order)
+        eq_(True, filter.order_ascending)
+        eq_("some start time", filter.updated_after)
+
+    def test_scoring_functions(self):
+        # A no-op.
+        facets = MARCExporterFacets("some start time")
+        eq_([], facets.scoring_functions(object()))

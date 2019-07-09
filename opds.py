@@ -52,6 +52,7 @@ from model import (
 from lane import (
     Facets,
     FacetsWithEntryPoint,
+    FeaturedFacets,
     Lane,
     Pagination,
     SearchFacets,
@@ -162,8 +163,11 @@ class Annotator(object):
                 title=unicode(group_title)
             )
 
-        # TODO: maybe we can do better than this in calculating updated()
         if not updated and work.last_update_time:
+            # NOTE: This is a default that works in most cases. When
+            # ordering ElasticSearch results by last update time,
+            # `work` is a WorkSearchResult object containing a more
+            # reliable value that you can use if you want.
             updated = work.last_update_time
         if updated:
             entry.extend([AtomFeed.updated(AtomFeed._strftime(updated))])
@@ -297,37 +301,75 @@ class Annotator(object):
     @classmethod
     def authors(cls, work, edition):
         """Create one or more <author> and <contributor> tags for the given
-        work."""
+        Work.
+
+        :param work: The Work under consideration.
+        :param edition: The Edition to use as a reference
+            for bibliographic information, including the list of
+            Contributions.
+        """
         authors = list()
-        listed_by_role = defaultdict(set)
+        state = defaultdict(set)
         for contribution in edition.contributions:
-            contributor = contribution.contributor
-            name = contributor.display_name or contributor.sort_name
-            if contribution.role in Contributor.AUTHOR_ROLES:
-                tag_f = AtomFeed.author
-                role = None
-            else:
-                tag_f = AtomFeed.contributor
-                role = Contributor.MARC_ROLE_CODES.get(contribution.role)
-                if not role:
-                    # This contribution is not one that we publish as
-                    # a <atom:contributor> tag. Skip it.
-                    continue
-
-            name_key = name.lower()
-            if name_key in listed_by_role[role]:
+            tag = cls.contributor_tag(contribution, state)
+            if tag is None:
+                # contributor_tag decided that this contribution doesn't
+                # need a tag.
                 continue
-
-            properties = dict()
-            if role:
-                properties['{%s}role' % AtomFeed.OPF_NS] = role
-            tag = tag_f(AtomFeed.name(name), **properties)
             authors.append(tag)
-            listed_by_role[role].add(name_key)
 
         if authors:
             return authors
+
+        # We have no author information, so we add empty <author> tag
+        # to avoid the implication (per RFC 4287 4.2.1) that this book
+        # was written by whoever wrote the OPDS feed.
         return [AtomFeed.author(AtomFeed.name(""))]
+
+    @classmethod
+    def contributor_tag(cls, contribution, state):
+        """Build an <author> or <contributor> tag for a Contribution.
+
+        :param contribution: A Contribution.
+        :param state: A defaultdict of sets, which may be used to keep
+            track of what happened during previous calls to
+            contributor_tag for a given Work.
+        :return: A Tag, or None if creating a Tag for this Contribution
+            would be redundant or of low value.
+
+        """
+        contributor = contribution.contributor
+        role = contribution.role
+
+        if role in Contributor.AUTHOR_ROLES:
+            tag_f = AtomFeed.author
+            marc_role = None
+        else:
+            tag_f = AtomFeed.contributor
+            marc_role = Contributor.MARC_ROLE_CODES.get(role)
+            if not marc_role:
+                # This contribution is not one that we publish as
+                # a <atom:contributor> tag. Skip it.
+                return None
+
+        name = contributor.display_name or contributor.sort_name
+        name_key = name.lower()
+        if name_key in state[marc_role]:
+            # We've already credited this person with this
+            # MARC role. Returning a tag would be redundant.
+            return None
+
+        # Okay, we're creating a tag.
+        properties = dict()
+        if marc_role:
+            properties['{%s}role' % AtomFeed.OPF_NS] = marc_role
+        tag = tag_f(AtomFeed.name(name), **properties)
+
+        # Record the fact that we credited this person with this role,
+        # so that we don't do it again on a subsequent call.
+        state[marc_role].add(name_key)
+
+        return tag
 
     @classmethod
     def series(cls, series_name, series_position):
@@ -546,7 +588,9 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def groups(cls, _db, title, url, lane, annotator,
-               cache_type=None, force_refresh=False, facets=None):
+               cache_type=None, force_refresh=False, facets=None,
+               search_engine=None, search_debug=False
+    ):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
 
@@ -564,7 +608,7 @@ class AcquisitionFeed(OPDSFeed):
                 annotator = annotator()
             cached = None
             use_cache = cache_type != cls.NO_CACHE
-            facets = facets or lane.default_featured_facets(_db)
+            facets = facets or FeaturedFacets.default(lane)
             if use_cache:
                 cache_type = cache_type or CachedFeed.GROUPS_TYPE
                 cached, usable = CachedFeed.fetch(
@@ -578,7 +622,10 @@ class AcquisitionFeed(OPDSFeed):
                 )
                 if usable:
                     return cached.content
-            works_and_lanes = lane.groups(_db, facets=facets)
+            works_and_lanes = lane.groups(
+                _db=_db, facets=facets, search_engine=search_engine,
+                debug=search_debug
+            )
 
         if not works_and_lanes:
             # We cannot generate a groups feed, either because we
@@ -600,7 +647,8 @@ class AcquisitionFeed(OPDSFeed):
                 _db, title, url, lane, annotator,
                 cache_type=cache_type,
                 force_refresh=force_refresh,
-                facets=None,
+                facets=None, search_engine=search_engine,
+                search_debug=search_debug
             )
             return cached
 
@@ -660,7 +708,8 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def page(cls, _db, title, url, lane, annotator,
              cache_type=None, facets=None, pagination=None,
-             force_refresh=False
+             force_refresh=False, search_engine=None,
+             search_debug=False
     ):
         """Create a feed representing one page of works from a given lane.
 
@@ -691,13 +740,22 @@ class AcquisitionFeed(OPDSFeed):
             if usable:
                 return cached.content
 
-        works_q = lane.works(_db, facets, pagination)
-        if not works_q:
-            # The Lane believes that creating this feed is a bad idea.
-            works = []
-        else:
-            works = works_q.all()
-            pagination.this_page_size = len(works)
+        works = lane.works(
+            _db, facets=facets, pagination=pagination,
+            search_engine=search_engine, debug=search_debug
+        )
+
+        if not isinstance(works, list):
+            # It's possible that works() returned a database query or
+            # other generator-like object, but at this point we want
+            # an actual list of Work objects.
+            works = [x for x in works]
+
+        if not pagination.page_has_loaded:
+            # Depending on how the works were obtained,
+            # Pagination.page_loaded may or may not have been called
+            # yet.
+            pagination.page_loaded(works)
         feed = cls(_db, title, url, works, annotator)
 
         entrypoints = facets.selectable_entrypoints(lane)
@@ -727,7 +785,8 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
-        feed.add_breadcrumb_links(lane, facets.entrypoint)
+        if isinstance(facets, FacetsWithEntryPoint):
+            feed.add_breadcrumb_links(lane, facets.entrypoint)
 
         annotator.annotate_feed(feed, lane)
 
@@ -740,8 +799,12 @@ class AcquisitionFeed(OPDSFeed):
     def from_query(cls, query, _db, feed_name, url, pagination, url_fn, annotator):
         """Build  a feed representing one page of a given list. Currently used for
         creating an OPDS feed for a custom list and not cached.
+
+        TODO: This is used by the circulation manager admin interface.
+        Investigating replacing the code that uses this so that it uses
+        the search index.
         """
-        page_of_works = pagination.apply(query)
+        page_of_works = pagination.modify_database_query(_db, query)
         pagination.total_size = int(query.count())
 
         feed = cls(_db, feed_name, url, page_of_works, annotator)
@@ -802,7 +865,7 @@ class AcquisitionFeed(OPDSFeed):
                 url_generator, entrypoint, selected_entrypoint, is_default,
                 group_name
             )
-            if link:
+            if link is not None:
                 cls.add_link_to_feed(feed.feed, **link)
                 is_default = False
 
@@ -977,37 +1040,6 @@ class AcquisitionFeed(OPDSFeed):
             group_title = str(Facets.GROUP_DISPLAY_TITLES[group])
             facet_title = str(Facets.FACET_DISPLAY_TITLES[value])
             yield cls.facet_link(url, facet_title, group_title, selected)
-
-    CACHE_FOREVER = 'forever'
-
-    NONGROUPED_MAX_AGE_POLICY = Configuration.NONGROUPED_MAX_AGE_POLICY
-    DEFAULT_NONGROUPED_MAX_AGE = 1200
-
-    GROUPED_MAX_AGE_POLICY = Configuration.GROUPED_MAX_AGE_POLICY
-    DEFAULT_GROUPED_MAX_AGE = CACHE_FOREVER
-
-    @classmethod
-    def grouped_max_age(cls, _db):
-        "The maximum cache time for a grouped acquisition feed."
-        value = ConfigurationSetting.sitewide(
-            _db, cls.GROUPED_MAX_AGE_POLICY).int_value
-        if value is None:
-            value = cls.DEFAULT_GROUPED_MAX_AGE
-        return value
-
-    @classmethod
-    def nongrouped_max_age(cls, _db):
-        "The maximum cache time for a non-grouped acquisition feed."
-        value = ConfigurationSetting.sitewide(
-            _db, cls.NONGROUPED_MAX_AGE_POLICY).int_value
-        if value is cls.CACHE_FOREVER:
-            logging.error(
-                "Non-grouped acquisition feed cannot be cached forever."
-            )
-            value = None
-        if value is None:
-            value = cls.DEFAULT_NONGROUPED_MAX_AGE
-        return value
 
     def __init__(self, _db, title, url, works, annotator=None,
                  precomposed_entries=[]):
@@ -1648,7 +1680,7 @@ class NavigationFeed(OPDSFeed):
             annotator = annotator()
         cached = None
         use_cache = cache_type != cls.NO_CACHE
-        facets = facets or lane.default_featured_facets(_db)
+        facets = facets or FeaturedFacets.default(lane)
         if use_cache:
             cache_type = cache_type or CachedFeed.NAVIGATION_TYPE
             cached, usable = CachedFeed.fetch(

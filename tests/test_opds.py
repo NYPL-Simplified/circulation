@@ -261,7 +261,7 @@ class TestAnnotators(DatabaseTest):
         eq_(tag_string, etree.tostring(same_tag))
 
     def test_duplicate_author_names_are_ignored(self):
-        """Ignores duplicate author names"""
+        # Ignores duplicate author names
         work = self._work(with_license_pool=True)
         duplicate = self._contributor()[0]
         duplicate.sort_name = work.author
@@ -508,7 +508,7 @@ class TestOPDS(DatabaseTest):
         expect = '<bibframe:distribution bibframe:ProviderName="%s"/>' % (
             gutenberg.name
         )
-        assert (1, unicode(feed).count(expect))
+        assert 1 == unicode(feed).count(expect)
 
         # If the LicensePool is a stand-in produced for internal
         # processing purposes, it does not represent an actual license for
@@ -921,14 +921,16 @@ class TestOPDS(DatabaseTest):
         work1 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
         work2 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
 
-        self.add_to_materialized_view([work1, work2], True)
+        search_engine = MockExternalSearchIndex()
+        search_engine.bulk_update([work1, work2])
+
         facets = Facets.default(self._default_library)
         pagination = Pagination(size=1)
 
         def make_page(pagination):
             return AcquisitionFeed.page(
                 self._db, "test", self._url, lane, TestAnnotator,
-                pagination=pagination
+                pagination=pagination, search_engine=search_engine
             )
         cached_works = make_page(pagination)
         parsed = feedparser.parse(unicode(cached_works))
@@ -976,7 +978,8 @@ class TestOPDS(DatabaseTest):
         old_cache_count = self._db.query(CachedFeed).count()
         raw_page = AcquisitionFeed.page(
             self._db, "test", self._url, lane, TestAnnotator,
-            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE
+            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE,
+            search_engine=search_engine
         )
 
         # Unicode is returned instead of a CachedFeed object.
@@ -988,21 +991,22 @@ class TestOPDS(DatabaseTest):
         eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_page).entries))
 
     def test_page_feed_for_worklist(self):
-        """Test the ability to create a paginated feed of works for a
-        WorkList instead of a Lane.
-        """
+        # Test the ability to create a paginated feed of works for a
+        # WorkList instead of a Lane.
         lane = self.conf
         work1 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
         work2 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
 
-        self.add_to_materialized_view([work1, work2], True)
+        search_engine = MockExternalSearchIndex()
+        search_engine.bulk_update([work1, work2])
+
         facets = Facets.default(self._default_library)
         pagination = Pagination(size=1)
 
         def make_page(pagination):
             return AcquisitionFeed.page(
                 self._db, "test", self._url, lane, TestAnnotator,
-                pagination=pagination
+                pagination=pagination, search_engine=search_engine
             )
         cached_works = make_page(pagination)
         parsed = feedparser.parse(unicode(cached_works))
@@ -1039,7 +1043,8 @@ class TestOPDS(DatabaseTest):
         old_cache_count = self._db.query(CachedFeed).count()
         raw_page = AcquisitionFeed.page(
             self._db, "test", self._url, lane, TestAnnotator,
-            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE
+            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE,
+            search_engine=search_engine
         )
 
         # Unicode is returned instead of a CachedFeed object.
@@ -1107,34 +1112,41 @@ class TestOPDS(DatabaseTest):
     def test_groups_feed(self):
         # Test the ability to create a grouped feed of recommended works for
         # a given lane.
+
+        # Every time it's invoked, the mock search index is going to
+        # return everything in its index. That's fine -- we're only
+        # concerned with _how_ it's invoked -- how many times and in
+        # what context.
+        #
+        # So it's sufficient to create a single work, and the details
+        # of the work don't matter. It just needs to have a LicensePool
+        # so it'll show up in the OPDS feed.
+        work = self._work(title="An epic tome", with_open_access_download=True)
+        search_engine = MockExternalSearchIndex()
+        search_engine.bulk_update([work])
+
+        # The lane setup does matter a lot -- that's what controls
+        # how many times the search functionality is invoked.
         epic_fantasy = self._lane(
             "Epic Fantasy", parent=self.fantasy, genres=["Epic Fantasy"]
         )
         urban_fantasy = self._lane(
             "Urban Fantasy", parent=self.fantasy, genres=["Urban Fantasy"]
         )
-        work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
-        work1.quality = 0.75
-        work2 = self._work(genre=Urban_Fantasy, with_open_access_download=True)
-        work2.quality = 0.75
-        self.add_to_materialized_view([work1, work2])
-
-        library = self._default_library
-        library.setting(library.FEATURED_LANE_SIZE).value = 2
 
         annotator = TestAnnotatorWithGroup()
-
         cached_groups = AcquisitionFeed.groups(
             self._db, "test", self._url, self.fantasy, annotator,
-            force_refresh=True
+            force_refresh=True, search_engine=search_engine,
+            search_debug=True
         )
         parsed = feedparser.parse(cached_groups)
 
-        # There are four entries in three lanes.
-        e1, e2, e3, e4 = parsed['entries']
+        # There are three entries in three lanes.
+        e1, e2, e3 = parsed['entries']
 
         # Each entry has one and only one link.
-        [l1], [l2], [l3], [l4] = [x['links'] for x in parsed['entries']]
+        [l1], [l2], [l3] = [x['links'] for x in parsed['entries']]
 
         # Those links are 'collection' links that classify the
         # works under their subgenres.
@@ -1146,8 +1158,6 @@ class TestOPDS(DatabaseTest):
         eq_(l2['title'], 'Group Title for Urban Fantasy!')
         eq_(l3['href'], 'http://group/Fantasy')
         eq_(l3['title'], 'Group Title for Fantasy!')
-        eq_(l4['href'], 'http://group/Fantasy')
-        eq_(l4['title'], 'Group Title for Fantasy!')
 
         # The feed itself has an 'up' link which points to the
         # groups for Fiction, and a 'start' link which points to
@@ -1177,7 +1187,7 @@ class TestOPDS(DatabaseTest):
         old_cache_count = self._db.query(CachedFeed).count()
         raw_groups = AcquisitionFeed.groups(
             self._db, "test", self._url, self.fantasy, annotator,
-            cache_type=AcquisitionFeed.NO_CACHE
+            cache_type=AcquisitionFeed.NO_CACHE, search_engine=search_engine,
         )
 
         # Unicode is returned instead of a CachedFeed object.
@@ -1189,9 +1199,8 @@ class TestOPDS(DatabaseTest):
         eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_groups).entries))
 
     def test_groups_feed_with_empty_sublanes_is_page_feed(self):
-        """Test that a page feed is returned when the requested groups
-        feed has no books in the groups.
-        """
+        # Test that a page feed is returned when the requested groups
+        # feed has no books in the groups.
         library = self._default_library
 
         test_lane = self._lane("Test Lane", genres=['Mystery'])
@@ -1209,14 +1218,15 @@ class TestOPDS(DatabaseTest):
         work1.quality = 0.75
         work2 = self._work(genre=Mystery, with_open_access_download=True)
         work2.quality = 0.75
-        self.add_to_materialized_view([work1, work2], True)
+        search_engine = MockExternalSearchIndex()
+        search_engine.bulk_update([work1, work2])
 
         library.setting(library.FEATURED_LANE_SIZE).value = 2
         annotator = TestAnnotator()
 
         feed = AcquisitionFeed.groups(
             self._db, "test", self._url, test_lane, annotator,
-            force_refresh=True
+            force_refresh=True, search_engine=search_engine
         )
 
         # The lane has no sublanes, so a page feed was created for it
@@ -1241,7 +1251,7 @@ class TestOPDS(DatabaseTest):
         sublane = self._lane(parent=test_lane)
         feed = AcquisitionFeed.groups(
             self._db, "test", self._url, test_lane, annotator,
-            force_refresh=True
+            force_refresh=True, search_engine=search_engine
         )
         assert mock.called_with is not None
 
@@ -1259,7 +1269,6 @@ class TestOPDS(DatabaseTest):
         fantasy_lane = self.fantasy
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
-        self.add_to_materialized_view([work1, work2], True)
 
         pagination = Pagination(size=1)
         search_client = MockExternalSearchIndex()
@@ -1318,18 +1327,15 @@ class TestOPDS(DatabaseTest):
         work1 = self._work(title="The Original Title",
                            genre=Epic_Fantasy, with_open_access_download=True)
         fantasy_lane = self.fantasy
-        self.add_to_materialized_view([work1], True)
+
+        search_engine = MockExternalSearchIndex()
+        search_engine.bulk_update([work1])
 
         def make_page():
             return AcquisitionFeed.page(
                 self._db, "test", self._url, fantasy_lane, TestAnnotator,
-                pagination=Pagination.default()
+                pagination=Pagination.default(), search_engine=search_engine
             )
-
-        af = AcquisitionFeed
-        policy = ConfigurationSetting.sitewide(
-            self._db, af.NONGROUPED_MAX_AGE_POLICY)
-        policy.value = "10"
 
         feed1 = make_page()
         assert work1.title in feed1
@@ -1340,7 +1346,7 @@ class TestOPDS(DatabaseTest):
             title="A Brand New Title",
             genre=Epic_Fantasy, with_open_access_download=True
         )
-        self.add_to_materialized_view([work2], True)
+        search_engine.bulk_update([work2])
 
         # The new work does not show up in the feed because
         # we get the old cached version.
@@ -1348,10 +1354,9 @@ class TestOPDS(DatabaseTest):
         assert work2.title not in feed2
         assert cached.timestamp == old_timestamp
 
-        # Change the policy to disable caching, and we get
-        # a brand new page with the new work.
-        policy.value = "0"
-
+        # Change the WorkList's MAX_CACHE_AGE to disable caching, and
+        # we get a brand new page with the new work.
+        fantasy_lane.MAX_CACHE_AGE = 0
         feed3 = make_page()
         assert cached.timestamp > old_timestamp
         assert work2.title in feed3
@@ -1469,16 +1474,15 @@ class TestAcquisitionFeed(DatabaseTest):
         assert '{http://opds-spec.org/2010/catalog}activeFacet' not in l
 
     def test_groups_propagates_facets(self):
-        """AcquisitionFeed.groups() might call several different
-        methods that each need a facet object.
-        """
+        # AcquisitionFeed.groups() might call several different
+        # methods that each need a facet object.
         class Mock(object):
             """Contains all the mock methods used by this test."""
             def fetch(self, *args, **kwargs):
                 self.fetch_called_with = kwargs['facets']
                 return None, False
 
-            def groups(self, _db, facets):
+            def groups(self, _db, facets, *args, **kwargs):
                 self.groups_called_with = facets
                 return []
 
@@ -2142,7 +2146,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         self.wl.initialize(library=self._default_library, display_name="wl",
         entrypoints=self.entrypoints, children=[self.lane])
 
-        def works(_db, facets=None, pagination=None):
+        def works(_db, **kwargs):
             """Mock WorkList.works so we don't need any actual works
             to run the test.
             """
@@ -2195,10 +2199,9 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         eq_("http://groups/?entrypoint=Book", make_link(EbooksEntryPoint))
 
     def test_page(self):
-        """When AcquisitionFeed.page() generates the first page of a paginated
-        list, it will link to different entry points into the list,
-        assuming the WorkList has different entry points.
-        """
+        # When AcquisitionFeed.page() generates the first page of a paginated
+        # list, it will link to different entry points into the list,
+        # assuming the WorkList has different entry points.
         def run(wl=None, facets=None, pagination=None):
             """Call page() and see what add_entrypoint_links
             was called with.
