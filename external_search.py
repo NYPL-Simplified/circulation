@@ -12,11 +12,22 @@ from elasticsearch.exceptions import (
 from elasticsearch_dsl import (
     Index,
     Search,
-    Q,
+    SF,
 )
 from elasticsearch_dsl.query import (
     Bool,
-    Query as BaseQuery
+    DisMax,
+    Exists,
+    FunctionScore,
+    Match,
+    MatchAll,
+    MatchPhrase,
+    MultiMatch,
+    Nested,
+    Query as BaseQuery,
+    SimpleQueryString,
+    Term,
+    Terms,
 )
 
 from flask_babel import lazy_gettext as _
@@ -451,8 +462,7 @@ class ExternalSearchIndex(HasSelfTests):
 
         function_scores = filter.scoring_functions if filter else None
         if function_scores:
-            function_score = Q(
-                'function_score',
+            function_score = FunctionScore(
                 query=dict(match_all=dict()),
                 functions=function_scores,
                 score_mode="sum"
@@ -774,23 +784,6 @@ class MappingDocument(object):
             "normalizer": "filterable_string",
         }
 
-    def icu_collation_keyword_property_hook(self, description):
-        """Modify the description of an icu_collation_keyword
-        property.
-
-        The 'icu_collation_keyword' type exists in Elasticsearch, but
-        a field of this type can't have a custom analyzer or
-        normalizer, and we need a character filter to exclude certain
-        punctuation characters when determining search
-        order. Converting an 'icu_collation_keyword' field to a 'text'
-        field with the 'en_sortable_analyzer' approximates the
-        functionality of icu_collation_keyword but also lets us have
-        the character filter.
-        """
-        description['type'] = 'text'
-        description['analyzer'] = 'en_sortable_analyzer'
-        description['fielddata'] = True
-
 
 class Mapping(MappingDocument):
     """A class that defines the mapping for a particular version of the search index.
@@ -839,6 +832,12 @@ class Mapping(MappingDocument):
         else:
             search_client.setup_index(new_index=versioned_index)
             return True
+
+    def sort_author_keyword_property_hook(self, description):
+        """Give the `sort_author` property its custom analyzer."""
+        description['type'] = 'text'
+        description['analyzer'] = 'en_sort_author_analyzer'
+        description['fielddata'] = True
 
     def body(self):
         """Generate the body of the mapping document for this version of the
@@ -968,13 +967,24 @@ class CurrentMapping(Mapping):
             common_filter + ['en_stem_minimal_filter']
         )
 
-        # Here's an analyzer for textual fields we intend to sort on
-        # rather than query.
+        # Here's a special filter used only by the analyzer for the
+        # 'sort_author' property (directly below).  It duplicates the
+        # filter used by the icu_collation_keyword data type.
         self.filters['en_sortable_filter'] = dict(
             type="icu_collation", language="en", country="US"
         )
-        self.analyzers['en_sortable_analyzer'] = dict(
-            tokenizer="keyword", filter=["en_sortable_filter"],
+
+        # Here's the analyzer used by the 'sort_author' property.
+        # It's the same as icu_collation_keyword, but it has some
+        # extra character filters -- regexes that do things like
+        # convert "Tolkien, J. R. R." to "Tolkien, JRR".
+        #
+        # This is necessary because normal icu_collation_keyword
+        # fields can't specify char_filter.
+        self.analyzers['en_sort_author_analyzer'] = dict(
+            tokenizer="keyword",
+            filter = ["en_sortable_filter"],
+            char_filter = self.AUTHOR_CHAR_FILTER_NAMES,
         )
 
         # Now, the main event. Set up the field properties for the
@@ -984,30 +994,13 @@ class CurrentMapping(Mapping):
                            'classifications.term'],
             'filterable_text': ['series'],
             'boolean': ['presentation_ready'],
-            'icu_collation_keyword': ['sort_author', 'sort_title'],
+            'icu_collation_keyword': ['sort_title'],
+            'sort_author_keyword' : ['sort_author'],
             'integer': ['series_position', 'work_id'],
             'long': ['last_update_time'],
             'float': ['random'],
         }
         self.add_properties(fields_by_type)
-
-        # Sort author is special -- it gets a different analyzer
-        # designed especially to normalize author names.
-
-        # It's based on the standard analyzer for sortable fields.
-        self.analyzers['en_sort_author_analyzer'] = dict(
-            self.analyzers['en_sortable_analyzer']
-        )
-
-        # But it has some extra character filters -- regexes that do
-        # things like convert "J. R. R. Tolkien" to "J.R.R. Tolkien".
-        self.analyzers['en_sort_author_analyzer']['char_filter'] = (
-            self.AUTHOR_CHAR_FILTER_NAMES
-        )
-        self.add_property(
-            "sort_author", "text", fielddata=True,
-            analyzer="en_sort_author_analyzer"
-        )
 
         # Set up subdocuments.
         contributors = self.subdocument("contributors")
@@ -1214,7 +1207,7 @@ class Query(SearchBase):
         else:
             query_filter = base_filter
         if query_filter:
-            query = Q("bool", must=query, filter=query_filter)
+            query = Bool(must=query, filter=query_filter)
 
         # We now have an Elasticsearch-DSL Query object (which isn't
         # tied to a specific server). Turn it into a Search object
@@ -1267,7 +1260,7 @@ class Query(SearchBase):
 
         if query_string is None:
             # There is no query string.
-            return Q("match_all")
+            return MatchAll()
 
         # The search query will create a dis_max query, which tests a
         # number of hypotheses about what the query string might
@@ -1349,7 +1342,7 @@ class Query(SearchBase):
         """Build an Elasticsearch Query object that tests a number
         of hypotheses at once.
         """
-        return Q("dis_max", queries=hypotheses)
+        return DisMax(queries=hypotheses)
 
     @classmethod
     def _boost(cls, boost, queries, all_must_match=False):
@@ -1391,12 +1384,12 @@ class Query(SearchBase):
             # At least one of the queries in `queries` must match.
             kwargs = dict(should=queries, minimum_should_match=1)
 
-        return Q("bool", boost=float(boost), **kwargs)
+        return Bool(boost=float(boost), **kwargs)
 
     @classmethod
     def simple_query_string_query(cls, query_string, fields=None):
         fields = fields or cls.SIMPLE_QUERY_STRING_FIELDS
-        q = Q("simple_query_string", query=query_string, fields=fields)
+        q = SimpleQueryString(query=query_string, fields=fields)
         return q
 
     @classmethod
@@ -1408,8 +1401,7 @@ class Query(SearchBase):
         if cls.FUZZY_CIRCUIT_BREAKER.search(query_string):
             return None
 
-        fuzzy = Q(
-            "multi_match",                        # Match any or all fields
+        fuzzy = MultiMatch(                       # Match any or all fields
             query=query_string,
             fields=cls.FUZZY_QUERY_STRING_FIELDS, # Look in these fields
             type="best_fields",                   # Score based on best match
@@ -1422,7 +1414,7 @@ class Query(SearchBase):
     def _match(cls, field, query_string):
         """A clause that matches the query string against a specific field in the search document.
         """
-        return Q("match", **{field: query_string})
+        return Match(**{field: query_string})
 
     @classmethod
     def _match_phrase(cls, field, query_string):
@@ -1431,7 +1423,7 @@ class Query(SearchBase):
         The words in the query_string must match the words in the field,
         in order. E.g. "fiction science" will not match "Science Fiction".
         """
-        return Q("match_phrase", **{field: query_string})
+        return MatchPhrase(**{field: query_string})
 
     @classmethod
     def minimal_stemming_query(
@@ -1466,7 +1458,7 @@ class Query(SearchBase):
             cls._match_range("target_age.upper", "lte", upper),
             cls._match_range("target_age.lower", "gte", lower),
         ]
-        return Q("bool", must=must, should=should, boost=float(boost))
+        return Bool(must=must, should=should, boost=float(boost))
 
     @classmethod
     def _parsed_query_matches(cls, query_string):
@@ -1579,7 +1571,7 @@ class QueryParser(object):
 
         # Someone who searched for 'asteroids nonfiction' ended up
         # with a query string of 'asteroids'. Their query string
-        # has a field match component and a query-type component.
+        # has a filter-type component and a query-type component.
         #
         # What is likely to be in this query-type component?
         #
@@ -1728,8 +1720,48 @@ class Filter(SearchBase):
                  genre_restriction_sets=None, customlist_restriction_sets=None,
                  facets=None, script_fields=None, **kwargs
     ):
-        """These minor arguments were made into unnamed keyword arguments to
-        avoid cluttering the method signature:
+        """Constructor.
+
+        All arguments are optional. Passing in an empty set of
+        arguments will match everything in the search index that
+        matches the universal filters (e.g. works must be
+        presentation-ready).
+
+        :param collections: Find only works that are licensed to one of
+        these Collections.
+
+        :param media: Find only works in this list of media (use the
+        constants from Edition such as Edition.BOOK_MEDIUM).
+
+        :param languages: Find only works in these languages (use
+        ISO-639-2 alpha-3 codes).
+
+        :param fiction: Find only works with this fiction status.
+
+        :param audiences: Find only works with a target audience in this list.
+
+        :param target_age: Find only works with a target age in this
+        range. (Use a 2-tuple, or a number to represent a specific
+        age.)
+
+        :param genre_restriction_sets: A sequence of lists of Genre
+        objects or IDs. Each list represents an independent
+        restriction. For each restriction, a work only matches if it's
+        in one of the appropriate Genres.
+
+        :param customlist_restriction_sets: A sequence of lists of
+        CustomList objects or IDs. Each list represents an independent
+        restriction. For each restriction, a work only matches if it's
+        in one of the appropriate CustomLists.
+
+        :param facets: A faceting object that can put further restrictions
+        on the match.
+
+        :param script_fields: A list of registered script fields to
+        run on the search results.
+
+        (These minor arguments were made into unnamed keyword arguments
+        to avoid cluttering the method signature:)
 
         :param excluded_audiobook_data_sources: A list of DataSources that
         provide audiobooks known to be unsupported on this system.
@@ -1857,15 +1889,15 @@ class Filter(SearchBase):
         nested_filters = defaultdict(list)
         collection_ids = filter_ids(self.collection_ids)
         if collection_ids:
-            collection_match = Q(
-                'terms', **{'licensepools.collection_id' : collection_ids}
+            collection_match = Terms(
+                **{'licensepools.collection_id' : collection_ids}
             )
             nested_filters['licensepools'].append(collection_match)
 
         license_datasources = filter_ids(self.license_datasources)
         if license_datasources:
-            datasource_match = Q(
-                'terms', **{'licensepools.data_source_id' : license_datasources}
+            datasource_match = Terms(
+                **{'licensepools.data_source_id' : license_datasources}
             )
             nested_filters['licensepools'].append(datasource_match)
 
@@ -1873,44 +1905,44 @@ class Filter(SearchBase):
             nested_filters['contributors'].append(self.author_filter)
 
         if self.media:
-            f = chain(f, Q('terms', medium=scrub_list(self.media)))
+            f = chain(f, Terms(medium=scrub_list(self.media)))
 
         if self.languages:
-            f = chain(f, Q('terms', language=scrub_list(self.languages)))
+            f = chain(f, Terms(language=scrub_list(self.languages)))
 
         if self.fiction is not None:
             if self.fiction:
                 value = 'fiction'
             else:
                 value = 'nonfiction'
-            f = chain(f, Q('term', fiction=value))
+            f = chain(f, Term(fiction=value))
 
         if self.series:
-            f = chain(f, Q('term', **{"series.keyword": self.series}))
+            f = chain(f, Term(**{"series.keyword": self.series}))
 
         if self.audiences:
-            f = chain(f, Q('terms', audience=scrub_list(self.audiences)))
+            f = chain(f, Terms(audience=scrub_list(self.audiences)))
 
         target_age_filter = self.target_age_filter
         if target_age_filter:
             f = chain(f, self.target_age_filter)
 
         for genre_ids in self.genre_restriction_sets:
-            f = chain(f, Q('terms', **{'genres.term' : filter_ids(genre_ids)}))
+            f = chain(f, Terms(**{'genres.term' : filter_ids(genre_ids)}))
 
         for customlist_ids in self.customlist_restriction_sets:
             ids = filter_ids(customlist_ids)
             nested_filters['customlists'].append(
-                Q('terms', **{'customlists.list_id' : ids})
+                Terms(**{'customlists.list_id' : ids})
             )
 
-        open_access = Q('term', **{'licensepools.open_access' : True})
+        open_access = Term(**{'licensepools.open_access' : True})
         if self.availability==FacetConstants.AVAILABLE_NOW:
             # Only open-access books and books with currently available
             # copies should be displayed.
-            available = Q('term', **{'licensepools.available' : True})
+            available = Term(**{'licensepools.available' : True})
             nested_filters['licensepools'].append(
-                Q('bool', should=[open_access, available])
+                Bool(should=[open_access, available])
             )
         elif self.availability==FacetConstants.AVAILABLE_OPEN_ACCESS:
             # Only open-access books should be displayed.
@@ -1919,10 +1951,10 @@ class Filter(SearchBase):
         if self.subcollection==FacetConstants.COLLECTION_MAIN:
             # Exclude open-access books with a quality of less than
             # 0.3.
-            not_open_access = Q('term', **{'licensepools.open_access' : False})
+            not_open_access = Term(**{'licensepools.open_access' : False})
             decent_quality = self._match_range('licensepools.quality', 'gte', 0.3)
             nested_filters['licensepools'].append(
-                Q('bool', should=[not_open_access, decent_quality])
+                Bool(should=[not_open_access, decent_quality])
             )
         elif self.subcollection==FacetConstants.COLLECTION_FEATURED:
             # Exclude books with a quality of less than the library's
@@ -1930,16 +1962,16 @@ class Filter(SearchBase):
             range_query = self._match_range(
                 'quality', 'gte', self.minimum_featured_quality
             )
-            f = chain(f, Q('bool', must=range_query))
+            f = chain(f, Bool(must=range_query))
 
         # Some sources of audiobooks may be excluded because the
         # server can't fulfill them or the anticipated client can't
         # play them.
         excluded = self.excluded_audiobook_data_sources
         if excluded:
-            audio = Q('term', **{'licensepools.medium': Edition.AUDIO_MEDIUM})
-            excluded_audio_source = Q(
-                'terms', **{'licensepools.data_source_id' : excluded}
+            audio = Term(**{'licensepools.medium': Edition.AUDIO_MEDIUM})
+            excluded_audio_source = Terms(
+                **{'licensepools.data_source_id' : excluded}
             )
             excluded_audio = Bool(must=[audio, excluded_audio_source])
             not_excluded_audio = Bool(must_not=excluded_audio)
@@ -1948,7 +1980,7 @@ class Filter(SearchBase):
         # If holds are not allowed, only license pools that are
         # currently available should be considered.
         if not self.allow_holds:
-            licenses_available = Q('term', **{'licensepools.available' : True})
+            licenses_available = Term(**{'licensepools.available' : True})
             currently_available = Bool(should=[licenses_available, open_access])
             nested_filters['licensepools'].append(currently_available)
 
@@ -1965,7 +1997,7 @@ class Filter(SearchBase):
             last_update_time_query = self._match_range(
                 'last_update_time', 'gte', updated_after
             )
-            f = chain(f, Q('bool', must=last_update_time_query))
+            f = chain(f, Bool(must=last_update_time_query))
 
         return f, nested_filters
 
@@ -1987,7 +2019,7 @@ class Filter(SearchBase):
 
         # We only want to show works that are presentation-ready.
         base_filter = _chain_filters(
-            base_filter, Q('term', **{"presentation_ready":True})
+            base_filter, Term(**{"presentation_ready":True})
         )
 
         return base_filter
@@ -2012,12 +2044,12 @@ class Filter(SearchBase):
         # It's easier to stay consistent by indexing all Works and
         # filtering them out later, than to do it by adding and
         # removing works from the index.
-        not_suppressed = Q('term', **{'licensepools.suppressed' : False})
+        not_suppressed = Term(**{'licensepools.suppressed' : False})
         nested_filters['licensepools'].append(not_suppressed)
 
-        owns_licenses = Q('term', **{'licensepools.licensed' : True})
-        open_access = Q('term', **{'licensepools.open_access' : True})
-        currently_owned = Q('bool', should=[owns_licenses, open_access])
+        owns_licenses = Term(**{'licensepools.licensed' : True})
+        open_access = Term(**{'licensepools.open_access' : True})
+        currently_owned = Bool(should=[owns_licenses, open_access])
         nested_filters['licensepools'].append(currently_owned)
 
         return nested_filters
@@ -2085,24 +2117,7 @@ class Filter(SearchBase):
         # At this point we're sorting by a nested field.
         nested = None
         if key == 'licensepools.availability_time':
-            # We're sorting works by the time they became
-            # available to a library. This means we only want to
-            # consider the availability times of license pools
-            # found in one of the library's collections.
-            collection_ids = self._filter_ids(self.collection_ids)
-            if collection_ids:
-                nested = dict(
-                    path="licensepools",
-                    filter=dict(
-                        terms={
-                            "licensepools.collection_id": collection_ids
-                        }
-                    ),
-                )
-
-            # If a book shows up in multiple collections, we're only
-            # interested in the collection that had it the earliest.
-            mode = 'min'
+            nested, mode = self._availability_time_sort_order
         else:
             raise ValueError(
                 "I don't know how to sort by %s." % key
@@ -2111,6 +2126,28 @@ class Filter(SearchBase):
         if nested:
             sort_description['nested']=nested
         return { key : sort_description }
+
+    @property
+    def _availability_time_sort_order(self):
+        # We're sorting works by the time they became
+        # available to a library. This means we only want to
+        # consider the availability times of license pools
+        # found in one of the library's collections.
+        nested = None
+        collection_ids = self._filter_ids(self.collection_ids)
+        if collection_ids:
+            nested = dict(
+                path="licensepools",
+                filter=dict(
+                    terms={
+                        "licensepools.collection_id": collection_ids
+                    }
+                ),
+            )
+        # If a book shows up in multiple collections, we're only
+        # interested in the collection that had it the earliest.
+        mode = 'min'
+        return nested, mode
 
     @property
     def last_update_time_script_field(self):
@@ -2169,6 +2206,73 @@ class Filter(SearchBase):
             ),
         )
 
+    # The Painless script to generate a 'featurability' score for
+    # a work.
+    #
+    # A higher-quality work is more featurable. But we don't want
+    # to constantly feature the very highest-quality works, and if
+    # there are no high-quality works, we want medium-quality to
+    # outrank low-quality.
+    #
+    # So we establish a cutoff -- the minimum featured quality --
+    # beyond which a work is considered 'featurable'. All featurable
+    # works get the same (high) score.
+    #
+    # Below that point, we prefer higher-quality works to
+    # lower-quality works, such that a work's score is proportional to
+    # the square of its quality.
+    FEATURABLE_SCRIPT = "Math.pow(Math.min(%(cutoff).5f, doc['quality'].value), %(exponent).5f) * 5"
+
+    # Used in tests to deactivate the random component of
+    # featurability_scoring_functions.
+    DETERMINISTIC = object()
+
+    def featurability_scoring_functions(self, random_seed):
+        """Generate scoring functions that weight works randomly, but
+        with 'more featurable' works tending to be at the top.
+        """
+
+        exponent = 2
+        cutoff = (self.minimum_featured_quality ** exponent)
+        script = self.FEATURABLE_SCRIPT % dict(
+            cutoff=cutoff, exponent=exponent
+        )
+        quality_field = SF('script_score', script=dict(source=script))
+
+        # Currently available works are more featurable.
+        available = Term(**{'licensepools.available' : True})
+        nested = Nested(path='licensepools', query=available)
+        available_now = dict(filter=nested, weight=5)
+
+        function_scores = [quality_field, available_now]
+
+        # Random chance can boost a lower-quality work, but not by
+        # much -- this mainly ensures we don't get the exact same
+        # books every time.
+        if random_seed != self.DETERMINISTIC:
+            random = SF(
+                'random_score',
+                seed=random_seed or int(time.time()),
+                field="work_id",
+                weight=1.1
+            )
+            function_scores.append(random)
+
+        if self.customlist_restriction_sets:
+            list_ids = set()
+            for restriction in self.customlist_restriction_sets:
+                list_ids.update(restriction)
+            # We're looking for works on certain custom lists. A work
+            # that's _featured_ on one of these lists will be boosted
+            # quite a lot versus one that's not.
+            featured = Term(**{'customlists.featured' : True})
+            on_list = Terms(**{'customlists.list_id' : list(list_ids)})
+            featured_on_list = Bool(must=[featured, on_list])
+            nested = Nested(path='customlists', query=featured_on_list)
+            featured_on_relevant_list = dict(filter=nested, weight=11)
+            function_scores.append(featured_on_relevant_list)
+        return function_scores
+
     @property
     def target_age_filter(self):
         """Helper method to generate the target age subfilter.
@@ -2184,13 +2288,13 @@ class Filter(SearchBase):
             return None
         def does_not_exist(field):
             """A filter that matches if there is no value for `field`."""
-            return Q('bool', must_not=[Q('exists', field=field)])
+            return Bool(must_not=[Exists(field=field)])
 
         def or_does_not_exist(clause, field):
             """Either the given `clause` matches or the given field
             does not exist.
             """
-            return Q('bool', should=[clause, does_not_exist(field)],
+            return Bool(should=[clause, does_not_exist(field)],
                      minimum_should_match=1)
 
         clauses = []
@@ -2216,7 +2320,7 @@ class Filter(SearchBase):
             return clauses[0]
 
         # Both upper and lower age must match.
-        return Q('bool', must=clauses)
+        return Bool(must=clauses)
 
     @property
     def author_filter(self):
@@ -2225,8 +2329,8 @@ class Filter(SearchBase):
         """
         if not self.author:
             return None
-        authorship_role = Q(
-            'terms', **{'contributors.role' : self.AUTHOR_MATCH_ROLES}
+        authorship_role = Terms(
+            **{'contributors.role' : self.AUTHOR_MATCH_ROLES}
         )
         clauses = []
         for field, value in [
@@ -2238,11 +2342,11 @@ class Filter(SearchBase):
             if not value or value == Edition.UNKNOWN_AUTHOR:
                 continue
             clauses.append(
-                Q('term', **{'contributors.%s' % field : value})
+                Term(**{'contributors.%s' % field : value})
             )
 
-        same_person = Q('bool', should=clauses, minimum_should_match=1)
-        return Q('bool', must=[authorship_role, same_person])
+        same_person = Bool(should=clauses, minimum_should_match=1)
+        return Bool(must=[authorship_role, same_person])
 
 
     @classmethod

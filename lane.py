@@ -723,8 +723,6 @@ class FeaturedFacets(FacetsWithEntryPoint):
     AcquisitionFeed.groups().
     """
 
-    DETERMINISTIC = object()
-
     def __init__(self, minimum_featured_quality, entrypoint=None,
                  random_seed=None, **kwargs):
         """Set up an object that finds featured books in a given
@@ -759,70 +757,15 @@ class FeaturedFacets(FacetsWithEntryPoint):
         entrypoint = entrypoint or self.entrypoint
         return self.__class__(minimum_featured_quality, entrypoint)
 
-    # The Painless script to generate a 'featurability' score for
-    # a work.
-    #
-    # A higher-quality work is more featurable. But we don't want
-    # to constantly feature the very highest-quality works, and if
-    # there are no high-quality works, we want medium-quality to
-    # outrank low-quality.
-    #
-    # So we establish a cutoff -- the minimum featured quality --
-    # beyond which a work is considered 'featurable'. All featurable
-    # works get the same (high) score.
-    #
-    # Below that point, we prefer higher-quality works to
-    # lower-quality works, such that a work's score is proportional to
-    # the square of its quality.
-    FEATURABLE_SCRIPT = "Math.pow(Math.min(%(cutoff).5f, doc['quality'].value), %(exponent).5f) * 5"
+    def modify_search_filter(self, filter):
+        super(FeaturedFacets, self).modify_search_filter(filter)
+        filter.minimum_featured_quality = self.minimum_featured_quality
 
     def scoring_functions(self, filter):
         """Generate scoring functions that weight works randomly, but
         with 'more featurable' works tending to be at the top.
         """
-        from elasticsearch_dsl import SF, Q
-        from external_search import SearchBase
-
-        exponent = 2
-        cutoff = (self.minimum_featured_quality ** exponent)
-        script = self.FEATURABLE_SCRIPT % dict(
-            cutoff=cutoff, exponent=exponent
-        )
-        quality_field = SF('script_score', script=dict(source=script))
-
-        # Currently available works are more featurable.
-        available = Q('term', **{'licensepools.available' : True})
-        nested = Q('nested', path='licensepools', query=available)
-        available_now = dict(filter=nested, weight=5)
-
-        function_scores = [quality_field, available_now]
-
-        # Random chance can boost a lower-quality work, but not by
-        # much -- this mainly ensures we don't get the exact same
-        # books every time.
-        if self.random_seed != self.DETERMINISTIC:
-            random = SF(
-                'random_score',
-                seed=self.random_seed or int(time.time()),
-                field="work_id",
-                weight=1.1
-            )
-            function_scores.append(random)
-
-        if filter.customlist_restriction_sets:
-            list_ids = set()
-            for restriction in filter.customlist_restriction_sets:
-                list_ids.update(restriction)
-            # The provided Filter is looking for works on certain
-            # custom lists. A work that's _featured_ on one of these
-            # lists will be boosted quite a lot versus one that's not.
-            featured = Q('term', **{'customlists.featured' : True})
-            on_list = Q('terms', **{'customlists.list_id' : list(list_ids)})
-            featured_on_list = Q('bool', must=[featured, on_list])
-            nested = Q('nested', path='customlists', query=featured_on_list)
-            featured_on_relevant_list = dict(filter=nested, weight=11)
-            function_scores.append(featured_on_relevant_list)
-        return function_scores
+        return filter.featurability_scoring_functions(self.random_seed)
 
 
 class SearchFacets(FacetsWithEntryPoint):
