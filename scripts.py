@@ -21,6 +21,7 @@ import unicodedata
 from collections import defaultdict
 from external_search import (
     ExternalSearchIndex,
+    Filter,
     SearchIndexMonitor,
 )
 import json
@@ -2984,103 +2985,82 @@ class FixInvisibleWorksScript(CollectionInputScript):
         self.output = output or sys.stdout
         self.search = search or ExternalSearchIndex(_db)
 
+    def out(self, s, *args):
+        if not s.endswith("\n"):
+            s += "\n"
+        self.output.write(s % args)
+
     def run(self, cmd_args=None):
         parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
-        self.do_run(parsed.collections)
-
-    def do_run(self, collections=None):
-        # TODO: Do this on a collection-by-collection basis rather
-        # than all collections at once. Many problems only affect one
-        # collection.
         self.check_libraries()
-        if collections:
-            collection_ids = [c.id for c in collections]
+        self.delete_cached_feeds()
+        collections = parsed.collections or self._db.query(Collection)
+        for collection in collections:
+            self.explain_collection(collection)
+            self.out("\n")
 
-        ready = self._db.query(Work).filter(Work.presentation_ready==True)
-        unready = self._db.query(Work).filter(Work.presentation_ready==False)
+    def explain_collection(self, collection):
+        self.out('Examining collection "%s"', collection.name)
 
-        if collections:
-            ready = ready.join(LicensePool).filter(LicensePool.collection_id.in_(collection_ids))
-            unready = unready.join(LicensePool).filter(LicensePool.collection_id.in_(collection_ids))
+        base = self._db.query(Work).join(LicensePool).filter(
+            LicensePool.collection==collection
+        )
+
+        ready = base.filter(Work.presentation_ready==True)
+        unready = base.filter(Work.presentation_ready==False)
 
         ready_count = ready.count()
         unready_count = unready.count()
-        self.output.write("%d presentation-ready works.\n" % ready_count)
-        self.output.write("%d works not presentation-ready.\n" % unready_count)
+        self.out(" %d presentation-ready works.", ready_count)
+        self.out(" %d works not presentation-ready.", unready_count)
 
         if unready_count > 0:
-            self.output.write(
-                "Attempting to make %d works presentation-ready based on their metadata.\n" % (unready_count)
+            self.out(
+                "  Attempting to make %d works presentation-ready based on their metadata.",
+                unready_count
             )
-            for work in unready:
-                work.set_presentation_ready_based_on_content(self.search)
+            #for work in unready:
+            #    work.set_presentation_ready_based_on_content(self.search)
+            ready_count = ready.count()
+            self.out("  %d works are now presentation-ready.", ready_count)
 
-        ready_count = ready.count()
-
-        if unready_count > 0:
-            self.output.write(
-                "%d works are now presentation-ready.\n" % ready_count
-            )
-
-        if ready_count == 0:
-            self.output.write(
-                "Here's your problem: there are no presentation-ready works.\n"
-            )
-            return
-
-        # TODO: Check if the search index is functional and if works
-        # are making it into the search index.
-
-        # Count total number of index entries and entries per
-        # collection.
+        filter = Filter(collections=[collection])
+        count = self.search.count_works(filter)
+        self.out(" %d works in the search index.\n" % count)
+        if count == 0:
+            self.out(" Maybe bin/search_index_refresh needs to run.")
 
         # Check if the works have delivery mechanisms.
         LPDM = LicensePoolDeliveryMechanism
-        mv_works = mv_works.filter(
-            exists().where(
-                and_(work_model.data_source_id==LPDM.data_source_id,
-                     work_model.identifier_id==LPDM.identifier_id)
+        no_delivery_mechanisms = base.filter(
+            ~exists().where(
+                and_(LicensePool.data_source_id==LPDM.data_source_id,
+                     LicensePool.identifier_id==LPDM.identifier_id)
             )
-        )
-        if mv_works.count() == 0:
-            self.output.write(
-                "Here's your problem: your works don't have delivery mechanisms.\n"
+        ).count()
+        if no_delivery_mechanisms:
+            self.out(
+                " %d works are missing delivery mechanisms and won't show up.",
+                no_delivery_mechanisms
             )
-            return
 
         # Check if the license pools are suppressed.
-        mv_works = mv_works.join(LicensePool).filter(
-            LicensePool.suppressed==False)
-        if mv_works.count() == 0:
-            self.output.write(
-                "Here's your problem: your works' license pools are suppressed.\n"
+        suppressed = base.filter(LicensePool.suppressed==True).count()
+        if suppressed:
+            self.out(
+                " %d works have suppressed LicensePools and won't show up.",
+                suppressed
             )
-            return
 
         # Check if the pools have available licenses.
-        mv_works = mv_works.filter(
-            or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
-        )
-        if mv_works.count() == 0:
-            self.output.write(
-                "Here's your problem: your works aren't open access and have no licenses owned.\n"
+        not_owned = base.filter(
+            and_(LicensePool.licenses_owned == 0, ~LicensePool.open_access)
+        ).count()
+        if not_owned:
+            self.out(
+                " %d non-open-access works have no owned licenses and won't show up.",
+                not_owned
             )
-            return
-
-        page_feeds = self._db.query(CachedFeed).filter(
-            CachedFeed.type != CachedFeed.GROUPS_TYPE)
-        page_feeds_count = page_feeds.count()
-        self.output.write(
-            "%d page-type feeds in cachedfeeds table.\n" % page_feeds_count
-        )
-        if page_feeds_count:
-            self.output.write("Deleting them all.\n")
-            for feed in page_feeds:
-                self._db.delete(feed)
-        self._db.commit()
-        self.output.write(
-            "I would now expect you to be able to find %d works.\n" % mv_works_count
-        )
 
     def check_libraries(self):
         """Make sure the libraries are equipped to show works.
@@ -3091,25 +3071,40 @@ class FixInvisibleWorksScript(CollectionInputScript):
             for library in libraries:
                 self.check_library(library)
         else:
-            self.output.write("There are no libraries in the system -- that's a problem.\n")
-        self.output.write("\n")
+            self.out("There are no libraries in the system -- that's a problem.")
+        self.out("\n")
 
     def check_library(self, library):
         """Make sure a library is properly set up to show works."""
-        self.output.write("Checking library %s\n" % library.name)
+        self.out("Checking library %s", library.name)
 
         # Make sure it has collections.
         if not library.collections:
-            self.output.write(" This library has no collections -- that's a problem.\n")
+            self.out(" This library has no collections -- that's a problem.")
         else:
             for collection in library.collections:
-                self.output.write(" Associated with collection %s.\n" % collection.name)
+                self.out(" Associated with collection %s.", collection.name)
 
         # Make sure it has lanes.
         if not library.lanes:
-            self.output.write(" This library has no lanes -- that's a problem.\n")
+            self.out(" This library has no lanes -- that's a problem.")
         else:
-            self.output.write(" Associated with %s lanes.\n" % len(library.lanes))
+            self.out(" Associated with %s lanes.", len(library.lanes))
+
+    def delete_cached_feeds(self):
+        page_feeds = self._db.query(CachedFeed).filter(
+            CachedFeed.type != CachedFeed.GROUPS_TYPE
+        )
+        page_feeds_count = page_feeds.count()
+        self.out(
+            "%d feeds in cachedfeeds table, not counting grouped feeds.", page_feeds_count
+        )
+        if page_feeds_count:
+            self.out("Deleting them all.")
+            page_feeds.delete()
+            self._db.commit()
+        self.out("\n")
+
 
 class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
     """List the metadata identifiers for Collections in the database.
