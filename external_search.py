@@ -983,7 +983,7 @@ class CurrentMapping(Mapping):
         # fields can't specify char_filter.
         self.analyzers['en_sort_author_analyzer'] = dict(
             tokenizer="keyword",
-            filter=common_filter + ["en_sortable_filter"],
+            filter = common_filter + ["en_sortable_filter"],
             char_filter = self.AUTHOR_CHAR_FILTER_NAMES,
         )
 

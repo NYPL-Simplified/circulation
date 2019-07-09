@@ -1356,9 +1356,9 @@ class TestAuthorFilter(EndToEndSearchTest):
             lc="n2013008575"
         )
         self.display_name = Contributor(
-            sort_name=Edition.UNKNOWN_AUTHOR, display_name='Ann Leckie'
+            sort_name=Edition.UNKNOWN_AUTHOR, display_name='ann leckie'
         )
-        self.sort_name = Contributor(sort_name='Leckie, Ann')
+        self.sort_name = Contributor(sort_name='LECKIE, ANN')
         self.viaf = Contributor(
             sort_name=Edition.UNKNOWN_AUTHOR, viaf="73520345"
         )
