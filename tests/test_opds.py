@@ -35,7 +35,6 @@ from ..model import (
     DeliveryMechanism,
     ExternalIntegration,
     Genre,
-    MaterializedWorkWithGenre,
     Measurement,
     Representation,
     SessionManager,
@@ -475,15 +474,6 @@ class TestOPDS(DatabaseTest):
         eq_(OPDSFeed.GROUP_REL, group_link['rel'])
         eq_(expect_uri, group_link['href'])
         eq_(expect_title, group_link['title'])
-
-        # Verify that the same group_uri is created whether a Work or
-        # a MaterializedWorkWithGenre is passed in.
-        self.add_to_materialized_view([work])
-        [mw] = self._db.query(MaterializedWorkWithGenre).all()
-
-        mw_uri, mw_title = annotator.group_uri(mw, lp, lp.identifier)
-        eq_(mw_uri, expect_uri)
-        assert str(mw.works_id) in mw_uri
 
     def test_acquisition_feed(self):
         work = self._work(with_open_access_download=True, authors="Alice")

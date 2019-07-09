@@ -380,7 +380,9 @@ class CustomListEntry(Base):
                 _db.delete(entry)
         _db.commit
 
-# This index dramatically speeds up queries against the materialized
-# view that use custom list membership as a way to cut down on the
-# number of entries returned.
+# TODO: This was originally designed to speed up queries against the
+# materialized view that use custom list membership as a way to cut
+# down on the result set. Now that we've removed the materialized
+# view, is this still necessary? It might still be necessary for
+# similar queries against Work.
 Index("ix_customlistentries_work_id_list_id", CustomListEntry.work_id, CustomListEntry.list_id)

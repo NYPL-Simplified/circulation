@@ -43,7 +43,6 @@ from ..model import (
     Identifier,
     Library,
     LicensePool,
-    MaterializedWorkWithGenre as work_model,
     RightsStatus,
     Timestamp,
     Work,
@@ -2213,6 +2212,10 @@ class TestOPDSImportScript(DatabaseTest):
 
 class TestFixInvisibleWorksScript(DatabaseTest):
 
+    # TODO: This needs to be updated to take Elasticsearch into
+    # account.  The materialized view code was removed but nothing was
+    # added in its place.
+
     class MockScript(FixInvisibleWorksScript):
         """Don't run check_libraries -- this reduces the amount
         of text that needs to be checked."""
@@ -2229,23 +2232,6 @@ class TestFixInvisibleWorksScript(DatabaseTest):
 Here's your problem: there are no presentation-ready works.
 """, output.getvalue())
 
-    def test_no_materialized_view(self):
-        output = StringIO()
-        search = MockExternalSearchIndex()
-
-        # This work is marked as presentation-ready, but it has no
-        # LicensePools, and will not show up in the materialized view.
-        work = self._work(with_license_pool=False)
-        work.presentation_ready=True
-        self.MockScript(self._db, output, search=search).do_run()
-        eq_("""1 presentation-ready works.
-0 works not presentation-ready.
-0 works in materialized view.
-Refreshing the materialized views.
-0 works in materialized view after refresh.
-Here's your problem: your presentation-ready works are not making it into the materialized view.
-""", output.getvalue())
-
     def test_no_delivery_mechanism(self):
         output = StringIO()
         search = MockExternalSearchIndex()
@@ -2259,9 +2245,6 @@ Here's your problem: your presentation-ready works are not making it into the ma
         self.MockScript(self._db, output, search=search).do_run()
         eq_("""1 presentation-ready works.
 0 works not presentation-ready.
-0 works in materialized view.
-Refreshing the materialized views.
-1 works in materialized view after refresh.
 Here's your problem: your works don't have delivery mechanisms.
 """, output.getvalue())
 
@@ -2277,9 +2260,6 @@ Here's your problem: your works don't have delivery mechanisms.
         self.MockScript(self._db, output, search=search).do_run()
         eq_("""1 presentation-ready works.
 0 works not presentation-ready.
-0 works in materialized view.
-Refreshing the materialized views.
-1 works in materialized view after refresh.
 Here's your problem: your works' license pools are suppressed.
 """, output.getvalue())
 
@@ -2295,9 +2275,6 @@ Here's your problem: your works' license pools are suppressed.
         self.MockScript(self._db, output, search=search).do_run()
         eq_("""1 presentation-ready works.
 0 works not presentation-ready.
-0 works in materialized view.
-Refreshing the materialized views.
-1 works in materialized view after refresh.
 Here's your problem: your works aren't open access and have no licenses owned.
 """, output.getvalue())
 
@@ -2307,14 +2284,12 @@ Here's your problem: your works aren't open access and have no licenses owned.
 
         lane = self._lane()
 
+        # TODO: This needs to use a mocked search index.
+
         # Let's add a work that's not presentation-ready for a stupid
         # reason.
         work = self._work(with_license_pool=True)
         work.presentation_ready = False
-
-        # It's not in the materialized view.
-        mw_query = self._db.query(work_model)
-        eq_(0, mw_query.count())
 
         # Let's also add a CachedFeed which might be clogging things up.
         feed = create(self._db, CachedFeed, type=CachedFeed.PAGE_TYPE,
@@ -2331,9 +2306,6 @@ Here's your problem: your works aren't open access and have no licenses owned.
 1 works not presentation-ready.
 Attempting to make 1 works presentation-ready based on their metadata.
 1 works are now presentation-ready.
-0 works in materialized view.
-Refreshing the materialized views.
-1 works in materialized view after refresh.
 1 page-type feeds in cachedfeeds table.
 Deleting them all.
 I would now expect you to be able to find 1 works.
@@ -2344,9 +2316,6 @@ I would now expect you to be able to find 1 works.
 
         # The CachedFeed was deleted.
         eq_(0, self._db.query(CachedFeed).count())
-
-        # The materialized view was refreshed.
-        eq_(1, mw_query.count())
 
     def test_no_library(self):
         output = StringIO()
@@ -2381,10 +2350,6 @@ I would now expect you to be able to find 1 works.
         work = self._work(with_license_pool=True, collection=c2)
         work.presentation_ready = False
 
-        # It's not in the materialized view.
-        mw_query = self._db.query(work_model)
-        eq_(0, mw_query.count())
-
         output = StringIO()
 
         # Running the script on a different collection won't help.
@@ -2397,9 +2362,6 @@ Here's your problem: there are no presentation-ready works.
         # The Work is still not presentation-ready
         eq_(False, work.presentation_ready)
 
-        # It's still not in the materialized view.
-        eq_(0, mw_query.count())
-
         output = StringIO()
 
         # But running it with the right collection fixes the work.
@@ -2408,9 +2370,6 @@ Here's your problem: there are no presentation-ready works.
 1 works not presentation-ready.
 Attempting to make 1 works presentation-ready based on their metadata.
 1 works are now presentation-ready.
-0 works in materialized view.
-Refreshing the materialized views.
-1 works in materialized view after refresh.
 0 page-type feeds in cachedfeeds table.
 I would now expect you to be able to find 1 works.
 """, output.getvalue())
@@ -2418,8 +2377,6 @@ I would now expect you to be able to find 1 works.
         # The Work was made presentation-ready
         eq_(True, work.presentation_ready)
 
-        # The materialized view was refreshed.
-        eq_(1, mw_query.count())
 
 class TestExplain(DatabaseTest):
 
@@ -2809,10 +2766,5 @@ class TestCustomListManagementScript(object):
 
 
 class TestNYTBestSellerListsScript(object):
-    """TODO"""
-    pass
-
-
-class TestRefreshMaterializedViewsScript(object):
     """TODO"""
     pass

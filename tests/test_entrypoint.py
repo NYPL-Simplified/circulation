@@ -111,13 +111,11 @@ class TestMediumEntryPoint(DatabaseTest):
         # Create a video, and a entry point that contains videos.
         work = self._work(with_license_pool=True)
         work.license_pools[0].presentation_edition.medium = Edition.VIDEO_MEDIUM
-        self.add_to_materialized_view([work])
 
         class Videos(MediumEntryPoint):
             INTERNAL_NAME = Edition.VIDEO_MEDIUM
 
-        from ..model import MaterializedWorkWithGenre
-        qu = self._db.query(MaterializedWorkWithGenre)
+        qu = self._db.query(Work)
 
         # The default entry points filter out the video.
         for entrypoint in EbooksEntryPoint, AudiobooksEntryPoint:

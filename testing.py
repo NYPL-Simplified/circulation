@@ -100,10 +100,13 @@ def package_setup():
     engine = SessionManager.engine()
     for table in reversed(Base.metadata.sorted_tables):
         if table.name.startswith('mv_'):
+            # TODO: This can be removed soon. We don't create
+            # materialized views anymore, but they'll still hang
+            # around for a while in test databases and need to be
+            # deleted.
             statement = "drop materialized view %s" % table.name
         else:
             statement = table.delete()
-
         try:
             engine.execute(statement)
         except ProgrammingError, e:
@@ -384,23 +387,6 @@ class DatabaseTest(object):
             work.calculate_opds_entries(verbose=False)
 
         return work
-
-    def add_to_materialized_view(self, works, true_opds=False):
-        """Make sure all the works in `works` show up in the materialized view.
-
-        :param true_opds: Generate real OPDS entries for each each work,
-        rather than faking it.
-        """
-        if not isinstance(works, list):
-            works = [works]
-        for work in works:
-            if true_opds:
-                work.calculate_opds_entries(verbose=False)
-            else:
-                work.presentation_ready = True
-                work.simple_opds_entry = "<entry>an entry</entry>"
-        self._db.commit()
-        SessionManager.refresh_materialized_views(self._db)
 
     def _lane(self, display_name=None, library=None,
               parent=None, genres=None, languages=None,

@@ -2010,64 +2010,6 @@ class MirrorResourcesScript(CollectionInputScript):
         )
 
 
-class RefreshMaterializedViewsScript(TimestampScript):
-    """Refresh all materialized views."""
-
-    @classmethod
-    def arg_parser(cls):
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            '--blocking-refresh',
-            help="Provide this argument if you're on an older version of Postgres and can't refresh materialized views concurrently.",
-            action='store_true',
-        )
-        return parser
-
-    def do_run(self):
-        args = self.parse_command_line()
-        if args.blocking_refresh:
-            concurrently = ''
-        else:
-            concurrently = 'CONCURRENTLY'
-
-        # Initialize the default database session. We can't use this
-        # session to run the VACUUM commands, because it wraps
-        # everything in a big transaction, and VACUUM can't be
-        # executed within a transaction block. But we will use it at
-        # the end, to recalculate the sizes of lanes.
-        db = self._db
-
-        url = Configuration.database_url()
-        engine = create_engine(url, isolation_level="AUTOCOMMIT")
-        engine.autocommit = True
-        a = time.time()
-        engine.execute("VACUUM (VERBOSE, ANALYZE)")
-        b = time.time()
-        self.log.info("Database vacuumed in %.2f sec." % (b-a))
-
-        for view_name in SessionManager.MATERIALIZED_VIEWS.keys():
-            a = time.time()
-            engine.execute("REFRESH MATERIALIZED VIEW %s %s" % (concurrently, view_name))
-            b = time.time()
-            self.log.info("%s refreshed in %.2f sec.", view_name, b-a)
-
-            # Vacuum the materialized view immediately after
-            # refreshing it.
-            a = time.time()
-            engine.execute("VACUUM ANALYZE %s" % view_name)
-            b = time.time()
-            self.log.info("%s vacuumed in %.2f sec", view_name, b-a)
-
-        # Recalculate the sizes of lanes.
-        for lane in db.query(Lane):
-            lane.update_size(db)
-            self.log.info(
-                "Size of lane %s calculated as %s",
-                lane.full_identifier, lane.size
-            )
-        db.commit()
-
-
 class DatabaseMigrationScript(Script):
     """Runs new migrations.
 
@@ -3047,6 +2989,9 @@ class FixInvisibleWorksScript(CollectionInputScript):
         self.do_run(parsed.collections)
 
     def do_run(self, collections=None):
+        # TODO: Do this on a collection-by-collection basis rather
+        # than all collections at once. Many problems only affect one
+        # collection.
         self.check_libraries()
         if collections:
             collection_ids = [c.id for c in collections]
@@ -3083,33 +3028,11 @@ class FixInvisibleWorksScript(CollectionInputScript):
             )
             return
 
-        # See how many works are in the materialized view.
-        from model import MaterializedWorkWithGenre as work_model
-        mv_works = self._db.query(work_model)
+        # TODO: Check if the search index is functional and if works
+        # are making it into the search index.
 
-        if collections:
-            mv_works = mv_works.filter(work_model.collection_id.in_(collection_ids))
-
-        mv_works_count = mv_works.count()
-        self.output.write(
-            "%d works in materialized view.\n" % mv_works_count
-        )
-
-        # Rebuild the materialized views.
-        self.output.write("Refreshing the materialized views.\n")
-        SessionManager.refresh_materialized_views(self._db)
-        mv_works_count = mv_works.count()
-        self.output.write(
-            "%d works in materialized view after refresh.\n" % (
-                mv_works_count
-            )
-        )
-
-        if mv_works_count == 0:
-            self.output.write(
-                "Here's your problem: your presentation-ready works are not making it into the materialized view.\n"
-            )
-            return
+        # Count total number of index entries and entries per
+        # collection.
 
         # Check if the works have delivery mechanisms.
         LPDM = LicensePoolDeliveryMechanism
@@ -3235,6 +3158,11 @@ class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
             )
 
         self.output.write('\n%d collections found.\n' % count)
+
+class UpdateCustomListSizeScript(LaneSweeperScript):
+    def process_lane(self, lane):
+        lane.update_size(self._db)
+
 
 class UpdateCustomListSizeScript(CustomListSweeperScript):
     def process_custom_list(self, custom_list):

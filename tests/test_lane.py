@@ -1423,10 +1423,11 @@ class TestPagination(DatabaseTest):
 
 
 class MockWork(object):
-    """Acts as a Work or a MaterializedWorkWithGenre interchangeably."""
+    """Acts enough like a Work to trick code that doesn't need to make
+    database requests.
+    """
     def __init__(self, id):
         self.id = id
-        self.works_id = id
 
 class MockWorks(WorkList):
     """A WorkList that mocks works_from_database()."""
@@ -2600,7 +2601,6 @@ class TestDatabaseBackedWorkList(DatabaseTest):
         # book, but books for adults are not allowed.
         older_ya = self._lane()
         older_ya.target_age = (16,17)
-        self.add_to_materialized_view([older_ya])
         worklist_has_books([], target_age=(16,17))
 
         # Expand it to include books for adults, and the adult book
@@ -3270,7 +3270,6 @@ class TestLane(DatabaseTest):
         # mocks.
 
         work = self._work(with_license_pool=True)
-        self.add_to_materialized_view(work)
 
         lane = self._lane()
         search_client = MockExternalSearchIndex()
@@ -3392,8 +3391,7 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
         self.hq_sf = _w(title="HQ SF", genre="Science Fiction", fiction=True)
 
         # Add a lot of irrelevant genres to one of the works. This
-        # will clutter up the materialized view, but it won't affect
-        # the results.
+        # won't affect the results.
         for genre in ['Westerns', 'Horror', 'Erotica']:
             genre_obj, is_new = Genre.lookup(self._db, genre)
             get_one_or_create(self._db, WorkGenre, work=self.hq_sf, genre=genre_obj)
@@ -3865,6 +3863,6 @@ class TestWorkListGroups(DatabaseTest):
         # If size_by_entrypoint contains no estimate for a given
         # EntryPoint URI, the overall lane size is used. This can
         # happen between the time an EntryPoint is enabled and the
-        # materialized view refresh script is run.
+        # lane size refresh script is run.
         del lane.size_by_entrypoint[AudiobooksEntryPoint.URI]
         eq_(100, m(audio))

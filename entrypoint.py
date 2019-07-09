@@ -77,16 +77,10 @@ class EntryPoint(object):
 
     @classmethod
     def modify_search_filter(cls, filter):
-        """If necessary modify an ElasticSearch Filter object so that it
+        """If necessary, modify an ElasticSearch Filter object so that it
         restricts results to items shown through this entry point.
 
-        Any items returned will be run through the materialized view
-        lookup, which will filter any items that don't belong in this
-        entry point, so this isn't required. But if you can't
-        implement this, there's a chance that every item returned by
-        ExternalSearch.search() will be filtered out, giving the
-        impression that there are no search results when there
-        actually are.
+        The default behavior is not to change the Filter object at all.
 
         :param filter: An external_search.Filter object.
         """
@@ -94,7 +88,11 @@ class EntryPoint(object):
 
     @classmethod
     def modify_database_query(cls, _db, qu):
-        """Default behavior is to not change a database query at all."""
+        """If necessary, modify a database query so that it restricts results
+        to items shown through this entry point.
+
+        The default behavior is to not change a database query at all.
+        """
         return qu
 
 
