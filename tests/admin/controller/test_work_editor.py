@@ -1168,10 +1168,14 @@ class TestWorkController(AdminControllerTest):
         self.add_to_materialized_view([work])
         identifier = work.presentation_edition.primary_identifier
 
+        # Whenever the mocked search engine is asked how many
+        # works are in a Lane, it will say there are two.
+        self.controller.search_engine.docs = dict(id1="doc1", id2="doc2")
+
         # Create a Lane that depends on this CustomList for its membership.
         lane = self._lane()
         lane.customlists.append(list)
-        eq_(0, lane.size)
+        lane.size = 300
 
         # Add the list to the work.
         with self.request_context_with_library_and_admin("/", method="POST"):
@@ -1185,12 +1189,13 @@ class TestWorkController(AdminControllerTest):
             eq_(list, work.custom_list_entries[0].customlist)
             eq_(True, work.custom_list_entries[0].featured)
 
-            # The lane's size will be updated once the materialized
-            # views are refreshed.
-            SessionManager.refresh_materialized_views(self._db)
-            eq_(1, lane.size)
+            # Lane.size will not be updated until the work is
+            # reindexed with its new list memebership and lane sizes
+            # are recalculated.
+            eq_(2, lane.size)
 
-        # Now remove the list.
+        # Now remove the work from the list.
+        self.controller.search_engine.docs = dict(id1="doc1")
         with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("lists", json.dumps([])),
@@ -1199,7 +1204,9 @@ class TestWorkController(AdminControllerTest):
         eq_(200, response.status_code)
         eq_(0, len(work.custom_list_entries))
         eq_(0, len(list.entries))
-        eq_(0, lane.size)
+
+        # The lane size was recalculated once again.
+        eq_(1, lane.size)
 
         # Add a list that didn't exist before.
         with self.request_context_with_library_and_admin("/", method="POST"):

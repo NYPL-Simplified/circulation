@@ -1167,7 +1167,11 @@ class TestCustomListsController(AdminControllerTest):
         # Create a Lane that depends on this CustomList for its membership.
         lane = self._lane()
         lane.customlists.append(list)
-        eq_(0, lane.size)
+        lane.size = 350
+
+        # Whenever the mocked search engine is asked how many
+        # works are in a Lane, it will say there are two.
+        self.controller.search_engine.docs = dict(id1="doc1", id2="doc2")
 
         w1 = self._work(with_license_pool=True, language="eng")
         w2 = self._work(with_license_pool=True, language="fre")
@@ -1178,7 +1182,6 @@ class TestCustomListsController(AdminControllerTest):
 
         list.add_entry(w1)
         list.add_entry(w2)
-        self.add_to_materialized_view([w1, w2, w3])
 
         new_entries = [dict(id=work.presentation_edition.primary_identifier.urn,
                             medium=Edition.medium_to_additional_type[work.presentation_edition.medium])
@@ -1212,9 +1215,8 @@ class TestCustomListsController(AdminControllerTest):
             set([entry.work for entry in list.entries]))
         eq_(new_collections, list.collections)
 
-        # The lane's estimated size will be updated once the materialized
-        # views are refreshed.
-        SessionManager.refresh_materialized_views(self._db)
+        # This change caused an immediate update to lane.size
+        # based on information from the mocked search index.
         eq_(2, lane.size)
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
@@ -1231,8 +1233,12 @@ class TestCustomListsController(AdminControllerTest):
 
     def test_custom_list_delete_success(self):
         self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
-        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
-        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
+
+        # Create a CustomList with two Works on it.
+        library_staff = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        list, ignore = create(
+            self._db, CustomList, name=self._str, data_source=library_staff
+        )
         list.library = self._default_library
 
         w1 = self._work(with_license_pool=True)
@@ -1240,25 +1246,66 @@ class TestCustomListsController(AdminControllerTest):
         list.add_entry(w1)
         list.add_entry(w2)
 
-        # This lane depends heavily on lists from this data source.
-        lane = self._lane()
-        lane.display_name = "to be automatically removed"
-        lane.list_datasource = list.data_source
+        # Whenever the mocked search engine is asked how many
+        # works are in a Lane, it will say there are two.
+        self.controller.search_engine.docs = dict(id1="doc1", id2="doc2")
+
+        # Create a second CustomList, from another data source,
+        # containing a single work.
+        nyt = DataSource.lookup(self._db, DataSource.NYT)
+        list2, ignore = create(
+            self._db, CustomList, name=self._str, data_source=nyt
+        )
+        list2.library = self._default_library
+        list2.add_entry(w2)
+
+        # Create a Lane which takes all of its contents from that
+        # CustomList. When the CustomList is deleted, the Lane will
+        # have no reason to exist, and it will be automatically
+        # deleted as well.
+        lane = self._lane(display_name="to be automatically removed")
         lane.customlists.append(list)
-        lane.size = 100
-        eq_(1, self._db.query(Lane).filter(Lane.display_name=="to be automatically removed").count())
+
+        # This Lane is based on two different CustomLists. Its size
+        # will be updated when the CustomList is deleted, but the Lane
+        # itself will not be deleted, since it's still based on
+        # something.
+        lane2 = self._lane(display_name="to have size updated")
+        lane2.customlists.append(list)
+        lane2.customlists.append(list2)
+        lane2.size = 100
+
+        # This lane is based on _all_ lists from a given data source.
+        # It will also not be deleted when the CustomList is deleted,
+        # because other lists from that data source might show up in
+        # the future.
+        lane3 = self._lane(display_name="All library staff lists")
+        lane3.list_datasource = list.data_source
+        lane3.size = 150
 
         with self.request_context_with_library_and_admin("/", method="DELETE"):
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
             eq_(200, response.status_code)
 
-            eq_(0, self._db.query(CustomList).count())
-            eq_(0, self._db.query(CustomListEntry).count())
-            eq_(0, self._db.query(Lane).filter(Lane.display_name=="to be automatically removed").count())
+        # The first CustomList and all of its entries have been removed.
+        # Only the second one remains.
+        eq_([list2], self._db.query(CustomList).all())
+        eq_(list2.entries, self._db.query(CustomListEntry).all())
 
-        # The lane's estimate has been updated to reflect the removal
-        # of a list from its data source.
-        eq_(0, lane.size)
+        # The first lane was automatically removed when it became
+        # based on an empty set of CustomLists.
+        eq_(None, get_one(self._db, Lane, id=lane.id))
+
+        # The second and third lanes were not removed, because they
+        # weren't based solely on this specific list. But their .size
+        # attributes were updated to reflect the removal of the list from
+        # the lane.
+        #
+        # In the context of this test, this means that
+        # MockExternalSearchIndex.count_works() was called, and we set
+        # it up to always return 2.
+        eq_(2, lane2.size)
+        eq_(2, lane3.size)
 
     def test_custom_list_delete_errors(self):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
@@ -1286,13 +1333,17 @@ class TestLanesController(AdminControllerTest):
 
         english = self._lane("English", library=library, languages=["eng"])
         english.priority = 0
+        english.size = 44
         english_fiction = self._lane("Fiction", library=library, parent=english, fiction=True)
         english_fiction.visible = False
+        english_fiction.size = 33
         english_sf = self._lane("Science Fiction", library=library, parent=english_fiction)
         english_sf.add_genre("Science Fiction")
         english_sf.inherit_parent_restrictions = True
+        english_sf.size = 22
         spanish = self._lane("Spanish", library=library, languages=["spa"])
         spanish.priority = 1
+        spanish.size = 11
 
         w1 = self._work(with_license_pool=True, language="eng", genre="Science Fiction", collection=collection)
         w2 = self._work(with_license_pool=True, language="eng", fiction=False, collection=collection)
@@ -1302,8 +1353,7 @@ class TestLanesController(AdminControllerTest):
         lane_for_list = self._lane("List Lane", library=library)
         lane_for_list.customlists += [list]
         lane_for_list.priority = 2
-
-        SessionManager.refresh_materialized_views(self._db)
+        lane_for_list.size = 1
 
         with self.request_context_with_library_and_admin("/"):
             flask.request.library = library
@@ -1318,7 +1368,7 @@ class TestLanesController(AdminControllerTest):
             eq_(english.id, english_info.get("id"))
             eq_(english.display_name, english_info.get("display_name"))
             eq_(english.visible, english_info.get("visible"))
-            eq_(2, english_info.get("count"))
+            eq_(44, english_info.get("count"))
             eq_([], english_info.get("custom_list_ids"))
             eq_(True, english_info.get("inherit_parent_restrictions"))
 
@@ -1326,7 +1376,7 @@ class TestLanesController(AdminControllerTest):
             eq_(english_fiction.id, fiction_info.get("id"))
             eq_(english_fiction.display_name, fiction_info.get("display_name"))
             eq_(english_fiction.visible, fiction_info.get("visible"))
-            eq_(1, fiction_info.get("count"))
+            eq_(33, fiction_info.get("count"))
             eq_([], fiction_info.get("custom_list_ids"))
             eq_(True, fiction_info.get("inherit_parent_restrictions"))
 
@@ -1334,21 +1384,21 @@ class TestLanesController(AdminControllerTest):
             eq_(english_sf.id, sf_info.get("id"))
             eq_(english_sf.display_name, sf_info.get("display_name"))
             eq_(english_sf.visible, sf_info.get("visible"))
-            eq_(1, sf_info.get("count"))
+            eq_(22, sf_info.get("count"))
             eq_([], sf_info.get("custom_list_ids"))
             eq_(True, sf_info.get("inherit_parent_restrictions"))
 
             eq_(spanish.id, spanish_info.get("id"))
             eq_(spanish.display_name, spanish_info.get("display_name"))
             eq_(spanish.visible, spanish_info.get("visible"))
-            eq_(0, spanish_info.get("count"))
+            eq_(11, spanish_info.get("count"))
             eq_([], spanish_info.get("custom_list_ids"))
             eq_(True, spanish_info.get("inherit_parent_restrictions"))
 
             eq_(lane_for_list.id, list_info.get("id"))
             eq_(lane_for_list.display_name, list_info.get("display_name"))
             eq_(lane_for_list.visible, list_info.get("visible"))
-            eq_(0, list_info.get("count"))
+            eq_(1, list_info.get("count"))
             eq_([list.id], list_info.get("custom_list_ids"))
             eq_(True, list_info.get("inherit_parent_restrictions"))
 
@@ -1478,10 +1528,15 @@ class TestLanesController(AdminControllerTest):
         list2, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
         list2.library = self._default_library
         list2.add_entry(work)
-        self.add_to_materialized_view([work])
 
         lane = self._lane("old name")
         lane.customlists += [list1]
+
+        # When we add a list to the lane, the controller will ask the
+        # search engine to update lane.size, and it will think there
+        # are two works in the lane.
+        eq_(0, lane.size)
+        self.controller.search_engine.docs = dict(id1="value1", id2="value2")
 
         with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1498,7 +1553,7 @@ class TestLanesController(AdminControllerTest):
             eq_("new name", lane.display_name)
             eq_([list2], lane.customlists)
             eq_(True, lane.inherit_parent_restrictions)
-            eq_(1, lane.size)
+            eq_(2, lane.size)
 
     def test_lane_delete_success(self):
         library = self._library()
