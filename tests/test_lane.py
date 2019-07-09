@@ -3595,7 +3595,7 @@ class TestWorkListGroupsEndToEnd(EndToEndSearchTest):
                 filter.languages = ['lan']
         facets = FeaturedFacets(
             1, entrypoint=LQRomanceEntryPoint,
-            random_seed=FeaturedFacets.DETERMINISTIC
+            random_seed=Filter.DETERMINISTIC
         )
         assert_contents(
             make_groups(fiction, facets=facets),
