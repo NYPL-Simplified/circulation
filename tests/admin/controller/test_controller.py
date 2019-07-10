@@ -938,7 +938,6 @@ class TestFeedController(AdminControllerTest):
             "complaint source 3",
             "complaint detail 3")
 
-        SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_feed_controller.complaints()
             feed = feedparser.parse(response.data)
@@ -957,7 +956,6 @@ class TestFeedController(AdminControllerTest):
 
         unsuppressed_work = self._work()
 
-        SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_feed_controller.suppressed()
             feed = feedparser.parse(response.data)

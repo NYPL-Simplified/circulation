@@ -36,7 +36,6 @@ from core.model import (
     LicensePoolDeliveryMechanism,
     Patron,
     Session,
-    BaseMaterializedWork,
     Work,
     Edition,
 )
@@ -1214,16 +1213,6 @@ class SharedCollectionAnnotator(CirculationManagerAnnotator):
     def feed_url(self, lane, facets=None, pagination=None, default_route='feed'):
         extra_kwargs = dict(collection_name=self.collection.name)
         return super(SharedCollectionAnnotator, self).feed_url(lane, facets, pagination, default_route, extra_kwargs)
-
-    def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
-        updated = None
-        if isinstance(self.lane, CrawlableCollectionBasedLane) and isinstance(work, BaseMaterializedWork):
-            date_fields = [work.last_update_time, work.first_appearance, work.availability_time]
-            updated = max([date for date in date_fields if date is not None])
-
-        super(SharedCollectionAnnotator, self).annotate_work_entry(
-            work, active_license_pool, edition, identifier, feed, entry, updated
-        )
 
     def acquisition_links(self, active_license_pool, active_loan, active_hold, active_fulfillment,
                           feed, identifier):

@@ -5,7 +5,6 @@ from api.opds import LibraryAnnotator
 from core.opds import VerboseAnnotator
 from core.lane import Facets, Pagination
 from core.model import (
-    BaseMaterializedWork,
     DataSource,
     LicensePool,
     Measurement,
