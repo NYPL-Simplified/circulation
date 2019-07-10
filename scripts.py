@@ -3146,10 +3146,6 @@ class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
 
         self.output.write('\n%d collections found.\n' % count)
 
-class UpdateCustomListSizeScript(LaneSweeperScript):
-    def process_lane(self, lane):
-        lane.update_size(self._db)
-
 
 class UpdateCustomListSizeScript(CustomListSweeperScript):
     def process_custom_list(self, custom_list):
