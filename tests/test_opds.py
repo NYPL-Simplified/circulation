@@ -1581,7 +1581,6 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         work = self._work(with_open_access_download=True)
         work.license_pools[0].availability_time = datetime.datetime(2018, 1, 1, 0, 0, 0)
         work.last_update_time = datetime.datetime(2018, 2, 4, 0, 0, 0)
-        self.add_to_materialized_view([work])
 
         feed = self.get_parsed_feed([work])
         [entry] = feed.entries

@@ -3236,7 +3236,6 @@ class TestFeedController(CirculationControllerTest):
         _set(self.french_1, now + datetime.timedelta(hours=1))
         _set(self.english_1, now - datetime.timedelta(hours=1))
         self._db.commit()
-        SessionManager.refresh_materialized_views(self._db)
 
     def mock_search(self, *args, **kwargs):
         self.called_with = (args, kwargs)

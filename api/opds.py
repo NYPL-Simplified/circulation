@@ -781,12 +781,8 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         if series_entry is None:
             # There is no <series> tag, and thus nothing to annotate.
             # This probably indicates an out-of-date OPDS entry.
-            if isinstance(work, Work):
-                work_id = work.id
-                work_title = work.title
-            else:
-                work_id = work.works_id
-                work_title = work.sort_title
+            work_id = work.id
+            work_title = work.title
             self.log.error(
                 'add_series_link() called on work %s ("%s"), which has no <schema:Series> tag in its OPDS entry.',
                 work_id, work_title

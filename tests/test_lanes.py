@@ -38,7 +38,6 @@ from core.model import (
     DataSource,
     ExternalIntegration,
     Library,
-    MaterializedWorkWithGenre,
 )
 
 from api.config import (
@@ -583,7 +582,6 @@ class TestRecommendationLane(LaneTest):
 
         # It doesn't matter the language.
         self.work.presentation_edition.language = 'fre'
-        SessionManager.refresh_materialized_views(self._db)
         mock_api = self.generate_mock_api()
         lane = RecommendationLane(self._default_library, self.work, '', novelist_api=mock_api)
         lane.recommendations = recommendations
