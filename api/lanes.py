@@ -920,6 +920,10 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
             # query so it will return nothing.
             qu = qu.filter(Work.id!=Work.id)
         else:
+            # Make sure the query contains an explicit join against
+            # Identifier, so Work.from_identifiers has something to
+            # work with.
+            qu = qu.join(LicensePool.identifier)
             qu = Work.from_identifiers(_db, self.recommendations, qu)
         return qu
 
