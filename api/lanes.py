@@ -920,9 +920,7 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
             # query so it will return nothing.
             qu = qu.filter(Work.id!=Work.id)
         else:
-            qu = Work.from_identifiers(
-                _db, self.recommendations, qu, LicensePool.identifier_id
-            )
+            qu = Work.from_identifiers(_db, self.recommendations, qu)
         return qu
 
 
