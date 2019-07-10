@@ -91,6 +91,8 @@ from ..scripts import (
     ShowLanesScript,
     ShowLibrariesScript,
     TimestampScript,
+    UpdateCustomListSizeScript,
+    UpdateLaneSizeScript,
     WhereAreMyBooksScript,
     WorkClassificationScript,
     WorkProcessingScript,
@@ -2806,6 +2808,24 @@ class TestSearchIndexCoverageRemover(DatabaseTest):
         for w in (work, work2):
             remaining = [x.operation for x in w.coverage_records]
             eq_(sorted(remaining), sorted(decoys))
+
+class TestUpdateLaneSizeScript(DatabaseTest):
+
+    def test_do_run(self):
+        lane = self._lane()
+        lane.size = 100
+        UpdateLaneSizeScript(self._db).do_run(cmd_args=[])
+        eq_(0, lane.size)
+
+
+class TestUpdateCustomListSizeScript(DatabaseTest):
+
+    def test_do_run(self):
+        customlist, ignore = self._customlist(num_entries=1)
+        customlist.library = self._default_library
+        customlist.size = 100
+        UpdateCustomListSizeScript(self._db).do_run(cmd_args=[])
+        eq_(1, customlist.size)
 
 
 class TestWorkConsolidationScript(object):

@@ -817,7 +817,7 @@ class CustomListSweeperScript(LibraryInputScript):
     def process_library(self, library):
         lists = self._db.query(CustomList).filter(CustomList.library_id==library.id)
         for l in lists:
-            self.process_custom_list(self, l)
+            self.process_custom_list(l)
         self._db.commit()
 
     def process_custom_list(self, custom_list):
@@ -3145,6 +3145,11 @@ class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
             )
 
         self.output.write('\n%d collections found.\n' % count)
+
+
+class UpdateLaneSizeScript(LaneSweeperScript):
+    def process_lane(self, lane):
+        lane.update_size(self._db)
 
 
 class UpdateCustomListSizeScript(CustomListSweeperScript):
