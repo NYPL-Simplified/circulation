@@ -2351,6 +2351,13 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         eq_(('%d feeds in cachedfeeds table, not counting grouped feeds.', [1]),
             how_many)
         eq_(" Deleting them all.", theyre_gone)
+
+        # Call it again, and we don't see "Deleting them all". There aren't
+        # any to delete.
+        script.delete_cached_feeds()
+        [how_many] = script.output
+        eq_(('%d feeds in cachedfeeds table, not counting grouped feeds.', [0]),
+            how_many)
         
     def check_explanation(
         self, presentation_ready=1, not_presentation_ready=0,
