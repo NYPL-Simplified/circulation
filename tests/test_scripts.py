@@ -2227,7 +2227,7 @@ class MockWhereAreMyBooks(WhereAreMyBooksScript):
 
     def out(self, s, *args):
         if args:
-            self.output.append((s, args))
+            self.output.append((s, list(args)))
         else:
             self.output.append(s)
 
@@ -2238,9 +2238,10 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         # We can't even get started without a working search integration.
 
         # We'll also test the out() method by mocking the script's
-        # standard output and using the normal out() implementation,
-        # rather than mocking out(), as we do in tests that have more
-        # complicated output.
+        # standard output and using the normal out() implementation.
+        # In other tests, which have more complicated output, we mock
+        # out(), so this verifies that output actually gets written
+        # out.
         output = StringIO()
         assert_raises(CannotLoadConfiguration, WhereAreMyBooksScript,
                       self._db, output=output)
@@ -2302,6 +2303,32 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         # check_library() and explain_collection() call. All other
         # output happened inside the methods we mocked.
         eq_(["\n", "\n", "\n", "\n"], script.output)
+
+    def test_check_library(self):
+        # Give the default library a collection and a lane.
+        library = self._default_library
+        collection = self._default_collection
+        lane = self._lane(library=library)
+
+        script = MockWhereAreMyBooks(self._db)
+        script.check_library(library)
+
+        checking, has_collection, has_lanes = script.output
+        eq_(('Checking library %s', [library.name]), checking)
+        eq_((' Associated with collection %s.', [collection.name]),
+            has_collection)
+        eq_((' Associated with %s lanes.', [1]), has_lanes)
+
+        # This library has no collections and no lanes.
+        library2 = self._library()
+        script.output = []
+        script.check_library(library2)
+        checking, no_collection, no_lanes = script.output
+        eq_(('Checking library %s', [library2.name]), checking)
+        eq_(" This library has no collections -- that's a problem.",
+            no_collection)
+        eq_(" This library has no lanes -- that's a problem.",
+            no_lanes)
 
     def test_no_presentation_ready_works(self):
         output = StringIO()

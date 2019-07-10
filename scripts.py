@@ -3012,6 +3012,37 @@ class WhereAreMyBooksScript(CollectionInputScript):
             self.explain_collection(collection)
             self.out("\n")
 
+    def check_library(self, library):
+        """Make sure a library is properly set up to show works."""
+        self.out("Checking library %s", library.name)
+
+        # Make sure it has collections.
+        if not library.collections:
+            self.out(" This library has no collections -- that's a problem.")
+        else:
+            for collection in library.collections:
+                self.out(" Associated with collection %s.", collection.name)
+
+        # Make sure it has lanes.
+        if not library.lanes:
+            self.out(" This library has no lanes -- that's a problem.")
+        else:
+            self.out(" Associated with %s lanes.", len(library.lanes))
+
+    def delete_cached_feeds(self):
+        page_feeds = self._db.query(CachedFeed).filter(
+            CachedFeed.type != CachedFeed.GROUPS_TYPE
+        )
+        page_feeds_count = page_feeds.count()
+        self.out(
+            "%d feeds in cachedfeeds table, not counting grouped feeds.", page_feeds_count
+        )
+        if page_feeds_count:
+            self.out(" Deleting them all.")
+            page_feeds.delete()
+            self._db.commit()
+        self.out("\n")
+
     def explain_collection(self, collection):
         self.out('Examining collection "%s"', collection.name)
 
@@ -3066,41 +3097,6 @@ class WhereAreMyBooksScript(CollectionInputScript):
             " %d works in the search index, expected %d.\n" % 
             (count, expect)
         )
-
-    def check_libraries(self):
-        """Make sure the libraries are equipped to show works.
-        """
-
-    def check_library(self, library):
-        """Make sure a library is properly set up to show works."""
-        self.out("Checking library %s", library.name)
-
-        # Make sure it has collections.
-        if not library.collections:
-            self.out(" This library has no collections -- that's a problem.")
-        else:
-            for collection in library.collections:
-                self.out(" Associated with collection %s.", collection.name)
-
-        # Make sure it has lanes.
-        if not library.lanes:
-            self.out(" This library has no lanes -- that's a problem.")
-        else:
-            self.out(" Associated with %s lanes.", len(library.lanes))
-
-    def delete_cached_feeds(self):
-        page_feeds = self._db.query(CachedFeed).filter(
-            CachedFeed.type != CachedFeed.GROUPS_TYPE
-        )
-        page_feeds_count = page_feeds.count()
-        self.out(
-            "%d feeds in cachedfeeds table, not counting grouped feeds.", page_feeds_count
-        )
-        if page_feeds_count:
-            self.out(" Deleting them all.")
-            page_feeds.delete()
-            self._db.commit()
-        self.out("\n")
 
 
 class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
