@@ -3092,10 +3092,9 @@ class WhereAreMyBooksScript(CollectionInputScript):
 
         filter = Filter(collections=[collection])
         count = self.search.count_works(filter)
-        expect = ready_count - no_delivery_mechanisms - suppressed - not_owned
         self.out(
-            " %d works in the search index, expected %d.\n" % 
-            (count, expect)
+            " %d works in the search index, expected around %d.",
+            count, ready_count
         )
 
 

@@ -2273,7 +2273,7 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         # If there are no libraries in the system, that's a big problem.
         script = Mock(self._db)
         script.run()
-        eq_(["There are no libraries in the system -- that's a problem."],
+        eq_(["There are no libraries in the system -- that's a problem.", "\n"],
             script.output)
 
         # We still run the other checks, though.
@@ -2299,10 +2299,17 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         eq_(set([collection1, collection2]),
             set(script.explained_collections))
         
-        # There only output were the newlines after the method
+        # There only output were the newlines after the five method
         # calls. All other output happened inside the methods we
         # mocked.
-        eq_(["\n", "\n", "\n" "\n", "\n"], script.output)
+        eq_(["\n"] * 5, script.output)
+
+        # Finally, verify the ability to use the command line to limit
+        # the check to specific collections. (This isn't terribly useful
+        # since checks now run very quickly.)
+        script = Mock(self._db)
+        script.run(cmd_args=["--collection=%s" % collection2.name])
+        eq_([collection2], script.explained_collections)
 
     def test_check_library(self):
         # Give the default library a collection and a lane.
@@ -2345,161 +2352,90 @@ class TestWhereAreMyBooksScript(DatabaseTest):
             how_many)
         eq_(" Deleting them all.", theyre_gone)
         
+    def check_explanation(
+        self, presentation_ready=1, not_presentation_ready=0,
+        no_delivery_mechanisms=0, suppressed=0, not_owned=0,
+        in_search_index=0, **kwargs
+    ):
+        """Runs explain_collection() and verifies expected output."""
+        script = MockWhereAreMyBooks(self._db, **kwargs)
+        script.explain_collection(self._default_collection)
+        out = script.output
+
+        # This always happens.
+        eq_(('Examining collection "%s"', [self._default_collection.name]),
+            out.pop(0))
+        eq_((' %d presentation-ready works.', [presentation_ready]),
+            out.pop(0))
+        eq_((' %d works not presentation-ready.', [not_presentation_ready]),
+            out.pop(0))
+
+        # These totals are only given if the numbers are nonzero.
+        #
+        if no_delivery_mechanisms:
+            eq_(
+                (" %d works are missing delivery mechanisms and won't show up.", [no_delivery_mechanisms]),
+                out.pop(0)
+            )
+
+        if suppressed:
+            eq_(
+                (" %d works have suppressed LicensePools and won't show up.",
+                 [suppressed]),
+                out.pop(0)
+            )
+
+        if not_owned:
+            eq_(
+                (" %d non-open-access works have no owned licenses and won't show up.",
+                 [not_owned]
+                ),
+                out.pop(0)
+            )
+
+        # Search engine statistics are always shown.
+        eq_(
+            (" %d works in the search index, expected around %d.",
+             [in_search_index, presentation_ready]),
+            out.pop(0)
+        )
 
     def test_no_presentation_ready_works(self):
-        output = StringIO()
+        # This work is not presentation-ready.
+        work = self._work(with_license_pool=True)
+        work.presentation_ready=False
+        script = MockWhereAreMyBooks(self._db)
+        self.check_explanation(presentation_ready=0, not_presentation_ready=1)
 
-
-        self.MockScript(self._db, output, search=search).do_run()
-        eq_("""0 presentation-ready works.
-0 works not presentation-ready.
-Here's your problem: there are no presentation-ready works.
-""", output.getvalue())
-
-    def test_no_delivery_mechanism(self):
-        output = StringIO()
-        search = MockExternalSearchIndex()
-
+    def test_no_delivery_mechanisms(self):
         # This work has a license pool, but no delivery mechanisms.
         work = self._work(with_license_pool=True)
-        work.presentation_ready=True
         for lpdm in work.license_pools[0].delivery_mechanisms:
             self._db.delete(lpdm)
-
-        self.MockScript(self._db, output, search=search).do_run()
-        eq_("""1 presentation-ready works.
-0 works not presentation-ready.
-Here's your problem: your works don't have delivery mechanisms.
-""", output.getvalue())
+        self.check_explanation(no_delivery_mechanisms=1)
 
     def test_suppressed_pool(self):
-        output = StringIO()
-        search = MockExternalSearchIndex()
-
         # This work has a license pool, but it's suppressed.
         work = self._work(with_license_pool=True)
-        work.presentation_ready=True
         work.license_pools[0].suppressed = True
-
-        self.MockScript(self._db, output, search=search).do_run()
-        eq_("""1 presentation-ready works.
-0 works not presentation-ready.
-Here's your problem: your works' license pools are suppressed.
-""", output.getvalue())
+        self.check_explanation(suppressed=1)
 
     def test_no_licenses(self):
-        output = StringIO()
-        search = MockExternalSearchIndex()
-
         # This work has a license pool, but no licenses owned.
         work = self._work(with_license_pool=True)
-        work.presentation_ready=True
         work.license_pools[0].licenses_owned = 0
+        self.check_explanation(not_owned=1)
 
-        self.MockScript(self._db, output, search=search).do_run()
-        eq_("""1 presentation-ready works.
-0 works not presentation-ready.
-Here's your problem: your works aren't open access and have no licenses owned.
-""", output.getvalue())
-
-    def test_success(self):
+    def test_search_engine(self):
         output = StringIO()
         search = MockExternalSearchIndex()
-
-        lane = self._lane()
-
-        # TODO: This needs to use a mocked search index.
-
-        # Let's add a work that's not presentation-ready for a stupid
-        # reason.
         work = self._work(with_license_pool=True)
-        work.presentation_ready = False
+        work.presentation_ready = True
+        search.bulk_update([work])
 
-        # Let's also add a CachedFeed which might be clogging things up.
-        feed = create(self._db, CachedFeed, type=CachedFeed.PAGE_TYPE,
-                      pagination="")
-
-        # We're using the real script instead of the mock so that we
-        # can test the full output of the script in a realistic situation.
-        FixInvisibleWorksScript(self._db, output, search=search).do_run()
-        eq_("""Checking library default
- Associated with collection Default Collection.
- Associated with 1 lanes.
-
-0 presentation-ready works.
-1 works not presentation-ready.
-Attempting to make 1 works presentation-ready based on their metadata.
-1 works are now presentation-ready.
-1 page-type feeds in cachedfeeds table.
-Deleting them all.
-I would now expect you to be able to find 1 works.
-""", output.getvalue())
-
-        # The Work was made presentation-ready
-        eq_(True, work.presentation_ready)
-
-        # The CachedFeed was deleted.
-        eq_(0, self._db.query(CachedFeed).count())
-
-    def test_no_library(self):
-        output = StringIO()
-        search = MockExternalSearchIndex()
-        FixInvisibleWorksScript(self._db, output, search=search).do_run()
-        assert "There are no libraries in the system -- that's a problem" in output.getvalue()
-
-    def test_no_collections_or_lanes(self):
-        """If a library has no collections or lanes, those are mentioned as
-        problems.
-        """
-        output = StringIO()
-        search = MockExternalSearchIndex()
-
-        library = self._default_library
-        old_collections = library.collections
-        library.collections = []
-
-        FixInvisibleWorksScript(self._db, output, search=search).do_run()
-        assert "This library has no collections -- that's a problem" in output.getvalue()
-        assert "This library has no lanes -- that's a problem" in output.getvalue()
-        library.collections = old_collections
-
-    def test_with_collections(self):
-        search = MockExternalSearchIndex()
-
-        library = self._library()
-        c1 = self._collection()
-        c2 = self._collection()
-
-        # One collection has a work that's not presentation-ready.
-        work = self._work(with_license_pool=True, collection=c2)
-        work.presentation_ready = False
-
-        output = StringIO()
-
-        # Running the script on a different collection won't help.
-        self.MockScript(self._db, output, search=search).do_run(collections=[c1])
-        eq_("""0 presentation-ready works.
-0 works not presentation-ready.
-Here's your problem: there are no presentation-ready works.
-""", output.getvalue())
-
-        # The Work is still not presentation-ready
-        eq_(False, work.presentation_ready)
-
-        output = StringIO()
-
-        # But running it with the right collection fixes the work.
-        self.MockScript(self._db, output, search=search).do_run(collections=[c2])
-        eq_("""0 presentation-ready works.
-1 works not presentation-ready.
-Attempting to make 1 works presentation-ready based on their metadata.
-1 works are now presentation-ready.
-0 page-type feeds in cachedfeeds table.
-I would now expect you to be able to find 1 works.
-""", output.getvalue())
-
-        # The Work was made presentation-ready
-        eq_(True, work.presentation_ready)
+        # This MockExternalSearchIndex will always claim there is one
+        # result.
+        self.check_explanation(search=search, in_search_index=1)
 
 
 class TestExplain(DatabaseTest):

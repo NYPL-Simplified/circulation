@@ -7,6 +7,7 @@ from nose.tools import (
 )
 from ..model import (
     Edition,
+    Work,
 )
 from ..entrypoint import (
     EntryPoint,
