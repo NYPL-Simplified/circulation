@@ -3007,6 +3007,7 @@ class WhereAreMyBooksScript(CollectionInputScript):
         else:
             self.out("There are no libraries in the system -- that's a problem.")
         self.delete_cached_feeds()
+        self.out("\n")
         collections = parsed.collections or self._db.query(Collection)
         for collection in collections:
             self.explain_collection(collection)
@@ -3041,7 +3042,6 @@ class WhereAreMyBooksScript(CollectionInputScript):
             self.out(" Deleting them all.")
             page_feeds.delete()
             self._db.commit()
-        self.out("\n")
 
     def explain_collection(self, collection):
         self.out('Examining collection "%s"', collection.name)

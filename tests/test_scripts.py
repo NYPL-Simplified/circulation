@@ -2299,10 +2299,10 @@ class TestWhereAreMyBooksScript(DatabaseTest):
         eq_(set([collection1, collection2]),
             set(script.explained_collections))
         
-        # There only output were the newlines after each
-        # check_library() and explain_collection() call. All other
-        # output happened inside the methods we mocked.
-        eq_(["\n", "\n", "\n", "\n"], script.output)
+        # There only output were the newlines after the method
+        # calls. All other output happened inside the methods we
+        # mocked.
+        eq_(["\n", "\n", "\n" "\n", "\n"], script.output)
 
     def test_check_library(self):
         # Give the default library a collection and a lane.
@@ -2329,6 +2329,22 @@ class TestWhereAreMyBooksScript(DatabaseTest):
             no_collection)
         eq_(" This library has no lanes -- that's a problem.",
             no_lanes)
+
+    def test_delete_cached_feeds(self):
+        groups = CachedFeed(type=CachedFeed.GROUPS_TYPE, pagination="")
+        self._db.add(groups)
+        not_groups = CachedFeed(type=CachedFeed.PAGE_TYPE, pagination="")
+        self._db.add(not_groups)
+
+        eq_(2, self._db.query(CachedFeed).count())
+
+        script = MockWhereAreMyBooks(self._db)
+        script.delete_cached_feeds()
+        how_many, theyre_gone = script.output
+        eq_(('%d feeds in cachedfeeds table, not counting grouped feeds.', [1]),
+            how_many)
+        eq_(" Deleting them all.", theyre_gone)
+        
 
     def test_no_presentation_ready_works(self):
         output = StringIO()
