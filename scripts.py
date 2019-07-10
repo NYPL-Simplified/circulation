@@ -2974,16 +2974,21 @@ class Explain(IdentifierInputScript):
         ))
 
 
-class FixInvisibleWorksScript(CollectionInputScript):
+class WhereAreMyBooksScript(CollectionInputScript):
     """Try to figure out why Works aren't showing up.
 
-    This is a common problem on a new installation.
+    This is a common problem on a new installation or when a new collection
+    is being configured.
     """
     def __init__(self, _db=None, output=None, search=None):
         _db = _db or self._db
-        super(FixInvisibleWorksScript, self).__init__(_db)
+        super(WhereAreMyBooksScript, self).__init__(_db)
         self.output = output or sys.stdout
-        self.search = search or ExternalSearchIndex(_db)
+        try:
+            self.search = search or ExternalSearchIndex(_db)
+        except CannotLoadConfiguration, e:
+            self.out("Here's your problem: the search integration is missing or misconfigured.")
+            raise e
 
     def out(self, s, *args):
         if not s.endswith("\n"):
@@ -2991,8 +2996,16 @@ class FixInvisibleWorksScript(CollectionInputScript):
         self.output.write(s % args)
 
     def run(self, cmd_args=None):
-        parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
-        self.check_libraries()
+        parsed = self.parse_command_line(self._db, cmd_args=cmd_args or [])
+
+        # Check each library.
+        libraries = self._db.query(Library).all()
+        if libraries:
+            for library in libraries:
+                self.check_library(library)
+                self.out("\n")
+        else:
+            self.out("There are no libraries in the system -- that's a problem.")
         self.delete_cached_feeds()
         collections = parsed.collections or self._db.query(Collection)
         for collection in collections:
@@ -3014,22 +3027,6 @@ class FixInvisibleWorksScript(CollectionInputScript):
         self.out(" %d presentation-ready works.", ready_count)
         self.out(" %d works not presentation-ready.", unready_count)
 
-        if unready_count > 0:
-            self.out(
-                "  Attempting to make %d works presentation-ready based on their metadata.",
-                unready_count
-            )
-            #for work in unready:
-            #    work.set_presentation_ready_based_on_content(self.search)
-            ready_count = ready.count()
-            self.out("  %d works are now presentation-ready.", ready_count)
-
-        filter = Filter(collections=[collection])
-        count = self.search.count_works(filter)
-        self.out(" %d works in the search index.\n" % count)
-        if count == 0:
-            self.out(" Maybe bin/search_index_refresh needs to run.")
-
         # Check if the works have delivery mechanisms.
         LPDM = LicensePoolDeliveryMechanism
         no_delivery_mechanisms = base.filter(
@@ -3038,7 +3035,7 @@ class FixInvisibleWorksScript(CollectionInputScript):
                      LicensePool.identifier_id==LPDM.identifier_id)
             )
         ).count()
-        if no_delivery_mechanisms:
+        if no_delivery_mechanisms > 0:
             self.out(
                 " %d works are missing delivery mechanisms and won't show up.",
                 no_delivery_mechanisms
@@ -3046,7 +3043,7 @@ class FixInvisibleWorksScript(CollectionInputScript):
 
         # Check if the license pools are suppressed.
         suppressed = base.filter(LicensePool.suppressed==True).count()
-        if suppressed:
+        if suppressed > 0:
             self.out(
                 " %d works have suppressed LicensePools and won't show up.",
                 suppressed
@@ -3056,23 +3053,23 @@ class FixInvisibleWorksScript(CollectionInputScript):
         not_owned = base.filter(
             and_(LicensePool.licenses_owned == 0, ~LicensePool.open_access)
         ).count()
-        if not_owned:
+        if not_owned > 0:
             self.out(
                 " %d non-open-access works have no owned licenses and won't show up.",
                 not_owned
             )
 
+        filter = Filter(collections=[collection])
+        count = self.search.count_works(filter)
+        expect = ready_count - no_delivery_mechanisms - suppressed - not_owned
+        self.out(
+            " %d works in the search index, expected %d.\n" % 
+            (count, expect)
+        )
+
     def check_libraries(self):
         """Make sure the libraries are equipped to show works.
         """
-        # Check each library.
-        libraries = self._db.query(Library).all()
-        if libraries:
-            for library in libraries:
-                self.check_library(library)
-        else:
-            self.out("There are no libraries in the system -- that's a problem.")
-        self.out("\n")
 
     def check_library(self, library):
         """Make sure a library is properly set up to show works."""
@@ -3100,7 +3097,7 @@ class FixInvisibleWorksScript(CollectionInputScript):
             "%d feeds in cachedfeeds table, not counting grouped feeds.", page_feeds_count
         )
         if page_feeds_count:
-            self.out("Deleting them all.")
+            self.out(" Deleting them all.")
             page_feeds.delete()
             self._db.commit()
         self.out("\n")

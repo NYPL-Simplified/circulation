@@ -20,6 +20,7 @@ from . import (
 from ..classifier import Classifier
 
 from ..config import (
+    CannotLoadConfiguration,
     Configuration,
     temp_config,
 )
@@ -68,7 +69,6 @@ from ..scripts import (
     DatabaseMigrationScript,
     Explain,
     IdentifierInputScript,
-    FixInvisibleWorksScript,
     LaneSweeperScript,
     LibraryInputScript,
     ListCollectionMetadataIdentifiersScript,
@@ -91,6 +91,7 @@ from ..scripts import (
     ShowLanesScript,
     ShowLibrariesScript,
     TimestampScript,
+    WhereAreMyBooksScript,
     WorkClassificationScript,
     WorkProcessingScript,
 )
@@ -2210,21 +2211,101 @@ class TestOPDSImportScript(DatabaseTest):
         eq_(True, monitor.kwargs['force_reimport'])
 
 
-class TestFixInvisibleWorksScript(DatabaseTest):
+class MockWhereAreMyBooks(WhereAreMyBooksScript):
+    """A mock script that keeps track of its output in an easy-to-test
+    form, so we don't have to mess around with StringIO.
+    """
+    def __init__(self, _db=None, output=None, search=None):
+        # In most cases a list will do fine for `output`.
+        output = output or []
 
-    # TODO: This needs to be updated to take Elasticsearch into
-    # account.  The materialized view code was removed but nothing was
-    # added in its place.
+        # In most tests an empty mock will do for `search`.
+        search = search or MockExternalSearchIndex()
 
-    class MockScript(FixInvisibleWorksScript):
-        """Don't run check_libraries -- this reduces the amount
-        of text that needs to be checked."""
-        def check_libraries(self):
-            return
+        super(MockWhereAreMyBooks, self).__init__(_db, output, search)
+        self.output = []
+
+    def out(self, s, *args):
+        if args:
+            self.output.append((s, args))
+        else:
+            self.output.append(s)
+
+
+class TestWhereAreMyBooksScript(DatabaseTest):
+
+    def test_no_search_integration(self):
+        # We can't even get started without a working search integration.
+
+        # We'll also test the out() method by mocking the script's
+        # standard output and using the normal out() implementation,
+        # rather than mocking out(), as we do in tests that have more
+        # complicated output.
+        output = StringIO()
+        assert_raises(CannotLoadConfiguration, WhereAreMyBooksScript,
+                      self._db, output=output)
+        eq_(
+            "Here's your problem: the search integration is missing or misconfigured.\n",
+            output.getvalue()
+        )
+
+    def test_overall_structure(self):
+        # Verify that run() calls the methods we expect.
+
+        class Mock(MockWhereAreMyBooks):
+            """Used to verify that the correct methods are called."""
+            def __init__(self, *args, **kwargs):
+                super(Mock, self).__init__(*args, **kwargs)
+                self.delete_cached_feeds_called = False
+                self.checked_libraries = []
+                self.explained_collections = []
+
+            def check_library(self, library):
+                self.checked_libraries.append(library)
+
+            def delete_cached_feeds(self):
+                self.delete_cached_feeds_called = True
+
+            def explain_collection(self, collection):
+                self.explained_collections.append(collection)
+
+        # If there are no libraries in the system, that's a big problem.
+        script = Mock(self._db)
+        script.run()
+        eq_(["There are no libraries in the system -- that's a problem."],
+            script.output)
+
+        # We still run the other checks, though.
+        eq_(True, script.delete_cached_feeds_called)
+
+        # Make some libraries and some collections, and try again.
+        library1 = self._default_library
+        library2 = self._library()
+
+        collection1 = self._default_collection
+        collection2 = self._collection()
+
+        script = Mock(self._db)
+        script.run()
+
+        # Every library in the collection was checked.
+        eq_(set([library1, library2]), set(script.checked_libraries))
+
+        # delete_cached_feeds() was called.
+        eq_(True, script.delete_cached_feeds_called)
+
+        # Every collection in the database was explained.
+        eq_(set([collection1, collection2]),
+            set(script.explained_collections))
+        
+        # There only output were the newlines after each
+        # check_library() and explain_collection() call. All other
+        # output happened inside the methods we mocked.
+        eq_(["\n", "\n", "\n", "\n"], script.output)
 
     def test_no_presentation_ready_works(self):
         output = StringIO()
-        search = MockExternalSearchIndex()
+
 
         self.MockScript(self._db, output, search=search).do_run()
         eq_("""0 presentation-ready works.
