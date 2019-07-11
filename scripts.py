@@ -21,6 +21,7 @@ import unicodedata
 from collections import defaultdict
 from external_search import (
     ExternalSearchIndex,
+    Filter,
     SearchIndexMonitor,
 )
 import json
@@ -816,7 +817,7 @@ class CustomListSweeperScript(LibraryInputScript):
     def process_library(self, library):
         lists = self._db.query(CustomList).filter(CustomList.library_id==library.id)
         for l in lists:
-            self.process_custom_list(self, l)
+            self.process_custom_list(l)
         self._db.commit()
 
     def process_custom_list(self, custom_list):
@@ -2010,64 +2011,6 @@ class MirrorResourcesScript(CollectionInputScript):
         )
 
 
-class RefreshMaterializedViewsScript(TimestampScript):
-    """Refresh all materialized views."""
-
-    @classmethod
-    def arg_parser(cls):
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            '--blocking-refresh',
-            help="Provide this argument if you're on an older version of Postgres and can't refresh materialized views concurrently.",
-            action='store_true',
-        )
-        return parser
-
-    def do_run(self):
-        args = self.parse_command_line()
-        if args.blocking_refresh:
-            concurrently = ''
-        else:
-            concurrently = 'CONCURRENTLY'
-
-        # Initialize the default database session. We can't use this
-        # session to run the VACUUM commands, because it wraps
-        # everything in a big transaction, and VACUUM can't be
-        # executed within a transaction block. But we will use it at
-        # the end, to recalculate the sizes of lanes.
-        db = self._db
-
-        url = Configuration.database_url()
-        engine = create_engine(url, isolation_level="AUTOCOMMIT")
-        engine.autocommit = True
-        a = time.time()
-        engine.execute("VACUUM (VERBOSE, ANALYZE)")
-        b = time.time()
-        self.log.info("Database vacuumed in %.2f sec." % (b-a))
-
-        for view_name in SessionManager.MATERIALIZED_VIEWS.keys():
-            a = time.time()
-            engine.execute("REFRESH MATERIALIZED VIEW %s %s" % (concurrently, view_name))
-            b = time.time()
-            self.log.info("%s refreshed in %.2f sec.", view_name, b-a)
-
-            # Vacuum the materialized view immediately after
-            # refreshing it.
-            a = time.time()
-            engine.execute("VACUUM ANALYZE %s" % view_name)
-            b = time.time()
-            self.log.info("%s vacuumed in %.2f sec", view_name, b-a)
-
-        # Recalculate the sizes of lanes.
-        for lane in db.query(Lane):
-            lane.update_size(db)
-            self.log.info(
-                "Size of lane %s calculated as %s",
-                lane.full_identifier, lane.size
-            )
-        db.commit()
-
-
 class DatabaseMigrationScript(Script):
     """Runs new migrations.
 
@@ -3031,162 +2974,129 @@ class Explain(IdentifierInputScript):
         ))
 
 
-class FixInvisibleWorksScript(CollectionInputScript):
+class WhereAreMyBooksScript(CollectionInputScript):
     """Try to figure out why Works aren't showing up.
 
-    This is a common problem on a new installation.
+    This is a common problem on a new installation or when a new collection
+    is being configured.
     """
     def __init__(self, _db=None, output=None, search=None):
         _db = _db or self._db
-        super(FixInvisibleWorksScript, self).__init__(_db)
+        super(WhereAreMyBooksScript, self).__init__(_db)
         self.output = output or sys.stdout
-        self.search = search or ExternalSearchIndex(_db)
+        try:
+            self.search = search or ExternalSearchIndex(_db)
+        except CannotLoadConfiguration, e:
+            self.out("Here's your problem: the search integration is missing or misconfigured.")
+            raise e
+
+    def out(self, s, *args):
+        if not s.endswith("\n"):
+            s += "\n"
+        self.output.write(s % args)
 
     def run(self, cmd_args=None):
-        parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
-        self.do_run(parsed.collections)
+        parsed = self.parse_command_line(self._db, cmd_args=cmd_args or [])
 
-    def do_run(self, collections=None):
-        self.check_libraries()
-        if collections:
-            collection_ids = [c.id for c in collections]
-
-        ready = self._db.query(Work).filter(Work.presentation_ready==True)
-        unready = self._db.query(Work).filter(Work.presentation_ready==False)
-
-        if collections:
-            ready = ready.join(LicensePool).filter(LicensePool.collection_id.in_(collection_ids))
-            unready = unready.join(LicensePool).filter(LicensePool.collection_id.in_(collection_ids))
-
-        ready_count = ready.count()
-        unready_count = unready.count()
-        self.output.write("%d presentation-ready works.\n" % ready_count)
-        self.output.write("%d works not presentation-ready.\n" % unready_count)
-
-        if unready_count > 0:
-            self.output.write(
-                "Attempting to make %d works presentation-ready based on their metadata.\n" % (unready_count)
-            )
-            for work in unready:
-                work.set_presentation_ready_based_on_content(self.search)
-
-        ready_count = ready.count()
-
-        if unready_count > 0:
-            self.output.write(
-                "%d works are now presentation-ready.\n" % ready_count
-            )
-
-        if ready_count == 0:
-            self.output.write(
-                "Here's your problem: there are no presentation-ready works.\n"
-            )
-            return
-
-        # See how many works are in the materialized view.
-        from model import MaterializedWorkWithGenre as work_model
-        mv_works = self._db.query(work_model)
-
-        if collections:
-            mv_works = mv_works.filter(work_model.collection_id.in_(collection_ids))
-
-        mv_works_count = mv_works.count()
-        self.output.write(
-            "%d works in materialized view.\n" % mv_works_count
-        )
-
-        # Rebuild the materialized views.
-        self.output.write("Refreshing the materialized views.\n")
-        SessionManager.refresh_materialized_views(self._db)
-        mv_works_count = mv_works.count()
-        self.output.write(
-            "%d works in materialized view after refresh.\n" % (
-                mv_works_count
-            )
-        )
-
-        if mv_works_count == 0:
-            self.output.write(
-                "Here's your problem: your presentation-ready works are not making it into the materialized view.\n"
-            )
-            return
-
-        # Check if the works have delivery mechanisms.
-        LPDM = LicensePoolDeliveryMechanism
-        mv_works = mv_works.filter(
-            exists().where(
-                and_(work_model.data_source_id==LPDM.data_source_id,
-                     work_model.identifier_id==LPDM.identifier_id)
-            )
-        )
-        if mv_works.count() == 0:
-            self.output.write(
-                "Here's your problem: your works don't have delivery mechanisms.\n"
-            )
-            return
-
-        # Check if the license pools are suppressed.
-        mv_works = mv_works.join(LicensePool).filter(
-            LicensePool.suppressed==False)
-        if mv_works.count() == 0:
-            self.output.write(
-                "Here's your problem: your works' license pools are suppressed.\n"
-            )
-            return
-
-        # Check if the pools have available licenses.
-        mv_works = mv_works.filter(
-            or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
-        )
-        if mv_works.count() == 0:
-            self.output.write(
-                "Here's your problem: your works aren't open access and have no licenses owned.\n"
-            )
-            return
-
-        page_feeds = self._db.query(CachedFeed).filter(
-            CachedFeed.type != CachedFeed.GROUPS_TYPE)
-        page_feeds_count = page_feeds.count()
-        self.output.write(
-            "%d page-type feeds in cachedfeeds table.\n" % page_feeds_count
-        )
-        if page_feeds_count:
-            self.output.write("Deleting them all.\n")
-            for feed in page_feeds:
-                self._db.delete(feed)
-        self._db.commit()
-        self.output.write(
-            "I would now expect you to be able to find %d works.\n" % mv_works_count
-        )
-
-    def check_libraries(self):
-        """Make sure the libraries are equipped to show works.
-        """
         # Check each library.
         libraries = self._db.query(Library).all()
         if libraries:
             for library in libraries:
                 self.check_library(library)
+                self.out("\n")
         else:
-            self.output.write("There are no libraries in the system -- that's a problem.\n")
-        self.output.write("\n")
+            self.out("There are no libraries in the system -- that's a problem.")
+        self.delete_cached_feeds()
+        self.out("\n")
+        collections = parsed.collections or self._db.query(Collection)
+        for collection in collections:
+            self.explain_collection(collection)
+            self.out("\n")
 
     def check_library(self, library):
         """Make sure a library is properly set up to show works."""
-        self.output.write("Checking library %s\n" % library.name)
+        self.out("Checking library %s", library.name)
 
         # Make sure it has collections.
         if not library.collections:
-            self.output.write(" This library has no collections -- that's a problem.\n")
+            self.out(" This library has no collections -- that's a problem.")
         else:
             for collection in library.collections:
-                self.output.write(" Associated with collection %s.\n" % collection.name)
+                self.out(" Associated with collection %s.", collection.name)
 
         # Make sure it has lanes.
         if not library.lanes:
-            self.output.write(" This library has no lanes -- that's a problem.\n")
+            self.out(" This library has no lanes -- that's a problem.")
         else:
-            self.output.write(" Associated with %s lanes.\n" % len(library.lanes))
+            self.out(" Associated with %s lanes.", len(library.lanes))
+
+    def delete_cached_feeds(self):
+        page_feeds = self._db.query(CachedFeed).filter(
+            CachedFeed.type != CachedFeed.GROUPS_TYPE
+        )
+        page_feeds_count = page_feeds.count()
+        self.out(
+            "%d feeds in cachedfeeds table, not counting grouped feeds.", page_feeds_count
+        )
+        if page_feeds_count:
+            self.out(" Deleting them all.")
+            page_feeds.delete()
+            self._db.commit()
+
+    def explain_collection(self, collection):
+        self.out('Examining collection "%s"', collection.name)
+
+        base = self._db.query(Work).join(LicensePool).filter(
+            LicensePool.collection==collection
+        )
+
+        ready = base.filter(Work.presentation_ready==True)
+        unready = base.filter(Work.presentation_ready==False)
+
+        ready_count = ready.count()
+        unready_count = unready.count()
+        self.out(" %d presentation-ready works.", ready_count)
+        self.out(" %d works not presentation-ready.", unready_count)
+
+        # Check if the works have delivery mechanisms.
+        LPDM = LicensePoolDeliveryMechanism
+        no_delivery_mechanisms = base.filter(
+            ~exists().where(
+                and_(LicensePool.data_source_id==LPDM.data_source_id,
+                     LicensePool.identifier_id==LPDM.identifier_id)
+            )
+        ).count()
+        if no_delivery_mechanisms > 0:
+            self.out(
+                " %d works are missing delivery mechanisms and won't show up.",
+                no_delivery_mechanisms
+            )
+
+        # Check if the license pools are suppressed.
+        suppressed = base.filter(LicensePool.suppressed==True).count()
+        if suppressed > 0:
+            self.out(
+                " %d works have suppressed LicensePools and won't show up.",
+                suppressed
+            )
+
+        # Check if the pools have available licenses.
+        not_owned = base.filter(
+            and_(LicensePool.licenses_owned == 0, ~LicensePool.open_access)
+        ).count()
+        if not_owned > 0:
+            self.out(
+                " %d non-open-access works have no owned licenses and won't show up.",
+                not_owned
+            )
+
+        filter = Filter(collections=[collection])
+        count = self.search.count_works(filter)
+        self.out(
+            " %d works in the search index, expected around %d.",
+            count, ready_count
+        )
+
 
 class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
     """List the metadata identifiers for Collections in the database.
@@ -3235,6 +3145,12 @@ class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
             )
 
         self.output.write('\n%d collections found.\n' % count)
+
+
+class UpdateLaneSizeScript(LaneSweeperScript):
+    def process_lane(self, lane):
+        lane.update_size(self._db)
+
 
 class UpdateCustomListSizeScript(CustomListSweeperScript):
     def process_custom_list(self, custom_list):

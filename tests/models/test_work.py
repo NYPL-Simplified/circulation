@@ -133,19 +133,6 @@ class TestWork(DatabaseTest):
         # Because the work's license_pool isn't suppressed, it isn't returned.
         eq_([], result)
 
-        # It's possible to filter a field other than Identifier.id.
-        # Here, we filter based on the value of
-        # mv_works_for_lanes.identifier_id.
-        from ...model import MaterializedWorkWithGenre as mw
-        qu = self._db.query(mw)
-        m = lambda: Work.from_identifiers(
-            self._db, [lp.identifier], base_query=qu,
-            identifier_id_field=mw.identifier_id
-        ).all()
-        eq_([], m())
-        self.add_to_materialized_view([work, ignored_work])
-        eq_([work.id], [x.works_id for x in m()])
-
     def test_calculate_presentation(self):
         # Test that:
         # - work coverage records are made on work creation and primary edition selection.

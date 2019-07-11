@@ -1855,7 +1855,7 @@ class DatabaseBackedWorkList(WorkList):
         LicensePool.
         """
         return Collection.restrict_to_ready_deliverable_works(
-            query, Work, Edition, show_suppressed=show_suppressed,
+            query, show_suppressed=show_suppressed,
             collection_ids=self.collection_ids
         )
 

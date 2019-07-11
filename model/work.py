@@ -600,7 +600,7 @@ class Work(Base):
         return q
 
     @classmethod
-    def from_identifiers(cls, _db, identifiers, base_query=None, identifier_id_field=Identifier.id, policy=None):
+    def from_identifiers(cls, _db, identifiers, base_query=None, policy=None):
         """Returns all of the works that have one or more license_pools
         associated with either an identifier in the given list or an
         identifier considered equivalent to one of those listed.
@@ -631,7 +631,7 @@ class Work(Base):
             Identifier.id, policy=policy)
         identifier_ids_subquery = identifier_ids_subquery.where(Identifier.id.in_(identifier_ids))
 
-        query = base_query.filter(identifier_id_field.in_(identifier_ids_subquery))
+        query = base_query.filter(Identifier.id.in_(identifier_ids_subquery))
         return query
 
     @classmethod
@@ -1725,59 +1725,3 @@ class Work(Base):
 # Used for quality filter queries.
 Index("ix_works_audience_target_age_quality_random", Work.audience, Work.target_age, Work.quality, Work.random)
 Index("ix_works_audience_fiction_quality_random", Work.audience, Work.fiction, Work.quality, Work.random)
-
-
-class BaseMaterializedWork(object):
-    """A mixin class for materialized views that incorporate Work and Edition."""
-    pass
-
-
-class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
-    p = dict(primary_key=True)
-    # Every field in the materialized view is specified here, in the
-    # same order as the SQL file which creates the view.
-    __table__ = Table(
-        'mv_works_for_lanes',
-        Base.metadata,
-        Column('works_id', Integer, **p),
-        Column('editions_id', Integer, ForeignKey('editions.id')),
-        Column('data_source_id', Integer, ForeignKey('datasources.id')),
-        Column('identifier_id', Integer, ForeignKey('identifiers.id')),
-        Column('sort_title', Unicode),
-        Column('permanent_work_id', Unicode),
-        Column('sort_author', Unicode),
-        Column('medium', Edition.MEDIUM_ENUM),
-        Column('language', Unicode),
-        Column('cover_full_url', Unicode),
-        Column('cover_thumbnail_url', Unicode),
-        Column('series', Unicode),
-        Column('series_position', Integer),
-        Column('name', Unicode), # datasources.name
-        Column('type', Unicode), # identifiers.type
-        Column('identifier', Unicode),
-        Column('workgenres_id', Integer, **p),
-        Column('genre_id', Integer, ForeignKey('genres.id')),
-        Column('affinity', Unicode),
-        Column('audience', Unicode),
-        Column('target_age', INT4RANGE),
-        Column('fiction', Boolean),
-        Column('quality', Numeric(4,3)),
-        Column('rating', Float),
-        Column('popularity', Float),
-        Column('random', Numeric(4,3)),
-        Column('last_update_time', DateTime),
-        Column('simple_opds_entry', Unicode),
-        Column('verbose_opds_entry', Unicode),
-        Column('marc_record', Unicode),
-        Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
-        Column('open_access_download_url', Unicode),
-        Column('availability_time', DateTime),
-        Column('collection_id', Integer, ForeignKey('collections.id')),
-        Column('list_id', Integer, ForeignKey('customlists.id'), **p),
-        Column('list_edition_id', Integer, ForeignKey('editions.id'), **p),
-        Column('first_appearance', DateTime),
-    )
-    license_pool = relationship(
-        'LicensePool',
-        primaryjoin="LicensePool.id==MaterializedWorkWithGenre.license_pool_id",
-        foreign_keys="LicensePool.id", lazy='joined', uselist=False)

@@ -21,7 +21,6 @@ from external_search import (
 from model import (
     get_one,
     get_one_or_create,
-    BaseMaterializedWork,
     CachedMARCFile,
     Collection,
     ConfigurationSetting,
@@ -29,7 +28,6 @@ from model import (
     Edition,
     ExternalIntegration,
     Identifier,
-    MaterializedWorkWithGenre,
     Representation,
     Session,
     Work,
@@ -408,14 +406,7 @@ class Annotator(object):
 
     @classmethod
     def add_summary(cls, record, work):
-        summary = None
-        if isinstance(work, BaseMaterializedWork):
-            # TODO: This is inefficient.
-            # OPDS adds the summary from scripts since it's not library-specific, but
-            # here individual libraries determine whether to include the summary.
-            summary = work.license_pool.work.summary_text
-        else:
-            summary = work.summary_text
+        summary = work.summary_text
         if summary:
             stripped = re.sub('<[^>]+?>', ' ', summary)
             record.add_field(
@@ -430,11 +421,7 @@ class Annotator(object):
     def add_simplified_genres(cls, record, work):
         """Create subject fields for this work."""
         genres = []
-        if isinstance(work, BaseMaterializedWork):
-            # TODO: This is inefficient.
-            genres = work.license_pool.work.genres
-        else:
-            genres = work.genres
+        genres = work.genres
 
         for genre in genres:
             record.add_field(
@@ -568,10 +555,7 @@ class MARCExporter(object):
         if callable(annotator):
             annotator = annotator()
 
-        if isinstance(work, BaseMaterializedWork):
-            pool = work.license_pool
-        else:
-            pool = work.active_license_pool()
+        pool = work.active_license_pool()
         if not pool:
             return None
 
@@ -604,10 +588,7 @@ class MARCExporter(object):
             annotator.add_ebooks_subject(record)
 
             data = record.as_marc()
-            if isinstance(work, BaseMaterializedWork):
-                setattr(pool.work, annotator.marc_cache_field, data)
-            else:
-                setattr(work, annotator.marc_cache_field, data)
+            setattr(work, annotator.marc_cache_field, data)
 
         # Add additional fields that should not be cached.
         annotator.annotate_work_record(work, pool, edition, identifier, record, integration)

@@ -20,7 +20,6 @@ from ..model import (
     Genre,
     Identifier,
     LicensePoolDeliveryMechanism,
-    MaterializedWorkWithGenre,
     Representation,
     RightsStatus,
 )
@@ -365,14 +364,6 @@ class TestAnnotator(DatabaseTest):
         Annotator.add_summary(record, work)
         self._check_field(record, "520", {"a": " Summary "})
 
-        # It also works with a materialized work.
-        self.add_to_materialized_view([work])
-        [mw] = self._db.query(MaterializedWorkWithGenre).all()
-
-        record = Record()
-        Annotator.add_summary(record, mw)
-        self._check_field(record, "520", {"a": " Summary "})
-
     def test_add_simplified_genres(self):
         work = self._work(with_license_pool=True)
         fantasy, ignore = Genre.lookup(self._db, "Fantasy", autocreate=True)
@@ -381,23 +372,6 @@ class TestAnnotator(DatabaseTest):
 
         record = Record()
         Annotator.add_simplified_genres(record, work)
-        fields = record.get_fields("650")
-        [fantasy_field, romance_field] = sorted(fields, key=lambda x: x.get_subfields("a")[0])
-        eq_(["0", "7"], fantasy_field.indicators)
-        eq_("Fantasy", fantasy_field.get_subfields("a")[0])
-        eq_("Library Simplified", fantasy_field.get_subfields("2")[0])
-        eq_(["0", "7"], romance_field.indicators)
-        eq_("Romance", romance_field.get_subfields("a")[0])
-        eq_("Library Simplified", romance_field.get_subfields("2")[0])
-
-        # It also works with a materialized work.
-        self.add_to_materialized_view([work])
-        # The work is in the materialized view twice since it has two genres,
-        # but we can use either one.
-        [mw, ignore] = self._db.query(MaterializedWorkWithGenre).all()
-
-        record = Record()
-        Annotator.add_simplified_genres(record, mw)
         fields = record.get_fields("650")
         [fantasy_field, romance_field] = sorted(fields, key=lambda x: x.get_subfields("a")[0])
         eq_(["0", "7"], fantasy_field.indicators)

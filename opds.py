@@ -33,7 +33,6 @@ from classifier import Classifier
 from entrypoint import EntryPoint
 from facets import FacetConstants
 from model import (
-    BaseMaterializedWork,
     CachedFeed,
     ConfigurationSetting,
     Contributor,
@@ -458,10 +457,6 @@ class Annotator(object):
         """
         if not work:
             return None
-
-        if isinstance(work, BaseMaterializedWork):
-            # Active license pool is preloaded from database.
-            return work.license_pool
 
         return work.active_license_pool()
 
@@ -1091,10 +1086,7 @@ class AcquisitionFeed(OPDSFeed):
                 # metadata for this work yet.
                 return None
 
-            if isinstance(work, BaseMaterializedWork):
-                identifier = work.license_pool.identifier
-                active_edition = None
-            elif active_license_pool:
+            if active_license_pool:
                 identifier = active_license_pool.identifier
                 active_edition = active_license_pool.presentation_edition
             elif work.presentation_edition:
@@ -1114,7 +1106,7 @@ class AcquisitionFeed(OPDSFeed):
                 "I've heard about this work but have no active licenses for it."
             )
 
-        if not active_edition and not isinstance(work, BaseMaterializedWork):
+        if not active_edition:
             logging.warn("NO ACTIVE EDITION FOR %r", active_license_pool)
             return self.error_message(
                 identifier,
@@ -1176,9 +1168,6 @@ class AcquisitionFeed(OPDSFeed):
         if xml:
             xml = etree.fromstring(xml)
         else:
-            if isinstance(work, BaseMaterializedWork):
-                raise Exception(
-                    "Cannot build an OPDS entry for a MaterializedWork.")
             xml = self._make_entry_xml(work, edition)
             data = etree.tostring(xml)
             if field and use_cache:
@@ -1822,12 +1811,7 @@ class TestAnnotatorWithGroup(TestAnnotator):
             if additional_lanes:
                 self.lanes_by_work[work] = additional_lanes
         else:
-            if isinstance(work, Work):
-                work_id = work.id
-            else:
-                # MaterialivedWorkWithGenre
-                work_id = work.works_id
-            lane_name = str(work_id)
+            lane_name = str(work.id)
         return ("http://group/%s" % lane_name,
                 "Group Title for %s!" % lane_name)
 

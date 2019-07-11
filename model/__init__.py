@@ -301,15 +301,6 @@ DEBUG = False
 
 class SessionManager(object):
 
-    # Materialized views need to be created and indexed from SQL
-    # commands kept in files. This dictionary maps the views to the
-    # SQL files.
-
-    MATERIALIZED_VIEW_LANES = 'mv_works_for_lanes'
-    MATERIALIZED_VIEWS = {
-        MATERIALIZED_VIEW_LANES : 'materialized_view_for_lanes.sql',
-    }
-
     # A function that calculates recursively equivalent identifiers
     # is also defined in SQL.
     RECURSIVE_EQUIVALENTS_FUNCTION = 'recursive_equivalents.sql'
@@ -346,8 +337,8 @@ class SessionManager(object):
     def initialize(cls, url, initialize_data=True, initialize_schema=True):
         """Initialize the database.
 
-        This includes the schema, the materialized views, the custom
-        functions, and the initial content.
+        This includes the schema, the custom functions, and the
+        initial content.
         """
         if url in cls.engine_for_url:
             engine = cls.engine_for_url[url]
@@ -409,42 +400,6 @@ class SessionManager(object):
             if not name.startswith('mv_')
         ]
         Base.metadata.create_all(engine, tables=to_create)
-
-        # Create the materialized view with raw SQL.
-        connection = None
-        for view_name, filename in cls.MATERIALIZED_VIEWS.items():
-            if engine.has_table(view_name):
-                continue
-            if not connection:
-                connection = engine.connect()
-            resource_file = os.path.join(cls.resource_directory(), filename)
-            if not os.path.exists(resource_file):
-                raise IOError("Could not load materialized view from %s: file does not exist." % resource_file)
-            logging.info(
-                "Loading materialized view %s from %s.",
-                view_name, resource_file)
-            sql = open(resource_file).read()
-            connection.execution_options(isolation_level='AUTOCOMMIT')\
-                      .execute(text(sql))
-
-            # NOTE: This is apparently necessary for the creation of
-            # the materialized view to be finalized in all cases. As
-            # such, materialized views should be created WITH NO DATA,
-            # since they will be refreshed immediately after creation.
-            result = connection.execute(
-                "REFRESH MATERIALIZED VIEW %s;" % view_name
-            )
-
-    @classmethod
-    def refresh_materialized_views(self, _db):
-        for view_name in self.MATERIALIZED_VIEWS.keys():
-            _db.execute("refresh materialized view %s;" % view_name)
-            _db.commit()
-        # Immediately update the number of works associated with each
-        # lane.
-        from ..lane import Lane
-        for lane in _db.query(Lane):
-            lane.update_size(_db)
 
     @classmethod
     def session(cls, url, initialize_data=True, initialize_schema=True):
@@ -600,8 +555,6 @@ from resource import (
     ResourceTransformation,
 )
 from work import (
-    BaseMaterializedWork,
-    MaterializedWorkWithGenre,
     Work,
     WorkGenre,
 )

@@ -36,7 +36,7 @@ from ...model.licensing import (
     License,
     LicensePool,
 )
-from ...model.work import MaterializedWorkWithGenre as work_model
+from ...model.work import Work
 
 class TestCollection(DatabaseTest):
 
@@ -686,27 +686,25 @@ class TestCollection(DatabaseTest):
             title="RBDigital Audiobook"
         )
         rbdigital_audiobook.presentation_edition.medium = Edition.AUDIO_MEDIUM
-        # Add them to the materialized view.
-        self.add_to_materialized_view(
-            [overdrive_audiobook, overdrive_ebook, rbdigital_audiobook]
-        )
         def expect(qu, works):
             """Modify the query `qu` by calling
             restrict_to_ready_deliverable_works(), then verify that
             the query returns the works expected by `works`.
             """
             restricted_query = Collection.restrict_to_ready_deliverable_works(
-                qu, work_model
+                qu
             )
             expect_ids = [x.id for x in works]
-            actual_ids = [x.works_id for x in restricted_query]
+            actual_ids = [x.id for x in restricted_query]
             eq_(set(expect_ids), set(actual_ids))
         # Here's the setting which controls which data sources should
         # have their audiobooks excluded.
         setting = ConfigurationSetting.sitewide(
             self._db, Configuration.EXCLUDED_AUDIO_DATA_SOURCES
         )
-        qu = self._db.query(work_model).join(work_model.license_pool)
+        qu = self._db.query(Work).join(Work.license_pools).join(
+            Work.presentation_edition
+        )
         # When its value is set to the empty list, every work shows
         # up.
         setting.value = json.dumps([])
