@@ -241,7 +241,7 @@ class BaseCoverageProvider(object):
             #
             # Also set the offset to zero to ensure that we always start
             # at the start of the database table.
-            progress.finish = None
+            original_finish = progress.finish = None
             progress.offset = 0
 
             # Call run_once() until we get an exception or
@@ -274,8 +274,8 @@ class BaseCoverageProvider(object):
                 # value for progress.finish to stand. It might
                 # incorrectly make progress.is_complete appear to be
                 # True, making us exit the loop before we mean to.
-                if progress is not None:
-                    progress.finish = old_finish
+                if (progress is not None and not progress.exception):
+                    progress.finish = original_finish
         return progress
 
     @property
