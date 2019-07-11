@@ -2651,11 +2651,11 @@ class MockMeta(dict):
 
 class MockSearchResult(object):
 
-    def __init__(self, title, author, meta, id):
-        self.title = title
-        self.author = author
+    def __init__(self, sort_title, sort_author, meta, id):
+        self.sort_title = sort_title
+        self.sort_author = sort_author
         meta["id"] = id
-        meta["_sort"] = [title, author, id]
+        meta["_sort"] = [sort_title, sort_author, id]
         self.meta = MockMeta(meta)
         self.work_id = id
 
@@ -2664,8 +2664,8 @@ class MockSearchResult(object):
 
     def to_dict(self):
         return {
-            "title": self.title,
-            "author": self.author,
+            "title": self.sort_title,
+            "author": self.sort_author,
             "id": self.meta["id"],
             "meta": self.meta,
         }
