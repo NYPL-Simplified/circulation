@@ -738,7 +738,6 @@ class TestWorkController(AdminControllerTest):
             "complaint3 source",
             "complaint3 detail")
 
-        SessionManager.refresh_materialized_views(self._db)
         [lp] = work.license_pools
 
         with self.request_context_with_library_and_admin("/"):
@@ -777,7 +776,6 @@ class TestWorkController(AdminControllerTest):
             "complaint2 source",
             "complaint2 detail")
 
-        SessionManager.refresh_materialized_views(self._db)
         [lp] = work.license_pools
 
         # first attempt to resolve complaints of the wrong type
@@ -838,7 +836,6 @@ class TestWorkController(AdminControllerTest):
             identifier=identifier, subject=subject3,
             data_source=source, weight=2)
 
-        SessionManager.refresh_materialized_views(self._db)
         [lp] = work.license_pools
 
         with self.request_context_with_library_and_admin("/"):
@@ -1165,7 +1162,6 @@ class TestWorkController(AdminControllerTest):
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, library=self._default_library, data_source=staff_data_source)
         work = self._work(with_license_pool=True)
-        self.add_to_materialized_view([work])
         identifier = work.presentation_edition.primary_identifier
 
         # Whenever the mocked search engine is asked how many

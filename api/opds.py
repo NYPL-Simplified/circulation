@@ -36,7 +36,6 @@ from core.model import (
     LicensePoolDeliveryMechanism,
     Patron,
     Session,
-    BaseMaterializedWork,
     Work,
     Edition,
 )
@@ -781,12 +780,8 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         if series_entry is None:
             # There is no <series> tag, and thus nothing to annotate.
             # This probably indicates an out-of-date OPDS entry.
-            if isinstance(work, Work):
-                work_id = work.id
-                work_title = work.title
-            else:
-                work_id = work.works_id
-                work_title = work.sort_title
+            work_id = work.id
+            work_title = work.title
             self.log.error(
                 'add_series_link() called on work %s ("%s"), which has no <schema:Series> tag in its OPDS entry.',
                 work_id, work_title
@@ -1218,16 +1213,6 @@ class SharedCollectionAnnotator(CirculationManagerAnnotator):
     def feed_url(self, lane, facets=None, pagination=None, default_route='feed'):
         extra_kwargs = dict(collection_name=self.collection.name)
         return super(SharedCollectionAnnotator, self).feed_url(lane, facets, pagination, default_route, extra_kwargs)
-
-    def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
-        updated = None
-        if isinstance(self.lane, CrawlableCollectionBasedLane) and isinstance(work, BaseMaterializedWork):
-            date_fields = [work.last_update_time, work.first_appearance, work.availability_time]
-            updated = max([date for date in date_fields if date is not None])
-
-        super(SharedCollectionAnnotator, self).annotate_work_entry(
-            work, active_license_pool, edition, identifier, feed, entry, updated
-        )
 
     def acquisition_links(self, active_license_pool, active_loan, active_hold, active_fulfillment,
                           feed, identifier):
