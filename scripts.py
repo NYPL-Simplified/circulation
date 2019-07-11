@@ -3149,6 +3149,7 @@ class UpdateLaneSizeScript(LaneSweeperScript):
     def process_lane(self, lane):
         """Update the estimated size of a Lane."""
         lane.update_size(self._db)
+        self.log.info("%s: %d", lane.full_identifier, lane.size)
 
 
 class UpdateCustomListSizeScript(CustomListSweeperScript):
