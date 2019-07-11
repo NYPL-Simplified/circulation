@@ -79,6 +79,7 @@ from ..scripts import (
     MockStdin,
     OPDSImportScript,
     PatronInputScript,
+    RebuildSearchIndexScript,
     ReclassifyWorksForUncheckedSubjectsScript,
     RunCollectionMonitorScript,
     RunCoverageProviderScript,
@@ -2781,6 +2782,60 @@ class TestMirrorResourcesScript(DatabaseTest):
         m(self._default_collection, thumb_link, policy)
         attempt = mirror.mirrored.pop()
         eq_(thumb_link.resource.url, attempt['link'].href)
+
+
+class TestRebuildSearchIndexScript(DatabaseTest):
+
+    def test_do_run(self):
+        class MockSearchIndex(object):
+            def setup_index(self):
+                # This is where the search index is deleted and recreated.
+                self.setup_index_called = True
+
+            def bulk_update(self, works):
+                self.bulk_update_called_with = works
+                return works, []
+
+        index = MockSearchIndex()
+        work = self._work(with_license_pool=True)
+        work2 = self._work(with_license_pool=True)
+        wcr = WorkCoverageRecord
+        decoys = [wcr.QUALITY_OPERATION, wcr.GENERATE_MARC_OPERATION]
+
+        # Set up some coverage records.
+        for operation in decoys + [wcr.UPDATE_SEARCH_INDEX_OPERATION]:
+            for w in (work, work2):
+                wcr.add_for(
+                    w, operation, status=random.choice(wcr.ALL_STATUSES)
+                )
+
+        coverage_qu = self._db.query(wcr).filter(
+            wcr.operation==wcr.UPDATE_SEARCH_INDEX_OPERATION
+        )
+        original_coverage = [x.id for x in coverage_qu]
+
+        # Run the script.
+        script = RebuildSearchIndexScript(self._db, search_index_client=index)
+        [progress] = script.do_run()
+
+        # The mock methods were called with the values we expect.
+        eq_(True, index.setup_index_called)
+        eq_(set([work, work2]), set(index.bulk_update_called_with))
+
+        # The script returned a list containing a single
+        # CoverageProviderProgress object containing accurate
+        # information about what happened (from the CoverageProvider's
+        # point of view).
+        eq_(
+            'Items processed: 2. Successes: 2, transient failures: 0, persistent failures: 0',
+            progress.achievements
+        )
+
+        # The old WorkCoverageRecords for the works were deleted. Then
+        # the CoverageProvider did its job and new ones were added.
+        new_coverage = [x.id for x in coverage_qu]
+        eq_(2, len(new_coverage))
+        assert set(new_coverage) != set(original_coverage)
 
 
 class TestSearchIndexCoverageRemover(DatabaseTest):

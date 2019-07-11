@@ -356,17 +356,23 @@ class RunCoverageProvidersScript(Script):
             self.providers.append(i)
 
     def do_run(self):
+        """
+        :return: A CoverageProviderProgress for every CoverageProvider
+        that completed successfully.
+        """
         providers = list(self.providers)
         if not providers:
             self.log.info('No CoverageProviders to run.')
 
+        progress = []
         while providers:
             random.shuffle(providers)
             for provider in providers:
                 self.log.debug("Running %s", provider.service_name)
 
                 try:
-                    provider.run_once_and_update_timestamp()
+                    provider_progress = provider.run_once_and_update_timestamp()
+                    progress.append(provider_progress)
                 except Exception as e:
                     self.log.error(
                         "Error in %r, moving on to next CoverageProvider.",
@@ -375,6 +381,7 @@ class RunCoverageProvidersScript(Script):
 
                 self.log.debug("Completed %s", provider.service_name)
                 providers.remove(provider)
+        return progress
 
 
 class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
@@ -3171,16 +3178,16 @@ class RebuildSearchIndexScript(
     """Completely delete the search index and recreate it."""
 
     def __init__(self, *args, **kwargs):
+        search = kwargs.get('search_index_client', None)
+        self.search = search or ExternalSearchIndex(self._db)
         super(RebuildSearchIndexScript, self).__init__(
             SearchIndexCoverageProvider, *args, **kwargs
         )
 
     def do_run(self):
-        search = ExternalSearchIndex(self._db)
-
         # Calling setup_index will destroy the index and recreate it
         # empty.
-        search.setup_index()
+        self.search.setup_index()
 
         # Remove all search coverage records so the
         # SearchIndexCoverageProvider will start from scratch.
@@ -3188,7 +3195,7 @@ class RebuildSearchIndexScript(
         self.log.info("Deleted %d search coverage records.", count)
 
         # Now let the SearchIndexCoverageProvider do its thing.
-        super(RebuildSearchIndexScript, self).do_run()
+        return super(RebuildSearchIndexScript, self).do_run()
 
 
 class SearchIndexCoverageRemover(TimestampScript, RemovesSearchCoverage):
