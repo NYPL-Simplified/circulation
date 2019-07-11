@@ -256,6 +256,7 @@ class BaseCoverageProvider(object):
                     # in-place the one it was passed.
                     if new_progress is not None:
                         progress = new_progress
+                        original_finish = new_progress.finish
                 except Exception, e:
                     logging.error(
                         "CoverageProvider %s raised uncaught exception.",
@@ -267,6 +268,14 @@ class BaseCoverageProvider(object):
                 # so let's write the work to the database as it's
                 # done.
                 self.finalize_timestampdata(progress)
+
+                # That wrote a value for progress.finish to the
+                # database, which is fine, but we don't want that
+                # value for progress.finish to stand. It might
+                # incorrectly make progress.is_complete appear to be
+                # True, making us exit the loop before we mean to.
+                if progress is not None:
+                    progress.finish = old_finish
         return progress
 
     @property

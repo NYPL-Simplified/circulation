@@ -22,7 +22,7 @@ from collections import defaultdict
 from external_search import (
     ExternalSearchIndex,
     Filter,
-    SearchIndexMonitor,
+    SearchIndexCoverageProvider,
 )
 import json
 from nose.tools import set_trace
@@ -343,22 +343,6 @@ class RunReaperMonitorsScript(RunMultipleMonitorsScript):
 
     def monitors(self, **kwargs):
         return [cls(self._db, **kwargs) for cls in ReaperMonitor.REGISTRY]
-
-
-class UpdateSearchIndexScript(RunMonitorScript):
-
-    def __init__(self):
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            '--works-index',
-            help='The ElasticSearch index to update, if other than the default.'
-        )
-        parsed = parser.parse_args()
-
-        super(UpdateSearchIndexScript, self).__init__(
-            SearchIndexMonitor,
-            index_name=parsed.works_index,
-        )
 
 
 class RunCoverageProvidersScript(Script):
@@ -872,19 +856,19 @@ class RunCoverageProviderScript(IdentifierInputScript):
 
         super(RunCoverageProviderScript, self).__init__(_db)
         parsed_args = self.parse_command_line(self._db, cmd_args)
+        if parsed_args.identifier_type:
+            self.identifier_type = parsed_args.identifier_type
+            self.identifier_types = [self.identifier_type]
+        else:
+            self.identifier_type = None
+            self.identifier_types = []
+
+        if parsed_args.identifiers:
+            self.identifiers = parsed_args.identifiers
+        else:
+            self.identifiers = []
+
         if callable(provider):
-            if parsed_args.identifier_type:
-                self.identifier_type = parsed_args.identifier_type
-                self.identifier_types = [self.identifier_type]
-            else:
-                self.identifier_type = None
-                self.identifier_types = []
-
-            if parsed_args.identifiers:
-                self.identifiers = parsed_args.identifiers
-            else:
-                self.identifiers = []
-
             kwargs = self.extract_additional_command_line_arguments()
             kwargs.update(provider_kwargs)
 
@@ -3165,7 +3149,49 @@ class UpdateCustomListSizeScript(CustomListSweeperScript):
         custom_list.update_size()
 
 
-class SearchIndexCoverageRemover(TimestampScript):
+class RemovesSearchCoverage(object):
+    """Mix-in class for a script that might remove all coverage records
+    for the search engine.
+    """
+    def remove_search_coverage_records(self):
+        """Delete all search coverage records from the database.
+
+        :return: The number of records deleted.
+        """
+        wcr = WorkCoverageRecord
+        clause = wcr.operation==wcr.UPDATE_SEARCH_INDEX_OPERATION
+        count = self._db.query(wcr).filter(clause).count()
+        self._db.execute(wcr.__table__.delete().where(clause))
+        return count
+
+
+class RebuildSearchIndexScript(
+    RunWorkCoverageProviderScript, RemovesSearchCoverage
+):
+    """Completely delete the search index and recreate it."""
+
+    def __init__(self, *args, **kwargs):
+        super(RebuildSearchIndexScript, self).__init__(
+            SearchIndexCoverageProvider, *args, **kwargs
+        )
+
+    def do_run(self):
+        search = ExternalSearchIndex(self._db)
+
+        # Calling setup_index will destroy the index and recreate it
+        # empty.
+        search.setup_index()
+
+        # Remove all search coverage records so the
+        # SearchIndexCoverageProvider will start from scratch.
+        count = self.remove_search_coverage_records()
+        self.log.info("Deleted %d search coverage records.", count)
+
+        # Now let the SearchIndexCoverageProvider do its thing.
+        super(RebuildSearchIndexScript, self).do_run()
+
+
+class SearchIndexCoverageRemover(TimestampScript, RemovesSearchCoverage):
     """Script that removes search index coverage for all works.
 
     This guarantees the SearchIndexCoverageProvider will add
@@ -3174,10 +3200,7 @@ class SearchIndexCoverageRemover(TimestampScript):
     def do_run(self):
         """Delete all WorkCoverageRecords for the UPDATE_SEARCH_INDEX_OPERATION.
         """
-        wcr = WorkCoverageRecord
-        clause = wcr.operation==wcr.UPDATE_SEARCH_INDEX_OPERATION
-        count = self._db.query(wcr).filter(clause).count()
-        self._db.execute(wcr.__table__.delete().where(clause))
+        count = self.remove_search_coverage_records()
         return TimestampData(
             achievements="Coverage records deleted: %(deleted)d" % dict(
                 deleted=count
