@@ -243,6 +243,9 @@ class BaseCoverageProvider(object):
             # at the start of the database table.
             original_finish = progress.finish = None
             progress.offset = 0
+
+            # Call run_once() until we get an exception or
+            # progress.finish is set.
             while not progress.is_complete:
                 try:
                     new_progress = self.run_once(
