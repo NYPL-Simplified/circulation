@@ -668,14 +668,7 @@ class ExternalSearchIndex(HasSelfTests):
             collections = _db.query(Collection)
             for collection in collections:
                 filter = Filter(collections=[collection])
-                search = self.query_works(
-                    "", filter=filter, pagination=None,
-                    debug=True
-                )
-                if in_testing:
-                    result[collection.name] = len(search)
-                else:
-                    result[collection.name] = self.count_works(filter)
+                result[collection.name] = self.count_works(filter)
 
             return json.dumps(result, indent=1)
 
