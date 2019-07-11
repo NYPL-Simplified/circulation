@@ -243,39 +243,46 @@ class BaseCoverageProvider(object):
             # at the start of the database table.
             original_finish = progress.finish = None
             progress.offset = 0
+            progress = self._run_until_complete(
+                progress, count_as_covered=covered_statuses
+            )
+        # TODO: We should be able to return a list of progress objects,
+        # not just one.
+        return progress
 
-            # Call run_once() until we get an exception or
-            # progress.finish is set.
-            while not progress.is_complete:
-                try:
-                    new_progress = self.run_once(
-                        progress, count_as_covered=covered_statuses
-                    )
-                    # run_once can either return a new
-                    # CoverageProviderProgress object, or modify
-                    # in-place the one it was passed.
-                    if new_progress is not None:
-                        progress = new_progress
-                        original_finish = new_progress.finish
-                except Exception, e:
-                    logging.error(
-                        "CoverageProvider %s raised uncaught exception.",
-                        self.service_name, exc_info=e
-                    )
-                    progress.exception=traceback.format_exc()
+    def _run_until_complete(self, progress, **run_once_kwargs):
+        """Call run_once() until we get an exception or run_once() sets
+        progress.finish.
+        """
+        while not progress.is_complete:
+            try:
+                new_progress = self.run_once(progress, **run_once_kwargs)
+                # run_once can either return a new
+                # CoverageProviderProgress object, or modify
+                # in-place the one it was passed.
+                if new_progress is not None:
+                    progress = new_progress
+            except Exception, e:
+                logging.error(
+                    "CoverageProvider %s raised uncaught exception.",
+                    self.service_name, exc_info=e
+                )
+                progress.exception=traceback.format_exc()
+                progress.finish=datetime.datetime.utcnow()
 
-                # The next run_once() call might raise an exception,
-                # so let's write the work to the database as it's
-                # done.
-                self.finalize_timestampdata(progress)
+            # The next run_once() call might raise an exception,
+            # so let's write the work to the database as it's
+            # done.
+            original_finish = progress.finish
+            self.finalize_timestampdata(progress)
 
-                # That wrote a value for progress.finish to the
-                # database, which is fine, but we don't want that
-                # value for progress.finish to stand. It might
-                # incorrectly make progress.is_complete appear to be
-                # True, making us exit the loop before we mean to.
-                if (progress is not None and not progress.exception):
-                    progress.finish = original_finish
+            # That wrote a value for progress.finish to the
+            # database, which is fine, but we don't necessarily want that
+            # value for progress.finish to stand. It might
+            # incorrectly make progress.is_complete appear to be
+            # True, making us exit the loop before we mean to.
+            if not progress.exception:
+                progress.finish = original_finish
         return progress
 
     @property
