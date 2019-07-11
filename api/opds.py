@@ -1,3 +1,4 @@
+import datetime
 import urllib
 import copy
 import logging
@@ -14,6 +15,7 @@ from core.classifier import Classifier
 from core.entrypoint import (
     EverythingEntryPoint,
 )
+from core.external_search import WorkSearchResult
 from core.opds import (
     Annotator,
     AcquisitionFeed,
@@ -34,7 +36,6 @@ from core.model import (
     LicensePoolDeliveryMechanism,
     Patron,
     Session,
-    BaseMaterializedWork,
     Work,
     Edition,
 )
@@ -174,6 +175,24 @@ class CirculationManagerAnnotator(Annotator):
             yield lpdm
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry, updated=None):
+        # If ElasticSearch included a more accurate last_update_time,
+        # use it instead of Work.last_update_time
+        updated = work.last_update_time
+        if isinstance(work, WorkSearchResult):
+            # Elasticsearch puts this field in a list, but we've set it up
+            # so there will be at most one value.
+            last_updates = getattr(work._hit, 'last_update', [])
+            if last_updates:
+                # last_update is seconds-since epoch; convert to UTC datetime.
+                updated = datetime.datetime.utcfromtimestamp(last_updates[0])
+
+                # There's a chance that work.last_updated has been
+                # modified but the change hasn't made it to the search
+                # engine yet. Even then, we stick with the search
+                # engine value, because a sorted list is more
+                # important to the import process than an up-to-date
+                # 'last update' value.
+
         super(CirculationManagerAnnotator, self).annotate_work_entry(
             work, active_license_pool, edition, identifier, feed, entry, updated
         )
@@ -273,7 +292,7 @@ class CirculationManagerAnnotator(Annotator):
             # Generate the licensing tags that tell you whether the book
             # is available.
             for link in borrow_links:
-                if link:
+                if link is not None:
                     for t in feed.license_tags(
                         active_license_pool, active_loan, active_hold
                     ):
@@ -522,7 +541,9 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         return self.groups_url(None, facets=facets)
 
     def feed_url(self, lane, facets=None, pagination=None, default_route='feed'):
-        extra_kwargs = dict(library_short_name=self.library.short_name)
+        extra_kwargs = dict()
+        if self.library:
+            extra_kwargs['library_short_name']=self.library.short_name
         return super(LibraryAnnotator, self).feed_url(lane, facets, pagination, default_route, extra_kwargs)
 
     def search_url(self, lane, query, pagination, facets=None):
@@ -592,10 +613,6 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         return url
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
-        updated = None
-        if isinstance(self.lane, CrawlableCustomListBasedLane) and isinstance(work, BaseMaterializedWork):
-            updated = max(work.last_update_time, work.first_appearance, work.availability_time)
-
         # Add a link for reporting problems.
         feed.add_link_to_entry(
             entry,
@@ -610,10 +627,10 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         )
 
         super(LibraryAnnotator, self).annotate_work_entry(
-            work, active_license_pool, edition, identifier, feed, entry, updated
+            work, active_license_pool, edition, identifier, feed, entry
         )
 
-        # Add a link for each author.
+        # Add a link to each author tag.
         self.add_author_links(work, feed, entry)
 
         # And a series, if there is one.
@@ -714,12 +731,29 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         return language_key, audience_key
 
     def add_author_links(self, work, feed, entry):
+        """Find all the <author> tags and add a link
+        to each one that points to the author's other works.
+        """
         author_tag = '{%s}author' % OPDSFeed.ATOM_NS
         author_entries = entry.findall(author_tag)
 
         languages, audiences = self.language_and_audience_key_from_work(work)
         for author_entry in author_entries:
             name_tag = '{%s}name' % OPDSFeed.ATOM_NS
+
+            # A database ID would be better than a name, but the
+            # <author> tag was created as part of the work's cached
+            # OPDS entry, and as a rule we don't put database IDs into
+            # the cached OPDS entry.
+            #
+            # So we take the content of the <author> tag, use it in
+            # the link, and -- only if the user decides to fetch this feed
+            # -- we do a little extra work to turn this name back into
+            # one or more contributors.
+            #
+            # TODO: If we reliably had VIAF IDs for our contributors,
+            # we could stick them in the <author> tags and get the
+            # best of both worlds.
             contributor_name = author_entry.find(name_tag).text
             if not contributor_name:
                 continue
@@ -746,12 +780,8 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         if series_entry is None:
             # There is no <series> tag, and thus nothing to annotate.
             # This probably indicates an out-of-date OPDS entry.
-            if isinstance(work, Work):
-                work_id = work.id
-                work_title = work.title
-            else:
-                work_id = work.works_id
-                work_title = work.sort_title
+            work_id = work.id
+            work_title = work.title
             self.log.error(
                 'add_series_link() called on work %s ("%s"), which has no <schema:Series> tag in its OPDS entry.',
                 work_id, work_title
@@ -1183,16 +1213,6 @@ class SharedCollectionAnnotator(CirculationManagerAnnotator):
     def feed_url(self, lane, facets=None, pagination=None, default_route='feed'):
         extra_kwargs = dict(collection_name=self.collection.name)
         return super(SharedCollectionAnnotator, self).feed_url(lane, facets, pagination, default_route, extra_kwargs)
-
-    def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
-        updated = None
-        if isinstance(self.lane, CrawlableCollectionBasedLane) and isinstance(work, BaseMaterializedWork):
-            date_fields = [work.last_update_time, work.first_appearance, work.availability_time]
-            updated = max([date for date in date_fields if date is not None])
-
-        super(SharedCollectionAnnotator, self).annotate_work_entry(
-            work, active_license_pool, edition, identifier, feed, entry, updated
-        )
 
     def acquisition_links(self, active_license_pool, active_loan, active_hold, active_fulfillment,
                           feed, identifier):

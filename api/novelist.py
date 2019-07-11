@@ -680,6 +680,8 @@ class MockNoveListAPI(NoveListAPI):
         self.responses = self.responses + list(args)
 
     def lookup(self, identifier):
+        if not self.responses:
+            return []
         response = self.responses[0]
         self.responses = self.responses[1:]
         return response
