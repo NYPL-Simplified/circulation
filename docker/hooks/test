@@ -69,13 +69,13 @@ check_service_status /home/simplified/service/uwsgi
 docker exec -u postgres pg psql -U simplified -d docker_prod \
   -c "insert into libraries(name, short_name, uuid, is_default) values ('default', 'default', '1234', 't');";
 
-# Check to make sure the deployed app is running.
+# Make sure the web server is running.
 healthcheck=$(docker exec circ /bin/bash -c "curl --write-out \"%{http_code}\" --silent --output /dev/null http://localhost/healthcheck.html")
 if ! [[ ${healthcheck} == '200' ]]; then exit 1; else echo "  OK"; fi
 
-# And it's showing an OPDS feed.
-feed_type=$(docker exec circ /bin/bash -c "curl --write-out \"%{content_type}\" --silent --output /dev/null http://localhost/groups")
-if ! [[ ${feed_type} == 'application/atom+xml;profile=opds-catalog;kind=acquisition' ]]; then
+# Also make sure the app server is running.
+feed_type=$(docker exec circ /bin/bash -c "curl --write-out \"%{content_type}\" --silent --output /dev/null http://localhost/heartbeat")
+if ! [[ ${feed_type} == 'application/vnd.health+json' ]]; then
   exit 1
 else
   echo "  OK"

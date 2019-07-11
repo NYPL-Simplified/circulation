@@ -16,6 +16,7 @@ HOME=/var/www/circulation
 0 4 * * * root core/bin/run update_random_order >> /var/log/cron.log 2>&1
 */6 * * * * root core/bin/run search_index_refresh >> /var/log/cron.log 2>&1
 0 0 * * * root core/bin/run update_custom_list_size >> /var/log/cron.log 2>&1
+0 10 * * * root core/bin/run update_lane_size >> /var/log/cron.log 2>&1
 
 # These scripts improve the bibliographic information associated with
 # the collections.
