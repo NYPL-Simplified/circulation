@@ -66,6 +66,8 @@ check_service_status /etc/service/nginx
 check_service_status /home/simplified/service/uwsgi
 
 # Then create a library so the app will start.
+#
+# TODO: This is probably no longer necessary.
 docker exec -u postgres pg psql -U simplified -d docker_prod \
   -c "insert into libraries(name, short_name, uuid, is_default) values ('default', 'default', '1234', 't');";
 
