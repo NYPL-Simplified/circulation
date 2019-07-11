@@ -65,7 +65,6 @@ from ..external_search import (
     QueryParser,
     SearchBase,
     SearchIndexCoverageProvider,
-    SearchIndexMonitor,
     SortKeyPagination,
     WorkSearchResult,
     mock_search_index,
@@ -3901,48 +3900,3 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
         eq_(work, record.obj)
         eq_(True, record.transient)
         eq_('There was an error!', record.exception)
-
-
-class TestSearchIndexMonitor(DatabaseTest):
-
-    def test_process_batch(self):
-        index = MockExternalSearchIndex()
-
-        # Here's a work.
-        work = self._work()
-        work.presentation_ready = True
-
-        # There is no record that it has ever been indexed
-        def _record(work):
-            records = [
-                x for x in work.coverage_records
-                if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
-            ]
-            if not records:
-                return None
-            [record] = records
-            return record
-        eq_(None, _record(work))
-
-        # Here's a Monitor that can index it.
-        monitor = SearchIndexMonitor(self._db, None, "works-index",
-                                     index_client=index)
-        eq_("Search index update (works)", monitor.service_name)
-
-        # The first time we call process_batch we handle the one and
-        # only work in the database. The ID of that work is returned
-        # for next time, as is the number of works processed by
-        # process_batch -- one.
-        eq_((work.id, 1), monitor.process_batch(0))
-        self._db.commit()
-
-        # The work was added to the search index.
-        eq_([('works', 'work-type', work.id)], index.docs.keys())
-
-        # A WorkCoverageRecord was created for the Work.
-        assert _record(work) is not None
-
-        # The next time we call process_batch, the result is (0,0),
-        # meaning we're done with every work in the system (the first 0)
-        # and no work was done (the second 0).
-        eq_((0,0), monitor.process_batch(work.id))

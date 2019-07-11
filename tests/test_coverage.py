@@ -254,24 +254,47 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         eq_(counter, provider.timestamp.counter)
 
     def test_run_once_and_update_timestamp(self):
-        """Test that run_once_and_update_timestamp calls run_once twice and
-        then updates a Timestamp.
+        """Test that run_once_and_update_timestamp calls run_once until all
+        the work is done, and then updates a Timestamp.
         """
         class MockProvider(BaseCoverageProvider):
             SERVICE_NAME = "I do nothing"
             run_once_calls = []
+            expect_offset = 0
 
             def run_once(self, progress, count_as_covered=None):
                 now = datetime.datetime.utcnow()
-                self.run_once_calls.append((count_as_covered, now))
 
-                # Verify that progress.finish and progress.offset are
-                # cleared before every run_once() call.
+                # We never see progress.finish set to a non-None
+                # value. When _we_ set it to a non-None value, it means
+                # the work is done. If we get called again, it'll be
+                # with different `count_as_covered` settings, and
+                # .finish will have been reset to None.
                 eq_(None, progress.finish)
-                eq_(0, progress.offset)
 
-                progress.finish = now
+                # Verify that progress.offset is cleared when we
+                # expect, and left alone when we expect. This lets
+                eq_(self.expect_offset, progress.offset)
+
+                self.run_once_calls.append((count_as_covered, now))
                 progress.offset = len(self.run_once_calls)
+
+                if len(self.run_once_calls) == 1:
+                    # This is the first call. We will not be setting
+                    # .finish, so the offset will not be reset on the
+                    # next call. This simulates what happens when a
+                    # given `count_as_covered` setting can't be
+                    # handled in one batch.
+                    self.expect_offset = progress.offset
+                else:
+                    # This is the second or third call. Set .finish to
+                    # indicate we're done with this `count_as_covered`
+                    # setting.
+                    progress.finish = now
+
+                    # If there is another call, progress.offset will be
+                    # reset to zero. (So will .finish.)
+                    self.expect_offset = 0
                 return progress
 
         # We start with no Timestamp.
@@ -294,22 +317,25 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         assert (now - timestamp.finish).total_seconds() < 1
         assert timestamp.start < timestamp.finish
 
-        # run_once was called twice: once to exclude items that have
-        # any coverage record whatsoever (PREVIOUSLY_ATTEMPTED), and again to
-        # exclude only items that have coverage records that indicate
-        # success or persistent failure (DEFAULT_COUNT_AS_COVERED).
-        first_call, second_call = provider.run_once_calls
+        # run_once was called three times: twice to exclude items that
+        # have any coverage record whatsoever (PREVIOUSLY_ATTEMPTED),
+        # and a third time to exclude only items that have coverage
+        # records that indicate success or persistent failure
+        # (DEFAULT_COUNT_AS_COVERED).
+        first_call, second_call, third_call = provider.run_once_calls
         eq_(CoverageRecord.PREVIOUSLY_ATTEMPTED, first_call[0])
-        eq_(CoverageRecord.DEFAULT_COUNT_AS_COVERED, second_call[0])
+        eq_(CoverageRecord.PREVIOUSLY_ATTEMPTED, second_call[0])
+        eq_(CoverageRecord.DEFAULT_COUNT_AS_COVERED, third_call[0])
 
-        # On both calls, final_progress.finish was set to the current time
-        # and offset was set to the number of calls so far.
+        # On the second and third calls, final_progress.finish was set
+        # to the current time, and .offset was set to the number of
+        # calls so far.
         #
         # These values are cleared out before each run_once() call
         # -- we tested that above -- so the surviving values are the
-        # ones associated with the second call.
-        eq_(second_call[1], final_progress.finish)
-        eq_(2, final_progress.offset)
+        # ones associated with the third call.
+        eq_(third_call[1], final_progress.finish)
+        eq_(3, final_progress.offset)
 
     def test_run_once_and_update_timestamp_catches_exception(self):
         # Test that run_once_and_update_timestamp catches an exception

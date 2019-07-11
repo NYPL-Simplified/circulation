@@ -241,7 +241,7 @@ class BaseCoverageProvider(object):
             #
             # Also set the offset to zero to ensure that we always start
             # at the start of the database table.
-            progress.finish = None
+            original_finish = progress.finish = None
             progress.offset = 0
 
             # Call run_once() until we get an exception or
@@ -262,11 +262,25 @@ class BaseCoverageProvider(object):
                         self.service_name, exc_info=e
                     )
                     progress.exception=traceback.format_exc()
+                    progress.finish=datetime.datetime.utcnow()
 
                 # The next run_once() call might raise an exception,
                 # so let's write the work to the database as it's
                 # done.
+                original_finish = progress.finish
                 self.finalize_timestampdata(progress)
+
+                # That wrote a value for progress.finish to the
+                # database, which is fine, but we don't necessarily
+                # want that value for progress.finish to stand. It
+                # might incorrectly make progress.is_complete appear
+                # to be True, making us exit the loop before we mean
+                # to.
+                if not progress.exception:
+                    progress.finish = original_finish
+
+        # TODO: We should be able to return a list of progress objects,
+        # not just one.
         return progress
 
     @property

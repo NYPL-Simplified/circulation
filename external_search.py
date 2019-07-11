@@ -194,6 +194,11 @@ class ExternalSearchIndex(HasSelfTests):
 
         self.mapping = mapping or CurrentMapping()
 
+        if isinstance(url, ExternalIntegration):
+            # This is how the self-test initializes this object.
+            integration = url
+            url = integration.url
+
         if not _db:
             raise CannotLoadConfiguration(
                 "Cannot load Elasticsearch configuration without a database.",
@@ -326,6 +331,7 @@ class ExternalSearchIndex(HasSelfTests):
         """
         index_name = new_index or self.works_index
         if self.indices.exists(index_name):
+            self.log.info("Deleting index %s", index_name)
             self.indices.delete(index_name)
 
         self.log.info("Creating index %s", index_name)
@@ -602,13 +608,13 @@ class ExternalSearchIndex(HasSelfTests):
         def _works():
             return self.query_works(
                 self.test_search_term, filter=None, pagination=None,
-                debug=False
+                debug=True
             )
 
         # The self-tests:
 
         def _search_for_term():
-            titles = [("%s (%s)" %(x.title, x.author)) for x in _works()]
+            titles = [("%s (%s)" %(x.sort_title, x.sort_author)) for x in _works()]
             return titles
 
         yield self.run_test(
@@ -640,9 +646,8 @@ class ExternalSearchIndex(HasSelfTests):
         def _count_docs():
             # The mock methods used in testing return a list, so we have to call len() rather than count().
             if in_testing:
-                return str(len(_works()))
-
-            return str(_works().count())
+                return str(len(self.search))
+            return str(self.search.count())
 
         yield self.run_test(
             ("Total number of search results for '%s':" %(self.test_search_term)),
@@ -650,11 +655,7 @@ class ExternalSearchIndex(HasSelfTests):
         )
 
         def _total_count():
-            # The mock methods used in testing return a list, so we have to call len() rather than count().
-            if in_testing:
-                return str(len(self.search))
-
-            return str(self.search.count())
+            return str(self.count_works(None))
 
         yield self.run_test(
             "Total number of documents in this search index:",
@@ -667,14 +668,7 @@ class ExternalSearchIndex(HasSelfTests):
             collections = _db.query(Collection)
             for collection in collections:
                 filter = Filter(collections=[collection])
-                search = self.query_works(
-                    "", filter=filter, pagination=None,
-                    debug=True
-                )
-                if in_testing:
-                    result[collection.name] = len(search)
-                else:
-                    result[collection.name] = search.count()
+                result[collection.name] = self.count_works(filter)
 
             return json.dumps(result, indent=1)
 
@@ -2650,11 +2644,11 @@ class MockMeta(dict):
 
 class MockSearchResult(object):
 
-    def __init__(self, title, author, meta, id):
-        self.title = title
-        self.author = author
+    def __init__(self, sort_title, sort_author, meta, id):
+        self.sort_title = sort_title
+        self.sort_author = sort_author
         meta["id"] = id
-        meta["_sort"] = [title, author, id]
+        meta["_sort"] = [sort_title, sort_author, id]
         self.meta = MockMeta(meta)
         self.work_id = id
 
@@ -2663,56 +2657,11 @@ class MockSearchResult(object):
 
     def to_dict(self):
         return {
-            "title": self.title,
-            "author": self.author,
+            "title": self.sort_title,
+            "author": self.sort_author,
             "id": self.meta["id"],
             "meta": self.meta,
         }
-
-class SearchIndexMonitor(WorkSweepMonitor):
-    """Make sure the search index is up-to-date for every work.
-
-    This operates on all Works, not just the ones with registered
-    WorkCoverageRecords indicating that work needs to be done.
-    """
-    SERVICE_NAME = "Search index update"
-    DEFAULT_BATCH_SIZE = 500
-
-    def __init__(self, _db, collection, index_name=None, index_client=None,
-                 **kwargs):
-        super(SearchIndexMonitor, self).__init__(_db, collection, **kwargs)
-
-        if index_client:
-            # This would only happen during a test.
-            self.search_index_client = index_client
-        else:
-            self.search_index_client = ExternalSearchIndex(
-                _db, works_index=index_name
-            )
-
-        index_name = self.search_index_client.works_index
-        # We got a generic service name. Replace it with a more
-        # specific one.
-        self.service_name = "Search index update (%s)" % index_name
-
-    def process_batch(self, offset):
-        """Update the search index for a set of Works."""
-        batch = self.fetch_batch(offset).all()
-        if batch:
-            successes, failures = self.search_index_client.bulk_update(batch)
-
-            for work, message in failures:
-                self.log.error(
-                    "Failed to update search index for %s: %s", work, message
-                )
-            WorkCoverageRecord.bulk_add(
-                successes, WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
-            )
-            # Start work on the next batch.
-            return batch[-1].id, len(batch)
-        else:
-            # We're done.
-            return 0, 0
 
 
 class SearchIndexCoverageProvider(WorkPresentationProvider):
