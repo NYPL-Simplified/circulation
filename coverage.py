@@ -245,7 +245,9 @@ class BaseCoverageProvider(object):
             progress.offset = 0
             while not progress.is_complete:
                 try:
-                    new_progress = self.run_once(progress, **run_once_kwargs)
+                    new_progress = self.run_once(
+                        progress, count_as_covered=covered_statuses
+                    )
                     # run_once can either return a new
                     # CoverageProviderProgress object, or modify
                     # in-place the one it was passed.
