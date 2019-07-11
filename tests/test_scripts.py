@@ -49,7 +49,10 @@ from ..model import (
     Work,
     WorkCoverageRecord,
 )
-from ..lane import Lane
+from ..lane import (
+    Lane,
+    WorkList,
+)
 from ..metadata_layer import (
     LinkData,
     TimestampData,
@@ -2809,6 +2812,7 @@ class TestSearchIndexCoverageRemover(DatabaseTest):
             remaining = [x.operation for x in w.coverage_records]
             eq_(sorted(remaining), sorted(decoys))
 
+
 class TestUpdateLaneSizeScript(DatabaseTest):
 
     def test_do_run(self):
@@ -2816,6 +2820,15 @@ class TestUpdateLaneSizeScript(DatabaseTest):
         lane.size = 100
         UpdateLaneSizeScript(self._db).do_run(cmd_args=[])
         eq_(0, lane.size)
+
+    def test_should_process_lane(self):
+        """Only Lane objects can have their size updated."""
+        lane = self._lane()
+        script = UpdateLaneSizeScript(self._db)
+        eq_(True, script.should_process_lane(lane))
+
+        worklist = WorkList()
+        eq_(False, script.should_process_lane(worklist))
 
 
 class TestUpdateCustomListSizeScript(DatabaseTest):

@@ -3148,7 +3148,15 @@ class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
 
 
 class UpdateLaneSizeScript(LaneSweeperScript):
+
+    def should_process_lane(self, lane):
+        """We don't want to process generic WorkLists -- there's nowhere
+        to store the data.
+        """
+        return isinstance(lane, Lane)
+
     def process_lane(self, lane):
+        """Update the estimated size of a Lane."""
         lane.update_size(self._db)
 
 
