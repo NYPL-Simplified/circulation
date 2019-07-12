@@ -62,7 +62,6 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import (
     and_,
-    cast,
     extract,
     or_,
     select,

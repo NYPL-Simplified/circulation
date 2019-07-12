@@ -2333,6 +2333,17 @@ class TestQuery(DatabaseTest):
             qu.to_dict()
         )
 
+        # If the field name contains a period, the query is embedded
+        # in a Nested object that describes how to match it against a
+        # subdocument.
+        qu = Query._match("genres.name", "Biography")
+        base_query = {'match': {'genres.name': 'Biography'}}
+        eq_(
+            {'nested': {'query': base_query, 'path': 'genres'}},
+            qu.to_dict()
+        )
+
+
     def test__match_phrase(self):
         # match_phrase creates a MatchPhrase Elasticsearch
         # object which does a phrase match against a specific field.
