@@ -1415,7 +1415,14 @@ class Query(SearchBase):
     def _match(cls, field, query_string):
         """A clause that matches the query string against a specific field in the search document.
         """
-        return Match(**{field: query_string})
+        match_query = Match(**{field: query_string})
+        if '.' in field:
+            # This is a query against a field from a subdocument. We
+            # can't run it against the top-level document; it has to
+            # be run in the context of its subdocument.
+            subdocument = field.split('.', 1)[0]
+            match_query = Nested(path=subdocument, query=match_query)
+        return match_query
 
     @classmethod
     def _match_phrase(cls, field, query_string):
@@ -1929,7 +1936,10 @@ class Filter(SearchBase):
             f = chain(f, self.target_age_filter)
 
         for genre_ids in self.genre_restriction_sets:
-            f = chain(f, Terms(**{'genres.term' : filter_ids(genre_ids)}))
+            ids = filter_ids(genre_ids)
+            nested_filters['genres'].append(
+                Terms(**{'genres.term' : filter_ids(genre_ids)})
+            )
 
         for customlist_ids in self.customlist_restriction_sets:
             ids = filter_ids(customlist_ids)
