@@ -62,6 +62,7 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import (
     and_,
+    cast,
     extract,
     or_,
     select,
@@ -1554,7 +1555,7 @@ class Work(Base):
             [literal_column("'%s'" % Subject.SIMPLIFIED_GENRE).label('scheme'),
              Genre.name,
              Genre.id.label('term'),
-             WorkGenre.affinity.label('weight'),
+             cast(WorkGenre.affinity.label('weight'), Float)
             ]
         ).where(
             WorkGenre.work_id==literal_column(works_alias.name + "." + works_alias.c.work_id.name)
