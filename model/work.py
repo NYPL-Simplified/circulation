@@ -1555,7 +1555,7 @@ class Work(Base):
             [literal_column("'%s'" % Subject.SIMPLIFIED_GENRE).label('scheme'),
              Genre.name,
              Genre.id.label('term'),
-             cast(WorkGenre.affinity.label('weight'), Float)
+             WorkGenre.affinity.label('weight'),
             ]
         ).where(
             WorkGenre.work_id==literal_column(works_alias.name + "." + works_alias.c.work_id.name)

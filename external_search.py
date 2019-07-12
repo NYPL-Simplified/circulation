@@ -1013,6 +1013,13 @@ class CurrentMapping(Mapping):
         }
         licensepools.add_properties(licensepool_fields)
 
+        genres = self.subdocument("genres")
+        genre_fields = {
+            'keyword': ['scheme', 'name', 'term'],
+            'float': ['weight'],
+        }
+        genres.add_properties(genre_fields)
+
         customlists = self.subdocument("customlists")
         customlist_fields = {
             'integer': ['list_id'],

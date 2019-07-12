@@ -384,14 +384,20 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
     def populate_works(self):
         _work = self.default_work
 
+        classics, ignore = Genre.lookup(self._db, "Classics")
+        history, ignore = Genre.lookup(self._db, "History")
+
         self.moby_dick = _work(
             title="Moby Dick", authors="Herman Melville", fiction=True,
+            genre=classics
         )
         self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
         self.moby_dick.presentation_edition.series = "Classics"
         self.moby_dick.summary_text = "Ishmael"
         self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
         self.moby_dick.last_update_time = datetime.datetime(2019, 1, 1)
+        for workgenre in self.moby_dick.work_genres:
+            workgenre.affinity = 1
 
         self.moby_duck = _work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
         self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
@@ -401,6 +407,9 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # This book is not currently loanable. It will still show up
         # in search results unless the library's settings disable it.
         self.moby_duck.license_pools[0].licenses_available = 0
+        self.moby_duck.genres = [classics, history]
+        for workgenre in self.moby_duck.work_genres:
+            workgenre.affinity = 0.5
 
         self.title_match = _work(title="Match")
 
