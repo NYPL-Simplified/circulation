@@ -41,6 +41,7 @@ from classifier import (
     AgeClassifier,
 )
 from facets import FacetConstants
+from metadata_layer import IdentifierData
 from model import (
     numericrange_to_tuple,
     Collection,
@@ -49,6 +50,7 @@ from model import (
     DataSource,
     Edition,
     ExternalIntegration,
+    Identifier,
     Library,
     Work,
     WorkCoverageRecord,
@@ -1013,6 +1015,12 @@ class CurrentMapping(Mapping):
         }
         licensepools.add_properties(licensepool_fields)
 
+        identifiers = self.subdocument("identifiers")
+        identifier_fields = {
+            'keyword': ['identifier', 'type']
+        }
+        identifiers.add_properties(identifier_fields)
+
         customlists = self.subdocument("customlists")
         customlist_fields = {
             'integer': ['list_id'],
@@ -1761,6 +1769,10 @@ class Filter(SearchBase):
         provide audiobooks known to be unsupported on this system.
         Such audiobooks will always be excluded from results.
 
+        :param identifiers: A list of Identifier or IdentifierData
+        objects. Only books associated with one of these identifiers
+        will be matched.
+
         :param allow_holds: If this is False, books with no available
         copies will be excluded from results.
 
@@ -1778,6 +1790,7 @@ class Filter(SearchBase):
         :param updated_after: If this is set to a datetime, only books
         whose Work records (~bibliographic metadata) have been updated since
         that time will be included in results.
+
         """
 
         if isinstance(collections, Library):
@@ -1833,6 +1846,9 @@ class Filter(SearchBase):
 
         license_datasources = kwargs.pop('license_datasource', None)
         self.license_datasources = self._filter_ids(license_datasources)
+
+        identifiers = kwargs.pop('identifiers', [])
+        self.identifiers = list(self.filter_identifiers(identifiers))
 
         # At this point there should be no keyword arguments -- you can't pass
         # whatever you want into this method.
@@ -1936,7 +1952,7 @@ class Filter(SearchBase):
             # copies should be displayed.
             available = Term(**{'licensepools.available' : True})
             nested_filters['licensepools'].append(
-                Bool(should=[open_access, available])
+                Bool(should=[open_access, available], minimum_should_match=1)
             )
         elif self.availability==FacetConstants.AVAILABLE_OPEN_ACCESS:
             # Only open-access books should be displayed.
@@ -1957,6 +1973,30 @@ class Filter(SearchBase):
                 'quality', 'gte', self.minimum_featured_quality
             )
             f = chain(f, Bool(must=range_query))
+
+        if self.identifiers:
+            # Check every identifier for a match.
+            clauses = []
+            for identifier in self.identifiers:
+                subclauses = []
+                # Both identifier and type must match for the match
+                # to count.
+                for name, value in (
+                    ('identifierFFF', identifier.identifier),
+                    ('type', identifier.type),
+                ):
+                    subclauses.append(
+                        Term(**{'identifiers.%s' % name : value})
+                    )
+                clauses.append(Bool(must=subclauses))
+
+            # At least one the identifiers must match for the work to
+            # match.
+            if len(clauses) == 1:
+                [f] = clauses
+            else:
+                f = Bool(should=clauses, minimum_should_match=1)
+            nested_filters['identifiers'].append(f)
 
         # Some sources of audiobooks may be excluded because the
         # server can't fulfill them or the anticipated client can't
@@ -2390,6 +2430,16 @@ class Filter(SearchBase):
                 id = id.id
             processed.append(id)
         return processed
+
+    @classmethod
+    def filter_identifiers(cls, identifiers):
+        """Convert a mixed list of Identifier and IdentifierData objects
+        into IdentifierData.
+        """
+        for i in identifiers:
+            if isinstance(i, Identifier):
+                i = IdentifierData(i.type, i.identifier)
+            yield i
 
     @classmethod
     def _chain_filters(cls, existing, new):

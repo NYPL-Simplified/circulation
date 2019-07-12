@@ -553,6 +553,12 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         query = self.search.query_works
         expect = self._expect_results
 
+        # Filter on identifier
+        works = [self.sherlock, self.pride_audio]
+        identifiers = [w.license_pools[0].identifier for w in works]
+        f = Filter(identifiers=identifiers)
+        expect(works, None, f)
+
         # First, test pagination.
         first_item = Pagination(size=1, offset=0)
         expect(self.moby_dick, "moby dick", None, first_item)
@@ -844,6 +850,13 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
             languages="eng"
         )
         expect(self.sherlock, "sherlock holmes", f)
+
+        # Filter on identifier
+        works = [self.sherlock, self.pride_audio]
+        identifiers = [w.license_pools[0].identifier for w in works]
+        f = Filter(identifiers=identifiers)
+        set_trace()
+        expect(works, None, f)
 
         # Filters that come from site or library settings.
 
