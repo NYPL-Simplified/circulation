@@ -11,6 +11,7 @@ from datetime import (
 )
 from api.overdrive import (
     MockOverdriveAPI,
+    NewTitlesOverdriveCollectionMonitor,
     OverdriveAPI,
     OverdriveCirculationMonitor,
     OverdriveCollectionReaper,
@@ -1154,7 +1155,7 @@ class TestOverdriveCirculationMonitor(OverdriveAPITest):
         # This isn't very effective, but we have to start somewhere.
         #
         # (This isn't how the Overdrive collection is initially
-        # populated, BTW -- that's FullOverdriveCollectionMonitor.)
+        # populated, BTW -- that's NewTitlesOverdriveCollectionMonitor.)
         self.time_eq(start, now-monitor.OVERLAP)
         self.time_eq(cutoff, now)
         timestamp = monitor.timestamp()
@@ -1289,6 +1290,47 @@ class TestOverdriveCirculationMonitor(OverdriveAPITest):
         # We processed four books: 1, 2, None (which was ignored)
         # and 3.
         eq_("Books processed: 4.", progress.achievements)
+
+
+class TestNewTitlesOverdriveCollectionMonitor(OverdriveAPITest):
+
+    def test_recently_changed_ids(self):
+        class MockAPI(object):
+            def __init__(self, *args, **kwargs):
+                pass
+            def all_ids(self):
+                return "all of the ids"
+
+        monitor = NewTitlesOverdriveCollectionMonitor(
+            self._db, self.collection, api_class=MockAPI
+        )
+        eq_("all of the ids", monitor.recently_changed_ids(object(), object()))
+
+    def test_should_stop(self):
+        monitor = NewTitlesOverdriveCollectionMonitor(
+            self._db, self.collection, api_class=MockOverdriveAPI
+        )
+
+        m = monitor.should_stop
+
+        # If the monitor has never run before, we need to keep going
+        # until we run out of books.
+        eq_(False, m(None, object(), object()))
+        eq_(False, m(monitor.NEVER, object(), object()))
+
+        # If information is missing or invalid, we assume that we
+        # should keep going.
+        start = datetime(2018, 1, 1)
+        eq_(False, m(start, {}, object()))
+        eq_(False, m(start, {'date_added': None}, object()))
+        eq_(False, m(start, {'date_added': "Not a date"}, object()))
+
+        # Here, we're actually comparing real dates, using the date
+        # format found in the Overdrive API. A date that's after the
+        # `start` date means we should keep going backwards. A date before
+        # the `start` date means we should stop.
+        eq_(False, m(start, {'date_added': '2019-07-12T11:06:38.157+01:00'}, object()))
+        eq_(True, m(start, {'date_added': '2017-07-12T11:06:38.157-04:00'}, object()))
 
 
 class TestOverdriveFormatSweep(OverdriveAPITest):
