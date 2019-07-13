@@ -16,6 +16,7 @@ from api.overdrive import (
     OverdriveCirculationMonitor,
     OverdriveCollectionReaper,
     OverdriveFormatSweep,
+    RecentOverdriveCollectionMonitor
 )
 
 from api.authenticator import BasicAuthenticationProvider
@@ -1331,6 +1332,35 @@ class TestNewTitlesOverdriveCollectionMonitor(OverdriveAPITest):
         # the `start` date means we should stop.
         eq_(False, m(start, {'date_added': '2019-07-12T11:06:38.157+01:00'}, object()))
         eq_(True, m(start, {'date_added': '2017-07-12T11:06:38.157-04:00'}, object()))
+
+
+class TestNewTitlesOverdriveCollectionMonitor(OverdriveAPITest):
+
+    def test_should_stop(self):
+        monitor = RecentOverdriveCollectionMonitor(
+            self._db, self.collection, api_class=MockOverdriveAPI
+        )
+        eq_(0, monitor.consecutive_unchanged_books)
+        m = monitor.should_stop
+        
+        # This book hasn't been changed, but we're under the limit, so we should
+        # keep going.
+        eq_(False, m(object(), object(), False))
+        eq_(1, monitor.consecutive_unchanged_books)
+        
+        eq_(False, m(object(), object(), False))
+        eq_(2, monitor.consecutive_unchanged_books)
+        
+        # This book has changed, so our counter gets reset.
+        eq_(False, m(object(), object(), True))
+        eq_(0, monitor.consecutive_unchanged_books)
+
+        # When we're at the limit, and another book comes along that hasn't
+        # been changed, _then_ we decide to stop.
+        monitor.consecutive_unchanged_books = monitor.MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS
+        eq_(True, m(object(), object(), False))
+        eq_(monitor.MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS+1,
+            monitor.consecutive_unchanged_books)
 
 
 class TestOverdriveFormatSweep(OverdriveAPITest):

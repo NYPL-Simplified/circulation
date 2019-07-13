@@ -1141,7 +1141,7 @@ class RecentOverdriveCollectionMonitor(OverdriveCirculationMonitor):
                 # in fact seen that many consecutive unchanged
                 # books.
                 self.log.info("Stopping at %d unchanged books.",
-                              consecutive_unchanged_books)
+                              self.consecutive_unchanged_books)
                 return True
         return False
 
