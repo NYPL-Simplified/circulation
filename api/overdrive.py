@@ -1011,11 +1011,11 @@ class OverdriveCirculationMonitor(CollectionMonitor, TimelineMonitor):
     PROTOCOL = ExternalIntegration.OVERDRIVE
     OVERLAP = datetime.timedelta(minutes=1)
 
-    def __init__(self, _db, collection, api_class=OverdriveAPI):
+    def __init__(self, _db, collection, api_class=OverdriveAPI, analytics_class=Analytics):
         """Constructor."""
         super(OverdriveCirculationMonitor, self).__init__(_db, collection)
         self.api = api_class(_db, collection)
-        self.analytics = Analytics(_db)
+        self.analytics = analytics_class(_db)
 
     def recently_changed_ids(self, start, cutoff):
         return self.api.recently_changed_ids(start, cutoff)
@@ -1026,17 +1026,14 @@ class OverdriveCirculationMonitor(CollectionMonitor, TimelineMonitor):
         :progress: A TimestampData representing the time previously
         covered by this Monitor.
         """
-        _db = self._db
-        added_books = 0
         overdrive_data_source = DataSource.lookup(
-            _db, DataSource.OVERDRIVE)
-
-        total_books = 0
-        consecutive_unchanged_books = 0
+            self._db, DataSource.OVERDRIVE
+        )
 
         # Ask for changes between the last time covered by the Monitor
         # and the current time.
-        for i, book in enumerate(self.recently_changed_ids(start, cutoff)):
+        total_books = 0
+        for book in self.recently_changed_ids(start, cutoff):
             total_books += 1
             if not total_books % 100:
                 self.log.info("%s books processed", total_books)
@@ -1047,9 +1044,10 @@ class OverdriveCirculationMonitor(CollectionMonitor, TimelineMonitor):
             if is_new:
                 for library in self.collection.libraries:
                     self.analytics.collect_event(
-                        library, license_pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, license_pool.last_checked)
+                        library, license_pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, license_pool.last_checked
+                    )
 
-            _db.commit()
+            self._db.commit()
             if self.should_stop(start, book, is_changed):
                 break
 

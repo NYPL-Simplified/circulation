@@ -32,6 +32,7 @@ from . import (
 from core.metadata_layer import TimestampData
 from core.model import (
     Collection,
+    CirculationEvent,
     ConfigurationSetting,
     DataSource,
     DeliveryMechanism,
@@ -1170,8 +1171,16 @@ class TestOverdriveCirculationMonitor(OverdriveAPITest):
 
     def test_catch_up_from(self):
         # catch_up_from() asks Overdrive about recent changes by
-        # calling recently_changed_ids(), and mirrors those changes
-        # locally by calling update_licensepool().
+        # calling recently_changed_ids().
+        #
+        # It mirrors those changes locally by calling
+        # update_licensepool().
+        #
+        # If this is our first time encountering a book, a
+        # DISTRIBUTOR_TITLE_ADD analytics event is sent out.
+        #
+        # The method stops when should_stop() -- called on every book
+        # -- returns True.
         class MockAPI(object):
             def __init__(self, *ignore, **kwignore):
                 self.licensepools = []
@@ -1182,48 +1191,104 @@ class TestOverdriveCirculationMonitor(OverdriveAPITest):
                 self.update_licensepool_calls.append((book_id, pool))
                 return pool, is_new, is_changed
 
+        class MockAnalytics(object):
+            def __init__(self, _db):
+                self._db= _db
+                self.events = []
+
+            def collect_event(self, *args):
+                self.events.append(args)
+
         class MockMonitor(OverdriveCirculationMonitor):
 
             recently_changed_ids_called_with = None 
+            should_stop_calls = []
             def recently_changed_ids(self, start, cutoff):
                 self.recently_changed_ids_called_with = (start, cutoff)
-                return [1, 2, 3, 4]
+                return [1, 2, None, 3, 4]
 
-        monitor = MockMonitor(self._db, self.collection, api_class=MockAPI)
-        monitor.maximum_consecutive_unchanged_books = 2
+            def should_stop(self, start, book, is_changed):
+                # We're going to stop after the third valid book,
+                # ensuring that we never ask 'Overdrive' for the
+                # fourth book.
+                self.should_stop_calls.append((start, book, is_changed))
+                if book == 3:
+                    return True
+                return False
+
+        monitor = MockMonitor(self._db, self.collection, api_class=MockAPI,
+                              analytics_class=MockAnalytics)
         api = monitor.api
+
+        # A MockAnalytics object was created and is ready to receive analytics
+        # events.
+        assert isinstance(monitor.analytics, MockAnalytics)
+        eq_(self._db, monitor.analytics._db)
 
         # The 'Overdrive API' is ready to tell us about four books,
         # but only one of them (the first) represents a change from what
         # we already know.
         lp1 = self._licensepool(None)
+        lp1.last_checked = datetime.utcnow()
         lp2 = self._licensepool(None)
         lp3 = self._licensepool(None)
         lp4 = object()
         api.licensepools.append((lp1, True, True))
         api.licensepools.append((lp2, False, False))
-        api.licensepools.append((lp3, False, False))
+        api.licensepools.append((lp3, False, True))
         api.licensepools.append(lp4)
 
         progress = TimestampData()
-        monitor.catch_up_from(object(), object(), progress)
+        start = object()
+        cutoff = object()
+        monitor.catch_up_from(start, cutoff, progress)
 
-        # We called update_licensepool on the first three books,
-        # and got the first three LicensePools from the queue.
+        # The monitor called recently_changed_ids with the start and
+        # cutoff times. It returned five 'books', one of which was None --
+        # simulating a lack of data from Overdrive.
+        eq_((start, cutoff), monitor.recently_changed_ids_called_with)
+
+        # The monitor ignored the empty book and called
+        # update_licensepool on the first three valid 'books'. The
+        # mock API delivered the first three LicensePools from the
+        # queue.
         eq_([(1, lp1),(2, lp2),(3, lp3)], api.update_licensepool_calls)
 
-        # At that point we gave up because we'd gotten two consecutive
-        # books from Overdrive that contained no new information.
+        # After each book was processed, should_stop was called, using
+        # the LicensePool, the start date, plus information about
+        # whether the LicensePool was changed (or created) during
+        # update_licensepool().
+        eq_(
+            [(start, 1, True),
+             (start, 2, False),
+             (start, 3, True)],
+            monitor.should_stop_calls
+        )
 
-        # The fourth (bogus) LicensePool is still in api.licensepools
+        # should_stop returned True on the third call, and at that
+        # point we gave up.
+
+        # The fourth (bogus) LicensePool is still in api.licensepools,
+        # because we never asked for it.
         eq_([lp4], api.licensepools)
 
-        # TODO: Verify that a DISTRIBUTOR_TITLE_ADD event was gathered
-        # for the newly discovered license pool.
+        # A single analytics event was sent out, for the first LicensePool,
+        # the one that update_licensepool said was new.
+        [[library, licensepool, event, last_checked]] = monitor.analytics.events
+
+        # The event commemerates the addition of this LicensePool to the
+        # collection.
+        eq_(lp1.collection.libraries, [library])
+        eq_(lp1, licensepool)
+        eq_(CirculationEvent.DISTRIBUTOR_TITLE_ADD, event)
+        eq_(lp1.last_checked, last_checked)
 
         # The incoming TimestampData object was updated with
         # a summary of what happened.
-        eq_("Books processed: 3.", progress.achievements)
+        #
+        # We processed four books: 1, 2, None (which was ignored)
+        # and 3.
+        eq_("Books processed: 4.", progress.achievements)
 
 
 class TestOverdriveFormatSweep(OverdriveAPITest):
