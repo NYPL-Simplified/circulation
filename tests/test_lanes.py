@@ -548,8 +548,8 @@ class TestRecommendationLane(LaneTest):
         eq_(False, filter.match_nothing)
 
     def test_overview_facets(self):
-        # A FeaturedFacets object is adapted to a DatabaseBackedFacets object.
-        # This doesn't matter much -- it's just to avoid a crash.
+        # A FeaturedFacets object is adapted to a Facets object with
+        # specific settings.
         featured = FeaturedFacets(0.44, entrypoint=AudiobooksEntryPoint)
         lane = RecommendationLane(
             self._default_library, self.work, '',
