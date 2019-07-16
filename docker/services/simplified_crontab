@@ -77,7 +77,7 @@ HOME=/var/www/circulation
 
 # Overdrive
 #
-0 */4 * * * root core/bin/run overdrive_monitor_full >> /var/log/cron.log 2>&1
+0 3 * * * root core/bin/run overdrive_new_titles >> /var/log/cron.log 2>&1
 */15 * * * * root core/bin/run overdrive_monitor_recent >> /var/log/cron.log 2>&1
 */15 * * * * root core/bin/run overdrive_reaper >> /var/log/cron.log 2>&1
 0 4 * * * root core/bin/run overdrive_format_sweep >> /var/log/cron.log 2>&1
