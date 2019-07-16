@@ -2346,6 +2346,17 @@ class TestQuery(DatabaseTest):
             qu.to_dict()
         )
 
+        # If the field name contains a period, the query is embedded
+        # in a Nested object that describes how to match it against a
+        # subdocument.
+        qu = Query._match("genres.name", "Biography")
+        base_query = {'match': {'genres.name': 'Biography'}}
+        eq_(
+            {'nested': {'query': base_query, 'path': 'genres'}},
+            qu.to_dict()
+        )
+
+
     def test__match_phrase(self):
         # match_phrase creates a MatchPhrase Elasticsearch
         # object which does a phrase match against a specific field.
@@ -3042,13 +3053,24 @@ class TestFilter(DatabaseTest):
         assert isinstance(filter.author_filter, Bool)
         eq_(filter.author_filter, contributor_filter)
 
+        # The genre restrictions are also expressed as nested filters.
+        literary_fiction_filter, fantasy_or_horror_filter = nested.pop(
+            'genres'
+        )
+
+        # There are two different restrictions on genre, because
+        # genre_restriction_sets was set to two lists of genres.
+        eq_({'terms': {'genres.term': [self.literary_fiction.id]}},
+            literary_fiction_filter.to_dict())
+        eq_({'terms': {'genres.term': [self.fantasy.id, self.horror.id]}},
+            fantasy_or_horror_filter.to_dict())
+
         # There are no other nested filters.
         eq_({}, nested)
 
         # Every other restriction imposed on the Filter object becomes an
         # Elasticsearch filter object in this list.
         (medium, language, fiction, audience, target_age,
-         literary_fiction_filter, fantasy_or_horror_filter,
          updated_after) = built
 
         # Test them one at a time.
@@ -3073,13 +3095,6 @@ class TestFilter(DatabaseTest):
         # The contents of target_age_filter are tested below -- this
         # just tests that the target_age_filter is included.
         eq_(filter.target_age_filter, target_age)
-
-        # There are two different restrictions on genre, because
-        # genre_restriction_sets was set to two lists of genres.
-        eq_({'terms': {'genres.term': [self.literary_fiction.id]}},
-            literary_fiction_filter.to_dict())
-        eq_({'terms': {'genres.term': [self.fantasy.id, self.horror.id]}},
-            fantasy_or_horror_filter.to_dict())
 
         # There's a restriction on the last updated time for bibliographic
         # metadata. The datetime is converted to a number of seconds since
