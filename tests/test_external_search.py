@@ -857,6 +857,11 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
             f = Filter(identifiers=identifiers)
             expect(results, None, f, ordered=False)
 
+        # Setting .match_nothing on a Filter makes it always return nothing,
+        # even if it would otherwise return works.
+        nothing = Filter(fiction=True, match_nothing=True)
+        expect([], None, nothing)
+
         # Filters that come from site or library settings.
 
         # The source for the 'Pride and Prejudice' audiobook has been
@@ -1787,9 +1792,10 @@ class TestQuery(DatabaseTest):
     def test_constructor(self):
         # Verify that the Query constructor sets members with
         # no processing.
-        query = Query("query string", "filter")
+        filter = Filter()
+        query = Query("query string", filter)
         eq_("query string", query.query_string)
-        eq_("filter", query.filter)
+        eq_(filter, query.filter)
 
     def test_build(self):
         # Verify that the build() method combines the 'query' part of
@@ -2639,19 +2645,22 @@ class TestFilter(DatabaseTest):
         fiction = object()
         audiences = object()
         author = object()
+        match_nothing = object()
 
         # Test the easy stuff -- these arguments just get stored on
         # the Filter object. If necessary, they'll be cleaned up
         # later, during build().
         filter = Filter(
             media=media, languages=languages,
-            fiction=fiction, audiences=audiences, author=author
+            fiction=fiction, audiences=audiences, author=author,
+            match_nothing=match_nothing
         )
         eq_(media, filter.media)
         eq_(languages, filter.languages)
         eq_(fiction, filter.fiction)
         eq_(audiences, filter.audiences)
         eq_(author, filter.author)
+        eq_(match_nothing, filter.match_nothing)
 
         # Test the `collections` argument.
 

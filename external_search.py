@@ -465,6 +465,10 @@ class ExternalSearchIndex(HasSelfTests):
             pagination = Pagination.default()
 
         search = self.create_search_doc(query_string, filter=filter, pagination=pagination, debug=debug)
+        if filter is not None and filter.match_nothing is True:
+            # We already know that the search should match nothing.
+            # We don't even need to perform the search.
+            return []
         start = pagination.offset
         stop = start + pagination.size
 
@@ -502,6 +506,10 @@ class ExternalSearchIndex(HasSelfTests):
 
     def count_works(self, filter):
         """Instead of retrieving works that match `filter`, count the total."""
+        if filter is not None and filter.match_nothing is True:
+            # We already know that the filter should match nothing.
+            # We don't even need to perform the count.
+            return 0
         qu = self.create_search_doc(
             query_string=None, filter=filter, pagination=None, debug=False
         )
@@ -1804,6 +1812,10 @@ class Filter(SearchBase):
         :param updated_after: If this is set to a datetime, only books
         whose Work records (~bibliographic metadata) have been updated since
         that time will be included in results.
+
+        :param match_nothing: If this is set to True, the search will
+        not even be performed -- we know for some other reason that an
+        empty set of search results should be returned.
         """
 
         if isinstance(collections, Library):
@@ -1856,6 +1868,8 @@ class Filter(SearchBase):
         self.series = kwargs.pop('series', None)
 
         self.author = kwargs.pop('author', None)
+
+        self.match_nothing = kwargs.pop('match_nothing', False)
 
         license_datasources = kwargs.pop('license_datasource', None)
         self.license_datasources = self._filter_ids(license_datasources)
