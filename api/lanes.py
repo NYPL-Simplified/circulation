@@ -25,7 +25,6 @@ from core import classifier
 
 from core.lane import (
     BaseFacets,
-    DatabaseBackedFacets,
     DatabaseBackedWorkList,
     DefaultSortOrderFacets,
     Facets,
@@ -884,9 +883,6 @@ class RecommendationLane(WorkBasedLane):
         suitable for showing an overview of this WorkList in a grouped
         feed.
         """
-        # We're looking up specific works in the database, so this
-        # must be a DatabaseBackedFacets.
-        #
         # TODO: Since the purpose of the recommendation feed is to
         # suggest books that can be borrowed immediately, it would be
         # better to set availability=AVAILABLE_NOW. However, this feed
@@ -903,7 +899,7 @@ class RecommendationLane(WorkBasedLane):
         # TODO: It would be better to order works in the same order
         # they come from the recommendation engine, since presumably
         # the best recommendations are in the front.
-        return DatabaseBackedFacets.default(
+        return Facets.default(
             self.get_library(_db), collection=facets.COLLECTION_FULL,
             availability=facets.AVAILABLE_ALL, entrypoint=facets.entrypoint,
         )
