@@ -1796,7 +1796,6 @@ class TestQuery(DatabaseTest):
         query = Query("query string", filter)
         eq_("query string", query.query_string)
         eq_(filter, query.filter)
-        eq_(False, query.match_nothing)
 
     def test_build(self):
         # Verify that the build() method combines the 'query' part of
