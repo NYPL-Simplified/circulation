@@ -771,7 +771,7 @@ class TestWork(DatabaseTest):
 
     def test_to_search_document(self):
         # Set up an edition and work.
-        edition, pool = self._edition(authors=[self._str, self._str], with_license_pool=True)
+        edition, pool1 = self._edition(authors=[self._str, self._str], with_license_pool=True)
         work = self._work(presentation_edition=edition)
 
         # Create a second Collection that has a different LicensePool
@@ -800,13 +800,18 @@ class TestWork(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.THREEM)
 
         # This identifier is strongly equivalent to the edition's.
-        identifier = self._identifier()
-        identifier.equivalent_to(data_source, edition.primary_identifier, 0.9)
+        identifier1 = self._identifier(identifier_type=Identifier.ISBN)
+        identifier1.equivalent_to(data_source, edition.primary_identifier, 0.9)
 
         # This identifier is equivalent to the other identifier, but the strength
         # is too weak for it to be used.
-        identifier2 = self._identifier()
-        identifier.equivalent_to(data_source, identifier, 0.1)
+        identifier2 = self._identifier(identifier_type=Identifier.ISBN)
+        identifier2.equivalent_to(data_source, identifier2, 0.1)
+
+        # This identifier is equivalent to the _edition's_, but too weak to
+        # be used.
+        identifier3 = self._identifier(identifier_type=Identifier.ISBN)
+        identifier3.equivalent_to(data_source, edition.primary_identifier, 0.1)
 
         # Add some classifications.
 
@@ -814,19 +819,20 @@ class TestWork(DatabaseTest):
         edition.primary_identifier.classify(data_source, Subject.BISAC, "FICTION/Science Fiction/Time Travel", None, 6)
 
         # This one has the same subject type and identifier, so their weights will be combined.
-        identifier.classify(data_source, Subject.BISAC, "FICTION/Science Fiction/Time Travel", None, 1)
+        identifier1.classify(data_source, Subject.BISAC, "FICTION/Science Fiction/Time Travel", None, 1)
 
         # Here's another classification with a different subject type.
         edition.primary_identifier.classify(data_source, Subject.OVERDRIVE, "Romance", None, 2)
 
         # This classification has a subject name, so the search document will use that instead of the identifier.
-        identifier.classify(data_source, Subject.FAST, self._str, "Sea Stories", 7)
+        identifier1.classify(data_source, Subject.FAST, self._str, "Sea Stories", 7)
 
         # This classification will be left out because its subject type isn't useful for search.
-        identifier.classify(data_source, Subject.DDC, self._str, None)
+        identifier1.classify(data_source, Subject.DDC, self._str, None)
 
-        # This classification will be left out because its identifier isn't sufficiently equivalent to the edition's.
+        # These classifications will be left out because their identifiers aren't sufficiently equivalent to the edition's.
         identifier2.classify(data_source, Subject.FAST, self._str, None)
+        identifier3.classify(data_source, Subject.FAST, self._str, None)
 
         # Add some genres.
         genre1, ignore = Genre.lookup(self._db, "Science Fiction")
@@ -941,6 +947,21 @@ class TestWork(DatabaseTest):
             # sources.
             eq_(edition.medium, search_doc['medium'])
             eq_(edition.medium, match['medium'])
+
+        # Each identifier that could, with high confidence, be
+        # associated with the work, is in the 'identifiers' section.
+        #
+        # This includes each identifier associated with a LicensePool
+        # for the work, and the ISBN associated with one of those
+        # LicensePools through a high-confidence equivalency. It does
+        # not include the low-confidence ISBN, or any of the
+        # identifiers not tied to a LicensePool.
+        expect = [
+            dict(identifier=identifier1.identifier, type=identifier1.type),
+            dict(identifier=pool1.identifier.identifier,
+                 type=pool1.identifier.type),
+        ]
+        eq_(sorted(expect), sorted(search_doc['identifiers']))
 
         # Each custom list entry for the work is in the 'customlists'
         # section.

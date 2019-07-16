@@ -1506,14 +1506,30 @@ class Work(Base):
         ).alias("contributors_subquery")
         contributors_json = query_to_json_array(contributors)
 
-        # For Classifications, use a subquery to get recursively equivalent Identifiers
+        # Use a subquery to get recursively equivalent Identifiers
         # for the Edition's primary_identifier_id.
-        identifiers = Identifier.recursively_equivalent_identifier_ids_query(
+        #
+        # NOTE: we don't reliably reindex works when this information
+        # changes, but it's not critical that this information be
+        # totally up to date -- we only use it for subject searches
+        # and recommendations. The index is completely rebuilt once a
+        # day, and that's good enough.
+        equivalent_identifiers = Identifier.recursively_equivalent_identifier_ids_query(
             literal_column(
                 works_alias.name + "." + works_alias.c.identifier_id.name
             ),
             policy=policy
-        )
+        ).alias("equivalent_identifiers_subquery")
+
+        identifiers = select(
+            [
+                Identifier.identifier.label('identifier'),
+                Identifier.type.label('type'),
+            ]
+        ).where(
+            Identifier.id.in_(equivalent_identifiers)
+        ).alias("identifier_subquery")
+        identifiers_json = query_to_json_array(identifiers)
 
         # Map our constants for Subject type to their URIs.
         scheme_column = case(
@@ -1541,7 +1557,7 @@ class Work(Base):
         ).group_by(
             scheme_column, term_column
         ).where(
-            Classification.identifier_id.in_(identifiers)
+            Classification.identifier_id.in_(equivalent_identifiers)
         ).select_from(
             join(Classification, Subject, Classification.subject_id==Subject.id)
         ).alias("subjects_subquery")
@@ -1627,6 +1643,7 @@ class Work(Base):
              licensepools_json.label("licensepools"),
              customlists_json.label("customlists"),
              contributors_json.label("contributors"),
+             identifiers_json.label("identifiers"),
              subjects_json.label("classifications"),
              genres_json.label('genres'),
              target_age_json.label('target_age'),
