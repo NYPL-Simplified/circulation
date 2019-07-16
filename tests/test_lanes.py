@@ -556,7 +556,7 @@ class TestRecommendationLane(LaneTest):
             novelist_api=self.generate_mock_api()
         )
         overview = lane.overview_facets(self._db, featured)
-        assert isinstance(overview, DatabaseBackedFacets)
+        assert isinstance(overview, Facets)
         eq_(Facets.COLLECTION_FULL, overview.collection)
         eq_(Facets.AVAILABLE_ALL, overview.availability)
         eq_(Facets.ORDER_AUTHOR, overview.order)
