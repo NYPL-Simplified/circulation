@@ -844,7 +844,7 @@ class WorkBasedLane(DynamicLane):
         worklist.audiences = self.audiences
 
 
-class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
+class RecommendationLane(WorkBasedLane):
     """A lane of recommended Works based on a particular Work"""
 
     DISPLAY_NAME = "Recommended Books"
@@ -908,24 +908,18 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
             availability=facets.AVAILABLE_ALL, entrypoint=facets.entrypoint,
         )
 
-    def modify_database_query_hook(self, _db, qu):
-        """Find Works corresponding to the ISBNs returned
+    def modify_search_filter_hook(self, filter):
+        """Find Works whose Identifiers include the ISBNs returned
         by an external recommendation engine.
 
-        :param _db: A database connection.
-        :param qu: A database query.
+        :param filter: A Filter object.
         """
         if not self.recommendations:
-            # There are no recommendations. Add a contradiction to the
-            # query so it will return nothing.
-            qu = qu.filter(Work.id!=Work.id)
+            # There are no recommendations. The search should not even
+            # be executed.
+            filter.match_nothing = True
         else:
-            # Make sure the query contains an explicit join against
-            # Identifier, so Work.from_identifiers has something to
-            # work with.
-            qu = qu.join(LicensePool.identifier)
-            qu = Work.from_identifiers(_db, self.recommendations, qu)
-        return qu
+            filter.identifiers = self.recommendations
 
 
 class SeriesFacets(DefaultSortOrderFacets):
