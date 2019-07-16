@@ -2578,10 +2578,10 @@ class TestWorkController(CirculationControllerTest):
         # recommend its identifier for any input.
         #
         # The mock API needs to return a list of Identifiers, so that
-        # the Lane will ask the search index to find us a matching
-        # work instead of giving up.  But the search index is also
-        # mocked, so within this test will return the same book it
-        # always does -- same_author_and_series.
+        # the RelatedWorksLane will ask the RecommendationLane to find
+        # us a matching work instead of hiding it. But the search
+        # index is also mocked, so within this test will return the
+        # same book it always does -- same_author_and_series.
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         metadata = Metadata(overdrive)
         recommended_identifier = self._identifier()
