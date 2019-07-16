@@ -1124,34 +1124,12 @@ class TestWork(DatabaseTest):
         record = find_record(work)
         eq_(registered, record.status)
 
-        # Set it back to non-open-access so that licenses_owned
-        # becomes relevant.
-        pool.open_access = False
-
-        # If its licenses_owned goes from zero to nonzero, it needs to
-        # be reindexed.
+        # If its last_update_time is changed, it needs to be
+        # reindexed. (This happens whenever
+        # LicensePool.update_availability is called, meaning that
+        # patron transactions always trigger a reindex).
         record.status = success
-        pool.licenses_owned = 10
-        pool.licenses_available = 10
-        eq_(registered, record.status)
-
-        # If its licenses_owned changes, but not to zero, nothing happens.
-        record.status = success
-        pool.licenses_owned = 1
-        eq_(success, record.status)
-
-        # If its licenses_available changes, nothing happens
-        pool.licenses_available = 0
-        eq_(success, record.status)
-
-        # If its licenses_owned goes from nonzero to zero, it needs to
-        # be reindexed.
-        pool.licenses_owned = 0
-        eq_(registered, record.status)
-
-        # If it becomes open-access again, it needs to be reindexed.
-        record.status = success
-        pool.open_access = True
+        work.last_update_time = datetime.datetime.utcnow()
         eq_(registered, record.status)
 
         # If its collection changes (which shouldn't happen), it needs
