@@ -1804,7 +1804,6 @@ class Filter(SearchBase):
         :param updated_after: If this is set to a datetime, only books
         whose Work records (~bibliographic metadata) have been updated since
         that time will be included in results.
-
         """
 
         if isinstance(collections, Library):
@@ -1999,7 +1998,7 @@ class Filter(SearchBase):
                 # Both identifier and type must match for the match
                 # to count.
                 for name, value in (
-                    ('identifierFFF', identifier.identifier),
+                    ('identifier', identifier.identifier),
                     ('type', identifier.type),
                 ):
                     subclauses.append(
@@ -2010,10 +2009,10 @@ class Filter(SearchBase):
             # At least one the identifiers must match for the work to
             # match.
             if len(clauses) == 1:
-                [f] = clauses
+                [identifier_f] = clauses
             else:
-                f = Bool(should=clauses, minimum_should_match=1)
-            nested_filters['identifiers'].append(f)
+                identifier_f = Bool(should=clauses, minimum_should_match=1)
+            nested_filters['identifiers'].append(identifier_f)
 
         # Some sources of audiobooks may be excluded because the
         # server can't fulfill them or the anticipated client can't
