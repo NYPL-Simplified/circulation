@@ -263,21 +263,35 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
         data, raw = self.sample_json("overdrive_book_list.json")
         availability = OverdriveRepresentationExtractor.availability_link_list(
             raw)
+        # Every item in the list has a few important values.
         for item in availability:
-            for key in 'availability_link', 'id', 'title':
+            for key in 'availability_link', 'author_name', 'id', 'title', 'date_added':
                 assert key in item
 
+        # Also run a spot check on the actual values.
+        spot = availability[0]
+        eq_('210bdcad-29b7-445f-8d05-cdbb40abc03a', spot['id'])
+        eq_('King and Maxwell', spot['title'])
+        eq_('David Baldacci', spot['author_name'])
+        eq_('2013-11-12T14:13:00-05:00', spot['date_added'])
+
     def test_availability_info_missing_data(self):
+        # overdrive_book_list_missing_data.json has two products. One
+        # only has a title, the other only has an ID.
         data, raw = self.sample_json("overdrive_book_list_missing_data.json")
         [item] = OverdriveRepresentationExtractor.availability_link_list(
             raw)
 
-        # We got a data structure for the item that has an ID but no title.
-        # We did not get a data structure for the item that has a title
-        # but no ID.
-        eq_('title is missing', item['id'])
+        # We got a data structure -- full of missing data -- for the
+        # item that has an ID.
+        eq_('i only have an id', item['id'])
         eq_(None, item['title'])
+        eq_(None, item['author_name'])
+        eq_(None, item['date_added'])
 
+        # We did not get a data structure for the item that only has a
+        # title, because an ID is required -- otherwise we don't know
+        # what book we're talking about.
 
     def test_link(self):
         data, raw = self.sample_json("overdrive_book_list.json")

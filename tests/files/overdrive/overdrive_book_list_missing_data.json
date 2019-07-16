@@ -18,10 +18,10 @@
     "offset": 0,
     "products": [
         {
-	    "title": "id is missing"
+	    "title": "i only have a title"
         },
         {
-	    "id": "title is missing"
+	    "id": "i only have an id"
         }
     ]
 }
