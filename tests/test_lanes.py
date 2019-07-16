@@ -524,79 +524,39 @@ class TestRecommendationLane(LaneTest):
         mock_api.setup(metadata)
         return mock_api
 
-    def test_works_query(self):
+    def test_modify_search_filter_hook(self):
         # Prep an empty result.
         mock_api = self.generate_mock_api()
 
-        # With an empty recommendation result, the lane is empty.
+        # With an empty recommendation result, the Filter is set up
+        # to return nothing.
         lane = RecommendationLane(self._default_library, self.work, '', novelist_api=mock_api)
-        self.assert_works_from_database(lane, [])
+        filter = Filter()
+        eq_(False, filter.match_nothing)
+        lane.modify_search_filter_hook(filter)
+        eq_(True, filter.match_nothing)
 
-        # Resulting recommendations are returned when available, though.
-        result = self._work(with_license_pool=True)
-        lane.recommendations = [result.license_pools[0].identifier]
-        self.assert_works_from_database(lane, [result])
-
-    def test_works_query_with_source_audience(self):
-
-        # If the lane is created with a source audience, it filters the
-        # recommendations appropriately.
-        works = self.sample_works_for_each_audience()
-        [children, ya, adult, adults_only] = works
-        recommendations = list()
-        for work in works:
-            recommendations.append(work.license_pools[0].identifier)
-
-        expected = {
-            Classifier.AUDIENCE_CHILDREN : [children],
-            Classifier.AUDIENCE_YOUNG_ADULT : [children, ya],
-            Classifier.AUDIENCE_ADULTS_ONLY : works
-        }
-
-        for audience, results in expected.items():
-            self.work.audience = audience
-
-            mock_api = self.generate_mock_api()
-            lane = RecommendationLane(
-                self._default_library, self.work, '', novelist_api=mock_api
-            )
-            lane.recommendations = recommendations
-            self.assert_works_from_database(lane, results)
-
-    def test_works_query_with_source_language(self):
-        # Prepare a number of works with different languages.
-        eng = self._work(with_license_pool=True, language='eng')
-        fre = self._work(with_license_pool=True, language='fre')
-        spa = self._work(with_license_pool=True, language='spa')
-
-        # They're all returned as recommendations from NoveList Select.
-        recommendations = list()
-        for work in [eng, fre, spa]:
-            recommendations.append(work.license_pools[0].identifier)
-
-        # But only the work that matches the source work is included.
-        mock_api = self.generate_mock_api()
-        lane = RecommendationLane(self._default_library, self.work, '', novelist_api=mock_api)
-        lane.recommendations = recommendations
-        self.assert_works_from_database(lane, [eng])
-
-        # It doesn't matter the language.
-        self.work.presentation_edition.language = 'fre'
-        mock_api = self.generate_mock_api()
-        lane = RecommendationLane(self._default_library, self.work, '', novelist_api=mock_api)
-        lane.recommendations = recommendations
-        self.assert_works_from_database(lane, [fre])
+        # When there are recommendations, the Filter is modified to
+        # match only those ISBNs.
+        i1 = self._identifier()
+        i2 = self._identifier()
+        lane.recommendations = [i1, i2]
+        filter = Filter()
+        eq_([], filter.identifiers)
+        lane.modify_search_filter_hook(filter)
+        eq_([i1, i2], filter.identifiers)
+        eq_(False, filter.match_nothing)
 
     def test_overview_facets(self):
-        # A FeaturedFacets object is adapted to a DatabaseBackedFacets object.
-        # This doesn't matter much -- it's just to avoid a crash.
+        # A FeaturedFacets object is adapted to a Facets object with
+        # specific settings.
         featured = FeaturedFacets(0.44, entrypoint=AudiobooksEntryPoint)
         lane = RecommendationLane(
             self._default_library, self.work, '',
             novelist_api=self.generate_mock_api()
         )
         overview = lane.overview_facets(self._db, featured)
-        assert isinstance(overview, DatabaseBackedFacets)
+        assert isinstance(overview, Facets)
         eq_(Facets.COLLECTION_FULL, overview.collection)
         eq_(Facets.AVAILABLE_ALL, overview.availability)
         eq_(Facets.ORDER_AUTHOR, overview.order)

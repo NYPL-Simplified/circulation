@@ -2417,6 +2417,13 @@ class TestWorkController(CirculationControllerTest):
             )
             eq_(400, response.status_code)
 
+        # Or if the search index is misconfigured.
+        self.assert_bad_search_index_gives_problem_detail(
+            lambda: self.manager.work_controller.recommendations(
+                *args, **kwargs
+            )
+        )
+
         # If no NoveList API is configured, the lane does not exist.
         with self.request_context_with_library('/'):
             response = self.manager.work_controller.recommendations(
@@ -2426,45 +2433,29 @@ class TestWorkController(CirculationControllerTest):
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
         eq_("Recommendations not available", response.detail)
 
-        # This works, but there are no recommendations, because the
-        # mock_api returns no suggestions.
+        # If the NoveList API is configured, the search index is asked
+        # about its recommendations.
+        #
+        # In this test it doesn't matter whether NoveList actually
+        # provides any recommendations. The Filter object will be
+        # created with .return_nothing set, but our mock
+        # ExternalSearchIndex will ignore that setting and return
+        # everything in its index -- as it always does.
         with self.request_context_with_library('/'):
             response = self.manager.work_controller.recommendations(
                 *args, **kwargs
             )
+
+        # A feed is returned with the data from the
+        # ExternalSearchIndex.
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
         eq_('Recommended Books', feed['feed']['title'])
-        eq_(0, len(feed['entries']))
-
-        # Delete the cache and prep a recommendation result.
-        [cached_empty_feed] = self._db.query(CachedFeed).all()
-        self._db.delete(cached_empty_feed)
-        metadata.recommendations = [self.identifier]
-        mock_api.setup(metadata)
-
-        with self.request_context_with_library('/'):
-            response = self.manager.work_controller.recommendations(
-                *args, **kwargs
-            )
-        # A feed is returned with the proper recommendation.
-        eq_(200, response.status_code)
-        feed = feedparser.parse(response.data)
-
-        eq_('Recommended Books', feed.feed.title)
         [entry] = feed.entries
         eq_(self.english_1.title, entry['title'])
         author = self.edition.author_contributors[0]
         expected_author_name = author.display_name or author.sort_name
         eq_(expected_author_name, entry.author)
-
-        # The feed has facet links, but not as many as other feeds.
-        # There's no way to sort by 'recently added' because
-        # this query is going against the database, not the search index.
-        links = feed['feed']['links']
-        facet_links = [link for link in links if link['rel'] == 'http://opds-spec.org/facet']
-        eq_(8, len(facet_links))
-        assert 'Recently Added' not in [x['title'] for x in facet_links]
 
         # Now let's pass in a mocked AcquisitionFeed so we can check
         # the arguments used to invoke page().
@@ -2497,7 +2488,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(mock_api, lane.novelist_api)
 
         facets = kwargs.pop('facets')
-        assert isinstance(facets, DatabaseBackedFacets)
+        assert isinstance(facets, Facets)
         eq_(Facets.ORDER_TITLE, facets.order)
         eq_(AudiobooksEntryPoint, facets.entrypoint)
 
@@ -2509,8 +2500,8 @@ class TestWorkController(CirculationControllerTest):
         eq_(lane, annotator.lane)
 
         # Checking the URL is difficult because it requires a request
-        # context, _plus_ the DatabaseBackedFacets, Pagination and Lane
-        # created during the original request.
+        # context, _plus_ the Facets, Pagination and Lane created
+        # during the original request.
         route, url_kwargs = lane.url_arguments
         url_kwargs.update(dict(facets.items()))
         url_kwargs.update(dict(pagination.items()))
@@ -2542,7 +2533,7 @@ class TestWorkController(CirculationControllerTest):
         # itself does not exist.
         with self.request_context_with_library('/'):
             response = self.manager.work_controller.related(
-                identifier.type, identifier.identifier
+                identifier.type, identifier.identifier,
             )
             eq_(404, response.status_code)
             eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
@@ -2573,25 +2564,28 @@ class TestWorkController(CirculationControllerTest):
 
         # The mock search engine will return this Work for every
         # search. That means this book will show up as a 'same author'
-        # recommendation and a 'same series' recommentation.
+        # recommendation, a 'same series' recommentation, and a
+        # 'external service' recommendation.
         same_author_and_series = self._work(
             title="Same author and series", with_license_pool=True
         )
         self.manager.external_search.docs = {}
         self.manager.external_search.bulk_update([same_author_and_series])
 
-        # Recommendations from the NoveList API are looked up through
-        # the database, not the search engine. Create a fresh book,
-        # and set up a mock API to recommend its identifier for any
-        # input.
-        recommended_work = self._work(
-            title="A Recommendation from NoveList", with_license_pool=True
-        )
-        [recommended_lp] = recommended_work.license_pools
-        metadata = Metadata(recommended_lp.data_source)
-        metadata.recommendations = [recommended_lp.identifier]
-
         mock_api = MockNoveListAPI(self._db)
+
+        # Create a fresh book, and set up a mock NoveList API to
+        # recommend its identifier for any input.
+        #
+        # The mock API needs to return a list of Identifiers, so that
+        # the RelatedWorksLane will ask the RecommendationLane to find
+        # us a matching work instead of hiding it. But the search
+        # index is also mocked, so within this test will return the
+        # same book it always does -- same_author_and_series.
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        metadata = Metadata(overdrive)
+        recommended_identifier = self._identifier()
+        metadata.recommendations = [recommended_identifier]
         mock_api.setup(metadata)
 
         # Now, ask for works related to self.english_1.
@@ -2638,7 +2632,7 @@ class TestWorkController(CirculationControllerTest):
         [recommended_href, recommended_entry] = by_collection_link[
             'Recommendations for Quite British by John Bull'
         ]
-        eq_("A Recommendation from NoveList", recommended_entry['title'])
+        eq_("Same author and series", recommended_entry['title'])
         work_url = "/works/%s/%s/" % (identifier.type, identifier.identifier)
         expected = urllib.quote(work_url + 'recommendations')
         eq_(True, recommended_href.endswith(expected))
@@ -2651,7 +2645,6 @@ class TestWorkController(CirculationControllerTest):
                 cls.called_with = kwargs
                 return "An OPDS feed"
 
-        # Queue up the same recommendation as before.
         mock_api.setup(metadata)
         with self.request_context_with_library('/?entrypoint=Audio'):
             response = self.manager.work_controller.related(
@@ -2686,7 +2679,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(contributor, contributor_lane.contributor)
 
         assert isinstance(novelist_lane, RecommendationLane)
-        eq_([recommended_lp.identifier], novelist_lane.recommendations)
+        eq_([recommended_identifier], novelist_lane.recommendations)
 
         assert isinstance(series_lane, SeriesLane)
         eq_("Around the World", series_lane.series)

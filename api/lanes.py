@@ -25,7 +25,6 @@ from core import classifier
 
 from core.lane import (
     BaseFacets,
-    DatabaseBackedFacets,
     DatabaseBackedWorkList,
     DefaultSortOrderFacets,
     Facets,
@@ -844,7 +843,7 @@ class WorkBasedLane(DynamicLane):
         worklist.audiences = self.audiences
 
 
-class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
+class RecommendationLane(WorkBasedLane):
     """A lane of recommended Works based on a particular Work"""
 
     DISPLAY_NAME = "Recommended Books"
@@ -884,9 +883,6 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
         suitable for showing an overview of this WorkList in a grouped
         feed.
         """
-        # We're looking up specific works in the database, so this
-        # must be a DatabaseBackedFacets.
-        #
         # TODO: Since the purpose of the recommendation feed is to
         # suggest books that can be borrowed immediately, it would be
         # better to set availability=AVAILABLE_NOW. However, this feed
@@ -903,29 +899,23 @@ class RecommendationLane(WorkBasedLane, DatabaseExclusiveWorkList):
         # TODO: It would be better to order works in the same order
         # they come from the recommendation engine, since presumably
         # the best recommendations are in the front.
-        return DatabaseBackedFacets.default(
+        return Facets.default(
             self.get_library(_db), collection=facets.COLLECTION_FULL,
             availability=facets.AVAILABLE_ALL, entrypoint=facets.entrypoint,
         )
 
-    def modify_database_query_hook(self, _db, qu):
-        """Find Works corresponding to the ISBNs returned
+    def modify_search_filter_hook(self, filter):
+        """Find Works whose Identifiers include the ISBNs returned
         by an external recommendation engine.
 
-        :param _db: A database connection.
-        :param qu: A database query.
+        :param filter: A Filter object.
         """
         if not self.recommendations:
-            # There are no recommendations. Add a contradiction to the
-            # query so it will return nothing.
-            qu = qu.filter(Work.id!=Work.id)
+            # There are no recommendations. The search should not even
+            # be executed.
+            filter.match_nothing = True
         else:
-            # Make sure the query contains an explicit join against
-            # Identifier, so Work.from_identifiers has something to
-            # work with.
-            qu = qu.join(LicensePool.identifier)
-            qu = Work.from_identifiers(_db, self.recommendations, qu)
-        return qu
+            filter.identifiers = self.recommendations
 
 
 class SeriesFacets(DefaultSortOrderFacets):
