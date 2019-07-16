@@ -276,25 +276,6 @@ def licensepool_collection_change(target, value, oldvalue, initiator):
         return
     work.external_index_needs_updating()
 
-
-@event.listens_for(LicensePool.licenses_owned, 'set')
-def licenses_owned_change(target, value, oldvalue, initiator):
-    """A Work may need to have its search document re-indexed if one of
-    its LicensePools changes the number of licenses_owned to or from zero.
-    """
-    work = target.work
-    if not work:
-        return
-    if target.open_access:
-        # For open-access works, the licenses_owned value doesn't
-        # matter.
-        return
-    if (value == oldvalue) or (value > 0 and oldvalue > 0):
-        # The availability of this LicensePool has not changed. No need
-        # to reindex anything.
-        return
-    work.external_index_needs_updating()
-
 @event.listens_for(LicensePool.open_access, 'set')
 def licensepool_open_access_change(target, value, oldvalue, initiator):
     """A Work may need to have its search document re-indexed if one of
@@ -308,3 +289,13 @@ def licensepool_open_access_change(target, value, oldvalue, initiator):
     if value == oldvalue:
         return
     work.external_index_needs_updating()
+
+@event.listens_for(Work.last_update_time, 'set')
+def last_update_time_change(target, value, oldvalue, initator):
+    """A Work needs to have its search document re-indexed whenever its
+    last_update_time changes.
+
+    Among other things, this happens whenever the LicensePool's availability
+    information changes.
+    """
+    target.external_index_needs_updating()

@@ -15,6 +15,7 @@ from ...model import (
     create,
     site_configuration_has_changed,
     Timestamp,
+    WorkCoverageRecord,
 )
 
 class TestSiteConfigurationHasChanged(DatabaseTest):
@@ -63,7 +64,7 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
 
         def ts():
             return Timestamp.value(
-                self._db, Configuration.SITE_CONFIGURATION_CHANGED, 
+                self._db, Configuration.SITE_CONFIGURATION_CHANGED,
                 service_type=None, collection=None
             )
         timestamp_value = ts()
@@ -181,3 +182,56 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
                facets='', library=library)
         self._db.commit()
         self.mock.assert_was_not_called()
+
+class TestWorkReindexing(DatabaseTest):
+    """Test the circumstances under which a database change
+    requires that a Work's entry in the search index be recreated.
+    """
+
+    def _assert_work_needs_update(self, work):
+        [update_search] = work.coverage_records
+        eq_(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION,
+            update_search.operation)
+        eq_(WorkCoverageRecord.REGISTERED, update_search.status)
+
+    def test_open_access_change(self):
+        work = self._work(with_license_pool=True)
+        work.coverage_records = []
+        [pool] = work.license_pools
+        pool.open_access = True
+        self._assert_work_needs_update(work)
+
+    def test_last_update_time_change(self):
+        work = self._work()
+        work.coverage_records = []
+        work.last_update_time = datetime.datetime.utcnow()
+        self._assert_work_needs_update(work)
+
+    def test_collection_change(self):
+        work = self._work(with_license_pool=True)
+        work.coverage_records = []
+        collection2 = self._collection()
+        [pool] = work.license_pools
+        pool.collection_id = collection2.id
+        self._assert_work_needs_update(work)
+
+    def test_licensepool_deleted(self):
+        work = self._work(with_license_pool=True)
+        work.coverage_records = []
+        [pool] = work.license_pools
+        self._db.delete(pool)
+        self._db.commit()
+        self._assert_work_needs_update(work)
+
+    def test_work_gains_licensepool(self):
+        work = self._work()
+        work.coverage_records = []
+        pool = self._licensepool(None)
+        work.license_pools.append(pool)
+        self._assert_work_needs_update(work)
+
+    def test_work_loses_licensepool(self):
+        work = self._work(with_license_pool=True)
+        work.coverage_records = []
+        work.license_pools = []
+        self._assert_work_needs_update(work)
