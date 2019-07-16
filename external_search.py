@@ -994,9 +994,10 @@ class CurrentMapping(Mapping):
         # Now, the main event. Set up the field properties for the
         # base document.
         fields_by_type = {
-            "basic_text": ['title', 'subtitle', 'summary',
-                           'classifications.term'],
-            'filterable_text': ['series'],
+            "basic_text": ['summary'],
+            'filterable_text': [
+                'title', 'subtitle', 'series', 'classifications.term'
+            ],
             'boolean': ['presentation_ready'],
             'icu_collation_keyword': ['sort_title'],
             'sort_author_keyword' : ['sort_author'],
