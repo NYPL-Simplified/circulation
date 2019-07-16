@@ -41,7 +41,10 @@ from ..lane import (
     Pagination,
     WorkList,
 )
-from ..metadata_layer import ContributorData
+from ..metadata_layer import (
+    ContributorData,
+    IdentifierData,
+)
 from ..model import (
     ConfigurationSetting,
     Contribution,
@@ -2090,7 +2093,8 @@ class TestQuery(DatabaseTest):
         available = {'term': {'licensepools.available': True}}
         eq_(
             nested_filter.to_dict(),
-            {'bool': {'filter': [{'bool': {'should': [open_access, available]}}]}}
+            {'bool': {'filter': [{'bool': {'should': [open_access, available],
+                                           'minimum_should_match': 1}}]}}
         )
 
         # If the Filter specifies script fields, those fields are
@@ -3513,6 +3517,20 @@ class TestFilter(DatabaseTest):
 
         library = self._default_library
         eq_([library.id], m([library]))
+
+    def test__scrub_identifiers(self):
+        # Test the _scrub_identifiers helper method, which converts
+        # Identifier objects to IdentifierData.
+        i1 = self._identifier()
+        i2 = self._identifier()
+        si1, si2 = Filter._scrub_identifiers([i1, i2])
+        for before, after in ((i1, si1), (i2, si2)):
+            assert isinstance(si1, IdentifierData)
+            eq_(before.identifier, after.identifier)
+            eq_(before.type, after.type)
+
+        # If you pass in an IdentifierData you get it back.
+        eq_([si1], list(Filter._scrub_identifiers([si1])))
 
     def test__chain_filters(self):
         # Test the _chain_filters method, which combines

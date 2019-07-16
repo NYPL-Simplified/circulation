@@ -1861,7 +1861,7 @@ class Filter(SearchBase):
         self.license_datasources = self._filter_ids(license_datasources)
 
         identifiers = kwargs.pop('identifiers', [])
-        self.identifiers = list(self.filter_identifiers(identifiers))
+        self.identifiers = list(self._scrub_identifiers(identifiers))
 
         # At this point there should be no keyword arguments -- you can't pass
         # whatever you want into this method.
@@ -1993,7 +1993,7 @@ class Filter(SearchBase):
         if self.identifiers:
             # Check every identifier for a match.
             clauses = []
-            for identifier in self.identifiers:
+            for identifier in self._scrub_identifiers(self.identifiers):
                 subclauses = []
                 # Both identifier and type must match for the match
                 # to count.
@@ -2445,7 +2445,7 @@ class Filter(SearchBase):
         return processed
 
     @classmethod
-    def filter_identifiers(cls, identifiers):
+    def _scrub_identifiers(cls, identifiers):
         """Convert a mixed list of Identifier and IdentifierData objects
         into IdentifierData.
         """
