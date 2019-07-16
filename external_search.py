@@ -2008,10 +2008,7 @@ class Filter(SearchBase):
 
             # At least one the identifiers must match for the work to
             # match.
-            if len(clauses) == 1:
-                [identifier_f] = clauses
-            else:
-                identifier_f = Bool(should=clauses, minimum_should_match=1)
+            identifier_f = Bool(should=clauses, minimum_should_match=1)
             nested_filters['identifiers'].append(identifier_f)
 
         # Some sources of audiobooks may be excluded because the

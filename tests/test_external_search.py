@@ -845,11 +845,14 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         )
         expect(self.sherlock, "sherlock holmes", f)
 
-        # Filter on identifier
-        works = [self.sherlock, self.pride_audio]
-        identifiers = [w.license_pools[0].identifier for w in works]
-        f = Filter(identifiers=identifiers)
-        expect(works, None, f, ordered=False)
+        # Filter on identifier -- one or many.
+        for results in [
+            [self.lincoln],
+            [self.sherlock, self.pride_audio]
+        ]:
+            identifiers = [w.license_pools[0].identifier for w in results]
+            f = Filter(identifiers=identifiers)
+            expect(results, None, f, ordered=False)
 
         # Filters that come from site or library settings.
 
@@ -2972,6 +2975,9 @@ class TestFilter(DatabaseTest):
         filter.excluded_audiobook_data_sources = [overdrive.id]
         filter.allow_holds = False
         last_update_time = datetime.datetime(2019, 1, 1)
+        i1 = self._identifier()
+        i2 = self._identifier()
+        filter.identifiers = [i1, i2]
         filter.updated_after = last_update_time
 
         # We want books from a specific license source.
@@ -3057,6 +3063,21 @@ class TestFilter(DatabaseTest):
             literary_fiction_filter.to_dict())
         eq_({'terms': {'genres.term': [self.fantasy.id, self.horror.id]}},
             fantasy_or_horror_filter.to_dict())
+
+        # There's a restriction on the identifier.
+        [identifier_restriction] = nested.pop('identifiers')
+
+        # The restriction includes subclases, each of which matches
+        # the identifier and type of one of the Identifier objects.
+        subclauses = [
+            Bool(must=[Term(identifiers__identifier=x.identifier),
+                       Term(identifiers__type=x.type)])
+            for x in [i1, i2]
+        ]
+
+        # Any identifier will work, but at least one must match.
+        eq_(Bool(minimum_should_match=1, should=subclauses),
+            identifier_restriction)
 
         # There are no other nested filters.
         eq_({}, nested)
