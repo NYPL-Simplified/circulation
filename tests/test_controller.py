@@ -2417,6 +2417,13 @@ class TestWorkController(CirculationControllerTest):
             )
             eq_(400, response.status_code)
 
+        # Or if the search index is misconfigured.
+        self.assert_bad_search_index_gives_problem_detail(
+            lambda: self.manager.work_controller.recommendations(
+                *args, **kwargs
+            )
+        )
+
         # If no NoveList API is configured, the lane does not exist.
         with self.request_context_with_library('/'):
             response = self.manager.work_controller.recommendations(
