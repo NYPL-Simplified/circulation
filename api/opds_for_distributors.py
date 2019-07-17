@@ -274,8 +274,10 @@ class OPDSForDistributorsImporter(OPDSImporter):
             OPDSForDistributorsImporter, self).update_work_for_edition(
                 *args, **kwargs
         )
-        pool.licenses_owned = 1
-        pool.licenses_available = 1
+        pool.update_availability(
+            new_licenses_owned=1, new_licenses_available=1,
+            new_licenses_reserved=0, new_patrons_in_hold_queue=0
+        )
         return pool, work
 
     @classmethod
