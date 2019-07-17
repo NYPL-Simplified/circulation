@@ -2661,7 +2661,7 @@ class MockExternalSearchIndex(ExternalSearchIndex):
     def create_search_doc(self, query_string, filter=None, pagination=None, debug=False):
         return self.docs.values()
 
-    def query_works(self, query_string, filter, pagination, debug=False, search=None):
+    def query_works(self, query_string, filter, pagination, debug=False):
         self.queries.append((query_string, filter, pagination, debug))
         # During a test we always sort works by the order in which the
         # work was created.
