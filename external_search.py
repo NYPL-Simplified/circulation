@@ -1312,8 +1312,11 @@ class Query(SearchBase):
             self._match_phrase('title.minimal', query_string), 120
         )
         self._hypothesize(
+            hypotheses, Term(**{'author.keyword': query_string}), 150
+        )
+        self._hypothesize(
             hypotheses,
-            self._match_phrase("author", query_string), 50
+            self._match_phrase("author.minimal", query_string), 50
         )
 
         # The query string might be a fuzzy match against one of the
