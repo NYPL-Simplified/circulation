@@ -22,8 +22,7 @@
 # unnecessarily. (e.g. the search for "dirtbike" checks for books
 # filed under certain subjects, not specific titles).
 #
-# To run the tests, put the URL to your Elasticsearch index in the
-# ES1_ELASTICSEARCH environment variable and run this command:
+# Run the tests with this command:
 #
 # $ nosetests integration_tests/test_search.py
 
@@ -45,6 +44,7 @@ from core.external_search import (
     ExternalSearchIndex,
     Filter
 )
+
 
 # A problem from the unit tests that we couldn't turn into a
 # real integration test.
@@ -69,7 +69,7 @@ class Searcher(object):
     def query(self, query, pagination):
         return self.index.query_works(
             query, filter=self.filter, pagination=pagination,
-            debug=True, return_raw_results=True
+            debug=True
         )
 
 
@@ -2310,17 +2310,8 @@ class TestAgeRangeRestriction(SearchTest):
         )
 
 
-ES6 = ('es6' in os.environ['VIRTUAL_ENV'])
-if ES6:
-    url = os.environ['ES6_ELASTICSEARCH']
-    index = "es6-test-v3"
-else:
-    url = os.environ['ES1_ELASTICSEARCH']
-    index = None
-
 _db = production_session()
 library = None
 
-index = ExternalSearchIndex(_db, url=url, works_index=index)
-index.works_alias = index
+index = ExternalSearchIndex(_db)
 SearchTest.searcher = Searcher(library, index)
