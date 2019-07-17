@@ -1304,20 +1304,12 @@ class Query(SearchBase):
 
         # The query string might be an exact match for title or
         # author. Such a match would be boosted quite a lot.
-        self._hypothesize(
-            hypotheses, Term(**{'title.keyword': query_string}), 200
-        )
-        self._hypothesize(
-            hypotheses,
-            self._match_phrase('title.minimal', query_string), 120
-        )
-        self._hypothesize(
-            hypotheses, Term(**{'author.keyword': query_string}), 150
-        )
-        self._hypothesize(
-            hypotheses,
-            self._match_phrase("author.minimal", query_string), 50
-        )
+        for title_query, multiplier in self._match_title_queries(query_string):
+            self._hypothesize(hypotheses, title_query, 200*multiplier)
+
+        author_queries = self._match_author_queries(query_string)
+        for author_query, multiplier in author_queries:
+            self._hypothesize(hypotheses, author_query, 100*multiplier)
 
         # The query string might be a fuzzy match against one of the
         # standard searchable fields.
@@ -1385,10 +1377,15 @@ class Query(SearchBase):
            the boost. If this is True, then all `queries` must match,
            or the boost will not apply.
         """
+        if filters:
+            filters = Bool(must=filters)
+
         if isinstance(queries, Bool):
             # This is already a boolean query; we just need to change
-            # the boost.
+            # the boost and potentially add filters.
             queries._params['boost'] = boost
+            if filters:
+                queries._params['filter'] = filters
             return queries
 
         if isinstance(queries, BaseQuery):
@@ -1396,6 +1393,8 @@ class Query(SearchBase):
                 # We already have a Query and we don't actually need
                 # to boost it. Leave it alone to simplify the final
                 # query.
+                if filters:
+                    queries._params['filter'] = filters
                 return queries
             else:
                 queries = [queries]
@@ -1408,9 +1407,8 @@ class Query(SearchBase):
         else:
             # At least one of the queries in `queries` must match.
             kwargs = dict(should=queries, minimum_should_match=1)
-
         if filters:
-            kwargs['filter'] = Bool(must=filters)
+            kwargs['filter'] = filters
         query = Bool(boost=float(boost), **kwargs)
         return query
 
@@ -1494,6 +1492,16 @@ class Query(SearchBase):
             cls._match_range("target_age.lower", "gte", lower),
         ]
         return Bool(must=must, should=should, boost=float(boost))
+
+    @classmethod
+    def _match_title_queries(cls, query_string):
+        yield Term(**{'title.keyword': query_string}), 1
+        yield cls._match_phrase('title.minimal', query_string), 0.75
+
+    @classmethod
+    def _match_author_queries(cls, query_string):
+        yield Term(**{'author.keyword': query_string}), 1
+        yield cls._match_phrase("author.minimal", query_string), 0.5
 
     @classmethod
     def _parsed_query_matches(cls, query_string):
