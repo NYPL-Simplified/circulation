@@ -1438,7 +1438,7 @@ class Query(SearchBase):
     def _match(cls, field, query_string):
         """A clause that matches the query string against a specific field in the search document.
         """
-        match_query = Match(**{field: query_string})
+        match_query = Term(**{field: query_string})
         if '.' in field:
             # This is a query against a field from a subdocument. We
             # can't run it against the top-level document; it has to
