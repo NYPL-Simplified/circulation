@@ -487,7 +487,7 @@ class ExternalSearchIndex(HasSelfTests):
         results = search[start:stop]
         if debug:
             b = time.time()
-            self.log.info("Elasticsearch query completed in %.2fsec", b-a)
+            self.log.debug("Elasticsearch query completed in %.2fsec", b-a)
             for i, result in enumerate(results):
                 self.log.debug(
                     '%02d "%s" (%s) work=%s score=%.3f shard=%s',
@@ -1305,8 +1305,11 @@ class Query(SearchBase):
         # The query string might be an exact match for title or
         # author. Such a match would be boosted quite a lot.
         self._hypothesize(
+            hypotheses, Term(**{'title.keyword': query_string}), 200
+        )
+        self._hypothesize(
             hypotheses,
-            self._match_phrase("title.standard", query_string), 200
+            self._match_phrase('title.minimal', query_string), 120
         )
         self._hypothesize(
             hypotheses,
