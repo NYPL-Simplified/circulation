@@ -1289,27 +1289,24 @@ class Query(SearchBase):
 
         # Here are the hypotheses:
 
-        # The query string might appear in one of the standard
+        # The query string might be a match solely against title,
+        # author, or series.
+        for title_query, multiplier in self._match_title_queries(query_string):
+            self._hypothesize(hypotheses, title_query, 200*multiplier)
+
+        for author_query, multiplier in self._match_author_queries(query_string):
+            self._hypothesize(hypotheses, author_query, 100*multiplier)
+
+        for series_query, multiplier in self._match_series_queries(query_string):
+            self._hypothesize(hypotheses, series_query, 100*multiplier)
+
+        # The query string might match a book across several
         # searchable fields.
         simple = self.simple_query_string_query(query_string)
         self._hypothesize(hypotheses, simple)
 
-        # The query string might be a close match against title,
-        # author, or series.
-        self._hypothesize(
-            hypotheses,
-            self.minimal_stemming_query(query_string),
-            100
-        )
-
-        # The query string might be an exact match for title or
-        # author. Such a match would be boosted quite a lot.
-        for title_query, multiplier in self._match_title_queries(query_string):
-            self._hypothesize(hypotheses, title_query, 200*multiplier)
-
-        author_queries = self._match_author_queries(query_string)
-        for author_query, multiplier in author_queries:
-            self._hypothesize(hypotheses, author_query, 100*multiplier)
+        # NOTE: minimal_stemming query has been removed since it was
+        # searching across several fields simultaneously.
 
         # The query string might be a fuzzy match against one of the
         # standard searchable fields.
@@ -1321,7 +1318,7 @@ class Query(SearchBase):
         # the "real" query string.
         with_field_matches, filters = self._parsed_query_matches(query_string)
         self._hypothesize(
-            hypotheses, with_field_matches, 200, all_must_match=True,
+            hypotheses, with_field_matches, 100, all_must_match=True,
             filters=filters
         )
 
@@ -1437,17 +1434,25 @@ class Query(SearchBase):
         return fuzzy
 
     @classmethod
-    def _match_term(cls, field, query_string):
-        """A clause that matches the query string against a specific field in the search document.
-        """
-        match_query = Term(**{field: query_string})
-        if '.' in field:
+    def _nest(cls, subdocument, query):
+        return Nested(path=subdocument, query=query)
+
+    @classmethod
+    def _nestable(cls, field, query):
+        if 's.' in field:
             # This is a query against a field from a subdocument. We
             # can't run it against the top-level document; it has to
             # be run in the context of its subdocument.
             subdocument = field.split('.', 1)[0]
-            match_query = Nested(path=subdocument, query=match_query)
-        return match_query
+            query = cls._nest(subdocument, query)
+        return query
+
+    @classmethod
+    def _match_term(cls, field, query_string):
+        """A clause that matches the query string against a specific field in the search document.
+        """
+        match_query = Term(**{field: query_string})
+        return cls._nestable(field, match_query)
 
     @classmethod
     def _match_phrase(cls, field, query_string):
@@ -1500,8 +1505,23 @@ class Query(SearchBase):
 
     @classmethod
     def _match_author_queries(cls, query_string):
-        yield Term(**{'author.keyword': query_string}), 1
-        yield cls._match_phrase("author.minimal", query_string), 0.5
+        for role, multiplier in (
+            ("Primary Author", 1),
+            ("Author", 0.75)
+        ):
+            for field, base in (
+                ('contributors.name.keyword', 1),
+                ('contributors.name.minimal', 0.8)
+            ):
+                match_author = Term(**{field: query_string})
+                match_role = Term(**{"contributors.role": role})
+                match_both = Bool(must=[match_author, match_role])
+                yield cls._nest('contributors', match_both), base * multiplier
+
+    @classmethod
+    def _match_series_queries(cls, query_string):
+        yield Term(**{'series.keyword': query_string}), 1
+        yield cls._match_phrase('series.minimal', query_string), 0.60
 
     @classmethod
     def _parsed_query_matches(cls, query_string):
