@@ -1327,9 +1327,10 @@ class Query(SearchBase):
         # The query string might contain some specific field matches
         # (e.g. a genre name or target age), with the remainder being
         # the "real" query string.
-        with_field_matches = self._parsed_query_matches(query_string)
+        with_field_matches, filters = self._parsed_query_matches(query_string)
         self._hypothesize(
-            hypotheses, with_field_matches, 200, all_must_match=True
+            hypotheses, with_field_matches, 200, all_must_match=True,
+            filters=filters
         )
 
         # For a given book, whichever one of these hypotheses gives
@@ -1369,7 +1370,7 @@ class Query(SearchBase):
         return DisMax(queries=hypotheses)
 
     @classmethod
-    def _boost(cls, boost, queries, all_must_match=False):
+    def _boost(cls, boost, queries, filters=None, all_must_match=False):
         """Boost a query by a certain amount relative to its neighbors in a
         dis_max query.
 
@@ -1408,7 +1409,10 @@ class Query(SearchBase):
             # At least one of the queries in `queries` must match.
             kwargs = dict(should=queries, minimum_should_match=1)
 
-        return Bool(boost=float(boost), **kwargs)
+        if filters:
+            kwargs['filter'] = Bool(must=filters)
+        query = Bool(boost=float(boost), **kwargs)
+        return query
 
     @classmethod
     def simple_query_string_query(cls, query_string, fields=None):
@@ -1435,7 +1439,7 @@ class Query(SearchBase):
         return fuzzy
 
     @classmethod
-    def _match(cls, field, query_string):
+    def _match_term(cls, field, query_string):
         """A clause that matches the query string against a specific field in the search document.
         """
         match_query = Term(**{field: query_string})
@@ -1503,7 +1507,8 @@ class Query(SearchBase):
         information is used in a simple query that matches basic
         fields.
         """
-        return QueryParser(query_string).match_queries
+        parser = QueryParser(query_string)
+        return parser.match_queries, parser.filters
 
 
 class QueryParser(object):
@@ -1545,6 +1550,7 @@ class QueryParser(object):
 
         # We start with no match queries.
         self.match_queries = []
+        self.filters = []
 
         # We handle genre first so that, e.g. 'Science Fiction' doesn't
         # get chomped up by the search for 'fiction'.
@@ -1552,7 +1558,7 @@ class QueryParser(object):
         # Handle the 'romance' part of 'young adult romance'
         genre, genre_match = KeywordBasedClassifier.genre_match(query_string)
         if genre:
-            query_string = self.add_match_query(
+            query_string = self.add_match_term_query(
                 genre.name, 'genres.name', query_string, genre_match
             )
 
@@ -1561,7 +1567,7 @@ class QueryParser(object):
             query_string
         )
         if audience:
-            query_string = self.add_match_query(
+            query_string = self.add_match_term_query(
                 audience.replace(" ", ""), 'audience', query_string,
                 audience_match
             )
@@ -1572,7 +1578,7 @@ class QueryParser(object):
             fiction = "Nonfiction"
         elif re.compile(r"\bfiction\b", re.IGNORECASE).search(query_string):
             fiction = "Fiction"
-        query_string = self.add_match_query(
+        query_string = self.add_match_term_query(
             fiction, 'fiction', query_string, fiction
         )
 
@@ -1624,7 +1630,7 @@ class QueryParser(object):
             )
             self.match_queries.append(match_rest_of_query)
 
-    def add_match_query(self, query, field, query_string, matched_portion):
+    def add_match_term_query(self, query, field, query_string, matched_portion):
         """Create a match query that finds documents whose value for `field`
         matches `query`.
 
@@ -1634,8 +1640,8 @@ class QueryParser(object):
         if not query:
             # This is not a relevant part of the query string.
             return query_string
-        match_query = self.query_class._match(field, query)
-        self.match_queries.append(match_query)
+        match_query = self.query_class._match_term(field, query)
+        self.filters.append(match_query)
         return self._without_match(query_string, matched_portion)
 
     def add_target_age_query(self, query, query_string, matched_portion):
