@@ -1726,6 +1726,10 @@ class WorkController(CirculationManagerController):
         if isinstance(work, ProblemDetail):
             return work
 
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
         lane_name = "Recommendations for %s by %s" % (work.title, work.author)
         try:
             lane = RecommendationLane(
@@ -1736,9 +1740,7 @@ class WorkController(CirculationManagerController):
             # NoveList isn't configured.
             return NO_SUCH_LANE.detailed(_("Recommendations not available"))
 
-        facets = load_facets_from_request(
-            worklist=lane, base_class=DatabaseBackedFacets
-        )
+        facets = load_facets_from_request(worklist=lane)
         if isinstance(facets, ProblemDetail):
             return facets
 
@@ -1759,7 +1761,8 @@ class WorkController(CirculationManagerController):
         feed = feed_class.page(
             _db=self._db, title=lane.DISPLAY_NAME, url=url, lane=lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=lane.CACHED_FEED_TYPE
+            annotator=annotator, cache_type=lane.CACHED_FEED_TYPE,
+            search_engine=search_engine
         )
         return feed_response(unicode(feed))
 
