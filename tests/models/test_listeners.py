@@ -15,6 +15,7 @@ from ...model import (
     create,
     site_configuration_has_changed,
     Timestamp,
+    WorkCoverageRecord,
 )
 
 class TestSiteConfigurationHasChanged(DatabaseTest):
@@ -63,7 +64,7 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
 
         def ts():
             return Timestamp.value(
-                self._db, Configuration.SITE_CONFIGURATION_CHANGED, 
+                self._db, Configuration.SITE_CONFIGURATION_CHANGED,
                 service_type=None, collection=None
             )
         timestamp_value = ts()
@@ -181,3 +182,8 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
                facets='', library=library)
         self._db.commit()
         self.mock.assert_was_not_called()
+
+        # NOTE: test_work.py:TestWork.test_reindex_on_availability_change
+        # tests the circumstances under which a database change
+        # requires that a Work's entry in the search index be
+        # recreated.
