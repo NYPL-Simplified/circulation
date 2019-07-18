@@ -1291,9 +1291,10 @@ class Query(SearchBase):
         hypotheses = []
 
         # If it looks like the query contain misspelled words, we'll
-        # generate a lower-weighted 'fuzzy' version of each
-        # hypothesis, which tests the hypothesis that someone meant to
-        # trigger that hypothesis but made a typo.
+        # generate a lower-weighted 'fuzzy' version of most
+        # hypotheses. The fuzzy version of a hypothesis tests the idea
+        # that someone meant to trigger this hypothesis but made a
+        # typo.
         make_fuzzy = SpellChecker().unknown(query_string.split())
 
         # Here are the hypotheses:
@@ -1311,16 +1312,37 @@ class Query(SearchBase):
             ):
                 self._hypothesize(hypotheses, qu, base_score*multiplier)
 
-        for author_query, multiplier in self._match_author_queries(query_string):
-            self._hypothesize(hypotheses, author_query, 100*multiplier)
+        for author_query, multiplier in self._match_author_queries(
+            query_string, make_fuzzy=make_fuzzy
+        ):
+            self._hypothesize(
+                hypotheses, author_query, 120*multiplier,
+            )
+
+        # The query string might contain some specific field matches
+        # (e.g. a genre name or target age), with the remainder being
+        # the "real" query string.
+        with_field_matches, filters = self._parsed_query_matches(query_string)
+        self._hypothesize(
+            hypotheses, with_field_matches, 100, all_must_match=True,
+            filters=filters
+        )
 
         # The query string might combine terms from the title and subtitle.
-        # use a cross_fields query for this.
-        # https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-multi-match-query.html#type-cross-fields
+        # use a best_fields query for this.
+        # https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-multi-match-query.html#type-best-fields
 
         # The query string might combine terms from the title, subtitle,
-        # author, and series.
-        # Use a cross_fields query for this as well.
+        # author, or series.
+
+        hypotheses = []
+        # Use a best_fields query for this as well.
+        qu = CrossFields(
+            fields=['title', 'subtitle', 'contributors.display_name'],
+            type="best_fields",
+        )
+        qu = cls._nest('contributors', qu)
+        self._hypothesize(hypotheses, qu, 100)
 
         # If we don't know what to do, we can ask Elasticsearch to do
         # a simple query string match against a large number of
@@ -1333,24 +1355,6 @@ class Query(SearchBase):
 
         # NOTE: minimal_stemming query has been removed since it was
         # searching across several fields simultaneously.
-
-        # Unless every term in the search query is a correctly spelled
-        # English word, there's the possibility that the query
-        # contains typoes. Run a fuzzy match across the standard
-        # searchable fields.
-        #
-        # TODO: Maybe create fuzzy versions of each individual query?
-        #fuzzy = self.fuzzy_string_query(query_string)
-        #self._hypothesize(hypotheses, fuzzy, 1)
-
-        # The query string might contain some specific field matches
-        # (e.g. a genre name or target age), with the remainder being
-        # the "real" query string.
-        #with_field_matches, filters = self._parsed_query_matches(query_string)
-        #self._hypothesize(
-        #    hypotheses, with_field_matches, 100, all_must_match=True,
-        #    filters=filters
-        #)
 
         # For a given book, whichever one of these hypotheses gives
         # the highest score should be used.
@@ -1529,7 +1533,7 @@ class Query(SearchBase):
         return Bool(must=must, should=should, boost=float(boost))
 
     @classmethod
-    def _match_author_queries(cls, query_string):
+    def _match_author_queries(cls, query_string, make_fuzzy=True):
         """Yield a sequence of query objects representing possible ways in
         which a query string might represent a book's author.
 
@@ -1542,24 +1546,34 @@ class Query(SearchBase):
 
         # Ask Elasticsearch to match what was typed against
         # contributors.display_name.
-        for qu in cls._author_field_must_match('display_name', query_string):
+        for qu in cls._author_field_must_match(
+            'display_name', query_string, make_fuzzy=make_fuzzy
+        ):
             yield qu
 
-        # Almost nobody types a sort name into a search box, but we
-        # may only know some contributors by their sort name.  Try to
-        # convert what was typed into a sort name, and ask
-        # Elasticsearch to match that against contributors.sort_name.
+        # Almost nobody types a sort name into a search box, but they
+        # may paste it in from somewhere else. Also ask Elasticsearch
+        # to check against contributors.display_name.
+        for qu in cls._author_field_must_match(
+            'sort_name', query_string, make_fuzzy=make_fuzzy
+        ):
+            yield qu        
+
+        # Although almost nobody types a sort name into a search box,
+        # we may only know some contributors by their sort name.  Try
+        # to convert what was typed into a sort name, and ask
+        # Elasticsearch to match _that_ against contributors.sort_name.
         sort_name = display_name_to_sort_name(query_string)
         if sort_name:
-            for qu in cls._author_field_must_match('sort_name', sort_name):
+            for qu in cls._author_field_must_match(
+                'sort_name', sort_name, make_fuzzy=make_fuzzy
+            ):
                 yield qu
 
-        # TODO: If we wanted to, we could easily do a straightforward
-        # match of query_string against sort_name, just in case
-        # someone did type (or, more likely, paste) in a sort name.
-
     @classmethod
-    def _author_field_must_match(cls, base_field, query_string):
+    def _author_field_must_match(
+        cls, base_field, query_string, make_fuzzy=True
+    ):
         """Yield queries that match either the keyword or minimally stemmed
         version of one of the fields in the contributors sub-document.
 
@@ -1575,7 +1589,8 @@ class Query(SearchBase):
         """
         field_name = 'contributors.%s' % base_field
         for match_author, base_score in cls._match_one_field(
-            field_name, query_string, include_stemmed=False
+            field_name, query_string, include_stemmed=False,
+            make_fuzzy=make_fuzzy
         ):
             for qu in cls._role_must_also_match(match_author, base_score):
                 yield qu
@@ -1747,23 +1762,14 @@ class QueryParser(object):
         #
         # What is likely to be in this query-type component?
         #
-        # In theory, it could be anything that would go into a
-        # regular query. So would be a really cool place to
-        # call Query() recursively.
-        #
-        # However, someone who does this kind of search is
-        # probably not looking for a specific book. They might be
-        # looking for an author (eg, 'science fiction iain
-        # banks'). But they're most likely searching for a _type_
-        # of book, which means a match against summary or subject
-        # ('asteroids') would be the most useful.
+        # It could be anything that would go into a regular query. And
+        # we have lots of different ways of checking a regular query --
+        # different hypotheses, fuzzy matches, etc. So the simplest thing
+        # to do is to call 
         if (self.final_query_string
             and self.final_query_string != self.original_query_string):
-            match_rest_of_query = self.query_class.simple_query_string_query(
-                self.final_query_string,
-                self.SIMPLE_QUERY_STRING_FIELDS
-            )
-            self.match_queries.append(match_rest_of_query)
+            recursive = Query(self.final_query_string).query()
+            self.match_queries.append(recursive)
 
     def add_match_term_query(self, query, field, query_string, matched_portion):
         """Create a match query that finds documents whose value for `field`
