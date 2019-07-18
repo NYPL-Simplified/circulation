@@ -35,6 +35,7 @@ from config import (
     Configuration,
     CannotLoadConfiguration,
 )
+from core.util.personal_names import display_name_to_sort_name
 from classifier import (
     KeywordBasedClassifier,
     GradeLevelClassifier,
@@ -1289,38 +1290,55 @@ class Query(SearchBase):
 
         # Here are the hypotheses:
 
-        # The query string might be a match solely against title,
-        # author, or series.
-        for title_query, multiplier in self._match_title_queries(query_string):
-            self._hypothesize(hypotheses, title_query, 200*multiplier)
+        # The query string might be a match solely against one field:
+        # probably title, author or series. These are the most common
+        # searches.
+        #for title_query, multiplier in self._match_title_queries(query_string):
+        #    self._hypothesize(hypotheses, title_query, 200*multiplier)
 
         for author_query, multiplier in self._match_author_queries(query_string):
             self._hypothesize(hypotheses, author_query, 100*multiplier)
 
-        for series_query, multiplier in self._match_series_queries(query_string):
-            self._hypothesize(hypotheses, series_query, 100*multiplier)
+        #for series_query, multiplier in self._match_series_queries(query_string):
+        #    self._hypothesize(hypotheses, series_query, 100*multiplier)
+
+        # The query string might combine terms from the title and subtitle.
+        # use a cross_fields query for this.
+        # https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-multi-match-query.html#type-cross-fields
+
+        # The query string might combine terms from the title, subtitle,
+        # author, and series.
+        # Use a cross_fields query for this as well.
+
+        # If we don't know what to do, we can ask Elasticsearch to do
+        # a simple query string match against a large number of
+        # fields.
 
         # The query string might match a book across several
         # searchable fields.
-        simple = self.simple_query_string_query(query_string)
-        self._hypothesize(hypotheses, simple)
+        #simple = self.simple_query_string_query(query_string)
+        #self._hypothesize(hypotheses, simple)
 
         # NOTE: minimal_stemming query has been removed since it was
         # searching across several fields simultaneously.
 
-        # The query string might be a fuzzy match against one of the
-        # standard searchable fields.
-        fuzzy = self.fuzzy_string_query(query_string)
-        self._hypothesize(hypotheses, fuzzy, 1)
+        # Unless every term in the search query is a correctly spelled
+        # English word, there's the possibility that the query
+        # contains typoes. Run a fuzzy match across the standard
+        # searchable fields.
+        #
+        # TODO: Maybe create fuzzy versions of each individual query?
+        #fuzzy = self.fuzzy_string_query(query_string)
+        #self._hypothesize(hypotheses, fuzzy, 1)
 
         # The query string might contain some specific field matches
         # (e.g. a genre name or target age), with the remainder being
         # the "real" query string.
-        with_field_matches, filters = self._parsed_query_matches(query_string)
-        self._hypothesize(
-            hypotheses, with_field_matches, 100, all_must_match=True,
-            filters=filters
-        )
+        #with_field_matches, filters = self._parsed_query_matches(query_string)
+        #self._hypothesize(
+        #    hypotheses, with_field_matches, 100, all_must_match=True,
+        #    filters=filters
+        #)
 
         # For a given book, whichever one of these hypotheses gives
         # the highest score should be used.
@@ -1505,18 +1523,78 @@ class Query(SearchBase):
 
     @classmethod
     def _match_author_queries(cls, query_string):
-        for role, multiplier in (
-            ("Primary Author", 1),
-            ("Author", 0.75)
+        """Yield a sequence of query objects representing possible ways in
+        which a query string might represent a book's author.
+
+        :param query_string: The query string that might be the name
+        of an author.
+
+        :yield: A sequence of query objects to be considered as
+        hypotheses.
+        """
+
+        # Ask Elasticsearch to match what was typed against
+        # contributors.display_name.
+        for qu in cls._author_field_must_match('display_name', query_string):
+            yield qu
+
+        # Almost nobody types a sort name into a search box, but we
+        # may only know some contributors by their sort name.  Try to
+        # convert what was typed into a sort name, and ask
+        # Elasticsearch to match that against contributors.sort_name.
+        sort_name = display_name_to_sort_name(query_string)
+        if sort_name:
+            for qu in cls._author_field_must_match('sort_name', sort_name):
+                yield qu
+
+    @classmethod
+    def _author_field_must_match(cls, base_field, must_match):
+        """Yield queries that match either the keyword or minimally stemmed
+        version of one of the fields in the contributors sub-document.
+
+        The contributor must also have an appropriate authorship role.
+        
+        :param base_field: The base name of the contributors field to
+        match -- probably either 'display_name' or 'sort_name'.
+
+        :param must_match: The query string to match against.
+
+        :param yield: Four query objects -- the two field subtypes *
+        the two possible roles.
+        """
+        for field_subtype, base_score, query_class in (
+            ('keyword', 1, Term),
+            ('minimal', 0.8, MatchPhrase)
         ):
-            for field, base in (
-                ('contributors.name.keyword', 1),
-                ('contributors.name.minimal', 0.8)
-            ):
-                match_author = Term(**{field: query_string})
-                match_role = Term(**{"contributors.role": role})
-                match_both = Bool(must=[match_author, match_role])
-                yield cls._nest('contributors', match_both), base * multiplier
+            field_name = 'contributors.%s.%s' % (
+                base_field, field_subtype
+            )
+            match_author = query_class(**{field_name: must_match})
+            for qu in cls._role_must_also_match(match_author, base_score):
+                yield qu
+
+    @classmethod
+    def _role_must_also_match(cls, base_query, base_score):
+        """Yield queries that restrict a query against the contributors
+        sub-document so that it also matches an appropriate role.
+
+        A contributor with a 'Primary Author' role is a better match
+        than a contributor with a normal 'Author' role.
+
+        :param base_query: A query object to use when adding restrictions.
+        :param base_score: The relative score of the base query. The resulting
+           queries will be weighted based on this score.
+        :yield: A number of query objects, one for each relevant role.
+        """
+        for role, multiplier in (
+            (Contributor.PRIMARY_AUTHOR_ROLE, 1),
+            (Contributor.AUTHOR_ROLE, 0.75),
+            (Contributor.NARRATOR_ROLE, 0.6)
+        ):
+            match_role = Term(**{"contributors.role": role})
+            match_both = Bool(must=[base_query, match_role])
+            score = base_score * multiplier
+            yield cls._nest('contributors', match_both), score
 
     @classmethod
     def _match_series_queries(cls, query_string):
