@@ -1303,8 +1303,8 @@ class Query(SearchBase):
         # probably title, author or series. These are the most common
         # searches.
         for field, base_score in (
-            ('title', 200),
-            ('subtitle', 150),
+            ('title', 150),
+            ('subtitle', 120),
             ('series', 100),
         ):
             for qu, multiplier in self._match_one_field(
@@ -1367,15 +1367,7 @@ class Query(SearchBase):
 
         # If we don't know what to do, we can ask Elasticsearch to do
         # a simple query string match against a large number of
-        # fields.
-
-        # The query string might match a book across several
-        # searchable fields.
-        #simple = self.simple_query_string_query(query_string)
-        #self._hypothesize(hypotheses, simple)
-
-        # NOTE: minimal_stemming query has been removed since it was
-        # searching across several fields simultaneously.
+        # fields. This will not be given much weight.
 
         # For a given book, whichever one of these hypotheses gives
         # the highest score should be used.
@@ -1463,30 +1455,6 @@ class Query(SearchBase):
             kwargs['filter'] = filters
         query = Bool(boost=float(boost), **kwargs)
         return query
-
-    @classmethod
-    def simple_query_string_query(cls, query_string, fields=None):
-        fields = fields or cls.SIMPLE_QUERY_STRING_FIELDS
-        q = SimpleQueryString(query=query_string, fields=fields)
-        return q
-
-    @classmethod
-    def fuzzy_string_query(cls, query_string):
-        # If the query string contains any of the strings known to counfound
-        # fuzzy search, don't do the fuzzy search.
-        if not query_string:
-            return None
-        if cls.FUZZY_CIRCUIT_BREAKER.search(query_string):
-            return None
-
-        fuzzy = MultiMatch(                       # Match any or all fields
-            query=query_string,
-            fields=cls.FUZZY_QUERY_STRING_FIELDS, # Look in these fields
-            type="best_fields",                   # Score based on best match
-            fuzziness="AUTO",          # More typos allowed in longer strings
-            prefix_length=1,           # People don't usually typo first letter
-        )
-        return fuzzy
 
     @classmethod
     def _nest(cls, subdocument, query):
