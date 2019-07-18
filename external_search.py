@@ -1339,17 +1339,31 @@ class Query(SearchBase):
 
         # The query string might combine terms from the title with
         # some other field.
-        title_match = Match(**{'title': query_string})
-        subtitle_match = Match(**{'subtitle': query_string})
-        series_match = Match(**{'series': query_string})
-        contributor_match = Match(
-            **{'contributors.display_name': query_string}
-        )
-        contributor_match = self._nest('contributors', contributor_match)
 
-        for combine_with in (subtitle_match, series_match, contributor_match):
-            combined = Bool(must=[title_match, combine_with])
-            self._hypothesize(hypotheses, combined, 80)
+        # TODO: This only fixes two tests. Do we need more tests or is
+        # this not a big deal?
+        #
+        # title_match = Match(**{'title': query_string})
+        # subtitle_match = Match(**{'subtitle': query_string})
+        # series_match = Match(**{'series': query_string})
+        # contributor_match = Match(
+        #     **{'contributors.display_name': query_string}
+        # )
+        # contributor_match = self._nest('contributors', contributor_match)
+
+        # for combine_with in (subtitle_match, series_match, contributor_match):
+        #     combined = Bool(must=[title_match, combine_with])
+        #     self._hypothesize(hypotheses, combined, 80)
+
+        # The query string may be referring to subject matter --
+        # this would be found in the book's description or in one of 
+        # the classification terms.
+        subject = MultiMatch(
+            query=query_string,
+            fields=["description", "classifications.term"],
+            type="best_fields",
+        )
+        self._hypothesize(hypotheses, subject, 100)
 
         # If we don't know what to do, we can ask Elasticsearch to do
         # a simple query string match against a large number of
