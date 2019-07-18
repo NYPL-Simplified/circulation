@@ -39,10 +39,12 @@ from core.entrypoint import EverythingEntryPoint
 from core.external_search import (
     ExternalSearchIndex,
     MockExternalSearchIndex,
+    SortKeyPagination,
 )
 from core.facets import FacetConfig
 from core.log import LogConfiguration
 from core.lane import (
+    DatabaseBackedFacets,
     Facets,
     FeaturedFacets,
     Pagination,
@@ -50,6 +52,7 @@ from core.lane import (
     SearchFacets,
     WorkList,
 )
+from core.metadata_layer import ContributorData
 from core.model import (
     get_one,
     get_one_or_create,
@@ -126,10 +129,11 @@ from config import (
 
 from lanes import (
     load_lanes,
+    ContributorFacets,
     ContributorLane,
-    FeaturedSeriesFacets,
     RecommendationLane,
     RelatedBooksLane,
+    SeriesFacets,
     SeriesLane,
     CrawlableCollectionBasedLane,
     CrawlableCustomListBasedLane,
@@ -271,23 +275,24 @@ class CirculationManager(object):
         """Retrieve or create a connection to the search interface.
 
         This is created lazily so that a failure to connect only
-        affects searches, not the rest of the circulation manager.
+        affects feeds that depend on the search engine, not the whole
+        circulation manager.
         """
-        if not self.__external_search:
+        if not self._external_search:
             self.setup_external_search()
-        return self.__external_search
+        return self._external_search
 
     def setup_external_search(self):
         try:
-            self.__external_search = self.setup_search()
+            self._external_search = self.setup_search()
             self.external_search_initialization_exception = None
         except CannotLoadConfiguration, e:
             self.log.error(
                 "Exception loading search configuration: %s", e
             )
-            self.__external_search = None
+            self._external_search = None
             self.external_search_initialization_exception = e
-        return self.__external_search
+        return self._external_search
 
     def cdn_url_for(self, view, *args, **kwargs):
         return cdn_url_for(view, *args, **kwargs)
@@ -420,23 +425,41 @@ class CirculationManager(object):
         return authdata
 
     def annotator(self, lane, facets=None, *args, **kwargs):
-        """Create an appropriate OPDS annotator for the given lane."""
+        """Create an appropriate OPDS annotator for the given lane.
+
+        :param lane: A Lane or WorkList.
+        :param facets: A faceting object.
+        :param annotator_class: Instantiate this annotator class if possible.
+           Intended for use in unit tests.
+        """
+        library = None
         if lane and isinstance(lane, Lane):
             library = lane.library
         elif lane and isinstance(lane, WorkList):
             library = lane.get_library(self._db)
-        else:
+        if not library and hasattr(flask.request, 'library'):
             library = flask.request.library
+
+        # If no library is provided, the best we can do is a generic
+        # annotator for this application.
+        if not library:
+            return CirculationManagerAnnotator(lane)
+
+        # At this point we know the request is in a library context, so we
+        # can create a LibraryAnnotator customized for that library.
 
         # Some features are only available if a patron authentication
         # mechanism is set up for this library.
         authenticator = self.auth.library_authenticators.get(library.short_name)
-        return LibraryAnnotator(
-            self.circulation_apis[library.id], lane, library,
-            top_level_title='All Books',
-            library_identifies_patrons=authenticator.identifies_individuals,
-            facets=facets,
-            *args, **kwargs
+        library_identifies_patrons = (
+            authenticator is not None and authenticator.identifies_individuals
+        )
+        annotator_class = kwargs.pop('annotator_class', LibraryAnnotator)
+        return annotator_class(
+            self.circulation_apis[library.id], lane,
+            library, top_level_title='All Books',
+            library_identifies_patrons=library_identifies_patrons,
+            facets=facets, *args, **kwargs
         )
 
     @property
@@ -480,6 +503,18 @@ class CirculationManagerController(BaseCirculationManagerController):
     def shared_collection(self):
         """Return the appropriate SharedCollectionAPI for the request library."""
         return self.manager.shared_collection_api
+
+    @property
+    def search_engine(self):
+        """Return the configured external search engine, or a
+        ProblemDetail if none is configured.
+        """
+        search_engine = self.manager.external_search
+        if not search_engine:
+            return REMOTE_INTEGRATION_FAILED.detailed(
+                _("The search index for this site is not properly configured.")
+            )
+        return search_engine
 
     def load_lane(self, lane_identifier):
         """Turn user input into a Lane object."""
@@ -667,58 +702,67 @@ class IndexController(CirculationManagerController):
 
 class OPDSFeedController(CirculationManagerController):
 
-    def groups(self, lane_identifier):
+    def groups(self, lane_identifier, feed_class=AcquisitionFeed):
         """Build or retrieve a grouped acquisition feed."""
+
+        library = flask.request.library
 
         lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
-        library = flask.request.library
-        library_short_name = library.short_name
-        url = self.cdn_url_for(
-            "acquisition_groups", lane_identifier=lane_identifier, library_short_name=library_short_name,
-        )
-
-        title = lane.display_name
         facet_class_kwargs = dict(
             minimum_featured_quality=library.minimum_featured_quality,
-            uses_customlists=lane.uses_customlists
         )
         facets = load_facets_from_request(
             worklist=lane, base_class=FeaturedFacets,
             base_class_constructor_kwargs=facet_class_kwargs
         )
+        if isinstance(facets, ProblemDetail):
+            return facets
+
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
+        url = self.cdn_url_for(
+            "acquisition_groups", lane_identifier=lane_identifier,
+            library_short_name=library.short_name,
+        )
+
         annotator = self.manager.annotator(lane, facets)
-        feed = AcquisitionFeed.groups(
-            self._db, title, url, lane, annotator, facets=facets
+        feed = feed_class.groups(
+            _db=self._db, title=lane.display_name, url=url, lane=lane,
+            annotator=annotator, facets=facets, search_engine=search_engine
         )
         return feed_response(feed)
 
-    def feed(self, lane_identifier):
+    def feed(self, lane_identifier, feed_class=AcquisitionFeed):
         """Build or retrieve a paginated acquisition feed."""
-
         lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
+        facets = load_facets_from_request(worklist=lane)
+        if isinstance(facets, ProblemDetail):
+            return facets
+        pagination = load_pagination_from_request(SortKeyPagination)
+        if isinstance(pagination, ProblemDetail):
+            return pagination
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
         library_short_name = flask.request.library.short_name
         url = self.cdn_url_for(
             "feed", lane_identifier=lane_identifier,
             library_short_name=library_short_name,
         )
 
-        title = lane.display_name
-
-        facets = load_facets_from_request(worklist=lane)
-        if isinstance(facets, ProblemDetail):
-            return facets
         annotator = self.manager.annotator(lane, facets=facets)
-        pagination = load_pagination_from_request()
-        if isinstance(pagination, ProblemDetail):
-            return pagination
-        feed = AcquisitionFeed.page(
-            self._db, title, url, lane, annotator=annotator,
-            facets=facets,
-            pagination=pagination,
+        feed = feed_class.page(
+            _db=self._db, title=lane.display_name,
+            url=url, lane=lane, annotator=annotator,
+            facets=facets, pagination=pagination,
+            search_engine=search_engine
         )
         return feed_response(feed)
 
@@ -737,7 +781,6 @@ class OPDSFeedController(CirculationManagerController):
         title = lane.display_name
         facet_class_kwargs = dict(
             minimum_featured_quality=library.minimum_featured_quality,
-            uses_customlists=lane.uses_customlists
         )
         facets = load_facets_from_request(
             worklist=lane, base_class=FeaturedFacets,
@@ -754,14 +797,14 @@ class OPDSFeedController(CirculationManagerController):
         request library.
         """
         library = flask.request.library
-        library_short_name = flask.request.library.short_name
         url = self.cdn_url_for(
             "crawlable_library_feed",
-            library_short_name=library_short_name,
+            library_short_name=library.short_name,
         )
         title = library.name
-        lane = CrawlableCollectionBasedLane(library)
-        return self._crawlable_feed(library, title, url, lane)
+        lane = CrawlableCollectionBasedLane()
+        lane.initialize(library)
+        return self._crawlable_feed(title=title, url=url, lane=lane)
 
     def crawlable_collection_feed(self, collection_name):
         """Build or retrieve a crawlable acquisition feed for the
@@ -775,17 +818,24 @@ class OPDSFeedController(CirculationManagerController):
             "crawlable_collection_feed",
             collection_name=collection.name
         )
-        lane = CrawlableCollectionBasedLane(None, [collection])
+        lane = CrawlableCollectionBasedLane()
+        lane.initialize([collection])
         if collection.protocol in [ODLAPI.NAME]:
             annotator = SharedCollectionAnnotator(collection, lane)
         else:
-            annotator = CirculationManagerAnnotator(lane)
-        return self._crawlable_feed(None, title, url, lane, annotator=annotator)
+            # We'll get a generic CirculationManagerAnnotator.
+            annotator = None
+        return self._crawlable_feed(
+            title=title, url=url, lane=lane, annotator=annotator
+        )
 
     def crawlable_list_feed(self, list_name):
         """Build or retrieve a crawlable, paginated acquisition feed for the
         named CustomList, sorted by update date.
         """
+        # TODO: A library is not strictly required here, since some
+        # CustomLists aren't associated with a library, but this isn't
+        # a use case we need to support now.
         library = flask.request.library
         list = CustomList.find(self._db, list_name, library=library)
         if not list:
@@ -798,18 +848,41 @@ class OPDSFeedController(CirculationManagerController):
         )
         lane = CrawlableCustomListBasedLane()
         lane.initialize(library, list)
-        return self._crawlable_feed(library, title, url, lane)
+        return self._crawlable_feed(title=title, url=url, lane=lane)
 
-    def _crawlable_feed(self, library, title, url, lane, annotator=None):
-        annotator = annotator or self.manager.annotator(lane)
-        facets = CrawlableFacets.default(library)
-        pagination = load_pagination_from_request()
+    def _crawlable_feed(self, title, url, lane, annotator=None,
+                        feed_class=AcquisitionFeed):
+        """Helper method to create a crawlable feed.
+
+        :param title: The title to use for the feed.
+        :param url: The URL from which the feed will be served.
+        :param lane: A crawlable Lane which controls which works show up
+            in the feed.
+        :param annotator: A custom Annotator to use when generating the feed.
+        :param feed_class: A drop-in replacement for AcquisitionFeed
+            for use in tests.
+        """
+        pagination = load_pagination_from_request(
+            SortKeyPagination, default_size=Pagination.DEFAULT_CRAWLABLE_SIZE
+        )
         if isinstance(pagination, ProblemDetail):
             return pagination
-        feed = AcquisitionFeed.page(
-            self._db, title, url, lane, annotator=annotator,
-            facets=facets,
-            pagination=pagination,
+
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
+        annotator = annotator or self.manager.annotator(lane)
+
+        # A crawlable feed has only one possible set of Facets,
+        # so library settings are irrelevant.
+        facets = CrawlableFacets.default(None)
+
+        feed = feed_class.page(
+            _db=self._db, title=title, url=url, lane=lane, annotator=annotator,
+            facets=facets, pagination=pagination,
+            cache_type=CrawlableFacets.CACHED_FEED_TYPE,
+            search_engine=search_engine
         )
         return feed_response(feed)
 
@@ -828,14 +901,33 @@ class OPDSFeedController(CirculationManagerController):
             default_entrypoint=default_entrypoint,
         )
 
-    def search(self, lane_identifier):
-
+    def search(self, lane_identifier, feed_class=AcquisitionFeed):
+        """Search for books."""
         lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
+
+        # Althoug the search query goes against Elasticsearch, we must
+        # use normal pagination because the results are sorted by
+        # match quality, not bibliographic information.
+        pagination = load_pagination_from_request(
+            Pagination, default_size=Pagination.DEFAULT_SEARCH_SIZE
+        )
+        if isinstance(pagination, ProblemDetail):
+            return pagination
+
+        facets = self._load_search_facets(lane)
+        if isinstance(facets, ProblemDetail):
+            return lane
+
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
+        # Check whether there is a query string -- if not, we want to
+        # send an OpenSearch document explaining how to search.
         query = flask.request.args.get('q')
         library_short_name = flask.request.library.short_name
-        facets = self._load_search_facets(lane)
 
         # Create a function that, when called, generates a URL to the
         # search controller.
@@ -855,27 +947,16 @@ class OPDSFeedController(CirculationManagerController):
             headers = { "Content-Type" : "application/opensearchdescription+xml" }
             return Response(open_search_doc, 200, headers)
 
-        pagination = load_pagination_from_request(default_size=Pagination.DEFAULT_SEARCH_SIZE)
-        if isinstance(pagination, ProblemDetail):
-            return pagination
-
         # We have a query -- add it to the keyword arguments used when
         # generating a URL.
         make_url_kwargs['q'] = query.encode("utf8")
 
         # Run a search.
-        this_url = make_url()
-
         annotator = self.manager.annotator(lane, facets)
         info = OpenSearchDocument.search_info(lane)
-        search_engine = self.manager.external_search
-        if not search_engine:
-            return REMOTE_INTEGRATION_FAILED.detailed(
-                _("The search index for this site is not properly configured.")
-            )
-        opds_feed = AcquisitionFeed.search(
+        opds_feed = feed_class.search(
             _db=self._db, title=info['name'],
-            url=this_url, lane=lane, search_engine=search_engine,
+            url=make_url(), lane=lane, search_engine=search_engine,
             query=query, annotator=annotator, pagination=pagination,
             facets=facets,
         )
@@ -1513,35 +1594,58 @@ class WorkController(CirculationManagerController):
 
         return languages, audiences
 
-    def contributor(self, contributor_name, languages, audiences):
+    def contributor(
+        self, contributor_name, languages, audiences,
+        feed_class=AcquisitionFeed
+    ):
         """Serve a feed of books written by a particular author"""
         library = flask.request.library
         if not contributor_name:
             return NO_SUCH_LANE.detailed(_("No contributor provided"))
 
+        # contributor_name is probably a display_name, but it could be a
+        # sort_name. Pass it in for both fields and
+        # ContributorData.lookup() will do its best to figure it out.
+        contributor = ContributorData.lookup(
+            self._db, sort_name=contributor_name, display_name=contributor_name
+        )
+        if not contributor:
+            return NO_SUCH_LANE.detailed(
+                _("Unknown contributor: %s") % contributor_name
+            )
+
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
         languages, audiences = self._lane_details(languages, audiences)
 
         lane = ContributorLane(
-            library, contributor_name, languages=languages, audiences=audiences
+            library, contributor, languages=languages, audiences=audiences
         )
-
-        annotator = self.manager.annotator(lane)
-        facets = load_facets_from_request(worklist=lane)
+        facets = load_facets_from_request(
+            worklist=lane, base_class=ContributorFacets
+        )
         if isinstance(facets, ProblemDetail):
             return facets
-        pagination = load_pagination_from_request()
+
+        pagination = load_pagination_from_request(SortKeyPagination)
         if isinstance(pagination, ProblemDetail):
             return pagination
+
+        annotator = self.manager.annotator(lane, facets)
+
         url = annotator.feed_url(
             lane,
             facets=facets,
             pagination=pagination,
         )
 
-        feed = AcquisitionFeed.page(
-            self._db, lane.display_name, url, lane,
+        feed = feed_class.page(
+            _db=self._db, title=lane.display_name, url=url, lane=lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=CachedFeed.CONTRIBUTOR_TYPE
+            annotator=annotator, cache_type=lane.CACHED_FEED_TYPE,
+            search_engine=search_engine
         )
         return feed_response(unicode(feed))
 
@@ -1566,13 +1670,18 @@ class WorkController(CirculationManagerController):
             AcquisitionFeed.single_entry(self._db, work, annotator)
         )
 
-    def related(self, identifier_type, identifier, novelist_api=None):
+    def related(self, identifier_type, identifier, novelist_api=None,
+                feed_class=AcquisitionFeed):
         """Serve a groups feed of books related to a given book."""
 
         library = flask.request.library
         work = self.load_work(library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
+
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
 
         try:
             lane_name = "Books Related to %s by %s" % (
@@ -1585,28 +1694,31 @@ class WorkController(CirculationManagerController):
             # No related books were found.
             return NO_SUCH_LANE.detailed(e.message)
 
-        annotator = self.manager.annotator(lane)
         facets = load_facets_from_request(
-            worklist=lane, base_class=FeaturedSeriesFacets
+            worklist=lane, base_class=FeaturedFacets,
+            base_class_constructor_kwargs=dict(
+                minimum_featured_quality=library.minimum_featured_quality
+            )
         )
         if isinstance(facets, ProblemDetail):
             return facets
-        pagination = load_pagination_from_request()
-        if isinstance(pagination, ProblemDetail):
-            return pagination
+
+        annotator = self.manager.annotator(lane)
         url = annotator.feed_url(
             lane,
             facets=facets,
-            pagination=pagination,
         )
 
-        feed = AcquisitionFeed.groups(
-            self._db, lane.DISPLAY_NAME, url, lane, annotator=annotator,
-            facets=facets
+        feed = feed_class.groups(
+            _db=self._db, title=lane.DISPLAY_NAME,
+            url=url, lane=lane, annotator=annotator,
+            facets=facets, search_engine=search_engine,
+            cache_type=lane.CACHED_FEED_TYPE
         )
         return feed_response(unicode(feed))
 
-    def recommendations(self, identifier_type, identifier, novelist_api=None):
+    def recommendations(self, identifier_type, identifier, novelist_api=None,
+                        feed_class=AcquisitionFeed):
         """Serve a feed of recommendations related to a given book."""
 
         library = flask.request.library
@@ -1614,32 +1726,43 @@ class WorkController(CirculationManagerController):
         if isinstance(work, ProblemDetail):
             return work
 
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
         lane_name = "Recommendations for %s by %s" % (work.title, work.author)
         try:
             lane = RecommendationLane(
-                library, work, lane_name, novelist_api=novelist_api
+                library=library, work=work, display_name=lane_name,
+                novelist_api=novelist_api
             )
         except CannotLoadConfiguration, e:
             # NoveList isn't configured.
             return NO_SUCH_LANE.detailed(_("Recommendations not available"))
 
-        annotator = self.manager.annotator(lane)
         facets = load_facets_from_request(worklist=lane)
         if isinstance(facets, ProblemDetail):
             return facets
-        pagination = load_pagination_from_request()
+
+        # We use a normal Pagination object because recommendations
+        # are looked up in a third-party API and paginated through the
+        # database lookup.
+        pagination = load_pagination_from_request(Pagination)
         if isinstance(pagination, ProblemDetail):
             return pagination
+
+        annotator = self.manager.annotator(lane)
         url = annotator.feed_url(
             lane,
             facets=facets,
             pagination=pagination,
         )
 
-        feed = AcquisitionFeed.page(
-            self._db, lane.DISPLAY_NAME, url, lane,
+        feed = feed_class.page(
+            _db=self._db, title=lane.DISPLAY_NAME, url=url, lane=lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE
+            annotator=annotator, cache_type=lane.CACHED_FEED_TYPE,
+            search_engine=search_engine
         )
         return feed_response(unicode(feed))
 
@@ -1667,49 +1790,43 @@ class WorkController(CirculationManagerController):
         controller = ComplaintController()
         return controller.register(pools[0], data)
 
-    def series(self, series_name, languages, audiences):
-        """Serve a feed of books in the same series as a given book."""
+    def series(self, series_name, languages, audiences, feed_class=AcquisitionFeed):
+        """Serve a feed of books in a given series."""
         library = flask.request.library
         if not series_name:
             return NO_SUCH_LANE.detailed(_("No series provided"))
 
+        search_engine = self.search_engine
+        if isinstance(search_engine, ProblemDetail):
+            return search_engine
+
         languages, audiences = self._lane_details(languages, audiences)
-        lane = SeriesLane(library, series_name=series_name,
-                          languages=languages, audiences=audiences
-        )
-        annotator = self.manager.annotator(lane)
-
-        # In addition to the orderings enabled for this library, a
-        # series collection may be ordered by series position, and is
-        # ordered that way by default.
-        facet_config = FacetConfig.from_library(library)
-        facet_config.set_default_facet(
-            Facets.ORDER_FACET_GROUP_NAME, Facets.ORDER_SERIES_POSITION
+        lane = SeriesLane(
+            library, series_name=series_name, languages=languages,
+            audiences=audiences
         )
 
-        # TODO: It would be nice to be able to adapt
-        # FeaturedSeriesFacets so that it can also be used as the
-        # Facets object for the full series lane.
         facets = load_facets_from_request(
-            worklist=lane, facet_config=facet_config
+            worklist=lane, base_class=SeriesFacets
         )
         if isinstance(facets, ProblemDetail):
             return facets
-        pagination = load_pagination_from_request()
+
+        pagination = load_pagination_from_request(SortKeyPagination)
         if isinstance(pagination, ProblemDetail):
             return pagination
-        url = annotator.feed_url(
-            lane,
-            facets=facets,
-            pagination=pagination,
-        )
 
-        feed = AcquisitionFeed.page(
-            self._db, lane.display_name, url, lane,
+        annotator = self.manager.annotator(lane)
+
+        url = annotator.feed_url(lane, facets=facets, pagination=pagination)
+        feed = feed_class.page(
+            _db=self._db, title=lane.display_name, url=url, lane=lane,
             facets=facets, pagination=pagination,
-            annotator=annotator, cache_type=CachedFeed.SERIES_TYPE
+            annotator=annotator, cache_type=lane.CACHED_FEED_TYPE,
+            search_engine=search_engine
         )
         return feed_response(unicode(feed))
+
 
 class ProfileController(CirculationManagerController):
     """Implement the User Profile Management Protocol."""

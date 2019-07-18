@@ -5,7 +5,6 @@ from api.opds import LibraryAnnotator
 from core.opds import VerboseAnnotator
 from core.lane import Facets, Pagination
 from core.model import (
-    BaseMaterializedWork,
     DataSource,
     LicensePool,
     Measurement,
@@ -120,7 +119,7 @@ class AdminFeed(AcquisitionFeed):
         pagination = pagination or Pagination.default()
 
         q = LicensePool.with_complaint(library)
-        results = pagination.apply(q).all()
+        results = pagination.modify_database_query(_db, q).all()
 
         if len(results) > 0:
             (pools, counts) = zip(*results)
@@ -164,7 +163,7 @@ class AdminFeed(AcquisitionFeed):
         ).order_by(
             LicensePool.id
         )
-        pools = pagination.apply(q).all()
+        pools = pagination.modify_database_query(_db, q).all()
 
         works = [pool.work for pool in pools]
         feed = cls(_db, title, url, works, annotator)

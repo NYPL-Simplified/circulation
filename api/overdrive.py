@@ -1,6 +1,8 @@
 from nose.tools import set_trace
 import datetime
+import dateutil
 import json
+import pytz
 import requests
 import flask
 import urlparse
@@ -1009,21 +1011,11 @@ class OverdriveCirculationMonitor(CollectionMonitor, TimelineMonitor):
     PROTOCOL = ExternalIntegration.OVERDRIVE
     OVERLAP = datetime.timedelta(minutes=1)
 
-    # Report successful completion upon finding this number of
-    # consecutive books in the Overdrive results whose LicensePools
-    # haven't changed since last time. Overdrive results are not in
-    # strict chronological order, but if you see 100 consecutive books
-    # that haven't changed, you're probably done.
-    MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS = None
-
-    def __init__(self, _db, collection, api_class=OverdriveAPI):
+    def __init__(self, _db, collection, api_class=OverdriveAPI, analytics_class=Analytics):
         """Constructor."""
         super(OverdriveCirculationMonitor, self).__init__(_db, collection)
         self.api = api_class(_db, collection)
-        self.maximum_consecutive_unchanged_books = (
-            self.MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS
-        )
-        self.analytics = Analytics(_db)
+        self.analytics = analytics_class(_db)
 
     def recently_changed_ids(self, start, cutoff):
         return self.api.recently_changed_ids(start, cutoff)
@@ -1034,17 +1026,14 @@ class OverdriveCirculationMonitor(CollectionMonitor, TimelineMonitor):
         :progress: A TimestampData representing the time previously
         covered by this Monitor.
         """
-        _db = self._db
-        added_books = 0
         overdrive_data_source = DataSource.lookup(
-            _db, DataSource.OVERDRIVE)
-
-        total_books = 0
-        consecutive_unchanged_books = 0
+            self._db, DataSource.OVERDRIVE
+        )
 
         # Ask for changes between the last time covered by the Monitor
         # and the current time.
-        for i, book in enumerate(self.recently_changed_ids(start, cutoff)):
+        total_books = 0
+        for book in self.recently_changed_ids(start, cutoff):
             total_books += 1
             if not total_books % 100:
                 self.log.info("%s books processed", total_books)
@@ -1055,39 +1044,58 @@ class OverdriveCirculationMonitor(CollectionMonitor, TimelineMonitor):
             if is_new:
                 for library in self.collection.libraries:
                     self.analytics.collect_event(
-                        library, license_pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, license_pool.last_checked)
+                        library, license_pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, license_pool.last_checked
+                    )
 
-            _db.commit()
-
-            if is_changed:
-                consecutive_unchanged_books = 0
-            else:
-                consecutive_unchanged_books += 1
-                if (self.maximum_consecutive_unchanged_books
-                    and consecutive_unchanged_books >=
-                    self.maximum_consecutive_unchanged_books):
-                    # We're supposed to stop this run after finding a
-                    # run of books that have not changed, and we have
-                    # in fact seen that many consecutive unchanged
-                    # books.
-                    self.log.info("Stopping at %d unchanged books.",
-                                  consecutive_unchanged_books)
-                    break
+            self._db.commit()
+            if self.should_stop(start, book, is_changed):
+                break
 
         progress.achievements = "Books processed: %d." % total_books
 
 
-class FullOverdriveCollectionMonitor(OverdriveCirculationMonitor):
-    """Monitor every single book in the Overdrive collection.
+class NewTitlesOverdriveCollectionMonitor(OverdriveCirculationMonitor):
+    """Monitor the Overdrive collection for newly added titles.
 
-    This tells us about books added to the Overdrive collection that
-    are not found in our collection.
+    This catches any new titles that slipped through the cracks of the
+    RecentOverdriveCollectionMonitor.
     """
-    SERVICE_NAME = "Overdrive Collection Overview"
+    SERVICE_NAME = "Overdrive New Title Monitor"
+    OVERLAP = datetime.timedelta(days=7)
+    DEFAULT_START_TIME = OverdriveCirculationMonitor.NEVER
 
     def recently_changed_ids(self, start, cutoff):
         """Ignore the dates and return all IDs."""
         return self.api.all_ids()
+
+    def should_stop(self, start, api_description, is_changed):
+        if not start or start is self.NEVER:
+            # This monitor has never run before. It should ask about
+            # every single book.
+            return False
+
+        # We should stop if this book was added before our start time.
+        date_added = api_description.get('date_added')
+        if not date_added:
+            # We don't know when this book was added -- shouldn't happen.
+            return False
+
+        try:
+            date_added = dateutil.parser.parse(date_added)
+        except ValueError, e:
+            # The date format is unparseable -- shouldn't happen.
+            self.log.error("Got invalid date: %s", date_added)
+            return False
+
+        # The time stored in the database is UTC, but it's stored
+        # without any time zone information. Add that information so
+        # we can compare it against the date we got from Overdrive.
+        start = pytz.utc.localize(start)
+        self.log.info(
+            "Date added: %s, start time: %s, result %s",
+            date_added, start, date_added < start
+        )
+        return date_added < start
 
 
 class OverdriveCollectionReaper(IdentifierSweepMonitor):
@@ -1109,7 +1117,33 @@ class RecentOverdriveCollectionMonitor(OverdriveCirculationMonitor):
     """Monitor recently changed books in the Overdrive collection."""
 
     SERVICE_NAME = "Reverse Chronological Overdrive Collection Monitor"
+
+    # Report successful completion upon finding this number of
+    # consecutive books in the Overdrive results whose LicensePools
+    # haven't changed since last time. Overdrive results are not in
+    # strict chronological order, but if you see 100 consecutive books
+    # that haven't changed, you're probably done.
     MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS=100
+
+    def __init__(self, *args, **kwargs):
+        super(RecentOverdriveCollectionMonitor, self).__init__(*args, **kwargs)
+        self.consecutive_unchanged_books = 0
+
+    def should_stop(self, start, api_description, is_changed):
+        if is_changed:
+            self.consecutive_unchanged_books = 0
+        else:
+            self.consecutive_unchanged_books += 1
+            if (self.consecutive_unchanged_books >=
+                self.MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS):
+                # We're supposed to stop this run after finding a
+                # run of books that have not changed, and we have
+                # in fact seen that many consecutive unchanged
+                # books.
+                self.log.info("Stopping at %d unchanged books.",
+                              self.consecutive_unchanged_books)
+                return True
+        return False
 
 
 class OverdriveFormatSweep(IdentifierSweepMonitor):
