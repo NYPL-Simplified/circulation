@@ -1322,27 +1322,34 @@ class Query(SearchBase):
         # The query string might contain some specific field matches
         # (e.g. a genre name or target age), with the remainder being
         # the "real" query string.
+        #
+        # The goal of this hypothesis is to get better results by
+        # filtering out junk. That's why the weight is 1: all the
+        # weights applied so far will also be applied in a recursive
+        # call to Query.query(). The idea is that the matches that
+        # survive the filter will naturally have higher scores than
+        # the matches that erroneously assumed the filter description
+        # was part of a text query.
         with_field_matches, filters = self._parsed_query_matches(query_string)
-        self._hypothesize(
-            hypotheses, with_field_matches, 100, all_must_match=True,
-            filters=filters
+        if with_field_matches:
+            self._hypothesize(
+                hypotheses, with_field_matches, 1, all_must_match=True,
+                filters=filters
+            )
+
+        # The query string might combine terms from the title with
+        # some other field.
+        title_match = Match(**{'title': query_string})
+        subtitle_match = Match(**{'subtitle': query_string})
+        series_match = Match(**{'series': query_string})
+        contributor_match = Match(
+            **{'contributors.display_name': query_string}
         )
+        contributor_match = self._nest('contributors', contributor_match)
 
-        # The query string might combine terms from the title and subtitle.
-        # use a best_fields query for this.
-        # https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-multi-match-query.html#type-best-fields
-
-        # The query string might combine terms from the title, subtitle,
-        # author, or series.
-
-        hypotheses = []
-        # Use a best_fields query for this as well.
-        qu = CrossFields(
-            fields=['title', 'subtitle', 'contributors.display_name'],
-            type="best_fields",
-        )
-        qu = cls._nest('contributors', qu)
-        self._hypothesize(hypotheses, qu, 100)
+        for combine_with in (subtitle_match, series_match, contributor_match):
+            combined = Bool(must=[title_match, combine_with])
+            self._hypothesize(hypotheses, combined, 80)
 
         # If we don't know what to do, we can ask Elasticsearch to do
         # a simple query string match against a large number of
@@ -1621,11 +1628,14 @@ class Query(SearchBase):
     @classmethod
     def _match_one_field(cls, base_field, query_string, include_stemmed=True, make_fuzzy=False):
         fields = [
-            ('keyword', 1, Term),
-            ('minimal', 0.75, MatchPhrase)
+            # A keyword match means the field value is an exact match for
+            # the query string. This is one of the best search results
+            # we can possibly return.
+            ('keyword', 1000, Term),
+            ('minimal', 1, MatchPhrase)
         ]
         if include_stemmed:
-            fields.append((None, 0.65, Match))
+            fields.append((None, 0.75, Match))
         for subfield, base_score, query_class in fields:
             if subfield:
                 field_name = base_field + '.' + subfield
