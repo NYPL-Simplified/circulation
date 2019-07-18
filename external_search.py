@@ -19,6 +19,7 @@ from elasticsearch_dsl.query import (
     DisMax,
     Exists,
     FunctionScore,
+    Fuzzy,
     Match,
     MatchAll,
     MatchPhrase,
@@ -29,6 +30,7 @@ from elasticsearch_dsl.query import (
     Term,
     Terms,
 )
+from spellchecker import SpellChecker
 
 from flask_babel import lazy_gettext as _
 from config import (
@@ -1288,19 +1290,29 @@ class Query(SearchBase):
         # overall will become the search results.
         hypotheses = []
 
+        # If it looks like the query contain misspelled words, we'll
+        # generate a lower-weighted 'fuzzy' version of each
+        # hypothesis, which tests the hypothesis that someone meant to
+        # trigger that hypothesis but made a typo.
+        make_fuzzy = SpellChecker().unknown(query_string.split())
+
         # Here are the hypotheses:
 
         # The query string might be a match solely against one field:
         # probably title, author or series. These are the most common
         # searches.
-        #for title_query, multiplier in self._match_title_queries(query_string):
-        #    self._hypothesize(hypotheses, title_query, 200*multiplier)
+        for field, base_score in (
+            ('title', 200),
+            ('subtitle', 150),
+            ('series', 100),
+        ):
+            for qu, multiplier in self._match_one_field(
+                field, query_string, make_fuzzy=make_fuzzy
+            ):
+                self._hypothesize(hypotheses, qu, base_score*multiplier)
 
         for author_query, multiplier in self._match_author_queries(query_string):
             self._hypothesize(hypotheses, author_query, 100*multiplier)
-
-        #for series_query, multiplier in self._match_series_queries(query_string):
-        #    self._hypothesize(hypotheses, series_query, 100*multiplier)
 
         # The query string might combine terms from the title and subtitle.
         # use a cross_fields query for this.
@@ -1517,11 +1529,6 @@ class Query(SearchBase):
         return Bool(must=must, should=should, boost=float(boost))
 
     @classmethod
-    def _match_title_queries(cls, query_string):
-        yield Term(**{'title.keyword': query_string}), 1
-        yield cls._match_phrase('title.minimal', query_string), 0.75
-
-    @classmethod
     def _match_author_queries(cls, query_string):
         """Yield a sequence of query objects representing possible ways in
         which a query string might represent a book's author.
@@ -1547,8 +1554,12 @@ class Query(SearchBase):
             for qu in cls._author_field_must_match('sort_name', sort_name):
                 yield qu
 
+        # TODO: If we wanted to, we could easily do a straightforward
+        # match of query_string against sort_name, just in case
+        # someone did type (or, more likely, paste) in a sort name.
+
     @classmethod
-    def _author_field_must_match(cls, base_field, must_match):
+    def _author_field_must_match(cls, base_field, query_string):
         """Yield queries that match either the keyword or minimally stemmed
         version of one of the fields in the contributors sub-document.
 
@@ -1562,14 +1573,10 @@ class Query(SearchBase):
         :param yield: Four query objects -- the two field subtypes *
         the two possible roles.
         """
-        for field_subtype, base_score, query_class in (
-            ('keyword', 1, Term),
-            ('minimal', 0.8, MatchPhrase)
+        field_name = 'contributors.%s' % base_field
+        for match_author, base_score in cls._match_one_field(
+            field_name, query_string, include_stemmed=False
         ):
-            field_name = 'contributors.%s.%s' % (
-                base_field, field_subtype
-            )
-            match_author = query_class(**{field_name: must_match})
             for qu in cls._role_must_also_match(match_author, base_score):
                 yield qu
 
@@ -1597,9 +1604,31 @@ class Query(SearchBase):
             yield cls._nest('contributors', match_both), score
 
     @classmethod
-    def _match_series_queries(cls, query_string):
-        yield Term(**{'series.keyword': query_string}), 1
-        yield cls._match_phrase('series.minimal', query_string), 0.60
+    def _match_one_field(cls, base_field, query_string, include_stemmed=True, make_fuzzy=False):
+        fields = [
+            ('keyword', 1, Term),
+            ('minimal', 0.75, MatchPhrase)
+        ]
+        if include_stemmed:
+            fields.append((None, 0.65, Match))
+        for subfield, base_score, query_class in fields:
+            if subfield:
+                field_name = base_field + '.' + subfield
+            else:
+                field_name = base_field
+            qu = query_class(**{field_name: query_string})
+            yield qu, base_score
+            if make_fuzzy and query_class != Term:
+                # Make a fuzzy version of this hypothesis, rating
+                # it at 75% of a non-fuzzy match.
+                kwargs = {
+                    field_name : dict(
+                        value=query_string,
+                        fuzziness="AUTO",
+                        prefix_length=1,
+                    )
+                }
+                yield Fuzzy(**kwargs), base_score*0.75
 
     @classmethod
     def _parsed_query_matches(cls, query_string):
