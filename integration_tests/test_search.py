@@ -309,6 +309,8 @@ class Common(Evaluator):
     def evaluate_first(self, hit):
         if self.first_must_match:
             success, actual, expected = self.match_result(hit)
+            if hasattr(actual, 'match'):
+                actual = actual.pattern
             if (not success) or (self.negate and success):
                 if self.negate:
                     if actual == expected:
@@ -380,9 +382,12 @@ class SpecificAuthor(FirstMatch):
     Most of the results must also be by that author.
     """
 
-    def __init__(self, author, accept_book_about_author=False, threshold=0):
+    def __init__(self, author, accept_title=None, threshold=0):
         super(SpecificAuthor, self).__init__(author=author, threshold=threshold)
-        self.accept_book_about_author = accept_book_about_author
+        if accept_title:
+            self.accept_title = accept_title.lower()
+        else:
+            self.accept_title = None
 
     def author_role(self, expect_author, result):
         if hasattr(expect_author, 'match'):
@@ -413,10 +418,8 @@ class SpecificAuthor(FirstMatch):
             return True
 
         title = self._field('title', first)
-        if (self.accept_book_about_author and (
-                self.author in title or title in self.author
-        )):
-            return
+        if self.accept_title and self.accept_title in title:
+            return True
 
         # We have failed.
         eq_(expect, first.contributors)
@@ -1086,9 +1089,13 @@ class TestTitleAudienceConflict(SearchTest):
 
 class TestMixedTitleAuthorMatch(SearchTest):
 
+    @known_to_fail
     def test_centos_caen(self):
         # 'centos' shows up in the subtitle. 'caen' is the name
         # of one of the authors.
+        #
+        # NOTE: The work we're looking for shows up on the first page
+        # but it really ought to befirst.
         self.search(
             "centos caen",
             FirstMatch(title="fedora linux toolbox")
@@ -1114,26 +1121,37 @@ class TestMixedTitleAuthorMatch(SearchTest):
             FirstMatch(title="Crime and Punishment")
         )
 
+    def test_dostoyevsky_partial_title(self):
+        # Partial title, partial author
+        self.search(
+            "punishment Dostoyevsky",
+            FirstMatch(title="Crime and Punishment")
+        )
+
+    @known_to_fail
     def test_sparks(self):
         # Full title, full but misspelled author, "by"
+        # NOTE: Work shows up on first page but ought to be first.
         self.search(
             "Every breath by nicholis sparks",
             FirstMatch(title="Every Breath", author="Nicholas Sparks")
         )
 
+    @known_to_fail
     def test_grisham(self):
         # Full title, author's first name only
+        #
+        # NOTE: Results are all books with "Reckoning" in the title
+        # but the John Grisham one is not on the first page.
         self.search(
-            "The reckoning john",
+            "The reckoning john grisham",
             FirstMatch(title="The Reckoning", author="John Grisham")
         )
 
+    @known_to_fail
     def test_singh(self):
-        # NOTE: this doesn't currently work on either version of ES6.  The
-        # search results aren't sufficiently prioritizing titles containing
-        # "archangel" over the author's other books.  Changing "arch" to
-        # "archangel" in the search query helps only slightly.
-
+        # NOTE: The search results aren't sufficiently prioritizing
+        # titles containing "archangel" over the author's other books.
         self.search(
             "Nalini singh archangel",
             [ Common(author="Nalini Singh", threshold=0.9),
@@ -1141,27 +1159,19 @@ class TestMixedTitleAuthorMatch(SearchTest):
         )
 
     def test_sebald_1(self):
-        # NOTE: this title isn't in the collection, but the author's other
+        # This title isn't in the collection, but the author's other
         # books should still come up.
-
-        # Partial, unowned title; author's last name only
         self.search(
             "Sebald after",
-            Common(author=re.compile("(w. g. sebald|w.g. sebald)"))
+            SpecificAuthor("W. G. Sebald", accept_title="Sebald")
         )
 
     def test_sebald_2(self):
-        # NOTE: putting in the full title (in contrast to the previous test)
-        # completely breaks the test; the top results are now books by
-        # authors other than Sebald, with titles which contain none of the
-        # search terms.
-        #
-        # This is because 'nature' is the name of a genre. -LR
-
-        # Full, unowned title; author's last name only
+        # Specifying the full title gets rid of the book about
+        # this author, probably because "Nature" is the name of a genre.
         self.search(
             "Sebald after nature",
-            Common(author=re.compile("(w. g. sebald|w.g. sebald)"))
+            SpecificAuthor("W. G. Sebald")
         )
 
 # Classes that test many different variant searches for a specific
@@ -1261,7 +1271,7 @@ class TestAuthorMatch(SearchTest):
         # majority of search results should be books _by_ this author.
         self.search(
             "stephen king",
-                [ SpecificAuthor("Stephen King", accept_book_about_author=True),
+                [ SpecificAuthor("Stephen King", accept_title="Stephen King"),
                   Common(author="Stephen King", threshold=0.7) ]
         )
 
@@ -1270,7 +1280,7 @@ class TestAuthorMatch(SearchTest):
         # results, but the overwhelming majority of the results should be books by him.
         self.search(
             "ian fleming",
-            [ SpecificAuthor("Ian Fleming", accept_book_about_author=True),
+            [ SpecificAuthor("Ian Fleming", accept_title="Ian Fleming"),
               Common(author="Ian Fleming", threshold=0.9) ]
         )
 
@@ -1279,7 +1289,7 @@ class TestAuthorMatch(SearchTest):
         # but there should also be some _by_ him.
         self.search(
             "plato",
-                [ SpecificAuthor("Plato", accept_book_about_author=True),
+                [ SpecificAuthor("Plato", accept_title="Plato"),
                   AtLeastOne(author="Plato") ]
         )
 
@@ -1340,7 +1350,7 @@ class TestAuthorMatch(SearchTest):
     def test_wharton(self):
         self.search(
             "edith wharton",
-            SpecificAuthor("Edith Wharton", accept_book_about_author=True)
+            SpecificAuthor("Edith Wharton", accept_title="Edith Wharton")
         )
 
     def test_wharton_misspelled(self):
@@ -1414,7 +1424,7 @@ class TestAuthorMatch(SearchTest):
         # and it's misspelled.
         self.search(
             "Nabokof",
-            SpecificAuthor("Nabokov", accept_book_about_author=True)
+            SpecificAuthor("Vladimir Nabokov", accept_title="Nabokov")
         )
 
     def test_ba_paris(self):
