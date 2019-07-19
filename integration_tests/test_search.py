@@ -1592,14 +1592,14 @@ class TestGenreMatch(SearchTest):
     # A genre search is a search for books in a certain 'section'
     # of the library.
 
-    @known_to_fail
     def test_science_fiction(self):
-        # NOTE: "Science Fiction" title matches (some of which are also science fiction) are promoted
-        # over genre matches.
-
+        # NOTE: "Science Fiction" title matches (some of which are
+        # also science fiction) are promoted highly. Genre matches
+        # only show up in the front page if they also have "Science
+        # Fiction" in the title.
         self.search(
             "science fiction",
-            Common(genre="Science Fiction")
+            Common(genre="Science Fiction", first_must_match=False)
         )
 
     @known_to_fail
@@ -1621,17 +1621,18 @@ class TestGenreMatch(SearchTest):
 
     @known_to_fail
     def test_christian(self):
-        # Fails because of the first result--on ES1, it's a book from 1839
-        # entitled "Christian Phrenology," which doesn't have a genre or subject
-        # listed, and in ES6 it's a novel about Fletcher Christian. The
-        # subsequent results are fine; setting first_must_match to False
-        # makes the test pass.
+        # NOTE: This fails because of a large number of title matches
+        # classified under different genres.
         self.search(
             "christian",
-            Common(genre=re.compile("(christian|religion)"))
+            Common(genre=re.compile("(christian|religion)"),
+                   first_must_match=False)
         )
 
+    @known_to_fail
     def test_christian_authors(self):
+        # NOTE: Again, title matches (e.g. "Authority") dominate
+        # the results.
         self.search(
             "christian authors",
             Common(genre=re.compile("(christian|religion)"), first_must_match=False)
@@ -1641,6 +1642,9 @@ class TestGenreMatch(SearchTest):
     def test_christian_lust(self):
         # It's not clear what this person is looking for, but
         # treating it as a genre search seems appropriate.
+        #
+        # The first result is religious fiction but most of the
+        # others are not.
         self.search(
             "lust christian",
             Common(genre=re.compile("(christian|religion|religious fiction)"))
@@ -1648,17 +1652,23 @@ class TestGenreMatch(SearchTest):
 
     @known_to_fail
     def test_christian_fiction(self):
-        # NOTE: The 'fiction' part is basically ignored. The results
-        # are very similar to a search for 'christian'
+        # NOTE: The "fiction" part is basically ignored in favor of
+        # partial title matches.
         self.search(
             "christian fiction",
-            Common(genre=re.compile("(christian|religion|religious fiction)"))
+            [
+                Common(fiction=True),
+                Common(genre=re.compile(
+                    "(christian|religion|religious fiction)")
+                )
+            ]
         )
 
     @known_to_fail
     def test_graphic_novel(self):
-        # NOTE: This fails for a spurious reason. Many of the results have "Graphic Novel"
-        # in the title but are not classified as such.
+        # NOTE: This fails for a spurious reason. Many of the results
+        # have "Graphic Novel" in the title but are not classified as
+        # such.
         self.search(
             "Graphic novel",
             Common(genre="Comics & Graphic Novels")
@@ -1692,24 +1702,25 @@ class TestGenreMatch(SearchTest):
 
 
     def test_gossip_girl_manga(self):
-        # A "Gossip Girl" manga series does exist, but it's not in NYPL's collection.
-        # Instead, the results should focus on "Gossip Girl" books (most of which
-        # don't have .series set; hence searching by the author's name instead) and
-        # also some books about manga.
+        # A "Gossip Girl" manga series does exist, but it's not in
+        # NYPL's collection.  Instead, the results should focus on
+        # "Gossip Girl" non-manga (most of which don't have .series
+        # set; hence searching by the author's name instead).
         self.search(
             "Gossip girl Manga", [
                 Common(
                     author=re.compile("cecily von ziegesar"),
                     first_must_match=False,
-                    threshold=0.3
+                    threshold=0.5
                 ),
             ]
         )
 
     @known_to_fail
     def test_clique(self):
-        # NOTE: This doesn't work.  The target book does show up in the results, but
-        # the top results are dominated by books with 'graphic novel' in the title.
+        # NOTE: The target book does show up in the results, but the
+        # top results are dominated by books with 'graphic novel' in
+        # the title.
 
         # Genre and title
         self.search(
@@ -1717,7 +1728,12 @@ class TestGenreMatch(SearchTest):
             Common(genre="Comics & Graphic Novels", title="The Clique")
         )
 
+    @known_to_fail
     def test_spy(self):
+        # NOTE: Results are dominated by title matches, which is
+        # probably fine, since people don't really think of "Spy" as a
+        # genre, and people who do type in "spy" looking for spy books
+        # will find them.
         self.search(
             "Spy",
             Common(genre=re.compile("(espionage|history|crime|thriller)"))
@@ -1728,27 +1744,21 @@ class TestGenreMatch(SearchTest):
             "Espionage",
             Common(
                 genre=re.compile("(espionage|history|crime|thriller)"),
-                first_must_match=False
             )
         )
 
     def test_food(self):
         self.search(
             "food",
-            Common(
-                genre=re.compile("(cook|diet)"),
-                first_must_match=False
-            )
+            Common(genre=re.compile("(cook|diet)"))
         )
 
     def test_mystery(self):
-        self.search(
-            "mystery",
-            Common(genre="Mystery")
-        )
+        self.search("mystery", Common(genre="Mystery"))
 
     def test_agatha_christie_mystery(self):
-        # Genre and author
+        # Genre and author -- we should get nothing but mysteries by
+        # Agatha Christie.
         self.search(
             "agatha christie mystery",
             [ SpecificGenre(genre="Mystery", author="Agatha Christie"),
@@ -1780,8 +1790,12 @@ class TestGenreMatch(SearchTest):
             )
         )
 
+    @known_to_fail
     def test_deep_poems(self):
         # This appears to be a search for poems which are deep.
+        #
+        # NOTE: Results are dominated by title matches for "Deep",
+        # only a couple results are poetry.
         self.search(
             "deep poems",
             Common(genre="Poetry")
