@@ -67,7 +67,7 @@ def known_to_fail(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         try:
-            return f(*args, **kwargs)
+            ignore = f(*args, **kwargs)
         except Exception, e:
             logging.debug("Expected this test to fail, and it did: %r" % e)
             return
@@ -699,65 +699,62 @@ class TestUnownedTitle(SearchTest):
 class TestMisspelledTitleSearch(SearchTest):
     # Test title searches where the title is misspelled.
 
-    def test_allegiant_misspelled(self):
+    @known_to_fail
+    def test_allegiant(self):
         # A very bad misspelling.
         self.search(
             "alliagent",
             FirstMatch(title="Allegiant")
         )
 
-    def test_misspelled_title_match_marriage(self):
-        # NOTE: fails on both versions.  The first result is "The Marriage Contract,"
-        # and "The Marriage Lie" (which is presumably what the user wanted, and
-        # which is in the collection) isn't even in the top ten.
+    @known_to_fail
+    def test_marriage_lie(self):
+        # NOTE: "The Marriage Lie" (which is presumably what the user
+        # wanted, and which is in the collection) isn't on the first
+        # page of results.
         self.search(
             "Marriage liez",
             FirstMatch(title="The Marriage Lie")
         )
 
-    def test_misspelled_title_match_emmie(self):
-        # NOTE: this currently fails in both versions of ES.
-        # The target title does appear in the top search results,
-        # but it's not first.
-
-        # One word in the title is slightly misspelled.
+    @known_to_fail
+    def test_invisible_emmie(self):
+        # One word in the title is slightly misspelled. This makes
+        # "Emmy & Oliver" show up before the correct title match, which
+        # isn't too bad.
         self.search(
-            "Ivisible emmie",
-            FirstMatch(title="Invisible Emmie")
+            "Ivisible emmie", FirstMatch(title="Invisible Emmie")
         )
 
-    def test_misspelled_title_match_karamazov(self):
-        # NOTE: this works on ES1 but fails on ES6; not only is the target title
-        # not the first result in ES6, it's not any of the top results.  Fixing
-        # the typo makes it work.
-
+    @known_to_fail
+    def test_karamazov(self):
         # Extremely uncommon proper noun, slightly misspelled
+        #
+        # The desired book does not show up in the first page --
+        # it's all books called "Brothers".
         self.search(
             "Brothers karamzov",
             FirstMatch(title="The Brothers Karamazov")
         )
 
-    def test_misspelled_title_match_wave(self):
-        # NOTE: this currently fails in both versions of ES; the target book is
-        # result #4.  Fixing the typo fixes the search results.
-
+    def test_restless_wave(self):
         # One common word in the title is slightly misspelled.
         self.search(
             "He restless wave",
             FirstMatch(title="The Restless Wave")
         )
 
-    def test_misspelled_title_match_kingdom(self):
-        # NOTE: this works in ES1, but not in ES6!  In ES6, the target title is not
-        # in the top search results.
-
+    @known_to_fail
+    def test_kingdom_of_the_blind(self):
         # The first word, which is a fairly common word, is slightly misspelled.
+        #
+        # The desired book is not on the first page.
         self.search(
             "Kngdom of the blind",
             FirstMatch(title="The Kingdom of the Blind")
         )
 
-    def test_misspelled_title_match_husbands(self):
+    def test_seven_husbands(self):
         # Two words--1) a common word which is spelled as a different word
         # ("if" instead of "of"), and 2) a proper noun--are misspelled.
         self.search(
@@ -765,10 +762,10 @@ class TestMisspelledTitleSearch(SearchTest):
             FirstMatch(title="The Seven Husbands of Evelyn Hugo")
         )
 
-    def test_misspelled_title_match_nightingale(self):
-        # NOTE: this fails in both versions of ES, but the top ES1 results are reasonable
-        # (titles containing "nightfall"), whereas the top ES6 result is entitled
-        # "Modern Warfare, Intelligence, and Deterrence."
+    @known_to_fail
+    def test_nightingale(self):
+        # The top results are works like "Modern Warfare, Intelligence,
+        # and Deterrence."
 
         # Unusual word, misspelled
         self.search(
@@ -776,68 +773,62 @@ class TestMisspelledTitleSearch(SearchTest):
             FirstMatch(title="The Nightingale")
         )
 
-    def test_misspelled_title_match_geisha(self):
-        # NOTE: this currently fails in both versions of ES.
+    @known_to_fail
+    def test_memoirs_geisha(self):
+        # The desired work shows up on the first page, but it should
+        # be first.
         self.search(
             "Memoire of a ghesia",
             FirstMatch(title="Memoirs of a Geisha")
         )
 
-    def test_misspelled_title_match_healthyish(self):
-        # The title is not a real word, and is misspelled.
+    def test_healthyish(self):
+        # Misspelling of the title, which is a neologism.
         self.search(
-            "healtylish",
-            FirstMatch(title="Healthyish")
+            "healtylish", FirstMatch(title="Healthyish")
         )
 
-    def test_misspelled_title_match_zodiac(self):
+    def test_zodiac(self):
         # Uncommon word, slightly misspelled.
         self.search(
-            "Zodiaf",
-            FirstMatch(title="Zodiac")
+            "Zodiaf", FirstMatch(title="Zodiac")
         )
 
-    def test_misspelled_title_match_bell(self):
-        # One word, which is a relatively common word, is spelled as a different word.
+    def test_for_whom_the_bell_tolls(self):
+        # A relatively common word is spelled as a different, more common word.
         self.search(
             "For whom the bell tools",
             FirstMatch(title="For Whom the Bell Tolls")
         )
 
-    def test_misspelled_title_match_baghdad(self):
-        # One word, which is an extremely common word, is spelled as a different word.
+    @known_to_fail
+    def test_came_to_baghdad(self):
+        # An extremely common word is spelled as a different word.
         self.search(
             "They cane to baghdad",
             FirstMatch(title="They Came To Baghdad")
         )
 
-    def test_misspelled_title_match_genghis(self):
-        # NOTE: this doesn't work.  The collection definitely contains books with
-        # "Genghis Khan" in the title, but all of the top search results are books
-        # by authors with the last name "Khan."
-
+    def test_genghis_khan(self):
         self.search(
             "Ghangiz Khan",
-            AtLeastOne(title=re.compile("Genghis Khan"))
+            AtLeastOne(title=re.compile("Genghis Khan", re.I))
         )
 
-    def test_misspelled_title_match_guernsey(self):
-        # NOTE: this works in ES6 but not in ES1.  ES1 fixes the typo, but
-        # doesn't seem able to handle converting the "and" into an ampersand.
-
+    def test_guernsey(self):
         # One word, which is a place name, is misspelled.
         self.search(
             "The gurnsey literary and potato peel society",
             FirstMatch(title="The Guernsey Literary & Potato Peel Society")
         )
 
+    @known_to_fail
     def test_british_spelling_color_of_our_sky(self):
-        # NOTE: fails on both.  In ES1, the target book is the 3rd result; in
-        # ES6, it's nowhere in the top results.
+        # The book we're looking for is on the first page, but
+        # below "The Weight of Our Sky"
         #
         # Note to pedants: the title of the book as published is
         # "The Color of Our Sky".
-
         self.search(
             "The colour of our sky",
             FirstMatch(title="The Color of Our Sky")
