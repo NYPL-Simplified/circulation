@@ -1236,12 +1236,11 @@ class Query(SearchBase):
         # All done!
         return search
 
-    def query(self):
+    def query(self, use_query_parser=True):
         """Build an Elasticsearch Query object for this query string.
         """
         query_string = self.query_string
-
-        if query_string is None:
+        if not query_string:
             # There is no query string.
             return MatchAll()
 
@@ -1294,12 +1293,15 @@ class Query(SearchBase):
         # survive the filter will naturally have higher scores than
         # the matches that erroneously assumed the filter description
         # was part of a text query.
-        with_field_matches, filters = self._parsed_query_matches(query_string)
-        if with_field_matches:
-            self._hypothesize(
-                hypotheses, with_field_matches, 1, all_must_match=True,
-                filters=filters
+        if use_query_parser:
+            field_matches, filters = self._parsed_query_matches(
+                query_string
             )
+            if field_matches or filters:
+                self._hypothesize(
+                    hypotheses, field_matches, 1.5, all_must_match=True,
+                    filters=filters
+                )
 
         # The query string might combine terms from the title with
         # some other field.
@@ -1335,11 +1337,14 @@ class Query(SearchBase):
 
         # For a given book, whichever one of these hypotheses gives
         # the highest score should be used.
-        qu = self._combine_hypotheses(hypotheses)
+        if not hypotheses:
+            qu = MatchAll()
+        else:
+            qu = self._combine_hypotheses(hypotheses)
         return qu
 
     @classmethod
-    def _hypothesize(cls, hypotheses, query, boost=1.5, **kwargs):
+    def _hypothesize(cls, hypotheses, query, boost=1.5, filters=None, **kwargs):
         """Add a hypothesis to the ones to be tested for each book.
 
         :param hypotheses: If a new hypothesis is generated, it will be
@@ -1356,8 +1361,8 @@ class Query(SearchBase):
 
         :param kwargs: Keyword arguments for the _boost method.
         """
-        if query:
-            query = cls._boost(boost, query, **kwargs)
+        if query or filters:
+            query = cls._boost(boost, query, filters=filters, **kwargs)
         if query:
             hypotheses.append(query)
         return hypotheses
@@ -1376,36 +1381,16 @@ class Query(SearchBase):
 
         :param boost: Numeric value to boost search results that
            match `queries`.
-        :param queries: One or more Query objects. If more than one query
-           is provided, a new Bool-type query will be created with
-           the given boost. If this is a single Bool-type query, its
-           boost will be modified and no new query will be created.
+        :param queries: One or more Query objects to use in a query context.
+        :param filter: A Query object to use in a filter context.
         :param all_must_match: If this is False (the default), then only
            one of the `queries` must match for a search result to get
            the boost. If this is True, then all `queries` must match,
            or the boost will not apply.
         """
-        if filters:
-            filters = Bool(must=filters)
-
-        if isinstance(queries, Bool):
-            # This is already a boolean query; we just need to change
-            # the boost and potentially add filters.
-            queries._params['boost'] = boost
-            if filters:
-                queries._params['filter'] = filters
-            return queries
-
+        filters = filters or []
         if isinstance(queries, BaseQuery):
-            if boost == 1:
-                # We already have a Query and we don't actually need
-                # to boost it. Leave it alone to simplify the final
-                # query.
-                if filters:
-                    queries._params['filter'] = filters
-                return queries
-            else:
-                queries = [queries]
+            queries = [queries]
 
         if all_must_match or len(queries) == 1:
             # Every one of the subqueries in `queries` must match.
@@ -1415,9 +1400,7 @@ class Query(SearchBase):
         else:
             # At least one of the queries in `queries` must match.
             kwargs = dict(should=queries, minimum_should_match=1)
-        if filters:
-            kwargs['filter'] = filters
-        query = Bool(boost=float(boost), **kwargs)
+        query = Bool(boost=float(boost), filter=filters, **kwargs)
         return query
 
     @classmethod
@@ -1644,7 +1627,7 @@ class QueryParser(object):
         self.original_query_string = query_string.strip()
         self.query_class = query_class
 
-        # We start with no match queries.
+        # We start with no match queries and no filter.
         self.match_queries = []
         self.filters = []
 
@@ -1671,13 +1654,12 @@ class QueryParser(object):
         # Handle the 'nonfiction' part of 'asteroids nonfiction'
         fiction = None
         if re.compile(r"\bnonfiction\b", re.IGNORECASE).search(query_string):
-            fiction = "Nonfiction"
+            fiction = "nonfiction"
         elif re.compile(r"\bfiction\b", re.IGNORECASE).search(query_string):
-            fiction = "Fiction"
+            fiction = "fiction"
         query_string = self.add_match_term_query(
             fiction, 'fiction', query_string, fiction
         )
-
         # Handle the 'grade 5' part of 'grade 5 dogs'
         age_from_grade, grade_match = GradeLevelClassifier.target_age_match(
             query_string
@@ -1696,7 +1678,7 @@ class QueryParser(object):
 
         self.final_query_string = query_string.strip()
 
-        if len(query_string.strip()) == 0:
+        if len(self.final_query_string) == 0:
             # Someone who searched for 'young adult romance' ended up
             # with an empty query string -- they matched an audience
             # and a genre, and now there's nothing else to match.
@@ -1711,10 +1693,10 @@ class QueryParser(object):
         # It could be anything that would go into a regular query. And
         # we have lots of different ways of checking a regular query --
         # different hypotheses, fuzzy matches, etc. So the simplest thing
-        # to do is to call 
+        # to do is to call Query.query() recursively.
         if (self.final_query_string
             and self.final_query_string != self.original_query_string):
-            recursive = Query(self.final_query_string).query()
+            recursive = Query(self.final_query_string).query(use_query_parser=False)
             self.match_queries.append(recursive)
 
     def add_match_term_query(self, query, field, query_string, matched_portion):
