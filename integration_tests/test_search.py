@@ -563,12 +563,18 @@ class TestTitleMatch(SearchTest):
             ]
         )
 
-    def test_elision_filter(self):
-        # This tests the elision filter.
+    def test_possessives(self):
+        # Verify that possessives are stemmed.
         self.search(
-            "washington's war",
-            FirstMatch(title="George Washington's War")
+            "washington war",
+            AtLeastOne(title="George Washington's War")
         )
+
+        self.search(
+            "washingtons war",
+            AtLeastOne(title="George Washington's War")
+        )
+
 
     def test_it(self):
         # The book "It" is correctly prioritized over books whose titles contain
