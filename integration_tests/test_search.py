@@ -1445,7 +1445,6 @@ class TestAuthorMatch(SearchTest):
             "b a paris", SpecificAuthor("B. A. Paris")
         )
 
-    @known_to_fail
     def test_griffiths(self):
         # The search query gives the author's sort name.
         #
@@ -1453,30 +1452,6 @@ class TestAuthorMatch(SearchTest):
         # Elizabeth Gaskell and "Ellis Island" by Kate Kerrigan.
         self.search(
             "Griffiths elly", SpecificAuthor("Elly Griffiths")
-        )
-
-    # A few tests of searches for author Henning Mankell
-
-    def test_mankell_display_name(self):
-        # When the author's name is spelled as it is on a book cover,
-        # there's no problem.
-        self.search(
-            "henning mankell", SpecificAuthor("Henning Mankell")
-        )
-
-    @known_to_fail
-    def test_mankell_sort_name(self):
-        # When the sort name is given, "henning" is stemmed to "hen" and
-        # a title match is the first result.
-        self.search(
-            "mankell henning", SpecificAuthor("Henning Mankell")
-        )
-
-    @known_to_fail
-    def test_mankell_display_name(self):
-        # Same failure if the name is misspelled.
-        self.search(
-            "henning mankel", SpecificAuthor("Henning Mankell")
         )
 
     def test_christian_kracht(self):
@@ -1489,7 +1464,6 @@ class TestAuthorMatch(SearchTest):
     def test_dan_gutman(self):
         self.search("gutman, dan", Common(author="Dan Gutman"))
 
-    @known_to_fail
     def test_dan_gutman_with_series(self):
         self.search(
             "gutman, dan the weird school",
@@ -1521,14 +1495,13 @@ class TestAuthorMatch(SearchTest):
             Common(author="Betty Neels", genre="romance", threshold=1)
         )
 
-
 # Classes that test many different variant searches for a specific
-# title.
+# author.
 #
 
 class TestTimothyZahn(VariantSearchTest):
     # Test ways of searching for author Timothy Zahn.
-    EVALUATOR = Common(author="Timothy Zahn")
+    EVALUATOR = SpecificAuthor("Timothy Zahn")
 
     def test_correct_spelling(self):
         self.search("timothy zahn")
@@ -1544,7 +1517,7 @@ class TestTimothyZahn(VariantSearchTest):
 
 class TestRainaTelgemeier(VariantSearchTest):
     # Test ways of searching for author Raina Telgemeier.
-    EVALUATOR = Common(author="raina telgemeier")
+    EVALUATOR = SpecificAuthor("Raina Telgemeier")
 
     def test_correct_spelling(self):
         self.search('raina telgemeier')
@@ -1557,6 +1530,26 @@ class TestRainaTelgemeier(VariantSearchTest):
     def test_misspelling_2(self):
         self.search('raina telgemerier')
 
+class TestHenningMankell(VariantSearchTest):
+    # A few tests of searches for author Henning Mankell
+    #
+    # Among other things, these tests verify that we can resist the
+    # temptation to stem "Henning" to "Hen".
+
+    EVALUATOR = SpecificAuthor("Henning Mankell")
+
+    def test_display_name(self):
+        self.search("henning mankell")
+
+    def test_sort_name(self):
+        self.search("mankell henning")
+
+    def test_display_name_misspelled(self):
+        self.search("henning mankel")
+
+    def test_sort_name_misspelled(self):
+        self.search("mankel henning")
+
 
 class TestMJRose(VariantSearchTest):
     # Test ways of searching for author M. J. Rose.
@@ -1564,22 +1557,34 @@ class TestMJRose(VariantSearchTest):
     # punctuation and spaces.
     EVALUATOR = Common(author="M. J. Rose")
 
-    # TODO: Do we need to set an analyzer or normalizer on the incoming search query?
-    # These should be slam-dunks now.
+    # TODO: This is pretty bad given the work we do to normalize
+    # author names during indexing. Maybe we need to normalize the
+    # data going in to the search.
 
     def test_with_periods_and_spaces(self):
+        # This proves that we do have the books and can find them.
         self.search("m. j. rose")
 
+    @known_to_fail
     def test_with_periods(self):
+        # This only gets three books by this author.
         self.search("m.j. rose")
 
+    @known_to_fail
     def test_with_one_period(self):
+        # This only three books by this author.
         self.search("m.j rose")
 
+    @known_to_fail
     def test_with_spaces(self):
+        # This only gets four books by this author.
         self.search("m j rose")
 
+    @known_to_fail
     def test_with_no_periods_or_spaces(self):
+        # The author name is indexed as "m j", and without a space
+        # between the "m" and the "j" Elasticsearch won't match the
+        # tokens.
         self.search("mj rose")
 
 
