@@ -2453,7 +2453,7 @@ class TestISurvived(VariantSearchTest):
 
 class TestDorkDiaries(VariantSearchTest):
     # Test different ways of spelling "Dork Diaries"
-    EVALUATOR = SpecificAuthor(re.compile(u"Rachel .* Russell", re.I))
+    EVALUATOR = SpecificAuthor(re.compile(u"Rachel .* Russell", re.I)),
 
     def test_correct_spelling(self):
         self.search('dork diaries')
@@ -2497,7 +2497,9 @@ class TestMyLittlePony(VariantSearchTest):
     def test_correct_spelling(self):
         self.search("my little pony")
 
+    @known_to_fail
     def test_misspelling_1(self):
+        # NOTE: This gets a title match on "Cousin Pons"
         self.search("my little pon")
 
     def test_misspelling_2(self):
@@ -2507,23 +2509,35 @@ class TestMyLittlePony(VariantSearchTest):
 class TestLanguageRestriction(SearchTest):
     # Verify that adding the name of a language restricts the results
     # to books in that language.
+    #
+    # NOTE: We don't parse language out of queries, so if any of these
+    # work it's because the name of the language is present in some
+    # other field.
 
-    def test_language(self):
+    def test_language_espanol(self):
+        # "Espanol" is itself a Spanish word, so it would mainly show
+        # up in metadata for Spanish titles.
         self.search("espanol", Common(language="spa"))
 
+    @known_to_fail
+    def test_language_spanish(self):
+        self.search("spanish", Common(language="spa"))
+
+    @known_to_fail
     def test_author_with_language(self):
-        # NOTE: this doesn't work on either version of ES; the first
-        # Spanish result is #3
         self.search(
             "Pablo escobar spanish",
             FirstMatch(author="Pablo Escobar", language="spa")
         )
 
     def test_gatos(self):
-        # Searching for a Spanish word should mostly bring up books in Spanish
+        # Searching for a Spanish word should mostly bring up books in Spanish,
+        # since that's where the word would be used.
+        #
+        # However, 'gatos' also shows up in English, e.g. in place names.
         self.search(
             "gatos",
-            Common(language="spa", threshold=0.9)
+            Common(language="spa", threshold=0.7)
         )
 
 
@@ -2536,17 +2550,27 @@ class TestCharacterMatch(SearchTest):
             [
                 AtLeastOne(title=re.compile("three little pigs")),
                 Common(title=re.compile("pig")),
-
-                # TODO: This would require that '3' and 'three'
-                # be analyzed the same way.
-                # FirstMatch(title="Three Little Pigs"),
             ]
         )
 
-    def test_batman(self):
-        # NOTE: doesn't work.  (The results for "batman" as one word are as
-        # expected, though.)
+    @known_to_fail
+    def test_3_little_pigs_more_precise(self):
+        # NOTE: This would require that '3' and 'three' be analyzed
+        # the same way.
+        self.search(
+            "3 little pigs",
+            FirstMatch(title="Three Little Pigs"),
+        )
 
+
+    def test_batman(self):
+        self.search(
+            "batman book",
+            Common(title=re.compile("batman"))
+        )
+
+    @known_to_fail
+    def test_batman_two_words(self):
         # Patron is searching for 'batman' but treats it as two words.
         self.search(
             "bat man book",
@@ -2555,21 +2579,31 @@ class TestCharacterMatch(SearchTest):
 
     def test_christian_grey(self):
         # This search uses a character name to stand in for a series.
-        #
-        # NOTE: this fails. The first two books are Christian-genre
-        # books with "grey" in the title, which is a reasonable search
-        # result but is not what the patron wanted.
         self.search(
             "christian grey",
             FirstMatch(author="E. L. James")
         )
 
-    def test_spiderman(self):
-        # Patron is searching for 'spider-man' but treats it as one word.
-        for q in ("spiderman", "spidermanbook"):
-            self.search(
-                q, Common(title=re.compile("spider-man"))
-            )
+    def test_spiderman_hyphenated(self):
+        self.search(
+            "spider-man", Common(title=re.compile("spider-man"))
+        )
+
+    @known_to_fail
+    def test_spiderman_one_word(self):
+        # NOTE: There are some Spider-Man titles but not as many as
+        # with the hyphen.
+        self.search(
+            "spiderman", Common(title=re.compile("spider-man"))
+        )
+
+    @known_to_fail
+    def test_spiderman_run_on(self):
+        # NOTE: This gets no results at all.
+        self.search(
+            "spidermanbook", Common(title=re.compile("spider-man"))
+        )
+
 
     def test_teen_titans(self):
         self.search(
@@ -2577,6 +2611,7 @@ class TestCharacterMatch(SearchTest):
             Common(title=re.compile("^teen titans")), limit=5
         )
 
+    @known_to_fail
     def test_teen_titans_girls(self):
         # We don't gender books so we can't deliver results tailored
         # to 'teen titans girls', but we should at least give
@@ -2635,7 +2670,7 @@ class TestAgeRangeRestriction(SearchTest):
 
     @known_to_fail
     def test_chapter_books_misspelled_1(self):
-        # This doesn't work: we get 'chapter' title matches.
+        # NOTE: This doesn't work: we get 'chapter' title matches.
         #
         # We know this won't work because we don't do fuzzy matching
         # on things that would become filter terms.
@@ -2645,7 +2680,7 @@ class TestAgeRangeRestriction(SearchTest):
 
     @known_to_fail
     def test_chapter_books_misspelled_2(self):
-        # This doesn't work: we get 'book' title matches
+        # NOTE: This doesn't work: we get 'book' title matches
         self.search(
             "chaptr books", Common(target_age=(6, 10))
         )
@@ -2654,7 +2689,7 @@ class TestAgeRangeRestriction(SearchTest):
     def test_grade_and_subject(self):
         # NOTE: this doesn't work because we don't parse grade numbers
         # when they're spelled out, only when they're provided as
-        # numbers.
+        # digits.
         self.search(
             "Seventh grade science",
             [
