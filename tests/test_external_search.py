@@ -590,11 +590,10 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         expect(self.moby_dick, "gutenberg")
 
         # Title > subtitle > summary > publisher.
-        # TODO: This is incorrect -- summary is boosted way too much.
         order = [
             self.title_match,
-            self.summary_match,
             self.subtitle_match,
+            self.summary_match,
             self.publisher_match,
         ]
         expect(order, "match")
@@ -621,7 +620,9 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # Match a misspelled author: 'mleville' -> 'melville'
         expect(self.moby_dick, "mleville")
 
-        expect([self.moby_dick, self.moby_duck], "mo by dick")
+        # This doesn't match "Moby Duck" because the text isn't long
+        # enough to justify the hypothesis that we made two typos.
+        expect([self.moby_dick], "mo by dick")
 
         # A query without an apostrophe matches a word that contains one.
         # (NOTE: it's not clear whether this is a feature of the index or

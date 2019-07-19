@@ -490,7 +490,10 @@ class ExternalSearchIndex(HasSelfTests):
         results = search[start:stop]
         if debug:
             b = time.time()
-            self.log.debug("Elasticsearch query completed in %.2fsec", b-a)
+            self.log.debug(
+                "Elasticsearch query %r completed in %.3fsec", 
+                query_string, b-a
+            )
             for i, result in enumerate(results):
                 self.log.debug(
                     '%02d "%s" (%s) work=%s score=%.3f shard=%s',
@@ -753,23 +756,17 @@ class MappingDocument(object):
         property type.
 
         This type does not exist in Elasticsearch. It's our name for a
-        text field that is indexed three times: once using our default
-        English analyzer ("title"), once using Elasticsearch's
-        standard analyzer ("title.standard"), and once using a minimal
-        analyzer ("title.minimal") for near-exact matches.
-
+        text field that is indexed twice: once using our default
+        English analyzer ("title"), and once using an analyzer with
+        minimal stemming ("title.minimal") for close matches.
         """
         description['type'] = 'text'
-        description['analyzer'] = 'en_analyzer'
+        description['analyzer'] = 'en_default_text_analyzer'
         description['fields'] = {
             "minimal": {
                 "type": "text",
-                "analyzer": "en_minimal_analyzer"
+                "analyzer": "en_minimal_text_analyzer"
             },
-            "standard": {
-                "type": "text",
-                "analyzer": "standard"
-            }
         }
 
     def filterable_text_property_hook(self, description):
@@ -779,7 +776,7 @@ class MappingDocument(object):
         This type does not exist in Elasticsearch. It's our name for a
         text field that can be used in both queries and filters.
 
-        This field is indexed _four_ times -- the three ways a normal
+        This field is indexed _three_ times -- the two ways a normal
         text field is indexed, plus again as an unparsed keyword that
         can be used in filters.
         """
@@ -941,42 +938,86 @@ class CurrentMapping(Mapping):
         # Set up analyzers.
         #
 
-        # The first two analyzers are used for the default and
-        # 'minimal' views of most text fields (for the 'standard'
-        # view, we use Elasticsearch's default analyzer). The two
-        # analyzers are identical except for the last filter in the
-        # chain.
+        # We use two analyzers:
+        #
+        # 1. An analyzer based on Elasticsearch's default English
+        #    analyzer -- used as the default view of a text field such
+        #    as 'description'.
+        #
+        # 2. An analyzer that's exactly the same but with a less
+        #    aggressive stemmer -- used as the 'minimal' view of a
+        #    text field such as 'description.minimal'.
+        #
+        # The two analyzers are identical except for the last filter
+        # in the chain.
+        #
+        # Bothe analyzers are based on Elasticsearch's default English
+        # analyzer, defined here:
+        # https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-lang-analyzer.html#english-analyzer
 
-        # Both analyzers filter out stopwords, convert to lowercase,
-        # and fold to ASCII when possible.
-        self.filters['en_stop_filter'] = dict(
+        # First, recreate the filters from the default English
+        # analyzer. We'll be using these to build our own analyzers.
+
+        # Filter out English stopwords.
+        self.filters['english_stop'] = dict(
             type="stop", stopwords=["_english_"]
         )
+
+        # The default English stemmer, used in the en_default analyzer.
+        self.filters['english_stemmer'] = dict(
+            type="stemmer", language="english"
+        )
+
+        # A less aggressive English stemmer, used in the en_minimal analyzer.
+        self.filters['minimal_english_stemmer'] = dict(
+            type="stemmer", language="minimal_english"
+        )
+
+        # A filter that removes English posessives such as "'s"
+        self.filters['english_posessive_stemmer'] = dict(
+            type="stemmer", language="possessive_english"
+        )
+
+        # Some potentially useful filters that are currently not used:
+        #
+        # * keyword_marker -- Exempt certain keywords from stemming
+        # * synonym -- Introduce synonyms for words
+
+        # Here's the common analyzer configuration. The comment NEW
+        # means this is something we added on top of Elasticsearch's
+        # default configuration for the English analyzer.
         common_text_analyzer = dict(
-            type="custom", char_filter=["html_strip"], tokenizer="standard",
+            type="custom",
+            char_filter=["html_strip"],              # NEW
+            tokenizer="standard",
         )
-        common_filter = ["lowercase", "asciifolding", "en_stop_filter"]
+        common_filter = [
+            "english_posessive_stemmer",
+            "lowercase",
+            "asciifolding",                          # NEW
+            "english_stop",
+        ]
 
-        # Our default analyzer uses a standard English stemmer.
-        self.filters['en_stem_filter'] = dict(type="stemmer", name="english")
-        self.analyzers['en_analyzer'] = dict(common_text_analyzer)
-        self.analyzers['en_analyzer']['filter'] = (
-            common_filter + ['en_stem_filter']
+        # The default_text_analyzer uses Elasticsearch's standard
+        # English stemmer.
+        self.analyzers['en_default_text_analyzer'] = dict(common_text_analyzer)
+        self.analyzers['en_default_text_analyzer']['filter'] = (
+            common_filter + ['english_stemmer']
         )
 
-        # Whereas the 'minimal' analyzer uses a less aggressive English
+        # The minimal_text_analyzer uses a less aggressive English
         # stemmer.
-        self.filters['en_stem_minimal_filter'] = dict(
-            type="stemmer", name="minimal_english"
-        )
-        self.analyzers['en_minimal_analyzer'] = dict(common_text_analyzer)
-        self.analyzers['en_minimal_analyzer']['filter'] = (
-            common_filter + ['en_stem_minimal_filter']
+        self.analyzers['en_minimal_text_analyzer'] = dict(common_text_analyzer)
+        self.analyzers['en_minimal_text_analyzer']['filter'] = (
+            common_filter + ['minimal_english_stemmer']
         )
 
-        # Here's a special filter used only by the analyzer for the
-        # 'sort_author' property (directly below).  It duplicates the
-        # filter used by the icu_collation_keyword data type.
+        # Now we need to define a special analyzer used only by the
+        # 'sort_author' property.
+
+        # Here's a special filter used only by that analyzer. It
+        # duplicates the filter used by the icu_collation_keyword data
+        # type.
         self.filters['en_sortable_filter'] = dict(
             type="icu_collation", language="en", country="US"
         )
@@ -1106,85 +1147,6 @@ class SearchBase(object):
 class Query(SearchBase):
     """An attempt to find something in the search index."""
 
-    # When we run a simple query string search, we are matching the
-    # query string against these fields.
-    SIMPLE_QUERY_STRING_FIELDS = [
-        # These fields have been stemmed.
-        'title^4',
-        "series^4",
-        'subtitle^3',
-        'summary^2',
-        "classifications.term^2",
-
-        # These fields only use the standard analyzer and are closer to the
-        # original text.
-        'author^6',
-        'publisher',
-        'imprint'
-    ]
-
-    # When we look for a close match against title, author, or series,
-    # we apply minimal stemming (or no stemming, in the case of the
-    # author), because we're handling the case where the user typed
-    # something in exactly as is.
-    #
-    # TODO: If we're really serious about 'minimal stemming', we
-    # should use a version that doesn't stem plurals or remove stop
-    # words.
-    MINIMAL_STEMMING_QUERY_FIELDS = [
-        'title.minimal', 'author', 'series.minimal'
-    ]
-
-    # When we run a fuzzy query string search, we are matching the
-    # query string against these fields. It's more important that we
-    # use fields that have undergone minimal stemming because the part
-    # of the word that was stemmed may be the part that is misspelled
-    FUZZY_QUERY_STRING_FIELDS = [
-        'title.minimal^4',
-        'series.minimal^4',
-        "subtitle.minimal^3",
-        "summary.minimal^2",
-        'author^4',
-        'publisher',
-        'imprint'
-    ]
-
-    # These words will fuzzy-match other common words that aren't relevant,
-    # so if they're present and correctly spelled we shouldn't use a
-    # fuzzy query.
-    FUZZY_CONFOUNDERS = [
-        "baseball", "basketball", # These fuzzy match each other
-
-        "soccer", # Fuzzy matches "saucer", "docker", "sorcery"
-
-        "football", "softball", "software", "postwar",
-
-        "tennis",
-
-        "hamlet", "harlem", "amulet", "tablet",
-
-        "biology", "ecology", "zoology", "geology",
-
-        "joke", "jokes" # "jake"
-
-        "cat", "cats",
-        "car", "cars",
-        "war", "wars",
-
-        "away", "stay",
-    ]
-
-    # If this regular expression matches a query, we will not run
-    # a fuzzy match against that query, because it's likely to be
-    # counterproductive.
-    #
-    # TODO: Instead of this, avoid the fuzzy query or weigh it much
-    # lower if there don't appear to be any misspelled words in the
-    # query string. Or switch to a suggester.
-    FUZZY_CIRCUIT_BREAKER = re.compile(
-        r'\b(%s)\b' % "|".join(FUZZY_CONFOUNDERS), re.I
-    )
-
     def __init__(self, query_string, filter=None):
         """Store a query string and filter.
 
@@ -1299,13 +1261,15 @@ class Query(SearchBase):
 
         # Here are the hypotheses:
 
-        # The query string might be a match solely against one field:
+        # The query string might be a match against a single field:
         # probably title, author or series. These are the most common
         # searches.
         for field, base_score in (
             ('title', 150),
             ('subtitle', 120),
             ('series', 100),
+            ('publisher', 50),
+            ('imprint', 50),
         ):
             for qu, multiplier in self._match_one_field(
                 field, query_string, make_fuzzy=make_fuzzy
@@ -1356,11 +1320,11 @@ class Query(SearchBase):
         #     self._hypothesize(hypotheses, combined, 80)
 
         # The query string may be referring to subject matter --
-        # this would be found in the book's description or in one of 
+        # this would be found in the book's summary or in one of 
         # the classification terms.
         subject = MultiMatch(
             query=query_string,
-            fields=["description", "classifications.term"],
+            fields=["summary", "classifications.term"],
             type="best_fields",
         )
         self._hypothesize(hypotheses, subject, 100)
@@ -1485,16 +1449,6 @@ class Query(SearchBase):
         in order. E.g. "fiction science" will not match "Science Fiction".
         """
         return MatchPhrase(**{field: query_string})
-
-    @classmethod
-    def minimal_stemming_query(
-            cls, query_string,
-            fields=MINIMAL_STEMMING_QUERY_FIELDS
-    ):
-        """A clause that tries for a close match of the query string
-        against any of a number of fields.
-        """
-        return [cls._match_phrase(field, query_string) for field in fields]
 
     @classmethod
     def make_target_age_query(cls, target_age, boost=1):
