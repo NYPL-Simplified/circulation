@@ -838,6 +838,7 @@ class TestMisspelledTitleSearch(SearchTest):
 class TestPartialTitleSearch(SearchTest):
     # Test title searches where only part of the title is provided.
 
+    @known_to_fail
     def test_i_funnyest(self):
         # An important word from the middle of the title is omitted.
         self.search(
@@ -845,36 +846,39 @@ class TestPartialTitleSearch(SearchTest):
             AtLeastOne(title="I Totally Funniest"),
         )
 
-    def test_partial_title_match_home(self):
+    def test_future_home(self):
         # The search query only contains half of the title.
         self.search(
             "Future home of",
             FirstMatch(title="Future Home Of the Living God")
         )
 
-    def test_partial_title_match_supervision(self):
-        # NOTE: works on ES1, fails on ES6; it's the second title rather than
-        # the first in ES6.
-
+    def test_fundamentals_of_supervision(self):
         # A word from the middle of the title is missing.
-
-        # I think they might be searching for a different book
-        # we don't have. - LR
         self.search(
             "fundamentals of supervision",
             FirstMatch(title="Fundamentals of Library Supervision")
         )
 
-    def test_partial_title_match_hurin(self):
-        # Successfully searches "Húrin" (even though that's not a real word, and
-        # the query didn't have the accent mark) before trying to correct it.
-        self.search(
-            "Hurin",
-            FirstMatch(author=re.compile("tolkien"))
-        )
+    def test_hurin(self):
+        # A single word is so unusual that it can identify the book
+        # we're looking for.
+        for query in (
+            "Hurin", u"Húrin"
+        ):
+            self.search(
+                query,
+                FirstMatch(
+                    title=u"The Children of Húrin", author=re.compile("tolkien")
+                )
+            )
 
-    def test_partial_title_match_open_wide(self):
+    @known_to_fail
+    def test_open_wide(self):
         # Search query cuts off midway through the second word of the subtitle.
+        #
+        # The book we're looking for is on the first page, but underneath two
+        # other books called "open wide" or "wide open".
         self.search(
             "Open wide a radical",
             FirstMatch(
@@ -883,39 +887,36 @@ class TestPartialTitleSearch(SearchTest):
             )
         )
 
-    def test_partial_title_match_friends(self):
+    def test_how_to_win_friends(self):
         # The search query only contains half of the title.
         self.search(
             "How to win friends",
             FirstMatch(title="How to Win Friends and Influence People")
         )
 
-    def test_partial_title_match_face_1(self):
+    def test_wash_your_face_1(self):
         # The search query is missing the last word of the title.
         self.search(
             "Girl wash your",
             FirstMatch(title="Girl, Wash Your Face")
         )
 
-    def test_partial_title_match_face_2(self):
+    def test_wash_your_face_2(self):
         # The search query is missing the first word of the title.
         self.search(
             "Wash your face",
             FirstMatch(title="Girl, Wash Your Face")
         )
 
-    def test_partial_title_match_theresa(self):
+    def test_theresa(self):
         # The search results correctly prioritize books with titles containing
         # "Theresa" over books by authors with the first name "Theresa."
         self.search(
             "Theresa",
-            FirstMatch(title="Theresa Raquin")
+            FirstMatch(title=re.compile("Theresa"))
         )
 
-    def test_misspelled_partial_title_match_brodie(self):
-      # NOTE: this works in ES1, but not in ES6!  In ES6, the target title is in
-      # the top search results, but is not first.
-
+    def test_prime_of_miss_jean_brodie(self):
       # The search query only has the first and last words from the title, and
       # the last word is misspelled.
       self.search(
