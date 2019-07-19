@@ -1573,13 +1573,12 @@ class TestExactMatches(EndToEndSearchTest):
         )
 
         # A full author match takes precedence over a partial author
-        # match. A partial author match that matches the entire search
-        # string takes precedence over a partial author match that doesn't.
+        # match. A partial author match ("peter ansari") that doesn't
+        # match the whole string doesn't show up at all.
         expect(
             [
                 self.modern_romance,      # "Aziz Ansari" in author
                 self.parent_book,         # "Aziz" in title, "Ansari" in author
-                self.book_by_someone_else # "Ansari" in author
             ],
             "aziz ansari"
         )
