@@ -1341,7 +1341,7 @@ class Query(SearchBase):
             fields=["summary", "classifications.term"],
             type="best_fields",
         )
-        self._hypothesize(hypotheses, subject, 100)
+        self._hypothesize(hypotheses, subject, 80)
 
         # If we don't know what to do, we can ask Elasticsearch to do
         # a simple query string match against a large number of
