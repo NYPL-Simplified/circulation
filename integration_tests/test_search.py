@@ -1043,7 +1043,7 @@ class TestTitleAuthorConflict(SearchTest):
 
         # NOTE: The first result is a book whose .series is the literal
         # string "Disney". This triggers a keyword series match which
-        # bumps it to the top.
+        # bumps it to the top. That's why first_must_match=False.
         self.search(
             "disney",
                 [ Common(title=re.compile("disney"), first_must_match=False),
@@ -1067,7 +1067,7 @@ class TestTitleAudienceConflict(SearchTest):
 
     def test_title_match_with_audience_name_children(self):
         self.search(
-            "Children of blood and bone",
+            "Children blood",
             FirstMatch(title="Children of Blood and Bone")
         )
 
@@ -1079,7 +1079,7 @@ class TestTitleAudienceConflict(SearchTest):
 
     def test_tales_of_a_fourth_grade_nothing(self):
         self.search(
-            "tales of a fourth grade nothing",
+            "fourth grade nothing",
             FirstMatch(title="Tales of a Fourth Grade Nothing")
         )
 
