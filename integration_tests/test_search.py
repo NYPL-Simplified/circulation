@@ -1180,7 +1180,9 @@ class TestMixedTitleAuthorMatch(SearchTest):
 class TestTheHateUGive(VariantSearchTest):
     """Test various ways of searching for "The Hate U Give"."""
 
-    EVALUATOR = FirstMatch(title="The Hate U Give")
+    # We check the start of the title because for some reason we have
+    # a copy of the book that includes the author's name in the title.
+    EVALUATOR = FirstMatch(title=re.compile("^The Hate U Give", re.I))
 
     def test_correct_spelling(self):
         self.search("the hate u give")
@@ -1194,6 +1196,7 @@ class TestTheHateUGive(VariantSearchTest):
     def test_with_you(self):
         self.search("hate you give")
 
+    @known_to_fail
     def test_with_you_misspelled(self):
         self.search("hate you gove")
 
@@ -1206,14 +1209,24 @@ class TestCharlottesWeb(VariantSearchTest):
     def test_with_apostrophe(self):
         self.search("charlotte's web")
 
+    def test_without_possessive(self):
+        self.search("charlotte web")
+
     def test_without_apostrophe(self):
         self.search("charlottes web")
 
+    @known_to_fail
     def test_misspelled_no_apostrophe(self):
         self.search("charlettes web")
 
     def test_no_apostrophe_with_author(self):
         self.search("charlottes web eb white")
+
+    @known_to_fail
+    def test_no_apostrophe_with_author_space(self):
+        # NOTE: This promotes several other E. B. White titles
+        # over "Charlotte's Web".
+        self.search("charlottes web e b white")
 
 
 class TestChristopherMouse(VariantSearchTest):
@@ -1247,8 +1260,7 @@ class TestSubtitleMatch(SearchTest):
 
     def test_shame_stereotypes(self):
         # "Sister Citizen" has both search terms in its
-        # subtitle. "Posess" has 'shamed' in its subtitle but does not
-        # match 'stereotype' at all.
+        # subtitle.
         self.search(
             "shame stereotypes", FirstMatch(title="Sister Citizen")
         )
