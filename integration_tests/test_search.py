@@ -69,8 +69,10 @@ def known_to_fail(f):
         try:
             ignore = f(*args, **kwargs)
         except Exception, e:
+            SearchTest.expected_failures.append(f)
             logging.debug("Expected this test to fail, and it did: %r" % e)
             return
+        SearchTest.unexpected_successes.append(f)
         raise Exception("Expected this test to fail, and it didn't! Congratulations?")
     return decorated
 
@@ -438,6 +440,9 @@ class SearchTest(object):
     to some expected state.
     """
 
+    expected_failures = []
+    unexpected_successes = []
+
     def search(self, query, evaluators=None, limit=10):
         query = query.lower()
         logging.debug("Query: %r", query)
@@ -672,13 +677,13 @@ class TestUnownedTitle(SearchTest):
             FirstMatch(title=re.compile("(rosetta|stone)"))
         )
 
+    @known_to_fail
     def test_unowned_misspelled_partial_title_cosmetics(self):
-        # NOTE: this fails on both versions of ES.  The user was presumably
-        # looking for "Don't Go to the Cosmetics Counter Without Me," which
-        # isn't in the collection.  Ideally, one of the results should have
-        # something to do with cosmetics; instead, they're about comets.  Fixing
-        # the typo makes the test pass.
-
+        # NOTE: The patron was presumably looking for "Don't Go to the
+        # Cosmetics Counter Without Me," which isn't in the
+        # collection.  Ideally, one of the results should have
+        # something to do with cosmetics; instead, they're about
+        # comets.
         self.search(
             "Cometics counter", [
                 AtLeastOne(title=re.compile("cosmetics")),
@@ -924,7 +929,7 @@ class TestPartialTitleSearch(SearchTest):
         # "Theresa" over books by authors with the first name "Theresa."
         self.search(
             "Theresa",
-            FirstMatch(title=re.compile("Theresa"))
+            FirstMatch(title=re.compile("Theresa", re.I))
         )
 
     def test_prime_of_miss_jean_brodie(self):
@@ -1132,12 +1137,8 @@ class TestMixedTitleAuthorMatch(SearchTest):
             FirstMatch(title="Every Breath", author="Nicholas Sparks")
         )
 
-    @known_to_fail
     def test_grisham(self):
         # Full title, author's first name only
-        #
-        # NOTE: Results are all books with "Reckoning" in the title
-        # but the John Grisham one is not on the first page.
         self.search(
             "The reckoning john grisham",
             FirstMatch(title="The Reckoning", author="John Grisham")
@@ -1879,9 +1880,12 @@ class TestSubjectMatch(SearchTest):
             )
         )
 
+    @known_to_fail
     def test_da_vinci(self):
         # Someone who searches for "da vinci" is almost certainly
         # looking entirely for books _about_ Da Vinci.
+        #
+        # TODO: "The Da Vinci Code" dominates these results.
         self.search(
             "Da Vinci",
             Common(genre=re.compile("(biography|art)"), first_must_match=False)
@@ -2453,7 +2457,7 @@ class TestISurvived(VariantSearchTest):
 
 class TestDorkDiaries(VariantSearchTest):
     # Test different ways of spelling "Dork Diaries"
-    EVALUATOR = SpecificAuthor(re.compile(u"Rachel .* Russell", re.I)),
+    EVALUATOR = SpecificAuthor(re.compile(u"Rachel .* Russell", re.I))
 
     def test_correct_spelling(self):
         self.search('dork diaries')
@@ -2704,3 +2708,16 @@ library = None
 
 index = ExternalSearchIndex(_db)
 SearchTest.searcher = Searcher(library, index)
+
+def teardown_module():
+    failures = len(SearchTest.expected_failures)
+    if failures:
+        logging.info(
+            "%d tests were expected to fail, and did.", failures
+        )
+    successes = len(SearchTest.unexpected_successes)
+    if successes:
+        logging.info(
+            "%d tests passed unexepectedly. They show up as test failures above.",
+            successes
+        )
