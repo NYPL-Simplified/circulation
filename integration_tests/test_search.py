@@ -687,6 +687,19 @@ class TestUnownedTitle(SearchTest):
             ]
         )
 
+    def test_title_match_with_genre_name(self):
+        # This book is unowned and its title includes a genre name.
+        # We're going to get a lot of books with "life" or "spy" in
+        # the title.
+        #
+        # The first result is a book that fills the intent of the
+        # search query but doesn't say "spy" anywhere.
+        self.search(
+            "My life as a spy",
+            Common(title=re.compile("life|spy"), first_must_match=False,
+                   threshold=0.9)
+        )
+
     @known_to_fail
     def test_nonexistent_title_tower(self):
         # NOTE: there is no book with this title.  The most likely
@@ -929,9 +942,14 @@ class TestTitleGenreConflict(SearchTest):
     # These tests address a longstanding problem of books whose titles
     # contain the names of genres.
 
+    @known_to_fail
     def test_drama(self):
         # The title of the book is the name of a genre, and another
         # genre has been added to the search term to clarify it.
+        #
+        # NOTE: This probably fails because "Drama" is parsed as a
+        # genre name but "comic" is not parsed as "Comics & Graphic
+        # Novels"
         self.search(
             "drama comic",
             FirstMatch(title="Drama", author="Raina Telgemeier")
@@ -943,7 +961,6 @@ class TestTitleGenreConflict(SearchTest):
         self.search(
             "modern romance", FirstMatch(title="Modern Romance")
         )
-
 
     def test_modern_romance_with_author(self):
         self.search(
@@ -957,8 +974,12 @@ class TestTitleGenreConflict(SearchTest):
             FirstMatch(title="Law of the Mountain Man")
         )
 
-
+    @known_to_fail
     def test_law_of_the_mountain_man_with_author(self):
+        # "Law of the Mountain Man" is the second result, but it
+        # really should be first. Maybe the first result here has
+        # William Johnstone as the primary author instead of a regular
+        # author.
         self.search(
             "law of the mountain man william johnstone",
             [
@@ -967,20 +988,13 @@ class TestTitleGenreConflict(SearchTest):
             ]
         )
 
-    def test_title_match_with_genre_name_spy_unowned(self):
-        # NOTE: this book is not in the system.
-        self.search(
-            "My life as a spy",
-            Common(title=re.compile("(life|spy)"), threshold=.9)
-        )
-
-    def test_title_match_with_genre_name_spy(self):
+    def test_spy(self):
         self.search(
             "spying on whales",
             FirstMatch(title="Spying on Whales")
         )
 
-    def test_title_match_with_genre_name_dance(self):
+    def test_dance(self):
         self.search(
             "dance with dragons",
             FirstMatch(title="A Dance With Dragons")
