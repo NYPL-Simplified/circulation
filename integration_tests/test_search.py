@@ -1040,16 +1040,21 @@ class TestTitleAuthorConflict(SearchTest):
     def test_disney(self):
         # The majority of the search results will be about Walt Disney and/or the
         # Disney Company, but there should also be some published by the Disney Book Group
+
+        # NOTE: The first result is a book whose .series is the literal
+        # string "Disney". This triggers a keyword series match which
+        # bumps it to the top.
         self.search(
             "disney",
-                [ Common(title=re.compile("disney")),
+                [ Common(title=re.compile("disney"), first_must_match=False),
                   AtLeastOne(title=re.compile("walt disney")),
                   AtLeastOne(author="Disney Book Group") ]
         )
 
     def test_bridge(self):
-        # The search results correctly prioritize the book with this title over books
-        # by authors whose names contain "Luis" or "Rey."
+        # The search results correctly prioritize the book with this
+        # title over books by authors whose names contain "Luis" or
+        # "Rey."
         self.search(
             "the bridge of san luis rey",
             FirstMatch(title="The Bridge of San Luis Rey")
