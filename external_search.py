@@ -1285,21 +1285,33 @@ class Query(SearchBase):
         # The query string might contain some specific field matches
         # (e.g. a genre name or target age), with the remainder being
         # the "real" query string.
-        #
-        # The goal of this hypothesis is to get better results by
-        # filtering out junk. That's why the weight is 1: all the
-        # weights applied so far will also be applied in a recursive
-        # call to Query.query(). The idea is that the matches that
-        # survive the filter will naturally have higher scores than
-        # the matches that erroneously assumed the filter description
-        # was part of a text query.
         if use_query_parser:
             field_matches, filters = self._parsed_query_matches(
                 query_string
             )
             if field_matches or filters:
+                if not field_matches:
+                    # The entire search string was converted into a
+                    # filter. Everything that matches this filter
+                    # should be matched, and it should be given a
+                    # relatively high boost.
+                    field_matches = MatchAll()
+                    boost = 600
+                else:
+                    # Part of the search string is a filter and
+                    # part of it . We'll boost works that match the filter
+                    # slightly, but overall the goal here is to get better
+                    # results by filtering out junk.
+                    # 
+                    # All the weights applied so far will also be
+                    # applied in a recursive call to
+                    # Query.query(). The idea is that the matches that
+                    # survive the filter will naturally have higher
+                    # scores than the matches that erroneously assumed
+                    # the filter description was part of a text query.
+                    boost = 1.1
                 self._hypothesize(
-                    hypotheses, field_matches, 1.5, all_must_match=True,
+                    hypotheses, field_matches, boost, all_must_match=True,
                     filters=filters
                 )
 
@@ -1647,7 +1659,7 @@ class QueryParser(object):
         )
         if audience:
             query_string = self.add_match_term_query(
-                audience.replace(" ", ""), 'audience', query_string,
+                audience.replace(" ", "").lower(), 'audience', query_string,
                 audience_match
             )
 

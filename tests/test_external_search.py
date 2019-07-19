@@ -423,8 +423,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         self.les_mis = _work()
         self.les_mis.presentation_edition.title = u"Les Mis\u00E9rables"
 
-        self.modern_romance = _work()
-        self.modern_romance.presentation_edition.title = u"Modern Romance"
+        self.modern_romance = _work(title="Modern Romance")
 
         self.lincoln = _work(genre="Biography & Memoir", title="Abraham Lincoln")
 
@@ -650,10 +649,10 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
 
         # Find results based on genre.
 
-        # In ES6, the title boost is higher than the genre boost so
-        # the book with 'romance' in the title is the first result.
-        # TODO: This isn't ideal.
-        expect([self.modern_romance, self.ya_romance], "romance")
+        # If the entire search query is converted into a filter, every
+        # book matching that filter is boosted above books that match
+        # the search string as a query.
+        expect([self.ya_romance, self.modern_romance], "romance")
 
         # Find results based on audience.
         expect(self.children_work, "children's")
@@ -880,7 +879,10 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
                 DataSource.lookup(self._db, DataSource.BIBLIOTHECA)
             ]
         )
-        expect([self.pride, self.pride_audio], "pride and prejudice", f)
+        expect(
+            [self.pride, self.pride_audio], "pride and prejudice", f,
+            ordered=False
+        )
 
         # "Moby Duck" is not currently available, so it won't show up in
         # search results if allow_holds is False.
