@@ -1599,7 +1599,7 @@ class Query(SearchBase):
             # can do.
             standard_match_kwargs = dict(
                 query=query_string,
-                minimum_should_match=2
+                minimum_should_match=2,
             )
             if query_class == Match:
                 kwargs = {field_name: standard_match_kwargs}
@@ -1608,13 +1608,26 @@ class Query(SearchBase):
             qu = query_class(**kwargs)
             yield qu, base_score
             if make_fuzzy and query_class == MatchPhrase:
-                # Make a fuzzy Match version of any MatchPhrase
-                # hypotheses, scoring it at 75% of the non-fuzzy
-                # hypothesis.
-                fuzzy_match_kwargs = dict(standard_match_kwargs)
-                fuzzy_match_kwargs.update(fuzziness="AUTO", prefix_length=1)
-                kwargs = {field_name : fuzzy_match_kwargs}
-                yield Match(**kwargs), base_score * 0.75
+                for fuzzy_match, coefficient in cls._fuzzy_matches(
+                    field_name, **standard_match_kwargs
+                ):
+                    yield fuzzy_match, base_score * coefficient
+
+    @classmethod
+    def _fuzzy_matches(cls, field_name, **kwargs):
+        # Make a fuzzy Match version of any MatchPhrase
+        # hypotheses, scoring it at 50% of the non-fuzzy
+        # hypothesis.
+        kwargs.update(fuzziness="AUTO", max_expansions=2)
+        yield Match(**{field_name : kwargs}), 0.50
+
+        # Assuming that no typoes were made in the first
+        # character of a word (usually a safe assumption) we
+        # can bump the score up to 75% of the non-fuzzy
+        # hypothesis.
+        kwargs = dict(kwargs)
+        kwargs['prefix_length'] = 1
+        yield Match(**{field_name : kwargs}), 0.75
 
     @classmethod
     def _parsed_query_matches(cls, query_string):
