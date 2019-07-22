@@ -1589,16 +1589,18 @@ class Query(SearchBase):
                 field_name = base_field + '.' + subfield
             else:
                 field_name = base_field
-            kwargs = {field_name: query_string}
-            if isinstance(query_class, Match):
-                # All words from the phrase must match.
-                kwargs['minimum_should_match'] = "100%"
+            if query_class == Match:
+                # All words from the query string must match -- we
+                # must explain everything the user typed.
+                kwargs = {field_name: dict(query=query_string,
+                                           operator="and")}
+            else:
+                kwargs = {field_name: query_string}
             qu = query_class(**kwargs)
             yield qu, base_score
-            if make_fuzzy and query_class != Term:
-                # Make a fuzzy version of all hypotheses other than
-                # the exact Term match, rating it at 75% of a
-                # non-fuzzy match.
+            if make_fuzzy and query_class == MatchPhrase:
+                # Make a fuzzy version of any phrase matches, rating them
+                # at 75% of a non-fuzzy match.
                 kwargs = {
                     field_name : dict(
                         query=query_string,
@@ -1606,7 +1608,7 @@ class Query(SearchBase):
                         prefix_length=1,
                     )
                 }
-                yield Match(**kwargs), base_score*0.75
+                yield Match(**kwargs), base_score * 0.75
 
     @classmethod
     def _parsed_query_matches(cls, query_string):
