@@ -1263,10 +1263,14 @@ class Query(SearchBase):
         # The query string might be a match against a single field:
         # probably title, author or series. These are the most common
         # searches.
+        title_coefficient = 140.0
+        subtitle_coefficient = 130.0
+        series_coefficient = 120.0
+        author_coefficient = 120.0
         for field, base_score in (
-            ('title', 140),
-            ('subtitle', 130),
-            ('series', 120),
+            ('title', title_coefficient),
+            ('subtitle', subtitle_coefficient),
+            ('series', series_coefficient),
             ('publisher', 50),
             ('imprint', 50),
         ):
@@ -1279,7 +1283,7 @@ class Query(SearchBase):
             query_string, make_fuzzy=make_fuzzy
         ):
             self._hypothesize(
-                hypotheses, author_query, 120*multiplier,
+                hypotheses, author_query, author_coefficient*multiplier,
             )
 
         # The query string might contain some specific field matches
@@ -1315,24 +1319,6 @@ class Query(SearchBase):
                     filters=filters
                 )
 
-        # The query string might combine terms from the title with
-        # some other field.
-
-        # TODO: This only fixes two tests. Do we need more tests or is
-        # this not a big deal?
-        #
-        # title_match = Match(**{'title': query_string})
-        # subtitle_match = Match(**{'subtitle': query_string})
-        # series_match = Match(**{'series': query_string})
-        # contributor_match = Match(
-        #     **{'contributors.display_name': query_string}
-        # )
-        # contributor_match = self._nest('contributors', contributor_match)
-
-        # for combine_with in (subtitle_match, series_match, contributor_match):
-        #     combined = Bool(must=[title_match, combine_with])
-        #     self._hypothesize(hypotheses, combined, 80)
-
         # The query string may be referring to subject matter --
         # this would be found in the book's summary or in one of 
         # the classification terms.
@@ -1343,9 +1329,32 @@ class Query(SearchBase):
         )
         self._hypothesize(hypotheses, subject, 80)
 
-        # If we don't know what to do, we can ask Elasticsearch to do
-        # a simple query string match against a large number of
-        # fields. This will not be given much weight.
+        # The query string might combine terms from the title with
+        # terms from some other major field -- subtitle, series, or
+        # contributor.
+        #
+        # This strategy only works if everything is spelled correctly,
+        # since we can't combine MultiMatch and Fuzzy.
+        # Also note that we only check contributors.display_name
+        for other_field, coefficient in (
+                ('subtitle', subtitle_coefficient),
+                ('series', series_coefficient),
+                ('contributors.display_name', author_coefficient)):
+            combined = MultiMatch(
+                query=query_string,
+                fields = ['title', other_field],
+                type="cross_fields",
+                # Every word of the search term must match one field or the other.
+                minimum_should_match="100%",
+            )
+            if '.' in other_field:
+                both = self._nest('contributors', combined)
+
+            # The weight of this hypothesis should be proportinate to
+            # the difference between a pure match against title, and a
+            # pure match against the field we're checking.
+            combined_coefficient = coefficient * (coefficient/title_coefficient)
+            self._hypothesize(hypotheses, combined, combined_coefficient)
 
         # For a given book, whichever one of these hypotheses gives
         # the highest score should be used.
@@ -1580,7 +1589,11 @@ class Query(SearchBase):
                 field_name = base_field + '.' + subfield
             else:
                 field_name = base_field
-            qu = query_class(**{field_name: query_string})
+            kwargs = {field_name: query_string}
+            if isinstance(query_class, Match):
+                # All words from the phrase must match.
+                kwargs['minimum_should_match'] = "100%"
+            qu = query_class(**kwargs)
             yield qu, base_score
             if make_fuzzy and query_class != Term:
                 # Make a fuzzy version of all hypotheses other than
