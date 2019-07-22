@@ -1264,9 +1264,9 @@ class Query(SearchBase):
         # probably title, author or series. These are the most common
         # searches.
         for field, base_score in (
-            ('title', 150),
-            ('subtitle', 120),
-            ('series', 100),
+            ('title', 140),
+            ('subtitle', 130),
+            ('series', 120),
             ('publisher', 50),
             ('imprint', 50),
         ):
