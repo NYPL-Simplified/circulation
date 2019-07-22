@@ -1255,7 +1255,10 @@ class Query(SearchBase):
         # hypotheses. The fuzzy version of a hypothesis tests the idea
         # that someone meant to trigger this hypothesis but made a
         # typo.
-        make_fuzzy = SpellChecker().unknown(query_string.split())
+        if SpellChecker().unknown(query_string.split()):
+            fuzzy_coefficient = 1.0
+        else:
+            fuzzy_coefficient = 0.5
 
         # Here are the hypotheses:
 
@@ -1274,12 +1277,12 @@ class Query(SearchBase):
             ('imprint', 50),
         ):
             for qu, multiplier in self._match_one_field(
-                field, query_string, make_fuzzy=make_fuzzy
+                field, query_string, fuzzy_coefficient=fuzzy_coefficient
             ):
                 self._hypothesize(hypotheses, qu, base_score*multiplier)
 
         for author_query, multiplier in self._match_author_queries(
-            query_string, make_fuzzy=make_fuzzy
+            query_string, fuzzy_coefficient=fuzzy_coefficient
         ):
             self._hypothesize(
                 hypotheses, author_query, author_coefficient*multiplier,
@@ -1344,7 +1347,7 @@ class Query(SearchBase):
                 fields = ['title', other_field],
                 type="cross_fields",
                 # Every word of the search term must match one field or the other.
-                minimum_should_match="100%",
+                # minimum_should_match="100%",
             )
             if '.' in other_field:
                 both = self._nest('contributors', combined)
@@ -1479,7 +1482,7 @@ class Query(SearchBase):
         return Bool(must=must, should=should, boost=float(boost))
 
     @classmethod
-    def _match_author_queries(cls, query_string, make_fuzzy=True):
+    def _match_author_queries(cls, query_string, fuzzy_coefficient=True):
         """Yield a sequence of query objects representing possible ways in
         which a query string might represent a book's author.
 
@@ -1493,7 +1496,7 @@ class Query(SearchBase):
         # Ask Elasticsearch to match what was typed against
         # contributors.display_name.
         for qu in cls._author_field_must_match(
-            'display_name', query_string, make_fuzzy=make_fuzzy
+            'display_name', query_string, fuzzy_coefficient=fuzzy_coefficient
         ):
             yield qu
 
@@ -1501,7 +1504,7 @@ class Query(SearchBase):
         # may paste it in from somewhere else. Also ask Elasticsearch
         # to check against contributors.display_name.
         for qu in cls._author_field_must_match(
-            'sort_name', query_string, make_fuzzy=make_fuzzy
+            'sort_name', query_string, fuzzy_coefficient=fuzzy_coefficient
         ):
             yield qu        
 
@@ -1512,13 +1515,13 @@ class Query(SearchBase):
         sort_name = display_name_to_sort_name(query_string)
         if sort_name:
             for qu in cls._author_field_must_match(
-                'sort_name', sort_name, make_fuzzy=make_fuzzy
+                'sort_name', sort_name, fuzzy_coefficient=fuzzy_coefficient
             ):
                 yield qu
 
     @classmethod
     def _author_field_must_match(
-        cls, base_field, query_string, make_fuzzy=True
+        cls, base_field, query_string, fuzzy_coefficient=True
     ):
         """Yield queries that match either the keyword or minimally stemmed
         version of one of the fields in the contributors sub-document.
@@ -1536,7 +1539,7 @@ class Query(SearchBase):
         field_name = 'contributors.%s' % base_field
         for match_author, base_score in cls._match_one_field(
             field_name, query_string, include_stemmed=False,
-            make_fuzzy=make_fuzzy
+            fuzzy_coefficient=fuzzy_coefficient
         ):
             for qu in cls._role_must_also_match(match_author, base_score):
                 yield qu
@@ -1565,7 +1568,7 @@ class Query(SearchBase):
             yield cls._nest('contributors', match_both), score
 
     @classmethod
-    def _match_one_field(cls, base_field, query_string, include_stemmed=True, make_fuzzy=False):
+    def _match_one_field(cls, base_field, query_string, include_stemmed=True, fuzzy_coefficient=False):
         fields = [
             # A keyword match means the field value is an exact match for
             # the query string. This is one of the best search results
@@ -1606,11 +1609,13 @@ class Query(SearchBase):
                 kwargs = {field_name: query_string}
             qu = query_class(**kwargs)
             yield qu, base_score
-            if make_fuzzy and query_class == MatchPhrase:
-                for fuzzy_match, coefficient in cls._fuzzy_matches(
+            if fuzzy_coefficient and query_class == MatchPhrase:
+                for fuzzy_match, field_coefficient in cls._fuzzy_matches(
                     field_name, **standard_match_kwargs
                 ):
-                    yield fuzzy_match, base_score * coefficient
+                    yield fuzzy_match, (
+                        base_score * fuzzy_coefficient * field_coefficient
+                    )
 
     @classmethod
     def _fuzzy_matches(cls, field_name, **kwargs):
