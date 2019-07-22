@@ -620,7 +620,7 @@ class TestUnownedTitle(SearchTest):
         self.search(
             "Save the Cat", 
             [Common(title=re.compile("save the cat"), threshold=0.1),
-             Common(title=re.compile("(save|cat)"), threshold=1)]
+             Common(title=re.compile("(save|cat)"), threshold=0.6)]
         )
 
     def test_minecraft_zombie(self):
@@ -1480,12 +1480,9 @@ class TestAuthorMatch(SearchTest):
             Common(author="Thomas Pynchon")
         )
 
-    @known_to_fail
     def test_betty_neels_audiobooks(self):
-        # NOTE: Even though there are no audiobooks, all of the search results should still
-        # be books by this author.  This works on ES1, but the ES6 search results devolve
-        # into Betty Crocker cookbooks.
-
+        # NOTE: Even though there are no audiobooks, all of the search
+        # results should still be books by this author.
         self.search(
             "Betty neels audiobooks",
             Common(author="Betty Neels", genre="romance", threshold=1)
@@ -1571,7 +1568,6 @@ class TestMJRose(VariantSearchTest):
         # This only three books by this author.
         self.search("m.j rose")
 
-    @known_to_fail
     def test_with_spaces(self):
         # This only gets four books by this author.
         self.search("m j rose")
@@ -1588,31 +1584,32 @@ class TestGenreMatch(SearchTest):
     # A genre search is a search for books in a certain 'section'
     # of the library.
 
+    any_sf = re.compile("(Science Fiction|SF)", re.I)
+
     def test_science_fiction(self):
         # NOTE: "Science Fiction" title matches (some of which are
         # also science fiction) are promoted highly. Genre matches
         # only show up in the front page if they also have "Science
         # Fiction" in the title.
         self.search(
-            "science fiction",
-            Common(genre="Science Fiction", first_must_match=False)
+            "science fiction", Common(genre=self.any_sf, first_must_match=False)
         )
 
     @known_to_fail
     def test_sf(self):
         # Shorthand for "Science Fiction"
         # NOTE: This fails because of a book of essays with "SF" in the subtitle
-        self.search("sf", Common(genre="Science Fiction"))
+        self.search("sf", Common(genre=self.any_sf))
 
     def test_scifi(self):
         # Shorthand for "Science Fiction"
-        self.search("sci-fi", Common(genre="Science Fiction"))
+        self.search("sci-fi", Common(genre=self.any_sf))
 
     def test_iain_banks_sf(self):
         self.search(
             # Genre and author
             "iain banks science fiction",
-            Common(genre="Science Fiction", author="Iain M. Banks")
+            Common(genre=self.any_sf, author="Iain M. Banks")
         )
 
     @known_to_fail
@@ -1724,7 +1721,6 @@ class TestGenreMatch(SearchTest):
             Common(genre="Comics & Graphic Novels", title="The Clique")
         )
 
-    @known_to_fail
     def test_spy(self):
         # NOTE: Results are dominated by title matches, which is
         # probably fine, since people don't really think of "Spy" as a
@@ -1786,12 +1782,8 @@ class TestGenreMatch(SearchTest):
             )
         )
 
-    @known_to_fail
     def test_deep_poems(self):
         # This appears to be a search for poems which are deep.
-        #
-        # NOTE: Results are dominated by title matches for "Deep",
-        # only a couple results are poetry.
         self.search(
             "deep poems",
             Common(genre="Poetry")
@@ -1880,7 +1872,6 @@ class TestSubjectMatch(SearchTest):
             )
         )
 
-    @known_to_fail
     def test_da_vinci(self):
         # Someone who searches for "da vinci" is almost certainly
         # looking entirely for books _about_ Da Vinci.
@@ -2585,7 +2576,7 @@ class TestCharacterMatch(SearchTest):
         # This search uses a character name to stand in for a series.
         self.search(
             "christian grey",
-            FirstMatch(author="E. L. James")
+            FirstMatch(author=re.compile("E.\s*L.\s*James", re.I))
         )
 
     def test_spiderman_hyphenated(self):
@@ -2710,14 +2701,18 @@ index = ExternalSearchIndex(_db)
 SearchTest.searcher = Searcher(library, index)
 
 def teardown_module():
-    failures = len(SearchTest.expected_failures)
+    failures = SearchTest.expected_failures
     if failures:
         logging.info(
-            "%d tests were expected to fail, and did.", failures
+            "%d tests were expected to fail, and did.", len(failures)
         )
-    successes = len(SearchTest.unexpected_successes)
+    successes = SearchTest.unexpected_successes
     if successes:
         logging.info(
-            "%d tests passed unexepectedly. They show up as test failures above.",
-            successes
+            "%d tests passed unexepectedly:", len(successes)
         )
+        for success in successes:
+            logging.info(
+                "Line #%d: %s",
+                success.func_code.co_firstlineno, success.func_name,
+            )
