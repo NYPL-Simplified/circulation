@@ -995,18 +995,17 @@ class CurrentMapping(Mapping):
             "english_posessive_stemmer",
             "lowercase",
             "asciifolding",                          # NEW
-            "english_stop",
         ]
 
         # The default_text_analyzer uses Elasticsearch's standard
-        # English stemmer.
+        # English stemmer and removes stopwords.
         self.analyzers['en_default_text_analyzer'] = dict(common_text_analyzer)
         self.analyzers['en_default_text_analyzer']['filter'] = (
-            common_filter + ['english_stemmer']
+            common_filter + ["english_stop", 'english_stemmer']
         )
 
         # The minimal_text_analyzer uses a less aggressive English
-        # stemmer.
+        # stemmer, and does not remove stopwords.
         self.analyzers['en_minimal_text_analyzer'] = dict(common_text_analyzer)
         self.analyzers['en_minimal_text_analyzer']['filter'] = (
             common_filter + ['minimal_english_stemmer']
