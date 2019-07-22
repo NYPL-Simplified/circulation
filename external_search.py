@@ -1563,9 +1563,17 @@ class Query(SearchBase):
             # the query string. This is one of the best search results
             # we can possibly return.
             ('keyword', 1000, Term),
+
+            # This is the baseline query -- a phrase match against a
+            # single field.  Most searches are trying to type in
+            # consecutive words from a single field.
             ('minimal', 1, MatchPhrase)
         ]
         if include_stemmed:
+            # Do a normal match against a stemmed version of the field
+            # at 75%. This handles less common cases where search
+            # terms are in the wrong order, or where only the stemmed
+            # version of a word is a match.
             fields.append((None, 0.75, Match))
         for subfield, base_score, query_class in fields:
             if subfield:
@@ -1575,16 +1583,17 @@ class Query(SearchBase):
             qu = query_class(**{field_name: query_string})
             yield qu, base_score
             if make_fuzzy and query_class != Term:
-                # Make a fuzzy version of this hypothesis, rating
-                # it at 75% of a non-fuzzy match.
+                # Make a fuzzy version of all hypotheses other than
+                # the exact Term match, rating it at 75% of a
+                # non-fuzzy match.
                 kwargs = {
                     field_name : dict(
-                        value=query_string,
+                        query=query_string,
                         fuzziness="AUTO",
                         prefix_length=1,
                     )
                 }
-                yield Fuzzy(**kwargs), base_score*0.75
+                yield Match(**kwargs), base_score*0.75
 
     @classmethod
     def _parsed_query_matches(cls, query_string):
