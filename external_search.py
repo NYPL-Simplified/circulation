@@ -1589,25 +1589,31 @@ class Query(SearchBase):
                 field_name = base_field + '.' + subfield
             else:
                 field_name = base_field
+
+            # If a query string has two or more words, at least two of
+            # those words must match to trigger a Match
+            # hypothesis. This prevents "Foo" from showing up as a top
+            # result for "foo bar": you have to explain why they typed
+            # "bar"! But if there are ten words in the search query
+            # and only three of them match, it's probably the best we
+            # can do.
+            standard_match_kwargs = dict(
+                query=query_string,
+                minimum_should_match=2
+            )
             if query_class == Match:
-                # All words from the query string must match -- we
-                # must explain everything the user typed.
-                kwargs = {field_name: dict(query=query_string,
-                                           operator="and")}
+                kwargs = {field_name: standard_match_kwargs}
             else:
                 kwargs = {field_name: query_string}
             qu = query_class(**kwargs)
             yield qu, base_score
             if make_fuzzy and query_class == MatchPhrase:
-                # Make a fuzzy version of any phrase matches, rating them
-                # at 75% of a non-fuzzy match.
-                kwargs = {
-                    field_name : dict(
-                        query=query_string,
-                        fuzziness="AUTO",
-                        prefix_length=1,
-                    )
-                }
+                # Make a fuzzy Match version of any MatchPhrase
+                # hypotheses, scoring it at 75% of the non-fuzzy
+                # hypothesis.
+                fuzzy_match_kwargs = dict(standard_match_kwargs)
+                fuzzy_match_kwargs.update(fuzziness="AUTO", prefix_length=1)
+                kwargs = {field_name : fuzzy_match_kwargs}
                 yield Match(**kwargs), base_score * 0.75
 
     @classmethod
