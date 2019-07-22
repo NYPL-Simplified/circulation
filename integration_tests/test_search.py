@@ -1558,19 +1558,20 @@ class TestMJRose(VariantSearchTest):
         # This proves that we do have the books and can find them.
         self.search("m. j. rose")
 
+    def test_with_spaces(self):
+        # This is how the author's name is indexed internally.
+        self.search("m j rose")
+
     @known_to_fail
     def test_with_periods(self):
         # This only gets three books by this author.
+        # Maybe 'm.j.' is parsed as a single token or something.
         self.search("m.j. rose")
 
     @known_to_fail
     def test_with_one_period(self):
-        # This only three books by this author.
+        # This only gets three books by this author.
         self.search("m.j rose")
-
-    def test_with_spaces(self):
-        # This only gets four books by this author.
-        self.search("m j rose")
 
     @known_to_fail
     def test_with_no_periods_or_spaces(self):
@@ -1908,17 +1909,12 @@ class TestSubjectMatch(SearchTest):
         )
 
     def test_greek_romance(self):
-        # NOTE: this fails.  All of the top results are romance novels with
-        # "Greek" in the summary.  Not necessarily problematic...but the
-        # user is probably more likely to be looking for something like "Essays
-        # on the Greek Romances."  If you search "Greek romances" rather than
-        # "Greek romance," then "Essays on the Greek Romances" becomes the first
-        # result on ES1, but is still nowhere to be found on ES6.
-        #
-        # I think this person might be searching for romance novels... -LR
+        # This person might be searching for romance novels or for
+        # something like "Essays on the Greek Romances."
         self.search(
             "Greek romance",
-            AtLeastOne(title=re.compile("greek romance"))
+            [Common(genre="Romance", first_must_match=False),
+             AtLeastOne(title=re.compile("greek romance"))]
         )
 
     def test_ice_cream(self):
