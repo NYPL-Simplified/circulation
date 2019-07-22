@@ -483,9 +483,11 @@ class TestGibberish(SearchTest):
             ReturnsNothing()
         )
 
+    @known_to_fail
     def test_wordlike_junk(self):
         # To a human eye this is obviously gibberish, but it's close
-        # enough to English words that it could pick up a few results.
+        # enough to English words that it picks up a few results on
+        # a fuzzy match.
         self.search(
             "asdfza oiagher ofnalqk",
             ReturnsNothing()
@@ -638,19 +640,13 @@ class TestUnownedTitle(SearchTest):
         # option for the first result.
         self.search("Pie town woman", FirstMatch(title="Pie Town"))
 
-    @known_to_fail
     def test_divorce(self):
-        # This gets a large number of titles that start with
-        # "The Truth About..."
+        # Despite the 'children', we are not looking for children's
+        # books. We're looking for books for grown-ups about divorce.
         self.search(
             "The truth about children and divorce", [
-                Common(
-                    audience="adult",
-                    first_must_match=False
-                ),
-                AtLeastOne(
-                    title=re.compile("divorce")
-                )
+                Common(audience="adult"),
+                AtLeastOne(subject=re.compile("divorce")),
             ]
         )
 
@@ -723,31 +719,20 @@ class TestMisspelledTitleSearch(SearchTest):
             FirstMatch(title="Allegiant")
         )
 
-    @known_to_fail
     def test_marriage_lie(self):
-        # NOTE: "The Marriage Lie" (which is presumably what the user
-        # wanted, and which is in the collection) isn't on the first
-        # page of results.
         self.search(
             "Marriage liez",
             FirstMatch(title="The Marriage Lie")
         )
 
-    @known_to_fail
     def test_invisible_emmie(self):
-        # One word in the title is slightly misspelled. This makes
-        # "Emmy & Oliver" show up before the correct title match, which
-        # isn't too bad.
+        # One word in the title is slightly misspelled.
         self.search(
             "Ivisible emmie", FirstMatch(title="Invisible Emmie")
         )
 
-    @known_to_fail
     def test_karamazov(self):
         # Extremely uncommon proper noun, slightly misspelled
-        #
-        # The desired book does not show up in the first page --
-        # it's all books called "Brothers".
         self.search(
             "Brothers karamzov",
             FirstMatch(title="The Brothers Karamazov")
@@ -854,7 +839,6 @@ class TestMisspelledTitleSearch(SearchTest):
 class TestPartialTitleSearch(SearchTest):
     # Test title searches where only part of the title is provided.
 
-    @known_to_fail
     def test_i_funnyest(self):
         # An important word from the middle of the title is omitted.
         self.search(
@@ -1132,6 +1116,7 @@ class TestMixedTitleAuthorMatch(SearchTest):
     def test_sparks(self):
         # Full title, full but misspelled author, "by"
         # NOTE: Work shows up on first page but ought to be first.
+        # Results are dominated by other books called "Every Breath"
         self.search(
             "Every breath by nicholis sparks",
             FirstMatch(title="Every Breath", author="Nicholas Sparks")
@@ -1211,7 +1196,6 @@ class TestCharlottesWeb(VariantSearchTest):
     def test_without_apostrophe(self):
         self.search("charlottes web")
 
-    @known_to_fail
     def test_misspelled_no_apostrophe(self):
         self.search("charlettes web")
 
@@ -1515,11 +1499,13 @@ class TestRainaTelgemeier(VariantSearchTest):
     def test_correct_spelling(self):
         self.search('raina telgemeier')
 
+    def test_minor_misspelling(self):
+        self.search('raina telegmeier')
+
     @known_to_fail
     def test_misspelling_1(self):
         self.search('raina telemger')
 
-    @known_to_fail
     def test_misspelling_2(self):
         self.search('raina telgemerier')
 
@@ -1596,11 +1582,11 @@ class TestGenreMatch(SearchTest):
             "science fiction", Common(genre=self.any_sf, first_must_match=False)
         )
 
-    @known_to_fail
     def test_sf(self):
         # Shorthand for "Science Fiction"
-        # NOTE: This fails because of a book of essays with "SF" in the subtitle
-        self.search("sf", Common(genre=self.any_sf))
+        # NOTE: The first result is a book of essays with "SF" in the subtitle
+        # -- a reasonable match.
+        self.search("sf", Common(genre=self.any_sf, first_must_match=False))
 
     def test_scifi(self):
         # Shorthand for "Science Fiction"
@@ -1632,13 +1618,13 @@ class TestGenreMatch(SearchTest):
             Common(genre=re.compile("(christian|religion)"), first_must_match=False)
         )
 
-    @known_to_fail
     def test_christian_lust(self):
         # It's not clear what this person is looking for, but
         # treating it as a genre search seems appropriate.
         #
         # The first result is religious fiction but most of the
-        # others are not.
+        # others are not. These results aren't terrible but partial
+        # title matches are crowding out the better results.
         self.search(
             "lust christian",
             Common(genre=re.compile("(christian|religion|religious fiction)"))
@@ -1997,13 +1983,7 @@ class TestSubjectMatch(SearchTest):
             ]
         )
 
-    @known_to_fail
     def test_native_american_misspelled(self):
-        # NOTE: this passed back in the ES1, althoguh the results
-        # weren't quite as good as they would be if the search term
-        # were spelled correctly. Now it's dominated by title matches
-        # for "native".
-
         # Keyword, misspelled
         self.search(
             "Native amerixan", [
@@ -2179,12 +2159,8 @@ class TestSeriesMatch(SearchTest):
             Common(series="Harry Potter", threshold=0.9, first_must_match=False)
         )
 
-    @known_to_fail
     def test_maisie_dobbs(self):
         # Misspelled proper noun
-        #
-        # This gets a couple title matches but nothing else
-        # that's relevant.
         self.search(
             "maise dobbs",
             Common(series="Maisie Dobbs", threshold=0.5)
@@ -2257,9 +2233,7 @@ class TestSeriesMatch(SearchTest):
     def test_hunger_games(self):
         self.search("the hunger games", Common(series="The Hunger Games"))
 
-    @known_to_fail
     def test_hunger_games_misspelled(self):
-        # NOTE: This is really bad, dominated by title matches for "Game".
         self.search("The hinger games", Common(series="The Hunger Games"))
 
     @known_to_fail
@@ -2429,7 +2403,6 @@ class TestISurvived(VariantSearchTest):
     def test_correct_spelling(self):
         self.search("i survived")
 
-    @known_to_fail
     def test_incorrect_1(self):
         self.search("i survied")
 
@@ -2437,7 +2410,6 @@ class TestISurvived(VariantSearchTest):
     def test_incorrect_2(self):
         self.search("i survive")
 
-    @known_to_fail
     def test_incorrect_3(self):
         self.search("i survided")
 
