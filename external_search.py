@@ -948,8 +948,8 @@ class CurrentMapping(Mapping):
         #    aggressive stemmer -- used as the 'minimal' view of a
         #    text field such as 'description.minimal'.
         #
-        # The two analyzers are identical except for the last filter
-        # in the chain.
+        # The two analyzers are identical except for the end of the
+        # filter chain.
         #
         # Bothe analyzers are based on Elasticsearch's default English
         # analyzer, defined here:
