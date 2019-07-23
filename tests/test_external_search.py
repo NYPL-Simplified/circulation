@@ -635,8 +635,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         expect([self.moby_dick], "moby dic k")
 
         # A query without an apostrophe matches a word that contains
-        # one.  (TODO: this is a feature of the index, but I'm not
-        # sure which feature)
+        # one.  (this is a feature of the stemmer.)
         expect(self.tess, "durbervilles")
         expect(self.tiffany, "tiffanys")
 
