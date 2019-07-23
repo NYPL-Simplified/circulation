@@ -1596,28 +1596,33 @@ class TestExactMatches(EndToEndSearchTest):
         # 'peter graves' is a string that has exact matches in both
         # title and author.
 
-        # Books with 'Peter Graves' in the title are the top results,
-        # ordered by how much other stuff is in the title. An exact
-        # author match is next.  A partial match split across fields
-        # ("peter" in author, "graves" in title) is the last result.
+        # Books with author 'Peter Graves' are the top match, since
+        # "peter graves" matches the entire string. Books with "Peter
+        # Graves" in the title are the next results, ordered by how
+        # much other stuff is in the title. A partial match split
+        # across fields ("peter" in author, "graves" in title) is the
+        # last result.
         order = [
+            self.book_by_peter_graves,
             self.biography_of_peter_graves,
             self.behind_the_scenes,
-            self.book_by_peter_graves,
             self.book_by_someone_else,
         ]
         expect(order, "peter graves")
 
-        # An exact author match that doesn't mention 'biography'
-        # is boosted above a book that mentions all three words in
-        # its title.
+        # Now we throw in "biography", a term that is both a genre and
+        # a search term in its own right.
         #
-        # TODO: We may want to revisit this.
+        # 1. A book whose title mentions all three terms
+        # 2. A book in genre "biography" whose title
+        #    matches the other two terms
+        # 3. A book with an author match containing two of the terms.
+        #    'biography' just doesn't match.
+
         order = [
+            self.behind_the_scenes,         # all words match in title
             self.biography_of_peter_graves, # title + genre 'biography'
             self.book_by_peter_graves,      # author (no 'biography')
-            self.behind_the_scenes,         # all words match in title
-            self.book_by_someone_else,      # match across fields (no 'biography')
         ]
 
         expect(order, "peter graves biography")
