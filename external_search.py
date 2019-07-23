@@ -70,6 +70,7 @@ from selftest import (
     SelfTestResult,
 )
 from util.problem_detail import ProblemDetail
+from util.stopwords import ENGLISH_STOPWORDS
 
 import os
 import logging
@@ -767,6 +768,10 @@ class MappingDocument(object):
                 "type": "text",
                 "analyzer": "en_minimal_text_analyzer"
             },
+            "with_stopwords": {
+                "type": "text",
+                "analyzer": "en_with_stopwords_text_analyzer"
+            },
         }
 
     def filterable_text_property_hook(self, description):
@@ -1005,10 +1010,17 @@ class CurrentMapping(Mapping):
         )
 
         # The minimal_text_analyzer uses a less aggressive English
-        # stemmer, and does not remove stopwords.
+        # stemmer.
         self.analyzers['en_minimal_text_analyzer'] = dict(common_text_analyzer)
         self.analyzers['en_minimal_text_analyzer']['filter'] = (
-            common_filter + ['minimal_english_stemmer']
+            common_filter + ['english_stop', 'minimal_english_stemmer']
+        )
+
+        # The en_with_stopwords_text_analyzer uses the more aggressive
+        # stemmer, but does not remove stopwords.
+        self.analyzers['en_with_stopwords_text_analyzer'] = dict(common_text_analyzer)
+        self.analyzers['en_with_stopwords_text_analyzer']['filter'] = (
+            common_filter + ['english_stemmer']
         )
 
         # Now we need to define a special analyzer used only by the
@@ -1235,6 +1247,20 @@ class Query(SearchBase):
         # All done!
         return search
 
+    STOPWORD_FIELDS = ['title', 'subtitle', 'series']
+
+    @classmethod
+    def query_contains_stopwords(self, query_string):
+        """Does this query string appear to contain stopwords?"""
+        if not query_string:
+            return False
+        #if not hasattr(self, "_contains_stopwords"):
+        words = query_string.split(" ")
+        _contains_stopwords = any(
+            word in ENGLISH_STOPWORDS for word in words
+        )
+        return _contains_stopwords
+
     def query(self, use_query_parser=True):
         """Build an Elasticsearch Query object for this query string.
         """
@@ -1258,7 +1284,7 @@ class Query(SearchBase):
         if SpellChecker().unknown(query_string.split()):
             fuzzy_coefficient = 1.0
         else:
-            fuzzy_coefficient = 0.5
+            fuzzy_coefficient = 0
 
         # Here are the hypotheses:
 
@@ -1580,6 +1606,11 @@ class Query(SearchBase):
             # consecutive words from a single field.
             ('minimal', 1, MatchPhrase)
         ]
+        if base_field in cls.STOPWORD_FIELDS and cls.query_contains_stopwords(query_string):
+            # This query might benefit from a phrase match against
+            # an index of this field that includes the stopwords.
+            fields.append(('with_stopwords', 1.1, MatchPhrase))
+            pass
         if include_stemmed:
             # Do a normal match against a stemmed version of the field
             # at 75%. This handles less common cases where search
@@ -1609,7 +1640,7 @@ class Query(SearchBase):
                 kwargs = {field_name: query_string}
             qu = query_class(**kwargs)
             yield qu, base_score
-            if fuzzy_coefficient and query_class == MatchPhrase:
+            if fuzzy_coefficient and subfield == 'minimal':
                 for fuzzy_match, field_coefficient in cls._fuzzy_matches(
                     field_name, **standard_match_kwargs
                 ):
