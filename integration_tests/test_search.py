@@ -830,7 +830,6 @@ class TestMisspelledTitleSearch(SearchTest):
             FirstMatch(title="The Guernsey Literary & Potato Peel Society")
         )
 
-    @known_to_fail
     def test_british_spelling_color_of_our_sky(self):
         # The book we're looking for is on the first page, but
         # below "The Weight of Our Sky"
@@ -956,6 +955,12 @@ class TestTitleGenreConflict(SearchTest):
         self.search(
             "modern romance aziz ansari",
             FirstMatch(title="Modern Romance", author="Aziz Ansari")
+        )
+
+    def test_partial_title_match_with_genre_name_education(self):
+        self.search(
+            "education henry adams",
+            FirstMatch(title="The Education of Henry Adams"),
         )
 
     def test_title_match_with_genre_name_law(self):
@@ -1944,8 +1949,6 @@ class TestSubjectMatch(SearchTest):
         )
 
     def test_managerial_skills(self):
-        # NOTE: This works on ES6.  On ES1, the first few results are good, but then
-        # it devolves into books from a fantasy series called "The Menagerie."
         self.search(
             "managerial skills",
             Common(
@@ -1955,12 +1958,12 @@ class TestSubjectMatch(SearchTest):
 
     def test_manga(self):
         # This has the same problem as the 'anime' test above --
-        # we have tons of manga but it's not labeled as "manga".
+        # we have tons of manga but it's not classified as "manga".
         self.search(
             "manga",
             [
-                Common(title=re.compile("manga")),
-                Common(subject=re.compile("(manga|art|comic)")),
+                Common(title=re.compile("manga"), first_must_match=False),
+                Common(subject=re.compile("(manga|art|comic)"), first_must_match=False),
             ]
         )
 
@@ -2304,7 +2307,6 @@ class TestSeriesMatch(SearchTest):
             ]
         )
 
-    @known_to_fail
     def test_who_is(self):
         # These children's biographies don't have .series set but
         # are clearly part of a series.
@@ -2312,15 +2314,10 @@ class TestSeriesMatch(SearchTest):
         # Because those books don't have .series set, the matches are
         # done solely through title, so unrelated books like "Who Is
         # Rich?" also show up.
-        #
-        # NOTE: These used to work but now results are dominated by
-        # title matches for books like "Who?"
         self.search("who is", Common(title=re.compile('^who is ')))
 
-    @known_to_fail
     def test_who_was(self):
         # From the same series of biographies as test_who_is().
-        # NOTE: Same failure reason as that test.
         self.search("who was", Common(title=re.compile('^who was ')))
 
     def test_wimpy_kid_misspelled(self):
@@ -2415,7 +2412,6 @@ class TestISurvived(VariantSearchTest):
     def test_incorrect_1(self):
         self.search("i survied")
 
-    @known_to_fail
     def test_incorrect_2(self):
         self.search("i survive")
 
@@ -2671,6 +2667,36 @@ class TestAgeRangeRestriction(SearchTest):
                 Common(target_age=(12, 13)),
                 Common(genre="Science")
             ]
+        )
+
+
+class TestSearchOnStopwords(SearchTest):
+    # These tests verify our ability to search, when necessary, using
+    # words that are normally stripped out as stopwords.
+    def test_black_and_the_blue(self):
+        # This is a real book title that is almost entirely stopwords.
+        # Putting in a few words of the title will find that specific
+        # title even if most of the words are stopwords.
+        self.search(
+            "the black and",
+            FirstMatch(title="The Black and the Blue")
+        )
+
+    def test_the_real(self):
+        # This is vague, but we get "The Real" results
+        # over just "Real" results.
+        self.search(
+            "the real",
+            Common(title=re.compile("The Real", re.I))
+        )
+
+    def test_nothing_but_stopwords(self):
+        # If we always stripped stopwords, this would match nothing,
+        # but we get the best results we can manage -- e.g.
+        # "History of Florence and of the Affairs of Italy"
+        self.search(
+            "and of the",
+            Common(title_or_subtitle=re.compile("and of the", re.I))
         )
 
 
