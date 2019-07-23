@@ -625,9 +625,9 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # NOTE: This now matches both books.
         # expect([self.moby_dick], "m oby dick")
 
-        # A query without an apostrophe matches a word that contains one.
-        # (NOTE: it's not clear whether this is a feature of the index or
-        # done by the fuzzy match.)
+        # A query without an apostrophe matches a word that contains
+        # one.  (TODO: this is a feature of the index, but I'm not
+        # sure which feature)
         expect(self.tess, "durbervilles")
         expect(self.tiffany, "tiffanys")
 
@@ -682,10 +682,9 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
 
         # Search by a combination of genre and audience.
 
-        # The book with 'Romance' in the title shows up, but it's
-        # after the book whose audience matches 'young adult' and
-        # whose genre matches 'romance'.
-        expect([self.ya_romance, self.modern_romance], "young adult romance")
+        # The book with 'Romance' in the title does not show up because
+        # it's not a YA book.
+        expect([self.ya_romance], "young adult romance")
 
         # Search by a combination of target age and fiction
         #
@@ -695,8 +694,8 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
 
         # Search by a combination of genre and title
 
-        # Two books match 'lincoln', but the biography comes first.
-        expect([self.lincoln, self.lincoln_vampire], "lincoln biography")
+        # Two books match 'lincoln', but only the biography is returned
+        expect([self.lincoln], "lincoln biography")
 
         # Search by age + genre + summary
         results = query("age 8 president biography")
