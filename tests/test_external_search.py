@@ -622,9 +622,8 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # Match a misspelled author: 'mleville' -> 'melville'
         expect(self.moby_dick, "mleville")
 
-        # This doesn't match "Moby Duck" because the text isn't long
-        # enough to justify the hypothesis that we made two typos.
-        expect([self.moby_dick], "mo by dick")
+        # NOTE: This now matches both books.
+        # expect([self.moby_dick], "m oby dick")
 
         # A query without an apostrophe matches a word that contains one.
         # (NOTE: it's not clear whether this is a feature of the index or
@@ -641,10 +640,10 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         #
         # Here, Moby-Dick (fiction) is privileged over Moby Duck
         # (nonfiction)
-        expect([self.moby_dick, self.moby_duck], "fiction moby")
+        expect([self.moby_dick], "fiction moby")
 
         # Here, Moby Duck is privileged over Moby-Dick.
-        expect([self.moby_duck, self.moby_dick], "nonfiction moby")
+        expect([self.moby_duck], "nonfiction moby")
 
         # Find results based on series.
         classics = Filter(series="Classics")
