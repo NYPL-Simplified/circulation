@@ -1016,11 +1016,11 @@ class CurrentMapping(Mapping):
             common_filter + ['english_stop', 'minimal_english_stemmer']
         )
 
-        # The en_with_stopwords_text_analyzer uses the more aggressive
-        # stemmer, but does not remove stopwords.
+        # The en_with_stopwords_text_analyzer uses the less aggressive
+        # stemmer and does not remove stopwords.
         self.analyzers['en_with_stopwords_text_analyzer'] = dict(common_text_analyzer)
         self.analyzers['en_with_stopwords_text_analyzer']['filter'] = (
-            common_filter + ['english_stemmer']
+            common_filter + ['minimal_english_stemmer']
         )
 
         # Now we need to define a special analyzer used only by the
@@ -1284,7 +1284,12 @@ class Query(SearchBase):
         if SpellChecker().unknown(query_string.split()):
             fuzzy_coefficient = 1.0
         else:
-            fuzzy_coefficient = 0
+            # Everything seems to be spelled correctly, but sometimes
+            # a word can be misspelled as another word, e.g. "came" ->
+            # "cane". Run the fuzzy hypotheses but give it only half
+            # the weight it would get if we saw apparent misspellings
+            # in the query.
+            fuzzy_coefficient = 0.5
 
         # Here are the hypotheses:
 
@@ -1609,8 +1614,10 @@ class Query(SearchBase):
         if base_field in cls.STOPWORD_FIELDS and cls.query_contains_stopwords(query_string):
             # This query might benefit from a phrase match against
             # an index of this field that includes the stopwords.
+            #
+            # Boost this slightly above the 'minimal' field, so that
+            # if there are any matches they'll take priority.
             fields.append(('with_stopwords', 1.1, MatchPhrase))
-            pass
         if include_stemmed:
             # Do a normal match against a stemmed version of the field
             # at 75%. This handles less common cases where search
