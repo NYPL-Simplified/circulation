@@ -622,8 +622,17 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # Match a misspelled author: 'mleville' -> 'melville'
         expect(self.moby_dick, "mleville")
 
-        # NOTE: This now matches both books.
-        # expect([self.moby_dick], "m oby dick")
+        # TODO: This is clearly trying to match "Moby Dick", but it
+        # matches nothing. This is because at least two of the strings
+        # in a query must match. Neither "di" nor "ck" matches a fuzzy
+        # search on its own, which means "moby" is the only thing that
+        # matches, and that's not enough.
+        expect([], "moby di ck")
+
+        # Here, "dic" is close enough to "dick" that the fuzzy match
+        # kicks in. With both "moby" and "dic" matching, it's okay
+        # that "k" was a dud.
+        expect([self.moby_dick], "moby dic k")
 
         # A query without an apostrophe matches a word that contains
         # one.  (TODO: this is a feature of the index, but I'm not
