@@ -19,7 +19,6 @@ from elasticsearch_dsl.query import (
     DisMax,
     Exists,
     FunctionScore,
-    Fuzzy,
     Match,
     MatchAll,
     MatchPhrase,
@@ -1368,7 +1367,15 @@ class Query(SearchBase):
         #
         # This strategy only works if everything is spelled correctly,
         # since we can't combine MultiMatch and Fuzzy.
-        # Also note that we only check contributors.display_name
+        #
+        # We must be able to explain the entire query string
+        # this way. Otherwise the weight given to the 'title' field
+        # will boost partial title matches over better matches
+        # obtained some other way.
+        #
+        # Also note that we only check contributors.display_name.
+        # This is just to reduce the number of hypotheses we have
+        # to check.
         for other_field, coefficient in (
                 ('subtitle', subtitle_coefficient),
                 ('series', series_coefficient),
@@ -1378,7 +1385,7 @@ class Query(SearchBase):
                 fields = ['title', other_field],
                 type="cross_fields",
                 # Every word of the search term must match one field or the other.
-                # minimum_should_match="100%",
+                minimum_should_match="100%",
             )
             if '.' in other_field:
                 both = self._nest('contributors', combined)
