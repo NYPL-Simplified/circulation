@@ -1050,7 +1050,8 @@ class CurrentMapping(Mapping):
         fields_by_type = {
             "basic_text": ['summary'],
             'filterable_text': [
-                'title', 'subtitle', 'series', 'classifications.term'
+                'title', 'subtitle', 'series', 'classifications.term',
+                'author',
             ],
             'boolean': ['presentation_ready'],
             'icu_collation_keyword': ['sort_title'],
@@ -1373,24 +1374,38 @@ class Query(SearchBase):
         # will boost partial title matches over better matches
         # obtained some other way.
         #
-        # Also note that we only check contributors.display_name.
-        # This is just to reduce the number of hypotheses we have
-        # to check.
-        for other_field, coefficient in (
-                ('subtitle', subtitle_coefficient),
-                ('series', series_coefficient),
-                ('contributors.display_name', author_coefficient)):
-            combined = MultiMatch(
+        # Note that here we're doing cheap versions of the usually
+        # more complex 'contributor with appropriate role' query, by
+        # just looking at the .author of the presentation edition.
+        def _multi_match_for(x):
+            return MultiMatch(
                 query=query_string,
-                fields = ['title', other_field],
+                fields = ['title.minimal', x + ".minimal"],
                 type="cross_fields",
-                # Every word of the search term must match one field or the other.
+
+                # Every term in the search query must match one field
+                # or the other.
+                operator="and",
                 minimum_should_match="100%",
             )
-            if '.' in other_field:
-                both = self._nest('contributors', combined)
 
-            # The weight of this hypothesis should be proportinate to
+        def explain(other_field, query):
+            import requests
+            url = "http://localhost:9200/test_index-v4/_validate/query?explain=true"
+            inp = query.to_dict()
+            real = dict(query=inp)
+            data =json.dumps(real)
+            headers = {"Content-Type": "application/json"}
+            resp = requests.get(url, data=data, headers=headers)
+            print other_field.upper(), resp.content
+
+        for other_field, coefficient in (
+            ('subtitle', subtitle_coefficient),
+            ('series', series_coefficient),
+            ('author', author_coefficient),
+        ):
+            combined = _multi_match_for(other_field)
+            # The weight of this hypothesis should be proportionate to
             # the difference between a pure match against title, and a
             # pure match against the field we're checking.
             combined_coefficient = coefficient * (coefficient/title_coefficient)

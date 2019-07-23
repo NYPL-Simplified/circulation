@@ -390,6 +390,8 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         self.moby_dick = _work(
             title="Moby Dick", authors="Herman Melville", fiction=True,
         )
+        [contributor] = self.moby_dick.presentation_edition.contributors
+        contributor.display_name="Herman Melville"
         self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
         self.moby_dick.presentation_edition.series = "Classics"
         self.moby_dick.summary_text = "Ishmael"
@@ -597,9 +599,10 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         ]
         expect(order, "match")
 
-        # (title match + author match) > title match
+        # A search for a partial title match + a partial author match
+        # considers only books that match both fields.
         expect(
-            [self.moby_dick, self.moby_duck],
+            [self.moby_dick],
             "moby melville"
         )
 
