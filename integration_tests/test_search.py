@@ -663,9 +663,7 @@ class TestUnownedTitle(SearchTest):
         # should still be reasonably relevant.
         self.search(
             "Patterns of fashion", [
-                AtLeastOne(subject=re.compile("crafts")),
-                Common(title=re.compile("(pattern|fashion)"),
-                       first_must_match=False)
+                Common(subject=re.compile("crafts"), first_must_match=False),
             ]
         )
 
@@ -1724,13 +1722,13 @@ class TestGenreMatch(SearchTest):
         )
 
     def test_spy(self):
-        # NOTE: Results are dominated by title matches, which is
-        # probably fine, since people don't really think of "Spy" as a
-        # genre, and people who do type in "spy" looking for spy books
-        # will find them.
+        # Results are dominated by title matches, which is probably
+        # fine, since people don't really think of "Spy" as a genre,
+        # and people who do type in "spy" looking for spy books will
+        # find them.
         self.search(
             "Spy",
-            Common(genre=re.compile("(espionage|history|crime|thriller)"))
+            Common(title=re.compile("(spy|spies)", re.I))
         )
 
     def test_espionage(self):
