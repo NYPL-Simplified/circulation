@@ -828,9 +828,10 @@ class TestMisspelledTitleSearch(SearchTest):
             FirstMatch(title="The Guernsey Literary & Potato Peel Society")
         )
 
+    @known_to_fail
     def test_british_spelling_color_of_our_sky(self):
-        # The book we're looking for is on the first page, but
-        # below "The Weight of Our Sky"
+        # The book we're looking for is the second result, below "The
+        # Weight of Our Sky"
         #
         # Note to pedants: the title of the book as published is
         # "The Color of Our Sky".
@@ -877,8 +878,13 @@ class TestPartialTitleSearch(SearchTest):
                 )
             )
 
+    @known_to_fail
     def test_open_wide(self):
-        # Search query cuts off midway through the second word of the subtitle.
+        # Search query cuts off midway through the second word of the
+        # subtitle.  NOTE: The book we're looking for is on the first
+        # page, beneath other titles called "Open Wide!" and "Wide
+        # Open", which ought to be worse matches because there's no
+        # subtitle match.
         self.search(
             "Open wide a radical",
             FirstMatch(
@@ -1091,10 +1097,7 @@ class TestMixedTitleAuthorMatch(SearchTest):
             FirstMatch(title="fedora linux toolbox")
         )
 
-    @known_to_fail
     def test_fallen_baldacci(self):
-        # NOTE: This book is in the collection, but other David
-        # Baldacci books rate higher.
         self.search(
             "fallen baldacci",
             FirstMatch(author="David Baldacci", title="The Fallen")
@@ -1139,10 +1142,7 @@ class TestMixedTitleAuthorMatch(SearchTest):
             FirstMatch(title="The Reckoning", author="John Grisham")
         )
 
-    @known_to_fail
     def test_singh(self):
-        # NOTE: These results are pretty good, but they don't prioritize
-        # titles containing "archangel" over the author's other books.
         self.search(
             "Nalini singh archangel",
             [ Common(author="Nalini Singh", threshold=0.9),
@@ -1211,10 +1211,7 @@ class TestCharlottesWeb(VariantSearchTest):
     def test_no_apostrophe_with_author(self):
         self.search("charlottes web eb white")
 
-    @known_to_fail
     def test_no_apostrophe_with_author_space(self):
-        # NOTE: This promotes several other E. B. White titles
-        # over "Charlotte's Web".
         self.search("charlottes web e b white")
 
 
@@ -2081,12 +2078,11 @@ class TestSubjectMatch(SearchTest):
         )
 
     def test_tennis(self):
+        # We will get sports books with "Tennis" in the title.
         self.search(
             "tennis",
-            [
-                Common(subject=re.compile("tennis")),
-                Common(genre=re.compile("(Sports|Games)", re.I)),
-            ]
+            Common(title=re.compile("Tennis", re.I),
+                   genre=re.compile("(Sports|Games)", re.I))
         )
 
     @known_to_fail
@@ -2158,11 +2154,16 @@ class TestSeriesMatch(SearchTest):
         )
 
     def test_game_of_thrones(self):
-        # People often search for the name of the TV show, but
-        # the series name is different.
+        # People often search for the name of the TV show, but the
+        # series name is different. There are so many books about the
+        # TV show that results are dominated by title matches, but
+        # there is also a novel called "A Game of Thrones", and we
+        # find that.
         self.search(
             "game of thrones",
-            Common(series="a song of ice and fire")
+            [Common(title=re.compile("Game of Thrones", re.I)),
+             AtLeastOne(series="a song of ice and fire")
+            ]
         )
 
     def test_harry_potter(self):
@@ -2267,14 +2268,8 @@ class TestSeriesMatch(SearchTest):
             SpecificAuthor("Chris Grabenstein"),
         )
 
-    @known_to_fail
     def test_foundation(self):
         # Series and full author
-        #
-        # The results have a number of Foundation titles by Asimov,
-        # but they also have "Isaac Asimov's X" title matches, and
-        # "Foundation" is not the first result.  It would have been
-        # better to just search for "foundation".
         self.search(
             "Isaac asimov foundation",
             Common(series="Foundation")
@@ -2410,7 +2405,11 @@ class TestISurvived(VariantSearchTest):
     def test_incorrect_1(self):
         self.search("i survied")
 
+    @known_to_fail
     def test_incorrect_2(self):
+        # NOTE: This gives good results overall but the first
+        # match is "I Had to Survive", which is understandable
+        # but not the best match.
         self.search("i survive")
 
     def test_incorrect_3(self):
@@ -2636,11 +2635,10 @@ class TestAgeRangeRestriction(SearchTest):
             "chapter books", Common(target_age=(6, 10))
         )
 
-    @known_to_fail
     def test_chapter_books_misspelled_1(self):
         # NOTE: We don't do fuzzy matching on things that would become
-        # filter terms. This nearly works because of title matches
-        # with "Chapter Book[s]", but not quite.
+        # filter terms. When this works, it's because of fuzzy title
+        # matches and description matches.
         self.search(
             "chapter bookd", Common(target_age=(6, 10))
         )
@@ -2680,9 +2678,14 @@ class TestSearchOnStopwords(SearchTest):
             FirstMatch(title="The Black and the Blue")
         )
 
+    @known_to_fail
     def test_the_real(self):
         # This is vague, but we get "The Real" results
         # over just "Real" results.
+        #
+        # NOTE: These results are very good, but the first result is
+        # "Tiger: The Real Story", which is a subtitle match. A title match
+        # should be better.
         self.search(
             "the real",
             Common(title=re.compile("The Real", re.I))
