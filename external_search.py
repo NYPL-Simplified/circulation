@@ -757,9 +757,11 @@ class MappingDocument(object):
         property type.
 
         This type does not exist in Elasticsearch. It's our name for a
-        text field that is indexed twice: once using our default
-        English analyzer ("title"), and once using an analyzer with
-        minimal stemming ("title.minimal") for close matches.
+        text field that is indexed three: once using our default
+        English analyzer ("title"), once using an analyzer with
+        minimal stemming ("title.minimal") for close matches,
+        and once using an analyzer that leaves stopwords in place,
+        for searches that rely on stopwords.
         """
         description['type'] = 'text'
         description['analyzer'] = 'en_default_text_analyzer'
@@ -781,7 +783,7 @@ class MappingDocument(object):
         This type does not exist in Elasticsearch. It's our name for a
         text field that can be used in both queries and filters.
 
-        This field is indexed _three_ times -- the two ways a normal
+        This field is indexed _four_ times -- the three ways a normal
         text field is indexed, plus again as an unparsed keyword that
         can be used in filters.
         """
@@ -943,20 +945,25 @@ class CurrentMapping(Mapping):
         # Set up analyzers.
         #
 
-        # We use two analyzers:
+        # We use three analyzers:
         #
         # 1. An analyzer based on Elasticsearch's default English
         #    analyzer -- used as the default view of a text field such
         #    as 'description'.
         #
-        # 2. An analyzer that's exactly the same but with a less
+        # 2. An analyzer that's exactly the same as #1 but with a less
         #    aggressive stemmer -- used as the 'minimal' view of a
         #    text field such as 'description.minimal'.
+        #
+        # 3. An analyzer that's exactly the same as #2 but with
+        #    English stopwords left in place instead of filtered out --
+        #    used as the 'with_stopwords' view of a text field such as
+        #    'title.with_stopwords'.
         #
         # The two analyzers are identical except for the end of the
         # filter chain.
         #
-        # Bothe analyzers are based on Elasticsearch's default English
+        # All three analyzers are based on Elasticsearch's default English
         # analyzer, defined here:
         # https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-lang-analyzer.html#english-analyzer
 
@@ -1010,7 +1017,7 @@ class CurrentMapping(Mapping):
         )
 
         # The minimal_text_analyzer uses a less aggressive English
-        # stemmer.
+        # stemmer, and removes stopwords.
         self.analyzers['en_minimal_text_analyzer'] = dict(common_text_analyzer)
         self.analyzers['en_minimal_text_analyzer']['filter'] = (
             common_filter + ['english_stop', 'minimal_english_stemmer']
