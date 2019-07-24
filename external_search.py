@@ -1793,27 +1793,6 @@ class Query(SearchBase):
         parser = QueryParser(self.query_string)
         return parser.match_queries, parser.filters
 
-    def _hypothesize(self, hypotheses, query, boost, filters=None, **kwargs):
-        """Add a hypothesis to the ones to be tested for each book.
-
-        :param hypotheses: A list of active hypotheses, to be
-        appended to if necessary.
-
-        :param query: An Elasticsearch-DSL Query object (or list of
-        Query objects) to be used as the basis for this hypothesis. If
-        there's nothing here, no new hypothesis will be generated.
-
-        :param boost: Boost the overall weight of this hypothesis
-        relative to other hypotheses being tested.
-
-        :param kwargs: Keyword arguments for the _boost method.
-        """
-        if query or filters:
-            query = self._boost(boost, query, filters=filters, **kwargs)
-        if query:
-            hypotheses.append(query)
-        return hypotheses
-
     def _fuzzy_matches(self, field_name, **kwargs):
         """Make one or more fuzzy Match versions of any MatchPhrase
         hypotheses, scoring them at a fraction of the original
@@ -1834,6 +1813,28 @@ class Query(SearchBase):
         kwargs = dict(kwargs)
         kwargs['prefix_length'] = 1
         yield Match(**{field_name : kwargs}), self.fuzzy_coefficient * 0.75
+
+    @classmethod
+    def _hypothesize(cls, hypotheses, query, boost, filters=None, **kwargs):
+        """Add a hypothesis to the ones to be tested for each book.
+
+        :param hypotheses: A list of active hypotheses, to be
+        appended to if necessary.
+
+        :param query: An Elasticsearch-DSL Query object (or list of
+        Query objects) to be used as the basis for this hypothesis. If
+        there's nothing here, no new hypothesis will be generated.
+
+        :param boost: Boost the overall weight of this hypothesis
+        relative to other hypotheses being tested.
+
+        :param kwargs: Keyword arguments for the _boost method.
+        """
+        if query or filters:
+            query = cls._boost(boost, query, filters=filters, **kwargs)
+        if query:
+            hypotheses.append(query)
+        return hypotheses
 
 
 class QueryParser(object):
