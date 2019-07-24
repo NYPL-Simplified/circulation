@@ -1176,7 +1176,8 @@ class SearchBase(object):
 
     @classmethod
     def _match_term(cls, field, query_string):
-        """A clause that matches the query string against a specific field in the search document.
+        """A clause that matches the query string against a specific field in
+        the search document.
         """
         match_query = Term(**{field: query_string})
         return cls._nestable(field, match_query)
@@ -1195,11 +1196,6 @@ class SearchBase(object):
 
 class Query(SearchBase):
     """An attempt to find something in the search index."""
-
-    # Although we index all text fields using an analyzer that
-    # preserves stopwords, these are the only fields where we think
-    # it's worth testing a hypothesis that stopwords are _important_.
-    STOPWORD_FIELDS = ['title', 'subtitle', 'series']
 
     # This dictionary establishes the relative importance of the
     # fields that someone might search for. These weights are used
@@ -1238,10 +1234,9 @@ class Query(SearchBase):
     # A normal coefficient for a normal sort of match.
     BASELINE_COEFFICIENT = 1
 
-    # If a query string contains a filter component, then all of the
-    # non-filter components will be boosted slightly above the
-    # baseline.
-    QUERY_HAS_A_FILTER_COEFFICIENT = 1.1
+    # There are a couple places where we want to boost a query just
+    # slightly above baseline.
+    SLIGHTLY_ABOVE_BASELINE = 1.1
 
     # For each of these fields, we're going to test the hypothesis
     # that the query string is nothing but an attempt to match this
@@ -1264,6 +1259,12 @@ class Query(SearchBase):
     # that the query string is a good match for an aggressively
     # stemmed version of this field.
     STEMMABLE_FIELDS = ['title', 'subtitle', 'series']
+
+    # Although we index all text fields using an analyzer that
+    # preserves stopwords, these are the only fields where we
+    # currently think it's worth testing a hypothesis that stopwords
+    # in a query string are _important_.
+    STOPWORD_FIELDS = ['title', 'subtitle', 'series']
 
     def __init__(self, query_string, filter=None):
         """Store a query string and filter.
@@ -1473,7 +1474,7 @@ class Query(SearchBase):
                     # string. We'll boost works that match the filter
                     # slightly, but overall the goal here is to get
                     # better results by filtering out junk.
-                    boost = self.QUERY_HAS_A_FILTER_COEFFICIENT
+                    boost = self.SLIGHTLY_ABOVE_BASELINE
                 self._hypothesize(
                     hypotheses, sub_hypotheses, boost, all_must_match=True,
                     filters=filters
@@ -1702,7 +1703,7 @@ class Query(SearchBase):
             # Boost this slightly above the baseline so that if
             # it matches, it'll beat out baseline queries.
             fields.append(
-                ('with_stopwords', self.BASELINE_COEFFICIENT +0.1, MatchPhrase)
+                ('with_stopwords', self.SLIGHTLY_ABOVE_BASELINE, MatchPhrase)
             )
 
         if base_field in self.STEMMABLE_FIELDS:
