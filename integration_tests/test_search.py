@@ -768,12 +768,11 @@ class TestMisspelledTitleSearch(SearchTest):
             FirstMatch(title="The Seven Husbands of Evelyn Hugo")
         )
 
-    @known_to_fail
     def test_nightingale(self):
         # Unusual word misspelled.
         #
-        # This isn't so bad -- the book we're looking for is the second result,
-        # with the first being a title by Florence Nightingale.
+        # This might fail because a book by Florence Nightingale is
+        # seen as a better match.
         self.search(
             "The nightenale",
             FirstMatch(title="The Nightingale")
@@ -1425,12 +1424,12 @@ class TestAuthorMatch(SearchTest):
             SpecificAuthor("Vladimir Nabokov", accept_title="Nabokov")
         )
 
-    @known_to_fail
     def test_ba_paris(self):
         # Author's last name could also be a subject keyword.
         #
-        # These results are very good, but the first result is a title
-        # match with stopword removed, "Escalier B, Paris 12".
+        # These results are always very good, but sometimes the first
+        # result is a title match with stopword removed, "Escalier B,
+        # Paris 12".
         self.search(
             "b a paris", SpecificAuthor("B. A. Paris")
         )
@@ -1869,11 +1868,13 @@ class TestSubjectMatch(SearchTest):
             )
         )
 
+    @known_to_fail
     def test_da_vinci(self):
         # Someone who searches for "da vinci" is almost certainly
         # looking entirely for books _about_ Da Vinci.
         #
-        # TODO: "The Da Vinci Code" dominates these results.
+        # TODO: The first few results are good but then we go into
+        # "Da Vinci Code" territory. Maybe that's fine, though.
         self.search(
             "Da Vinci",
             Common(genre=re.compile("(biography|art)"), first_must_match=False)
