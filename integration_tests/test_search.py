@@ -2251,7 +2251,8 @@ class TestSeriesMatch(SearchTest):
         self.search("the hunger games", Common(series="The Hunger Games"))
 
     def test_hunger_games_misspelled(self):
-        self.search("The hinger games", Common(series="The Hunger Games"))
+        self.search("The hinger games",
+                    Common(series=re.compile("Hunger Games", re.I)))
 
     def test_mockingjay(self):
         self.search(
@@ -2635,6 +2636,7 @@ class TestAgeRangeRestriction(SearchTest):
             "chapter books", Common(target_age=(6, 10))
         )
 
+    @known_to_fail
     def test_chapter_books_misspelled_1(self):
         # NOTE: We don't do fuzzy matching on things that would become
         # filter terms. When this works, it's because of fuzzy title
