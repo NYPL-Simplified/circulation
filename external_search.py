@@ -485,9 +485,13 @@ class ExternalSearchIndex(HasSelfTests):
             search = search.query(function_score)
         a = time.time()
 
+        results = search[start:stop]
+        # Convert the Search object into a list of hits.
+        #
         # NOTE: This is the code that actually executes the ElasticSearch
         # request.
-        results = search[start:stop]
+        results = [x for x in results]
+
         if debug:
             b = time.time()
             self.log.debug(
@@ -500,9 +504,6 @@ class ExternalSearchIndex(HasSelfTests):
                     i, result.sort_title, result.sort_author, result.meta['id'],
                     result.meta['score'] or 0, result.meta['shard']
                 )
-
-        # Convert the Search object into a list of hits.
-        results = [x for x in results]
 
         # Tell the Pagination object about this page -- this may help
         # it set up to generate a link to the next page.
