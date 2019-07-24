@@ -1152,6 +1152,35 @@ return champion;
 class SearchBase(object):
 
     @classmethod
+    def _boost(cls, boost, queries, filters=None, all_must_match=False):
+        """Boost a query by a certain amount relative to its neighbors in a
+        dis_max query.
+
+        :param boost: Numeric value to boost search results that
+           match `queries`.
+        :param queries: One or more Query objects to use in a query context.
+        :param filter: A Query object to use in a filter context.
+        :param all_must_match: If this is False (the default), then only
+           one of the `queries` must match for a search result to get
+           the boost. If this is True, then all `queries` must match,
+           or the boost will not apply.
+        """
+        filters = filters or []
+        if isinstance(queries, BaseQuery):
+            queries = [queries]
+
+        if all_must_match or len(queries) == 1:
+            # Every one of the subqueries in `queries` must match.
+            # (If there's only one subquery, this simplifies the
+            # final query slightly.)
+            kwargs = dict(must=queries)
+        else:
+            # At least one of the queries in `queries` must match.
+            kwargs = dict(should=queries, minimum_should_match=1)
+        query = Bool(boost=float(boost), filter=filters, **kwargs)
+        return query
+
+    @classmethod
     def _nest(cls, subdocument, query):
         """Turn a normal query into a nested query.
 
@@ -1193,6 +1222,31 @@ class SearchBase(object):
         match = {field : {operation: value}}
         return dict(range=match)
 
+    @classmethod
+    def make_target_age_query(cls, target_age, boost=1):
+        """Create an Elasticsearch query object for a boolean query that
+        matches works whose target ages overlap (partially or
+        entirely) the given age range.
+
+        :param target_age: A 2-tuple (lower limit, upper limit)
+        :param boost: A value for the boost parameter
+        """
+        (lower, upper) = target_age[0], target_age[1]
+        # There must be _some_ overlap with the provided range.
+        must = [
+            cls._match_range("target_age.upper", "gte", lower),
+            cls._match_range("target_age.lower", "lte", upper)
+        ]
+
+        # Results with ranges contained within the query range are
+        # better.
+        # e.g. for query 4-6, a result with 5-6 beats 6-7
+        should = [
+            cls._match_range("target_age.upper", "lte", upper),
+            cls._match_range("target_age.lower", "gte", lower),
+        ]
+        return Bool(must=must, should=should, boost=float(boost))
+
 
 class Query(SearchBase):
     """An attempt to find something in the search index."""
@@ -1216,6 +1270,14 @@ class Query(SearchBase):
     # same weight as the 'author' field in the main document.
     for field in ['sort_name', 'display_name']:
         WEIGHT_FOR_FIELD['contributors.' + field] = WEIGHT_FOR_FIELD['author']
+
+    # When someone searches for a person's name, they're most likely
+    # searching for that person's contributions in one of these roles.
+    SEARCH_RELEVANT_ROLES = [
+        Contributor.PRIMARY_AUTHOR_ROLE,
+        Contributor.AUTHOR_ROLE,
+        Contributor.NARRATOR_ROLE,
+    ]
 
     # If the entire search query is turned into a filter, all works
     # that match the filter will be given this weight.
@@ -1266,16 +1328,23 @@ class Query(SearchBase):
     # in a query string are _important_.
     STOPWORD_FIELDS = ['title', 'subtitle', 'series']
 
-    def __init__(self, query_string, filter=None):
+    def __init__(self, query_string, filter=None, use_query_parser=True):
         """Store a query string and filter.
 
         :param query_string: A user typed this string into a search box.
         :param filter: A Filter object representing the circumstances
             of the search -- for example, maybe we are searching within
             a specific lane.
+
+        :param use_query_parser: Should we try to parse filter
+            information out of the query string? Or did we already try
+            that, and this constructor is being called recursively, to
+            build a subquery from the _remaining_ portion of a larger
+            query string?
         """
         self.query_string = query_string or ""
         self.filter = filter
+        self.use_query_parser = use_query_parser
 
         # Pre-calculate some values that will be checked frequently
         # when generating the Elasticsearch-dsl query.
@@ -1310,7 +1379,6 @@ class Query(SearchBase):
             # results overall by giving them only half their normal
             # strength.
             self.fuzzy_coefficient = 0.5
-
         # NOTE: if you ever have reason to set fuzzy_coefficient to
         # zero, fuzzy hypotheses will not be considered at all.
 
@@ -1324,7 +1392,7 @@ class Query(SearchBase):
         :return: An Elasticsearch-DSL Search object that's prepared
             to run this specific query.
         """
-        query = self.query()
+        query = self.elasticsearch_query
         nested_filters = defaultdict(list)
 
         # Convert the resulting Filter into two objects -- one
@@ -1392,25 +1460,20 @@ class Query(SearchBase):
         # All done!
         return search
 
-    def query(self, use_query_parser=True):
-        """Build an Elasticsearch-DSL Query object for this query string.
+    @property
+    def elasticsearch_query(self):
+        """Build an Elasticsearch-DSL Query object for this query string."""
 
-        :param use_query_parser: Should we try to parse filter
-        information out of the query string? Or did we already try
-        that, and this method is being called recursively, to build a
-        subquery out of the remaining portion of a larger query
-        string?
-        """
-        if not self.query_string:
-            # There is no query string. Match everything.
-            return MatchAll()
-
-        # The search query will create a dis_max query, which tests a
+        # The query will most likely be a dis_max query, which tests a
         # number of hypotheses about what the query string might
         # 'really' mean. For each book, the highest-rated hypothesis
         # will be assumed to be true, and the highest-rated titles
         # overall will become the search results.
         hypotheses = []
+
+        if not self.query_string:
+            # There is no query string. Match everything.
+            return MatchAll()
 
         # Here are the hypotheses:
 
@@ -1418,7 +1481,7 @@ class Query(SearchBase):
         # probably title or series. These are the most common
         # searches.
         for field in self.SIMPLE_MATCH_FIELDS:
-            for qu, weight in self._match_one_field(field):
+            for qu, weight in self.match_one_field(field):
                 self._hypothesize(hypotheses, qu, weight)
 
         # As a coda to the above, the query string might be a match
@@ -1426,12 +1489,12 @@ class Query(SearchBase):
         # more complicated because a book can have multiple
         # contributors and we're only interested in certain roles
         # (such as 'narrator').
-        for qu, weight in self._match_author_queries:
+        for qu, weight in self.match_author_queries:
             self._hypothesize(hypotheses, qu, weight)
 
-        # The query string may be referring to topic or subject
-        # matter.
-        for qu, weight in self._match_topic_queries:
+        # The query string may be looking for a certain topic or
+        # subject matter.
+        for qu, weight in self.match_topic_queries:
             self._hypothesize(hypotheses, qu, weight)
 
         # The query string might *combine* terms from the title with
@@ -1440,7 +1503,7 @@ class Query(SearchBase):
             # The weight of this hypothesis should be proportionate to
             # the difference between a pure match against title, and a
             # pure match against the field we're checking.
-            multi_match, weight = self._title_multi_match_for(other_field)
+            multi_match, weight = self.title_multi_match_for(other_field)
             self._hypothesize(hypotheses, multi_match, weight)
 
         # Finally, the query string might contain a filter portion
@@ -1448,17 +1511,20 @@ class Query(SearchBase):
         # the "real" query string.
         #
         # In a query like "nonfiction asteroids", "nonfiction" would
-        # be the filter portion (restricting the search entirely to
-        # nonfiction) and "asteroids" would be the query portion.
+        # be the filter portion and "asteroids" would be the query
+        # portion.
         #
-        # The query portion, if any, is turned into another set of
+        # The query portion, if any, is turned into a set of
         # sub-hypotheses. We then hypothesize that we might filter out
         # a lot of junk by applying the filter and running the
         # sub-hypotheses against the filtered set of books.
-        if use_query_parser:
-            sub_hypotheses, filters = self._parsed_query_matches(
-                self.query_string
-            )
+        #
+        # In other words, we should try searching across nonfiction
+        # for "asteroids", and see if it gets better results than
+        # searching for "nonfiction asteroids" in the text fields
+        # (which it will).
+        if self.use_query_parser:
+            sub_hypotheses, filters = self.parsed_query_matches
             if sub_hypotheses or filters:
                 if not sub_hypotheses:
                     # The entire search string was converted into a
@@ -1484,191 +1550,14 @@ class Query(SearchBase):
 
         # The score of any given book is the maximum score it gets from
         # any of these hypotheses.
-        if not hypotheses:
-            qu = MatchAll()
+        if hypotheses:
+            qu = DisMax(queries=hypotheses)
         else:
-            qu = self._combine_hypotheses(hypotheses)
+            # We ended up with no hypotheses. Match everything.
+            qu = MatchAll()
         return qu
 
-    @classmethod
-    def _hypothesize(cls, hypotheses, query, boost, filters=None, **kwargs):
-        """Add a hypothesis to the ones to be tested for each book.
-
-        :param hypotheses: If a new hypothesis is generated, it will be
-        added to this list.
-
-        :param query: A Query object (or list of Query objects) to be
-        used as the basis for this hypothesis. If there's nothing here,
-        no new hypothesis will be generated.
-
-        :param boost: Boost the overall weight of this hypothesis
-        relative to other hypotheses being tested.
-
-        :param kwargs: Keyword arguments for the _boost method.
-        """
-        if query or filters:
-            query = cls._boost(boost, query, filters=filters, **kwargs)
-        if query:
-            hypotheses.append(query)
-        return hypotheses
-
-    @classmethod
-    def _combine_hypotheses(cls, hypotheses):
-        """Build an Elasticsearch-DSL Query object that tests a number
-        of hypotheses at once.
-        """
-        return DisMax(queries=hypotheses)
-
-    @classmethod
-    def _boost(cls, boost, queries, filters=None, all_must_match=False):
-        """Boost a query by a certain amount relative to its neighbors in a
-        dis_max query.
-
-        :param boost: Numeric value to boost search results that
-           match `queries`.
-        :param queries: One or more Query objects to use in a query context.
-        :param filter: A Query object to use in a filter context.
-        :param all_must_match: If this is False (the default), then only
-           one of the `queries` must match for a search result to get
-           the boost. If this is True, then all `queries` must match,
-           or the boost will not apply.
-        """
-        filters = filters or []
-        if isinstance(queries, BaseQuery):
-            queries = [queries]
-
-        if all_must_match or len(queries) == 1:
-            # Every one of the subqueries in `queries` must match.
-            # (If there's only one subquery, this simplifies the
-            # final query slightly.)
-            kwargs = dict(must=queries)
-        else:
-            # At least one of the queries in `queries` must match.
-            kwargs = dict(should=queries, minimum_should_match=1)
-        query = Bool(boost=float(boost), filter=filters, **kwargs)
-        return query
-
-    @classmethod
-    def make_target_age_query(cls, target_age, boost=1):
-        """Create an Elasticsearch query object for a boolean query that
-        matches works whose target ages overlap (partially or
-        entirely) the given age range.
-
-        :param target_age: A 2-tuple (lower limit, upper limit)
-        :param boost: A value for the boost parameter
-        """
-        (lower, upper) = target_age[0], target_age[1]
-        # There must be _some_ overlap with the provided range.
-        must = [
-            cls._match_range("target_age.upper", "gte", lower),
-            cls._match_range("target_age.lower", "lte", upper)
-        ]
-
-        # Results with ranges contained within the query range are
-        # better.
-        # e.g. for query 4-6, a result with 5-6 beats 6-7
-        should = [
-            cls._match_range("target_age.upper", "lte", upper),
-            cls._match_range("target_age.lower", "gte", lower),
-        ]
-        return Bool(must=must, should=should, boost=float(boost))
-
-    @property
-    def _match_author_queries(self):
-        """Yield a sequence of query objects representing possible ways in
-        which a query string might represent a book's author.
-
-        :param query_string: The query string that might be the name
-        of an author.
-
-        :yield: A sequence of Elasticsearch-DSL query objects to be
-        considered as hypotheses.
-        """
-
-        # Ask Elasticsearch to match what was typed against
-        # contributors.display_
-        for x in self._author_field_must_match(
-            'display_name', self.query_string
-        ):
-            yield x
-
-        # Almost nobody types a sort name into a search box, but they
-        # may paste one in from somewhere else. Also ask Elasticsearch
-        # to check against contributors.display_name.
-        for x in self._author_field_must_match('sort_name', self.query_string):
-            yield x
-
-        # Although almost nobody types a sort name into a search box,
-        # we may only know some contributors by their sort name.  Try
-        # to convert what was typed into a sort name, and ask
-        # Elasticsearch to match _that_ against contributors.sort_name.
-        sort_name = display_name_to_sort_name(self.query_string)
-        if sort_name:
-            for x in self._author_field_must_match('sort_name', sort_name):
-                yield x
-
-    def _author_field_must_match(self, base_field, query_string=None):
-        """Yield queries that match either the keyword or minimally stemmed
-        version of one of the fields in the contributors sub-document.
-
-        The contributor must also have an appropriate authorship role.
-        
-        :param base_field: The base name of the contributors field to
-        match -- probably either 'display_name' or 'sort_name'.
-
-        :param must_match: The query string to match against.
-        """
-        query_string = query_string or self.query_string
-        field_name = 'contributors.%s' % base_field
-        for match_author, weight in self._match_one_field(
-            field_name, query_string
-        ):
-            for qu in self._role_must_also_match(match_author, weight):
-                yield qu
-
-    @classmethod
-    def _role_must_also_match(cls, base_query, base_score):
-        """Yield queries that restrict a query against the contributors
-        sub-document so that it also matches an appropriate role.
-
-        NOTE: We can get fancier here by issuing several different
-        queries that weight Primary Author higher than Author higher
-        than Narrator.  However, in practice this dramatically slows
-        down searches without improving results.
-
-        :param base_query: A query object to use when adding restrictions.
-        :param base_score: The relative score of the base query. The resulting
-           queries will be weighted based on this score.
-        :yield: A number of query objects, one for each relevant role.
-        """
-        roles = [
-            Contributor.PRIMARY_AUTHOR_ROLE,
-            Contributor.AUTHOR_ROLE,
-            Contributor.NARRATOR_ROLE,
-        ]
-        multiplier = 1
-        match_role = Terms(**{"contributors.role": roles})
-        match_both = Bool(must=[base_query, match_role])
-        score = base_score * multiplier
-        yield cls._nest('contributors', match_both), score
-
-    @property
-    def _match_topic_queries(self):
-        """Yield a number of hypotheses representing different
-        ways in which the query string might be a topic match.
-
-        Currently there is only one such hypothesis.
-        """
-        # Note that we are using the default analyzer, which gives us
-        # the stemmed versions of these fields.
-        qu = MultiMatch(
-            query=self.query_string,
-            fields=["summary", "classifications.term"],
-            type="best_fields",
-        )
-        yield qu, self.WEIGHT_FOR_FIELD['summary']
-
-    def _match_one_field(self, base_field, query_string=None):
+    def match_one_field(self, base_field, query_string=None):
         """Yield a number of hypotheses representing different ways in
         which the query string might be an attempt to match
         a given field.
@@ -1681,24 +1570,30 @@ class Query(SearchBase):
 
         :yield: A sequence of (hypothesis, weight) 2-tuples.
         """
+        # All hypotheses generated by this method will be weighted
+        # relative to the standard weight for the field being checked.
+        #
+        # The final weight will be this field * a coefficient
+        # determined by the type of match * a (potential) coefficient
+        # associated with a fuzzy match.
         base_weight = self.WEIGHT_FOR_FIELD[base_field]
 
         query_string = query_string or self.query_string
         fields = [
-            # A keyword match means the field value is an exact match for
-            # the query string. This is one of the best search results
-            # we can possibly return.
+            # A keyword match means the field value is a near-exact
+            # match for the query string. This is one of the best
+            # search results we can possibly return.
             ('keyword', self.KEYWORD_MATCH_COEFFICIENT, Term),
 
             # This is the baseline query -- a phrase match against a
-            # single field. Most peoples' searches turn out to be
+            # single field. Most queries turn out to represent
             # consecutive words from a single field.
             ('minimal', self.BASELINE_COEFFICIENT, MatchPhrase)
         ]
 
         if self.contains_stopwords and base_field in self.STOPWORD_FIELDS:
-            # This query might benefit from a phrase match against
-            # an index of this field that includes the stopwords.
+            # The query might benefit from a phrase match against an
+            # index of this field that includes the stopwords.
             #
             # Boost this slightly above the baseline so that if
             # it matches, it'll beat out baseline queries.
@@ -1714,7 +1609,7 @@ class Query(SearchBase):
             #
             # This hypothesis is run at a disadvantage relative to
             # baseline.
-            fields.append((None, 0.75, Match))
+            fields.append((None, self.BASELINE_COEFFICIENT * 0.75, Match))
 
         for subfield, match_type_coefficient, query_class in fields:
             if subfield:
@@ -1743,6 +1638,9 @@ class Query(SearchBase):
             if query_class == Match:
                 kwargs = {field_name: standard_match_kwargs}
             else:
+                # If we're doing a Term or MatchPhrase query,
+                # minimum_should_match is not relevant -- we just need
+                # to provide the query string.
                 kwargs = {field_name: self.query_string}
             qu = query_class(**kwargs)
             yield qu, field_weight
@@ -1758,7 +1656,98 @@ class Query(SearchBase):
                 ):
                     yield fuzzy_match, (field_weight * fuzzy_query_coefficient)
 
-    def _title_multi_match_for(self, other_field):
+    @property
+    def match_author_queries(self):
+        """Yield a sequence of query objects representing possible ways in
+        which a query string might represent a book's author.
+
+        :param query_string: The query string that might be the name
+        of an author.
+
+        :yield: A sequence of Elasticsearch-DSL query objects to be
+        considered as hypotheses.
+        """
+
+        # Ask Elasticsearch to match what was typed against
+        # contributors.display_name.
+        for x in self._author_field_must_match(
+            'display_name', self.query_string
+        ):
+            yield x
+
+        # Almost nobody types a sort name into a search box, but they
+        # may paste one in from somewhere else. Also ask Elasticsearch
+        # to match against contributors.display_name.
+        for x in self._author_field_must_match('sort_name', self.query_string):
+            yield x
+
+        # Although almost nobody types a sort name into a search box,
+        # we may only know some contributors by their sort name.  Try
+        # to convert what was typed into a sort name, and ask
+        # Elasticsearch to match _that_ against
+        # contributors.sort_name.
+        sort_name = display_name_to_sort_name(self.query_string)
+        if sort_name and sort_name != self.query_string:
+            for x in self._author_field_must_match('sort_name', sort_name):
+                yield x
+
+    def _author_field_must_match(self, base_field, query_string=None):
+        """Yield queries that match either the keyword or minimally stemmed
+        version of one of the fields in the contributors sub-document.
+
+        The contributor must also have an appropriate authorship role.
+        
+        :param base_field: The base name of the contributors field to
+        match -- probably either 'display_name' or 'sort_name'.
+
+        :param must_match: The query string to match against.
+        """
+        query_string = query_string or self.query_string
+        field_name = 'contributors.%s' % base_field
+        for match_author, weight in self.match_one_field(
+            field_name, query_string
+        ):
+            yield self._role_must_also_match(match_author), weight
+
+    @classmethod
+    def _role_must_also_match(cls, base_query):
+        """Modify a query to add a restriction against the contributors
+        sub-document, so that it also matches an appropriate role.
+
+        NOTE: We can get fancier here by yielding several
+        differently-weighted hypotheses that weight Primary Author
+        higher than Author, and Author higher than Narrator. However,
+        in practice this dramatically slows down searches without
+        greatly improving results.
+
+        :param base_query: An Elasticsearch-DSL query object to use
+           when adding restrictions.
+        :param base_score: The relative score of the base query. The resulting
+           hypotheses will be weighted based on this score.
+        :return: A modified hypothesis.
+
+        """
+        match_role = Terms(**{"contributors.role": cls.SEARCH_RELEVANT_ROLES})
+        match_both = Bool(must=[base_query, match_role])
+        return cls._nest('contributors', match_both)
+
+    @property
+    def match_topic_queries(self):
+        """Yield a number of hypotheses representing different
+        ways in which the query string might be a topic match.
+
+        Currently there is only one such hypothesis.
+        """
+        # Note that we are using the default analyzer, which gives us
+        # the stemmed versions of these fields.
+        qu = MultiMatch(
+            query=self.query_string,
+            fields=["summary", "classifications.term"],
+            type="best_fields",
+        )
+        yield qu, self.WEIGHT_FOR_FIELD['summary']
+
+    def title_multi_match_for(self, other_field):
         """Helper method to create a MultiMatch field that crosses
         multiple fields.
 
@@ -1781,13 +1770,49 @@ class Query(SearchBase):
             type="cross_fields",
 
             # This hypothesis must be able to explain the entire query
-            # string. Otherwise the weight contributed by the 'title'
+            # string. Otherwise the weight contributed by the title
             # will boost _partial_ title matches over better matches
             # obtained some other way.
             operator="and",
             minimum_should_match="100%",
         )
         return hypothesis, combined_weight
+
+    @property
+    def parsed_query_matches(self):
+        """Deal with a query string that contains information that should be
+        exactly matched against a controlled vocabulary
+        (e.g. "nonfiction" or "grade 5") along with information that
+        is more search-like (such as a title or author).
+
+        The match information is pulled out of the query string and
+        used to make a series of match_phrase queries. The rest of the
+        information is used in a simple query that matches basic
+        fields.
+        """
+        parser = QueryParser(self.query_string)
+        return parser.match_queries, parser.filters
+
+    def _hypothesize(self, hypotheses, query, boost, filters=None, **kwargs):
+        """Add a hypothesis to the ones to be tested for each book.
+
+        :param hypotheses: A list of active hypotheses, to be
+        appended to if necessary.
+
+        :param query: An Elasticsearch-DSL Query object (or list of
+        Query objects) to be used as the basis for this hypothesis. If
+        there's nothing here, no new hypothesis will be generated.
+
+        :param boost: Boost the overall weight of this hypothesis
+        relative to other hypotheses being tested.
+
+        :param kwargs: Keyword arguments for the _boost method.
+        """
+        if query or filters:
+            query = self._boost(boost, query, filters=filters, **kwargs)
+        if query:
+            hypotheses.append(query)
+        return hypotheses
 
     def _fuzzy_matches(self, field_name, **kwargs):
         """Make one or more fuzzy Match versions of any MatchPhrase
@@ -1809,21 +1834,6 @@ class Query(SearchBase):
         kwargs = dict(kwargs)
         kwargs['prefix_length'] = 1
         yield Match(**{field_name : kwargs}), self.fuzzy_coefficient * 0.75
-
-    @classmethod
-    def _parsed_query_matches(cls, query_string):
-        """Deal with a query string that contains information that should be
-        exactly matched against a controlled vocabulary
-        (e.g. "nonfiction" or "grade 5") along with information that
-        is more search-like (such as a title or author).
-
-        The match information is pulled out of the query string and
-        used to make a series of match_phrase queries. The rest of the
-        information is used in a simple query that matches basic
-        fields.
-        """
-        parser = QueryParser(query_string)
-        return parser.match_queries, parser.filters
 
 
 class QueryParser(object):
@@ -1923,10 +1933,13 @@ class QueryParser(object):
         # It could be anything that would go into a regular query. And
         # we have lots of different ways of checking a regular query --
         # different hypotheses, fuzzy matches, etc. So the simplest thing
-        # to do is to call Query.query() recursively.
+        # to do is to create a Query object for the smaller search query
+        # and see what its .elasticsearch_query is.
         if (self.final_query_string
             and self.final_query_string != self.original_query_string):
-            recursive = Query(self.final_query_string).query(use_query_parser=False)
+            recursive = Query(
+                self.final_query_string, use_query_parser=False
+            ).elasticsearch_query
             self.match_queries.append(recursive)
 
     def add_match_term_query(self, query, field, query_string, matched_portion):
