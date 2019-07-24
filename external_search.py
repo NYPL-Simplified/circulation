@@ -1603,23 +1603,26 @@ class Query(SearchBase):
         """Yield queries that restrict a query against the contributors
         sub-document so that it also matches an appropriate role.
 
-        A contributor with a 'Primary Author' role is a better match
-        than a contributor with a normal 'Author' role.
+        NOTE: We can get fancier here by issuing several different
+        queries that weight Primary Author higher than Author higher
+        than Narrator.  However, in practice this dramatically slows
+        down searches without improving results.
 
         :param base_query: A query object to use when adding restrictions.
         :param base_score: The relative score of the base query. The resulting
            queries will be weighted based on this score.
         :yield: A number of query objects, one for each relevant role.
         """
-        for role, multiplier in (
-            (Contributor.PRIMARY_AUTHOR_ROLE, 1),
-            (Contributor.AUTHOR_ROLE, 0.75),
-            (Contributor.NARRATOR_ROLE, 0.6)
-        ):
-            match_role = Term(**{"contributors.role": role})
-            match_both = Bool(must=[base_query, match_role])
-            score = base_score * multiplier
-            yield cls._nest('contributors', match_both), score
+        roles = [
+            Contributor.PRIMARY_AUTHOR_ROLE,
+            Contributor.AUTHOR_ROLE,
+            Contributor.NARRATOR_ROLE,
+        ]
+        multiplier = 1
+        match_role = Terms(**{"contributors.role": roles})
+        match_both = Bool(must=[base_query, match_role])
+        score = base_score * multiplier
+        yield cls._nest('contributors', match_both), score
 
     @classmethod
     def _match_one_field(cls, base_field, query_string, include_stemmed=True, fuzzy_coefficient=False):
