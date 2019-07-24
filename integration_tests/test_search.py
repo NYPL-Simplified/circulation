@@ -334,6 +334,8 @@ class Common(Evaluator):
 
     def evaluate_hits(self, hits):
         successes, failures = self.multi_evaluate(hits)
+        if self.negate:
+            failures, successes = successes, failures
         if self.threshold is not None:
             self.assert_ratio(
                 [x[1:] for x in successes],
@@ -358,6 +360,14 @@ class Common(Evaluator):
                         vars.append(display)
                     print(template % tuple(vars))
             assert overall_success
+
+
+class Uncommon(Common):
+    """The given match must seldom or never happen."""
+    def __init__(self, threshold=1, **kwargs):
+        kwargs['negate'] = True
+        super(Uncommon, self).__init__(threshold=threshold, **kwargs)
+
 
 class FirstMatch(Common):
     """The first result must match certain criteria."""
@@ -2103,6 +2113,76 @@ class TestSubjectMatch(SearchTest):
         self.search(
             "witches",
             Common(subject=re.compile('witch'))
+        )
+
+class TestFuzzyConfounders(SearchTest):
+    """Test searches on very distinct terms that are near each other in
+    Levenstein distance.
+    """
+
+    # amulet / hamlet / harlem / tablet
+    def test_amulet(self):
+        self.search(
+            "amulet",
+            [Common(title_or_subtitle=re.compile("amulet")),
+             Uncommon(title_or_subtitle=re.compile("hamlet|harlem|tablet"))
+            ]
+        )
+
+    def test_hamlet(self):
+        self.search(
+            "Hamlet",
+            [Common(title_or_subtitle="Hamlet"),
+             Uncommon(title_or_subtitle=re.compile("amulet|harlem|tablet"))
+            ]
+        )
+
+    def test_harlem(self):
+        self.search(
+            "harlem",
+            [Common(title_or_subtitle=re.compile("harlem")),
+             Uncommon(title_or_subtitle=re.compile("amulet|hamlet|tablet"))
+            ]
+        )
+
+    def test_tablet(self):
+        self.search(
+            "tablet",
+            [Common(title_or_subtitle=re.compile("tablet")),
+             Uncommon(title_or_subtitle=re.compile("amulet|hamlet|harlem"))
+            ]
+        )
+
+    # baseball / basketball
+    def test_baseball(self):
+        self.search(
+            "baseball",
+            [Common(title=re.compile("baseball")),
+             Uncommon(title=re.compile("basketball"))]
+        )
+
+    def test_basketball(self):
+        self.search(
+            "basketball",
+            [Common(title=re.compile("basketball")),
+             Uncommon(title=re.compile("baseball"))]
+        )
+
+    # car / war
+    def test_car(self):
+        self.search(
+            "car",
+            # There is a book called "Car Wars", so we can't
+            # completely prohibit 'war' from showing up.
+            [Common(title=re.compile("car")),
+             Uncommon(title=re.compile("war"), threshold=0.1)]
+        )
+
+    def test_war(self):
+        self.search(
+            "war",
+            [Common(title=re.compile("war")),
+             Uncommon(title=re.compile("car"))]
         )
 
 
