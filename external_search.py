@@ -1717,10 +1717,10 @@ class Query(SearchBase):
         """
         query_string = query_string or self.query_string
         field_name = 'contributors.%s' % base_field
-        for match_author, weight in self.match_one_field(
+        for author_matches, weight in self.match_one_field_hypotheses(
             field_name, query_string
         ):
-            yield self._role_must_also_match(match_author), weight
+            yield self._role_must_also_match(author_matches), weight
 
     @classmethod
     def _role_must_also_match(cls, base_query):

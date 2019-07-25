@@ -2521,6 +2521,10 @@ class TestQuery(DatabaseTest):
         eq_(weight, 4 * 0.75)
 
     def test_match_author_hypotheses(self):
+        # Test our ability to generate hypotheses that a query string
+        # is an attempt to identify the author of a book. We do this
+        # by calling _author_field_must_match several times -- that's
+        # where most of the work happens.
         class Mock(Query):
             def _author_field_must_match(self, base_field, query_string=None):
                 yield "%s must match %s" % (base_field, query_string)
@@ -2553,9 +2557,39 @@ class TestQuery(DatabaseTest):
             hypotheses
         )
 
-
     def test__author_field_must_match(self):
-        pass
+        class Mock(Query):
+            def match_one_field_hypotheses(self, field_name, query_string):
+                hypothesis = "maybe %s matches %s" % (field_name, query_string)
+                yield hypothesis, 6
+
+            def _role_must_also_match(self, hypothesis):
+                return [hypothesis, "(but the role must be appropriate)"]
+
+        query = Mock("ursula le guin")
+        m = query._author_field_must_match
+
+        # We call match_one_field_hypothesis with the field name, and
+        # run the result through _role_must_also_match() to ensure we
+        # only get works where this author made a major contribution.
+        [(hypothesis, weight)] = list(m("display_name"))
+        eq_(
+            ['maybe contributors.display_name matches ursula le guin',
+             '(but the role must be appropriate)'],
+            hypothesis
+        )
+        eq_(6, weight)
+
+        # We can pass in a different query string to override
+        # .query_string. This is how we test a match against our guess
+        # at an author's sort name.
+        [(hypothesis, weight)] = list(m("sort_name", "le guin, ursula"))
+        eq_(
+            ['maybe contributors.sort_name matches le guin, ursula',
+             '(but the role must be appropriate)'],
+            hypothesis
+        )
+        eq_(6, weight)
 
     def test__hypothesize(self):
         # Verify that _hypothesize() adds a query to a list,
