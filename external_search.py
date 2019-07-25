@@ -1059,7 +1059,7 @@ class CurrentMapping(Mapping):
             "basic_text": ['summary'],
             'filterable_text': [
                 'title', 'subtitle', 'series', 'classifications.term',
-                'author',
+                'author', 'publisher', 'imprint'
             ],
             'boolean': ['presentation_ready'],
             'icu_collation_keyword': ['sort_title'],
@@ -1285,8 +1285,8 @@ class Query(SearchBase):
         series=120.0,
         author=120.0,
         summary=80.0,
-        publisher=50.0,
-        imprint=50.0,
+        publisher=40.0,
+        imprint=40.0,
     )
     # The contributor names in the contributors sub-document have the
     # same weight as the 'author' field in the main document.

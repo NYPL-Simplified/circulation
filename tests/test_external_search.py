@@ -595,12 +595,12 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # Search in publisher name.
         expect(self.moby_dick, "gutenberg")
 
-        # Title > subtitle > summary > publisher.
+        # Title > subtitle > publisher > word found in summary
         order = [
             self.title_match,
             self.subtitle_match,
-            self.summary_match,
             self.publisher_match,
+            self.summary_match,
         ]
         expect(order, "match")
 
