@@ -299,8 +299,9 @@ class DatabaseTest(object):
             primary_author_name = unicode(authors[0])
             contributor = wr.add_contributor(primary_author_name, Contributor.PRIMARY_AUTHOR_ROLE)
             # add_contributor assumes authors[0] is a sort_name,
-            # but it's more likely a display name. Set that field as well.
-            contributor.display_name = primary_author_name
+            # but it may be a display name. If so, set that field as well.
+            if not contributor.display_name and ',' not in primary_author_name:
+                contributor.display_name = primary_author_name
             wr.author = primary_author_name
 
         for author in authors[1:]:
