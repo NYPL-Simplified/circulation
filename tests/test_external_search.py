@@ -2272,16 +2272,16 @@ class TestQuery(DatabaseTest):
             _filters = {}
             _kwargs = {}
 
-            def match_one_field(self, field):
+            def match_one_field_hypotheses(self, field):
                 yield "match %s" % field, 1
 
             @property
-            def match_author_queries(self):
+            def match_author_hypotheses(self):
                 yield "author query 1", 2
                 yield "author query 2", 3
 
             @property
-            def match_topic_queries(self):
+            def match_topic_hypotheses(self):
                 yield "topic query", 4
 
             def title_multi_match_for(self, other_field):
@@ -2687,10 +2687,10 @@ class TestQuery(DatabaseTest):
         class Mock(Query):
             boost_extras = []
             @classmethod
-            def _boost(cls, boost, query, filters=None, **kwargs):
+            def _boost(cls, boost, queries, filters=None, **kwargs):
                 if filters or kwargs:
                     cls.boost_extras.append((filters, kwargs))
-                return "%s boosted by %d" % (query, boost)
+                return "%s boosted by %d" % (queries, boost)
 
         hypotheses = []
 
@@ -2718,33 +2718,6 @@ class TestQuery(DatabaseTest):
                           extra="extra kwarg")
         eq_(["query with filter boosted by 2"], hypotheses)
         eq_([("some filters", dict(extra="extra kwarg"))], Mock.boost_extras)
-
-    def test_minimal_stemming_query(self):
-        class Mock(Query):
-            @classmethod
-            def _match_phrase(cls, field, query_string):
-                return "%s=%s" % (field, query_string)
-
-        m = Mock.minimal_stemming_query
-
-        # No fields, no queries.
-        eq_([], m("query string", []))
-
-        # If you pass in any fields, you get a _match_phrase
-        # query for each one.
-        results = m("query string", ["field1", "field2"])
-        eq_(
-            ["field1=query string", "field2=query string"],
-            results
-        )
-
-        # The default fields are MINIMAL_STEMMING_QUERY_FIELDS.
-        results = m("query string")
-        eq_(
-            ["%s=query string" % field
-             for field in Mock.MINIMAL_STEMMING_QUERY_FIELDS],
-            results
-        )
 
     def test_make_target_age_query(self):
 
@@ -2784,17 +2757,6 @@ class TestQuery(DatabaseTest):
         # The default boost is 1.
         qu = Query.make_target_age_query((5,10))
         eq_(1, qu.boost)
-
-    def test__parsed_query_matches(self):
-        # _parsed_query_matches creates a QueryParser from
-        # the query string and returns whatever it comes up with.
-        #
-        # This is a basic test to verify that a QueryParser
-        # is in use. The QueryParser is tested in much greater detail
-        # in TestQueryParser.
-
-        [must_match] = Query._parsed_query_matches("nonfiction")
-        eq_({'match': {'fiction': 'Nonfiction'}}, must_match.to_dict())
 
 
 class TestQueryParser(DatabaseTest):
