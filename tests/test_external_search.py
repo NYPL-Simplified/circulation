@@ -397,7 +397,6 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         self.moby_dick = _work(
             title="Moby Dick", authors="Herman Melville", fiction=True,
         )
-        [contributor] = self.moby_dick.presentation_edition.contributors
         self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
         self.moby_dick.presentation_edition.series = "Classics"
         self.moby_dick.summary_text = "Ishmael"
@@ -1588,8 +1587,8 @@ class TestExactMatches(EndToEndSearchTest):
         )
 
         # A full author match takes precedence over a partial author
-        # match. A partial author match ("peter ansari") that doesn't
-        # match the whole string doesn't show up at all.
+        # match. A partial author match ("peter ansari") doesn't show up
+        # all all because it can't match two words.
         expect(
             [
                 self.modern_romance,      # "Aziz Ansari" in author
@@ -1898,6 +1897,33 @@ class TestSearchBase(object):
         # If there are no hypotheses to test, _combine_hypotheses creates
         # a MatchAll instead.
         eq_(MatchAll(), m([]))
+
+    def test_make_target_age_query(self):
+
+        # Search for material suitable for children between the
+        # ages of 5 and 10.
+        #
+        # This gives us two similar queries: one to use as a filter
+        # and one to use as a boost query.
+        as_filter, as_query = Query.make_target_age_query((5,10))
+
+        # Here's the filter part: a book's age range must be include the
+        # 5-10 range, or it gets filtered out.
+        filter_clauses = [
+            Range(**{"target_age.upper":dict(gte=5)}),
+            Range(**{"target_age.lower":dict(lte=10)}),
+        ]
+        eq_(Bool(must=filter_clauses), as_filter)
+
+        # Here's the query part: a book gets boosted if its
+        # age range fits _entirely_ within the target age range.
+        query_clauses = [
+            Range(**{"target_age.upper":dict(lte=10)}),
+            Range(**{"target_age.lower":dict(gte=5)}),
+        ]
+        eq_(Bool(boost=1.1, must=filter_clauses, should=query_clauses),
+            as_query)
+
 
 class TestQuery(DatabaseTest):
 
@@ -2719,45 +2745,6 @@ class TestQuery(DatabaseTest):
         eq_(["query with filter boosted by 2"], hypotheses)
         eq_([("some filters", dict(extra="extra kwarg"))], Mock.boost_extras)
 
-    def test_make_target_age_query(self):
-
-        # Search for material suitable for children between the
-        # ages of 5 and 10.
-        qu = Query.make_target_age_query((5,10), 50.1)
-
-        # We get a boosted boolean query.
-        eq_("bool", qu.name)
-        eq_(50.1, qu.boost)
-
-        # To match the query, the material's target age must overlap
-        # the 5-10 age range.
-        five_year_olds_not_too_old, ten_year_olds_not_too_young = qu.must
-        eq_(
-            {'range': {'target_age.upper': {'gte': 5}}},
-            five_year_olds_not_too_old.to_dict()
-        )
-        eq_(
-            {'range': {'target_age.lower': {'lte': 10}}},
-            ten_year_olds_not_too_young.to_dict()
-        )
-
-        # To get the full boost, the target age must fit entirely within
-        # the 5-10 age range. If a book would also work for older or younger
-        # kids who aren't in this age range, it's not as good a match.
-        would_work_for_older_kids, would_work_for_younger_kids = qu.should
-        eq_(
-            {'range': {'target_age.upper': {'lte': 10}}},
-            would_work_for_older_kids.to_dict()
-        )
-        eq_(
-            {'range': {'target_age.lower': {'gte': 5}}},
-            would_work_for_younger_kids.to_dict()
-        )
-
-        # The default boost is 1.
-        qu = Query.make_target_age_query((5,10))
-        eq_(1, qu.boost)
-
 
 class TestQueryParser(DatabaseTest):
     """Test the class that tries to derive structure from freeform
@@ -2947,7 +2934,7 @@ class TestQueryParser(DatabaseTest):
             Range(**{"target_age.upper":dict(lte=11)}),
             Range(**{"target_age.lower":dict(gte=10)}),
         ]
-        eq_([Bool(boost=50.1, must=filter_clauses, should=query_clauses)],
+        eq_([Bool(boost=1.1, must=filter_clauses, should=query_clauses)],
             parser.match_queries)
 
     def test__without_match(self):

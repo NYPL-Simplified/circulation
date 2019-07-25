@@ -1229,13 +1229,14 @@ class SearchBase(object):
         return dict(range=match)
 
     @classmethod
-    def make_target_age_query(cls, target_age, boost=50.1):
+    def make_target_age_query(cls, target_age, boost=1.1):
         """Create an Elasticsearch query object for a boolean query that
         matches works whose target ages overlap (partially or
         entirely) the given age range.
 
         :param target_age: A 2-tuple (lower limit, upper limit)
-        :param boost: A value for the boost parameter
+        :param boost: Boost works that fit precisely into the target
+           age range by this amount, vis-a-vis works that don't.
         """
         (lower, upper) = target_age[0], target_age[1]
         # There must be _some_ overlap with the provided range.
