@@ -2769,21 +2769,24 @@ class TestQueryParser(DatabaseTest):
         # necessary query objects, and turns the remaining part of
         # the query into a 'simple query string'-type query.
 
-        class MockQuery(object):
+        class MockQuery(Query):
             """Create 'query' objects that are easier to test than
             the ones the Query class makes.
             """
             @classmethod
-            def simple_query_string_query(cls, query_string, fields):
-                return (query_string, fields)
-
-            @classmethod
-            def _match(cls, field, query):
+            def _match_term(cls, field, query):
                 return (field, query)
 
             @classmethod
             def make_target_age_query(cls, query, boost):
                 return (query, boost)
+
+            @property
+            def elasticsearch_query(self):
+                # Mock the creation of an extremely complicated DisMax
+                # query -- we just want to verify that such a query
+                # was created.
+                return "A huge DisMax for %r" % self.query_string
 
         parser = QueryParser("science fiction about dogs", MockQuery)
 
@@ -2800,36 +2803,31 @@ class TestQueryParser(DatabaseTest):
         whitespace = QueryParser(" abc ", MockQuery)
         eq_("abc", whitespace.original_query_string)
 
-        # The query string becomes a series of Query objects
-        # (simulated here by the tuples returned by the MockQuery
-        # methods).
-        #
-        # parser.match_queries contains some number of field-match
-        # queries, and then one final query that runs the unparseable
-        # portion of the query through a simple multi-field match.
-        query_string_fields = QueryParser.SIMPLE_QUERY_STRING_FIELDS
-        eq_(
-            [('genres.name', 'Science Fiction'),
-             ('about dogs', query_string_fields)],
-            parser.match_queries
-        )
+        # parser.filters contains the filters that we think we were
+        # able to derive from the query string.
+        eq_([('genres.name', 'Science Fiction')], parser.filters)
+
+        # parser.match_queries contains the result of putting the rest
+        # of the query string into a Query object (or, here, our
+        # MockQuery) and looking at its .elasticsearch_query. In a
+        # real scenario, this will result in a huge DisMax query
+        # that tries to consider all the things someone might be
+        # searching for, _in addition to_ applying a filter.
+        eq_(["A huge DisMax for 'about dogs'"], parser.match_queries)
 
         # Now that you see how it works, let's define a helper
-        # function that will let us easily verify that a certain
-        # query string becomes a certain set of field matches plus a
-        # certain string left over.
+        # function which makes it easy to verify that a certain query
+        # string becomes a certain set of filters, plus a DisMax for
+        # some remainder string.
         def assert_parses_as(query_string, *matches):
-            matches = list(matches)
+            expect_filters = list(matches)
+            expect_query = expect_filters.pop(-1)
             parser = QueryParser(query_string, MockQuery)
-            remainder = matches.pop(-1)
+            eq_(expect_filters, parser.filters)
+
             if remainder:
-                remainder_match = MockQuery.simple_query_string_query(
-                    remainder, query_string_fields
-                )
-                matches.append(remainder_match)
-            eq_(matches, parser.match_queries)
-            eq_(query_string, parser.original_query_string)
-            eq_(remainder, parser.final_query_string)
+                remainder_match = MockQuery(remainder).elasticsearch_query
+                eq_([remainder_match], parser.match_queries)
 
         # Here's the same test from before, using the new
         # helper function.

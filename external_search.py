@@ -1963,7 +1963,7 @@ class QueryParser(object):
         # and see what its .elasticsearch_query is.
         if (self.final_query_string
             and self.final_query_string != self.original_query_string):
-            recursive = Query(
+            recursive = self.query_class(
                 self.final_query_string, use_query_parser=False
             ).elasticsearch_query
             self.match_queries.append(recursive)
