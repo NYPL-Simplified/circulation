@@ -2667,6 +2667,20 @@ class TestQuery(DatabaseTest):
         author_weight = Query.WEIGHT_FOR_FIELD['author']
         eq_(weight, author_weight * (author_weight/title_weight))        
 
+    def test_parsed_query_matches(self):
+        # Test our ability to take a query like "asteroids
+        # nonfiction", and turn it into a single hypothesis
+        # encapsulating the idea: "what if they meant to do a search
+        # on 'asteroids' but with a nonfiction filter?
+        
+        query = Query("nonfiction asteroids")
+
+        # The work of this method is simply delegated to QueryParser.
+        parser = QueryParser(query.query_string)
+        expect = (parser.match_queries, parser.filters)
+
+        eq_(expect, query.parsed_query_matches)
+
     def test__hypothesize(self):
         # Verify that _hypothesize() adds a query to a list,
         # boosting it if necessary.
