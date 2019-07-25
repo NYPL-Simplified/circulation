@@ -395,7 +395,7 @@ class SIPClient(Constants):
         parsed = None
         retries = 0
         while not parsed:
-            if retries > self.MAXIMUM_RETRIES:
+            if retries >= self.MAXIMUM_RETRIES:
                 # Only retry MAXIMUM_RETRIES times in case we we are sending
                 # a message the ILS doesn't like, so we don't retry forever
                 raise IOError('Maximum SIP retries reached')
