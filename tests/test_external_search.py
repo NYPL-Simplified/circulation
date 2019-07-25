@@ -397,7 +397,6 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
             title="Moby Dick", authors="Herman Melville", fiction=True,
         )
         [contributor] = self.moby_dick.presentation_edition.contributors
-        contributor.display_name="Herman Melville"
         self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
         self.moby_dick.presentation_edition.series = "Classics"
         self.moby_dick.summary_text = "Ishmael"

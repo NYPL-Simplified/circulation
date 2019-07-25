@@ -1557,7 +1557,7 @@ class Query(SearchBase):
                     # filter (e.g. "young adult romance"). Everything
                     # that matches this filter should be matched, and
                     # it should be given a relatively high boost.
-                    field_matches = MatchAll()
+                    sub_hypotheses = MatchAll()
                     boost = self.QUERY_WAS_A_FILTER_WEIGHT
                 else:
                     # Part of the search string is a filter, and part
