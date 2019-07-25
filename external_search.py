@@ -1253,6 +1253,20 @@ class SearchBase(object):
         ]
         return Bool(must=must, should=should, boost=float(boost))
 
+    @classmethod
+    def _combine_hypotheses(self, hypotheses):
+        """Build an Elasticsearch Query object that tests a number
+        of hypotheses at once.
+
+        :return: A DisMax query if there are hypotheses to be tested;
+        otherwise a MatchAll query.
+        """
+        if hypotheses:
+            qu = DisMax(queries=hypotheses)
+        else:
+            # We ended up with no hypotheses. Match everything.
+            qu = MatchAll()
+        return qu
 
 class Query(SearchBase):
     """An attempt to find something in the search index."""
@@ -1513,8 +1527,8 @@ class Query(SearchBase):
             # The weight of this hypothesis should be proportionate to
             # the difference between a pure match against title, and a
             # pure match against the field we're checking.
-            multi_match, weight = self.title_multi_match_for(other_field)
-            self._hypothesize(hypotheses, multi_match, weight)
+            for multi_match, weight in self.title_multi_match_for(other_field):
+                self._hypothesize(hypotheses, multi_match, weight)
 
         # Finally, the query string might contain a filter portion
         # (e.g. a genre name or target age), with the remainder being
@@ -1560,12 +1574,7 @@ class Query(SearchBase):
 
         # The score of any given book is the maximum score it gets from
         # any of these hypotheses.
-        if hypotheses:
-            qu = DisMax(queries=hypotheses)
-        else:
-            # We ended up with no hypotheses. Match everything.
-            qu = MatchAll()
-        return qu
+        return self._combine_hypotheses(hypotheses)
 
     def match_one_field(self, base_field, query_string=None):
         """Yield a number of hypotheses representing different ways in
@@ -1767,6 +1776,8 @@ class Query(SearchBase):
         This strategy only works if everything is spelled correctly,
         since we can't combine a "cross_fields" Multimatch query
         with a fuzzy search.
+
+        :yield: A single (hypothesis, weight) 2-tuple.
         """
         # We only search the '.minimal' variants of these fields.
         field_names = ['title.minimal', other_field + ".minimal"]
@@ -1790,7 +1801,7 @@ class Query(SearchBase):
             operator="and",
             minimum_should_match="100%",
         )
-        return hypothesis, combined_weight
+        yield hypothesis, combined_weight
 
     @property
     def parsed_query_matches(self):

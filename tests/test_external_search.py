@@ -24,7 +24,9 @@ from elasticsearch_dsl.function import (
 )
 from elasticsearch_dsl.query import (
     Bool,
+    DisMax,
     Query as elasticsearch_dsl_query,
+    MatchAll,
     Nested,
     Term,
     Terms,
@@ -1879,6 +1881,20 @@ class TestSearchBase(object):
         r = SearchBase._match_range("field.name", "gte", 5)
         eq_(r, {'range': {'field.name': {'gte': 5}}})
 
+    def test__combine_hypotheses(self):
+        # Verify that _combine_hypotheses creates a DisMax query object
+        # that chooses the best one out of whichever queries it was passed.
+        m = SearchBase._combine_hypotheses
+
+        h1 = Term(field="value 1")
+        h2 = Term(field="value 2")
+        hypotheses = [h1, h2]
+        combined = m(hypotheses)
+        eq_(DisMax(queries=hypotheses), combined)
+
+        # If there are no hypotheses to test, _combine_hypotheses creates
+        # a MatchAll instead.
+        eq_(MatchAll(), m([]))
 
 class TestQuery(DatabaseTest):
 
@@ -2241,8 +2257,8 @@ class TestQuery(DatabaseTest):
         Filter.universal_base_filter = original_base
         Filter.universal_nested_filters = original_nested
 
-    def test_query(self):
-        # The query() method calls a number of other methods
+    def test_elasticsearch_query(self):
+        # The elasticsearch_query property calls a number of other methods
         # to generate hypotheses, then creates a dis_max query
         # to find the most likely hypothesis for any given book.
 
@@ -2250,36 +2266,36 @@ class TestQuery(DatabaseTest):
 
             _match_phrase_called_with = []
             _boosts = {}
+            _filters = {}
             _kwargs = {}
 
-            def simple_query_string_query(self, query_string):
-                self.simple_query_string_called_with = query_string
-                return "simple"
+            def match_one_field(self, field):
+                yield "match %s" % field, 22
+                yield "match %s.minimal" % field, 33
 
-            def minimal_stemming_query(
-                    self, query_string, fields="default fields"
-            ):
-                self.minimal_stemming_called_with = (query_string, fields)
-                return "minimal stemming"
+            @property
+            def match_author_queries(self):
+                yield "author query 1", 1
+                yield "author query 2", 2
 
-            def _match_phrase(self, field, query_string):
-                self._match_phrase_called_with.append((field, query_string))
-                return "%s match phrase" % field
+            @property
+            def match_topic_queries(self):
+                yield "topic query 1", 1
 
-            def fuzzy_string_query(self, query_string):
-                self.fuzzy_string_called_with = query_string
-                return "fuzzy string"
+            def title_multi_match_for(self, other_field):
+                yield "multi match title+%s" % other_field, 6
 
             def _parsed_query_matches(self, query_string):
                 self._parsed_query_matches_called_with = query_string
-                return "parsed query matches"
+                return ["hypothesis based on substring"] ["but with this filter"]
 
             def _hypothesize(
                     self, hypotheses, new_hypothesis, boost="default",
-                    **kwargs
+                    filters=None, **kwargs
             ):
                 self._boosts[new_hypothesis] = boost
                 self._kwargs[new_hypothesis] = kwargs
+                self._filters[new_hypothesis] = filters
                 hypotheses.append(new_hypothesis)
                 return hypotheses
 
@@ -2290,13 +2306,13 @@ class TestQuery(DatabaseTest):
         # Before we get started, try an easy case. If there is no query
         # string we get a match_all query that returns everything.
         query = Mock(None)
-        result = query.query()
+        result = query.elasticsearch_query
         eq_(dict(match_all=dict()), result.to_dict())
 
         # Now try a real query string.
         q = "query string"
         query = Mock(q)
-        result = query.query()
+        result = query.elasticsearch_query
 
         # The final result is the result of calling _combine_hypotheses
         # on a number of hypotheses. Our mock class just returns
