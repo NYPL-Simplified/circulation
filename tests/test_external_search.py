@@ -1616,7 +1616,8 @@ class TestExactMatches(EndToEndSearchTest):
         # 2. A book in genre "biography" whose title
         #    matches the other two terms
         # 3. A book with an author match containing two of the terms.
-        #    'biography' just doesn't match.
+        #    'biography' just doesn't match. That's okay --
+        #    if there are more than two search terms, only two must match.
 
         order = [
             self.behind_the_scenes,         # all words match in title
