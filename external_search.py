@@ -1184,6 +1184,9 @@ class SearchBase(object):
     def _nest(cls, subdocument, query):
         """Turn a normal query into a nested query.
 
+        This is a helper method for a helper method; you should
+        probably use _nestable() instead.
+
         :param subdocument: The name of the subdocument to query
         against, e.g. "contributors".
 

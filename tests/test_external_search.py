@@ -25,6 +25,7 @@ from elasticsearch_dsl.function import (
 from elasticsearch_dsl.query import (
     Bool,
     Query as elasticsearch_dsl_query,
+    Nested,
     Term,
     Terms,
 )
@@ -1794,6 +1795,81 @@ class TestFeaturedFacets(EndToEndSearchTest):
 
 class TestSearchBase(object):
 
+    def test__boost(self):
+        # Verify that _boost() converts a regular query (or list of queries)
+        # into a boosted query.
+        m = SearchBase._boost
+        q1 = Q("simple_query_string", query="query 1")
+        q2 = Q("simple_query_string", query="query 2")
+
+        boosted_one = m(10, q1)
+        eq_("bool", boosted_one.name)
+        eq_(10.0, boosted_one.boost)
+        eq_([q1], boosted_one.must)
+
+        # By default, if you pass in multiple queries, only one of them
+        # must match for the boost to apply.
+        boosted_multiple = m(4.5, [q1, q2])
+        eq_("bool", boosted_multiple.name)
+        eq_(4.5, boosted_multiple.boost)
+        eq_(1, boosted_multiple.minimum_should_match)
+        eq_([q1, q2], boosted_multiple.should)
+
+        # Here, every query must match for the boost to apply.
+        boosted_multiple = m(4.5, [q1, q2], all_must_match=True)
+        eq_("bool", boosted_multiple.name)
+        eq_(4.5, boosted_multiple.boost)
+        eq_([q1, q2], boosted_multiple.must)
+
+    def test__nest(self):
+        # Test the _nest method, which turns a normal query into a
+        # nested query.
+        query = Term(**{"nested_field" : "value"})
+        nested = SearchBase._nest("subdocument", query)
+        eq_(Nested(path='subdocument', query=query),
+            nested)
+
+    def test_nestable(self):
+        # Test the _nestable helper method, which turns a normal
+        # query into an appropriate nested query, if necessary.
+        m = SearchBase._nestable
+
+        # A query on a field that's not in a subdocument is
+        # unaffected.
+        field = "name.minimal"
+        normal_query = Term(**{field : "name"})
+        eq_(normal_query, m(field, normal_query))
+
+        # A query on a subdocument field becomes a nested query on
+        # that subdocument.
+        field = "contributors.sort_name.minimal"
+        subdocument_query = Term(**{field : "name"})
+        nested = m(field, subdocument_query)
+        eq_(
+            Nested(path='contributors', query=subdocument_query),
+            nested
+        )
+
+    def test__match_term(self):
+        # _match_term creates a Match Elasticsearch object which does a
+        # match against a specific field.
+        m = SearchBase._match_term
+        qu = m("author", "flannery o'connor")
+        eq_(
+            Term(author="flannery o'connor"),
+            qu
+        )
+
+        # If the field name references a subdocument, the query is
+        # embedded in a Nested object that describes how to match it
+        # against that subdocument.
+        field = "genres.name"
+        qu = m(field, "Biography")
+        eq_(
+            Nested(path='genres', query=Term(**{field: "Biography"})),
+            qu
+        )
+
     def test__match_range(self):
         # Test the _match_range helper method.
         # This is used to create an Elasticsearch query term
@@ -2293,114 +2369,6 @@ class TestQuery(DatabaseTest):
                           extra="extra kwarg")
         eq_(["query with filter boosted by 2"], hypotheses)
         eq_([("some filters", dict(extra="extra kwarg"))], Mock.boost_extras)
-
-    def test__combine_hypotheses(self):
-        # Verify that _combine_hypotheses creates a DisMax query object
-        # that chooses the best one out of whichever queries it was passed.
-        h1 = Q("simple_query_string", query="query 1")
-        h2 = Q("simple_query_string", query="query 2")
-        hypotheses = [h1, h2]
-        combined = Query._combine_hypotheses(hypotheses)
-        eq_("dis_max", combined.name)
-        eq_(hypotheses, combined.queries)
-
-    def test__boost(self):
-        # Verify that _boost() converts a regular query (or list of queries)
-        # into a boosted query.
-        q1 = Q("simple_query_string", query="query 1")
-        q2 = Q("simple_query_string", query="query 2")
-
-        boosted_one = Query._boost(10, q1)
-        eq_("bool", boosted_one.name)
-        eq_(10.0, boosted_one.boost)
-        eq_([q1], boosted_one.must)
-
-        # By default, if you pass in multiple queries, only one of them
-        # must match for the boost to apply.
-        boosted_multiple = Query._boost(4.5, [q1, q2])
-        eq_("bool", boosted_multiple.name)
-        eq_(4.5, boosted_multiple.boost)
-        eq_(1, boosted_multiple.minimum_should_match)
-        eq_([q1, q2], boosted_multiple.should)
-
-        # Here, every query must match for the boost to apply.
-        boosted_multiple = Query._boost(4.5, [q1, q2], all_must_match=True)
-        eq_("bool", boosted_multiple.name)
-        eq_(4.5, boosted_multiple.boost)
-        eq_([q1, q2], boosted_multiple.must)
-
-        # A Bool query has its boost changed but is otherwise left alone.
-        bool = Q("bool", boost=10)
-        boosted_bool = Query._boost(1, bool)
-        eq_(Q("bool", boost=1), boosted_bool)
-
-        # Some other kind of query that's being given a "boost" of 1
-        # is left alone.
-        eq_(q1, Query._boost(1, q1))
-
-    def test_simple_query_string_query(self):
-        # Verify that simple_query_string_query() returns a
-        # SimpleQueryString Elasticsearch object.
-        qu = Query.simple_query_string_query("hello")
-        eq_("simple_query_string", qu.name)
-        eq_(Query.SIMPLE_QUERY_STRING_FIELDS, qu.fields)
-        eq_("hello", qu.query)
-
-        # It's possible to use your own set of fields instead of
-        # the defaults.
-        custom_fields = ['field1', 'field2']
-        qu = Query.simple_query_string_query("hello", custom_fields)
-        eq_(custom_fields, qu.fields)
-        eq_("hello", qu.query)
-
-    def test_fuzzy_string_query(self):
-        # fuzzy_string_query() returns a MultiMatch Elasticsearch
-        # object, unless the query string looks like a fuzzy search
-        # will do poorly on it -- then it returns None.
-
-        qu = Query.fuzzy_string_query("hello")
-        eq_("multi_match", qu.name)
-        eq_(Query.FUZZY_QUERY_STRING_FIELDS, qu.fields)
-        eq_("best_fields", qu.type)
-        eq_("AUTO", qu.fuzziness)
-        eq_("hello", qu.query)
-        eq_(1, qu.prefix_length)
-
-        # This query string contains a string that is known to mess
-        # with fuzzy searches.
-        qu = Query.fuzzy_string_query("tennis players")
-
-        # fuzzy_string_query does nothing, to avoid bad results.
-        eq_(None, qu)
-
-    def test__match(self):
-        # match creates a Match Elasticsearch object which does a
-        # match against a specific field.
-        qu = Query._match("author", "flannery o'connor")
-        eq_(
-            {'match': {'author': "flannery o'connor"}},
-            qu.to_dict()
-        )
-
-        # If the field name contains a period, the query is embedded
-        # in a Nested object that describes how to match it against a
-        # subdocument.
-        qu = Query._match("genres.name", "Biography")
-        base_query = {'match': {'genres.name': 'Biography'}}
-        eq_(
-            {'nested': {'query': base_query, 'path': 'genres'}},
-            qu.to_dict()
-        )
-
-
-    def test__match_phrase(self):
-        # match_phrase creates a MatchPhrase Elasticsearch
-        # object which does a phrase match against a specific field.
-        qu = Query._match_phrase("author", "flannery o'connor")
-        eq_(
-            {'match_phrase': {'author': "flannery o'connor"}},
-            qu.to_dict()
-        )
 
     def test_minimal_stemming_query(self):
         class Mock(Query):
