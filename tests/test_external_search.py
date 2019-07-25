@@ -2054,9 +2054,9 @@ class TestQuery(DatabaseTest):
             universal_nested
         )
 
-        # The result of Query.query() is used as the basis for
-        # the Search object.
-        eq_(Bool(must=qu.query()), built._query)
+        # The result of Query.elasticsearch_query is used as the basis
+        # for the Search object.
+        eq_(Bool(must=qu.elasticsearch_query), built._query)
 
         # Now test some cases where the query has a filter.
 
@@ -2075,7 +2075,7 @@ class TestQuery(DatabaseTest):
         underlying_query = built._query
 
         # The query we passed in is used as the 'must' part of the
-        eq_(underlying_query.must, [qu.query()])
+        eq_(underlying_query.must, [qu.elasticsearch_query])
         main_filter, nested_filters = filter.build()
 
         # The filter we passed in was combined with the universal
