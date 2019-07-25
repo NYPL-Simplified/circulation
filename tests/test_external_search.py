@@ -2723,7 +2723,7 @@ class TestQuery(DatabaseTest):
 
         # Search for material suitable for children between the
         # ages of 5 and 10.
-        qu = Query.make_target_age_query((5,10))
+        qu = Query.make_target_age_query((5,10), 50.1)
 
         # We get a boosted boolean query.
         eq_("bool", qu.name)

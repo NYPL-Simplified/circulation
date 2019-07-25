@@ -1234,6 +1234,8 @@ class SearchBase(object):
         matches works whose target ages overlap (partially or
         entirely) the given age range.
 
+        TODO: 'boost' may no longer be necessary.
+
         :param target_age: A 2-tuple (lower limit, upper limit)
         :param boost: A value for the boost parameter
         """

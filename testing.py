@@ -296,8 +296,13 @@ class DatabaseTest(object):
         if isinstance(authors, basestring):
             authors = [authors]
         if authors != []:
-            wr.add_contributor(unicode(authors[0]), Contributor.PRIMARY_AUTHOR_ROLE)
-            wr.author = unicode(authors[0])
+            primary_author_name = unicode(authors[0])
+            contributor = wr.add_contributor(primary_author_name, Contributor.PRIMARY_AUTHOR_ROLE)
+            # add_contributor assumes authors[0] is a sort_name,
+            # but it's more likely a display name. Set that field as well.
+            contributor.display_name = primary_author_name
+            wr.author = primary_author_name
+
         for author in authors[1:]:
             wr.add_contributor(unicode(author), Contributor.AUTHOR_ROLE)
         if publicationDate:
