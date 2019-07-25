@@ -1350,8 +1350,12 @@ class Query(SearchBase):
         # when generating the Elasticsearch-dsl query.
 
         # Check if the string contains English stopwords.
-        self.contains_stopwords = any(
-            word in ENGLISH_STOPWORDS for word in query_string.split(" ")
+        if query_string:
+            words = query_string.split()
+        else:
+            words = []
+        self.contains_stopwords = query_string and any(
+            word in ENGLISH_STOPWORDS for word in words
         )
 
         # Determine how heavily to weight fuzzy hypotheses.
@@ -1366,7 +1370,7 @@ class Query(SearchBase):
         # Depending on the query, the stregnth of a fuzzy hypothesis
         # may be reduced even further -- that's determined here.
         #
-        if SpellChecker().unknown(query_string.split()):
+        if SpellChecker().unknown(words):
             # Spell check failed. This is the default behavior, if
             # only because peoples' names will generally fail spell
             # check. Fuzzy queries will be given their full weight.
@@ -1835,7 +1839,7 @@ class Query(SearchBase):
         :param kwargs: Keyword arguments for the _boost method.
         """
         if query or filters:
-            query = cls._boost(boost, query, filters=filters, **kwargs)
+            query = cls._boost(boost=boost, query=query, filters=filters, **kwargs)
         if query:
             hypotheses.append(query)
         return hypotheses

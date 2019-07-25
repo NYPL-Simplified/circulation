@@ -2260,8 +2260,11 @@ class TestQuery(DatabaseTest):
         # Verify that _hypothesize() adds a query to a list,
         # boosting it if necessary.
         class Mock(Query):
+            boost_extras = []
             @classmethod
-            def _boost(cls, boost, query):
+            def _boost(cls, boost, query, filters=None, **kwargs):
+                if filters or kwargs:
+                    cls.boost_extras.append((filters, kwargs))
                 return "%s boosted by %d" % (query, boost)
 
         hypotheses = []
@@ -2270,16 +2273,26 @@ class TestQuery(DatabaseTest):
         # query.
         Mock._hypothesize(hypotheses, None, 100)
         eq_([], hypotheses)
+        eq_([], Mock.boost_extras)
 
         # If it is passed a real query, _boost() is called on the
         # query object.
         Mock._hypothesize(hypotheses, "query object", 10)
         eq_(["query object boosted by 10"], hypotheses)
+        eq_([], Mock.boost_extras)
 
         Mock._hypothesize(hypotheses, "another query object", 1)
         eq_(["query object boosted by 10", "another query object boosted by 1"],
             hypotheses)
+        eq_([], Mock.boost_extras)
 
+        # If a filter or any other arguments are passed in, those arguments
+        # are propagated to _boost().
+        hypotheses = []
+        Mock._hypothesize(hypotheses, "query with filter", 2, filters="some filters",
+                          extra="extra kwarg")
+        eq_(["query with filter boosted by 2"], hypotheses)
+        eq_([("some filters", dict(extra="extra kwarg"))], Mock.boost_extras)
 
     def test__combine_hypotheses(self):
         # Verify that _combine_hypotheses creates a DisMax query object
