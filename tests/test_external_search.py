@@ -2270,32 +2270,39 @@ class TestQuery(DatabaseTest):
             _kwargs = {}
 
             def match_one_field(self, field):
-                yield "match %s" % field, 22
-                yield "match %s.minimal" % field, 33
+                yield "match %s" % field, 1
 
             @property
             def match_author_queries(self):
-                yield "author query 1", 1
-                yield "author query 2", 2
+                yield "author query 1", 2
+                yield "author query 2", 3
 
             @property
             def match_topic_queries(self):
-                yield "topic query 1", 1
+                yield "topic query", 4
 
             def title_multi_match_for(self, other_field):
-                yield "multi match title+%s" % other_field, 6
+                yield "multi match title+%s" % other_field, 5
 
-            def _parsed_query_matches(self, query_string):
-                self._parsed_query_matches_called_with = query_string
-                return ["hypothesis based on substring"] ["but with this filter"]
+            # Define this as a constant so it's easy to check later
+            # in the test.
+            SUBSTRING_HYPOTHESES = (
+                "hypothesis based on substring",
+                "another such hypothesis",
+            )
+            @property
+            def parsed_query_matches(self):
+                return self.SUBSTRING_HYPOTHESES, "only valid with this filter"
 
             def _hypothesize(
                     self, hypotheses, new_hypothesis, boost="default",
                     filters=None, **kwargs
             ):
                 self._boosts[new_hypothesis] = boost
-                self._kwargs[new_hypothesis] = kwargs
-                self._filters[new_hypothesis] = filters
+                if kwargs:
+                    self._kwargs[new_hypothesis] = kwargs
+                if filters:
+                    self._filters[new_hypothesis] = filters
                 hypotheses.append(new_hypothesis)
                 return hypotheses
 
@@ -2319,48 +2326,78 @@ class TestQuery(DatabaseTest):
         # the hypotheses as-is, for easier testing.
         eq_(result, query._combine_hypotheses_called_with)
 
-        # We ended up with five hypotheses. The mock methods were called
-        # once, except for _match_phrase, which was called once for title
-        # and once for author.
-        eq_(['simple', 'minimal stemming',
-             'title.standard match phrase', 'author match phrase',
-             'fuzzy string', 'parsed query matches'], result)
+        # We ended up with a number of hypothesis:
+        eq_(result,
+            [
+                # Several hypotheses checking whether the search query is an attempt to
+                # match a single field -- the results of calling match_one_field()
+                # many times.
+                'match title',
+                'match subtitle',
+                'match series',
+                'match publisher',
+                'match imprint',
 
-        # For the parsed query matches, the extra all_must_match=True
-        # argument was passed into _boost() -- the boost only applies
-        # if every element of the parsed query is a hit.
-        eq_({'all_must_match': True},
-            query._kwargs['parsed query matches'])
+                # The results of calling match_author_queries() once.
+                'author query 1',
+                'author query 2',
 
-        # In each case, the original query string was used as the
-        # input into the mocked method.
-        eq_(q, query.simple_query_string_called_with)
-        eq_((q, "default fields"),
-            query.minimal_stemming_called_with)
-        eq_([('title.standard', q), ('author', q)],
-            query._match_phrase_called_with)
-        eq_(q, query.fuzzy_string_called_with)
-        eq_(q, query._parsed_query_matches_called_with)
+                # The results of calling match_topic_queries() once.
+                'topic query',
+
+                # The results of calling multi_match() for three fields.
+                'multi match title+subtitle',
+                'multi match title+series',
+                'multi match title+author',
+
+                # The 'query' part of the return value of
+                # parsed_query_matches()
+                Mock.SUBSTRING_HYPOTHESES
+            ]
+        )
+
+        # That's not the whole story, though. parsed_query_matches()
+        # said it was okay to test certain hypotheses, but only
+        # in the context of a filter.
+        #
+        # That filter was passed in to _hypothesize. Our mock version
+        # of _hypothesize added it to the 'filters' dict to indicate
+        # we know that those filters go with the substring
+        # hypotheses. That's the only time 'filters' was touched.
+        eq_(
+            {Mock.SUBSTRING_HYPOTHESES: 'only valid with this filter'},
+            query._filters
+        )
 
         # Each call to _hypothesize included a boost factor indicating
-        # how heavily to weight that hypothesis. Rather than do anything
-        # with this information, we just stored it in _boosts.
-
-        # Exact title or author matches are valued quite highly.
-        eq_(200, query._boosts['title.standard match phrase'])
-        eq_(50, query._boosts['author match phrase'])
-
-        # A near-exact match is also valued highly.
-        eq_(100, query._boosts['minimal stemming'])
-
-        # The default query match has the default boost.
-        eq_("default", query._boosts['simple'])
-
-        # The fuzzy match has a boost that's very low, to encourage any
-        # matches that are better to show up first.
-        eq_(1, query._boosts['fuzzy string'])
-
-        eq_(200, query._boosts['parsed query matches'])
+        # how heavily to weight that hypothesis. Rather than do
+        # anything with this information -- which is mostly mocked
+        # anyway -- we just stored it in _boosts.
+        boosts = sorted(query._boosts.items(), key=lambda x: x[1])
+        eq_(boosts,
+            [
+                ('match imprint', 1),
+                ('match series', 1),
+                ('match title', 1),
+                ('match publisher', 1),
+                ('match subtitle', 1),
+                # The only non-mocked value here is this one. The
+                # substring hypotheses have their own weights, which
+                # we don't see in this test. This is saying that if a
+                # book matches those sub-hypotheses and _also_ matches
+                # the filter, then whatever weight it got from the
+                # sub-hypotheses should be boosted slighty. This gives
+                # works that match the filter an edge over works that
+                # don't.
+                (Mock.SUBSTRING_HYPOTHESES, 1.1),
+                ('author query 1', 2),
+                ('author query 2', 3),
+                ('topic query', 4),
+                ('multi match title+author', 5),
+                ('multi match title+subtitle', 5),
+                ('multi match title+series', 5),
+            ]
+        )
 
     def test__hypothesize(self):
         # Verify that _hypothesize() adds a query to a list,
