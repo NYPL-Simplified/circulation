@@ -92,7 +92,10 @@ class TestBaseAnnotator(DatabaseTest):
 
     def test_authors(self):
         # Create an Edition with an author and a narrator.
-        edition = self._edition(authors=["Steven King"])
+        edition = self._edition(authors=[])
+        edition.add_contributor(
+            "Steven King", Contributor.PRIMARY_AUTHOR_ROLE
+        )
         edition.add_contributor(
             "Jonathan Frakes", Contributor.NARRATOR_ROLE
         )
