@@ -36,7 +36,6 @@ from config import (
     Configuration,
     CannotLoadConfiguration,
 )
-from core.util.personal_names import display_name_to_sort_name
 from classifier import (
     KeywordBasedClassifier,
     GradeLevelClassifier,
@@ -68,6 +67,7 @@ from selftest import (
     HasSelfTests,
     SelfTestResult,
 )
+from util.personal_names import display_name_to_sort_name
 from util.problem_detail import ProblemDetail
 from util.stopwords import ENGLISH_STOPWORDS
 
