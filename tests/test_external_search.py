@@ -31,6 +31,7 @@ from elasticsearch_dsl.query import (
     MatchPhrase,
     MultiMatch,
     Nested,
+    Range,
     Term,
     Terms,
 )
@@ -2404,7 +2405,7 @@ class TestQuery(DatabaseTest):
     def test_match_one_field_hypotheses(self):
         # Test our ability to generate hypotheses that a search string
         # is trying to match a single field of data.
-        class Mock(Query):            
+        class Mock(Query):
             WEIGHT_FOR_FIELD = dict(
                 regular_field=2,
                 stopword_field=3,
@@ -2457,7 +2458,7 @@ class TestQuery(DatabaseTest):
         # The first two hypotheses are the same.
         validate_keyword("regular_field", term, 2000)
         validate_minimal("regular_field", phrase, 2)
- 
+
         # But we've got another hypothesis yielded by a call to
         # _fuzzy_matches. It goes against the 'minimal' field and its
         # weight is the weight of that field's non-fuzzy hypothesis,
@@ -2624,7 +2625,7 @@ class TestQuery(DatabaseTest):
         # summary text and classifications. The score for a book is
         # whichever of the two types of fields is a better match for
         # 'whales'.
-        eq_( 
+        eq_(
             MultiMatch(
                 query="whales",
                 fields=["summary", "classifications.term"],
@@ -2664,14 +2665,14 @@ class TestQuery(DatabaseTest):
         # pure title match and the weight of a pure author match.
         title_weight = Query.WEIGHT_FOR_FIELD['title']
         author_weight = Query.WEIGHT_FOR_FIELD['author']
-        eq_(weight, author_weight * (author_weight/title_weight))        
+        eq_(weight, author_weight * (author_weight/title_weight))
 
     def test_parsed_query_matches(self):
         # Test our ability to take a query like "asteroids
         # nonfiction", and turn it into a single hypothesis
         # encapsulating the idea: "what if they meant to do a search
         # on 'asteroids' but with a nonfiction filter?
-        
+
         query = Query("nonfiction asteroids")
 
         # The work of this method is simply delegated to QueryParser.
@@ -2680,7 +2681,7 @@ class TestQuery(DatabaseTest):
 
         eq_(expect, query.parsed_query_matches)
 
-    def test__hypothesize(self):
+    def test_hypothesize(self):
         # Verify that _hypothesize() adds a query to a list,
         # boosting it if necessary.
         class Mock(Query):
@@ -2777,8 +2778,8 @@ class TestQueryParser(DatabaseTest):
                 return (field, query)
 
             @classmethod
-            def make_target_age_query(cls, query, boost="ignored"):
-                return ("target age", query)
+            def make_target_age_query(cls, query, boost="default boost"):
+                return ("target age (filter)", query), ("target age (query)", query, boost)
 
             @property
             def elasticsearch_query(self):
@@ -2816,19 +2817,20 @@ class TestQueryParser(DatabaseTest):
 
         # Now that you see how it works, let's define a helper
         # function which makes it easy to verify that a certain query
-        # string becomes a certain set of filters, plus a DisMax for
-        # some remainder string.
-        def assert_parses_as(query_string, *matches):
-            expect_filters = list(matches)
-            expect_remainder = expect_filters.pop(-1)
+        # string becomes a certain set of filters, plus a certain set
+        # of queries, plus a DisMax for some remainder string.
+        def assert_parses_as(query_string, filters, remainder, extra_queries=None):
+            if not isinstance(filters, list):
+                filters = [filters]
+            queries = extra_queries or []
+            if not isinstance(queries, list):
+                queries = [queries]
             parser = QueryParser(query_string, MockQuery)
-            eq_(expect_filters, parser.filters)
+            eq_(filters, parser.filters)
 
-            if expect_remainder:
-                remainder_match = MockQuery(expect_remainder).elasticsearch_query
-                eq_([remainder_match], parser.match_queries)
-            else:
-                eq_([], parser.match_queries)
+            if remainder:
+                queries.append(MockQuery(remainder).elasticsearch_query)
+            eq_(queries, parser.match_queries)
 
         # Here's the same test from before, using the new
         # helper function.
@@ -2850,8 +2852,8 @@ class TestQueryParser(DatabaseTest):
         # such that there is no remainder match at all.)
         assert_parses_as(
             "young adult romance",
-            ("genres.name", "Romance"),
-            ("audience", "youngadult"),
+            [("genres.name", "Romance"),
+             ("audience", "youngadult")],
             ''
         )
 
@@ -2867,21 +2869,32 @@ class TestQueryParser(DatabaseTest):
         # and "nonfiction" would not be picked up.)
         assert_parses_as(
             "science fiction or nonfiction dinosaurs",
-            ("genres.name", "Science Fiction"), ("fiction", "nonfiction"),
+            [("genres.name", "Science Fiction"),
+             ("fiction", "nonfiction")],
             "or  dinosaurs"
         )
 
         # Test target age.
-
+        #
+        # These are a little different because the target age
+        # restriction shows up twice: once as a filter (to eliminate
+        # all books that don't fit the target age restriction) and
+        # once as a query (to boost books that cluster tightly around
+        # the target age, at the expense of books that span a wider
+        # age range).
         assert_parses_as(
             "grade 5 science",
-            ("genres.name", "Science"), ("target age", (10, 10)),
-            ''
+            [("genres.name", "Science"),
+             ("target age (filter)", (10, 10))],
+            '',
+            ("target age (query)", (10, 10), 'default boost')
         )
 
         assert_parses_as(
-            'divorce ages 10 and up', ("target age", (10, 14)),
-            'divorce  and up' # TODO: not ideal
+            'divorce ages 10 and up',
+            ("target age (filter)", (10, 14)),
+            'divorce  and up', # TODO: not ideal
+            ("target age (query)", (10, 14), 'default boost'),
         )
 
         # Nothing can be parsed out from this query--it's an author's name
@@ -2902,7 +2915,7 @@ class TestQueryParser(DatabaseTest):
 
         # The query part is an extremely complicated DisMax query, so
         # I won't test the whole thing, but it's what you would get if
-        # you just tried a searc for "asteroids".
+        # you just tried a search for "asteroids".
         assert isinstance(asteroids, DisMax)
         eq_(asteroids, Query("asteroids").elasticsearch_query)
 
@@ -2912,9 +2925,30 @@ class TestQueryParser(DatabaseTest):
         pass
 
     def test_add_target_age_filter(self):
-        # TODO: this method could use a standalone test, but it's
-        # already covered by the test_constructor.
-        pass
+        parser = QueryParser("")
+        parser.filters = []
+        parser.match_queries = []
+        remainder = parser.add_target_age_filter(
+            (10, 11), "penguins grade 5-6", "grade 5-6"
+        )
+        eq_("penguins ", remainder)
+
+        # Here's the filter part: a book's age range must be include the
+        # 10-11 range, or it gets filtered out.
+        filter_clauses = [
+            Range(**{"target_age.upper":dict(gte=10)}),
+            Range(**{"target_age.lower":dict(lte=11)}),
+        ]
+        eq_([Bool(must=filter_clauses)], parser.filters)
+
+        # Here's the query part: a book gets boosted if its
+        # age range fits _entirely_ within the target age range.
+        query_clauses = [
+            Range(**{"target_age.upper":dict(lte=11)}),
+            Range(**{"target_age.lower":dict(gte=10)}),
+        ]
+        eq_([Bool(boost=50.1, must=filter_clauses, should=query_clauses)],
+            parser.match_queries)
 
     def test__without_match(self):
         # Test our ability to remove matched text from a string.

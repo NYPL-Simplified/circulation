@@ -495,7 +495,7 @@ class ExternalSearchIndex(HasSelfTests):
         if debug:
             b = time.time()
             self.log.debug(
-                "Elasticsearch query %r completed in %.3fsec", 
+                "Elasticsearch query %r completed in %.3fsec",
                 query_string, b-a
             )
             for i, result in enumerate(results):
@@ -1229,12 +1229,10 @@ class SearchBase(object):
         return dict(range=match)
 
     @classmethod
-    def make_target_age_query(cls, target_age, boost=1):
+    def make_target_age_query(cls, target_age, boost=50.1):
         """Create an Elasticsearch query object for a boolean query that
         matches works whose target ages overlap (partially or
         entirely) the given age range.
-
-        TODO: 'boost' may no longer be necessary.
 
         :param target_age: A 2-tuple (lower limit, upper limit)
         :param boost: A value for the boost parameter
@@ -1253,7 +1251,9 @@ class SearchBase(object):
             cls._match_range("target_age.upper", "lte", upper),
             cls._match_range("target_age.lower", "gte", lower),
         ]
-        return Bool(must=must, should=should, boost=float(boost))
+        filter_version = Bool(must=must)
+        query_version = Bool(must=must, should=should, boost=float(boost))
+        return filter_version, query_version
 
     @classmethod
     def _combine_hypotheses(self, hypotheses):
@@ -1303,7 +1303,7 @@ class Query(SearchBase):
 
     # If the entire search query is turned into a filter, all works
     # that match the filter will be given this weight.
-    # 
+    #
     # This is very high, but not high enough to outweigh e.g. an exact
     # title match.
     QUERY_WAS_A_FILTER_WEIGHT = 600
@@ -1711,7 +1711,7 @@ class Query(SearchBase):
         version of one of the fields in the contributors sub-document.
 
         The contributor must also have an appropriate authorship role.
-        
+
         :param base_field: The base name of the contributors field to
         match -- probably either 'display_name' or 'sort_name'.
 
@@ -1988,15 +1988,23 @@ class QueryParser(object):
         """Create a query that finds documents whose value for `target_age`
         matches `query`.
 
-        Add it to `filters`, and remove the relevant portion
-        of `query_string` so it doesn't get reused.
+        Add a filter version of this query to `.match_queries` (so that
+        all documents outside the target age are filtered out).
+
+        Add a boosted version of this query to `.match_queries` (so
+        that documents that cluster tightly around the target age are
+        boosted over documents that span a huge age range).
+
+        Remove the relevant portion of `query_string` so it doesn't get
+        reused.
         """
         if not query:
             # This is not a relevant part of the query string.
             return query_string
 
-        match_query = self.query_class.make_target_age_query(query)
-        self.filters.append(match_query)
+        filter, query = self.query_class.make_target_age_query(query)
+        self.filters.append(filter)
+        self.match_queries.append(query)
         return self._without_match(query_string, matched_portion)
 
     @classmethod
