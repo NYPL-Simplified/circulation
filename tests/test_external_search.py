@@ -27,6 +27,8 @@ from elasticsearch_dsl.query import (
     DisMax,
     Query as elasticsearch_dsl_query,
     MatchAll,
+    Match,
+    MatchPhrase,
     Nested,
     Term,
     Terms,
@@ -2398,6 +2400,132 @@ class TestQuery(DatabaseTest):
                 ('multi match title+series', 5),
             ]
         )
+
+    def test_match_one_field(self):
+        
+        class Mock(Query):
+            
+            WEIGHT_FOR_FIELD = dict(
+                regular_field=2,
+                stopword_field=3,
+                stemmable_field=4,
+            )
+            STOPWORD_FIELDS = ['stopword_field']
+            STEMMABLE_FIELDS = ['stemmable_field']
+
+            def __init__(self, *args, **kwargs):
+                super(Mock, self).__init__(*args, **kwargs)
+                self.fuzzy_calls = {}
+
+            def _fuzzy_matches(self, field_name, **kwargs):
+                self.fuzzy_calls[field_name] = kwargs
+                # 0.66 is an arbitrarily chosen value -- look
+                # for it in the validate_fuzzy() helper method.
+                yield "fuzzy match for %s" % field_name, 0.66
+
+        # Let's start with the simplest case: no stopword variant, no
+        # stemmed variant, no fuzzy variants.
+        query = Mock("book")
+        query.fuzzy_coefficient = 0
+
+        # We'll get a Term query and a MatchPhrase query.
+        term, phrase = list(query.match_one_field('regular_field'))
+
+        # The Term hypothesis tries to find an exact match for 'book'
+        # in this field. It is boosted 1000x relative to the baseline
+        # weight for this field.
+        def validate_keyword(field, hypothesis, expect_weight):
+            hypothesis, weight = hypothesis
+            eq_(Term(**{"%s.keyword" % field: "book"}), hypothesis)
+            eq_(expect_weight, weight)
+        validate_keyword("regular_field", term, 2000)
+
+        # The MatchPhrase hypothesis tries to find a partial phrase
+        # match for 'book' in this field. It is boosted 1x relative to
+        # the baseline weight for this field.
+        def validate_minimal(field, hypothesis, expect_weight):
+            hypothesis, weight = hypothesis
+            eq_(MatchPhrase(**{"%s.minimal" % field: "book"}), hypothesis)
+            eq_(expect_weight, weight)
+        validate_minimal("regular_field", phrase, 2)
+
+        # Now let's try the same query, but with fuzzy searching
+        # turned on.
+        query.fuzzy_coefficient = 0.5
+        term, phrase, fuzzy = list(
+            query.match_one_field("regular_field")
+        )
+        # The first two hypotheses are the same.
+        validate_keyword("regular_field", term, 2000)
+        validate_minimal("regular_field", phrase, 2)
+ 
+        # But we've got another hypothesis yielded by a call to
+        # _fuzzy_matches. It goes against the 'minimal' field and its
+        # weight is the weight of that field's non-fuzzy hypothesis,
+        # multiplied by a value determined by _fuzzy_matches()
+        def validate_fuzzy(field, hypothesis, phrase_weight):
+            minimal_field = field + ".minimal"
+            hypothesis, weight = fuzzy
+            eq_('fuzzy match for %s' % minimal_field, hypothesis)
+            eq_(phrase_weight*0.66, weight)
+
+            # Validate standard arguments passed into _fuzzy_matches.
+            # Since a fuzzy match is kind of loose, we don't allow a
+            # match on a single word of a multi-word query. At least
+            # two of the words have to be involved.
+            eq_(dict(minimum_should_match=2, query='book'),
+                query.fuzzy_calls[minimal_field])
+        validate_fuzzy("regular_field", fuzzy, 2)
+
+        # Now try a field where stopwords might be relevant.
+        term, phrase, fuzzy = list(
+            query.match_one_field("stopword_field")
+        )
+
+        # There was no new hypothesis, because our query doesn't
+        # contain any stopwords.  Let's make it look like it does.
+        query.contains_stopwords = True
+        term, phrase, fuzzy, stopword = list(
+            query.match_one_field("stopword_field")
+        )
+
+        # We have the term query, the phrase match query, and the
+        # fuzzy query. Note that they're boosted relative to the base
+        # weight for the stopword_field query, which is 3.
+        validate_keyword("stopword_field", term, 3000)
+        validate_minimal("stopword_field", phrase, 3)
+        validate_fuzzy("stopword_field", fuzzy, 3)
+
+        # We also have a new hypothesis which matches the version of
+        # stopword_field that leaves the stopwords in place.  This
+        # hypothesis is boosted just above the baseline hypothesis.
+        hypothesis, weight = stopword
+        eq_(hypothesis,
+            MatchPhrase(**{"stopword_field.with_stopwords": "book"}))
+        eq_(weight, 3 * Mock.SLIGHTLY_ABOVE_BASELINE)
+
+        # Finally, let's try a stemmable field.
+        term, phrase, fuzzy, stemmable = list(
+            query.match_one_field("stemmable_field")
+        )
+        validate_keyword("stemmable_field", term, 4000)
+        validate_minimal("stemmable_field", phrase, 4)
+        validate_fuzzy("stemmable_field", fuzzy, 4)
+
+        # The stemmable field becomes a Match hypothesis at 75% of the
+        # baseline weight for this field. We set
+        # minimum_should_match=2 here for the same reason we do it for
+        # the fuzzy search -- a normal Match query is kind of loose.
+        hypothesis, weight = stemmable
+        eq_(hypothesis,
+            Match(
+                stemmable_field=dict(
+                    minimum_should_match=2,
+                    query="book"
+                )
+            )
+        )
+        eq_(weight, 4 * 0.75)
 
     def test__hypothesize(self):
         # Verify that _hypothesize() adds a query to a list,
