@@ -1903,7 +1903,7 @@ class QueryParser(object):
         # Handle the 'romance' part of 'young adult romance'
         genre, genre_match = KeywordBasedClassifier.genre_match(query_string)
         if genre:
-            query_string = self.add_match_term_query(
+            query_string = self.add_match_term_filter(
                 genre.name, 'genres.name', query_string, genre_match
             )
 
@@ -1912,7 +1912,7 @@ class QueryParser(object):
             query_string
         )
         if audience:
-            query_string = self.add_match_term_query(
+            query_string = self.add_match_term_filter(
                 audience.replace(" ", "").lower(), 'audience', query_string,
                 audience_match
             )
@@ -1923,7 +1923,7 @@ class QueryParser(object):
             fiction = "nonfiction"
         elif re.compile(r"\bfiction\b", re.IGNORECASE).search(query_string):
             fiction = "fiction"
-        query_string = self.add_match_term_query(
+        query_string = self.add_match_term_filter(
             fiction, 'fiction', query_string, fiction
         )
         # Handle the 'grade 5' part of 'grade 5 dogs'
@@ -1932,7 +1932,7 @@ class QueryParser(object):
         )
         if age_from_grade and age_from_grade[0] == None:
             age_from_grade = None
-        query_string = self.add_target_age_query(
+        query_string = self.add_target_age_filter(
             age_from_grade, query_string, grade_match
         )
 
@@ -1940,7 +1940,7 @@ class QueryParser(object):
         age, age_match = AgeClassifier.target_age_match(query_string)
         if age and age[0] == None:
             age = None
-        query_string = self.add_target_age_query(age, query_string, age_match)
+        query_string = self.add_target_age_filter(age, query_string, age_match)
 
         self.final_query_string = query_string.strip()
 
@@ -1968,11 +1968,11 @@ class QueryParser(object):
             ).elasticsearch_query
             self.match_queries.append(recursive)
 
-    def add_match_term_query(self, query, field, query_string, matched_portion):
+    def add_match_term_filter(self, query, field, query_string, matched_portion):
         """Create a match query that finds documents whose value for `field`
         matches `query`.
 
-        Add it to `self.match_queries`, and remove the relevant portion
+        Add it to `self.filters`, and remove the relevant portion
         of `query_string` so it doesn't get reused.
         """
         if not query:
@@ -1982,18 +1982,19 @@ class QueryParser(object):
         self.filters.append(match_query)
         return self._without_match(query_string, matched_portion)
 
-    def add_target_age_query(self, query, query_string, matched_portion):
+    def add_target_age_filter(self, query, query_string, matched_portion):
         """Create a query that finds documents whose value for `target_age`
         matches `query`.
 
-        Add it to `match_queries`, and remove the relevant portion
+        Add it to `filters`, and remove the relevant portion
         of `query_string` so it doesn't get reused.
         """
         if not query:
             # This is not a relevant part of the query string.
             return query_string
-        match_query = self.query_class.make_target_age_query(query, 40)
-        self.match_queries.append(match_query)
+
+        match_query = self.query_class.make_target_age_query(query)
+        self.filters.append(match_query)
         return self._without_match(query_string, matched_portion)
 
     @classmethod

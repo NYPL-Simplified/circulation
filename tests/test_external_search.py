@@ -2723,7 +2723,7 @@ class TestQuery(DatabaseTest):
 
         # Search for material suitable for children between the
         # ages of 5 and 10.
-        qu = Query.make_target_age_query((5,10), boost=50.1)
+        qu = Query.make_target_age_query((5,10))
 
         # We get a boosted boolean query.
         eq_("bool", qu.name)
@@ -2778,8 +2778,8 @@ class TestQueryParser(DatabaseTest):
                 return (field, query)
 
             @classmethod
-            def make_target_age_query(cls, query, boost):
-                return (query, boost)
+            def make_target_age_query(cls, query, boost="ignored"):
+                return ("target age", query)
 
             @property
             def elasticsearch_query(self):
@@ -2821,13 +2821,15 @@ class TestQueryParser(DatabaseTest):
         # some remainder string.
         def assert_parses_as(query_string, *matches):
             expect_filters = list(matches)
-            expect_query = expect_filters.pop(-1)
+            expect_remainder = expect_filters.pop(-1)
             parser = QueryParser(query_string, MockQuery)
             eq_(expect_filters, parser.filters)
 
-            if remainder:
-                remainder_match = MockQuery(remainder).elasticsearch_query
+            if expect_remainder:
+                remainder_match = MockQuery(expect_remainder).elasticsearch_query
                 eq_([remainder_match], parser.match_queries)
+            else:
+                eq_([], parser.match_queries)
 
         # Here's the same test from before, using the new
         # helper function.
@@ -2841,7 +2843,7 @@ class TestQueryParser(DatabaseTest):
 
         assert_parses_as(
             "children's picture books",
-            ("audience", "Children"),
+            ("audience", "children"),
             "picture books"
         )
 
@@ -2850,14 +2852,14 @@ class TestQueryParser(DatabaseTest):
         assert_parses_as(
             "young adult romance",
             ("genres.name", "Romance"),
-            ("audience", "YoungAdult"),
+            ("audience", "youngadult"),
             ''
         )
 
         # Test fiction/nonfiction status.
         assert_parses_as(
             "fiction dinosaurs",
-            ("fiction", "Fiction"),
+            ("fiction", "fiction"),
             "dinosaurs"
         )
 
@@ -2866,7 +2868,7 @@ class TestQueryParser(DatabaseTest):
         # and "nonfiction" would not be picked up.)
         assert_parses_as(
             "science fiction or nonfiction dinosaurs",
-            ("genres.name", "Science Fiction"), ("fiction", "Nonfiction"),
+            ("genres.name", "Science Fiction"), ("fiction", "nonfiction"),
             "or  dinosaurs"
         )
 
@@ -2874,13 +2876,12 @@ class TestQueryParser(DatabaseTest):
 
         assert_parses_as(
             "grade 5 science",
-            ("genres.name", "Science"), ((10, 10), 40),
+            ("genres.name", "Science"), ("target age", (10, 10)),
             ''
         )
 
         assert_parses_as(
-            'divorce ages 10 and up',
-            ((10, 14), 40),
+            'divorce ages 10 and up', ("target age", (10, 14)),
             'divorce  and up' # TODO: not ideal
         )
 
@@ -2892,24 +2893,26 @@ class TestQueryParser(DatabaseTest):
 
         # Finally, try parsing a query without using MockQuery.
         query = QueryParser("nonfiction asteroids")
-        nonfiction, asteroids = query.match_queries
+        [nonfiction] = query.filters
+        [asteroids] = query.match_queries
 
         # It creates real Elasticsearch-DSL query objects.
-        eq_({'match': {'fiction': 'Nonfiction'}}, nonfiction.to_dict())
 
-        eq_({'simple_query_string':
-             {'query': 'asteroids',
-              'fields': QueryParser.SIMPLE_QUERY_STRING_FIELDS }
-            },
-            asteroids.to_dict()
-        )
+        # The filter is a very simple Term query.
+        eq_(Term(fiction="nonfiction"), nonfiction)
 
-    def test_add_match_query(self):
+        # The query part is an extremely complicated DisMax query, so
+        # I won't test the whole thing, but it's what you would get if
+        # you just tried a searc for "asteroids".
+        assert isinstance(asteroids, DisMax)
+        eq_(asteroids, Query("asteroids").elasticsearch_query)
+
+    def test_add_match_term_filter(self):
         # TODO: this method could use a standalone test, but it's
         # already covered by the test_constructor.
         pass
 
-    def test_add_target_age_query(self):
+    def test_add_target_age_filter(self):
         # TODO: this method could use a standalone test, but it's
         # already covered by the test_constructor.
         pass
