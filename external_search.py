@@ -1371,11 +1371,11 @@ class Query(SearchBase):
 
         # Check if the string contains English stopwords.
         if query_string:
-            words = query_string.split()
+            self.words = query_string.split()
         else:
-            words = []
+            self.words = []
         self.contains_stopwords = query_string and any(
-            word in ENGLISH_STOPWORDS for word in words
+            word in ENGLISH_STOPWORDS for word in self.words
         )
 
         # Determine how heavily to weight fuzzy hypotheses.
@@ -1392,7 +1392,7 @@ class Query(SearchBase):
         #
         # NOTE: if you ever have reason to set fuzzy_coefficient to
         # zero, fuzzy hypotheses will not be considered at all.
-        if SpellChecker().unknown(words):
+        if SpellChecker().unknown(self.words):
             # Spell check failed. This is the default behavior, if
             # only because peoples' names will generally fail spell
             # check. Fuzzy queries will be given their full weight.
@@ -1764,15 +1764,21 @@ class Query(SearchBase):
         yield qu, self.WEIGHT_FOR_FIELD['summary']
 
     def title_multi_match_for(self, other_field):
-        """Helper method to create a MultiMatch field that crosses
+        """Helper method to create a MultiMatch hypothesis that crosses
         multiple fields.
 
         This strategy only works if everything is spelled correctly,
         since we can't combine a "cross_fields" Multimatch query
         with a fuzzy search.
 
-        :yield: A single (hypothesis, weight) 2-tuple.
+        :yield: At most one (hypothesis, weight) 2-tuple.
         """
+        if len(self.words) < 2:
+            # To match two different fields we need at least two
+            # words. We don't have that, so there's no point in even
+            # making this hypothesis.
+            return
+
         # We only search the '.minimal' variants of these fields.
         field_names = ['title.minimal', other_field + ".minimal"]
 

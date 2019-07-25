@@ -2637,6 +2637,36 @@ class TestQuery(DatabaseTest):
         # with the 'summary' field.
         eq_(Query.WEIGHT_FOR_FIELD['summary'], weight)
 
+    def test_title_multi_match_for(self):
+        # Test our ability to hypothesize that a query string might
+        # contain some text from the title plus some text from
+        # some other field.
+
+        # If there's only one word in the query, then we don't bother
+        # making this hypothesis at all.
+        eq_(
+            [],
+            list(Query("grasslands").title_multi_match_for("other field"))
+        )
+
+        query = Query("grass lands")
+        [(hypothesis, weight)] = list(query.title_multi_match_for("author"))
+
+        expect = MultiMatch(
+            query="grass lands",
+            fields = ['title.minimal', 'author.minimal'],
+            type="cross_fields",
+            operator="and",
+            minimum_should_match="100%",
+        )
+        eq_(expect, hypothesis)
+
+        # The weight of this hypothesis is between the weight of a
+        # pure title match and the weight of a pure author match.
+        title_weight = Query.WEIGHT_FOR_FIELD['title']
+        author_weight = Query.WEIGHT_FOR_FIELD['author']
+        eq_(weight, author_weight * (author_weight/title_weight))        
+
     def test__hypothesize(self):
         # Verify that _hypothesize() adds a query to a list,
         # boosting it if necessary.
