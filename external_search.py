@@ -1150,6 +1150,9 @@ return champion;
 
 
 class SearchBase(object):
+    """A superclass containing helper methods for creating and modifying
+    Elasticsearch-dsl Query-type objects.
+    """
 
     @classmethod
     def _boost(cls, boost, queries, filters=None, all_must_match=False):
@@ -1373,6 +1376,8 @@ class Query(SearchBase):
         # Depending on the query, the stregnth of a fuzzy hypothesis
         # may be reduced even further -- that's determined here.
         #
+        # NOTE: if you ever have reason to set fuzzy_coefficient to
+        # zero, fuzzy hypotheses will not be considered at all.
         if SpellChecker().unknown(words):
             # Spell check failed. This is the default behavior, if
             # only because peoples' names will generally fail spell
@@ -1386,8 +1391,6 @@ class Query(SearchBase):
             # results overall by giving them only half their normal
             # strength.
             self.fuzzy_coefficient = 0.5
-        # NOTE: if you ever have reason to set fuzzy_coefficient to
-        # zero, fuzzy hypotheses will not be considered at all.
 
     def build(self, elasticsearch, pagination=None):
         """Make an Elasticsearch-DSL Search object out of this query.
@@ -1842,7 +1845,7 @@ class Query(SearchBase):
         :param kwargs: Keyword arguments for the _boost method.
         """
         if query or filters:
-            query = cls._boost(boost=boost, query=query, filters=filters, **kwargs)
+            query = cls._boost(boost=boost, queries=query, filters=filters, **kwargs)
         if query:
             hypotheses.append(query)
         return hypotheses

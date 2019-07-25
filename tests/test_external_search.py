@@ -1890,6 +1890,19 @@ class TestQuery(DatabaseTest):
         eq_("query string", query.query_string)
         eq_(filter, query.filter)
 
+        # The query string does not contain English stopwords.
+        eq_(False, query.contains_stopwords)
+
+        # Every word in the query string passes spellcheck,
+        # so a fuzzy query will be given less weight.
+        eq_(0.5, query.fuzzy_coefficient)
+
+        # Try again with a query containing a stopword and
+        # a word that fails spellcheck.
+        query = Query("just a xlomph")
+        eq_(True, query.contains_stopwords)
+        eq_(1, query.fuzzy_coefficient)
+
     def test_build(self):
         # Verify that the build() method combines the 'query' part of
         # a Query and the 'filter' part to create a single
@@ -1954,7 +1967,8 @@ class TestQuery(DatabaseTest):
         class MockQuery(Query):
             # A Mock of the Query object from external_search
             # (not the one from Elasticsearch-DSL).
-            def query(self):
+            @property
+            def elasticsearch_query(self):
                 return Q("simple_query_string", query=self.query_string)
 
         class MockPagination(object):
