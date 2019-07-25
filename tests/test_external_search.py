@@ -2401,10 +2401,10 @@ class TestQuery(DatabaseTest):
             ]
         )
 
-    def test_match_one_field(self):
-        
-        class Mock(Query):
-            
+    def test_match_one_field_hypotheses(self):
+        # Test our ability to generate hypotheses that a search string
+        # is trying to match a single field of data.
+        class Mock(Query):            
             WEIGHT_FOR_FIELD = dict(
                 regular_field=2,
                 stopword_field=3,
@@ -2427,9 +2427,10 @@ class TestQuery(DatabaseTest):
         # stemmed variant, no fuzzy variants.
         query = Mock("book")
         query.fuzzy_coefficient = 0
+        m = query.match_one_field_hypotheses
 
         # We'll get a Term query and a MatchPhrase query.
-        term, phrase = list(query.match_one_field('regular_field'))
+        term, phrase = list(m('regular_field'))
 
         # The Term hypothesis tries to find an exact match for 'book'
         # in this field. It is boosted 1000x relative to the baseline
@@ -2452,9 +2453,7 @@ class TestQuery(DatabaseTest):
         # Now let's try the same query, but with fuzzy searching
         # turned on.
         query.fuzzy_coefficient = 0.5
-        term, phrase, fuzzy = list(
-            query.match_one_field("regular_field")
-        )
+        term, phrase, fuzzy = list(m("regular_field"))
         # The first two hypotheses are the same.
         validate_keyword("regular_field", term, 2000)
         validate_minimal("regular_field", phrase, 2)
@@ -2478,16 +2477,12 @@ class TestQuery(DatabaseTest):
         validate_fuzzy("regular_field", fuzzy, 2)
 
         # Now try a field where stopwords might be relevant.
-        term, phrase, fuzzy = list(
-            query.match_one_field("stopword_field")
-        )
+        term, phrase, fuzzy = list(m("stopword_field"))
 
         # There was no new hypothesis, because our query doesn't
         # contain any stopwords.  Let's make it look like it does.
         query.contains_stopwords = True
-        term, phrase, fuzzy, stopword = list(
-            query.match_one_field("stopword_field")
-        )
+        term, phrase, fuzzy, stopword = list(m("stopword_field"))
 
         # We have the term query, the phrase match query, and the
         # fuzzy query. Note that they're boosted relative to the base
@@ -2505,9 +2500,7 @@ class TestQuery(DatabaseTest):
         eq_(weight, 3 * Mock.SLIGHTLY_ABOVE_BASELINE)
 
         # Finally, let's try a stemmable field.
-        term, phrase, fuzzy, stemmable = list(
-            query.match_one_field("stemmable_field")
-        )
+        term, phrase, fuzzy, stemmable = list(m("stemmable_field"))
         validate_keyword("stemmable_field", term, 4000)
         validate_minimal("stemmable_field", phrase, 4)
         validate_fuzzy("stemmable_field", fuzzy, 4)
@@ -2526,6 +2519,43 @@ class TestQuery(DatabaseTest):
             )
         )
         eq_(weight, 4 * 0.75)
+
+    def test_match_author_hypotheses(self):
+        class Mock(Query):
+            def _author_field_must_match(self, base_field, query_string=None):
+                yield "%s must match %s" % (base_field, query_string)
+
+        query = Mock("ursula le guin")
+        hypotheses = list(query.match_author_hypotheses)
+
+        # We test three hypotheses: the query string is the author's
+        # display name, it's the author's sort name, or it matches the
+        # author's sort name when automatically converted to a sort
+        # name.
+        eq_(
+            [
+                'display_name must match ursula le guin',
+                'sort_name must match le guin, ursula'
+            ],
+            hypotheses
+        )
+
+        # If the string passed in already looks like a sort name, we
+        # don't try to convert it -- but someone's name may contain a
+        # comma, so we do check both fields.
+        query = Mock("le guin, ursula")
+        hypotheses = list(query.match_author_hypotheses)
+        eq_(
+            [
+                'display_name must match le guin, ursula',
+                'sort_name must match le guin, ursula',
+            ],
+            hypotheses
+        )
+
+
+    def test__author_field_must_match(self):
+        pass
 
     def test__hypothesize(self):
         # Verify that _hypothesize() adds a query to a list,

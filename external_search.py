@@ -1505,7 +1505,7 @@ class Query(SearchBase):
         # probably title or series. These are the most common
         # searches.
         for field in self.SIMPLE_MATCH_FIELDS:
-            for qu, weight in self.match_one_field(field):
+            for qu, weight in self.match_one_field_hypotheses(field):
                 self._hypothesize(hypotheses, qu, weight)
 
         # As a coda to the above, the query string might be a match
@@ -1513,12 +1513,12 @@ class Query(SearchBase):
         # more complicated because a book can have multiple
         # contributors and we're only interested in certain roles
         # (such as 'narrator').
-        for qu, weight in self.match_author_queries:
+        for qu, weight in self.match_author_hypotheses:
             self._hypothesize(hypotheses, qu, weight)
 
         # The query string may be looking for a certain topic or
         # subject matter.
-        for qu, weight in self.match_topic_queries:
+        for qu, weight in self.match_topic_hypotheses:
             self._hypothesize(hypotheses, qu, weight)
 
         # The query string might *combine* terms from the title with
@@ -1576,7 +1576,7 @@ class Query(SearchBase):
         # any of these hypotheses.
         return self._combine_hypotheses(hypotheses)
 
-    def match_one_field(self, base_field, query_string=None):
+    def match_one_field_hypotheses(self, base_field, query_string=None):
         """Yield a number of hypotheses representing different ways in
         which the query string might be an attempt to match
         a given field.
@@ -1676,7 +1676,7 @@ class Query(SearchBase):
                     yield fuzzy_match, (field_weight * fuzzy_query_coefficient)
 
     @property
-    def match_author_queries(self):
+    def match_author_hypotheses(self):
         """Yield a sequence of query objects representing possible ways in
         which a query string might represent a book's author.
 
@@ -1694,19 +1694,13 @@ class Query(SearchBase):
         ):
             yield x
 
-        # Almost nobody types a sort name into a search box, but they
-        # may paste one in from somewhere else. Also ask Elasticsearch
-        # to match against contributors.display_name.
-        for x in self._author_field_must_match('sort_name', self.query_string):
-            yield x
-
         # Although almost nobody types a sort name into a search box,
-        # we may only know some contributors by their sort name.  Try
-        # to convert what was typed into a sort name, and ask
-        # Elasticsearch to match _that_ against
-        # contributors.sort_name.
+        # they may copy-and-paste one. Furthermore, we may only know
+        # some contributors by their sort name.  Try to convert what
+        # was typed into a sort name, and ask Elasticsearch to match
+        # that against contributors.sort_name.
         sort_name = display_name_to_sort_name(self.query_string)
-        if sort_name and sort_name != self.query_string:
+        if sort_name:
             for x in self._author_field_must_match('sort_name', sort_name):
                 yield x
 
