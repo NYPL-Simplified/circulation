@@ -1745,7 +1745,7 @@ class Query(SearchBase):
         return cls._nest('contributors', match_both)
 
     @property
-    def match_topic_queries(self):
+    def match_topic_hypotheses(self):
         """Yield a number of hypotheses representing different
         ways in which the query string might be a topic match.
 

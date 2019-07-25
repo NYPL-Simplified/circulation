@@ -29,6 +29,7 @@ from elasticsearch_dsl.query import (
     MatchAll,
     Match,
     MatchPhrase,
+    MultiMatch,
     Nested,
     Term,
     Terms,
@@ -2590,6 +2591,51 @@ class TestQuery(DatabaseTest):
             hypothesis
         )
         eq_(6, weight)
+
+    def test__role_must_also_match(self):
+        class Mock(Query):
+            @classmethod
+            def _nest(cls, subdocument, base):
+                return ("nested", subdocument, base)
+
+        # Verify that _role_must_also_match() puts an appropriate
+        # restriction on a match against a field in the 'contributors'
+        # sub-document.
+        original_query = Term(**{'contributors.sort_name': 'ursula le guin'})
+        modified = Mock._role_must_also_match(original_query)
+
+        # The resulting query was run through Mock._nest. In a real
+        # scenario this would turn it into a nested query against the
+        # 'contributors' subdocument.
+        nested, subdocument, modified_base = modified
+        eq_("nested", nested)
+        eq_("contributors", subdocument)
+
+        # The original query was combined with an extra clause, which
+        # only matches people if their contribution to a book was of
+        # the type that library patrons are likely to search for.
+        extra = Terms(**{"contributors.role": ['Primary Author', 'Author', 'Narrator']})
+        eq_(Bool(must=[original_query, extra]), modified_base)
+
+    def test_match_topic_hypotheses(self):
+        query = Query("whales")
+        [(hypothesis, weight)] = list(query.match_topic_hypotheses)
+
+        # There's a single hypothesis -- a MultiMatch covering both
+        # summary text and classifications. The score for a book is
+        # whichever of the two types of fields is a better match for
+        # 'whales'.
+        eq_( 
+            MultiMatch(
+                query="whales",
+                fields=["summary", "classifications.term"],
+                type="best_fields",
+            ),
+            hypothesis
+        )
+        # The weight of the hypothesis is the base weight associated
+        # with the 'summary' field.
+        eq_(Query.WEIGHT_FOR_FIELD['summary'], weight)
 
     def test__hypothesize(self):
         # Verify that _hypothesize() adds a query to a list,
