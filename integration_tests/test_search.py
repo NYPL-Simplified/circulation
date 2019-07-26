@@ -2690,6 +2690,16 @@ class TestAwardSearch(SearchTest):
         )
 
     @known_to_fail
+    def test_tiptree_award(self):
+        # This award is named after an author. We don't want their
+        # books -- we want the award winners.
+        self.search(
+            "tiptree award",
+            [Common(summary=re.compile("tiptree award")),
+             Uncommon(author=re.compile("james tiptree"))],
+        )
+
+    @known_to_fail
     def test_newberry(self):
         # Tends to get author matches.
         self.search(
