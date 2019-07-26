@@ -1638,6 +1638,39 @@ class TestMJRose(VariantSearchTest):
         self.search("mj rose")
 
 
+class TestPublisherMatch(SearchTest):
+    # Test the ability to find books by a specific publisher or
+    # imprint.
+
+    def test_harlequin_romance(self):
+        self.search(
+            "harlequin romance", Common(publisher="harlequin", genre="Romance")
+        )
+
+    def test_harlequin_historical(self):
+        self.search(
+            "harlequin historical",
+            Common(imprint="harlequin historical", genre="Romance")
+        )
+
+    def test_princeton_review(self):
+        self.search(
+            "princeton review",
+            Common(imprint="princeton review")
+        )
+
+    def test_scholastic(self):
+        self.search(
+            "scholastic", Common(publisher="scholastic inc.")
+        )
+
+    @known_to_fail
+    def test_wizards(self):
+        self.search(
+            "wizards coast", Common(publisher="wizards of the coast")
+        )
+
+
 class TestGenreMatch(SearchTest):
     # A genre search is a search for books in a certain 'section'
     # of the library.
