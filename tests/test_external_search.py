@@ -24,7 +24,14 @@ from elasticsearch_dsl.function import (
 )
 from elasticsearch_dsl.query import (
     Bool,
+    DisMax,
     Query as elasticsearch_dsl_query,
+    MatchAll,
+    Match,
+    MatchPhrase,
+    MultiMatch,
+    Nested,
+    Range,
     Term,
     Terms,
 )
@@ -423,8 +430,7 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         self.les_mis = _work()
         self.les_mis.presentation_edition.title = u"Les Mis\u00E9rables"
 
-        self.modern_romance = _work()
-        self.modern_romance.presentation_edition.title = u"Modern Romance"
+        self.modern_romance = _work(title="Modern Romance")
 
         self.lincoln = _work(genre="Biography & Memoir", title="Abraham Lincoln")
 
@@ -589,19 +595,19 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # Search in publisher name.
         expect(self.moby_dick, "gutenberg")
 
-        # Title > subtitle > summary > publisher.
-        # TODO: This is incorrect -- summary is boosted way too much.
+        # Title > subtitle > publisher > word found in summary
         order = [
             self.title_match,
-            self.summary_match,
             self.subtitle_match,
             self.publisher_match,
+            self.summary_match,
         ]
         expect(order, "match")
 
-        # (title match + author match) > title match
+        # A search for a partial title match + a partial author match
+        # considers only books that match both fields.
         expect(
-            [self.moby_dick, self.moby_duck],
+            [self.moby_dick],
             "moby melville"
         )
 
@@ -621,11 +627,20 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         # Match a misspelled author: 'mleville' -> 'melville'
         expect(self.moby_dick, "mleville")
 
-        expect([self.moby_dick, self.moby_duck], "mo by dick")
+        # TODO: This is clearly trying to match "Moby Dick", but it
+        # matches nothing. This is because at least two of the strings
+        # in a query must match. Neither "di" nor "ck" matches a fuzzy
+        # search on its own, which means "moby" is the only thing that
+        # matches, and that's not enough.
+        expect([], "moby di ck")
 
-        # A query without an apostrophe matches a word that contains one.
-        # (NOTE: it's not clear whether this is a feature of the index or
-        # done by the fuzzy match.)
+        # Here, "dic" is close enough to "dick" that the fuzzy match
+        # kicks in. With both "moby" and "dic" matching, it's okay
+        # that "k" was a dud.
+        expect([self.moby_dick], "moby dic k")
+
+        # A query without an apostrophe matches a word that contains
+        # one.  (this is a feature of the stemmer.)
         expect(self.tess, "durbervilles")
         expect(self.tiffany, "tiffanys")
 
@@ -638,10 +653,10 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
         #
         # Here, Moby-Dick (fiction) is privileged over Moby Duck
         # (nonfiction)
-        expect([self.moby_dick, self.moby_duck], "fiction moby")
+        expect([self.moby_dick], "fiction moby")
 
         # Here, Moby Duck is privileged over Moby-Dick.
-        expect([self.moby_duck, self.moby_dick], "nonfiction moby")
+        expect([self.moby_duck], "nonfiction moby")
 
         # Find results based on series.
         classics = Filter(series="Classics")
@@ -649,10 +664,10 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
 
         # Find results based on genre.
 
-        # In ES6, the title boost is higher than the genre boost so
-        # the book with 'romance' in the title is the first result.
-        # TODO: This isn't ideal.
-        expect([self.modern_romance, self.ya_romance], "romance")
+        # If the entire search query is converted into a filter, every
+        # book matching that filter is boosted above books that match
+        # the search string as a query.
+        expect([self.ya_romance, self.modern_romance], "romance")
 
         # Find results based on audience.
         expect(self.children_work, "children's")
@@ -680,10 +695,9 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
 
         # Search by a combination of genre and audience.
 
-        # The book with 'Romance' in the title shows up, but it's
-        # after the book whose audience matches 'young adult' and
-        # whose genre matches 'romance'.
-        expect([self.ya_romance, self.modern_romance], "young adult romance")
+        # The book with 'Romance' in the title does not show up because
+        # it's not a YA book.
+        expect([self.ya_romance], "young adult romance")
 
         # Search by a combination of target age and fiction
         #
@@ -693,8 +707,8 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
 
         # Search by a combination of genre and title
 
-        # Two books match 'lincoln', but the biography comes first.
-        expect([self.lincoln, self.lincoln_vampire], "lincoln biography")
+        # Two books match 'lincoln', but only the biography is returned
+        expect([self.lincoln], "lincoln biography")
 
         # Search by age + genre + summary
         results = query("age 8 president biography")
@@ -879,7 +893,10 @@ class TestExternalSearchWithWorks(EndToEndSearchTest):
                 DataSource.lookup(self._db, DataSource.BIBLIOTHECA)
             ]
         )
-        expect([self.pride, self.pride_audio], "pride and prejudice", f)
+        expect(
+            [self.pride, self.pride_audio], "pride and prejudice", f,
+            ordered=False
+        )
 
         # "Moby Duck" is not currently available, so it won't show up in
         # search results if allow_holds is False.
@@ -1570,13 +1587,12 @@ class TestExactMatches(EndToEndSearchTest):
         )
 
         # A full author match takes precedence over a partial author
-        # match. A partial author match that matches the entire search
-        # string takes precedence over a partial author match that doesn't.
+        # match. A partial author match ("peter ansari") doesn't show up
+        # all all because it can't match two words.
         expect(
             [
                 self.modern_romance,      # "Aziz Ansari" in author
                 self.parent_book,         # "Aziz" in title, "Ansari" in author
-                self.book_by_someone_else # "Ansari" in author
             ],
             "aziz ansari"
         )
@@ -1584,28 +1600,34 @@ class TestExactMatches(EndToEndSearchTest):
         # 'peter graves' is a string that has exact matches in both
         # title and author.
 
-        # Books with 'Peter Graves' in the title are the top results,
-        # ordered by how much other stuff is in the title. An exact
-        # author match is next.  A partial match split across fields
-        # ("peter" in author, "graves" in title) is the last result.
+        # Books with author 'Peter Graves' are the top match, since
+        # "peter graves" matches the entire string. Books with "Peter
+        # Graves" in the title are the next results, ordered by how
+        # much other stuff is in the title. A partial match split
+        # across fields ("peter" in author, "graves" in title) is the
+        # last result.
         order = [
+            self.book_by_peter_graves,
             self.biography_of_peter_graves,
             self.behind_the_scenes,
-            self.book_by_peter_graves,
             self.book_by_someone_else,
         ]
         expect(order, "peter graves")
 
-        # An exact author match that doesn't mention 'biography'
-        # is boosted above a book that mentions all three words in
-        # its title.
+        # Now we throw in "biography", a term that is both a genre and
+        # a search term in its own right.
         #
-        # TODO: We may want to revisit this.
+        # 1. A book whose title mentions all three terms
+        # 2. A book in genre "biography" whose title
+        #    matches the other two terms
+        # 3. A book with an author match containing two of the terms.
+        #    'biography' just doesn't match. That's okay --
+        #    if there are more than two search terms, only two must match.
+
         order = [
+            self.behind_the_scenes,         # all words match in title
             self.biography_of_peter_graves, # title + genre 'biography'
             self.book_by_peter_graves,      # author (no 'biography')
-            self.behind_the_scenes,         # all words match in title
-            self.book_by_someone_else,      # match across fields (no 'biography')
         ]
 
         expect(order, "peter graves biography")
@@ -1777,6 +1799,81 @@ class TestFeaturedFacets(EndToEndSearchTest):
 
 class TestSearchBase(object):
 
+    def test__boost(self):
+        # Verify that _boost() converts a regular query (or list of queries)
+        # into a boosted query.
+        m = SearchBase._boost
+        q1 = Q("simple_query_string", query="query 1")
+        q2 = Q("simple_query_string", query="query 2")
+
+        boosted_one = m(10, q1)
+        eq_("bool", boosted_one.name)
+        eq_(10.0, boosted_one.boost)
+        eq_([q1], boosted_one.must)
+
+        # By default, if you pass in multiple queries, only one of them
+        # must match for the boost to apply.
+        boosted_multiple = m(4.5, [q1, q2])
+        eq_("bool", boosted_multiple.name)
+        eq_(4.5, boosted_multiple.boost)
+        eq_(1, boosted_multiple.minimum_should_match)
+        eq_([q1, q2], boosted_multiple.should)
+
+        # Here, every query must match for the boost to apply.
+        boosted_multiple = m(4.5, [q1, q2], all_must_match=True)
+        eq_("bool", boosted_multiple.name)
+        eq_(4.5, boosted_multiple.boost)
+        eq_([q1, q2], boosted_multiple.must)
+
+    def test__nest(self):
+        # Test the _nest method, which turns a normal query into a
+        # nested query.
+        query = Term(**{"nested_field" : "value"})
+        nested = SearchBase._nest("subdocument", query)
+        eq_(Nested(path='subdocument', query=query),
+            nested)
+
+    def test_nestable(self):
+        # Test the _nestable helper method, which turns a normal
+        # query into an appropriate nested query, if necessary.
+        m = SearchBase._nestable
+
+        # A query on a field that's not in a subdocument is
+        # unaffected.
+        field = "name.minimal"
+        normal_query = Term(**{field : "name"})
+        eq_(normal_query, m(field, normal_query))
+
+        # A query on a subdocument field becomes a nested query on
+        # that subdocument.
+        field = "contributors.sort_name.minimal"
+        subdocument_query = Term(**{field : "name"})
+        nested = m(field, subdocument_query)
+        eq_(
+            Nested(path='contributors', query=subdocument_query),
+            nested
+        )
+
+    def test__match_term(self):
+        # _match_term creates a Match Elasticsearch object which does a
+        # match against a specific field.
+        m = SearchBase._match_term
+        qu = m("author", "flannery o'connor")
+        eq_(
+            Term(author="flannery o'connor"),
+            qu
+        )
+
+        # If the field name references a subdocument, the query is
+        # embedded in a Nested object that describes how to match it
+        # against that subdocument.
+        field = "genres.name"
+        qu = m(field, "Biography")
+        eq_(
+            Nested(path='genres', query=Term(**{field: "Biography"})),
+            qu
+        )
+
     def test__match_range(self):
         # Test the _match_range helper method.
         # This is used to create an Elasticsearch query term
@@ -1785,6 +1882,47 @@ class TestSearchBase(object):
         # This only matches if field.name has a value >= 5.
         r = SearchBase._match_range("field.name", "gte", 5)
         eq_(r, {'range': {'field.name': {'gte': 5}}})
+
+    def test__combine_hypotheses(self):
+        # Verify that _combine_hypotheses creates a DisMax query object
+        # that chooses the best one out of whichever queries it was passed.
+        m = SearchBase._combine_hypotheses
+
+        h1 = Term(field="value 1")
+        h2 = Term(field="value 2")
+        hypotheses = [h1, h2]
+        combined = m(hypotheses)
+        eq_(DisMax(queries=hypotheses), combined)
+
+        # If there are no hypotheses to test, _combine_hypotheses creates
+        # a MatchAll instead.
+        eq_(MatchAll(), m([]))
+
+    def test_make_target_age_query(self):
+
+        # Search for material suitable for children between the
+        # ages of 5 and 10.
+        #
+        # This gives us two similar queries: one to use as a filter
+        # and one to use as a boost query.
+        as_filter, as_query = Query.make_target_age_query((5,10))
+
+        # Here's the filter part: a book's age range must be include the
+        # 5-10 range, or it gets filtered out.
+        filter_clauses = [
+            Range(**{"target_age.upper":dict(gte=5)}),
+            Range(**{"target_age.lower":dict(lte=10)}),
+        ]
+        eq_(Bool(must=filter_clauses), as_filter)
+
+        # Here's the query part: a book gets boosted if its
+        # age range fits _entirely_ within the target age range.
+        query_clauses = [
+            Range(**{"target_age.upper":dict(lte=10)}),
+            Range(**{"target_age.lower":dict(gte=5)}),
+        ]
+        eq_(Bool(boost=1.1, must=filter_clauses, should=query_clauses),
+            as_query)
 
 
 class TestQuery(DatabaseTest):
@@ -1796,6 +1934,19 @@ class TestQuery(DatabaseTest):
         query = Query("query string", filter)
         eq_("query string", query.query_string)
         eq_(filter, query.filter)
+
+        # The query string does not contain English stopwords.
+        eq_(False, query.contains_stopwords)
+
+        # Every word in the query string passes spellcheck,
+        # so a fuzzy query will be given less weight.
+        eq_(0.5, query.fuzzy_coefficient)
+
+        # Try again with a query containing a stopword and
+        # a word that fails spellcheck.
+        query = Query("just a xlomph")
+        eq_(True, query.contains_stopwords)
+        eq_(1, query.fuzzy_coefficient)
 
     def test_build(self):
         # Verify that the build() method combines the 'query' part of
@@ -1861,7 +2012,8 @@ class TestQuery(DatabaseTest):
         class MockQuery(Query):
             # A Mock of the Query object from external_search
             # (not the one from Elasticsearch-DSL).
-            def query(self):
+            @property
+            def elasticsearch_query(self):
                 return Q("simple_query_string", query=self.query_string)
 
         class MockPagination(object):
@@ -1947,9 +2099,9 @@ class TestQuery(DatabaseTest):
             universal_nested
         )
 
-        # The result of Query.query() is used as the basis for
-        # the Search object.
-        eq_(Bool(must=qu.query()), built._query)
+        # The result of Query.elasticsearch_query is used as the basis
+        # for the Search object.
+        eq_(Bool(must=qu.elasticsearch_query), built._query)
 
         # Now test some cases where the query has a filter.
 
@@ -1968,7 +2120,7 @@ class TestQuery(DatabaseTest):
         underlying_query = built._query
 
         # The query we passed in is used as the 'must' part of the
-        eq_(underlying_query.must, [qu.query()])
+        eq_(underlying_query.must, [qu.elasticsearch_query])
         main_filter, nested_filters = filter.build()
 
         # The filter we passed in was combined with the universal
@@ -2134,8 +2286,8 @@ class TestQuery(DatabaseTest):
         Filter.universal_base_filter = original_base
         Filter.universal_nested_filters = original_nested
 
-    def test_query(self):
-        # The query() method calls a number of other methods
+    def test_elasticsearch_query(self):
+        # The elasticsearch_query property calls a number of other methods
         # to generate hypotheses, then creates a dis_max query
         # to find the most likely hypothesis for any given book.
 
@@ -2143,36 +2295,43 @@ class TestQuery(DatabaseTest):
 
             _match_phrase_called_with = []
             _boosts = {}
+            _filters = {}
             _kwargs = {}
 
-            def simple_query_string_query(self, query_string):
-                self.simple_query_string_called_with = query_string
-                return "simple"
+            def match_one_field_hypotheses(self, field):
+                yield "match %s" % field, 1
 
-            def minimal_stemming_query(
-                    self, query_string, fields="default fields"
-            ):
-                self.minimal_stemming_called_with = (query_string, fields)
-                return "minimal stemming"
+            @property
+            def match_author_hypotheses(self):
+                yield "author query 1", 2
+                yield "author query 2", 3
 
-            def _match_phrase(self, field, query_string):
-                self._match_phrase_called_with.append((field, query_string))
-                return "%s match phrase" % field
+            @property
+            def match_topic_hypotheses(self):
+                yield "topic query", 4
 
-            def fuzzy_string_query(self, query_string):
-                self.fuzzy_string_called_with = query_string
-                return "fuzzy string"
+            def title_multi_match_for(self, other_field):
+                yield "multi match title+%s" % other_field, 5
 
-            def _parsed_query_matches(self, query_string):
-                self._parsed_query_matches_called_with = query_string
-                return "parsed query matches"
+            # Define this as a constant so it's easy to check later
+            # in the test.
+            SUBSTRING_HYPOTHESES = (
+                "hypothesis based on substring",
+                "another such hypothesis",
+            )
+            @property
+            def parsed_query_matches(self):
+                return self.SUBSTRING_HYPOTHESES, "only valid with this filter"
 
             def _hypothesize(
                     self, hypotheses, new_hypothesis, boost="default",
-                    **kwargs
+                    filters=None, **kwargs
             ):
                 self._boosts[new_hypothesis] = boost
-                self._kwargs[new_hypothesis] = kwargs
+                if kwargs:
+                    self._kwargs[new_hypothesis] = kwargs
+                if filters:
+                    self._filters[new_hypothesis] = filters
                 hypotheses.append(new_hypothesis)
                 return hypotheses
 
@@ -2183,69 +2342,381 @@ class TestQuery(DatabaseTest):
         # Before we get started, try an easy case. If there is no query
         # string we get a match_all query that returns everything.
         query = Mock(None)
-        result = query.query()
+        result = query.elasticsearch_query
         eq_(dict(match_all=dict()), result.to_dict())
 
         # Now try a real query string.
         q = "query string"
         query = Mock(q)
-        result = query.query()
+        result = query.elasticsearch_query
 
         # The final result is the result of calling _combine_hypotheses
         # on a number of hypotheses. Our mock class just returns
         # the hypotheses as-is, for easier testing.
         eq_(result, query._combine_hypotheses_called_with)
 
-        # We ended up with five hypotheses. The mock methods were called
-        # once, except for _match_phrase, which was called once for title
-        # and once for author.
-        eq_(['simple', 'minimal stemming',
-             'title.standard match phrase', 'author match phrase',
-             'fuzzy string', 'parsed query matches'], result)
+        # We ended up with a number of hypothesis:
+        eq_(result,
+            [
+                # Several hypotheses checking whether the search query is an attempt to
+                # match a single field -- the results of calling match_one_field()
+                # many times.
+                'match title',
+                'match subtitle',
+                'match series',
+                'match publisher',
+                'match imprint',
 
-        # For the parsed query matches, the extra all_must_match=True
-        # argument was passed into _boost() -- the boost only applies
-        # if every element of the parsed query is a hit.
-        eq_({'all_must_match': True},
-            query._kwargs['parsed query matches'])
+                # The results of calling match_author_queries() once.
+                'author query 1',
+                'author query 2',
 
-        # In each case, the original query string was used as the
-        # input into the mocked method.
-        eq_(q, query.simple_query_string_called_with)
-        eq_((q, "default fields"),
-            query.minimal_stemming_called_with)
-        eq_([('title.standard', q), ('author', q)],
-            query._match_phrase_called_with)
-        eq_(q, query.fuzzy_string_called_with)
-        eq_(q, query._parsed_query_matches_called_with)
+                # The results of calling match_topic_queries() once.
+                'topic query',
+
+                # The results of calling multi_match() for three fields.
+                'multi match title+subtitle',
+                'multi match title+series',
+                'multi match title+author',
+
+                # The 'query' part of the return value of
+                # parsed_query_matches()
+                Mock.SUBSTRING_HYPOTHESES
+            ]
+        )
+
+        # That's not the whole story, though. parsed_query_matches()
+        # said it was okay to test certain hypotheses, but only
+        # in the context of a filter.
+        #
+        # That filter was passed in to _hypothesize. Our mock version
+        # of _hypothesize added it to the 'filters' dict to indicate
+        # we know that those filters go with the substring
+        # hypotheses. That's the only time 'filters' was touched.
+        eq_(
+            {Mock.SUBSTRING_HYPOTHESES: 'only valid with this filter'},
+            query._filters
+        )
 
         # Each call to _hypothesize included a boost factor indicating
-        # how heavily to weight that hypothesis. Rather than do anything
-        # with this information, we just stored it in _boosts.
+        # how heavily to weight that hypothesis. Rather than do
+        # anything with this information -- which is mostly mocked
+        # anyway -- we just stored it in _boosts.
+        boosts = sorted(query._boosts.items(), key=lambda x: x[1])
+        eq_(boosts,
+            [
+                ('match imprint', 1),
+                ('match series', 1),
+                ('match title', 1),
+                ('match publisher', 1),
+                ('match subtitle', 1),
+                # The only non-mocked value here is this one. The
+                # substring hypotheses have their own weights, which
+                # we don't see in this test. This is saying that if a
+                # book matches those sub-hypotheses and _also_ matches
+                # the filter, then whatever weight it got from the
+                # sub-hypotheses should be boosted slighty. This gives
+                # works that match the filter an edge over works that
+                # don't.
+                (Mock.SUBSTRING_HYPOTHESES, 1.1),
+                ('author query 1', 2),
+                ('author query 2', 3),
+                ('topic query', 4),
+                ('multi match title+author', 5),
+                ('multi match title+subtitle', 5),
+                ('multi match title+series', 5),
+            ]
+        )
 
-        # Exact title or author matches are valued quite highly.
-        eq_(200, query._boosts['title.standard match phrase'])
-        eq_(50, query._boosts['author match phrase'])
+    def test_match_one_field_hypotheses(self):
+        # Test our ability to generate hypotheses that a search string
+        # is trying to match a single field of data.
+        class Mock(Query):
+            WEIGHT_FOR_FIELD = dict(
+                regular_field=2,
+                stopword_field=3,
+                stemmable_field=4,
+            )
+            STOPWORD_FIELDS = ['stopword_field']
+            STEMMABLE_FIELDS = ['stemmable_field']
 
-        # A near-exact match is also valued highly.
-        eq_(100, query._boosts['minimal stemming'])
+            def __init__(self, *args, **kwargs):
+                super(Mock, self).__init__(*args, **kwargs)
+                self.fuzzy_calls = {}
 
-        # The default query match has the default boost.
-        eq_("default", query._boosts['simple'])
+            def _fuzzy_matches(self, field_name, **kwargs):
+                self.fuzzy_calls[field_name] = kwargs
+                # 0.66 is an arbitrarily chosen value -- look
+                # for it in the validate_fuzzy() helper method.
+                yield "fuzzy match for %s" % field_name, 0.66
 
-        # The fuzzy match has a boost that's very low, to encourage any
-        # matches that are better to show up first.
-        eq_(1, query._boosts['fuzzy string'])
+        # Let's start with the simplest case: no stopword variant, no
+        # stemmed variant, no fuzzy variants.
+        query = Mock("book")
+        query.fuzzy_coefficient = 0
+        m = query.match_one_field_hypotheses
 
-        eq_(200, query._boosts['parsed query matches'])
+        # We'll get a Term query and a MatchPhrase query.
+        term, phrase = list(m('regular_field'))
 
-    def test__hypothesize(self):
+        # The Term hypothesis tries to find an exact match for 'book'
+        # in this field. It is boosted 1000x relative to the baseline
+        # weight for this field.
+        def validate_keyword(field, hypothesis, expect_weight):
+            hypothesis, weight = hypothesis
+            eq_(Term(**{"%s.keyword" % field: "book"}), hypothesis)
+            eq_(expect_weight, weight)
+        validate_keyword("regular_field", term, 2000)
+
+        # The MatchPhrase hypothesis tries to find a partial phrase
+        # match for 'book' in this field. It is boosted 1x relative to
+        # the baseline weight for this field.
+        def validate_minimal(field, hypothesis, expect_weight):
+            hypothesis, weight = hypothesis
+            eq_(MatchPhrase(**{"%s.minimal" % field: "book"}), hypothesis)
+            eq_(expect_weight, weight)
+        validate_minimal("regular_field", phrase, 2)
+
+        # Now let's try the same query, but with fuzzy searching
+        # turned on.
+        query.fuzzy_coefficient = 0.5
+        term, phrase, fuzzy = list(m("regular_field"))
+        # The first two hypotheses are the same.
+        validate_keyword("regular_field", term, 2000)
+        validate_minimal("regular_field", phrase, 2)
+
+        # But we've got another hypothesis yielded by a call to
+        # _fuzzy_matches. It goes against the 'minimal' field and its
+        # weight is the weight of that field's non-fuzzy hypothesis,
+        # multiplied by a value determined by _fuzzy_matches()
+        def validate_fuzzy(field, hypothesis, phrase_weight):
+            minimal_field = field + ".minimal"
+            hypothesis, weight = fuzzy
+            eq_('fuzzy match for %s' % minimal_field, hypothesis)
+            eq_(phrase_weight*0.66, weight)
+
+            # Validate standard arguments passed into _fuzzy_matches.
+            # Since a fuzzy match is kind of loose, we don't allow a
+            # match on a single word of a multi-word query. At least
+            # two of the words have to be involved.
+            eq_(dict(minimum_should_match=2, query='book'),
+                query.fuzzy_calls[minimal_field])
+        validate_fuzzy("regular_field", fuzzy, 2)
+
+        # Now try a field where stopwords might be relevant.
+        term, phrase, fuzzy = list(m("stopword_field"))
+
+        # There was no new hypothesis, because our query doesn't
+        # contain any stopwords.  Let's make it look like it does.
+        query.contains_stopwords = True
+        term, phrase, fuzzy, stopword = list(m("stopword_field"))
+
+        # We have the term query, the phrase match query, and the
+        # fuzzy query. Note that they're boosted relative to the base
+        # weight for the stopword_field query, which is 3.
+        validate_keyword("stopword_field", term, 3000)
+        validate_minimal("stopword_field", phrase, 3)
+        validate_fuzzy("stopword_field", fuzzy, 3)
+
+        # We also have a new hypothesis which matches the version of
+        # stopword_field that leaves the stopwords in place.  This
+        # hypothesis is boosted just above the baseline hypothesis.
+        hypothesis, weight = stopword
+        eq_(hypothesis,
+            MatchPhrase(**{"stopword_field.with_stopwords": "book"}))
+        eq_(weight, 3 * Mock.SLIGHTLY_ABOVE_BASELINE)
+
+        # Finally, let's try a stemmable field.
+        term, phrase, fuzzy, stemmable = list(m("stemmable_field"))
+        validate_keyword("stemmable_field", term, 4000)
+        validate_minimal("stemmable_field", phrase, 4)
+        validate_fuzzy("stemmable_field", fuzzy, 4)
+
+        # The stemmable field becomes a Match hypothesis at 75% of the
+        # baseline weight for this field. We set
+        # minimum_should_match=2 here for the same reason we do it for
+        # the fuzzy search -- a normal Match query is kind of loose.
+        hypothesis, weight = stemmable
+        eq_(hypothesis,
+            Match(
+                stemmable_field=dict(
+                    minimum_should_match=2,
+                    query="book"
+                )
+            )
+        )
+        eq_(weight, 4 * 0.75)
+
+    def test_match_author_hypotheses(self):
+        # Test our ability to generate hypotheses that a query string
+        # is an attempt to identify the author of a book. We do this
+        # by calling _author_field_must_match several times -- that's
+        # where most of the work happens.
+        class Mock(Query):
+            def _author_field_must_match(self, base_field, query_string=None):
+                yield "%s must match %s" % (base_field, query_string)
+
+        query = Mock("ursula le guin")
+        hypotheses = list(query.match_author_hypotheses)
+
+        # We test three hypotheses: the query string is the author's
+        # display name, it's the author's sort name, or it matches the
+        # author's sort name when automatically converted to a sort
+        # name.
+        eq_(
+            [
+                'display_name must match ursula le guin',
+                'sort_name must match le guin, ursula'
+            ],
+            hypotheses
+        )
+
+        # If the string passed in already looks like a sort name, we
+        # don't try to convert it -- but someone's name may contain a
+        # comma, so we do check both fields.
+        query = Mock("le guin, ursula")
+        hypotheses = list(query.match_author_hypotheses)
+        eq_(
+            [
+                'display_name must match le guin, ursula',
+                'sort_name must match le guin, ursula',
+            ],
+            hypotheses
+        )
+
+    def test__author_field_must_match(self):
+        class Mock(Query):
+            def match_one_field_hypotheses(self, field_name, query_string):
+                hypothesis = "maybe %s matches %s" % (field_name, query_string)
+                yield hypothesis, 6
+
+            def _role_must_also_match(self, hypothesis):
+                return [hypothesis, "(but the role must be appropriate)"]
+
+        query = Mock("ursula le guin")
+        m = query._author_field_must_match
+
+        # We call match_one_field_hypothesis with the field name, and
+        # run the result through _role_must_also_match() to ensure we
+        # only get works where this author made a major contribution.
+        [(hypothesis, weight)] = list(m("display_name"))
+        eq_(
+            ['maybe contributors.display_name matches ursula le guin',
+             '(but the role must be appropriate)'],
+            hypothesis
+        )
+        eq_(6, weight)
+
+        # We can pass in a different query string to override
+        # .query_string. This is how we test a match against our guess
+        # at an author's sort name.
+        [(hypothesis, weight)] = list(m("sort_name", "le guin, ursula"))
+        eq_(
+            ['maybe contributors.sort_name matches le guin, ursula',
+             '(but the role must be appropriate)'],
+            hypothesis
+        )
+        eq_(6, weight)
+
+    def test__role_must_also_match(self):
+        class Mock(Query):
+            @classmethod
+            def _nest(cls, subdocument, base):
+                return ("nested", subdocument, base)
+
+        # Verify that _role_must_also_match() puts an appropriate
+        # restriction on a match against a field in the 'contributors'
+        # sub-document.
+        original_query = Term(**{'contributors.sort_name': 'ursula le guin'})
+        modified = Mock._role_must_also_match(original_query)
+
+        # The resulting query was run through Mock._nest. In a real
+        # scenario this would turn it into a nested query against the
+        # 'contributors' subdocument.
+        nested, subdocument, modified_base = modified
+        eq_("nested", nested)
+        eq_("contributors", subdocument)
+
+        # The original query was combined with an extra clause, which
+        # only matches people if their contribution to a book was of
+        # the type that library patrons are likely to search for.
+        extra = Terms(**{"contributors.role": ['Primary Author', 'Author', 'Narrator']})
+        eq_(Bool(must=[original_query, extra]), modified_base)
+
+    def test_match_topic_hypotheses(self):
+        query = Query("whales")
+        [(hypothesis, weight)] = list(query.match_topic_hypotheses)
+
+        # There's a single hypothesis -- a MultiMatch covering both
+        # summary text and classifications. The score for a book is
+        # whichever of the two types of fields is a better match for
+        # 'whales'.
+        eq_(
+            MultiMatch(
+                query="whales",
+                fields=["summary", "classifications.term"],
+                type="best_fields",
+            ),
+            hypothesis
+        )
+        # The weight of the hypothesis is the base weight associated
+        # with the 'summary' field.
+        eq_(Query.WEIGHT_FOR_FIELD['summary'], weight)
+
+    def test_title_multi_match_for(self):
+        # Test our ability to hypothesize that a query string might
+        # contain some text from the title plus some text from
+        # some other field.
+
+        # If there's only one word in the query, then we don't bother
+        # making this hypothesis at all.
+        eq_(
+            [],
+            list(Query("grasslands").title_multi_match_for("other field"))
+        )
+
+        query = Query("grass lands")
+        [(hypothesis, weight)] = list(query.title_multi_match_for("author"))
+
+        expect = MultiMatch(
+            query="grass lands",
+            fields = ['title.minimal', 'author.minimal'],
+            type="cross_fields",
+            operator="and",
+            minimum_should_match="100%",
+        )
+        eq_(expect, hypothesis)
+
+        # The weight of this hypothesis is between the weight of a
+        # pure title match and the weight of a pure author match.
+        title_weight = Query.WEIGHT_FOR_FIELD['title']
+        author_weight = Query.WEIGHT_FOR_FIELD['author']
+        eq_(weight, author_weight * (author_weight/title_weight))
+
+    def test_parsed_query_matches(self):
+        # Test our ability to take a query like "asteroids
+        # nonfiction", and turn it into a single hypothesis
+        # encapsulating the idea: "what if they meant to do a search
+        # on 'asteroids' but with a nonfiction filter?
+
+        query = Query("nonfiction asteroids")
+
+        # The work of this method is simply delegated to QueryParser.
+        parser = QueryParser(query.query_string)
+        expect = (parser.match_queries, parser.filters)
+
+        eq_(expect, query.parsed_query_matches)
+
+    def test_hypothesize(self):
         # Verify that _hypothesize() adds a query to a list,
         # boosting it if necessary.
         class Mock(Query):
+            boost_extras = []
             @classmethod
-            def _boost(cls, boost, query):
-                return "%s boosted by %d" % (query, boost)
+            def _boost(cls, boost, queries, filters=None, **kwargs):
+                if filters or kwargs:
+                    cls.boost_extras.append((filters, kwargs))
+                return "%s boosted by %d" % (queries, boost)
 
         hypotheses = []
 
@@ -2253,201 +2724,26 @@ class TestQuery(DatabaseTest):
         # query.
         Mock._hypothesize(hypotheses, None, 100)
         eq_([], hypotheses)
+        eq_([], Mock.boost_extras)
 
         # If it is passed a real query, _boost() is called on the
         # query object.
         Mock._hypothesize(hypotheses, "query object", 10)
         eq_(["query object boosted by 10"], hypotheses)
+        eq_([], Mock.boost_extras)
 
         Mock._hypothesize(hypotheses, "another query object", 1)
         eq_(["query object boosted by 10", "another query object boosted by 1"],
             hypotheses)
+        eq_([], Mock.boost_extras)
 
-
-    def test__combine_hypotheses(self):
-        # Verify that _combine_hypotheses creates a DisMax query object
-        # that chooses the best one out of whichever queries it was passed.
-        h1 = Q("simple_query_string", query="query 1")
-        h2 = Q("simple_query_string", query="query 2")
-        hypotheses = [h1, h2]
-        combined = Query._combine_hypotheses(hypotheses)
-        eq_("dis_max", combined.name)
-        eq_(hypotheses, combined.queries)
-
-    def test__boost(self):
-        # Verify that _boost() converts a regular query (or list of queries)
-        # into a boosted query.
-        q1 = Q("simple_query_string", query="query 1")
-        q2 = Q("simple_query_string", query="query 2")
-
-        boosted_one = Query._boost(10, q1)
-        eq_("bool", boosted_one.name)
-        eq_(10.0, boosted_one.boost)
-        eq_([q1], boosted_one.must)
-
-        # By default, if you pass in multiple queries, only one of them
-        # must match for the boost to apply.
-        boosted_multiple = Query._boost(4.5, [q1, q2])
-        eq_("bool", boosted_multiple.name)
-        eq_(4.5, boosted_multiple.boost)
-        eq_(1, boosted_multiple.minimum_should_match)
-        eq_([q1, q2], boosted_multiple.should)
-
-        # Here, every query must match for the boost to apply.
-        boosted_multiple = Query._boost(4.5, [q1, q2], all_must_match=True)
-        eq_("bool", boosted_multiple.name)
-        eq_(4.5, boosted_multiple.boost)
-        eq_([q1, q2], boosted_multiple.must)
-
-        # A Bool query has its boost changed but is otherwise left alone.
-        bool = Q("bool", boost=10)
-        boosted_bool = Query._boost(1, bool)
-        eq_(Q("bool", boost=1), boosted_bool)
-
-        # Some other kind of query that's being given a "boost" of 1
-        # is left alone.
-        eq_(q1, Query._boost(1, q1))
-
-    def test_simple_query_string_query(self):
-        # Verify that simple_query_string_query() returns a
-        # SimpleQueryString Elasticsearch object.
-        qu = Query.simple_query_string_query("hello")
-        eq_("simple_query_string", qu.name)
-        eq_(Query.SIMPLE_QUERY_STRING_FIELDS, qu.fields)
-        eq_("hello", qu.query)
-
-        # It's possible to use your own set of fields instead of
-        # the defaults.
-        custom_fields = ['field1', 'field2']
-        qu = Query.simple_query_string_query("hello", custom_fields)
-        eq_(custom_fields, qu.fields)
-        eq_("hello", qu.query)
-
-    def test_fuzzy_string_query(self):
-        # fuzzy_string_query() returns a MultiMatch Elasticsearch
-        # object, unless the query string looks like a fuzzy search
-        # will do poorly on it -- then it returns None.
-
-        qu = Query.fuzzy_string_query("hello")
-        eq_("multi_match", qu.name)
-        eq_(Query.FUZZY_QUERY_STRING_FIELDS, qu.fields)
-        eq_("best_fields", qu.type)
-        eq_("AUTO", qu.fuzziness)
-        eq_("hello", qu.query)
-        eq_(1, qu.prefix_length)
-
-        # This query string contains a string that is known to mess
-        # with fuzzy searches.
-        qu = Query.fuzzy_string_query("tennis players")
-
-        # fuzzy_string_query does nothing, to avoid bad results.
-        eq_(None, qu)
-
-    def test__match(self):
-        # match creates a Match Elasticsearch object which does a
-        # match against a specific field.
-        qu = Query._match("author", "flannery o'connor")
-        eq_(
-            {'match': {'author': "flannery o'connor"}},
-            qu.to_dict()
-        )
-
-        # If the field name contains a period, the query is embedded
-        # in a Nested object that describes how to match it against a
-        # subdocument.
-        qu = Query._match("genres.name", "Biography")
-        base_query = {'match': {'genres.name': 'Biography'}}
-        eq_(
-            {'nested': {'query': base_query, 'path': 'genres'}},
-            qu.to_dict()
-        )
-
-
-    def test__match_phrase(self):
-        # match_phrase creates a MatchPhrase Elasticsearch
-        # object which does a phrase match against a specific field.
-        qu = Query._match_phrase("author", "flannery o'connor")
-        eq_(
-            {'match_phrase': {'author': "flannery o'connor"}},
-            qu.to_dict()
-        )
-
-    def test_minimal_stemming_query(self):
-        class Mock(Query):
-            @classmethod
-            def _match_phrase(cls, field, query_string):
-                return "%s=%s" % (field, query_string)
-
-        m = Mock.minimal_stemming_query
-
-        # No fields, no queries.
-        eq_([], m("query string", []))
-
-        # If you pass in any fields, you get a _match_phrase
-        # query for each one.
-        results = m("query string", ["field1", "field2"])
-        eq_(
-            ["field1=query string", "field2=query string"],
-            results
-        )
-
-        # The default fields are MINIMAL_STEMMING_QUERY_FIELDS.
-        results = m("query string")
-        eq_(
-            ["%s=query string" % field
-             for field in Mock.MINIMAL_STEMMING_QUERY_FIELDS],
-            results
-        )
-
-    def test_make_target_age_query(self):
-
-        # Search for material suitable for children between the
-        # ages of 5 and 10.
-        qu = Query.make_target_age_query((5,10), boost=50.1)
-
-        # We get a boosted boolean query.
-        eq_("bool", qu.name)
-        eq_(50.1, qu.boost)
-
-        # To match the query, the material's target age must overlap
-        # the 5-10 age range.
-        five_year_olds_not_too_old, ten_year_olds_not_too_young = qu.must
-        eq_(
-            {'range': {'target_age.upper': {'gte': 5}}},
-            five_year_olds_not_too_old.to_dict()
-        )
-        eq_(
-            {'range': {'target_age.lower': {'lte': 10}}},
-            ten_year_olds_not_too_young.to_dict()
-        )
-
-        # To get the full boost, the target age must fit entirely within
-        # the 5-10 age range. If a book would also work for older or younger
-        # kids who aren't in this age range, it's not as good a match.
-        would_work_for_older_kids, would_work_for_younger_kids = qu.should
-        eq_(
-            {'range': {'target_age.upper': {'lte': 10}}},
-            would_work_for_older_kids.to_dict()
-        )
-        eq_(
-            {'range': {'target_age.lower': {'gte': 5}}},
-            would_work_for_younger_kids.to_dict()
-        )
-
-        # The default boost is 1.
-        qu = Query.make_target_age_query((5,10))
-        eq_(1, qu.boost)
-
-    def test__parsed_query_matches(self):
-        # _parsed_query_matches creates a QueryParser from
-        # the query string and returns whatever it comes up with.
-        #
-        # This is a basic test to verify that a QueryParser
-        # is in use. The QueryParser is tested in much greater detail
-        # in TestQueryParser.
-
-        [must_match] = Query._parsed_query_matches("nonfiction")
-        eq_({'match': {'fiction': 'Nonfiction'}}, must_match.to_dict())
+        # If a filter or any other arguments are passed in, those arguments
+        # are propagated to _boost().
+        hypotheses = []
+        Mock._hypothesize(hypotheses, "query with filter", 2, filters="some filters",
+                          extra="extra kwarg")
+        eq_(["query with filter boosted by 2"], hypotheses)
+        eq_([("some filters", dict(extra="extra kwarg"))], Mock.boost_extras)
 
 
 class TestQueryParser(DatabaseTest):
@@ -2460,21 +2756,24 @@ class TestQueryParser(DatabaseTest):
         # necessary query objects, and turns the remaining part of
         # the query into a 'simple query string'-type query.
 
-        class MockQuery(object):
+        class MockQuery(Query):
             """Create 'query' objects that are easier to test than
             the ones the Query class makes.
             """
             @classmethod
-            def simple_query_string_query(cls, query_string, fields):
-                return (query_string, fields)
-
-            @classmethod
-            def _match(cls, field, query):
+            def _match_term(cls, field, query):
                 return (field, query)
 
             @classmethod
-            def make_target_age_query(cls, query, boost):
-                return (query, boost)
+            def make_target_age_query(cls, query, boost="default boost"):
+                return ("target age (filter)", query), ("target age (query)", query, boost)
+
+            @property
+            def elasticsearch_query(self):
+                # Mock the creation of an extremely complicated DisMax
+                # query -- we just want to verify that such a query
+                # was created.
+                return "A huge DisMax for %r" % self.query_string
 
         parser = QueryParser("science fiction about dogs", MockQuery)
 
@@ -2491,36 +2790,34 @@ class TestQueryParser(DatabaseTest):
         whitespace = QueryParser(" abc ", MockQuery)
         eq_("abc", whitespace.original_query_string)
 
-        # The query string becomes a series of Query objects
-        # (simulated here by the tuples returned by the MockQuery
-        # methods).
-        #
-        # parser.match_queries contains some number of field-match
-        # queries, and then one final query that runs the unparseable
-        # portion of the query through a simple multi-field match.
-        query_string_fields = QueryParser.SIMPLE_QUERY_STRING_FIELDS
-        eq_(
-            [('genres.name', 'Science Fiction'),
-             ('about dogs', query_string_fields)],
-            parser.match_queries
-        )
+        # parser.filters contains the filters that we think we were
+        # able to derive from the query string.
+        eq_([('genres.name', 'Science Fiction')], parser.filters)
+
+        # parser.match_queries contains the result of putting the rest
+        # of the query string into a Query object (or, here, our
+        # MockQuery) and looking at its .elasticsearch_query. In a
+        # real scenario, this will result in a huge DisMax query
+        # that tries to consider all the things someone might be
+        # searching for, _in addition to_ applying a filter.
+        eq_(["A huge DisMax for 'about dogs'"], parser.match_queries)
 
         # Now that you see how it works, let's define a helper
-        # function that will let us easily verify that a certain
-        # query string becomes a certain set of field matches plus a
-        # certain string left over.
-        def assert_parses_as(query_string, *matches):
-            matches = list(matches)
+        # function which makes it easy to verify that a certain query
+        # string becomes a certain set of filters, plus a certain set
+        # of queries, plus a DisMax for some remainder string.
+        def assert_parses_as(query_string, filters, remainder, extra_queries=None):
+            if not isinstance(filters, list):
+                filters = [filters]
+            queries = extra_queries or []
+            if not isinstance(queries, list):
+                queries = [queries]
             parser = QueryParser(query_string, MockQuery)
-            remainder = matches.pop(-1)
+            eq_(filters, parser.filters)
+
             if remainder:
-                remainder_match = MockQuery.simple_query_string_query(
-                    remainder, query_string_fields
-                )
-                matches.append(remainder_match)
-            eq_(matches, parser.match_queries)
-            eq_(query_string, parser.original_query_string)
-            eq_(remainder, parser.final_query_string)
+                queries.append(MockQuery(remainder).elasticsearch_query)
+            eq_(queries, parser.match_queries)
 
         # Here's the same test from before, using the new
         # helper function.
@@ -2534,7 +2831,7 @@ class TestQueryParser(DatabaseTest):
 
         assert_parses_as(
             "children's picture books",
-            ("audience", "Children"),
+            ("audience", "children"),
             "picture books"
         )
 
@@ -2542,15 +2839,15 @@ class TestQueryParser(DatabaseTest):
         # such that there is no remainder match at all.)
         assert_parses_as(
             "young adult romance",
-            ("genres.name", "Romance"),
-            ("audience", "YoungAdult"),
+            [("genres.name", "Romance"),
+             ("audience", "youngadult")],
             ''
         )
 
         # Test fiction/nonfiction status.
         assert_parses_as(
             "fiction dinosaurs",
-            ("fiction", "Fiction"),
+            ("fiction", "fiction"),
             "dinosaurs"
         )
 
@@ -2559,22 +2856,32 @@ class TestQueryParser(DatabaseTest):
         # and "nonfiction" would not be picked up.)
         assert_parses_as(
             "science fiction or nonfiction dinosaurs",
-            ("genres.name", "Science Fiction"), ("fiction", "Nonfiction"),
+            [("genres.name", "Science Fiction"),
+             ("fiction", "nonfiction")],
             "or  dinosaurs"
         )
 
         # Test target age.
-
+        #
+        # These are a little different because the target age
+        # restriction shows up twice: once as a filter (to eliminate
+        # all books that don't fit the target age restriction) and
+        # once as a query (to boost books that cluster tightly around
+        # the target age, at the expense of books that span a wider
+        # age range).
         assert_parses_as(
             "grade 5 science",
-            ("genres.name", "Science"), ((10, 10), 40),
-            ''
+            [("genres.name", "Science"),
+             ("target age (filter)", (10, 10))],
+            '',
+            ("target age (query)", (10, 10), 'default boost')
         )
 
         assert_parses_as(
             'divorce ages 10 and up',
-            ((10, 14), 40),
-            'divorce  and up' # TODO: not ideal
+            ("target age (filter)", (10, 14)),
+            'divorce  and up', # TODO: not ideal
+            ("target age (query)", (10, 14), 'default boost'),
         )
 
         # Nothing can be parsed out from this query--it's an author's name
@@ -2585,27 +2892,50 @@ class TestQueryParser(DatabaseTest):
 
         # Finally, try parsing a query without using MockQuery.
         query = QueryParser("nonfiction asteroids")
-        nonfiction, asteroids = query.match_queries
+        [nonfiction] = query.filters
+        [asteroids] = query.match_queries
 
         # It creates real Elasticsearch-DSL query objects.
-        eq_({'match': {'fiction': 'Nonfiction'}}, nonfiction.to_dict())
 
-        eq_({'simple_query_string':
-             {'query': 'asteroids',
-              'fields': QueryParser.SIMPLE_QUERY_STRING_FIELDS }
-            },
-            asteroids.to_dict()
+        # The filter is a very simple Term query.
+        eq_(Term(fiction="nonfiction"), nonfiction)
+
+        # The query part is an extremely complicated DisMax query, so
+        # I won't test the whole thing, but it's what you would get if
+        # you just tried a search for "asteroids".
+        assert isinstance(asteroids, DisMax)
+        eq_(asteroids, Query("asteroids").elasticsearch_query)
+
+    def test_add_match_term_filter(self):
+        # TODO: this method could use a standalone test, but it's
+        # already covered by the test_constructor.
+        pass
+
+    def test_add_target_age_filter(self):
+        parser = QueryParser("")
+        parser.filters = []
+        parser.match_queries = []
+        remainder = parser.add_target_age_filter(
+            (10, 11), "penguins grade 5-6", "grade 5-6"
         )
+        eq_("penguins ", remainder)
 
-    def test_add_match_query(self):
-        # TODO: this method could use a standalone test, but it's
-        # already covered by the test_constructor.
-        pass
+        # Here's the filter part: a book's age range must be include the
+        # 10-11 range, or it gets filtered out.
+        filter_clauses = [
+            Range(**{"target_age.upper":dict(gte=10)}),
+            Range(**{"target_age.lower":dict(lte=11)}),
+        ]
+        eq_([Bool(must=filter_clauses)], parser.filters)
 
-    def test_add_target_age_query(self):
-        # TODO: this method could use a standalone test, but it's
-        # already covered by the test_constructor.
-        pass
+        # Here's the query part: a book gets boosted if its
+        # age range fits _entirely_ within the target age range.
+        query_clauses = [
+            Range(**{"target_age.upper":dict(lte=11)}),
+            Range(**{"target_age.lower":dict(gte=10)}),
+        ]
+        eq_([Bool(boost=1.1, must=filter_clauses, should=query_clauses)],
+            parser.match_queries)
 
     def test__without_match(self):
         # Test our ability to remove matched text from a string.

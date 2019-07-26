@@ -30,13 +30,19 @@ class GradeLevelClassifier(Classifier):
         'sixth' : 11,
         '6' : 11,
         '7' : 12,
+        'seventh' : 12,
         '8' : 13,
+        'eighth' : 13,
 
         # YA
         '9' : 14,
+        'ninth' : 14,
         '10' : 15,
+        'tenth': 15,
         '11' : 16,
+        'eleventh' : 17,
         '12': 17,
+        'twelfth': 17,
     }
 
     # Regular expressions that match common ways of expressing grade
