@@ -2689,6 +2689,14 @@ class TestAwardSearch(SearchTest):
             Common(summary=re.compile("nebula award"))
         )
 
+    def test_world_fantasy(self):
+        # This award contains the name of a genre.
+        self.search(
+            "world fantasy award",
+            Common(summary=re.compile("world fantasy award"),
+                   first_must_match=False)
+        )
+
     @known_to_fail
     def test_tiptree_award(self):
         # This award is named after an author. We don't want their
