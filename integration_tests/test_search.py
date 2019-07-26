@@ -137,7 +137,7 @@ class Evaluator(object):
             series=result.series,
             summary=result.summary,
             genres=result.genres,
-            imlogging.info=result.imlogging.info,
+            imprint=result.imprint,
             publisher=result.publisher,
         )
         return dict(
@@ -1623,7 +1623,7 @@ class TestMJRose(VariantSearchTest):
 
 class TestPublisherMatch(SearchTest):
     # Test the ability to find books by a specific publisher or
-    # imlogging.info.
+    # imprint.
 
     def test_harlequin_romance(self):
         self.search(
@@ -1633,13 +1633,13 @@ class TestPublisherMatch(SearchTest):
     def test_harlequin_historical(self):
         self.search(
             "harlequin historical",
-            Common(imlogging.info="harlequin historical", genre="Romance")
+            Common(imprint="harlequin historical", genre="Romance")
         )
 
     def test_princeton_review(self):
         self.search(
             "princeton review",
-            Common(imlogging.info="princeton review")
+            Common(imprint="princeton review")
         )
 
     def test_scholastic(self):
