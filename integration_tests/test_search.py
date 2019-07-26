@@ -2718,6 +2718,20 @@ class TestAwardSearch(SearchTest):
             ]
         )
 
+    @known_to_fail
+    def test_staff_picks(self):
+        # We're looking for books that are this library's staff picks,
+        # not books attributed to some company's "staff".
+        #
+        # We don't know which books are staff picks, but we can check
+        # that the obvious wrong answers don't show up.
+        self.search(
+            "staff picks",
+            [
+                Uncommon(author=re.compile("staff|picks")),
+                Uncommon(title=re.compile("staff|picks"))
+            ]
+        )
 
 class TestCharacterMatch(SearchTest):
     # These searches are best understood as an attempt to find books
