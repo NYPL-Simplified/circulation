@@ -18,6 +18,7 @@ uwsgi
 loggly-python-handler
 mock
 py-bcrypt
+pyspellchecker
 Flask-Babel
 money
 pymarc
