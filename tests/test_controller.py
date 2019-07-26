@@ -2203,6 +2203,11 @@ class TestWorkController(CirculationControllerTest):
         [contribution] = self.english_1.presentation_edition.contributions
         contributor = contribution.contributor
 
+        # The contributor is created with both .sort_name and
+        # .display_name, but we want to test what happens when both
+        # pieces of data aren't avaiable, so unset .sort_name.
+        contributor.sort_name = None
+
         # No contributor name -> ProblemDetail
         with self.request_context_with_library('/'):
             response = m('', None, None)
@@ -2218,7 +2223,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(NO_SUCH_LANE.uri, response.uri)
         eq_("Unknown contributor: Unknown Author", response.detail)
 
-        contributor = contributor.sort_name
+        contributor = contributor.display_name
 
         # Search index misconfiguration -> Problem detail
         self.assert_bad_search_index_gives_problem_detail(
@@ -2266,7 +2271,7 @@ class TestWorkController(CirculationControllerTest):
         cached = self._db.query(CachedFeed).one()
         eq_(CachedFeed.CONTRIBUTOR_TYPE, cached.type)
         eq_(
-            'Bull, John-eng,spa-Children,Young+Adult',
+            'John Bull-eng,spa-Children,Young+Adult',
             cached.unique_key
         )
 
@@ -2622,10 +2627,10 @@ class TestWorkController(CirculationControllerTest):
 
         # Here's the sublane for books by this contributor.
         [same_contributor_href, same_contributor_entry] = by_collection_link[
-            'Bull, John'
+            'John Bull'
         ]
         eq_("Same author and series", same_contributor_entry['title'])
-        expected_contributor_link = urllib.quote('contributor/Bull, John/eng/')
+        expected_contributor_link = urllib.quote('contributor/John Bull/eng/')
         assert same_contributor_href.endswith(expected_contributor_link)
 
         # Here's the sublane for recommendations from NoveList.
