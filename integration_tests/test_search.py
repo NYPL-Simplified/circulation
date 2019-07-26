@@ -172,7 +172,7 @@ class Evaluator(object):
                 )
             )
             for hit in hits:
-                logging.info(hit)
+                logging.info(repr(hit))
         assert actual >= threshold
 
     def _match_scalar(self, value, expect, inclusive=False, case_sensitive=False):
@@ -2656,6 +2656,66 @@ class TestLanguageRestriction(SearchTest):
         self.search(
             "gatos",
             Common(language="spa", threshold=0.7)
+        )
+
+
+class TestAwardSearch(SearchTest):
+    # Attempts to find books that won particular awards.
+
+    @known_to_fail
+    def test_hugo(self):
+        # This has big problems because the name of the award is also
+        # a very common personal name.
+        self.search(
+            "hugo award",
+            [
+                Common(summary=re.compile("hugo award")),
+                Uncommon(author="Victor Hugo"),
+                Uncommon(series=re.compile("hugo")),
+            ]
+        )
+
+    def test_nebula(self):
+        self.search(
+            "nebula award",
+            Common(summary=re.compile("nebula award"))
+        )
+
+    def test_nebula_no_award(self):
+        # This one does great -- the award is the most common
+        # use of the word "nebula".
+        self.search(
+            "nebula",
+            Common(summary=re.compile("nebula award"))
+        )
+
+    @known_to_fail
+    def test_newberry(self):
+        # Tends to get author matches.
+        self.search(
+            "newbery",
+            Common(summary=re.compile("newbery medal"))
+        )
+
+    @known_to_fail
+    def test_man_booker(self):
+        # This gets author and title matches.
+        self.search(
+            "man booker prize",
+            Common(summary=re.compile("man booker prize"),
+                   first_must_match=False)
+        )
+
+    def test_award_winning(self):
+        # NOTE: It's unclear how to validate these results, but it's
+        # more likely an award-winning book will mention "award" in
+        # its summary than in its title.
+        self.search(
+            "award-winning",
+            [
+                Common(summary=re.compile("award"), threshold=0.5),
+                Uncommon(title=re.compile("award"), threshold=0.5),
+            ]
         )
 
 
