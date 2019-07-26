@@ -1,0 +1,220 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>classifier.lcc &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for classifier.lcc</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="o">*</span>
+
+<div class="viewcode-block" id="LCCClassifier"><a class="viewcode-back" href="../../classifier.html#classifier.lcc.LCCClassifier">[docs]</a><span class="k">class</span> <span class="nc">LCCClassifier</span><span class="p">(</span><span class="n">Classifier</span><span class="p">):</span>
+
+    <span class="n">TOP_LEVEL</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;^([A-Z]{1,2})&quot;</span><span class="p">)</span>
+    <span class="n">FICTION</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="s2">&quot;PN&quot;</span><span class="p">,</span> <span class="s2">&quot;PQ&quot;</span><span class="p">,</span> <span class="s2">&quot;PR&quot;</span><span class="p">,</span> <span class="s2">&quot;PS&quot;</span><span class="p">,</span> <span class="s2">&quot;PT&quot;</span><span class="p">,</span> <span class="s2">&quot;PZ&quot;</span><span class="p">])</span>
+    <span class="n">JUVENILE</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="s2">&quot;PZ&quot;</span><span class="p">])</span>
+
+    <span class="n">GENRES</span> <span class="o">=</span> <span class="p">{</span>
+
+        <span class="c1"># Unclassified/complicated stuff.</span>
+        <span class="c1"># &quot;America&quot;: E11-E143</span>
+        <span class="c1"># Ancient_History: D51-D90</span>
+        <span class="c1"># Angling: SH401-SH691</span>
+        <span class="c1"># Civil_War_History: E456-E655</span>
+        <span class="c1"># Geography: leftovers of G</span>
+        <span class="c1"># Islam: BP1-BP253</span>
+        <span class="c1"># Latin_American_History: F1201-F3799</span>
+        <span class="c1"># Medieval History: D111-D203</span>
+        <span class="c1"># Military_History: D25-D27</span>
+        <span class="c1"># Modern_History: ???</span>
+        <span class="c1"># Renaissance_History: D219-D234 (1435-1648, so roughly)</span>
+        <span class="c1"># Sports: GV557-1198.995</span>
+        <span class="c1"># TODO: E and F are actually &quot;the Americas&quot;.</span>
+        <span class="c1"># United_States_History is E151-E909, F1-F975 but not E456-E655</span>
+        <span class="n">African_History</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;DT&quot;</span><span class="p">],</span>
+        <span class="n">Ancient_History</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;DE&quot;</span><span class="p">],</span>
+        <span class="n">Architecture</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;NA&quot;</span><span class="p">],</span>
+        <span class="n">Art_Criticism_Theory</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;BH&quot;</span><span class="p">],</span>
+        <span class="n">Asian_History</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;DS&quot;</span><span class="p">,</span> <span class="s2">&quot;DU&quot;</span><span class="p">],</span>
+        <span class="n">Biography_Memoir</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CT&quot;</span><span class="p">],</span>
+        <span class="n">Business</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;HC&quot;</span><span class="p">,</span> <span class="s2">&quot;HF&quot;</span><span class="p">,</span> <span class="s2">&quot;HJ&quot;</span><span class="p">],</span>
+        <span class="n">Christianity</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;BR&quot;</span><span class="p">,</span> <span class="s2">&quot;BS&quot;</span><span class="p">,</span> <span class="s2">&quot;BT&quot;</span><span class="p">,</span> <span class="s2">&quot;BV&quot;</span><span class="p">,</span> <span class="s2">&quot;BX&quot;</span><span class="p">],</span>
+        <span class="n">Cooking</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;TX&quot;</span><span class="p">],</span>
+        <span class="n">Crafts_Hobbies</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;TT&quot;</span><span class="p">],</span>
+        <span class="n">Economics</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;HB&quot;</span><span class="p">],</span>
+        <span class="n">Education</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;L&quot;</span><span class="p">],</span>
+        <span class="n">European_History</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;DA&quot;</span><span class="p">,</span> <span class="s2">&quot;DAW&quot;</span><span class="p">,</span> <span class="s2">&quot;DB&quot;</span><span class="p">,</span> <span class="s2">&quot;DD&quot;</span><span class="p">,</span> <span class="s2">&quot;DF&quot;</span><span class="p">,</span> <span class="s2">&quot;DG&quot;</span><span class="p">,</span> <span class="s2">&quot;DH&quot;</span><span class="p">,</span> <span class="s2">&quot;DJ&quot;</span><span class="p">,</span> <span class="s2">&quot;DK&quot;</span><span class="p">,</span> <span class="s2">&quot;DL&quot;</span><span class="p">,</span> <span class="s2">&quot;DP&quot;</span><span class="p">,</span> <span class="s2">&quot;DQ&quot;</span><span class="p">,</span> <span class="s2">&quot;DR&quot;</span><span class="p">],</span>
+        <span class="n">Folklore</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;GR&quot;</span><span class="p">],</span>
+        <span class="n">Games</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;GV&quot;</span><span class="p">],</span>
+        <span class="n">Islam</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;BP&quot;</span><span class="p">],</span>
+        <span class="n">Judaism</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;BM&quot;</span><span class="p">],</span>
+        <span class="n">Literary_Criticism</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Z&quot;</span><span class="p">],</span>
+        <span class="n">Mathematics</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;QA&quot;</span><span class="p">,</span> <span class="s2">&quot;HA&quot;</span><span class="p">,</span> <span class="s2">&quot;GA&quot;</span><span class="p">],</span>
+        <span class="n">Medical</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;QM&quot;</span><span class="p">,</span> <span class="s2">&quot;R&quot;</span><span class="p">],</span>
+        <span class="n">Military_History</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="s2">&quot;V&quot;</span><span class="p">],</span>
+        <span class="n">Music</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;M&quot;</span><span class="p">],</span>
+        <span class="n">Parenting_Family</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;HQ&quot;</span><span class="p">],</span>
+        <span class="n">Periodicals</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;AP&quot;</span><span class="p">,</span> <span class="s2">&quot;AN&quot;</span><span class="p">],</span>
+        <span class="n">Philosophy</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;BC&quot;</span><span class="p">,</span> <span class="s2">&quot;BD&quot;</span><span class="p">,</span> <span class="s2">&quot;BJ&quot;</span><span class="p">],</span>
+        <span class="n">Photography</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;TR&quot;</span><span class="p">],</span>
+        <span class="n">Political_Science</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;J&quot;</span><span class="p">,</span> <span class="s2">&quot;HX&quot;</span><span class="p">],</span>
+        <span class="n">Psychology</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;BF&quot;</span><span class="p">],</span>
+        <span class="n">Reference_Study_Aids</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;AE&quot;</span><span class="p">,</span> <span class="s2">&quot;AG&quot;</span><span class="p">,</span> <span class="s2">&quot;AI&quot;</span><span class="p">],</span>
+        <span class="n">Religion_Spirituality</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;BL&quot;</span><span class="p">,</span> <span class="s2">&quot;BQ&quot;</span><span class="p">],</span>
+        <span class="n">Science</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;QB&quot;</span><span class="p">,</span> <span class="s2">&quot;QC&quot;</span><span class="p">,</span> <span class="s2">&quot;QD&quot;</span><span class="p">,</span> <span class="s2">&quot;QE&quot;</span><span class="p">,</span> <span class="s2">&quot;QH&quot;</span><span class="p">,</span> <span class="s2">&quot;QK&quot;</span><span class="p">,</span> <span class="s2">&quot;QL&quot;</span><span class="p">,</span> <span class="s2">&quot;QR&quot;</span><span class="p">,</span> <span class="s2">&quot;CC&quot;</span><span class="p">,</span> <span class="s2">&quot;GB&quot;</span><span class="p">,</span> <span class="s2">&quot;GC&quot;</span><span class="p">,</span> <span class="s2">&quot;QP&quot;</span><span class="p">],</span>
+        <span class="n">Social_Sciences</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;HD&quot;</span><span class="p">,</span> <span class="s2">&quot;HE&quot;</span><span class="p">,</span> <span class="s2">&quot;HF&quot;</span><span class="p">,</span> <span class="s2">&quot;HM&quot;</span><span class="p">,</span> <span class="s2">&quot;HN&quot;</span><span class="p">,</span> <span class="s2">&quot;HS&quot;</span><span class="p">,</span> <span class="s2">&quot;HT&quot;</span><span class="p">,</span> <span class="s2">&quot;HV&quot;</span><span class="p">,</span> <span class="s2">&quot;GN&quot;</span><span class="p">,</span> <span class="s2">&quot;GF&quot;</span><span class="p">,</span> <span class="s2">&quot;GT&quot;</span><span class="p">],</span>
+        <span class="n">Sports</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;SK&quot;</span><span class="p">],</span>
+        <span class="n">World_History</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;CB&quot;</span><span class="p">],</span>
+    <span class="p">}</span>
+
+    <span class="n">LEFTOVERS</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+        <span class="n">B</span><span class="o">=</span><span class="n">Philosophy</span><span class="p">,</span>
+        <span class="n">T</span><span class="o">=</span><span class="n">Technology</span><span class="p">,</span>
+        <span class="n">Q</span><span class="o">=</span><span class="n">Science</span><span class="p">,</span>
+        <span class="n">S</span><span class="o">=</span><span class="n">Science</span><span class="p">,</span>
+        <span class="n">H</span><span class="o">=</span><span class="n">Social_Sciences</span><span class="p">,</span>
+        <span class="n">D</span><span class="o">=</span><span class="n">History</span><span class="p">,</span>
+        <span class="n">N</span><span class="o">=</span><span class="n">Art</span><span class="p">,</span>
+        <span class="n">L</span><span class="o">=</span><span class="n">Education</span><span class="p">,</span>
+        <span class="n">E</span><span class="o">=</span><span class="n">United_States_History</span><span class="p">,</span>
+        <span class="n">F</span><span class="o">=</span><span class="n">United_States_History</span><span class="p">,</span>
+        <span class="n">BP</span><span class="o">=</span><span class="n">Religion_Spirituality</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">NAMES</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">resource_dir</span><span class="p">,</span> <span class="s2">&quot;lcc_one_level.json&quot;</span><span class="p">)))</span>
+
+<div class="viewcode-block" id="LCCClassifier.scrub_identifier"><a class="viewcode-back" href="../../classifier.html#classifier.lcc.LCCClassifier.scrub_identifier">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">scrub_identifier</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">identifier</span>
+        <span class="k">return</span> <span class="n">identifier</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span></div>
+
+<div class="viewcode-block" id="LCCClassifier.name_for"><a class="viewcode-back" href="../../classifier.html#classifier.lcc.LCCClassifier.name_for">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">name_for</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">NAMES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">identifier</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="LCCClassifier.is_fiction"><a class="viewcode-back" href="../../classifier.html#classifier.lcc.LCCClassifier.is_fiction">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_fiction</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">identifier</span> <span class="o">==</span> <span class="s1">&#39;P&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">identifier</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;P&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">FICTION</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">identifier</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+                <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="LCCClassifier.genre"><a class="viewcode-back" href="../../classifier.html#classifier.lcc.LCCClassifier.genre">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">genre</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">fiction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">audience</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">genre</span><span class="p">,</span> <span class="n">strings</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">GENRES</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">strings</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">identifier</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">s</span><span class="p">):</span>
+                    <span class="k">return</span> <span class="n">genre</span>
+        <span class="k">for</span> <span class="n">prefix</span><span class="p">,</span> <span class="n">genre</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">LEFTOVERS</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">identifier</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">prefix</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">genre</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="LCCClassifier.audience"><a class="viewcode-back" href="../../classifier.html#classifier.lcc.LCCClassifier.audience">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">audience</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">identifier</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;PZ&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span>
+        <span class="c1"># Everything else is implicitly for adults.</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span></div></div>
+
+<span class="n">Classifier</span><span class="o">.</span><span class="n">classifiers</span><span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">LCC</span><span class="p">]</span> <span class="o">=</span> <span class="n">LCCClassifier</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  <li><a href="../classifier.html">classifier</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

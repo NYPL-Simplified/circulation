@@ -1,0 +1,239 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>classifier.bic &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for classifier.bic</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="o">*</span>
+
+<div class="viewcode-block" id="BICClassifier"><a class="viewcode-back" href="../../classifier.html#classifier.bic.BICClassifier">[docs]</a><span class="k">class</span> <span class="nc">BICClassifier</span><span class="p">(</span><span class="n">Classifier</span><span class="p">):</span>
+    <span class="c1"># These prefixes came from from http://editeur.dyndns.org/bic_categories</span>
+
+    <span class="n">LEVEL_1_PREFIXES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">Art_Design</span><span class="p">:</span> <span class="s1">&#39;A&#39;</span><span class="p">,</span>
+        <span class="n">Biography_Memoir</span><span class="p">:</span> <span class="s1">&#39;B&#39;</span><span class="p">,</span>
+        <span class="n">Foreign_Language_Study</span><span class="p">:</span> <span class="s1">&#39;C&#39;</span><span class="p">,</span>
+        <span class="n">Literary_Criticism</span><span class="p">:</span> <span class="s1">&#39;D&#39;</span><span class="p">,</span>
+        <span class="n">Reference_Study_Aids</span><span class="p">:</span> <span class="s1">&#39;G&#39;</span><span class="p">,</span>
+        <span class="n">Social_Sciences</span><span class="p">:</span> <span class="s1">&#39;J&#39;</span><span class="p">,</span>
+        <span class="n">Personal_Finance_Business</span><span class="p">:</span> <span class="s1">&#39;K&#39;</span><span class="p">,</span>
+        <span class="n">Law</span><span class="p">:</span> <span class="s1">&#39;L&#39;</span><span class="p">,</span>
+        <span class="n">Medical</span><span class="p">:</span> <span class="s1">&#39;M&#39;</span><span class="p">,</span>
+        <span class="n">Science_Technology</span><span class="p">:</span> <span class="s1">&#39;P&#39;</span><span class="p">,</span>
+        <span class="n">Technology</span><span class="p">:</span> <span class="s1">&#39;T&#39;</span><span class="p">,</span>
+        <span class="n">Computers</span><span class="p">:</span> <span class="s1">&#39;U&#39;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">LEVEL_2_PREFIXES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">Art_History</span><span class="p">:</span> <span class="s1">&#39;AC&#39;</span><span class="p">,</span>
+        <span class="n">Photography</span><span class="p">:</span> <span class="s1">&#39;AJ&#39;</span><span class="p">,</span>
+        <span class="n">Design</span><span class="p">:</span> <span class="s1">&#39;AK&#39;</span><span class="p">,</span>
+        <span class="n">Architecture</span><span class="p">:</span> <span class="s1">&#39;AM&#39;</span><span class="p">,</span>
+        <span class="n">Film_TV</span><span class="p">:</span> <span class="s1">&#39;AP&#39;</span><span class="p">,</span>
+        <span class="n">Performing_Arts</span><span class="p">:</span> <span class="s1">&#39;AS&#39;</span><span class="p">,</span>
+        <span class="n">Music</span><span class="p">:</span> <span class="s1">&#39;AV&#39;</span><span class="p">,</span>
+        <span class="n">Poetry</span><span class="p">:</span> <span class="s1">&#39;DC&#39;</span><span class="p">,</span>
+        <span class="n">Drama</span><span class="p">:</span> <span class="s1">&#39;DD&#39;</span><span class="p">,</span>
+        <span class="n">Classics</span><span class="p">:</span> <span class="s1">&#39;FC&#39;</span><span class="p">,</span>
+        <span class="n">Mystery</span><span class="p">:</span> <span class="s1">&#39;FF&#39;</span><span class="p">,</span>
+        <span class="n">Suspense_Thriller</span><span class="p">:</span> <span class="s1">&#39;FH&#39;</span><span class="p">,</span>
+        <span class="n">Adventure</span><span class="p">:</span> <span class="s1">&#39;FJ&#39;</span><span class="p">,</span>
+        <span class="n">Horror</span><span class="p">:</span> <span class="s1">&#39;FK&#39;</span><span class="p">,</span>
+        <span class="n">Science_Fiction</span><span class="p">:</span> <span class="s1">&#39;FL&#39;</span><span class="p">,</span>
+        <span class="n">Fantasy</span><span class="p">:</span> <span class="s1">&#39;FM&#39;</span><span class="p">,</span>
+        <span class="n">Erotica</span><span class="p">:</span> <span class="s1">&#39;FP&#39;</span><span class="p">,</span>
+        <span class="n">Romance</span><span class="p">:</span> <span class="s1">&#39;FR&#39;</span><span class="p">,</span>
+        <span class="n">Historical_Fiction</span><span class="p">:</span> <span class="s1">&#39;FV&#39;</span><span class="p">,</span>
+        <span class="n">Religious_Fiction</span><span class="p">:</span> <span class="s1">&#39;FW&#39;</span><span class="p">,</span>
+        <span class="n">Comics_Graphic_Novels</span><span class="p">:</span> <span class="s1">&#39;FX&#39;</span><span class="p">,</span>
+        <span class="n">History</span><span class="p">:</span> <span class="s1">&#39;HB&#39;</span><span class="p">,</span>
+        <span class="n">Philosophy</span><span class="p">:</span> <span class="s1">&#39;HP&#39;</span><span class="p">,</span>
+        <span class="n">Religion_Spirituality</span><span class="p">:</span> <span class="s1">&#39;HR&#39;</span><span class="p">,</span>
+        <span class="n">Psychology</span><span class="p">:</span> <span class="s1">&#39;JM&#39;</span><span class="p">,</span>
+        <span class="n">Education</span><span class="p">:</span> <span class="s1">&#39;JN&#39;</span><span class="p">,</span>
+        <span class="n">Political_Science</span><span class="p">:</span> <span class="s1">&#39;JP&#39;</span><span class="p">,</span>
+        <span class="n">Economics</span><span class="p">:</span> <span class="s1">&#39;KC&#39;</span><span class="p">,</span>
+        <span class="n">Business</span><span class="p">:</span> <span class="s1">&#39;KJ&#39;</span><span class="p">,</span>
+        <span class="n">Mathematics</span><span class="p">:</span> <span class="s1">&#39;PB&#39;</span><span class="p">,</span>
+        <span class="n">Science</span><span class="p">:</span> <span class="s1">&#39;PD&#39;</span><span class="p">,</span>
+        <span class="n">Self_Help</span><span class="p">:</span> <span class="s1">&#39;VS&#39;</span><span class="p">,</span>
+        <span class="n">Body_Mind_Spirit</span><span class="p">:</span> <span class="s1">&#39;VX&#39;</span><span class="p">,</span>
+        <span class="n">Food_Health</span><span class="p">:</span> <span class="s1">&#39;WB&#39;</span><span class="p">,</span>
+        <span class="n">Antiques_Collectibles</span><span class="p">:</span> <span class="s1">&#39;WC&#39;</span><span class="p">,</span>
+        <span class="n">Crafts_Hobbies</span><span class="p">:</span> <span class="s1">&#39;WF&#39;</span><span class="p">,</span>
+        <span class="n">Humorous_Nonfiction</span><span class="p">:</span> <span class="s1">&#39;WH&#39;</span><span class="p">,</span>
+        <span class="n">House_Home</span><span class="p">:</span> <span class="s1">&#39;WK&#39;</span><span class="p">,</span>
+        <span class="n">Gardening</span><span class="p">:</span> <span class="s1">&#39;WM&#39;</span><span class="p">,</span>
+        <span class="n">Nature</span><span class="p">:</span> <span class="s1">&#39;WN&#39;</span><span class="p">,</span>
+        <span class="n">Sports</span><span class="p">:</span> <span class="s1">&#39;WS&#39;</span><span class="p">,</span>
+        <span class="n">Travel</span><span class="p">:</span> <span class="s1">&#39;WT&#39;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">LEVEL_3_PREFIXES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">Historical_Mystery</span><span class="p">:</span> <span class="s1">&#39;FFH&#39;</span><span class="p">,</span>
+        <span class="n">Espionage</span><span class="p">:</span> <span class="s1">&#39;FHD&#39;</span><span class="p">,</span>
+        <span class="n">Westerns</span><span class="p">:</span> <span class="s1">&#39;FJW&#39;</span><span class="p">,</span>
+        <span class="n">Space_Opera</span><span class="p">:</span> <span class="s1">&#39;FLS&#39;</span><span class="p">,</span>
+        <span class="n">Historical_Romance</span><span class="p">:</span> <span class="s1">&#39;FRH&#39;</span><span class="p">,</span>
+        <span class="n">Short_Stories</span><span class="p">:</span> <span class="s1">&#39;FYB&#39;</span><span class="p">,</span>
+        <span class="n">World_History</span><span class="p">:</span> <span class="s1">&#39;HBG&#39;</span><span class="p">,</span>
+        <span class="n">Military_History</span><span class="p">:</span> <span class="s1">&#39;HBW&#39;</span><span class="p">,</span>
+        <span class="n">Christianity</span><span class="p">:</span> <span class="s1">&#39;HRC&#39;</span><span class="p">,</span>
+        <span class="n">Buddhism</span><span class="p">:</span> <span class="s1">&#39;HRE&#39;</span><span class="p">,</span>
+        <span class="n">Hinduism</span><span class="p">:</span> <span class="s1">&#39;HRG&#39;</span><span class="p">,</span>
+        <span class="n">Islam</span><span class="p">:</span> <span class="s1">&#39;HRH&#39;</span><span class="p">,</span>
+        <span class="n">Judaism</span><span class="p">:</span> <span class="s1">&#39;HRJ&#39;</span><span class="p">,</span>
+        <span class="n">Fashion</span><span class="p">:</span> <span class="s1">&#39;WJF&#39;</span><span class="p">,</span>
+        <span class="n">Poetry</span><span class="p">:</span> <span class="s1">&#39;YDP&#39;</span><span class="p">,</span>
+        <span class="n">Adventure</span><span class="p">:</span> <span class="s1">&#39;YFC&#39;</span><span class="p">,</span>
+        <span class="n">Horror</span><span class="p">:</span> <span class="s1">&#39;YFD&#39;</span><span class="p">,</span>
+        <span class="n">Science_Fiction</span><span class="p">:</span> <span class="s1">&#39;YFG&#39;</span><span class="p">,</span>
+        <span class="n">Fantasy</span><span class="p">:</span> <span class="s1">&#39;YFH&#39;</span><span class="p">,</span>
+        <span class="n">Romance</span><span class="p">:</span> <span class="s1">&#39;YFM&#39;</span><span class="p">,</span>
+        <span class="n">Humorous_Fiction</span><span class="p">:</span> <span class="s1">&#39;YFQ&#39;</span><span class="p">,</span>
+        <span class="n">Historical_Fiction</span><span class="p">:</span> <span class="s1">&#39;YFT&#39;</span><span class="p">,</span>
+        <span class="n">Comics_Graphic_Novels</span><span class="p">:</span> <span class="s1">&#39;YFW&#39;</span><span class="p">,</span>
+        <span class="n">Art</span><span class="p">:</span> <span class="s1">&#39;YNA&#39;</span><span class="p">,</span>
+        <span class="n">Music</span><span class="p">:</span> <span class="s1">&#39;YNC&#39;</span><span class="p">,</span>
+        <span class="n">Performing_Arts</span><span class="p">:</span> <span class="s1">&#39;YND&#39;</span><span class="p">,</span>
+        <span class="n">Film_TV</span><span class="p">:</span> <span class="s1">&#39;YNF&#39;</span><span class="p">,</span>
+        <span class="n">History</span><span class="p">:</span> <span class="s1">&#39;YNH&#39;</span><span class="p">,</span>
+        <span class="n">Nature</span><span class="p">:</span> <span class="s1">&#39;YNN&#39;</span><span class="p">,</span>
+        <span class="n">Religion_Spirituality</span><span class="p">:</span> <span class="s1">&#39;YNR&#39;</span><span class="p">,</span>
+        <span class="n">Science_Technology</span><span class="p">:</span> <span class="s1">&#39;YNT&#39;</span><span class="p">,</span>
+        <span class="n">Humorous_Nonfiction</span><span class="p">:</span> <span class="s1">&#39;YNU&#39;</span><span class="p">,</span>
+        <span class="n">Sports</span><span class="p">:</span> <span class="s1">&#39;YNW&#39;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">LEVEL_4_PREFIXES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">European_History</span><span class="p">:</span> <span class="s1">&#39;HBJD&#39;</span><span class="p">,</span>
+        <span class="n">Asian_History</span><span class="p">:</span> <span class="s1">&#39;HBJF&#39;</span><span class="p">,</span>
+        <span class="n">African_History</span><span class="p">:</span> <span class="s1">&#39;HBJH&#39;</span><span class="p">,</span>
+        <span class="n">Ancient_History</span><span class="p">:</span> <span class="s1">&#39;HBLA&#39;</span><span class="p">,</span>
+        <span class="n">Modern_History</span><span class="p">:</span> <span class="s1">&#39;HBLL&#39;</span><span class="p">,</span>
+        <span class="n">Drama</span><span class="p">:</span> <span class="s1">&#39;YNDS&#39;</span><span class="p">,</span>
+        <span class="n">Comics_Graphic_Novels</span><span class="p">:</span> <span class="s1">&#39;YNUC&#39;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+    <span class="n">PREFIX_LISTS</span> <span class="o">=</span> <span class="p">[</span><span class="n">LEVEL_4_PREFIXES</span><span class="p">,</span> <span class="n">LEVEL_3_PREFIXES</span><span class="p">,</span> <span class="n">LEVEL_2_PREFIXES</span><span class="p">,</span> <span class="n">LEVEL_1_PREFIXES</span><span class="p">]</span>
+
+<div class="viewcode-block" id="BICClassifier.is_fiction"><a class="viewcode-back" href="../../classifier.html#classifier.bic.BICClassifier.is_fiction">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_fiction</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">identifier</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;f&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">identifier</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;yf&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+<div class="viewcode-block" id="BICClassifier.audience"><a class="viewcode-back" href="../../classifier.html#classifier.bic.BICClassifier.audience">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">audience</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="c1"># BIC doesn&#39;t distinguish children&#39;s and YA.</span>
+        <span class="c1"># Classify it as YA to be safe.</span>
+        <span class="k">if</span> <span class="n">identifier</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;y&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_YOUNG_ADULT</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span></div>
+
+<div class="viewcode-block" id="BICClassifier.genre"><a class="viewcode-back" href="../../classifier.html#classifier.bic.BICClassifier.genre">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">genre</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">fiction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">audience</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">prefixes</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">PREFIX_LISTS</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">prefixes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="n">identifier</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">lower</span><span class="p">()):</span>
+                    <span class="k">return</span> <span class="n">l</span>
+        <span class="k">return</span> <span class="kc">None</span></div></div>
+
+<span class="n">Classifier</span><span class="o">.</span><span class="n">classifiers</span><span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">BIC</span><span class="p">]</span> <span class="o">=</span> <span class="n">BICClassifier</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  <li><a href="../classifier.html">classifier</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

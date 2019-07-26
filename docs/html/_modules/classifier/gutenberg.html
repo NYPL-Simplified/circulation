@@ -1,0 +1,367 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>classifier.gutenberg &#8212; circulation-admin  documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for classifier.gutenberg</h1><div class="highlight"><pre>
+<span></span><span class="c1"># encoding: utf-8</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="k">import</span> <span class="o">*</span>
+
+<div class="viewcode-block" id="GutenbergBookshelfClassifier"><a class="viewcode-back" href="../../classifier.html#classifier.gutenberg.GutenbergBookshelfClassifier">[docs]</a><span class="k">class</span> <span class="nc">GutenbergBookshelfClassifier</span><span class="p">(</span><span class="n">Classifier</span><span class="p">):</span>
+
+    <span class="c1"># Any classification that includes the string &quot;Fiction&quot; will be</span>
+    <span class="c1"># counted as fiction. This is just the leftovers.</span>
+    <span class="n">FICTION</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span>
+        <span class="s2">&quot;Bestsellers, American, 1895-1923&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Adventure&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Fantasy&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Horror&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Mystery&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Western&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Suspense&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Thriller&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Children&#39;s Anthologies&quot;</span><span class="p">,</span>
+        <span class="p">])</span>
+
+    <span class="n">GENRES</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">Adventure</span><span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Adventure&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Pirates, Buccaneers, Corsairs, etc.&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="c1"># African_American : [&quot;African American Writers&quot;],</span>
+        <span class="n">Ancient_History</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Classical Antiquity&quot;</span><span class="p">],</span>
+        <span class="n">Architecture</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Architecture&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The American Architect and Building News&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Art</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Art&quot;</span><span class="p">],</span>
+        <span class="n">Biography_Memoir</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Biographies&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Children&#39;s Biography&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Christianity</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Christianity&quot;</span><span class="p">],</span>
+        <span class="n">Civil_War_History</span><span class="p">:</span> <span class="s2">&quot;US Civil War&quot;</span><span class="p">,</span>
+        <span class="n">Classics</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Best Books Ever Listings&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Harvard Classics&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Cooking</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Armour&#39;s Monthly Cook Book&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Cookery&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Drama</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;One Act Plays&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Opera&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Plays&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Erotica</span> <span class="p">:</span> <span class="s2">&quot;Erotic Fiction&quot;</span><span class="p">,</span>
+        <span class="n">Fantasy</span> <span class="p">:</span> <span class="s2">&quot;Fantasy&quot;</span><span class="p">,</span>
+        <span class="n">Foreign_Language_Study</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Language Education&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Gardening</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Garden and Forest&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Horticulture&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Historical_Fiction</span> <span class="p">:</span> <span class="s2">&quot;Historical Fiction&quot;</span><span class="p">,</span>
+        <span class="n">History</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Children&#39;s History&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Horror</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Gothic Fiction&quot;</span><span class="p">,</span> <span class="s2">&quot;Horror&quot;</span><span class="p">],</span>
+        <span class="n">Humorous_Fiction</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Humor&quot;</span><span class="p">],</span>
+        <span class="n">Islam</span> <span class="p">:</span> <span class="s2">&quot;Islam&quot;</span><span class="p">,</span>
+        <span class="n">Judaism</span> <span class="p">:</span> <span class="s2">&quot;Judaism&quot;</span><span class="p">,</span>
+        <span class="n">Law</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;British Law&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Noteworthy Trials&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;United States Law&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Literary_Criticism</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Bibliomania&quot;</span><span class="p">],</span>
+        <span class="n">Mathematics</span> <span class="p">:</span> <span class="s2">&quot;Mathematics&quot;</span><span class="p">,</span>
+        <span class="n">Medical</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Medicine&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The North American Medical and Surgical Journal&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Physiology&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Military_History</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;American Revolutionary War&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;World War I&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;World War II&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Spanish American War&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Boer War&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Napoleonic&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Modern_History</span><span class="p">:</span> <span class="s2">&quot;Current History&quot;</span><span class="p">,</span>
+        <span class="n">Music</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Music&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Child&#39;s Own Book of Great Musicians&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Mystery</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Crime Fiction&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Detective Fiction&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Mystery Fiction&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Nature</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Animal&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Animals-Wild&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Bird-Lore&quot;</span>
+            <span class="s2">&quot;Birds, Illustrated by Color Photography&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Periodicals</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Ainslee&#39;s&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Prairie Farmer&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Blackwood&#39;s Edinburgh Magazine&quot;</span><span class="p">,</span>
+            <span class="sa">u</span><span class="s2">&quot;Barnavännen&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Buchanan&#39;s Journal of Man&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Bulletin de Lille&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Celtic Magazine&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Chambers&#39;s Edinburgh Journal&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Contemporary Reviews&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Continental Monthly&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;De Aarde en haar Volken&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Dew Drops&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Donahoe&#39;s Magazine&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Golden Days for Boys and Girls&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Harper&#39;s New Monthly Magazine&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Harper&#39;s Young People&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Graham&#39;s Magazine&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Lippincott&#39;s Magazine&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;L&#39;Illustration&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;McClure&#39;s Magazine&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Mrs Whittelsey&#39;s Magazine for Mothers and Daughters&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Northern Nut Growers Association&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Notes and Queries&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Our Young Folks&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The American Missionary&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The American Quarterly Review&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Arena&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Argosy&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Atlantic Monthly&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Baptist Magazine&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Bay State Monthly&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Botanical Magazine&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Catholic World&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Christian Foundation&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Church of England Magazine&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Contemporary Review&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Economist&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Esperantist&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Girls Own Paper&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Great Round World And What Is Going On In It&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Idler&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Illustrated War News&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The International Magazine of Literature, Art, and Science&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Irish Ecclesiastical Record&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Irish Penny Journal&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Journal of Negro History&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Knickerbocker&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Mayflower&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Menorah Journal&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Mentor&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Mirror of Literature, Amusement, and Instruction&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Mirror of Taste, and Dramatic Censor&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The National Preacher&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Aldine&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Nursery&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;St. Nicholas Magazine for Boys and Girls&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Punch&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Punchinello&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Scribner&#39;s Magazine&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Scrap Book&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Speaker&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Stars and Stripes&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Strand Magazine&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Unpopular Review&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Writer&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Yellow Book&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Women&#39;s Travel Journals&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Pets</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Animals-Domestic&quot;</span><span class="p">],</span>
+        <span class="n">Philosophy</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Philosophy&quot;</span><span class="p">],</span>
+        <span class="n">Photography</span> <span class="p">:</span> <span class="s2">&quot;Photography&quot;</span><span class="p">,</span>
+        <span class="n">Poetry</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Poetry&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Poetry, A Magazine of Verse&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Children&#39;s Verse&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Political_Science</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Anarchism&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Politics&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Psychology</span> <span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Psychology&quot;</span><span class="p">],</span>
+        <span class="n">Reference_Study_Aids</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Reference&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;CIA World Factbooks&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Religion_Spirituality</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Atheism&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Bahá&#39;í Faith&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Hinduism&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Paganism&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Children&#39;s Religion&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Science</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Astronomy&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Biology&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Botany&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Chemistry&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Ecology&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Geology&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Journal of Entomology and Zoology&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Microbiology&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Microscopy&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Natural History&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Mycology&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Popular Science Monthly&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Physics&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Scientific American&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Science_Fiction</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Astounding Stories&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Precursors of Science Fiction&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The Galaxy&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Science Fiction&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Social_Sciences</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Anthropology&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Archaeology&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;The American Journal of Archaeology&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Sociology&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Suspense_Thriller</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Suspense&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Thriller&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Technology</span> <span class="p">:</span> <span class="p">[</span>
+            <span class="s2">&quot;Engineering&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Technology&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Transportation&quot;</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">Travel</span> <span class="p">:</span> <span class="s2">&quot;Travel&quot;</span><span class="p">,</span>
+        <span class="n">True_Crime</span> <span class="p">:</span> <span class="s2">&quot;Crime Nonfiction&quot;</span><span class="p">,</span>
+        <span class="n">Westerns</span> <span class="p">:</span> <span class="s2">&quot;Western&quot;</span><span class="p">,</span>
+    <span class="p">}</span>
+
+<div class="viewcode-block" id="GutenbergBookshelfClassifier.scrub_identifier"><a class="viewcode-back" href="../../classifier.html#classifier.gutenberg.GutenbergBookshelfClassifier.scrub_identifier">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">scrub_identifier</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">identifier</span></div>
+
+<div class="viewcode-block" id="GutenbergBookshelfClassifier.is_fiction"><a class="viewcode-back" href="../../classifier.html#classifier.gutenberg.GutenbergBookshelfClassifier.is_fiction">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">is_fiction</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">identifier</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">FICTION</span>
+            <span class="ow">or</span> <span class="s2">&quot;Fiction&quot;</span> <span class="ow">in</span> <span class="n">identifier</span> <span class="ow">or</span> <span class="s2">&quot;Stories&quot;</span> <span class="ow">in</span> <span class="n">identifier</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">None</span></div>
+
+<div class="viewcode-block" id="GutenbergBookshelfClassifier.audience"><a class="viewcode-back" href="../../classifier.html#classifier.gutenberg.GutenbergBookshelfClassifier.audience">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">audience</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s2">&quot;Children&#39;s&quot;</span> <span class="ow">in</span> <span class="n">identifier</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_CHILDREN</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">AUDIENCE_ADULT</span></div>
+
+<div class="viewcode-block" id="GutenbergBookshelfClassifier.genre"><a class="viewcode-back" href="../../classifier.html#classifier.gutenberg.GutenbergBookshelfClassifier.genre">[docs]</a>    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">genre</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">fiction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">audience</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">l</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">GENRES</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">identifier</span> <span class="o">==</span> <span class="n">v</span> <span class="ow">or</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="ow">and</span> <span class="n">identifier</span> <span class="ow">in</span> <span class="n">v</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">l</span>
+        <span class="k">return</span> <span class="kc">None</span></div></div>
+
+<span class="n">Classifier</span><span class="o">.</span><span class="n">classifiers</span><span class="p">[</span><span class="n">Classifier</span><span class="o">.</span><span class="n">GUTENBERG_BOOKSHELF</span><span class="p">]</span> <span class="o">=</span> <span class="n">GutenbergBookshelfClassifier</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">circulation-admin</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  <li><a href="../classifier.html">classifier</a><ul>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, ed.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
