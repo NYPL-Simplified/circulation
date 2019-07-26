@@ -811,8 +811,6 @@ class TestMisspelledTitleSearch(SearchTest):
 
     def test_kingdom_of_the_blind(self):
         # The first word, which is a fairly common word, is slightly misspelled.
-        #
-        # The desired book is not on the first page.
         self.search(
             "Kngdom of the blind",
             FirstMatch(title="Kingdom of the Blind")
@@ -1189,7 +1187,7 @@ class TestMixedTitleAuthorMatch(SearchTest):
         )
 
     def test_grisham(self):
-        # Full title, author's first name only
+        # Full title, author name misspelled
         self.search(
             "The reckoning john grisham",
             FirstMatch(title="The Reckoning", author="John Grisham")
@@ -1477,9 +1475,6 @@ class TestAuthorMatch(SearchTest):
 
     def test_griffiths(self):
         # The search query gives the author's sort name.
-        #
-        # The first two matches are for "Doom of the Griffiths" by
-        # Elizabeth Gaskell and "Ellis Island" by Kate Kerrigan.
         self.search(
             "Griffiths elly", SpecificAuthor("Elly Griffiths")
         )
@@ -1503,7 +1498,9 @@ class TestAuthorMatch(SearchTest):
         )
 
     def test_steve_berry(self):
-        # This search has been difficult in the past.
+        # This search looks like nothing special but it has been
+        # difficult in the past, possibly because "berry" is an
+        # English word.
         self.search("steve berry", Common(author="Steve Berry"))
 
     @known_to_fail
@@ -2370,7 +2367,6 @@ class TestSeriesMatch(SearchTest):
         )
 
     def test_goosebumps_misspelled(self):
-        # NOTE: This gets no results at all.
         self.search(
             "goosebump", 
             SpecificSeries(
@@ -2414,9 +2410,6 @@ class TestSeriesMatch(SearchTest):
         )
 
     def test_i_funny(self):
-        # Although we get good results, we need to use an author match
-        # to verify them. Many of the results don't have .series set
-        # and match due to a partial title match.
         self.search(
             "i funny",
             SpecificSeries(series="I, Funny", author="Chris Grabenstein"),
@@ -2463,8 +2456,8 @@ class TestSeriesMatch(SearchTest):
         # These children's biographies don't have .series set but
         # are clearly part of a series.
         #
-        # Because those books don't have .series set, the matches are
-        # done solely through title, so unrelated books like "Who Is
+        # Because those books don't have .series set, the matches
+        # happen solely through title, so unrelated books like "Who Is
         # Rich?" appear to be part of the series.
         self.search("who is", SpecificSeries(series="Who Is"))
 
@@ -2510,7 +2503,7 @@ class TestSeriesTitleMatch(SearchTest):
         # The first result is the requested title. Other results
         # are from the same series.
         #
-        # NOTE: The title match is too powerful -- "Wimpy Kid Movie Diary"
+        # NOTE: The title match is too powerful -- "Wimpy Kid"
         # overrides "Dog Days"
         self.search(
             "dairy of the wimpy kid dog days",
@@ -2746,10 +2739,11 @@ class TestAwardSearch(SearchTest):
         self.search(
             "staff picks",
             [
-                Uncommon(author=re.compile("staff|picks")),
-                Uncommon(title=re.compile("staff|picks"))
+                Uncommon(author=re.compile("(staff|picks)")),
+                Uncommon(title=re.compile("(staff|picks)"))
             ]
         )
+
 
 class TestCharacterMatch(SearchTest):
     # These searches are best understood as an attempt to find books
