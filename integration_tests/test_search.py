@@ -70,7 +70,7 @@ def known_to_fail(f):
             ignore = f(*args, **kwargs)
         except Exception, e:
             SearchTest.expected_failures.append(f)
-            logging.debug("Expected this test to fail, and it did: %r" % e)
+            logging.info("Expected this test to fail, and it did: %r" % e)
             return
         SearchTest.unexpected_successes.append(f)
         raise Exception("Expected this test to fail, and it didn't! Congratulations?")
@@ -137,7 +137,7 @@ class Evaluator(object):
             series=result.series,
             summary=result.summary,
             genres=result.genres,
-            imprint=result.imprint,
+            imlogging.info=result.imlogging.info,
             publisher=result.publisher,
         )
         return dict(
@@ -166,13 +166,13 @@ class Evaluator(object):
             actual = float(len(matches)) / len(hits)
         if actual < threshold:
             # This test is going to fail. Log some useful information.
-            print(
+            logging.info(
                 "Need %d%% matches, got %d%%" % (
                     threshold*100, actual*100
                 )
             )
             for hit in hits:
-                print(hit)
+                logging.info(hit)
         assert actual >= threshold
 
     def _match_scalar(self, value, expect, inclusive=False, case_sensitive=False):
@@ -326,13 +326,13 @@ class Common(Evaluator):
             if (not success) or (self.negate and success):
                 if self.negate:
                     if actual == expected:
-                        print(
+                        logging.info(
                             "First result matched and shouldn't have. %s == %s", expected, actual
                         )
                     assert actual != expected
                 else:
                     if actual != expected:
-                        print(
+                        logging.info(
                             "First result did not match. %s != %s" % (expected, actual)
                         )
                     eq_(actual, expected)
@@ -345,12 +345,12 @@ class Common(Evaluator):
             self.assert_ratio(
                 [x[1:] for x in successes],
                 [x[1:] for x in successes+failures],
-                self.threshold,
+                self.threshold
             )
         if self.minimum is not None:
             overall_success = len(successes) >= self.minimum
             if not overall_success:
-                print(
+                logging.info(
                     "Need %d matches, got %d" % (self.minimum, len(successes))
                 )
                 for i in (successes+failures):
@@ -363,7 +363,7 @@ class Common(Evaluator):
                         if hasattr(display, 'match'):
                             display = display.pattern
                         vars.append(display)
-                    print(template % tuple(vars))
+                    logging.info(template % tuple(vars))
             assert overall_success
 
 
@@ -512,7 +512,7 @@ class SearchTest(object):
 
     def search(self, query, evaluators=None, limit=10):
         query = query.lower()
-        logging.debug("Query: %r", query)
+        logging.info("Query: %r", query)
         pagination = Pagination(size=limit)
         qu = self.searcher.query(query, pagination=pagination)
         hits = [x for x in qu][:]
@@ -886,11 +886,9 @@ class TestMisspelledTitleSearch(SearchTest):
         )
 
     def test_british_spelling_color_of_our_sky(self):
-        # The book we're looking for is the second result, below "The
-        # Weight of Our Sky"
-        #
         # Note to pedants: the title of the book as published is
         # "The Color of Our Sky".
+
         self.search(
             "The colour of our sky",
             FirstMatch(title="The Color of Our Sky")
@@ -995,10 +993,6 @@ class TestTitleGenreConflict(SearchTest):
     def test_drama(self):
         # The title of the book is the name of a genre, and another
         # genre has been added to the search term to clarify it.
-        #
-        # NOTE: This probably fails because "Drama" is parsed as a
-        # genre name but "comic" is not parsed as "Comics & Graphic
-        # Novels"
         self.search(
             "drama comic",
             FirstMatch(title="Drama", author="Raina Telgemeier")
@@ -1032,9 +1026,7 @@ class TestTitleGenreConflict(SearchTest):
     @known_to_fail
     def test_law_of_the_mountain_man_with_author(self):
         # "Law of the Mountain Man" is the second result, but it
-        # really should be first. Maybe the first result here has
-        # William Johnstone as the primary author instead of a regular
-        # author.
+        # really should be first.
         self.search(
             "law of the mountain man william johnstone",
             [
@@ -1050,6 +1042,10 @@ class TestTitleGenreConflict(SearchTest):
         )
 
     def test_dance(self):
+        # This works because of the stopword index.
+        #
+        # Otherwise "Dance of the Dragons" looks like an equally good
+        # result.
         self.search(
             "dance with dragons",
             FirstMatch(title="A Dance With Dragons")
@@ -1099,6 +1095,7 @@ class TestTitleAuthorConflict(SearchTest):
         # NOTE: The first result is a book whose .series is the literal
         # string "Disney". This triggers a keyword series match which
         # bumps it to the top. That's why first_must_match=False.
+        # It's an unusual situation so I think this is all right.
         self.search(
             "disney",
                 [ Common(title=re.compile("disney"), first_must_match=False),
@@ -1409,28 +1406,15 @@ class TestAuthorMatch(SearchTest):
 
     def test_wharton_misspelled(self):
         # The author's last name is misspelled in the search query.
-        #
-        # TODO: Apparently this causes Elasticsearch to get hung up on a
-        # subject match for 'England and Wales', but we get at least
-        # one Edith Wharton book.
         self.search(
-            "edith warton", AtLeastOne(author="Edith Wharton")
+            "edith warton", Common(author="Edith Wharton")
         )
 
     def test_danielle_steel(self):
-        # NOTE: this works, but setting the threshold to anything higher than
-        # the default 0.5 causes it to fail (even though she's written
-        # a LOT of books!).  Fixing the typo makes the test work even with the
-        # threshold set to 1.
-
-        # Since "steel" is an English word, we don't do a fuzzy author search.
-
         # The author's last name is slightly misspelled in the search query.
         self.search(
             "danielle steele",
-            [   SpecificAuthor("Danielle Steel"),
-                Common(author="Danielle Steel")
-            ]
+            SpecificAuthor("Danielle Steel", threshold=1)
         )
 
     def test_primary_author_with_coauthors(self):
@@ -1457,12 +1441,12 @@ class TestAuthorMatch(SearchTest):
 
     def test_narrator(self):
         # This person is narrator for a lot of Stephen King
-        # audiobooks. Searching for their name is likely to bring up
-        # people with similar names and authorship roles, but they'll
-        # show up pretty frequently.
+        # audiobooks. Searching for their name may bring up people
+        # with similar names and authorship roles, but they'll show up
+        # pretty frequently.
         self.search(
             "will patton",
-            Common(author="Will Patton", first_must_match=False)
+            Common(author="Will Patton")
         )
 
     def test_unknown_display_name(self):
@@ -1484,9 +1468,9 @@ class TestAuthorMatch(SearchTest):
     def test_ba_paris(self):
         # Author's last name could also be a subject keyword.
         #
-        # These results are always very good, but sometimes the first
-        # result is a title match with stopword removed, "Escalier B,
-        # Paris 12".
+        # NOTE: These results are always very good, but sometimes the
+        # first result is a title match with stopword removed:
+        # "Escalier B, Paris 12".
         self.search(
             "b a paris", SpecificAuthor("B. A. Paris")
         )
@@ -1522,7 +1506,6 @@ class TestAuthorMatch(SearchTest):
         # This search has been difficult in the past.
         self.search("steve berry", Common(author="Steve Berry"))
 
-
     @known_to_fail
     def test_thomas_python(self):
         # All the terms are correctly spelled words, but the patron
@@ -1533,7 +1516,7 @@ class TestAuthorMatch(SearchTest):
         )
 
     def test_betty_neels_audiobooks(self):
-        # NOTE: Even though there are no audiobooks, all of the search
+        # Even though there are no audiobooks, all of the search
         # results should still be books by this author.
         self.search(
             "Betty neels audiobooks",
@@ -1640,7 +1623,7 @@ class TestMJRose(VariantSearchTest):
 
 class TestPublisherMatch(SearchTest):
     # Test the ability to find books by a specific publisher or
-    # imprint.
+    # imlogging.info.
 
     def test_harlequin_romance(self):
         self.search(
@@ -1650,13 +1633,13 @@ class TestPublisherMatch(SearchTest):
     def test_harlequin_historical(self):
         self.search(
             "harlequin historical",
-            Common(imprint="harlequin historical", genre="Romance")
+            Common(imlogging.info="harlequin historical", genre="Romance")
         )
 
     def test_princeton_review(self):
         self.search(
             "princeton review",
-            Common(imprint="princeton review")
+            Common(imlogging.info="princeton review")
         )
 
     def test_scholastic(self):
@@ -1733,7 +1716,7 @@ class TestGenreMatch(SearchTest):
 
     @known_to_fail
     def test_christian_fiction(self):
-        # NOTE: This failus for a spurious reason. These results are
+        # NOTE: This fails for a spurious reason. These results are
         # pretty good, but they're not obvious genre matches.
         self.search(
             "christian fiction",
@@ -1764,8 +1747,8 @@ class TestGenreMatch(SearchTest):
     @known_to_fail
     def test_scary_stories(self):
         # NOTE: This seems spurious. The first results have "Scary
-        # Stories" in the title but are not necessarily classified as
-        # horror.
+        # Stories" in the title, so they should do fine, but are not
+        # necessarily classified as horror.
         self.search("scary stories", Common(genre="Horror"))
 
     @known_to_fail
@@ -1899,12 +1882,12 @@ class TestSubjectMatch(SearchTest):
 
     @known_to_fail
     def test_anime_genre(self):
-        # NOTE: this doesn't work; all of the top results in both versions of ES6
-        # are for "animal" rather than "anime."
-        #
         # 'anime' and 'manga' are not subject classifications we get
         # from our existing vendors. We have a lot of these books but
-        # they're not classified under those terms. -LR
+        # they're not classified under those terms.
+        #
+        # So we get a few title matches for "Anime" and then go into
+        # books about animals.
         self.search(
             "anime",
             Common(subject=re.compile("(manga|anime)"))
@@ -2031,7 +2014,7 @@ class TestSubjectMatch(SearchTest):
         # Musketeers", so that's not a bad answer.
         self.search(
             "Louis xiii",
-            Common(title="The Three Musketeers", threshold=0.1)
+            AtLeastOne(title="The Three Musketeers")
         )
 
     def test_managerial_skills(self):
@@ -2048,8 +2031,8 @@ class TestSubjectMatch(SearchTest):
         self.search(
             "manga",
             [
-                Common(title=re.compile("manga"), first_must_match=False),
-                Common(subject=re.compile("(manga|art|comic)"), first_must_match=False),
+                Common(title=re.compile("manga")),
+                Common(subject=re.compile("(manga|art|comic)")),
             ]
         )
 
