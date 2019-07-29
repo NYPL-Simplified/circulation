@@ -20,7 +20,6 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     # Constants for integration configuration settings.
     PORT = "port"
     LOCATION_CODE = "location code"
-    INSTITUTION_ID = "institution_id"
     FIELD_SEPARATOR = "field separator"
     USE_SSL = "use_ssl"
     SSL_CERTIFICATE = "ssl_certificate"
@@ -32,9 +31,6 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         { "key": ExternalIntegration.USERNAME, "label": _("Login User ID") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Login Password") },
         { "key": LOCATION_CODE, "label": _("Location Code") },
-        { "key": INSTITUTION_ID, "label": _("Institution ID"),
-          "description": _("An identifier of a specific library or branch for patron authentication if used")
-        },
         { "key": USE_SSL, "label": _("Connect over SSL?"),
           "description": _("Some SIP2 servers require or allow clients to connect securely over SSL. Other servers don't support SSL, and require clients to use an ordinary socket connection."),
           "type": "select",
@@ -117,7 +113,6 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         self.login_user_id = integration.username
         self.login_password = integration.password
         self.location_code = integration.setting(self.LOCATION_CODE).value
-        self.institution_id = integration.setting(self.INSTITUTION_ID).value or ''
         self.field_separator = integration.setting(self.FIELD_SEPARATOR).value or '|'
         self.use_ssl = integration.setting(self.USE_SSL).json_value
         self.ssl_cert = integration.setting(self.SSL_CERTIFICATE).value
