@@ -1,0 +1,10 @@
+core.resources package
+======================
+
+Module contents
+---------------
+
+.. automodule:: core.resources
+    :members:
+    :undoc-members:
+    :show-inheritance:
