@@ -710,21 +710,21 @@ class TestPosessives(SearchTest):
 
     def test_police_women_no_apostrophe(self):
         self.search(
-            "policewomen bureau",
+            "policewomens bureau",
             FirstMatch(title="The Policewomen's Bureau"),
         )
 
     def test_police_women_no_posessive(self):
         self.search(
-            "policewomens bureau",
+            "policewomen bureau",
             FirstMatch(title="The Policewomen's Bureau"),
         )
 
     @known_to_fail
     def test_police_women_extra_space(self):
-        # The extra space and the stemming means we match on 'police'
-        # and 'women', two very common words, and not the relatively
-        # uncommon 'policewomen'.
+        # The extra space means this parses to 'police' and 'women',
+        # two very common words, and not the relatively uncommon
+        # 'policewomen'.
         self.search(
             "police womens bureau",
             FirstMatch(title="The Policewomen's Bureau"),
