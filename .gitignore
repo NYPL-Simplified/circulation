@@ -51,6 +51,16 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
+docs/doctrees
+docs/html
+docs/source/api.*.rst
+docs/source/api.rst
+docs/source/app.rst
+docs/source/core.rst
+docs/source/core.*.rst
+docs/source/scripts.rst
+docs/source/tests.rst
+docs/source/tests.*.rst
 
 *~
 .env

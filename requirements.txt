@@ -26,6 +26,7 @@ accept-types
 uszipcode
 pypostalcode
 watchtower # for cloudwatch logging
+sphinx
 
 # Ensure that we support SNI-based SSL
 ndg-httpsclient
