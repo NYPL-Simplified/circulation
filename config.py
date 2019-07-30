@@ -492,15 +492,16 @@ class Configuration(object):
         this value and reload the configuration if appropriate.
 
         :param known_value: We know when the site configuration was
-        last updated--it's this timestamp. Use it instead of checking
-        with the database.
+            last updated--it's this timestamp. Use it instead of checking
+            with the database.
 
         :param timeout: We will only call out to the database once in
-        this number of seconds. If we are asked again before this
-        number of seconds elapses, we will assume site configuration
-        has not changed.
+            this number of seconds. If we are asked again before this
+            number of seconds elapses, we will assume site configuration
+            has not changed.
 
         :return: a datetime object.
+
         """
         now = datetime.datetime.utcnow()
 

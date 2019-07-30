@@ -2,7 +2,6 @@ import os
 import datetime
 import urllib
 from StringIO import StringIO
-from lxml import builder
 from nose.tools import (
     set_trace,
     eq_,

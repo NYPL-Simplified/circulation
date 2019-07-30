@@ -267,14 +267,14 @@ class FacetsWithEntryPoint(BaseFacets):
         given WorkList.
 
         :param valid_entrypoints: The EntryPoints that might be
-        valid. This is probably not the value of
-        WorkList.selectable_entrypoints, because an EntryPoint
-        selected in a WorkList remains valid (but not selectable) for
-        all of its children.
+            valid. This is probably not the value of
+            WorkList.selectable_entrypoints, because an EntryPoint
+            selected in a WorkList remains valid (but not selectable) for
+            all of its children.
 
         :param default: A class to use as the default EntryPoint if
-        none is specified. If no default is specified, the first
-        enabled EntryPoint will be used.
+            none is specified. If no default is specified, the first
+            enabled EntryPoint will be used.
 
         :return: A 2-tuple (EntryPoint class, is_default).
         """
@@ -1097,53 +1097,53 @@ class WorkList(object):
         initialization code.
 
         :param library: Only Works available in this Library will be
-        included in lists.
+            included in lists.
 
         :param display_name: Name to display for this WorkList in the
-        user interface.
+            user interface.
 
         :param genres: Only Works classified under one of these Genres
-        will be included in lists.
+            will be included in lists.
 
         :param audiences: Only Works classified under one of these audiences
-        will be included in lists.
+            will be included in lists.
 
         :param languages: Only Works in one of these languages will be
-        included in lists.
+            included in lists.
 
         :param media: Only Works in one of these media will be included
-        in lists.
+            in lists.
 
         :param fiction: Only Works with this fiction status will be included
-        in lists.
+            in lists.
 
         :param target_age: Only Works targeted at readers in this age range
-        will be included in lists.
+            will be included in lists.
 
         :param license_datasource: Only Works with a LicensePool from this
-        DataSource will be included in lists.
+            DataSource will be included in lists.
 
         :param customlists: Only Works included on one of these CustomLists
-        will be included in lists.
+            will be included in lists.
 
         :param list_datasource: Only Works included on a CustomList
-        associated with this DataSource will be included in
-        lists. This overrides any specific CustomLists provided in
-        `customlists`.
+            associated with this DataSource will be included in
+            lists. This overrides any specific CustomLists provided in
+            `customlists`.
 
         :param list_seen_in_previous_days: Only Works that were added
-        to a matching CustomList within this number of days will be
-        included in lists.
+            to a matching CustomList within this number of days will be
+            included in lists.
 
         :param children: This WorkList has children, which are also
-        WorkLists.
+            WorkLists.
 
         :param priority: A number indicating where this WorkList should
-        show up in relation to its siblings when it is the child of
-        some other WorkList.
+            show up in relation to its siblings when it is the child of
+            some other WorkList.
 
         :param entrypoints: A list of EntryPoint classes representing
-        different ways of slicing up this WorkList.
+            different ways of slicing up this WorkList.
 
         """
         self.library_id = None
@@ -1381,12 +1381,12 @@ class WorkList(object):
 
         :param facets: A FeaturedFacets object that may restrict the works on view.
         :param search_engine: An ExternalSearchIndex to use when
-           asking for the featured works in a given WorkList.
+            asking for the featured works in a given WorkList.
         :param debug: A debug argument passed into `search_engine` when
-           running the search.
+            running the search.
         :yield: A sequence of (Work, WorkList) 2-tuples, with each
-        WorkList representing the child WorkList in which the Work is
-        found.
+            WorkList representing the child WorkList in which the Work is
+            found.
         """
         if not include_sublanes:
             # We only need to find featured works for this lane,
@@ -1486,7 +1486,7 @@ class WorkList(object):
 
         :param _db: A database connection
         :param hits: A list of Hit objects from ElasticSearch.
-        :return A list of Work or (if the search results include
+        :return: A list of Work or (if the search results include
             script fields), WorkSearchResult objects.
         """
 
@@ -1875,10 +1875,11 @@ class DatabaseBackedWorkList(WorkList):
         """Create a SQLAlchemy filter that excludes books whose bibliographic
         metadata doesn't match what we're looking for.
 
-        :return: A 2-tuple (query, clauses).
-
-        - query is either `qu`, or a new query that has been modified to
+        query is either `qu`, or a new query that has been modified to
         join against additional tables.
+
+        :returns: A 2-tuple (query, clauses).
+
         """
         # Audience language, and genre restrictions are allowed on all
         # WorkLists. (So are collection restrictions, but those are
@@ -2426,7 +2427,7 @@ class Lane(Base, DatabaseBackedWorkList):
         that Genre should be in this Lane.
 
         :return: A list of genre IDs, or None if this Lane does not
-        consider genres at all.
+            consider genres at all.
         """
         if not hasattr(self, '_genre_ids'):
             self._genre_ids = self._gather_genre_ids()

@@ -41,11 +41,11 @@ def site_configuration_has_changed(_db, timeout=1):
     of what you consider "site configuration", just to be safe.
 
     :param _db: Either a Session or (to save time in a common case) an
-    ORM object that can turned into a Session.
+        ORM object that can turned into a Session.
 
     :param timeout: Nothing will happen if it's been fewer than this
-    number of seconds since the last site configuration change was
-    recorded.
+        number of seconds since the last site configuration change was
+        recorded.
     """
     has_lock = site_configuration_has_changed_lock.acquire(blocking=False)
     if not has_lock:

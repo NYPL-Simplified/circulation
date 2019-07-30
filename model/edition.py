@@ -229,8 +229,7 @@ class Edition(Base, EditionConstants):
                        create_if_not_exists=True):
         """Find the Edition representing the given data source's view of
         the work that it primarily identifies by foreign ID.
-        e.g. for_foreign_id(_db, DataSource.OVERDRIVE,
-                            Identifier.OVERDRIVE_ID, uuid)
+        e.g. for_foreign_id(_db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, uuid)
         finds the Edition for Overdrive's view of a book identified
         by Overdrive UUID.
         This:
@@ -238,6 +237,7 @@ class Edition(Base, EditionConstants):
         will probably return nothing, because although Overdrive knows
         that books have ISBNs, it doesn't use ISBN as a primary
         identifier.
+
         """
         # Look up the data source if necessary.
         if isinstance(data_source, basestring):
@@ -305,10 +305,11 @@ class Edition(Base, EditionConstants):
         """Find Editions from `edition_data_source` whose primary
         identifiers have no CoverageRecord from
         `coverage_data_source`.
-        e.g.
-         gutenberg = DataSource.lookup(_db, DataSource.GUTENBERG)
-         oclc_classify = DataSource.lookup(_db, DataSource.OCLC)
-         missing_coverage_from(_db, gutenberg, oclc_classify)
+        e.g.::
+        gutenberg = DataSource.lookup(_db, DataSource.GUTENBERG)
+        oclc_classify = DataSource.lookup(_db, DataSource.OCLC)
+        missing_coverage_from(_db, gutenberg, oclc_classify)
+        
         will find Editions that came from Project Gutenberg and
         have never been used as input to the OCLC Classify web
         service.

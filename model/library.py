@@ -341,9 +341,10 @@ class Library(Base, HasFullTableCache):
     def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a library's
         settings.
+
         :param include_secrets: For security reasons, secrets are not
             displayed by default.
-        :return: A list of explanatory strings.
+        :returns: A list of explanatory strings.
         """
         lines = []
         if self.uuid:

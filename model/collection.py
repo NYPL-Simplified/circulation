@@ -224,7 +224,7 @@ class Collection(Base, HasFullTableCache):
         Collections marked for deletion are not included.
 
         :param protocol: Protocol to use. If this is None, all
-        Collections will be returned except those marked for deletion.
+            Collections will be returned except those marked for deletion.
         """
         qu = _db.query(Collection)
         if protocol:
@@ -346,7 +346,7 @@ class Collection(Base, HasFullTableCache):
         of creating another one.
 
         :param protocol: The protocol known to be in use when getting
-        licenses for this collection.
+            licenses for this collection.
         """
         _db = Session.object_session(self)
         goal = ExternalIntegration.LICENSE_GOAL
@@ -676,13 +676,13 @@ class Collection(Base, HasFullTableCache):
         :param query: The query to restrict.
 
         :param show_suppressed: Include titles that have nothing but
-        suppressed LicensePools.
+            suppressed LicensePools.
 
         :param collection_ids: Only include titles in the given
-        collections.
+            collections.
 
         :param allow_holds: If false, pools with no available copies
-        will be hidden.
+            will be hidden.
         """
 
         # Only find presentation-ready works.

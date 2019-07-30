@@ -172,13 +172,14 @@ def display_name_to_sort_name(display_name):
 
 def name_tidy(name):
     """
-    - Converts to NFKD unicode.
-    - Strips excessive whitespace and trailing punctuation.
-    - Normalizes PhD/MD suffixes.
-    - Does not perform any potentially name-altering business logic, such as
-    running HumanName parser or any other name part reorganization.
-    - Does not perform any cleaning that would later need to be reversed,
-    such as lowercasing.
+    * Converts to NFKD unicode.
+    * Strips excessive whitespace and trailing punctuation.
+    * Normalizes PhD/MD suffixes.
+    * Does not perform any potentially name-altering business logic, such as
+        running HumanName parser or any other name part reorganization.
+    * Does not perform any cleaning that would later need to be reversed,
+        such as lowercasing.
+
     """
     name = unicodedata.normalize("NFKD", unicode(name))
     name = WorkIDCalculator.consecutiveCharacterStrip.sub(" ", name)

@@ -24,8 +24,8 @@ class MirrorUploader(object):
         :return: A MirrorUploader.
 
         :raise: CannotLoadConfiguration if no integration with
-        goal==STORAGE_GOAL is configured, or if multiple integrations
-        are so configured.
+            goal==STORAGE_GOAL is configured, or if multiple integrations
+            are so configured.
         """
         integration = cls.sitewide_integration(_db)
         return cls.implementation(integration)

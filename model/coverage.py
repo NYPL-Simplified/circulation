@@ -55,13 +55,14 @@ class BaseCoverageRecord(object):
     def not_covered(cls, count_as_covered=None,
                     count_as_not_covered_if_covered_before=None):
         """Filter a query to find only items without coverage records.
+
         :param count_as_covered: A list of constants that indicate
-           types of coverage records that should count as 'coverage'
-           for purposes of this query.
+            types of coverage records that should count as 'coverage'
+            for purposes of this query.
         :param count_as_not_covered_if_covered_before: If a coverage record
-           exists, but is older than the given date, do not count it as
-           covered.
-        :return: A clause that can be passed in to Query.filter().
+            exists, but is older than the given date, do not count it as
+            covered.
+        :returns: A clause that can be passed in to Query.filter().
         """
         if not count_as_covered:
             count_as_covered = cls.DEFAULT_COUNT_AS_COVERED

@@ -23,8 +23,8 @@ class EpubAccessor(object):
             the absence of the `content` parameter
         :param content: A string representing the compressed EPUB
 
-        :return: A tuple containing a ZipFile of the EPUB and the path to its
-        package
+        :return : A tuple containing a ZipFile of the EPUB and the path to its
+            package
         """
         if not (url or content):
             raise ValueError("Cannot open epub without url or content")
