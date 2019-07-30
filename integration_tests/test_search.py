@@ -637,18 +637,6 @@ class TestTitleMatch(SearchTest):
             ]
         )
 
-    def test_possessives(self):
-        # Verify that possessives are stemmed.
-        self.search(
-            "washington war",
-            AtLeastOne(title="George Washington's War")
-        )
-
-        self.search(
-            "washingtons war",
-            AtLeastOne(title="George Washington's War")
-        )
-
 
     def test_it(self):
         # The book "It" is correctly prioritized over books whose titles contain
@@ -663,6 +651,83 @@ class TestTitleMatch(SearchTest):
         self.search(
             "girl on the train",
             FirstMatch(title="The Girl On The Train")
+        )
+
+class TestPosessives(SearchTest):
+    """Test searches for book titles that contain posessives."""
+
+    def test_washington_partial(self):
+        self.search(
+            "washington war",
+            AtLeastOne(title="George Washington's War")
+        )
+
+    def test_washington_full_no_apostrophe(self):
+        self.search(
+            "george washingtons war",
+            FirstMatch(title="George Washington's War")
+        )
+
+    @known_to_fail
+    def test_washington_partial_apostrophe(self):
+        # The apostrophe is stripped and the 's' is stemmed. This is
+        # normally a good thing, but here the query is parsed as
+        # "washington war", and the first result is "The Washington
+        # War". Parsing this as "washington ' s war" would give better
+        # results here.
+        #
+        # Since most people don't type the apostrophe, the tradeoff is
+        # worth it.
+        self.search(
+            "washington's war",
+            FirstMatch(title="George Washington's War")
+        )
+
+    def test_washington_full_apostrophe(self):
+        self.search(
+            "george washington's war",
+            FirstMatch(title="George Washington's War")
+        )
+
+    def test_bankers(self):
+        self.search(
+            "bankers wife",
+            FirstMatch(title="The Banker's Wife")
+        )
+
+    def test_brother(self):
+        # The entire posessive is omitted.
+        self.search(
+            "my brother shadow",
+            FirstMatch(title="My Brother's Shadow"),
+        )
+
+    def test_police_women_apostrophe(self):
+        self.search(
+            "policewomen's bureau",
+            FirstMatch(title="The Policewomen's Bureau"),
+        )
+
+    def test_police_women_no_apostrophe(self):
+        self.search(
+            "policewomen bureau",
+            FirstMatch(title="The Policewomen's Bureau"),
+        )
+
+    def test_police_women_no_posessive(self):
+        self.search(
+            "policewomens bureau",
+            FirstMatch(title="The Policewomen's Bureau"),
+        )
+
+    @known_to_fail
+    def test_police_women_extra_space(self):
+        # The extra space and the stemming means we match on 'police'
+        # and 'women', two very common words, and not the relatively
+        # uncommon 'policewomen'.
+        self.search(
+            "police womens bureau",
+            FirstMatch(title="The Policewomen's Bureau"),
         )
 
 
