@@ -730,6 +730,28 @@ class TestPosessives(SearchTest):
             FirstMatch(title="The Policewomen's Bureau"),
         )
 
+class TestSynonyms(SearchTest):
+    # Test synonyms that could be (but currently aren't) defined in
+    # the search index.
+
+    @known_to_fail
+    def test_and_is_ampersand(self):
+        # There are books called "Black & White" and books called
+        # "Black And White". When '&' and 'and' are synonyms, all
+        # these books should get the same score.
+        self.search(
+            "black and white",
+            AtLeastOne(title="Black & White"),
+        )
+
+    @known_to_fail
+    def test_ampersand_is_and(self):
+        # The result we're looking for is second, behind "The
+        # Cheesemaker's Apprentice".
+        self.search(
+            "master and apprentice",
+            FirstMatch(title="Master & Apprentice (Star Wars)"),
+        )
 
 class TestUnownedTitle(SearchTest):
     # These are title searches for books not owned by NYPL.
