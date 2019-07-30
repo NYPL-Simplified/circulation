@@ -898,7 +898,12 @@ class CurrentMapping(Mapping):
     # Use regular expressions to normalized values in sortable fields.
     # These regexes are applied in order; that way "H. G. Wells"
     # becomes "H G Wells" becomes "HG Wells".
-    CHAR_FILTERS = {}
+    CHAR_FILTERS = {
+        "remove_apostrophes": dict(
+            type="pattern_replace", pattern="'",
+            replacement="",
+        )
+    }
     AUTHOR_CHAR_FILTER_NAMES = []
     for name, pattern, replacement in [
         # The special author name "[Unknown]" should sort after everything
@@ -994,17 +999,18 @@ class CurrentMapping(Mapping):
         #
         # * keyword_marker -- Exempt certain keywords from stemming
         # * synonym -- Introduce synonyms for words
+        #   (but probably better to use synonym_graph during the search
+        #    -- it's more flexible).
 
         # Here's the common analyzer configuration. The comment NEW
         # means this is something we added on top of Elasticsearch's
         # default configuration for the English analyzer.
         common_text_analyzer = dict(
             type="custom",
-            char_filter=["html_strip"],              # NEW
+            char_filter=["html_strip", "remove_apostrophes"], # NEW
             tokenizer="standard",
         )
         common_filter = [
-            "english_posessive_stemmer",
             "lowercase",
             "asciifolding",                          # NEW
         ]
