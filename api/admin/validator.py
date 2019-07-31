@@ -70,12 +70,15 @@ class Validator(object):
         # Find the fields that have to do with URLs and are not blank.
         url_inputs = self._extract_inputs(settings, "url", content.get("form"), should_zip=True)
 
-        for field, url in url_inputs:
-            # In a few special cases, we want to allow a value that isn't a normal URL;
-            # for example, the patron web client URL can be set to "*".
-            allowed = field.get("allowed") or []
-            if not self._is_url(url, allowed):
-                return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=url))
+        for field, urls in url_inputs:
+            if not isinstance(urls, list):
+                urls = [urls]
+            for url in urls:
+                # In a few special cases, we want to allow a value that isn't a normal URL;
+                # for example, the patron web client URL can be set to "*".
+                allowed = field.get("allowed") or []
+                if not self._is_url(url, allowed):
+                    return INVALID_URL.detailed(_('"%(url)s" is not a valid URL.', url=url))
 
     def _is_url(self, url, allowed):
         has_protocol = any([url.startswith(protocol + "://") for protocol in "http", "https"])
