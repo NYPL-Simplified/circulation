@@ -9,7 +9,6 @@ Subpackages
     core.classifier
     core.model
     core.resources
-    core.tests
     core.util
 
 Submodules

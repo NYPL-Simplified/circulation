@@ -8,4 +8,3 @@ circulation
    app
    core
    scripts
-   tests

@@ -44,6 +44,14 @@ core.util.median module
     :undoc-members:
     :show-inheritance:
 
+core.util.opds\_writer module
+-----------------------------
+
+.. automodule:: core.util.opds_writer
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 core.util.permanent\_work\_id module
 ------------------------------------
 

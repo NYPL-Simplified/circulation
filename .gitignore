@@ -51,8 +51,8 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
-docs/doctrees
-docs/html
+docs/doctrees/
+docs/html/
 
 *~
 .env
