@@ -235,7 +235,7 @@ class SIPClient(Constants):
     ]
 
     def __init__(self, target_server, target_port, login_user_id=None,
-                 login_password=None, location_code=None, institution_id=None, separator=None,
+                 login_password=None, location_code=None, institution_id='', separator=None,
                  use_ssl=False, ssl_cert=None, ssl_key=None
     ):
         """Initialize a client for (but do not connect to) a SIP2 server.
@@ -826,7 +826,7 @@ class MockSIPClient(SIPClient):
     """
 
     def __init__(self, login_user_id=None, login_password=None, separator="|",
-                 target_server=None, target_port=None, location_code=None, institution_id=None):
+                 target_server=None, target_port=None, location_code=None, institution_id=''):
         super(MockSIPClient, self).__init__(
             None, None, login_user_id=login_user_id,
             login_password=login_password, separator=separator

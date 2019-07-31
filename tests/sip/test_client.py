@@ -323,13 +323,11 @@ class TestPatronResponse(object):
         )
         assert without_institution_arg.startswith('AO|', 31)
 
-    def test_institution_id_field_value_is_optional(self):
-        with_institution_blank = self.sip.patron_information_request(
-            "patron_identifier", "patron_password", institution_id=''
-        )
-        assert with_institution_blank.startswith('AO|', 31)
+    def test_institution_id_field_value_provided(self):
+        # Fake value retrieved from DB
+        self.sip.institution_id='MAIN'
         with_institution_provided = self.sip.patron_information_request(
-            "patron_identifier", "patron_password", institution_id='MAIN'
+            "patron_identifier", "patron_password"
         )
         assert with_institution_provided.startswith('AOMAIN|', 31)
 
