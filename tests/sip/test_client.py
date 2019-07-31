@@ -317,6 +317,22 @@ class TestPatronResponse(object):
         )
         assert with_code.endswith("COlogin_password|CPlocation_code")
 
+    def test_institution_id_field_is_required(self):
+        without_institution_arg = self.sip.patron_information_request(
+            "patron_identifier", "patron_password"
+        )
+        assert without_institution_arg.startswith('AO|', 31)
+
+    def test_institution_id_field_value_is_optional(self):
+        with_institution_blank = self.sip.patron_information_request(
+            "patron_identifier", "patron_password", institution_id=''
+        )
+        assert with_institution_blank.startswith('AO|', 31)
+        with_institution_provided = self.sip.patron_information_request(
+            "patron_identifier", "patron_password", institution_id='MAIN'
+        )
+        assert with_institution_provided.startswith('AOMAIN|', 31)
+
     def test_patron_password_is_optional(self):
         without_password = self.sip.patron_information_request(
             "patron_identifier"
