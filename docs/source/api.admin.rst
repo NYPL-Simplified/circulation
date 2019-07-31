@@ -1,0 +1,109 @@
+api.admin package
+=================
+
+Subpackages
+-----------
+
+.. toctree::
+
+    api.admin.controller
+
+Submodules
+----------
+
+api.admin.admin\_authentication\_provider module
+------------------------------------------------
+
+.. automodule:: api.admin.admin_authentication_provider
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.admin.exceptions module
+---------------------------
+
+.. automodule:: api.admin.exceptions
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.admin.geographic\_validator module
+--------------------------------------
+
+.. automodule:: api.admin.geographic_validator
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.admin.google\_oauth\_admin\_authentication\_provider module
+---------------------------------------------------------------
+
+.. automodule:: api.admin.google_oauth_admin_authentication_provider
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.admin.opds module
+---------------------
+
+.. automodule:: api.admin.opds
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.admin.password\_admin\_authentication\_provider module
+----------------------------------------------------------
+
+.. automodule:: api.admin.password_admin_authentication_provider
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.admin.problem\_details module
+---------------------------------
+
+.. automodule:: api.admin.problem_details
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.admin.routes module
+-----------------------
+
+.. automodule:: api.admin.routes
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.admin.template\_styles module
+---------------------------------
+
+.. automodule:: api.admin.template_styles
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.admin.templates module
+--------------------------
+
+.. automodule:: api.admin.templates
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+api.admin.validator module
+--------------------------
+
+.. automodule:: api.admin.validator
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: api.admin
+    :members:
+    :undoc-members:
+    :show-inheritance:

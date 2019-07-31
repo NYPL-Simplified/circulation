@@ -162,7 +162,7 @@ class DeliveryMechanismInfo(CirculationInfo):
 
 
 class FulfillmentInfo(CirculationInfo):
-    """A record of a technique that can be used _right now_ to fulfill
+    """A record of a technique that can be used right now to fulfill
     a loan.
     """
 
@@ -325,16 +325,15 @@ class LoanInfo(CirculationInfo):
 
 
 class HoldInfo(CirculationInfo):
-
     """A record of a hold.
 
-    :param identifier_type Ex.: Identifier.RBDIGITAL_ID.
-    :param identifier Expected to be the unicode string of the isbn, etc..
-    :param start_date When the patron made the reservation.
-    :param end_date When reserved book is expected to become available.  Expected to be passed in
-        date, not unicode format.
-    :param hold_position  Patron's place in the hold line.
-        When not available, default to be passed is None, which is equivalent to "first in line".
+    :param identifier_type: Ex. Identifier.RBDIGITAL_ID.
+    :param identifier: Expected to be the unicode string of the isbn, etc.
+    :param start_date: When the patron made the reservation.
+    :param end_date: When reserved book is expected to become available.
+        Expected to be passed in date, not unicode format.
+    :param hold_position:  Patron's place in the hold line. When not available,
+        default to be passed is None, which is equivalent to "first in line". 
     """
 
     def __init__(self, collection, data_source_name, identifier_type,
@@ -466,7 +465,7 @@ class CirculationAPI(object):
         the loan yet.
 
         :return: A 3-tuple (`Loan`, `Hold`, `is_new`). Either `Loan`
-        or `Hold` must be None, but not both.
+            or `Hold` must be None, but not both.
         """
         # Short-circuit the request if the patron lacks borrowing
         # privileges.
@@ -705,11 +704,11 @@ class CirculationAPI(object):
         exceptions, managed in subclasses of BaseCirculationAPI.
 
         :param patron: A Patron. This is probably None, indicating
-        that someone is trying to fulfill a book without identifying
-        themselves.
+            that someone is trying to fulfill a book without identifying
+            themselves.
 
         :param delivery_mechanism: The LicensePoolDeliveryMechanism
-        representing a format for a specific title.
+            representing a format for a specific title.
         """
         if not lpdm or not pool:
             return False
@@ -724,18 +723,18 @@ class CirculationAPI(object):
         """Fulfil a book that a patron has previously checked out.
 
         :param delivery_mechanism: A LicensePoolDeliveryMechanism
-        explaining how the patron wants the book to be delivered. If
-        the book has previously been delivered through some other
-        mechanism, this parameter is ignored and the previously used
-        mechanism takes precedence.
+            explaining how the patron wants the book to be delivered. If
+            the book has previously been delivered through some other
+            mechanism, this parameter is ignored and the previously used
+            mechanism takes precedence.
 
         :param part: A vendor-specific identifier indicating that the
-        patron wants to fulfill one specific part of the book
-        (e.g. one chapter of an audiobook), not the whole thing.
+            patron wants to fulfill one specific part of the book
+            (e.g. one chapter of an audiobook), not the whole thing.
 
         :param fulfill_part_url: A function that takes one argument (a
-        vendor-specific part identifier) and returns the URL to use
-        when fulfilling that part.
+            vendor-specific part identifier) and returns the URL to use
+            when fulfilling that part.
 
         :return: A FulfillmentInfo object.
 
@@ -930,7 +929,7 @@ class CirculationAPI(object):
         We check each source in a separate thread for speed.
 
         :return: A 2-tuple (loans, holds) containing `HoldInfo` and
-        `LoanInfo` objects.
+            `LoanInfo` objects.
         """
         log = self.log
         class PatronActivityThread(Thread):
@@ -1285,8 +1284,7 @@ class BaseCirculationAPI(object):
     def checkin(self, patron, pin, licensepool):
         """  Return a book early.
 
-        :param patron: a Patron object for the patron who wants
-        to check out the book.
+        :param patron: a Patron object for the patron who wants to check out the book.
         :param pin: The patron's alleged password.
         :param licensepool: Contains lending info as well as link to parent Identifier.
         """
@@ -1296,8 +1294,7 @@ class BaseCirculationAPI(object):
     def checkout(self, patron, pin, licensepool, internal_format):
         """Check out a book on behalf of a patron.
 
-        :param patron: a Patron object for the patron who wants
-        to check out the book.
+        :param patron: a Patron object for the patron who wants to check out the book.
         :param pin: The patron's alleged password.
         :param licensepool: Contains lending info as well as link to parent Identifier.
         :param internal_format: Represents the patron's desired book format.
@@ -1312,22 +1309,22 @@ class BaseCirculationAPI(object):
 
     def fulfill(self, patron, pin, licensepool, internal_format=None,
                 part=None, fulfill_part_url=None):
-        """ Get the actual resource file to the patron.
+        """Get the actual resource file to the patron.
 
-        Implementations are encouraged to define **kwargs as a container
+        Implementations are encouraged to define ``**kwargs`` as a container
         for vendor-specific arguments, so that they don't have to change
         as new arguments are added.
 
         :param internal_format: A vendor-specific name indicating
-        the format requested by the patron.
+            the format requested by the patron.
 
         :param part: A vendor-specific identifier indicating that the
-        patron wants to fulfill one specific part of the book
-        (e.g. one chapter of an audiobook), not the whole thing.
+            patron wants to fulfill one specific part of the book
+            (e.g. one chapter of an audiobook), not the whole thing.
 
         :param fulfill_part_url: A function that takes one argument (a
-        vendor-specific part identifier) and returns the URL to use
-        when fulfilling that part.
+            vendor-specific part identifier) and returns the URL to use
+            when fulfilling that part.
 
         :return: a FulfillmentInfo object.
         """
@@ -1352,8 +1349,8 @@ class BaseCirculationAPI(object):
         """Release a patron's hold on a book.
 
         :raises CannotReleaseHold: If there is an error communicating
-        with the provider, or the provider refuses to release the hold for
-        any reason.
+            with the provider, or the provider refuses to release the hold for
+            any reason.
         """
         raise NotImplementedError()
 

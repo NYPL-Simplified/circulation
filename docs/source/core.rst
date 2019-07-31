@@ -1,0 +1,240 @@
+core package
+============
+
+Subpackages
+-----------
+
+.. toctree::
+
+    core.classifier
+    core.model
+    core.resources
+    core.util
+
+Submodules
+----------
+
+core.analytics module
+---------------------
+
+.. automodule:: core.analytics
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.app\_server module
+-----------------------
+
+.. automodule:: core.app_server
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.cdn module
+---------------
+
+.. automodule:: core.cdn
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.config module
+------------------
+
+.. automodule:: core.config
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.coverage module
+--------------------
+
+.. automodule:: core.coverage
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.entrypoint module
+----------------------
+
+.. automodule:: core.entrypoint
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.external\_list module
+--------------------------
+
+.. automodule:: core.external_list
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.external\_search module
+----------------------------
+
+.. automodule:: core.external_search
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.facets module
+------------------
+
+.. automodule:: core.facets
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.lane module
+----------------
+
+.. automodule:: core.lane
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.local\_analytics\_provider module
+--------------------------------------
+
+.. automodule:: core.local_analytics_provider
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.log module
+---------------
+
+.. automodule:: core.log
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.marc module
+----------------
+
+.. automodule:: core.marc
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.metadata\_layer module
+---------------------------
+
+.. automodule:: core.metadata_layer
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.mirror module
+------------------
+
+.. automodule:: core.mirror
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.mock\_analytics\_provider module
+-------------------------------------
+
+.. automodule:: core.mock_analytics_provider
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.monitor module
+-------------------
+
+.. automodule:: core.monitor
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.opds module
+----------------
+
+.. automodule:: core.opds
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.opds\_import module
+------------------------
+
+.. automodule:: core.opds_import
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.opensearch module
+----------------------
+
+.. automodule:: core.opensearch
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.overdrive module
+---------------------
+
+.. automodule:: core.overdrive
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.problem\_details module
+----------------------------
+
+.. automodule:: core.problem_details
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.s3 module
+--------------
+
+.. automodule:: core.s3
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.scripts module
+-------------------
+
+.. automodule:: core.scripts
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.selftest module
+--------------------
+
+.. automodule:: core.selftest
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.testing module
+-------------------
+
+.. automodule:: core.testing
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+core.user\_profile module
+-------------------------
+
+.. automodule:: core.user_profile
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
+Module contents
+---------------
+
+.. automodule:: core
+    :members:
+    :undoc-members:
+    :show-inheritance:

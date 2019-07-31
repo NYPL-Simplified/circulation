@@ -229,9 +229,10 @@ class ControllerTest(VendorIDTest):
         .collection, and .default_patron.
 
         :param _db: The database session to use when creating the
-        library objects.
+            library objects.
 
-        :return: a CirculationManager object.
+        :returns: a CirculationManager object.
+
         """
         self.libraries = self.make_default_libraries(_db)
         self.collections = [
