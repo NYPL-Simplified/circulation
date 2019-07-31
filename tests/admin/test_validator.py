@@ -42,6 +42,22 @@ class TestValidator():
         eq_(response.detail, '"invalid_format" is not a valid email address.')
         eq_(response.status_code, 400)
 
+        # Two valid in a list
+        form = MultiDict([('help-email', valid), ('help-email', 'valid2@email.com')])
+        response = Validator().validate_email(Configuration.LIBRARY_SETTINGS, {"form": form})
+        eq_(response, None)
+
+        # One valid and one empty in a list
+        form = MultiDict([('help-email', valid), ('help-email', '')])
+        response = Validator().validate_email(Configuration.LIBRARY_SETTINGS, {"form": form})
+        eq_(response, None)
+
+        # One valid and one invalid in a list
+        form = MultiDict([('help-email', valid), ('help-email', invalid)])
+        response = Validator().validate_email(Configuration.LIBRARY_SETTINGS, {"form": form})
+        eq_(response.detail, '"invalid_format" is not a valid email address.')
+        eq_(response.status_code, 400)
+
     def test_validate_url(self):
         valid = "https://valid_url.com"
         invalid = "invalid_url"
@@ -67,6 +83,17 @@ class TestValidator():
         form = MultiDict([(BaseSharedCollectionAPI.EXTERNAL_LIBRARY_URLS, "http://library1.com"), (BaseSharedCollectionAPI.EXTERNAL_LIBRARY_URLS, "http://library2.com")])
         response = Validator().validate_url(BaseSharedCollectionAPI.SETTINGS, {"form": form})
         eq_(response, None)
+
+        # One valid and one empty in a list
+        form = MultiDict([(BaseSharedCollectionAPI.EXTERNAL_LIBRARY_URLS, "http://library1.com"), (BaseSharedCollectionAPI.EXTERNAL_LIBRARY_URLS, "")])
+        response = Validator().validate_url(BaseSharedCollectionAPI.SETTINGS, {"form": form})
+        eq_(response, None)
+
+        # One valid and one invalid in a list
+        form = MultiDict([(BaseSharedCollectionAPI.EXTERNAL_LIBRARY_URLS, "http://library1.com"), (BaseSharedCollectionAPI.EXTERNAL_LIBRARY_URLS, invalid)])
+        response = Validator().validate_url(BaseSharedCollectionAPI.SETTINGS, {"form": form})
+        eq_(response.detail, '"invalid_url" is not a valid URL.')
+        eq_(response.status_code, 400)
 
     def test_validate_number(self):
         valid = "10"
