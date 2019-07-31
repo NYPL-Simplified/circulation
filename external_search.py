@@ -29,7 +29,7 @@ from elasticsearch_dsl.query import (
     Term,
     Terms,
 )
-# from spellchecker import SpellChecker
+from spellchecker import SpellChecker
 
 from flask_babel import lazy_gettext as _
 from config import (
