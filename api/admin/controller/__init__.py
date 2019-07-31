@@ -1709,8 +1709,10 @@ class SettingsController(AdminCirculationManagerController):
             return UNKNOWN_PROTOCOL
 
     def _get_settings(self):
-        [protocol] = [p for p in self.protocols if p.get("name") == flask.request.form.get("protocol")]
-        return protocol.get("settings")
+        if hasattr(self, 'protocols'):
+            [protocol] = [p for p in self.protocols if p.get("name") == flask.request.form.get("protocol")]
+            return protocol.get("settings")
+        return []
 
     def validate_formats(self, settings=None, validator=None):
         # If the service has self.protocols set, we can extract the list of settings here;
