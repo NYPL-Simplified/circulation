@@ -159,7 +159,6 @@ class IdentifierConstants(object):
     UPC = u"UPC"
     BIBBLIO_CONTENT_ITEM_ID = u"Bibblio Content Item ID"
     ENKI_ID = u"Enki ID"
-    GPO_NUMBER = u"GPO Item Number"
 
     DEPRECATED_NAMES = {
         u"3M ID" : BIBLIOTHECA_ID,
@@ -170,7 +169,7 @@ class IdentifierConstants(object):
 
     LICENSE_PROVIDING_IDENTIFIER_TYPES = [
         BIBLIOTHECA_ID, OVERDRIVE_ID, ODILO_ID, AXIS_360_ID,
-        GUTENBERG_ID, ELIB_ID, GPO_NUMBER,
+        GUTENBERG_ID, ELIB_ID
     ]
 
     URN_SCHEME_PREFIX = "urn:librarysimplified.org/terms/id/"
