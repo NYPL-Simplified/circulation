@@ -1095,7 +1095,7 @@ class DisappearingBookReportScript(Script):
 
         :param licensepool: A LicensePool.
 
-        :returns: a 3-tuple (last_seen, title_removal_events,
+        :return: a 3-tuple (last_seen, title_removal_events,
             license_removal_events).
 
         `last_seen` is the latest point at which we knew the book was
@@ -1476,7 +1476,7 @@ class DirectoryImportScript(TimestampScript):
                               mirror, title, rights_uri):
         """Load an actual copy of a book from disk.
 
-        :returns: A CirculationData that contains the book as an open-access
+        :return: A CirculationData that contains the book as an open-access
             download, or None if no such book can be found.
         """
         ignore, book_media_type, book_content = self._locate_file(
@@ -1525,7 +1525,7 @@ class DirectoryImportScript(TimestampScript):
     def load_cover_link(self, identifier, data_source, cover_directory, mirror):
         """Load an actual book cover from disk.
         
-        :returns: A LinkData containing a cover of the book, or None
+        :return: A LinkData containing a cover of the book, or None
             if no book cover can be found.
         """
         cover_filename, cover_media_type, cover_content = self._locate_file(
