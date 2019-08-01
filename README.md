@@ -11,7 +11,7 @@ It depends on the [LS Server Core](https://github.com/NYPL-Simplified/server_cor
 * [How to set up a development environment](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions)
 * Two sets of Ansible playbooks are in development: [One developed by Minitex](https://github.com/Minitex/ansible-playbook-libsimple) and [a derivative developed by Amigos Library Services](https://github.com/alsrlw/ansible-playbook-libsimple)
 
-## Generating Documenation
+## Generating Documentation
 
 Code documentation using Sphinx can be found on [Github Pages](http://nypl-simplified.github.io/circulation/index.html). It currently documents this repo's `api` directory, `scripts` file, and the `core` directory submodule. The configuration for the documentation can be found in `/docs`.
 
