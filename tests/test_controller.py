@@ -505,7 +505,7 @@ class TestCirculationManager(CirculationControllerTest):
 
             @property
             def setup_search(self):
-                raise CannotLoadConfiguration("doomed!")
+                raise Exception("doomed!")
 
         circulation = BadSearch(self._db, testing=True)
 
@@ -514,7 +514,7 @@ class TestCirculationManager(CirculationControllerTest):
 
         # The reason why is stored here.
         ex = circulation.external_search_initialization_exception
-        assert isinstance(ex, CannotLoadConfiguration)
+        assert isinstance(ex, Exception)
         eq_("doomed!", ex.message)
 
     def test_exception_during_short_client_token_initialization_is_stored(self):
@@ -3372,7 +3372,7 @@ class TestFeedController(CirculationControllerTest):
 
             @property
             def setup_search(self):
-                raise CannotLoadConfiguration("doomed!")
+                raise Exception("doomed!")
 
         circulation = BadSearch(self._db, testing=True)
 

@@ -286,9 +286,9 @@ class CirculationManager(object):
         try:
             self._external_search = self.setup_search()
             self.external_search_initialization_exception = None
-        except CannotLoadConfiguration, e:
+        except Exception, e:
             self.log.error(
-                "Exception loading search configuration: %s", e
+                "Exception initializing search engine: %s", e
             )
             self._external_search = None
             self.external_search_initialization_exception = e
