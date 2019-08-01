@@ -17,7 +17,7 @@ Code documentation using Sphinx can be found on [Github Pages](http://nypl-simpl
 
 Travis CI handles generating the `.rst` source files, generating the HTML static site, and deploying the build to the `gh-pages` branch.
 
-To view the documentation _locally_, go into the `/docs` directory and run `make html`. This will generate the .rst source files and build the static site.
+To view the documentation _locally_, go into the `/docs` directory and run `make html`. This will generate the .rst source files and build the static site in `/docs/build/html`.
 
 ## License
 
