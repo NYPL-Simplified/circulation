@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>scripts &#8212; circulation-admin  documentation</title>
+    <title>scripts &#8212; Simplified Circulation  documentation</title>
     <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
     <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
@@ -1130,7 +1130,7 @@
 
 <span class="sd">        :param licensepool: A LicensePool.</span>
 
-<span class="sd">        :returns: a 3-tuple (last_seen, title_removal_events,</span>
+<span class="sd">        :return: a 3-tuple (last_seen, title_removal_events,</span>
 <span class="sd">            license_removal_events).</span>
 
 <span class="sd">        `last_seen` is the latest point at which we knew the book was</span>
@@ -1511,7 +1511,7 @@
                               <span class="n">mirror</span><span class="p">,</span> <span class="n">title</span><span class="p">,</span> <span class="n">rights_uri</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Load an actual copy of a book from disk.</span>
 
-<span class="sd">        :returns: A CirculationData that contains the book as an open-access</span>
+<span class="sd">        :return: A CirculationData that contains the book as an open-access</span>
 <span class="sd">            download, or None if no such book can be found.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">ignore</span><span class="p">,</span> <span class="n">book_media_type</span><span class="p">,</span> <span class="n">book_content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_locate_file</span><span class="p">(</span>
@@ -1560,7 +1560,7 @@
 <div class="viewcode-block" id="DirectoryImportScript.load_cover_link"><a class="viewcode-back" href="../scripts.html#scripts.DirectoryImportScript.load_cover_link">[docs]</a>    <span class="k">def</span> <span class="nf">load_cover_link</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">identifier</span><span class="p">,</span> <span class="n">data_source</span><span class="p">,</span> <span class="n">cover_directory</span><span class="p">,</span> <span class="n">mirror</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Load an actual book cover from disk.</span>
 <span class="sd">        </span>
-<span class="sd">        :returns: A LinkData containing a cover of the book, or None</span>
+<span class="sd">        :return: A LinkData containing a cover of the book, or None</span>
 <span class="sd">            if no book cover can be found.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">cover_filename</span><span class="p">,</span> <span class="n">cover_media_type</span><span class="p">,</span> <span class="n">cover_content</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_locate_file</span><span class="p">(</span>
@@ -1749,7 +1749,7 @@
       </div>
       <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
         <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="../index.html">circulation-admin</a></h1>
+<h1 class="logo"><a href="../index.html">Simplified Circulation</a></h1>
 
 
 
@@ -1794,7 +1794,7 @@
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &copy;2019, ed.
+      &copy;2019, NYPL Simplified.
       
       |
       Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
