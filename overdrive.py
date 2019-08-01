@@ -553,8 +553,7 @@ class OverdriveRepresentationExtractor(object):
 
     @classmethod
     def availability_link_list(cls, book_list):
-        """:return: A list of dictionaries with keys `id`, `title`,
-        `availability_link`.
+        """:return: A list of dictionaries with keys `id`, `title`, `availability_link`.
         """
         l = []
         if not 'products' in book_list:
@@ -1088,7 +1087,7 @@ class OverdriveAdvantageAccount(object):
         account.
 
         :return: a 2-tuple of Collections (primary Overdrive
-        collection, Overdrive Advantage collection)
+            collection, Overdrive Advantage collection)
         """
         # First find the parent Collection.
         try:

@@ -307,9 +307,10 @@ class BaseCoverageProvider(object):
 
         NOTE: If you override this method, it's very important that
         your implementation eventually do one of the following:
-            * Set progress.finish
-            * Set progress.exception
-            * Raise an exception
+        * Set progress.finish
+        * Set progress.exception
+        * Raise an exception
+
         If you don't do any of these things, run() will assume you still
         have work to do, and will keep calling run_once() forever.
 
@@ -516,8 +517,8 @@ class BaseCoverageProvider(object):
         need coverage.
 
         :param subset: A list of Identifier objects. If present, return
-        only items that need coverage *and* are associated with one
-        of these identifiers.
+            only items that need coverage *and* are associated with one
+            of these identifiers.
 
         Implemented in CoverageProvider and WorkCoverageProvider.
         """
@@ -852,14 +853,14 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         """Ensure coverage for one specific item.
 
         :param item: This should always be an Identifier, but this
-        code will also work if it's an Edition. (The Edition's
-        .primary_identifier will be covered.)
+            code will also work if it's an Edition. (The Edition's
+            .primary_identifier will be covered.)
         :param force: Run the coverage code even if an existing
-           coverage record for this item was created after
-           `self.cutoff_time`.
+            coverage record for this item was created after `self.cutoff_time`.
         :return: Either a coverage record or a CoverageFailure.
 
         TODO: This could be abstracted and moved to BaseCoverageProvider.
+
         """
         if isinstance(item, Identifier):
             identifier = item
@@ -910,7 +911,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         with the given metadata.
 
         :return: The Identifier (if successful) or an appropriate
-        CoverageFailure (if not).
+            CoverageFailure (if not).
         """
         edition = self.edition(identifier)
         if isinstance(edition, CoverageFailure):
@@ -1101,7 +1102,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         CollectionCoverageProviders will be yielded in a random order.
 
         :param kwargs: Keyword arguments passed into the constructor for
-        CollectionCoverageProvider (or, more likely, one of its subclasses).
+            CollectionCoverageProvider (or, more likely, one of its subclasses).
 
         """
         for collection in cls.collections(_db):
@@ -1130,9 +1131,9 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         creating one if necessary.
 
         :param data_source: If it's necessary to create a LicensePool,
-        the new LicensePool will have this DataSource. The default is to
-        use the DataSource associated with the CoverageProvider. This
-        should only be needed by the metadata wrangler.
+            the new LicensePool will have this DataSource. The default is to
+            use the DataSource associated with the CoverageProvider. This
+            should only be needed by the metadata wrangler.
         """
         license_pools = [
             p for p in identifier.licensed_through
@@ -1189,7 +1190,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             calculate_work() if and when it is called.
 
         :return: A Work, if possible. Otherwise, a CoverageFailure explaining
-        why no Work could be created.
+            why no Work could be created.
 
         """
         work = identifier.work
@@ -1240,7 +1241,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         all the information is up to date.
 
         :return: The Identifier (if successful) or an appropriate
-        CoverageFailure (if not).
+            CoverageFailure (if not).
         """
 
         if not metadata and not circulationdata:
@@ -1382,7 +1383,7 @@ class WorkCoverageProvider(BaseCoverageProvider):
         on the Metadata Wrangler.
 
         :param force: Set to True to reset an existing CoverageRecord's status
-        "registered", regardless of its current status.
+            "registered", regardless of its current status.
         """
         was_registered = True
         if not force:
@@ -1409,7 +1410,7 @@ class WorkCoverageProvider(BaseCoverageProvider):
         chosen.
 
         :param: Only Works connected with one of the given identifiers
-        are chosen.
+            are chosen.
         """
         qu = Work.missing_coverage_from(
             self._db, operation=self.operation,

@@ -328,7 +328,7 @@ class CollectionMonitor(Monitor):
         yielded before Monitors with newer values.
 
         :param constructor_kwargs: These keyword arguments will be passed
-        into the CollectionMonitor constructor.
+            into the CollectionMonitor constructor.
 
         """
         service_match = or_(Timestamp.service==cls.SERVICE_NAME,
@@ -745,13 +745,13 @@ class ReaperMonitor(Monitor):
 
     A subclass of ReaperMonitor MUST define values for the following
     constants:
-    MODEL_CLASS - The model class this monitor is reaping, e.g. Credential.
-    TIMESTAMP_FIELD - Within the model class, the DateTime field to be
-       used when deciding which rows to deleting,
-       e.g. 'expires'. The reaper will be more efficient if there's
-       an index on this field.
-    MAX_AGE - A datetime.timedelta or number of days representing
-        the time that must pass before an item can be safely deleted.
+    * MODEL_CLASS - The model class this monitor is reaping, e.g. Credential.
+    * TIMESTAMP_FIELD - Within the model class, the DateTime field to be
+    used when deciding which rows to deleting,
+    e.g. 'expires'. The reaper will be more efficient if there's
+    an index on this field.
+    * MAX_AGE - A datetime.timedelta or number of days representing
+    the time that must pass before an item can be safely deleted.
 
     """
     MODEL_CLASS = None

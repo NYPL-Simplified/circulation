@@ -25,7 +25,7 @@ from sqlalchemy.orm.session import Session
 
 import requests
 
-from lxml import builder, etree
+from lxml import etree
 
 from cdn import cdnify
 from config import Configuration
@@ -227,7 +227,7 @@ class Annotator(object):
         """Return all relevant classifications of this work.
 
         :return: A dictionary mapping 'scheme' URLs to dictionaries of
-        attribute-value pairs.
+            attribute-value pairs.
 
         Notable attributes: 'term', 'label', 'http://schema.org/ratingValue'
         """
@@ -411,8 +411,8 @@ class Annotator(object):
         which is always the identifier's URN.
 
         :return: A 2-tuple (URL, media type). If a single value is
-        returned, the media type will be presumed to be that of an
-        OPDS entry.
+            returned, the media type will be presumed to be that of an
+            OPDS entry.
         """
         # In the absence of any specific controllers, there is no
         # permalink. This method must be defined in a subclass.
@@ -500,8 +500,8 @@ class VerboseAnnotator(Annotator):
         Subject.uri_lookup.)
 
         :param policy: A PresentationCalculationPolicy to
-           use when deciding how deep to go when finding equivalent
-           identifiers for the work.
+            use when deciding how deep to go when finding equivalent
+            identifiers for the work.
         """
         policy = policy or PresentationCalculationPolicy(
             equivalent_identifier_cutoff=100

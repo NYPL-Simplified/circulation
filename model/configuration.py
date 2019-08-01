@@ -266,6 +266,7 @@ class ExternalIntegration(Base, HasFullTableCache):
         made unique by a ConfigurationSetting, such as
         ExternalIntegration.URL, rather than by anything in the
         ExternalIntecation itself.
+
         :param protocol: ExternalIntegrations must have this protocol.
         :param goal: ExternalIntegrations must have this goal.
         :param key: Look only at ExternalIntegrations with
@@ -367,10 +368,11 @@ class ExternalIntegration(Base, HasFullTableCache):
     def explain(self, library=None, include_secrets=False):
         """Create a series of human-readable strings to explain an
         ExternalIntegration's settings.
+
         :param library: Include additional settings imposed upon this
-           ExternalIntegration by the given Library.
+            ExternalIntegration by the given Library.
         :param include_secrets: For security reasons,
-           sensitive settings such as passwords are not displayed by default.
+            sensitive settings such as passwords are not displayed by default.
         :return: A list of explanatory strings.
         """
         lines = []
@@ -405,17 +407,17 @@ class ConfigurationSetting(Base, HasFullTableCache):
     A ConfigurationSetting may be associated with an
     ExternalIntegration, a Library, both, or neither.
     * The secret used by the circulation manager to sign OAuth bearer
-      tokens is not associated with an ExternalIntegration or with a
-      Library.
+    tokens is not associated with an ExternalIntegration or with a
+    Library.
     * The link to a library's privacy policy is associated with the
-      Library, but not with any particular ExternalIntegration.
+    Library, but not with any particular ExternalIntegration.
     * The "website ID" for an Overdrive collection is associated with
-      an ExternalIntegration (the Overdrive integration), but not with
-      any particular Library (since multiple libraries might share an
-      Overdrive collection).
+    an ExternalIntegration (the Overdrive integration), but not with
+    any particular Library (since multiple libraries might share an
+    Overdrive collection).
     * The "identifier prefix" used to determine which library a patron
-      is a patron of, is associated with both a Library and an
-      ExternalIntegration.
+    is a patron of, is associated with both a Library and an
+    ExternalIntegration.
     """
     __tablename__ = 'configurationsettings'
     id = Column(Integer, primary_key=True)

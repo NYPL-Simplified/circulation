@@ -278,9 +278,10 @@ class Identifier(Base, IdentifierConstants):
     def parse_urns(cls, _db, identifier_strings, autocreate=True,
                    allowed_types=None):
         """Converts a batch of URNs into Identifier objects.
+
         :param _db: A database connection
         :param identifier_strings: A list of strings, each a URN
-           identifying some identifier.
+            identifying some identifier.
         :param autocreate: Create an Identifier for a URN if none
             presently exists.
         :param allowed_types: If this is a list of Identifier
@@ -557,14 +558,15 @@ class Identifier(Base, IdentifierConstants):
     def classify(self, data_source, subject_type, subject_identifier,
                  subject_name=None, weight=1):
         """Classify this Identifier under a Subject.
+
         :param type: Classification scheme; one of the constants from Subject.
         :param subject_identifier: Internal ID of the subject according to that classification scheme.
-        ``value``: Human-readable description of the subject, if different
-                   from the ID.
-        ``weight``: How confident the data source is in classifying a
-                    book under this subject. The meaning of this
-                    number depends entirely on the source of the
-                    information.
+        :param value: Human-readable description of the subject, if different
+            from the ID.
+        :param weight: How confident the data source is in classifying a
+            book under this subject. The meaning of this
+            number depends entirely on the source of the
+            information.
         """
         _db = Session.object_session(self)
         # Turn the subject type and identifier into a Subject.

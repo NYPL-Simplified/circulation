@@ -298,7 +298,6 @@ class RunMultipleMonitorsScript(Script):
         raise NotImplementedError()
 
     def do_run(self):
-        """Run all appropriate monitors."""
         for monitor in self.monitors(**self.kwargs):
             try:
                 monitor.run()
@@ -356,10 +355,6 @@ class RunCoverageProvidersScript(Script):
             self.providers.append(i)
 
     def do_run(self):
-        """
-        :return: A CoverageProviderProgress for every CoverageProvider
-        that completed successfully.
-        """
         providers = list(self.providers)
         if not providers:
             self.log.info('No CoverageProviders to run.')
@@ -426,7 +421,7 @@ class RunThreadedCollectionCoverageProviderScript(Script):
         updates the timestamp accordingly.
 
         :param pool: A DatabasePool (or other) object for use in testing
-        environments.
+            environments.
         """
         collections = self.provider_class.collections(self._db)
         if not collections:
@@ -819,7 +814,8 @@ class SubjectInputScript(Script):
     """A script whose command line filters the set of Subjects.
 
     :return: a 2-tuple (subject type, subject filter) that can be
-    passed into the SubjectSweepMonitor constructor.
+        passed into the SubjectSweepMonitor constructor.
+
     """
 
     @classmethod
@@ -1918,7 +1914,8 @@ class MirrorResourcesScript(CollectionInputScript):
         been mirrored.
 
         :param unmirrored: A replacement for Hyperlink.unmirrored,
-        for use in tests.
+            for use in tests.
+
         """
         unmirrored = unmirrored or Hyperlink.unmirrored
         for link in unmirrored(collection):
@@ -2307,7 +2304,7 @@ class DatabaseMigrationScript(Script):
         """Pulls migration files from the expected locations
 
         :return: a tuple with a list of migration filenames and a dictionary of
-        those files separated by their absolute directory location.
+            those files separated by their absolute directory location.
         """
         migrations = list()
         migrations_by_dir = defaultdict(list)
@@ -3206,8 +3203,6 @@ class SearchIndexCoverageRemover(TimestampScript, RemovesSearchCoverage):
     fresh coverage for every Work the next time it runs.
     """
     def do_run(self):
-        """Delete all WorkCoverageRecords for the UPDATE_SEARCH_INDEX_OPERATION.
-        """
         count = self.remove_search_coverage_records()
         return TimestampData(
             achievements="Coverage records deleted: %(deleted)d" % dict(

@@ -720,15 +720,17 @@ class DatabaseTest(object):
         Calls the class method that examines the current state of the database model
         (whether it's been committed or not).
 
-        NOTE:  If you set_trace, and hit "continue", you'll start seeing console output right
+        NOTE: If you set_trace, and hit "continue", you'll start seeing console output right
         away, without waiting for the whole test to run and the standard output section to display.
         You can also use nosetest --nocapture.
-        I use:
-        def test_name(self):
-            [code...]
-            set_trace()
-            self.print_database_instance()  # TODO: remove before prod
-            [code...]
+
+        I use::
+
+            def test_name(self):
+                [code...]
+                set_trace()
+                self.print_database_instance()  # TODO: remove before prod
+                [code...]
         """
         if not 'TESTING' in os.environ:
             # we are on production, abort, abort!
@@ -754,13 +756,16 @@ class DatabaseTest(object):
         Be careful of leaving it in code and potentially outputting
         vast tracts of data into your output stream on production.
 
-        Call like this:
-        set_trace()
-        from testing import (
-            DatabaseTest,
-        )
-        _db = Session.object_session(self)
-        DatabaseTest.print_database_class(_db)  # TODO: remove before prod
+        Call like this::
+
+            set_trace()
+            from testing import (l=
+                DatabaseTest,
+            )
+            _db = Session.object_session(self)
+            DatabaseTest.print_database_class(_db)
+            
+            TODO: remove before prod
         """
         if not 'TESTING' in os.environ:
             # we are on production, abort, abort!

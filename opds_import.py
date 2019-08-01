@@ -16,7 +16,7 @@ from sqlalchemy.orm import aliased
 from sqlalchemy.orm.session import Session
 from flask_babel import lazy_gettext as _
 
-from lxml import builder, etree
+from lxml import etree
 
 from monitor import CollectionMonitor
 from util import LanguageCodes
@@ -283,8 +283,8 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
         :param identifier: an ISBN-type Identifier.
 
         :param working_display_name: The display name of the author
-        (i.e. the name format human being used as opposed to the name
-        that goes into library records).
+            (i.e. the name format human being used as opposed to the name
+            that goes into library records).
         """
         args = "display_name=%s" % (
             urllib.quote(working_display_name.encode("utf8"))
@@ -923,8 +923,8 @@ class OPDSImporter(object):
         All the stuff that Feedparser can't handle so we have to use lxml.
 
         :return: a dictionary mapping IDs to dictionaries. The inner
-        dictionary can be used as keyword arguments to the Metadata
-        constructor.
+            dictionary can be used as keyword arguments to the Metadata
+            constructor.
         """
         values = {}
         failures = {}
@@ -1423,12 +1423,12 @@ class OPDSImporter(object):
         """Convert a <link> tag into a LinkData object.
 
         :param feed_url: The URL to the enclosing feed, for use in resolving
-        relative links.
+            relative links.
 
         :param entry_rights_uri: A URI describing the rights advertised
-        in the entry. Unless this specific link says otherwise, we
-        will assume that the representation on the other end of the link
-        if made available on these terms.
+            in the entry. Unless this specific link says otherwise, we
+            will assume that the representation on the other end of the link
+            if made available on these terms.
         """
         attr = link_tag.attrib
         rel = attr.get('rel')

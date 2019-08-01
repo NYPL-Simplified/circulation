@@ -287,7 +287,7 @@ class ContributorData(object):
         ContributorData's information.
 
         :param: destination -- the Contributor or ContributorData object to
-                write this ContributorData object's metadata to.
+            write this ContributorData object's metadata to.
         :param: replace -- Replacement policy (not currently used).
 
         :return: the possibly changed Contributor object and a flag of whether it's been changed.
@@ -1128,10 +1128,11 @@ class CirculationData(MetaToModelUtility):
         """Update the title with this CirculationData's information.
 
         :param collection: A Collection representing actual copies of
-        this title. Availability information (e.g. number of copies)
-        will be associated with a LicensePool in this Collection. If
-        this is not present, only delivery information (e.g. format
-        information and open-access downloads) will be processed.
+            this title. Availability information (e.g. number of copies)
+            will be associated with a LicensePool in this Collection. If
+            this is not present, only delivery information (e.g. format
+            information and open-access downloads) will be processed.
+
         """
         # Immediately raise an exception if there is information that
         # can only be stored in a LicensePool, but we have no
@@ -1652,12 +1653,12 @@ class Metadata(MetaToModelUtility):
         """Apply this metadata to the given edition.
 
         :param mirror: Open-access books and cover images will be mirrored
-        to this MirrorUploader.
+            to this MirrorUploader.
         :return: (edition, made_core_changes), where edition is the newly-updated object, and made_core_changes
-        answers the question: were any edition core fields harmed in the making of this update?
-        So, if title changed, return True.
-        New: If contributors changed, this is now considered a core change,
-        so work.simple_opds_feed refresh can be triggered.
+            answers the question: were any edition core fields harmed in the making of this update?
+            So, if title changed, return True.
+            New: If contributors changed, this is now considered a core change,
+            so work.simple_opds_feed refresh can be triggered.
         """
         _db = Session.object_session(edition)
 

@@ -147,8 +147,8 @@ class ExternalSearchIndex(HasSelfTests):
         """Prefix the given value with the prefix to use when generating index
         and alias names.
 
-        :return: A string "{prefix}-{value}", or None if no prefix is
-        configured.
+        :return: A string "{prefix}-{value}", or None if no prefix is configured.
+
         """
         integration = cls.search_integration(_db)
         if not integration:
@@ -819,8 +819,8 @@ class Mapping(MappingDocument):
     def script_name(cls, base_name):
         """Scope a script name with "simplified" (to avoid confusion with
         other applications on the Elasticsearch server), and the
-        version number (to avoid confusion with other versions _of
-        this application_, which may implement the same script
+        version number (to avoid confusion with other versions *of
+        this application*, which may implement the same script
         differently, on this Elasticsearch server).
         """
         return "simplified.%s.%s" % (base_name, cls.version_name())
@@ -1419,8 +1419,8 @@ class Query(SearchBase):
         """Make an Elasticsearch-DSL Search object out of this query.
 
         :param elasticsearch: An Elasticsearch-DSL Search object. This
-        object is ready to run a search against an Elasticsearch server,
-        but it doesn't represent any particular Elasticsearch query.
+            object is ready to run a search against an Elasticsearch server,
+            but it doesn't represent any particular Elasticsearch query.
 
         :return: An Elasticsearch-DSL Search object that's prepared
             to run this specific query.
@@ -1591,10 +1591,10 @@ class Query(SearchBase):
         a given field.
 
         :param base_field: The name of the field to search,
-        e.g. "title" or "contributors.sort_name".
+            e.g. "title" or "contributors.sort_name".
 
         :param query_string: The query string to use, if different from
-        self.query_string.
+            self.query_string.
 
         :yield: A sequence of (hypothesis, weight) 2-tuples.
         """
@@ -1690,10 +1690,10 @@ class Query(SearchBase):
         which a query string might represent a book's author.
 
         :param query_string: The query string that might be the name
-        of an author.
+            of an author.
 
         :yield: A sequence of Elasticsearch-DSL query objects to be
-        considered as hypotheses.
+            considered as hypotheses.
         """
 
         # Ask Elasticsearch to match what was typed against
@@ -2490,9 +2490,9 @@ class Filter(SearchBase):
         explaining how search results should be ordered.
 
         :return: A list of dictionaries, each dictionary mapping a
-        field name to an explanation of how to sort that
-        field. Usually the explanation is a simple string, either
-        'asc' or 'desc'.
+            field name to an explanation of how to sort that
+            field. Usually the explanation is a simple string, either
+            'asc' or 'desc'.
         """
         if not self.order:
             return []

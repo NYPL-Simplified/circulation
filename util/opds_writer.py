@@ -5,6 +5,16 @@ import logging
 from lxml import builder, etree
 from nose.tools import set_trace
 
+class ElementMaker(builder.ElementMaker):
+    """A helper object for creating etree elements."""
+
+    def __dict__(self):
+        # Remove default_typemap from the dictionary -- it contains functions
+        # that can't be pickled.
+        return dict(
+            (k, v) for k, v in super(ElementMaker, self).__dict__
+            if k != 'default_typemap'
+        )
 
 class AtomFeed(object):
 
@@ -41,9 +51,9 @@ class AtomFeed(object):
     }
 
     default_typemap = {datetime: lambda e, v: _strftime(v)}
-    E = builder.ElementMaker(typemap=default_typemap, nsmap=nsmap)
-    SIMPLIFIED = builder.ElementMaker(typemap=default_typemap, nsmap=nsmap, namespace=SIMPLIFIED_NS)
-    SCHEMA = builder.ElementMaker(typemap=default_typemap, nsmap=nsmap, namespace=SCHEMA_NS)
+    E = ElementMaker(typemap=default_typemap, nsmap=nsmap)
+    SIMPLIFIED = ElementMaker(typemap=default_typemap, nsmap=nsmap, namespace=SIMPLIFIED_NS)
+    SCHEMA = ElementMaker(typemap=default_typemap, nsmap=nsmap, namespace=SCHEMA_NS)
 
     @classmethod
     def _strftime(self, date):
