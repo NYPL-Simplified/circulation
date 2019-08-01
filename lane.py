@@ -1878,7 +1878,7 @@ class DatabaseBackedWorkList(WorkList):
         query is either `qu`, or a new query that has been modified to
         join against additional tables.
 
-        :returns: A 2-tuple (query, clauses).
+        :return: A 2-tuple (query, clauses).
 
         """
         # Audience language, and genre restrictions are allowed on all

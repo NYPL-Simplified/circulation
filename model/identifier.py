@@ -288,7 +288,7 @@ class Identifier(Base, IdentifierConstants):
             types, only identifiers of those types may be looked
             up. All other identifier types will be treated as though
             they did not exist.
-        :returns: A 2-tuple (identifiers, failures). `identifiers` is a
+        :return: A 2-tuple (identifiers, failures). `identifiers` is a
             list of Identifiers. `failures` is a list of URNs that
             did not become Identifiers.
         """

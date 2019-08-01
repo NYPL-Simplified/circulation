@@ -813,7 +813,7 @@ class CustomListSweeperScript(LibraryInputScript):
 class SubjectInputScript(Script):
     """A script whose command line filters the set of Subjects.
 
-    :returns: a 2-tuple (subject type, subject filter) that can be
+    :return: a 2-tuple (subject type, subject filter) that can be
         passed into the SubjectSweepMonitor constructor.
 
     """
@@ -2303,7 +2303,7 @@ class DatabaseMigrationScript(Script):
     def fetch_migration_files(self):
         """Pulls migration files from the expected locations
 
-        :returns: a tuple with a list of migration filenames and a dictionary of
+        :return: a tuple with a list of migration filenames and a dictionary of
             those files separated by their absolute directory location.
         """
         migrations = list()

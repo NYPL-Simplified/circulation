@@ -62,7 +62,7 @@ class BaseCoverageRecord(object):
         :param count_as_not_covered_if_covered_before: If a coverage record
             exists, but is older than the given date, do not count it as
             covered.
-        :returns: A clause that can be passed in to Query.filter().
+        :return: A clause that can be passed in to Query.filter().
         """
         if not count_as_covered:
             count_as_covered = cls.DEFAULT_COUNT_AS_COVERED

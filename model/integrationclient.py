@@ -50,7 +50,7 @@ class IntegrationClient(Base):
     def for_url(cls, _db, url):
         """Finds the IntegrationClient for the given server URL.
 
-        :returns: an IntegrationClient. If it didn't already exist,
+        :return: an IntegrationClient. If it didn't already exist,
             it will be created. If it didn't already have a secret, no
             secret will be set.
         """

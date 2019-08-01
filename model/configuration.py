@@ -273,7 +273,7 @@ class ExternalIntegration(Base, HasFullTableCache):
             a ConfigurationSetting for this key.
         :param value: Find ExternalIntegrations whose ConfigurationSetting
             has this value.
-        :returns: A Query object.
+        :return: A Query object.
         """
         return _db.query(
             ExternalIntegration
@@ -373,7 +373,7 @@ class ExternalIntegration(Base, HasFullTableCache):
             ExternalIntegration by the given Library.
         :param include_secrets: For security reasons,
             sensitive settings such as passwords are not displayed by default.
-        :returns: A list of explanatory strings.
+        :return: A list of explanatory strings.
         """
         lines = []
         lines.append("ID: %s" % self.id)

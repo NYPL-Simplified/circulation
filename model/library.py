@@ -344,7 +344,7 @@ class Library(Base, HasFullTableCache):
 
         :param include_secrets: For security reasons, secrets are not
             displayed by default.
-        :returns: A list of explanatory strings.
+        :return: A list of explanatory strings.
         """
         lines = []
         if self.uuid:

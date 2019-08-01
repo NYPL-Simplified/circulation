@@ -120,7 +120,7 @@ class HasSelfTests(object):
         :param args: Positional arguments to pass into the constructor.
         :param kwargs: Keyword arguments to pass into the constructor.
 
-        :returns: A 2-tuple (results_dict, results_list) `results_dict`
+        :return: A 2-tuple (results_dict, results_list) `results_dict`
             is a JSON-serializable dictionary describing the results of
             the self-test. `results_list` is a list of SelfTestResult
             objects.
