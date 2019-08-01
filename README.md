@@ -11,24 +11,6 @@ It depends on the [LS Server Core](https://github.com/NYPL-Simplified/server_cor
 * [How to set up a development environment](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions)
 * Two sets of Ansible playbooks are in development: [One developed by Minitex](https://github.com/Minitex/ansible-playbook-libsimple) and [a derivative developed by Amigos Library Services](https://github.com/alsrlw/ansible-playbook-libsimple)
 
-## Generating Documenation
-
-Code documentation using Sphinx can be found on [readthedocs.org](). It currently documents this repo's `api` directory, `scripts` file, and the `core` directory submodule. The configuration for the documentation can be found in `/docs`.
-
-There are two steps to building the documentation: generate the `.rst` files from the codebase and generate the html static site (not to be committed). Inside the `/docs` directory, run:
-
-```
-   $ sphinx-apidoc -f -o source/ .. ../tests/* ../core/tests/* ../integration_tests/*
-```
-
-```
-   $ make html
-```
-
-The `sphinx-apidoc` command will generate a new set of `.rst` files. Currently, there is no automatic way to generate them using continuous integration so they will need to be generated manually.
-
-Run the `make` command to _locally_ generate the documentation `/docs/html` which can be viewed in a browser. `readthedoc` runs this commands automatically when a new commit is pushed.
-
 ## License
 
 ```

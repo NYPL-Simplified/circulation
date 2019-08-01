@@ -49,11 +49,6 @@ coverage.xml
 *.log
 *.pot
 
-# Sphinx documentation
-docs/_build/
-docs/doctrees/
-docs/html/
-
 *~
 .env
 
